@@ -1,5 +1,11 @@
 #!/bin/zsh
 
+# Color codes
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
 # generate new secret key
 NEW_SECRET_KEY=$(openssl rand -hex 32)
 
@@ -55,5 +61,16 @@ fi
 docker-compose up -d --build
 
 sleep 3
-# echo "VITE service info:"
-docker-compose logs dry-farm | tail -n 4
+# Display service access information
+echo -e "\n${BLUE}===== Service Access Information =====${NC}"
+# Get frontend service external port
+FRONTEND_PORT=$(docker-compose port dry-farm 3000 | cut -d':' -f2)
+echo "Frontend service accessible at  ➜  ${YELLOW}http://localhost:${FRONTEND_PORT}${NC}"
+
+# Get API service external port
+API_PORT=$(docker-compose port api 5000 | cut -d':' -f2)
+echo "API service accessible at  ➜  ${YELLOW}http://localhost:${API_PORT}${NC}"
+
+# Display service logs
+# echo -e "\n===== Frontend Service Logs ====="
+# docker-compose logs dry-farm | tail -n 4
