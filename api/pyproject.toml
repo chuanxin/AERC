@@ -1,0 +1,15 @@
+[tool.aerich]
+tortoise_orm = "src.database.config.TORTOISE_ORM"
+location = "./migrations"
+src_folder = "./."
+
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[project]
+name = "aishop-api"
+version = "0.1.0"
+description = "FastAPI backend for AI Shop"

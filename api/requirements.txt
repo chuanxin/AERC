@@ -1,0 +1,11 @@
+aerich==0.8.1
+asyncpg==0.30.0
+bcrypt==4.2.1
+fastapi==0.115.8
+passlib==1.7.4
+python-jose==3.4.0
+python-multipart==0.0.20
+tomli_w==1.2.0
+tomlkit==0.13.2
+tortoise-orm==0.24.1
+uvicorn==0.34.0
