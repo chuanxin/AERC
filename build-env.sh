@@ -4,7 +4,14 @@
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
+
+# check if .env file exists or api/migrations/models directory is empty
+FIRST_RUN=false
+if [ ! -f .env ] || [ ! -d "api/migrations/models" ] || [ -z "$(ls -A api/migrations/models 2>/dev/null)" ]; then
+    FIRST_RUN=true
+fi
 
 # generate new secret key
 NEW_SECRET_KEY=$(openssl rand -hex 32)
@@ -71,6 +78,27 @@ echo "Frontend service accessible at  ➜  ${YELLOW}http://localhost:${FRONTEND_
 API_PORT=$(docker-compose port api 5000 | cut -d':' -f2)
 echo "API service accessible at  ➜  ${YELLOW}http://localhost:${API_PORT}${NC}"
 
+# display database initialization information
+if [ "$FIRST_RUN" = true ]; then
+    echo -e "\n${YELLOW}===== Database Initialization Required =====${NC}"
+    echo -e "This appears to be the first run or after project migration. Please follow these steps to initialize the database:"
+    echo -e "\n1. If there are files in the api/migrations/models directory, remove them first:"
+    echo -e "   ${BLUE}rm -rf api/migrations/models/*${NC}"
+    
+    echo -e "\n2. Initialize Aerich configuration:"
+    echo -e "   ${BLUE}docker-compose exec api aerich init -t src.database.config.TORTOISE_ORM${NC}"
+    
+    echo -e "\n3. Initialize the database:"
+    echo -e "   ${BLUE}docker-compose exec api aerich init-db${NC}"
+    
+    echo -e "\n${YELLOW}===== Subsequent Database Model Updates =====${NC}"
+    echo -e "When you modify database models, execute these commands to update the database:"
+    echo -e "\n1. Create migration files:"
+    echo -e "   ${BLUE}docker-compose exec api aerich migrate${NC}"
+    
+    echo -e "\n2. Apply migrations:"
+    echo -e "   ${BLUE}docker-compose exec api aerich upgrade${NC}"
+fi
 # Display service logs
 # echo -e "\n===== Frontend Service Logs ====="
 # docker-compose logs dry-farm | tail -n 4

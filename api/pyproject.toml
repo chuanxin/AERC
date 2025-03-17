@@ -4,12 +4,14 @@ location = "./migrations"
 src_folder = "./."
 
 [tool.pytest.ini_options]
-testpaths = ["src/tests"]
+testpaths = [
+    "src/tests",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]
 
 [project]
-name = "aishop-api"
+name = "dry-farm-api"
 version = "0.1.0"
-description = "FastAPI backend for AI Shop"
+description = "FastAPI backend for Dry Farm"
