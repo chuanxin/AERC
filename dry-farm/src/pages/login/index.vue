@@ -270,14 +270,23 @@ const userCaptcha = ref('')
 const captchaError = ref(false)
 
 const generateCaptcha = () => {
-  const characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  const characters = '23456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   const length = 6
   let result = ''
   for (let i = 0; i < length; i++) {
     result += characters.charAt(Math.floor(Math.random() * characters.length))
   }
   captcha.value = result
+  userCaptcha.value = '' // Clear user input
+  captchaError.value = false // Reset error state
 }
+
+// Watch for user input changes to clear error state
+watch(userCaptcha, () => {
+  if (captchaError.value) {
+    captchaError.value = false
+  }
+})
 
 // Generate initial CAPTCHA on component mount
 onMounted(() => {
@@ -287,6 +296,7 @@ onMounted(() => {
 const handleLogin = async () => {
   try {
     if (userCaptcha.value !== captcha.value) {
+      // console.log('Captcha value is:', captcha.value)
       captchaError.value = true
       return
     }
