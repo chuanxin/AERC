@@ -13,9 +13,21 @@
       rel="noopener noreferrer"
       target="_blank"
     >
+      <v-badge
+        v-if="item.badge"
+        :content="item.badge"
+        color="grey"
+        inline
+      >
+        <v-icon
+          :icon="item.icon"
+          :size="item.icon === 'mdi-web' ? 24 : 16"
+        />
+      </v-badge>
       <v-icon
+        v-else
         :icon="item.icon"
-        :size="item.icon === '$vuetify' ? 24 : 16"
+        :size="item.icon === 'mdi-web' ? 24 : 16"
       />
     </a>
 
@@ -48,6 +60,7 @@
       title: '中壢辦公室',
       icon: 'mdi-map-marker',
       href: 'https://g.co/kgs/KJ7LnTH',
+      badge: '中壢'
     },
     // {
     //   title: 'Vuetify X',
@@ -58,6 +71,7 @@
       title: '台北辦公室',
       icon: 'mdi-map-marker',
       href: 'https://g.co/kgs/x7i3o1v',
+      badge: '台北'
     },
     // {
     //   title: 'Vuetify Discord',

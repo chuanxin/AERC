@@ -92,6 +92,33 @@
                   class="mb-0"
                   @click:append-inner="showPassword = !showPassword"
                 />
+                <!-- Add CAPTCHA field -->
+                <div class="d-flex align-center mb-0">
+                  <v-text-field
+                    v-model="userCaptcha"
+                    label="驗證碼"
+                    prepend-inner-icon="mdi-shield-check"
+                    variant="outlined"
+                    density="comfortable"
+                    :error="captchaError"
+                    :error-messages="captchaError ? '驗證碼不正確' : ''"
+                    class="flex-grow-1"
+                  >
+                    <template #append>
+                      <v-btn
+                        variant="text"
+                        density="comfortable"
+                        min-width="80"
+                        class="font-weight-bold pa-0 ma-0"
+                        style="font-family: monospace;"
+                        @click="generateCaptcha"
+                      >
+                        {{ captcha }}
+                      </v-btn>
+                    </template>
+                  </v-text-field>
+                </div>
+
                 <div class="d-flex align-center justify-space-between mt-0">
                   <v-checkbox
                     v-model="rememberMe"
@@ -238,8 +265,31 @@ const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const rememberMe = ref(false)
 
+const captcha = ref('')
+const userCaptcha = ref('')
+const captchaError = ref(false)
+
+const generateCaptcha = () => {
+  const characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+  const length = 6
+  let result = ''
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length))
+  }
+  captcha.value = result
+}
+
+// Generate initial CAPTCHA on component mount
+onMounted(() => {
+  generateCaptcha()
+})
+
 const handleLogin = async () => {
   try {
+    if (userCaptcha.value !== captcha.value) {
+      captchaError.value = true
+      return
+    }
     // Add your login API call here
     console.log('Login attempted:', loginForm.value)
 
