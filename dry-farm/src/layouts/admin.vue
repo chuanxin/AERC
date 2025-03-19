@@ -1,15 +1,12 @@
 <template>
   <NavBar />
   <v-main>
-    <!-- <VNavigationDrawer /> -->
     <router-view />
   </v-main>
-  <ReportBugButton />
-  <AppFooter />
 </template>
 
 <script lang="ts" setup>
-
+// Empty layout for authentication pages
 </script>
 
 <style scoped>
