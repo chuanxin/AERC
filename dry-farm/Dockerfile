@@ -2,7 +2,7 @@ FROM oven/bun:1-alpine
 
 WORKDIR /app
 
-ENV PATH /app/node_modules/.bin:$PATH
+ENV PATH="/app/node_modules/.bin:${PATH}"
 
 COPY package.json .
 COPY bun.lock .
