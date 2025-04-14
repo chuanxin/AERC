@@ -13,6 +13,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  publicDir: 'public', // 確保 public 資料夾包含 .well-known/acme-challenge
   plugins: [
     VueRouter({
       dts: 'src/typed-router.d.ts',
@@ -57,6 +58,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // 'ol': fileURLToPath(new URL('./node_modules/ol', import.meta.url)),
     },
     extensions: [
       '.js',
@@ -78,6 +80,13 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '')
       },
     },
+    watch : {
+      usePolling: true,
+      interval: 1000,
+    },
+    allowedHosts: [
+      'cxin.mynetgear.com',
+    ]
   },
   css: {
     preprocessorOptions: {
