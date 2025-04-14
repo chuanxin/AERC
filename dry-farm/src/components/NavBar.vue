@@ -122,7 +122,7 @@
     </v-list>
     <!-- Logout button -->
     <template #append>
-      <div class="pa-2">
+      <div class="pa-0 ma-0">
         <v-btn
           block
           prepend-icon="mdi-logout"
@@ -174,7 +174,7 @@
       title: '補助申請',
       value: 'grants',
       to: { path: '/grants' },
-      icon: 'mdi-cash'
+      icon: 'mdi-file-sign'
     },
     {
       title: '申請資格預查',
@@ -196,8 +196,8 @@
     },
     {
       title: 'GIS圖台',
-      value: 'map',
-      to: { path: '/map' },
+      value: 'maps',
+      to: { path: '/maps' },
       icon: 'mdi-layers-triple'
     },
     {

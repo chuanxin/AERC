@@ -67,3 +67,12 @@ htmlcov/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Let's Encrypt certificates and keys
+# Note: This is a security risk if you are using Let's Encrypt for production
+# and should be handled with care. Consider using a secure vault or secret management system. 
+public/.well-known/acme-challenge/
+certbot/conf/
+certbot/www/
+log/
+*.pem

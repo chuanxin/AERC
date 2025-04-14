@@ -7,13 +7,15 @@
       <v-img
         src="@/assets/logo-xl.png"
         cover
-        max-width="350"
-        class="mx-auto mb-10"
+        width="350"
+        min-width="350"
+        class="mx-auto mb-5"
       />
       <v-sheet
         class="mx-auto"
         max-width="380"
-        min-width="380"
+        min-width="340"
+
         rounded="xl"
         elevation="4"
       >
@@ -51,7 +53,7 @@
                 cols="12"
                 class="pa-0 ma-0 text-center"
               >
-                <div class="text-h5">
+                <div class="text-h6 text-sm-h5">
                   推廣管路灌溉設施管理資訊系統
                 </div>
               </v-col>
@@ -79,8 +81,17 @@
                   prepend-inner-icon="mdi-account"
                   variant="outlined"
                   density="comfortable"
-                  class="mt-0"
+                  class="mt-0 mb-n5"
                 />
+                <div class="d-flex justify-end mt-0 pt-0">
+                  <a
+                    class="text-caption text-decoration-none text-blue forgot-password-link"
+                    href="/password/reset"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    忘記密碼?</a>
+                </div>
                 <v-text-field
                   v-model="loginForm.password"
                   label="密碼"
@@ -102,14 +113,14 @@
                     density="comfortable"
                     :error="captchaError"
                     :error-messages="captchaError ? '驗證碼不正確' : ''"
-                    class="flex-grow-1"
+                    class="flex-grow-1 mb-n2"
                   >
                     <template #append>
                       <v-btn
                         variant="text"
                         density="comfortable"
                         min-width="80"
-                        class="font-weight-bold pa-0 ma-0"
+                        class="font-weight-bold pa-0 ma-0 text-typography"
                         style="font-family: monospace;"
                         @click="generateCaptcha"
                       >
@@ -119,7 +130,7 @@
                   </v-text-field>
                 </div>
 
-                <div class="d-flex align-center justify-space-between mt-0">
+                <div class="d-flex align-center justify-space-between ma-0 pa-0">
                   <v-checkbox
                     v-model="rememberMe"
                     label="記住登入資訊"
@@ -128,15 +139,6 @@
                     class="mt-0"
                     density="compact"
                   />
-                  <v-btn
-                    variant="text"
-                    color="info"
-                    density="comfortable"
-                    class="text-caption text-decoration-underline mb-1"
-                    @click="handleForgotPassword"
-                  >
-                    忘記密碼？
-                  </v-btn>
                 </div>
               </v-form>
             </v-window-item>
@@ -243,7 +245,7 @@
           </v-btn>
           <v-btn
             :type="activeForm === 'login' ? 'submit' : 'button'"
-            color="orange-darken-1"
+            color="secondary-darken"
             rounded="t-0 b-xl"
             size="x-large"
             :text="getButtonText"
@@ -259,101 +261,101 @@
 </template>
 
 <script lang="ts" setup>
-const router = useRouter()
-const activeForm = ref('login')
-const showPassword = ref(false)
-const showConfirmPassword = ref(false)
-const rememberMe = ref(false)
+  const router = useRouter()
+  const activeForm = ref('login')
+  const showPassword = ref(false)
+  const showConfirmPassword = ref(false)
+  const rememberMe = ref(false)
 
-const captcha = ref('')
-const userCaptcha = ref('')
-const captchaError = ref(false)
+  const captcha = ref('')
+  const userCaptcha = ref('')
+  const captchaError = ref(false)
 
-const generateCaptcha = () => {
-  const characters = '23456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  const length = 6
-  let result = ''
-  for (let i = 0; i < length; i++) {
-    result += characters.charAt(Math.floor(Math.random() * characters.length))
-  }
-  captcha.value = result
-  userCaptcha.value = '' // Clear user input
-  captchaError.value = false // Reset error state
-}
-
-// Watch for user input changes to clear error state
-watch(userCaptcha, () => {
-  if (captchaError.value) {
-    captchaError.value = false
-  }
-})
-
-// Generate initial CAPTCHA on component mount
-onMounted(() => {
-  generateCaptcha()
-})
-
-const handleLogin = async () => {
-  try {
-    if (userCaptcha.value !== captcha.value) {
-      // console.log('Captcha value is:', captcha.value)
-      captchaError.value = true
-      return
+  const generateCaptcha = () => {
+    const characters = '23456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    const length = 6
+    let result = ''
+    for (let i = 0; i < length; i++) {
+      result += characters.charAt(Math.floor(Math.random() * characters.length))
     }
-    // Add your login API call here
-    console.log('Login attempted:', loginForm.value)
-
-    // Simulate successful login
-    await router.push('/')
-  } catch (error) {
-    console.error('Login failed:', error)
-    // Add error handling here
+    captcha.value = result
+    userCaptcha.value = '' // Clear user input
+    captchaError.value = false // Reset error state
   }
-}
-const handleForgotPassword = () => {
-  // Add your forgot password logic here
-  console.log('Forgot password clicked')
-}
-const handleRegistration = () => {
-  // Add your registration logic here
-  console.log('Registration submitted:', registerForm.value)
-}
 
-const currentStep = ref(0)
-const loginForm = ref({
-  account: '',
-  password: ''
-})
-const registerForm = ref({
-  account: '',
-  password: '',
-  confirmPassword: '',
-  name: '',
-  department: ''
-})
-
-const departments = [
-  '農工中心',
-  '農試所',
-  '林試所'
-]
-
-const handleStep = (direction: 'next' | 'prev') => {
-  if (direction === 'next') {
-    if (currentStep.value === 1) {
-      handleRegistration()
-      return
+  // Watch for user input changes to clear error state
+  watch(userCaptcha, () => {
+    if (captchaError.value) {
+      captchaError.value = false
     }
-    currentStep.value++
-  } else {
-    currentStep.value--
-  }
-}
+  })
 
-const getButtonText = computed(() => {
-  if (activeForm.value === 'login') return '登入'
-  return currentStep.value === 0 ? '下一步' : '註冊'
-})
+  // Generate initial CAPTCHA on component mount
+  onMounted(() => {
+    generateCaptcha()
+  })
+
+  const handleLogin = async () => {
+    try {
+      if (userCaptcha.value !== captcha.value) {
+        // console.log('Captcha value is:', captcha.value)
+        captchaError.value = true
+        return
+      }
+      // Add your login API call here
+      console.log('Login attempted:', loginForm.value)
+
+      // Simulate successful login
+      await router.push('/')
+    } catch (error) {
+      console.error('Login failed:', error)
+      // Add error handling here
+    }
+  }
+  // const handleForgotPassword = () => {
+  //   // Add your forgot password logic here
+  //   console.log('Forgot password clicked')
+  // }
+  const handleRegistration = () => {
+    // Add your registration logic here
+    console.log('Registration submitted:', registerForm.value)
+  }
+
+  const currentStep = ref(0)
+  const loginForm = ref({
+    account: '',
+    password: ''
+  })
+  const registerForm = ref({
+    account: '',
+    password: '',
+    confirmPassword: '',
+    name: '',
+    department: ''
+  })
+
+  const departments = [
+    '農工中心',
+    '農試所',
+    '林試所'
+  ]
+
+  const handleStep = (direction: 'next' | 'prev') => {
+    if (direction === 'next') {
+      if (currentStep.value === 1) {
+        handleRegistration()
+        return
+      }
+      currentStep.value++
+    } else {
+      currentStep.value--
+    }
+  }
+
+  const getButtonText = computed(() => {
+    if (activeForm.value === 'login') return '登入'
+    return currentStep.value === 0 ? '下一步' : '註冊'
+  })
 </script>
 
 <style scoped>
@@ -374,6 +376,10 @@ const getButtonText = computed(() => {
     .v-window-item--active {
       transition: none !important;
     }
+  }
+  .forgot-password-link {
+    position: relative;
+    z-index: 999;
   }
 </style>
 

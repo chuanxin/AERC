@@ -6,6 +6,7 @@ import Layouts from 'vite-plugin-vue-layouts'
 import Vue from '@vitejs/plugin-vue'
 import VueRouter from 'unplugin-vue-router/vite'
 import Vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
+import fs from 'fs';
 
 // Utilities
 import { defineConfig } from 'vite'
@@ -73,6 +74,10 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0',
+    https: {
+      key: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/privkey.pem'),
+      cert: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/fullchain.pem'),
+    },
     proxy: {
       '/api': {
         target: 'http://api:5000/',

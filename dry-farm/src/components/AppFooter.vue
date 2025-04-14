@@ -16,8 +16,9 @@
       <v-badge
         v-if="item.badge"
         :content="item.badge"
-        color="grey"
+        color="white"
         inline
+        class="pt-1"
       >
         <v-icon
           :icon="item.icon"
