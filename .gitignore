@@ -1,5 +1,5 @@
 # Frontend (Vue/Vite)
-node_modules/
+dry-farm/node_modules/
 .npm/
 dist/
 dist-ssr/
@@ -10,6 +10,7 @@ dist-ssr/
 .env.*.local
 
 # Log files
+dry-farm/log/
 logs/
 *.log
 npm-debug.log*
@@ -71,8 +72,6 @@ Thumbs.db
 # Let's Encrypt certificates and keys
 # Note: This is a security risk if you are using Let's Encrypt for production
 # and should be handled with care. Consider using a secure vault or secret management system. 
-public/.well-known/acme-challenge/
-certbot/conf/
-certbot/www/
-log/
+dry-farm/public/.well-known/acme-challenge/
+dry-farm/certbot
 *.pem
