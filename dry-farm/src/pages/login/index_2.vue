@@ -54,7 +54,7 @@
                 class="pa-0 ma-0 text-center"
               >
                 <div class="text-h6 text-sm-h5">
-                  推廣管路灌溉設施管理資訊系統
+                  推廣管路灌溉設施管理資料庫
                 </div>
               </v-col>
             </v-row>

@@ -7,5 +7,5 @@ python-jose==3.4.0
 python-multipart==0.0.20
 tomli_w==1.2.0
 tomlkit==0.13.2
-tortoise-orm==0.24.1
+tortoise-orm==0.25.0
 uvicorn==0.34.0
