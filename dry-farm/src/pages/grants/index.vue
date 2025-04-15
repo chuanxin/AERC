@@ -78,136 +78,140 @@
 </template>
 
 <script lang="ts" setup>
-  import { ref, computed, watch, onMounted } from 'vue'
   import { useDisplay } from 'vuetify'
 
   const allItems = ref<any[]>([])
   const loading = ref(true)
   const search = ref('')
   const selected = ref<string[]>([])
+  const router = useRouter()
 
   const headers = ref([
-    {
-      title: '申請案件',
-      align: 'center' as const,
-      children: [
-        { title: '申請年度', key: 'year', align: 'start' as const },
-        { title: '案號', key: 'id', align: 'start' as const },
-        { title: '申請人姓名', key: 'name', align: 'start' as const },
-      ],
-    },
-    { title: '末端形式', key: 'calories', align: 'end' as const },
-    { title: '施作面積 (m²)', key: 'fat', align: 'end' as const },
-    { title: '案件狀態', key: 'carbs', align: 'end' as const },
-    { title: '公告狀態（農民卡）', key: 'carbs', align: 'end' as const },
-    { title: '編輯', key: 'protein', align: 'end' as const },
-  ])
+  { title: '申請年度', key: 'year', align: 'start' },
+  { title: '案號', key: 'id', align: 'start' },
+  { title: '申請人姓名', key: 'name', align: 'start' },
+  { title: '末端形式', key: 'calories', align: 'end' },
+  { title: '施作面積 (m²)', key: 'fat', align: 'end' },
+  { title: '案件狀態', key: 'carbs', align: 'end' },
+  { title: '公告狀態（農民卡）', key: 'card', align: 'end' },
+  { title: '編輯', key: 'protein', align: 'end' },
+])
 
   const { name } = useDisplay()
   const isSmallScreen = computed(() => name.value === 'xs' || name.value === 'sm')
 
   // Sample data
-  const desserts = [
+  const apply = [
     {
-      name: 'Frozen Yogurt',
-      calories: 159,
-      fat: 6,
-      carbs: 24,
+      name: '許大利',
+      calories: '滴灌',  // 更新末端類型
+      fat: 1900,        // 施作面積
+      carbs: '完成申請人資料', // 案件狀態
+      card: '已受理',    // 農民卡狀態
       protein: 4,
       iron: '1',
-      year: 2023,
-      id: 'A001',
+      year: 113,        // 申請年度
+      id: '11301001',  // 案號
     },
     {
-      name: 'Jelly bean',
-      calories: 375,
-      fat: 0,
-      carbs: 94,
-      protein: 0,
-      iron: '0',
-      year: 2023,
-      id: 'A002',
-    },
-    {
-      name: 'KitKat',
-      calories: 518,
-      fat: 26,
-      carbs: 65,
-      protein: 7,
-      iron: '6',
-      year: 2022,
-      id: 'B001',
-    },
-    {
-      name: 'Eclair',
-      calories: 262,
-      fat: 16,
-      carbs: 23,
-      protein: 6,
-      iron: '7',
-      year: 2022,
-      id: 'B002',
-    },
-    {
-      name: 'Gingerbread',
-      calories: 356,
-      fat: 16,
-      carbs: 49,
-      protein: 3.9,
-      iron: '16',
-      year: 2021,
-      id: 'C001',
-    },
-    {
-      name: 'Ice cream sandwich',
-      calories: 237,
-      fat: 9,
-      carbs: 37,
-      protein: 4.3,
+      name: '陳大明',
+      calories: '穿孔管',
+      fat: 4000,
+      carbs: '完成灌溉調控設施',
+      card: '審查中',
+      protein: 4,
       iron: '1',
-      year: 2021,
-      id: 'C002',
+      year: 113,
+      id: '11301002',
     },
     {
-      name: 'Lollipop',
-      calories: 392,
-      fat: 0.2,
-      carbs: 98,
-      protein: 0,
+      name: '劉台北',
+      calories: '其他',  // 更新末端類型
+      fat: 2800,
+      carbs: '完成田間管路',
+      card: '審查中',
+      protein: 4,
+      iron: '1',
+      year: 113,
+      id: '11301003',
+    },
+    {
+      name: '彭大吉',
+      calories: '噴灌',  // 更新末端類型
+      fat: 4000,
+      carbs: '完成現場勘查',
+      card: '審查通過',  // 隨機分配
+      protein: 4,
+      iron: '1',
+      year: 113,
+      id: '11301004',
+    },
+    {
+      name: '林正雄',
+      calories: '滴灌',
+      fat: 3500,
+      carbs: '完成申請人資料',
+      card: '已受理',
+      protein: 4,
+      iron: '1',
+      year: 112,
+      id: '11201042',
+    },
+    {
+      name: '王美蓮',
+      calories: '噴灌',  // 更新末端類型
+      fat: 2600,
+      carbs: '完成土地資料',
+      card: '審查中',
+      protein: 4,
+      iron: '1',
+      year: 112,
+      id: '11201085',
+    },
+    {
+      name: '張水源',
+      calories: '微噴',
+      fat: 3200,
+      carbs: '完成現場勘查',
+      card: '結案流程',  // 隨機分配
+      protein: 4,
       iron: '2',
-      year: 2020,
-      id: 'D001',
+      year: 111,
+      id: '11101126',
     },
     {
-      name: 'Cupcake',
-      calories: 305,
-      fat: 3.7,
-      carbs: 67,
-      protein: 4.3,
-      iron: '8',
-      year: 2020,
-      id: 'D002',
+      name: '李農田',
+      calories: '其他',
+      fat: 1800,
+      carbs: '完成現場勘查',
+      card: '撥款作業',  // 隨機分配
+      protein: 4,
+      iron: '0',
+      year: 111,
+      id: '11101152',
     },
     {
-      name: 'Honeycomb',
-      calories: 408,
-      fat: 3.2,
-      carbs: 87,
-      protein: 6.5,
-      iron: '45',
-      year: 2019,
-      id: 'E001',
+      name: '黃水利',
+      calories: '滴灌',
+      fat: 5200,
+      carbs: '完成田間管路',
+      card: '審查中',
+      protein: 4,
+      iron: '1',
+      year: 111,
+      id: '11101023',
     },
     {
-      name: 'Donut',
-      calories: 452,
-      fat: 25,
-      carbs: 51,
-      protein: 4.9,
-      iron: '22',
-      year: 2019,
-      id: 'E002',
-    },
+      name: '吳田野',
+      calories: '微噴',  // 更新末端類型，原先為霧化器
+      fat: 4800,
+      carbs: '完成田間管路',
+      card: '審查中',
+      protein: 4,
+      iron: '1',
+      year: 110,
+      id: '11001078',
+    }
   ]
 
   // Filter items based on search
@@ -229,7 +233,7 @@
     loading.value = true
     // Simulate API call
     setTimeout(() => {
-      allItems.value = desserts
+      allItems.value = apply
       loading.value = false
     }, 500)
   }
@@ -244,8 +248,8 @@
   //   }
   // }
 
-  // Edit and delete functions
   const editItem = (itemName: string) => {
+    router.push(`/grants/edit?id=${itemName}`)
     console.log('Edit item:', itemName)
     // Implement edit functionality
   }
@@ -260,7 +264,8 @@
   onMounted(() => {
     loadAllItems()
   })
-</script>
+
+  </script>
 
 <style scoped>
 

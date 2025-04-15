@@ -37,7 +37,7 @@
     </v-breadcrumbs>
     <router-view />
   </v-main>
-  <ReportBugButton />
+  <!-- <ReportBugButton /> -->
   <AppFooter />
 </template>
 
