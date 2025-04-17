@@ -20,19 +20,18 @@
               v-bind="props"
               variant="outlined"
               class="announcement-item mt-4 mb-0 rounded"
-              :elevation="isHovering ? 1 : 0"
+              :elevation="isHovering ? 0 : 0"
               :style="getCardStyles(!!isHovering)"
               @click="viewAnnouncementDetail(item)"
             >
               <div class="d-flex align-center pa-3">
                 <!-- 左側標籤 -->
-                <v-icon icon="mdi-menu-right" class="me-2 announcement-icon"/>
+                <v-icon icon="mdi-water-opacity" class="me-2 announcement-icon"/>
                 <v-chip
                   :color="isHovering ? getHoverTagColor(item.type) : getTagColor(item.type)"
-                  :variant="isHovering ? 'outlined' : 'tonal'"
+                  :variant="isHovering ? 'text' : 'outlined'"
                   :class="{'chip-hover': isHovering}"
                   size="large"
-                  label
                   rounded="lg"
                 >
                   <strong>{{ item.title }}</strong>
@@ -41,7 +40,7 @@
                 <!-- 中間內容 -->
                 <div
                   class="announcement-content flex-grow-1 mx-3 font-weight-500"
-                  :style="isHovering ? 'color: white;' : ''"
+                  :style="isHovering ? 'color: #006064' : ''"
                 >
                   {{ item.content }}
                 </div>
@@ -49,7 +48,7 @@
                 <!-- 右側發布時間 -->
                 <div
                   class="announcement-time text-right font-weight-500"
-                  :style="isHovering ? 'color: white;' : ''"
+                  :style="isHovering ? 'color: #006064;' : ''"
                 >
                   <span>發布時間：{{ item.publishDate }}</span>
                 </div>
@@ -351,10 +350,10 @@ const getHoverTagColor = (type: string) => {
 const getCardStyles = (isHovering: boolean) => {
   if (isHovering) {
     return {
-      backgroundColor: '#5BC2C1',
-      color: 'white',
+      backgroundColor: '#E0F2F1',
+      color: '#03A9F4',
       borderLeft: '3px solid #2a8a89',
-      borderColor: '#5BC2C1',
+      borderColor: '#E0F2F1',
       cursor: 'pointer'
     };
   }

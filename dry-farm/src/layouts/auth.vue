@@ -3,6 +3,7 @@
     <router-view />
   </v-main>
   <ReportBugButton />
+  <AppFooter />
 </template>
 
 <script lang="ts" setup>

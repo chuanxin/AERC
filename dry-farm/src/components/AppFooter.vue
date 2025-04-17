@@ -1,10 +1,10 @@
 <template>
   <v-footer
     :app="false"
-    class="pa-0"
+    class="pa-0 transparent-footer"
     height="40"
   >
-    <a
+    <!-- <a
       v-for="item in items"
       :key="item.title"
       :href="item.href"
@@ -30,7 +30,7 @@
         :icon="item.icon"
         :size="item.icon === 'mdi-web' ? 24 : 16"
       />
-    </a>
+    </a> -->
 
     <!-- <div
       class="text-caption text-disabled"
@@ -47,13 +47,13 @@
       </a>
     </div> -->
     <div class="text-center footer-text">
-      <span>本系統網站建議以Google Chrome瀏覽器進行最佳瀏覽使用<br>版權所有： 農業部農田水利署、系統開發：財團法人農業工程研究中心</span>
+      <span>本系統網站建議以Google Chrome、Edge、Firefox等瀏覽器進行最佳瀏覽使用<br>版權所有： 農業部農田水利署、系統開發：財團法人農業工程研究中心</span>
     </div>
   </v-footer>
 </template>
 
 <script setup lang="ts">
-  const items = [
+  // const items = [
     // {
     //   title: '財團法人農業工程研究中心',
     //   icon: 'mdi-web',
@@ -86,19 +86,19 @@
     //   icon: `mdi-reddit`,
     //   href: 'https://reddit.com/r/vuetifyjs',
     // },
-  ]
+  // ]
 </script>
 
 <style scoped lang="sass">
-.social-link :deep(.v-icon)
-  color: rgba(var(--v-theme-on-background), var(--v-disabled-opacity))
-  text-decoration: none
-  transition: .2s ease-in-out
-
-  &:hover
-    color: rgba(25, 118, 210, 1)
 .footer-text
   font-size: 14px
   width: 100%
   text-align: center
+
+.transparent-footer
+  position: absolute
+  bottom: 0
+  width: 100%
+  background-color: rgba(255, 255, 255, 0.5)
+  color: black
 </style>

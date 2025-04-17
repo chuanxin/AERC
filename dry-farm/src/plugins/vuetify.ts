@@ -34,15 +34,16 @@ export default createVuetify({
           // error: '#F44336',
           // typography: '#212121',
           // iconography: '#757575'
-          primary: '#009687',
-          secondary: '#FFC107',
-          'primary-lighten': '#52C7B8',
+          primary: '#0B6E99',
+          secondary: '#8CC152',
+          'primary-lighten': '#1A8BB2',
           'primary-darken': '#00796B',
           'secondary-ighten': '#FFD54F',
           'secondary-darken': '#FFA000',
           background: '#F0F0F0',
+          // background: '#FFFFFF',
           surface: '#FFFFFF',
-          error: '#F44336',
+          error: '#E74C3C',
           typography: '#424242',
           iconography: '#757575'
         }

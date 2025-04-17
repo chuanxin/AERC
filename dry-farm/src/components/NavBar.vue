@@ -31,8 +31,8 @@
       <v-tabs
         v-if="!showDrawer"
         v-model="activeTab"
-        bg-color="#5A4367"
         :grow="true"
+        class="gradient-background"
       >
         <v-tab
           v-for="item in navigationItems.filter(i => !i.children)"
@@ -379,6 +379,11 @@
 </script>
 
 <style scoped>
+.gradient-background{
+  background: linear-gradient(30deg, #0B6E99 0%, #1A8BB2 40%);
+  color: white;
+}
+
 .app-title {
   font-weight: 900 !important;
   letter-spacing: -0.5px;

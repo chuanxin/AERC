@@ -35,7 +35,7 @@ declare module 'vue-router/auto-routes' {
     '/grants/edit': RouteRecordInfo<'/grants/edit', '/grants/edit', Record<never, never>, Record<never, never>>,
     '/grants/new': RouteRecordInfo<'/grants/new', '/grants/new', Record<never, never>, Record<never, never>>,
     '/login/': RouteRecordInfo<'/login/', '/login', Record<never, never>, Record<never, never>>,
-    '/login/index_2': RouteRecordInfo<'/login/index_2', '/login/index_2', Record<never, never>, Record<never, never>>,
+    '/login/index_1': RouteRecordInfo<'/login/index_1', '/login/index_1', Record<never, never>, Record<never, never>>,
     '/maps/': RouteRecordInfo<'/maps/', '/maps', Record<never, never>, Record<never, never>>,
     '/qualification/': RouteRecordInfo<'/qualification/', '/qualification', Record<never, never>, Record<never, never>>,
     '/statistics/': RouteRecordInfo<'/statistics/', '/statistics', Record<never, never>, Record<never, never>>,
