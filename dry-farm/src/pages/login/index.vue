@@ -36,7 +36,7 @@
                   rounded="xl"
                   @click="activeForm = 'login'"
                 >
-                  登入
+                  登入資訊
                 </v-chip>
 
                 <v-chip
@@ -46,15 +46,15 @@
                   rounded="xl"
                   @click="activeForm = 'register'"
                 >
-                  註冊
+                  註冊資訊
                 </v-chip>
               </v-col>
               <v-col
                 cols="12"
                 class="pa-0 ma-0 text-center"
               >
-                <div class="text-h6 text-sm-h5">
-                  推廣管路灌溉設施管理資訊系統
+                <div class="text-h4 text-sm-h5">
+                  <strong>推廣管路灌溉設施管理資料庫</strong>
                 </div>
               </v-col>
             </v-row>
@@ -245,7 +245,7 @@
           </v-btn>
           <v-btn
             :type="activeForm === 'login' ? 'submit' : 'button'"
-            color="secondary-darken"
+            color="primary"
             rounded="t-0 b-xl"
             size="x-large"
             :text="getButtonText"
@@ -272,8 +272,8 @@
   const captchaError = ref(false)
 
   const generateCaptcha = () => {
-    const characters = '23456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    const length = 6
+    const characters = '0123456789'
+    const length = 4
     let result = ''
     for (let i = 0; i < length; i++) {
       result += characters.charAt(Math.floor(Math.random() * characters.length))
@@ -360,7 +360,7 @@
 
 <style scoped>
   .background {
-    background-image: url('@/assets/login-bg.svg');
+    background-image: url('@/assets/bg_login.jpg');
     background-size: cover;
     background-position: fixed;
     background-color: rgba(255, 255, 255, 0.2);  /* 白色半透明遮罩 */

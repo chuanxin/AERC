@@ -1,5 +1,5 @@
 # pull official base image
-FROM python:3.13.2-bookworm
+FROM python:3.13.3-alpine
 
 # set work directory
 RUN mkdir app

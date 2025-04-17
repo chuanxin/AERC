@@ -15,7 +15,7 @@
       :is="name === 'xs' ? 'h4' : 'h2'"
       class="me-4 font-weight-light"
     >
-      推廣管路灌溉設施管理資訊系統
+      推廣管路灌溉設施管理資料庫
     </component>
     <!-- Logo section -->
     <template #prepend>
