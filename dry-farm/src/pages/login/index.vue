@@ -273,13 +273,16 @@
 
 <script lang="ts" setup>
   import { useUserStore } from '@/stores/users'
-  // import { storeToRefs } from 'pinia'
+
+  // Add these lines to handle redirection
+  const route = useRoute()
+  const router = useRouter()
+  const redirectPath = computed(() => route.query.redirect?.toString() || '/')
 
   // 在 setup 函數中添加
   const userStore = useUserStore()
   // const { isLoading, error } = storeToRefs(userStore)
 
-  const router = useRouter()
   const activeForm = ref('login')
   const showPassword = ref(false)
   const showConfirmPassword = ref(false)
@@ -342,60 +345,59 @@
     //   // Add error handling here
     // }
     try {
-      // 先清除之前的錯誤
-      errorMessage.value = ''; // 確保有定義該變量
+      // First clear any previous error
+      errorMessage.value = ''
 
-      // 驗證碼檢查
+      // Validate captcha
       if (userCaptcha.value !== captcha.value) {
-        captchaError.value = true;
-        return;
+        captchaError.value = true
+        return
       }
 
-      // 重置錯誤狀態
-      captchaError.value = false;
+      // Reset error state
+      captchaError.value = false
 
-      // 非常重要: 確保字段名稱正確，與後端 API 期望的一致
-      // 注意變更這裡是關鍵修復點
+      // Ensure field names match backend expectations
       const loginData = {
-        username: loginForm.value.account, // 確保映射到 username
+        username: loginForm.value.account,
         password: loginForm.value.password
-      };
+      }
 
-      console.log('正在嘗試登入，發送數據:', loginData);
+      console.log('Attempting login, sending data:', loginData)
 
-      // 調用 store 的登入方法
-      const result = await userStore.login(loginData);
+      // Call store login method
+      const result = await userStore.login(loginData)
 
-      console.log('登入結果:', result ? '成功' : '失敗');
+      console.log('Login result:', result ? 'success' : 'failure')
 
       if (result) {
-        // 如果選擇記住我，則設置較長的過期時間
+        // If remember me is selected, set longer expiration
         if (rememberMe.value) {
-          localStorage.setItem('remember_login', 'true');
+          localStorage.setItem('remember_login', 'true')
         }
 
-        // 登入成功，導航到首頁
-        await router.push('/');
+        // Navigate to the redirect path or home page
+        await router.push(redirectPath.value)
       } else {
-        // 顯示錯誤信息
-        alert(userStore.error || '登入失敗，請檢查帳號和密碼');
+        // Show error message
+        alert(userStore.error || '登入失敗，請檢查帳號和密碼')
       }
     } catch (error) {
-      console.error('登入過程中發生錯誤:', error);
+      console.error('Error during login:', error)
 
-      errorMessage.value = '登入時發生未知錯誤';
+      errorMessage.value = '登入時發生未知錯誤'
 
       if (error && typeof error === 'object') {
-        // 處理 Axios 錯誤類型
+        // Handle Axios error types
         if ('response' in error && error.response && typeof error.response === 'object') {
-          const response = error.response as { data?: { detail?: string } };
+          const response = error.response as { data?: { detail?: string } }
           if (response.data && response.data.detail) {
-            errorMessage.value = response.data.detail;
+            errorMessage.value = response.data.detail
           }
         }
-        // 處理標準 Error 類型
+        // Handle standard Error types
         else if ('message' in error && typeof error.message === 'string') {
-          errorMessage.value = error.message;
+          errorMessage.value = error.message
         }
       }
     }

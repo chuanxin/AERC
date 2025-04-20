@@ -8,11 +8,31 @@
 import { createRouter, createWebHistory } from 'vue-router/auto'
 import { setupLayouts } from 'virtual:generated-layouts'
 import { routes } from 'vue-router/auto-routes'
+import { createAuthMiddleware } from '@/services/navGuardService'
+
+// Define which routes are accessible without authentication
+const publicRoutes = [
+  '/login',
+  // Add other public routes here
+]
+
+// Create auth middleware
+const authGuard = createAuthMiddleware({
+  publicRoutes,
+  loginRedirectPath: '/login',
+  onAuthFailure: (to, from) => {
+    // Optional: Show a notification to the user
+    console.log('Authentication required. Redirecting to login page.')
+  }
+})
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL || '/'),
   routes: setupLayouts(routes),
 })
+
+// Register global navigation guard
+router.beforeEach(authGuard)
 
 // Workaround for https://github.com/vitejs/vite/issues/11804
 router.onError((err, to) => {

@@ -1,8 +1,36 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
 import { userService, type User, type UserCredentials, type UserRegisterData, type UpdateUserData } from '@/services/userService'
 import { wrapAsync, type ApiError } from '@/utils/asyncHelpers'
+import { authEvents } from '@/services/api/interceptors'
 
+
+// Simple JWT token decoder to check expiration
+function parseJwt(token: string): { exp?: number } | null {
+  try {
+    const base64Url = token.split('.')[1]
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    )
+    return JSON.parse(jsonPayload)
+  } catch (e) {
+    console.error('Error parsing JWT token:', e)
+    return null
+  }
+}
+
+// Check if token is expired
+function isTokenExpired(token: string): boolean {
+  const decodedToken = parseJwt(token)
+  if (!decodedToken || !decodedToken.exp) return true
+
+  // Compare expiration timestamp with current time (in seconds)
+  const currentTime = Math.floor(Date.now() / 1000)
+  return decodedToken.exp < currentTime
+}
 /**
  * 用戶管理存儲
  * 處理用戶認證、個人資料管理及相關狀態
@@ -14,8 +42,24 @@ export const useUserStore = defineStore('user', () => {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
+  // Flag to track if an auto-login attempt has been made
+  const hasAttemptedAutoLogin = ref(false)
+
   // 計算屬性
-  const isAuthenticated = computed(() => !!token.value && !!currentUser.value)
+  const isAuthenticated = computed(() => {
+    // Check if token exists and is not expired
+    if (!token.value) return false
+
+    // Validate token expiration
+    if (isTokenExpired(token.value)) {
+      // Token is expired, clear it
+      token.value = null
+      localStorage.removeItem('auth_token')
+      return false
+    }
+
+    return !!currentUser.value
+  })
   const userFullName = computed(() => currentUser.value?.full_name || currentUser.value?.username || '')
 
   // 共享的異步選項對象
@@ -31,20 +75,33 @@ export const useUserStore = defineStore('user', () => {
   const fetchCurrentUser = wrapAsync(async () => {
     if (!token.value) return null
 
-    const user = await userService.getCurrentUser()
-    if (user) {
-      currentUser.value = user
-      return user
+    // Check if token is expired before making the request
+    if (isTokenExpired(token.value)) {
+      // Token is expired, clear it
+      token.value = null
+      localStorage.removeItem('auth_token')
+      return null
     }
 
-    // 如果獲取失敗，清除 token
-    token.value = null
-    localStorage.removeItem('auth_token')
+    try {
+      const user = await userService.getCurrentUser()
+      if (user) {
+        currentUser.value = user
+        hasAttemptedAutoLogin.value = true
+        return user
+      }
+    } catch (error) {
+      // If fetching fails, clear token
+      token.value = null
+      localStorage.removeItem('auth_token')
+      throw error
+    }
+
     return null
   }, asyncOptions)
 
   /**
-   * 用戶登入
+   * User login
    * @param credentials 登入憑證
    * @returns 登入後的用戶信息或 null（如果登入失敗）
    */
@@ -175,15 +232,74 @@ export const useUserStore = defineStore('user', () => {
   }, asyncOptions)
 
   /**
-   * 初始化 - 檢查本地存儲中的令牌並嘗試獲取用戶信息
+   * Check authentication state and token validity
+   * @returns Whether user is authenticated with a valid token
+   */
+  const checkAuth = () => {
+    // If no token, user is not authenticated
+    if (!token.value) return false
+
+    // Check if token is expired
+    if (isTokenExpired(token.value)) {
+      // Token is expired, clear it
+      token.value = null
+      currentUser.value = null
+      localStorage.removeItem('auth_token')
+      return false
+    }
+
+    // Token is valid, but we need to verify if we have a user
+    return !!currentUser.value
+  }
+
+  /**
+   * Attempt automatic login from stored token
+   * Used during app initialization
+   */
+  const attemptAutoLogin = async () => {
+    if (hasAttemptedAutoLogin.value) return
+    hasAttemptedAutoLogin.value = true
+
+    // If no token, no need to attempt
+    if (!token.value) return
+
+    // Check token expiration
+    if (isTokenExpired(token.value)) {
+      token.value = null
+      localStorage.removeItem('auth_token')
+      return
+    }
+
+    // Token exists and is valid, try to get current user
+    await fetchCurrentUser()
+  }
+
+  /**
+   * Initialize - Check local storage token and try to fetch user info
    */
   function init() {
+    // Listen for auth events from API interceptors
+    authEvents.on('unauthorized', () => {
+      // Clear auth state when receiving unauthorized event
+      currentUser.value = null
+      token.value = null
+      localStorage.removeItem('auth_token')
+    })
+
+    // If token exists, attempt to get user info
     if (token.value) {
-      fetchCurrentUser().catch(() => {
-        // 獲取失敗時清除令牌
+      // Check token expiration before attempting
+      if (!isTokenExpired(token.value)) {
+        fetchCurrentUser().catch(() => {
+          // Clear token if fetching fails
+          token.value = null
+          localStorage.removeItem('auth_token')
+        })
+      } else {
+        // Token is expired, clear it
         token.value = null
         localStorage.removeItem('auth_token')
-      })
+      }
     }
   }
 
@@ -197,6 +313,7 @@ export const useUserStore = defineStore('user', () => {
     token,
     isLoading,
     error,
+    hasAttemptedAutoLogin,
 
     // 計算屬性
     isAuthenticated,
@@ -209,6 +326,8 @@ export const useUserStore = defineStore('user', () => {
     fetchCurrentUser,
     updateProfile,
     changePassword,
-    deleteAccount
+    deleteAccount,
+    checkAuth,
+    attemptAutoLogin,
   }
 })

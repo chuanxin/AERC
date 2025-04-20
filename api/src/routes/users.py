@@ -35,12 +35,12 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="使用者名稱或密碼不正確",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
+    access_token = await create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     token = jsonable_encoder(access_token)

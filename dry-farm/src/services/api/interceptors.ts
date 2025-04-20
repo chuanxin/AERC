@@ -1,19 +1,40 @@
-import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
+import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
 import { mapApiPath } from './mapping'
 
+// Define interface for our custom unauthorized handler
+interface TokenExpiredOptions {
+  onUnauthorized?: () => void
+}
+
+// Simple event bus for auth events
+const authEvents = {
+  listeners: new Map(),
+  on(event: string, callback: Function) {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, [])
+    }
+    this.listeners.get(event).push(callback)
+  },
+  emit(event: string, data?: any) {
+    if (this.listeners.has(event)) {
+      this.listeners.get(event).forEach((callback: Function) => callback(data))
+    }
+  }
+}
+
 /**
- * 設置 Axios 實例的攔截器
- * @param api Axios 實例
- * @param options 配置選項
+ * Set up Axios instance interceptors
+ * @param api Axios instance
+ * @param options Configuration options
  */
 export function setupInterceptors(
   api: AxiosInstance,
   options: {
-    debug?: boolean;
-    onUnauthorized?: () => void;
+    debug?: boolean
+    onUnauthorized?: () => void
   } = {}
 ) {
-  const { debug = false, onUnauthorized } = options;
+  const { debug = false, onUnauthorized } = options
 
   // 請求攔截器 - 處理 API 路徑映射和認證
   api.interceptors.request.use(
@@ -24,32 +45,32 @@ export function setupInterceptors(
       // 進行 API 路徑映射
       if (config.url) {
         // 將前端邏輯路徑映射為後端實際路徑
-        const mappedUrl = mapApiPath(config.url);
-        config.url = mappedUrl;
+        const mappedUrl = mapApiPath(config.url)
+        config.url = mappedUrl
 
         if (debug) {
           // 記錄映射信息到請求頭，方便在網絡面板查看
-          config.headers.set('X-Original-URL', originalUrl);
-          config.headers.set('X-Mapped-URL', mappedUrl);
+          config.headers.set('X-Original-URL', originalUrl)
+          config.headers.set('X-Mapped-URL', mappedUrl)
 
           // 打印日誌
-          console.log(`API Request: ${config.method?.toUpperCase()} ${originalUrl} -> ${mappedUrl}`);
+          console.log(`API Request: ${config.method?.toUpperCase()} ${originalUrl} -> ${mappedUrl}`)
         }
       }
 
       // 添加授權令牌到請求頭
       const token = localStorage.getItem('auth_token');
       if (token) {
-        config.headers.set('Authorization', `Bearer ${token}`);
+        config.headers.set('Authorization', `Bearer ${token}`)
       }
 
       return config;
     },
     error => {
       if (debug) {
-        console.error('Request error:', error);
+        console.error('Request error:', error)
       }
-      return Promise.reject(error);
+      return Promise.reject(error)
     }
   );
 
@@ -61,7 +82,7 @@ export function setupInterceptors(
       }
       return response;
     },
-    error => {
+    (error: AxiosError)=> {
       // 錯誤處理
       if (debug) {
         console.error('Response error:', {
@@ -69,35 +90,48 @@ export function setupInterceptors(
           method: error.config?.method,
           status: error.response?.status,
           data: error.response?.data
-        });
+        })
       }
 
       // 處理未授權錯誤 (401)
       if (error.response?.status === 401) {
         // 清除認證信息
-        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_token')
+
+        // Emit auth error event
+        authEvents.emit('unauthorized', { source: 'api', error })
 
         // 調用自定義未授權處理函數
         if (onUnauthorized) {
           onUnauthorized();
         } else {
-          // 默認行為：重定向到登入頁面
-          window.location.href = '/login';
+          // Default behavior: redirect to login page
+          if (typeof window !== 'undefined') {
+            const currentPath = window.location.pathname
+            // Avoid redirect loops
+            if (currentPath !== '/login') {
+              window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`
+            }
+          }
         }
       }
 
       // 處理禁止訪問錯誤 (403)
       if (error.response?.status === 403) {
-        console.error('權限不足，無法執行此操作');
+        console.error('權限不足，無法執行此操作')
+        authEvents.emit('forbidden', { source: 'api', error })
       }
 
-      return Promise.reject(error);
+      return Promise.reject(error)
     }
   );
 
   // 返回配置好的 API 實例以支持鏈式調用
-  return api;
+  return api
 }
+
+// Export auth events for use elsewhere in the application
+export { authEvents };
 
 /**
  * 建立一個測試用的攔截器，用於記錄和調試 API 請求

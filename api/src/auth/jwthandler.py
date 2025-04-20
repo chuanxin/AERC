@@ -52,9 +52,21 @@ class OAuth2PasswordBearerCookie(OAuth2):
 security = OAuth2PasswordBearerCookie(token_url="/login")
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+async def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
 
+    # 取得使用者資料以獲取角色和部門資訊
+    try:
+        user = await Users.get(username=data.get("sub"))
+        to_encode.update({
+            "is_active": user.is_active,
+            "role": user.role,
+            "department": user.department,
+            "permissions": user.permissions
+        })
+    except:
+        pass
+    
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:

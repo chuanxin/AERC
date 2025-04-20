@@ -96,7 +96,7 @@
         icon="mdi-account"
         start
       />
-      <strong>林洪陳，您好</strong>&nbsp;
+      <strong>{{ userStore.userFullName }}，您好</strong>&nbsp;
       <!-- <span>(農工中心)</span> -->
     </v-chip>
     <v-btn
@@ -134,7 +134,7 @@
     <v-list>
       <v-list-item
         subtitle="農工中心"
-        title="林洪陳"
+        :title="userStore.userFullName"
       >
         <template #prepend>
           <v-avatar color="primary">
@@ -208,6 +208,7 @@
   // Core imports
   import { useDisplay } from 'vuetify'
   import { useThemeStore } from '@/stores/theme'
+  import { useUserStore } from '@/stores/users'
 
   // Asset imports
   import logoXL from '@/assets/logo-xl.png'
@@ -217,6 +218,7 @@
   const route = useRoute()
   const router = useRouter()
   const themeStore = useThemeStore()
+  const userStore = useUserStore()
 
   // Component state
   const activeTab = ref('index')
@@ -288,9 +290,15 @@
         },
         {
           title: '圖資管理',
-          value: 'config-maps',
-          to: { path: '/config/maps' },
+          value: 'config-layers',
+          to: { path: '/config/layers' },
           icon: 'mdi-map-legend'
+        },
+        {
+          title: '首頁管理',
+          value: 'config-home',
+          to: { path: '/config/home' },
+          icon: 'mdi-home-edit'
         }
       ]
     }
