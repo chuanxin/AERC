@@ -251,16 +251,34 @@
             :text="getButtonText"
             variant="flat"
             block
+            :loading="isSubmitting"
+            :disabled="isSubmitting"
             :form="activeForm === 'login' ? 'loginForm' : undefined"
             @click="activeForm === 'register' ? handleStep('next') : undefined"
           />
         </div>
+        <v-alert
+          v-if="errorMessage"
+          type="error"
+          variant="tonal"
+          closable
+          class="mb-4"
+        >
+          {{ errorMessage }}
+        </v-alert>
       </v-sheet>
     </v-col>
   </v-container>
 </template>
 
 <script lang="ts" setup>
+  import { useUserStore } from '@/stores/users'
+  // import { storeToRefs } from 'pinia'
+
+  // 在 setup 函數中添加
+  const userStore = useUserStore()
+  // const { isLoading, error } = storeToRefs(userStore)
+
   const router = useRouter()
   const activeForm = ref('login')
   const showPassword = ref(false)
@@ -270,6 +288,9 @@
   const captcha = ref('')
   const userCaptcha = ref('')
   const captchaError = ref(false)
+
+  const errorMessage = ref('');
+  const isSubmitting = ref(false);
 
   const generateCaptcha = () => {
     const characters = '0123456789'
@@ -282,6 +303,15 @@
     userCaptcha.value = '' // Clear user input
     captchaError.value = false // Reset error state
   }
+
+  // 處理表單驗證錯誤
+  const formErrors = ref<Record<'account' | 'password' | 'confirmPassword' | 'name' | 'department', string>>({
+    account: '',
+    password: '',
+    confirmPassword: '',
+    name: '',
+    department: ''
+  })
 
   // Watch for user input changes to clear error state
   watch(userCaptcha, () => {
@@ -296,28 +326,141 @@
   })
 
   const handleLogin = async () => {
-    try {
-      if (userCaptcha.value !== captcha.value) {
-        // console.log('Captcha value is:', captcha.value)
-        captchaError.value = true
-        return
-      }
-      // Add your login API call here
-      console.log('Login attempted:', loginForm.value)
+    // try {
+    //   if (userCaptcha.value !== captcha.value) {
+    //     // console.log('Captcha value is:', captcha.value)
+    //     captchaError.value = true
+    //     return
+    //   }
+    //   // Add your login API call here
+    //   console.log('Login attempted:', loginForm.value)
 
-      // Simulate successful login
-      await router.push('/')
+    //   // Simulate successful login
+    //   await router.push('/')
+    // } catch (error) {
+    //   console.error('Login failed:', error)
+    //   // Add error handling here
+    // }
+    try {
+      // 先清除之前的錯誤
+      errorMessage.value = ''; // 確保有定義該變量
+
+      // 驗證碼檢查
+      if (userCaptcha.value !== captcha.value) {
+        captchaError.value = true;
+        return;
+      }
+
+      // 重置錯誤狀態
+      captchaError.value = false;
+
+      // 非常重要: 確保字段名稱正確，與後端 API 期望的一致
+      // 注意變更這裡是關鍵修復點
+      const loginData = {
+        username: loginForm.value.account, // 確保映射到 username
+        password: loginForm.value.password
+      };
+
+      console.log('正在嘗試登入，發送數據:', loginData);
+
+      // 調用 store 的登入方法
+      const result = await userStore.login(loginData);
+
+      console.log('登入結果:', result ? '成功' : '失敗');
+
+      if (result) {
+        // 如果選擇記住我，則設置較長的過期時間
+        if (rememberMe.value) {
+          localStorage.setItem('remember_login', 'true');
+        }
+
+        // 登入成功，導航到首頁
+        await router.push('/');
+      } else {
+        // 顯示錯誤信息
+        alert(userStore.error || '登入失敗，請檢查帳號和密碼');
+      }
     } catch (error) {
-      console.error('Login failed:', error)
-      // Add error handling here
+      console.error('登入過程中發生錯誤:', error);
+
+      errorMessage.value = '登入時發生未知錯誤';
+
+      if (error && typeof error === 'object') {
+        // 處理 Axios 錯誤類型
+        if ('response' in error && error.response && typeof error.response === 'object') {
+          const response = error.response as { data?: { detail?: string } };
+          if (response.data && response.data.detail) {
+            errorMessage.value = response.data.detail;
+          }
+        }
+        // 處理標準 Error 類型
+        else if ('message' in error && typeof error.message === 'string') {
+          errorMessage.value = error.message;
+        }
+      }
     }
   }
   // const handleForgotPassword = () => {
   //   // Add your forgot password logic here
   //   console.log('Forgot password clicked')
   // }
-  const handleRegistration = () => {
-    // Add your registration logic here
+  const handleRegistration = async () => {
+    try {
+      // 重置錯誤
+      (Object.keys(formErrors.value) as Array<keyof typeof formErrors.value>).forEach((key) => {
+        formErrors.value[key] = ''
+      })
+
+      // 表單驗證
+      let isValid = true
+
+      if (!registerForm.value.account || registerForm.value.account.length < 3) {
+        formErrors.value.account = '帳號長度至少需要3個字元'
+        isValid = false
+      }
+
+      if (!registerForm.value.password || registerForm.value.password.length < 6) {
+        formErrors.value.password = '密碼長度至少需要6個字元'
+        isValid = false
+      }
+
+      if (registerForm.value.password !== registerForm.value.confirmPassword) {
+        formErrors.value.confirmPassword = '兩次輸入的密碼不一致'
+        isValid = false
+      }
+
+      if (!registerForm.value.name) {
+        formErrors.value.name = '請輸入姓名'
+        isValid = false
+      }
+
+      if (!registerForm.value.department) {
+        formErrors.value.department = '請選擇單位'
+        isValid = false
+      }
+
+      if (!isValid) {
+        return
+      }
+
+      // 調用 store 的註冊方法
+      const result = await userStore.register({
+        username: registerForm.value.account,
+        password: registerForm.value.password,
+        full_name: registerForm.value.name
+      })
+
+      if (result) {
+        // 註冊成功，顯示成功消息
+        alert('註冊成功！已自動登入。')
+
+        // 導航到首頁
+        await router.push('/')
+      }
+    } catch (error) {
+      console.error('註冊失敗:', error)
+    }
+
     console.log('Registration submitted:', registerForm.value)
   }
 

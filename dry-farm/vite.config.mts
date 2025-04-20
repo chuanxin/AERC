@@ -12,6 +12,11 @@ import fs from 'fs';
 import { defineConfig } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
 
+// Environment variables
+const API_BASE_URL = process.env.FAST_API_BASE_URL || ''
+const API_TARGET = process.env.FAST_API_TARGET || ''
+const API_VERSION = process.env.FAST_API_VERSION || ''
+
 // https://vitejs.dev/config/
 export default defineConfig({
   publicDir: 'public', // 確保 public 資料夾包含 .well-known/acme-challenge
@@ -55,7 +60,12 @@ export default defineConfig({
       },
     }),
   ],
-  define: { 'process.env': {} },
+  define: {
+    'process.env': {},
+    'import.meta.env.FAST_API_BASE_URL': JSON.stringify(API_BASE_URL),
+    'import.meta.env.FAST_API_TARGET': JSON.stringify(API_TARGET),
+    'import.meta.env.FAST_API_VERSION': JSON.stringify(API_VERSION),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -79,10 +89,10 @@ export default defineConfig({
       cert: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/fullchain.pem'),
     },
     proxy: {
-      '/api': {
-        target: 'http://api:5000/',
+      [API_BASE_URL]: {
+        target: API_TARGET,
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        rewrite: (path) => path.replace(new RegExp(`^${API_BASE_URL}/${API_VERSION}`), ''),
         configure: (proxy) => {
           proxy.on('error', (err) => {
             console.log('proxy error', err)

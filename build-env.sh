@@ -24,6 +24,11 @@ POSTGRES_USER="hello_fastapi"
 POSTGRES_PASSWORD="hello_fastapi"
 POSTGRES_DB="hello_fastapi_dev"
 
+# set dry-farm environment variables
+FAST_API_BASE_URL=/api
+FAST_API_TARGET=http://api:5000/
+FAST_API_VERSION=v1
+
 # create .env file
 if [ ! -f .env ]; then
     touch .env
@@ -62,6 +67,24 @@ if grep -q "^POSTGRES_DB=" .env; then
     sed -i '' "s/^POSTGRES_DB=.*$/POSTGRES_DB=$POSTGRES_DB/" .env
 else
     echo "POSTGRES_DB=$POSTGRES_DB" >> .env
+fi
+
+# update dry-farm environment variables
+if grep -q "^FAST_API_BASE_URL=" .env; then
+    sed -i '' "s|^FAST_API_BASE_URL=.*$|FAST_API_BASE_URL=$FAST_API_BASE_URL|" .env
+else
+    echo -e "\n# dry-farm environment variables in docker-compose" >> .env
+    echo "FAST_API_BASE_URL=$FAST_API_BASE_URL" >> .env
+fi
+if grep -q "^FAST_API_TARGET=" .env; then
+    sed -i '' "s|^FAST_API_TARGET=.*$|FAST_API_TARGET=$FAST_API_TARGET|" .env
+else
+    echo "FAST_API_TARGET=$FAST_API_TARGET" >> .env
+fi
+if grep -q "^FAST_API_VERSION=" .env; then
+    sed -i '' "s|^FAST_API_VERSION=.*$|FAST_API_VERSION=$FAST_API_VERSION|" .env
+else
+    echo "FAST_API_VERSION=$FAST_API_VERSION" >> .env
 fi
 
 # build docker

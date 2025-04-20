@@ -380,7 +380,7 @@
 
 <style scoped>
 .gradient-background{
-  background: linear-gradient(30deg, #0B6E99 0%, #1A8BB2 40%);
+  background: linear-gradient(60deg, #0B6E99 0%, #72c4e0 100%);
   color: white;
 }
 

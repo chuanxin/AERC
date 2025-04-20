@@ -6,7 +6,7 @@
 </template>
 
 <script lang="ts" setup>
-import { apiService } from '@/services/http'
+import { apiService } from '@/services/api/http'
 
 const msg = ref('')
 

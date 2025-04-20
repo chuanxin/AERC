@@ -44,7 +44,10 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     token = jsonable_encoder(access_token)
-    content = {"message": "You've successfully logged in. Welcome back!"}
+    content = {
+        "message": "You've successfully logged in. Welcome back!",
+        "access_token": token,
+    }
     response = JSONResponse(content=content)
     response.set_cookie(
         "Authorization",
@@ -53,7 +56,7 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
         max_age=1800,
         expires=1800,
         samesite="Lax",
-        secure=False,
+        secure=True,
     )
 
     return response

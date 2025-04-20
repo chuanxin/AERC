@@ -1,9 +1,11 @@
 import axios from 'axios'
-import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
+import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
+import { setupInterceptors, setupDebugInterceptors } from './interceptors'
+
 
 // Axios instance
 const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: (import.meta.env.FAST_API_BASE_URL || '') + '/' + (import.meta.env.FAST_API_VERSION || ''),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -11,55 +13,69 @@ const api: AxiosInstance = axios.create({
   }
 })
 
-// Interceptors
-api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-    // Add token to headers if available (get token from local storage or any other storage)
-    const token = localStorage.getItem('auth_token')
-    if (token) {
-      config.headers.set('Authorization', `Bearer ${token}`)
-    }
-    return config
-  },
-  error => {
-    return Promise.reject(error)
-  }
-)
+// // Interceptors
+// api.interceptors.request.use(
+//   (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+//     // Add token to headers if available (get token from local storage or any other storage)
+//     const token = localStorage.getItem('auth_token')
+//     if (token) {
+//       config.headers.set('Authorization', `Bearer ${token}`)
+//     }
+//     return config
+//   },
+//   error => {
+//     return Promise.reject(error)
+//   }
+// )
 
-// Response interceptor
-api.interceptors.response.use(
-  (response: AxiosResponse): AxiosResponse => {
-    return response
-  },
-  error => {
-    // Handle errors globally
-    if (error.response) {
-      // Server responded with a status code outside the range of 2xx
-      if (error.response.status === 401) {
-        // unauthorized
-        console.error('未授權，請重新登入')
-        localStorage.removeItem('auth_token')
-        window.location.href = '/login'
-      } else if (error.response.status === 403) {
-        // Forbidden
-        console.error('權限不足')
-      } else if (error.response.status === 500) {
-        // Internal Server Error
-        console.error('伺服器錯誤')
-      }
-    } else if (error.request) {
-      // Request was made but no response was received
-      console.error('網路錯誤，請檢查網路連接')
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      // This is usually a configuration error
-      // or a problem with the request itself
-      // e.g. `axios.create` was called with an invalid config
-      console.error('請求錯誤', error.message)
-    }
-    return Promise.reject(error)
+// // Response interceptor
+// api.interceptors.response.use(
+//   (response: AxiosResponse): AxiosResponse => {
+//     return response
+//   },
+//   error => {
+//     // Handle errors globally
+//     if (error.response) {
+//       // Server responded with a status code outside the range of 2xx
+//       if (error.response.status === 401) {
+//         // unauthorized
+//         console.error('未授權，請重新登入')
+//         localStorage.removeItem('auth_token')
+//         window.location.href = '/login'
+//       } else if (error.response.status === 403) {
+//         // Forbidden
+//         console.error('權限不足')
+//       } else if (error.response.status === 500) {
+//         // Internal Server Error
+//         console.error('伺服器錯誤')
+//       }
+//     } else if (error.request) {
+//       // Request was made but no response was received
+//       console.error('網路錯誤，請檢查網路連接')
+//     } else {
+//       // Something happened in setting up the request that triggered an Error
+//       // This is usually a configuration error
+//       // or a problem with the request itself
+//       // e.g. `axios.create` was called with an invalid config
+//       console.error('請求錯誤', error.message)
+//     }
+//     return Promise.reject(error)
+//   }
+// )
+
+// 設置攔截器
+setupInterceptors(api, {
+  debug: import.meta.env.DEV, // 僅在開發環境啟用調試
+  onUnauthorized: () => {
+    // 處理未授權情況的自定義邏輯
+    console.warn('用戶未授權，重定向到登入頁面');
+    window.location.href = '/login'
   }
-)
+})
+
+if (import.meta.env.DEV) {
+  setupDebugInterceptors(api);
+}
 
 // encapsulate API service methods and support directly calling endpoints
 const apiService = {
@@ -87,6 +103,42 @@ const apiService = {
     const response = await api.post<T>(url, data, config)
     return response.data
   },
+
+  async postForm<T>(url: string, data: Record<string, string>): Promise<T> {
+    const formData = new URLSearchParams();
+    for (const key in data) {
+      formData.append(key, data[key]);
+    }
+
+    const response = await api.post<T>(url, formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    return response.data;
+  },
+
+  // async postForm<T = unknown>(url: string, data?: Record<string, unknown>, config?: InternalAxiosRequestConfig): Promise<T> {
+  //   const formData = new URLSearchParams();
+
+  //   if (data) {
+  //     Object.entries(data).forEach(([key, value]) => {
+  //       if (value !== undefined && value !== null) {
+  //         formData.append(key, String(value));
+  //       }
+  //     });
+  //   }
+
+  //   const response = await api.post<T>(url, formData, {
+  //     ...config,
+  //     headers: {
+  //       'Content-Type': 'application/x-www-form-urlencoded',
+  //       ...config?.headers
+  //     }
+  //   });
+
+  //   return response.data;
+  // },
 
   /**
    * send PUT request
@@ -172,5 +224,4 @@ const apiService = {
 }
 
 export default api
-
 export { apiService }

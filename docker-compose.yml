@@ -20,6 +20,10 @@ services:
 
   dry-farm:
     build: ./dry-farm
+    environment:
+      - FAST_API_BASE_URL=${FAST_API_BASE_URL}
+      - FAST_API_TARGET=${FAST_API_TARGET}
+      - FAST_API_VERSION=${FAST_API_VERSION}
     volumes:
       - './dry-farm:/app'
       - '/app/node_modules'
