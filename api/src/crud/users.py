@@ -39,13 +39,10 @@ async def delete_user(user_id: UserId, current_user: UserOutSchema) -> Status: #
     raise HTTPException(status_code=403, detail=f"Not authorized to delete")
 
 async def update_last_login(user_id: UserId) -> None:
-    """更新使用者的最後登入時間"""
     try:
         user = await Users.get(id=user_id)
         user.last_login = datetime.now()
         await user.save()
-        
+
     except DoesNotExist:
-        # 如果使用者不存在，只記錄錯誤但不中斷登入流程
-        # 實際情況不太可能發生，因為這是在驗證後調用的
         print(f"嘗試更新不存在的使用者ID {user_id} 的登入時間")

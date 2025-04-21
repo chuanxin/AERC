@@ -37,21 +37,6 @@ class Users(models.Model):
 
 #     def __str__(self):
 #         return f"{self.title}, {self.author_id} on {self.created_at}"
-    
-class Offices(models.Model):
-    """單位/管理處資料表"""
-    id = fields.IntField(pk=True)
-    name = fields.CharField(max_length=50, unique=True, description="單位名稱")
-    short_name = fields.CharField(max_length=10, unique=True, description="單位縮寫")
-    code = fields.CharField(max_length=10, unique=True, description="單位代碼")
-    
-    class Meta:
-        table = "offices"
-        table_description = "單位/管理處資料表"
-    
-    def __str__(self):
-        return self.name
-    
 
 class Grants(models.Model):
     """補助申請案件資料表"""
@@ -80,9 +65,11 @@ class Grants(models.Model):
     received_time = fields.TimeField(description="收件時間")
     
     # 案件狀態
-    status = fields.CharField(max_length=20, default="draft", description="案件狀態: draft, submitted, reviewing, approved, rejected, completed")
+    status = fields.CharField(max_length=20, default="draft", description="案件狀態: 0:完成申請人資料, 1:完成土地資料, 2:完成灌溉調控設施, 3:完成田間管路, 4:完成現場勘查, 5:完成補助申請資料, 6:完成結案申報, 7:完成測試合格的時間, 8:完成撥款作業, 9:完成撥款, 99:駁回申請")
     status_detail = fields.CharField(max_length=50, null=True, description="狀態詳情")
     current_step = fields.IntField(default=1, description="目前步驟")
+    bulletin = fields.CharField(max_length=20, null=True, description="公告狀態: 0:已受理, 1:審查中, 2:審查通過 3:結案流程 4:撥款作業 5:撥款完成")
+    bulletin_sys = fields.CharField(max_length=20, null=True, description="公告狀態(系統): 0:申請人資料, 1:現場勘查, 2:補助申請資料 3:結案申報 4:測試合格的時間 5:")
     
     # 時間戳記
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
@@ -122,6 +109,119 @@ class Grants(models.Model):
             self.sn = await self.generate_sn(self.year, self.office_id.id)
         self.case_number = self.generate_case_number()  # 確保 case_number 正確
         await super().save(*args, **kwargs)
-        
+
     def __str__(self):
         return f"{self.case_number} - {self.applicant_name}"
+    
+class CropCategories(models.Model):
+    """作物類別資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="作物類別名稱")
+    
+    class Meta:
+        table = "crop_categories"
+        table_description = "作物類別資料表"
+    
+    def __str__(self):
+        return self.name
+    
+class CropNames(models.Model):
+    """作物名稱資料表"""
+    id = fields.IntField(pk=True)
+    category = fields.ForeignKeyField("models.CropCategories", related_name="crop_name", description="所屬作物類別")
+    name = fields.CharField(max_length=50, description="作物名稱")
+    
+    class Meta:
+        table = "crop_names"
+        table_description = "作物名稱資料表"
+        unique_together = (("category", "name"),)
+    
+    def __str__(self):
+        return f"{self.category.name}-{self.name}"
+    
+class FundingSources(models.Model):
+    """補助來源資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="補助來源名稱")
+    code = fields.CharField(max_length=10, unique=True, description="補助來源代碼")
+    
+    class Meta:
+        table = "funding_sources"
+        table_description = "補助來源資料表"
+    
+    def __str__(self):
+        return self.name
+    
+class Offices(models.Model):
+    """單位/管理處資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="單位名稱")
+    short_name = fields.CharField(max_length=10, unique=True, description="單位縮寫")
+    code = fields.CharField(max_length=10, unique=True, description="單位代碼")
+    
+    class Meta:
+        table = "offices"
+        table_description = "單位/管理處資料表"
+    
+    def __str__(self):
+        return self.name
+    
+class Counties(models.Model):
+    """縣市資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=10, unique=True, description="縣市名稱")
+    code = fields.CharField(max_length=10, unique=True, description="縣市代碼")
+    
+    class Meta:
+        table = "counties"
+        table_description = "縣市資料表"
+    
+    def __str__(self):
+        return self.name
+
+class Towns(models.Model):
+    """鄉鎮市區資料表"""
+    id = fields.IntField(pk=True)
+    county = fields.ForeignKeyField("models.Counties", related_name="town", description="所屬縣市")
+    name = fields.CharField(max_length=20, description="鄉鎮市區名稱")
+    code = fields.CharField(max_length=10, description="鄉鎮市區代碼")
+    is_indigenous = fields.BooleanField(default=False, description="是否為原民區域")
+    indigenous_type = fields.CharField(max_length=10, null=True, description="原民區域類型(1:山地鄉 2:平地鄉)")
+    
+    class Meta:
+        table = "towns"
+        table_description = "鄉鎮市區資料表"
+        unique_together = (("county", "name"), ("county", "code"))
+    
+    def __str__(self):
+        return f"{self.county.name}{self.name}"
+    
+class Villages(models.Model):
+    """村里資料表"""
+    id = fields.IntField(pk=True)
+    town = fields.ForeignKeyField("models.Towns", related_name="village", description="所屬鄉鎮市區")
+    name = fields.CharField(max_length=20, description="村里名稱")
+    code = fields.CharField(max_length=10, description="村里代碼")
+    
+    class Meta:
+        table = "villages"
+        table_description = "村里資料表"
+        unique_together = (("town", "name"), ("town", "code"))
+    
+    def __str__(self):
+        return f"{self.town.county.name}{self.town.name}{self.name}"
+    
+class Sections(models.Model):
+    """地段資料表"""
+    id = fields.IntField(pk=True)
+    town = fields.ForeignKeyField("models.Towns", related_name="section", description="所屬鄉鎮市區")
+    name = fields.CharField(max_length=50, description="地段名稱")
+    code = fields.CharField(max_length=10, description="地段代碼")
+    
+    class Meta:
+        table = "sections"
+        table_description = "地段資料表"
+        unique_together = (("town", "name"), ("town", "code"))
+    
+    def __str__(self):
+        return f"{self.town.county.name}{self.town.name}{self.name}"
