@@ -13,6 +13,12 @@ if [ ! -f .env ] || [ ! -d "api/migrations/models" ] || [ -z "$(ls -A api/migrat
     FIRST_RUN=true
 fi
 
+# Check if certbot directory exists for SSL certificates
+CERTBOT_EXISTS=false
+if [ -d "dry-farm/certbot" ] && [ ! -z "$(ls -A dry-farm/certbot 2>/dev/null)" ]; then
+    CERTBOT_EXISTS=true
+fi
+
 # generate new secret key
 NEW_SECRET_KEY=$(openssl rand -hex 32)
 
@@ -87,7 +93,19 @@ else
     echo "FAST_API_VERSION=$FAST_API_VERSION" >> .env
 fi
 
+# Check for certbot directory and display warning if missing
+if [ "$CERTBOT_EXISTS" = false ]; then
+    echo -e "\n${RED}===== WARNING: SSL Certificates Missing =====${NC}"
+    echo -e "The ${YELLOW}dry-farm/certbot${NC} directory is missing or empty."
+    echo -e "If you're running on a production environment with port 443, SSL certificates are required."
+    echo -e "Please copy the certbot directory from your development environment:"
+    echo -e "   ${BLUE}scp -r your-dev-machine:path/to/AERC/dry-farm/certbot ./dry-farm/${NC}"
+    echo -e "Or press any key to continue without SSL (suitable for local development only)..."
+    read -n 1 -s
+fi
+
 # build docker
+echo -e "\n${GREEN}===== Building Docker Containers =====${NC}"
 docker-compose build --no-cache
 docker-compose up -d
 
@@ -104,25 +122,39 @@ echo "API service accessible at  ➜  ${YELLOW}http://localhost:${API_PORT}${NC}
 
 # display database initialization information
 if [ "$FIRST_RUN" = true ]; then
-    echo -e "\n${YELLOW}===== Database Initialization Required =====${NC}"
-    echo -e "This appears to be the first run or after project migration. Please follow these steps to initialize the database:"
-    echo -e "\n1. If there are files in the api/migrations/models directory, remove them first:"
-    echo -e "   ${BLUE}rm -rf api/migrations/models/*${NC}"
+    echo -e "\n${YELLOW}===== First Time Setup After Cloning =====${NC}"
+    echo -e "This appears to be the first run after cloning. Please follow these steps:"
     
-    echo -e "\n2. Initialize Aerich configuration:"
+    echo -e "\n${GREEN}1. Apply existing migrations to set up the database:${NC}"
+    echo -e "   ${BLUE}docker-compose exec api aerich upgrade${NC}"
+    
+    echo -e "\n${GREEN}2. If you encounter migration errors, you may need to initialize the database:${NC}"
     echo -e "   ${BLUE}docker-compose exec api aerich init -t src.database.config.TORTOISE_ORM${NC}"
-    
-    echo -e "\n3. Initialize the database:"
     echo -e "   ${BLUE}docker-compose exec api aerich init-db${NC}"
     
-    echo -e "\n${YELLOW}===== Subsequent Database Model Updates =====${NC}"
+    echo -e "\n${RED}IMPORTANT:${NC} Do NOT delete migration files in migrations/models/ unless you're starting a completely new project."
+    echo -e "These files represent the database schema evolution and are essential for maintaining consistent state."
+    
+    echo -e "\n${YELLOW}===== For SSL Configuration (Production Environment) =====${NC}"
+    if [ "$CERTBOT_EXISTS" = false ]; then
+        echo -e "${RED}⚠️  SSL certificates are missing! The frontend won't work on port 443 without them.${NC}"
+        echo -e "For production deployment, you must copy the certbot directory from your development environment:"
+        echo -e "   ${BLUE}scp -r your-dev-machine:path/to/AERC/dry-farm/certbot ./dry-farm/${NC}"
+        echo -e "Then restart the containers:  ${BLUE}docker-compose restart${NC}"
+    else
+        echo -e "${GREEN}✓ SSL certificates found in dry-farm/certbot.${NC} The frontend should work correctly on port 443."
+    fi
+    
+    echo -e "\n${YELLOW}===== For Subsequent Database Updates =====${NC}"
     echo -e "When you modify database models, execute these commands to update the database:"
     echo -e "\n1. Create migration files:"
-    echo -e "   ${BLUE}docker-compose exec api aerich migrate${NC}"
+    echo -e "   ${BLUE}docker-compose exec api aerich migrate --name descriptive_name_of_change${NC}"
     
     echo -e "\n2. Apply migrations:"
     echo -e "   ${BLUE}docker-compose exec api aerich upgrade${NC}"
 fi
+
+echo -e "\n${GREEN}✅ Setup complete. The application should now be running.${NC}"
 # Display service logs
 # echo -e "\n===== Frontend Service Logs ====="
 # docker-compose logs dry-farm | tail -n 4
