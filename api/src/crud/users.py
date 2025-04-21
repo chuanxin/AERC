@@ -1,18 +1,20 @@
 from fastapi import HTTPException
-from passlib.context import CryptContext
+# from passlib.context import CryptContext
 from tortoise.exceptions import DoesNotExist, IntegrityError
-
+from src.auth.users import get_password_hash
 from src.database.models import Users
 from src.schemas.token import Status
 from src.schemas.users import UserOutSchema, UserInSchema
+from datetime import datetime
 
 from typing import NewType
 UserId = NewType("UserId", int)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 async def create_user(user_in: UserInSchema) -> UserOutSchema: # type: ignore[UserInSchema, UserOutSchema]
-    user_in.password = pwd_context.encrypt(user_in.password)
+    # user_in.password = pwd_context.encrypt(user_in.password)
+    user_in.password = get_password_hash(user_in.password)
 
     try:
         user_obj = await Users.create(**user_in.dict(exclude_unset=True))
@@ -35,3 +37,15 @@ async def delete_user(user_id: UserId, current_user: UserOutSchema) -> Status: #
         return Status(message=f"Deleted user {user_id}")
 
     raise HTTPException(status_code=403, detail=f"Not authorized to delete")
+
+async def update_last_login(user_id: UserId) -> None:
+    """更新使用者的最後登入時間"""
+    try:
+        user = await Users.get(id=user_id)
+        user.last_login = datetime.now()
+        await user.save()
+        
+    except DoesNotExist:
+        # 如果使用者不存在，只記錄錯誤但不中斷登入流程
+        # 實際情況不太可能發生，因為這是在驗證後調用的
+        print(f"嘗試更新不存在的使用者ID {user_id} 的登入時間")

@@ -1,21 +1,30 @@
 from fastapi import HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
-from passlib.context import CryptContext
+# from passlib.context import CryptContext
+import bcrypt
 from tortoise.exceptions import DoesNotExist
 
 from src.database.models import Users
 from src.schemas.users import UserDatabaseSchema
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    # return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(
+        bytes(plain_password, encoding="utf-8"),
+        bytes(hashed_password, encoding="utf-8"),
+    )
 
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    # return pwd_context.hash(password)
+    return bcrypt.hashpw(
+        bytes(password, encoding="utf-8"),
+        bcrypt.gensalt(),
+    )
 
 
 async def get_user(username: str):

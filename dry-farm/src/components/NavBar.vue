@@ -226,7 +226,7 @@
 
   const handleLogout = async () => {
     try {
-      // Add your logout API call here if needed
+      userStore.logout()
       console.log('User logged out')
       await router.push('/login')
     } catch (error) {

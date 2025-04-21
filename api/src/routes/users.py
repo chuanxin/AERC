@@ -38,6 +38,15 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
             detail="使用者名稱或密碼不正確",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="使用者名稱或密碼不正確",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 使用 crud 函數更新最後登入時間
+    await crud.update_last_login(user.id)
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = await create_access_token(
