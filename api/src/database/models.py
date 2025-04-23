@@ -158,6 +158,7 @@ class Offices(models.Model):
     name = fields.CharField(max_length=50, unique=True, description="單位名稱")
     short_name = fields.CharField(max_length=10, unique=True, description="單位縮寫")
     code = fields.CharField(max_length=10, unique=True, description="單位代碼")
+    classification = fields.IntField(max_length=2, default=1, description="單位類型(1:管理處 2:其他)")
     
     class Meta:
         table = "offices"

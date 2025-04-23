@@ -6,6 +6,7 @@ export interface Office {
   name: string
   short_name: string
   code: string
+  classification: number
 }
 
 // Response interfaces for listing

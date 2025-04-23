@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { userService, type User, type UserCredentials, type UserRegisterData, type UpdateUserData } from '@/services/userService'
 import { wrapAsync, type ApiError } from '@/utils/asyncHelpers'
 import { authEvents } from '@/services/api/interceptors'
+import { useOfficesStore } from './offices'
 
 
 // Simple JWT token decoder to check expiration
@@ -61,6 +62,7 @@ export const useUserStore = defineStore('user', () => {
     return !!currentUser.value
   })
   const userFullName = computed(() => currentUser.value?.full_name || currentUser.value?.username || '')
+  const officeName = computed(() => currentUser.value?.office?.name || '') // 這裡的 office 是從用戶資料中獲取的
 
   // 共享的異步選項對象
   const asyncOptions = {
@@ -300,6 +302,10 @@ export const useUserStore = defineStore('user', () => {
         token.value = null
         localStorage.removeItem('auth_token')
       }
+
+      // Make sure offices are loaded for user data integration
+      const officesStore = useOfficesStore()
+      officesStore.initializeStore()
     }
   }
 
@@ -318,6 +324,7 @@ export const useUserStore = defineStore('user', () => {
     // 計算屬性
     isAuthenticated,
     userFullName,
+    officeName,
 
     // 方法
     login,

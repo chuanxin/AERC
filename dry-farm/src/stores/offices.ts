@@ -46,6 +46,7 @@ export const useOfficesStore = defineStore('offices', () => {
     return sortedOffices.value.map(office => ({
       title: office.name,
       value: office.id,
+      classification: office.classification,
     }))
   })
 
@@ -162,6 +163,7 @@ export const useOfficesStore = defineStore('offices', () => {
     return [...offices.value].map(office => ({
       title: office.name,
       value: office.id,
+      classification: office.classification
     }))
   })
 

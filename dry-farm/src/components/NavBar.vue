@@ -133,8 +133,8 @@
   >
     <v-list>
       <v-list-item
-        subtitle="農工中心"
         :title="userStore.userFullName"
+        :subtitle="userStore.officeName"
       >
         <template #prepend>
           <v-avatar color="primary">

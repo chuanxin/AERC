@@ -8,6 +8,7 @@ export interface UserCredentials {
 
 export interface UserRegisterData extends UserCredentials {
   full_name?: string
+  office_id?: number
 }
 
 export interface User {
@@ -15,6 +16,12 @@ export interface User {
   username: string
   full_name?: string
   created_at?: string
+  office?: {
+    id: number
+    name: string
+    short_name: string
+    code: string
+  }
 }
 
 export interface LoginResponse {
@@ -74,6 +81,7 @@ export const userService = {
    */
   async register(userData: UserRegisterData): Promise<User> {
     try {
+      console.log('發送註冊請求，資料:', userData)
       const response = await apiService.post<User>(
         AUTH.REGISTER,
         userData as unknown as Record<string, unknown>

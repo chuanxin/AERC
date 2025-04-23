@@ -36,7 +36,7 @@
                   rounded="xl"
                   @click="activeForm = 'login'"
                 >
-                  登入資訊
+                  我要登入
                 </v-chip>
 
                 <v-chip
@@ -46,7 +46,7 @@
                   rounded="xl"
                   @click="activeForm = 'register'"
                 >
-                  註冊資訊
+                  我要註冊
                 </v-chip>
               </v-col>
               <v-col
@@ -223,14 +223,20 @@
                         variant="outlined"
                         density="comfortable"
                       >
-                        <!-- Add custom item template -->
-                        <template #item="{ item, props }">
+                        <template #item="{ item }">
                           <v-list-item
-                            v-bind="props"
                             :title="item.title"
-                            :class="{ 'light-blue-text': item.value > 17 }"
+                            :value="item.value"
+                            :class="{ 'light-blue-text': item.raw?.classification == 2 }"
                           />
                         </template>
+                        <!-- item
+                              ├── title      // Extracted from your data for convenience
+                              ├── value      // Extracted from your data for convenience
+                              └── raw        // Your complete original object with all properties
+                                  ├── title
+                                  ├── value
+                                  └── classification  // Your custom property -->
                       </v-select>
                     </v-form>
                   </v-stepper-window-item>
@@ -472,7 +478,8 @@
       const result = await userStore.register({
         username: registerForm.value.account,
         password: registerForm.value.password,
-        full_name: registerForm.value.name
+        full_name: registerForm.value.name,
+        office_id: Number(registerForm.value.department)
       })
 
       if (result) {
@@ -525,6 +532,14 @@
     if (activeForm.value === 'login') return '登入'
     return currentStep.value === 0 ? '下一步' : '註冊'
   })
+
+  // watchEffect(() => {
+  //   console.log('Departments:', departments.value)
+  //   if (departments.value?.length > 0) {
+  //     console.log('First item:', departments.value[0])
+  //     console.log('Classification type:', typeof departments.value[0].classification)
+  //   }
+  // })
 </script>
 
 <style scoped>
