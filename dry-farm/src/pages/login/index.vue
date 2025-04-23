@@ -222,7 +222,16 @@
                         prepend-inner-icon="mdi-office-building"
                         variant="outlined"
                         density="comfortable"
-                      />
+                      >
+                        <!-- Add custom item template -->
+                        <template #item="{ item, props }">
+                          <v-list-item
+                            v-bind="props"
+                            :title="item.title"
+                            :class="{ 'light-blue-text': item.value > 17 }"
+                          />
+                        </template>
+                      </v-select>
                     </v-form>
                   </v-stepper-window-item>
                 </v-stepper-window>
@@ -273,14 +282,16 @@
 
 <script lang="ts" setup>
   import { useUserStore } from '@/stores/users'
+  import { useOfficesStore } from '@/stores/offices'
+// import { de } from 'vuetify/locale'
 
   // Add these lines to handle redirection
   const route = useRoute()
   const router = useRouter()
   const redirectPath = computed(() => route.query.redirect?.toString() || '/')
 
-  // 在 setup 函數中添加
   const userStore = useUserStore()
+  const officesStore = useOfficesStore()
   // const { isLoading, error } = storeToRefs(userStore)
 
   const activeForm = ref('login')
@@ -324,8 +335,20 @@
   })
 
   // Generate initial CAPTCHA on component mount
-  onMounted(() => {
+  onMounted(async () => {
     generateCaptcha()
+
+    // Load offices if not already loaded
+    if (!officesStore.isOfficesLoaded) {
+      isOfficesLoading.value = true
+      try {
+        await officesStore.fetchOffices()
+      } catch (error) {
+        console.error('Failed to load offices:', error)
+      } finally {
+        isOfficesLoading.value = false
+      }
+    }
   })
 
   const handleLogin = async () => {
@@ -479,11 +502,12 @@
     department: ''
   })
 
-  const departments = [
-    '農工中心',
-    '農試所',
-    '林試所'
-  ]
+
+  // const officesStore = useOfficesStore()
+  const isOfficesLoading = ref(false)
+
+  // Update how departments are loaded
+  const departments = computed(() => officesStore.items)
 
   const handleStep = (direction: 'next' | 'prev') => {
     if (direction === 'next') {
@@ -525,6 +549,15 @@
   .forgot-password-link {
     position: relative;
     z-index: 999;
+  }
+  /* Add this new style for light blue items */
+  .light-blue-text {
+    color: #90CAF9 !important; /* Light blue color */
+  }
+
+  /* Optional: Add hover effect to maintain visibility on hover */
+  .light-blue-text:hover {
+    color: #64B5F6 !important; /* Slightly darker blue on hover */
   }
 </style>
 

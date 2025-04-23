@@ -200,8 +200,8 @@ class Villages(models.Model):
     """村里資料表"""
     id = fields.IntField(pk=True)
     town = fields.ForeignKeyField("models.Towns", related_name="village", description="所屬鄉鎮市區")
-    name = fields.CharField(max_length=20, description="村里名稱")
-    code = fields.CharField(max_length=10, description="村里代碼")
+    name = fields.CharField(max_length=10, description="村里名稱")
+    code = fields.CharField(max_length=20, description="村里代碼")
     
     class Meta:
         table = "villages"

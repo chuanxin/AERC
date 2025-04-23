@@ -1,4 +1,4 @@
-import { AUTH, USERS } from './endpoints';
+import { AUTH, OFFICES, USERS } from './endpoints';
 
 // 後端實際路徑定義
 export const BACKEND_PATHS = {
@@ -22,6 +22,9 @@ export const BACKEND_PATHS = {
     DETAIL: (id: number | string) => `/note/${id}`,
     UPDATE: (id: number | string) => `/note/${id}`,
     DELETE: (id: number | string) => `/note/${id}`
+  },
+  OFFICES: {
+    LIST: '/offices',
   }
 };
 
@@ -31,6 +34,7 @@ export const API_MAPPING: Record<string, string> = {
   [AUTH.REGISTER]: BACKEND_PATHS.AUTH.REGISTER,
   [AUTH.ME]: BACKEND_PATHS.AUTH.WHO_AM_I,
   [USERS.LIST]: BACKEND_PATHS.USERS.LIST,
+  [OFFICES.LIST]: BACKEND_PATHS.OFFICES.LIST,
 };
 
 // 動態參數路徑匹配規則

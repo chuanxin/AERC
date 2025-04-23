@@ -1,7 +1,6 @@
 import { apiService } from './api/http'
 import { AUTH, USERS } from './api/endpoints'
 
-// 用戶相關的類型定義
 export interface UserCredentials {
   username: string
   password: string

@@ -84,6 +84,14 @@ export const QUALIFICATION = {
   INDIGENOUS: `${BASE}/qualification/indigenous`,
 }
 
+export const OFFICES = {
+  LIST: `${BASE}/offices`,
+  // DETAIL: (id: number) => `${BASE}/offices/${id}`,
+  CREATE: `${BASE}/offices`,
+  UPDATE: (id: number) => `${BASE}/offices/${id}`,
+  DELETE: (id: number) => `${BASE}/offices/${id}`,
+}
+
 // export const API_MAPPING = {
 //   [`${BASE}/auth/login`]: BACKEND_PATHS.AUTH.LOGIN,
 //   [`${BASE}/auth/register`]: BACKEND_PATHS.AUTH.REGISTER,
