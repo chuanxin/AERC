@@ -71,7 +71,7 @@
                     style="width: 70px"
                     :rules="[
                       v => !!v || '請輸入主地號',
-                      v => (parseInt(v) >= 900 && parseInt(v) < 1000) || '此地段主地號需在 900 以上 1000 以下'
+                      // v => (parseInt(v) >= 900 && parseInt(v) < 1000) || '此地段主地號需在 900 以上 1000 以下'
                     ]"
                   />
                   <v-icon class="me-1">mdi-minus</v-icon>
@@ -81,7 +81,6 @@
                     density="comfortable"
                     type="number"
                     style="width: 60px"
-                    :rules="[v => !!v || '請輸入副地號']"
                   />
                 </v-col>
                 <v-col cols="12" md="8" class="d-flex align-center">
@@ -542,8 +541,8 @@
               <v-card-title class="text-body-1 py-1 px-2">地段資訊</v-card-title>
               <v-divider></v-divider>
               <v-card-text class="px-2 py-1">
-                <div v-if="selectedFeatureInfo.number">
-                  <strong>地號:</strong> {{ selectedFeatureInfo.number }}
+                <div v-if="selectedFeatureInfo.Land_no">
+                  <strong>地號:</strong> {{ selectedFeatureInfo.Land_no }}
                 </div>
                 <div v-if="selectedFeatureInfo.section">
                   <strong>地段:</strong> {{ selectedFeatureInfo.section }}
@@ -591,14 +590,14 @@
             </tbody>
           </v-table>
 
-          <div class="d-flex justify-end">
+          <!-- <div class="d-flex justify-end">
             <v-btn color="primary" variant="tonal" @click="useLandInfo">
               使用此筆資料
             </v-btn>
             <v-btn color="grey" class="ms-2" variant="outlined" @click="landInfoDialog = false">
               關閉
             </v-btn>
-          </div>
+          </div> -->
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -612,14 +611,14 @@ import Map from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
-import { fromLonLat } from 'ol/proj';
+import { fromLonLat, transform } from 'ol/proj';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import { Vector as VectorLayer } from 'ol/layer';
 import { Vector as VectorSource } from 'ol/source';
 import { Style, Icon, Stroke, Fill } from 'ol/style';
 import GeoJSON from 'ol/format/GeoJSON';
-import { Select } from 'ol/interaction';
+import { Select, Modify } from 'ol/interaction';
 import { click } from 'ol/events/condition';
 import { unByKey } from 'ol/Observable';
 import { getArea } from 'ol/sphere';
@@ -808,80 +807,110 @@ const landInfo = reactive({
 // Function to show the land info dialog
 const showLandInfoDialog = () => {
   // Update land info with current form data
-  if (localFormData.landNumberMain && localFormData.landNumberSub) {
-    landInfo.number = `${localFormData.landNumberMain}-${localFormData.landNumberSub}`;
+  if (localFormData.landNumberMain) {
+    // Format the land number with or without the sub number
+    landInfo.number = localFormData.landNumberSub
+      ? `${localFormData.landNumberMain}-${localFormData.landNumberSub}`
+      : localFormData.landNumberMain;
   }
-
-  // // If there's a land number entered, use it for the dialog
-  // if (localFormData.landNumber) {
-  //   landInfo.number = localFormData.landNumber;
-  // }
-
   // If there's a county selected, use it for the dialog
   if (localFormData.addressCounty) {
     landInfo.county = localFormData.addressCounty;
   }
-
   // If there's a village selected, use it for the dialog
   if (localFormData.addressVillage) {
     landInfo.section = localFormData.addressVillage;
   }
 
   landInfoDialog.value = true;
+  // Allow time for the dialog to open and map to initialize
+  nextTick(() => {
+    // This will be called after the map is initialized through the watcher
+    // The map initialization will trigger the feature search
+  });
 };
 
 const findAndSelectFeatureByLandNumber = () => {
   if (!map) return;
 
-  // The land number to find
-  const landNumber = `${localFormData.landNumberMain}-${localFormData.landNumberSub}`;
+  // Get the main and sub numbers
+  const mainNumber = localFormData.landNumberMain;
+  const subNumber = localFormData.landNumberSub;
+
+  if (!mainNumber) return false;
+
+  // Format the search pattern based on available data
+  const fullLandNumber = subNumber ? `${mainNumber}-${subNumber}` : mainNumber;
+  console.log(`Searching for land number: ${fullLandNumber}`);
 
   // Look through all vector layers
   const layers = map.getLayers().getArray().filter(layer =>
     layer instanceof VectorLayer && layer.getSource() instanceof VectorSource
   );
 
+  let exactMatch = null;
+  let mainNumberMatch = null;
+
   // For each layer, try to find the feature
   for (const layer of layers) {
     const source = layer.getSource();
     const features = source.getFeatures();
 
-    // Look for a feature with matching land number
-    const targetFeature = features.find(feature => {
-      const featureNumber = feature.get('number');
-      return featureNumber === landNumber;
+    // First pass: look for exact matches
+    features.forEach(feature => {
+      const featureNumber = feature.get('Land_no');
+      if (!featureNumber) return;
+
+      // Check for exact match first
+      if (featureNumber === fullLandNumber) {
+        exactMatch = feature;
+      }
+      // If we're looking for a full number but no exact match yet, check for main number match
+      else if (subNumber && !exactMatch && featureNumber === mainNumber) {
+        mainNumberMatch = feature;
+      }
     });
 
-    if (targetFeature) {
-      console.log(`Found feature with land number: ${landNumber}`);
-
-      // Programmatically select the feature
-      if (select) {
-        select.getFeatures().clear(); // Clear any existing selection
-        select.getFeatures().push(targetFeature); // Add this feature to selection
-
-        // Trigger the feature selection handler manually
-        handleFeatureSelect({
-          selected: [targetFeature],
-          deselected: []
-        });
-
-        // Center the map on this feature
-        const geometry = targetFeature.getGeometry();
-        if (geometry) {
-          map.getView().fit(geometry, {
-            padding: [50, 50, 50, 50],
-            duration: 500
-          });
-        }
-
-        return true;
-      }
+    // If we found an exact match, use it
+    if (exactMatch) {
+      console.log(`Found exact match feature with land number: ${exactMatch.get('Land_no')}`);
+      selectFeature(exactMatch);
+      return true;
     }
   }
 
-  console.log(`No feature found with land number: ${landNumber}`);
+  // If no exact match was found but we have a main number match, use that
+  if (mainNumberMatch) {
+    console.log(`Found main number match: ${mainNumberMatch.get('Land_no')}`);
+    selectFeature(mainNumberMatch);
+    return true;
+  }
+
+  console.log(`No feature found with land number: ${fullLandNumber}`);
   return false;
+};
+
+// Helper function to select a feature
+const selectFeature = (feature) => {
+  if (select) {
+    select.getFeatures().clear(); // Clear any existing selection
+    select.getFeatures().push(feature); // Add this feature to selection
+
+    // Trigger the feature selection handler manually
+    handleFeatureSelect({
+      selected: [feature],
+      deselected: []
+    });
+
+    // Center the map on this feature
+    const geometry = feature.getGeometry();
+    if (geometry) {
+      map.getView().fit(geometry, {
+        padding: [50, 50, 50, 50],
+        duration: 500
+      });
+    }
+  }
 };
 
 // Function to use the land information
@@ -1329,8 +1358,12 @@ const addMarker = (lon, lat) => {
   map.addLayer(markerLayer);
 };
 
+// Add these variables to track interactions
 let select = null;
+let modify = null;
 let selectedFeatureKey = null;
+let modifyFeatureKey = null;
+
 const addSelectInteraction = () => {
   if (!map) return;
 
@@ -1358,8 +1391,74 @@ const addSelectInteraction = () => {
   // Add the interaction to the map
   map.addInteraction(select);
 
+  // Create modify interaction that works with the selected features
+  modify = new Modify({
+    features: select.getFeatures(),
+    // Add a custom style to show edit handles
+    style: new Style({
+      image: new Icon({
+        src: 'https://openlayers.org/en/latest/examples/data/square.png',
+        scale: 0.7,
+        anchor: [0.5, 0.5]
+      }),
+      stroke: new Stroke({
+        color: 'rgba(255, 105, 0, 1)',
+        width: 3
+      }),
+      fill: new Fill({
+        color: 'rgba(255, 165, 0, 0.4)'
+      })
+    })
+  });
+
+  // Add the modify interaction to the map
+  map.addInteraction(modify);
+
   // Listen for selection changes
   selectedFeatureKey = select.on('select', handleFeatureSelect);
+
+  // Listen for geometry modifications
+  modifyFeatureKey = modify.on('modifyend', handleFeatureModify);
+};
+
+// Add this function to handle feature modifications
+const handleFeatureModify = (event) => {
+  // Get the modified features
+  const features = event.features.getArray();
+
+  if (features.length > 0) {
+    const feature = features[0];
+
+    // Calculate the new area
+    const geometry = feature.getGeometry();
+    if (geometry) {
+      // Get area in square meters
+      const areaValue = getArea(geometry);
+      // Round to 1 decimal place
+      const roundedArea = Math.round(areaValue * 10) / 10;
+
+      // Update the feature's area property
+      feature.set('area', roundedArea);
+
+      // Update the selectedFeatureInfo to reflect the new area
+      if (selectedFeatureInfo.value) {
+        selectedFeatureInfo.value = {
+          ...selectedFeatureInfo.value,
+          area: roundedArea
+        };
+      }
+
+      // Update the land area in the form if this is the currently used feature
+      if (landInfo.number === feature.get('Land_no')) {
+        localFormData.landArea = roundedArea.toString();
+        // Convert to hectares
+        const areaInHa = (roundedArea / 10000).toFixed(4);
+        localFormData.landAreaHa = areaInHa;
+      }
+
+      console.log(`Feature modified. New area: ${roundedArea} m²`);
+    }
+  }
 };
 
 // Function to handle feature selection
@@ -1376,7 +1475,7 @@ const handleFeatureSelect = (e) => {
     if (properties) {
       // Update land info with feature properties
       landInfo.section = properties.section || landInfo.section;
-      landInfo.number = properties.number || landInfo.number;
+      landInfo.number = properties.Land_no || landInfo.number;
       landInfo.specialLand = properties.specialLand || landInfo.specialLand;
 
       // If the feature has coordinates, update the form
@@ -1459,6 +1558,10 @@ const cleanupMap = () => {
     unByKey(selectedFeatureKey);
   }
 
+  if (modify && modifyFeatureKey) {
+    unByKey(modifyFeatureKey);
+  }
+
   if (map) {
     map.setTarget(null);
     map = null;
@@ -1475,7 +1578,21 @@ watch(landInfoDialog, (isOpen) => {
 // Add this to the useSelectedFeature function to update the area fields
 const useSelectedFeature = () => {
   if (selectedFeatureInfo.value) {
-    // Existing code...
+    // Update land number fields from Land_no
+    if (selectedFeatureInfo.value.Land_no) {
+      const landNo = selectedFeatureInfo.value.Land_no;
+
+      // Check if the Land_no contains a dash (main-sub format)
+      if (landNo.includes('-')) {
+        const [main, sub] = landNo.split('-');
+        localFormData.landNumberMain = main;
+        localFormData.landNumberSub = sub;
+      } else {
+        // If no dash, use the entire value as main number and set sub to '0'
+        localFormData.landNumberMain = landNo;
+        localFormData.landNumberSub = '';
+      }
+    }
 
     // If the feature has an area, update the area fields
     if (selectedFeatureInfo.value.area) {
@@ -1489,8 +1606,34 @@ const useSelectedFeature = () => {
       localFormData.facilityAreaHa = areaInHa;
     }
 
+    // Find the selected feature in the map
+    const selectedFeatures = select.getFeatures().getArray();
+    if (selectedFeatures.length > 0) {
+      const feature = selectedFeatures[0];
+      const geometry = feature.getGeometry();
+
+      if (geometry) {
+        // Get the extent (bounding box) of the geometry
+        const extent = geometry.getExtent();
+        // Calculate the center of the extent
+        const center = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+
+        // Transform from the map projection (EPSG:3857) to WGS84 (EPSG:4326)
+        const transformedCenter = transform(center, 'EPSG:3857', 'EPSG:4326');
+
+        // Update the form with the center coordinates (rounded to 6 decimal places)
+        localFormData.longitude = transformedCenter[0].toFixed(6);
+        localFormData.latitude = transformedCenter[1].toFixed(6);
+
+        console.log(`Updated coordinates to center of polygon: ${localFormData.longitude}, ${localFormData.latitude}`);
+      }
+    }
+
+
     // Hide the feature info popup
     hideFeatureInfo();
+    // Make sure to update parent form data
+    updateFormData();
   }
 };
 
@@ -1508,10 +1651,10 @@ const loadGeoJSONFile = () => {
   });
 
   // Add success event listener
-  geoJSONSource.on('featuresloadend', function(event) {
-    const features = geoJSONSource.getFeatures();
-    console.log(`GeoJSON loaded successfully with ${features.length} features`);
-  });
+  // geoJSONSource.on('featuresloadend', function(event) {
+  //   const features = geoJSONSource.getFeatures();
+  //   console.log(`GeoJSON loaded successfully with ${features.length} features`);
+  // });
 
   // Add success event listener
   geoJSONSource.on('featuresloadend', function(event) {
@@ -1526,12 +1669,12 @@ const loadGeoJSONFile = () => {
       if (!feature.get('section')) {
         feature.set('section', localFormData.addressVillage || '瓦厝埔段');
       }
-      if (!feature.get('number')) {
-        // Create a random land number for demo
-        const mainNum = Math.floor(900 + Math.random() * 100);
-        const subNum = Math.floor(1 + Math.random() * 9);
-        feature.set('number', `${mainNum}-${subNum}`);
-      }
+      // if (!feature.get('number')) {
+      //   // Create a random land number for demo
+      //   const mainNum = Math.floor(900 + Math.random() * 100);
+      //   const subNum = Math.floor(1 + Math.random() * 9);
+      //   feature.set('number', `${mainNum}-${subNum}`);
+      // }
     });
     // Try to find and select the feature with matching land number
     setTimeout(() => {
