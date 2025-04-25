@@ -1,11 +1,6 @@
 <template>
   <div class="step-content" ref="stepContent">
     <v-card class="mb-6 pa-0" flat>
-      <!-- <v-card-title class="d-flex align-center bg-primary text-white">
-        <v-icon class="me-2" color="white">mdi-water-pump</v-icon>
-        <span class="text-h6">3. 灌溉調控設施</span>
-      </v-card-title> -->
-
       <v-card-text class="pb-0 pt-0">
         <v-form ref="form" v-model="localValid" @submit.prevent>
           <!-- 動力設備選擇區域 -->
@@ -248,19 +243,83 @@
         </v-form>
       </v-card-text>
     </v-card>
+
+    <!-- Navigation buttons -->
+    <v-card class="step-navigation-card ma-0 pa-0" flat>
+      <div class="d-flex align-center pr-4">
+        <v-spacer />
+        <div class="navigation-buttons">
+          <v-btn
+            variant="outlined"
+            color="grey-darken-1"
+            class="me-2"
+            size="large"
+            :disabled="currentStep === 1"
+            rounded="pill"
+            @click="goToPreviousStep"
+          >
+            <v-icon start>mdi-arrow-left</v-icon>
+            上一步
+          </v-btn>
+
+          <v-btn
+            color="green-darken-1"
+            :disabled="!isValid"
+            size="large"
+            rounded="pill"
+            @click="goToNextStep"
+          >
+            {{ currentStep === 8 ? '完成' : '下一步' }}
+            <v-icon end v-if="currentStep < 8">mdi-arrow-right</v-icon>
+            <v-icon end v-else>mdi-check</v-icon>
+          </v-btn>
+        </div>
+      </div>
+    </v-card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
 
-const props = defineProps<{
-  formData: any;  // 接收父組件數據
-}>();
+// Props definition
+const props = defineProps({
+  formData: {
+    type: Object,
+    default: () => ({})
+  },
+  currentStep: {
+    type: Number,
+    required: true
+  }
+});
 
-const emit = defineEmits(['update:formData', 'validated']);
-const localValid = ref(false);
+// Event emitters
+const emit = defineEmits(['update:formData', 'validated', 'go-back']);
+
+// Make isValid always true for demo
+const isValid = computed(() => true);
+
+// Form ref and validation state
 const form = ref(null);
+const localValid = ref(true); // Default to true for demo purposes
+
+// Navigation methods - simplified for localStorage demo
+const goToNextStep = async () => {
+  // Always update data before moving forward
+  updateFormData();
+
+  console.log('Emitting validated event for step 3');
+  emit('validated', { valid: true, step: 3 });
+};
+
+const goToPreviousStep = () => {
+  // Always update data before going back
+  updateFormData();
+
+  console.log('Going back from step 3');
+  emit('go-back'); // Make sure this matches what edit.vue expects
+};
 
 // 本地表單數據
 const localFormData = reactive({
@@ -290,7 +349,10 @@ const localFormData = reactive({
     totalPrice: number;
     remark: string;
     source: string;
-  }>
+  }>,
+
+  // Default valid state for demo
+  valid: true
 });
 
 // 選項
@@ -459,39 +521,16 @@ const removeFacility = (index: number) => {
   updateFormData();
 };
 
-// 更新父組件數據
+// 更新父組件數據 - modified for localStorage approach
 const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
-    valid: localValid.value
+    valid: true // Always set to true for demo
   });
 };
 
-// 表單驗證
-const validate = async () => {
-  const { valid } = await form.value.validate();
-
-  // 無論驗證結果如何，始終更新資料
-  updateFormData();
-
-  // 自定義驗證邏輯：至少添加一個設施
-  const hasAtLeastOneFacility = localFormData.facilities.length > 0;
-
-  // 返回最終驗證結果
-  const finalValid = valid && hasAtLeastOneFacility;
-
-  // 發送驗證事件
-  emit('validated', { valid: finalValid, step: 3 });
-
-  // 如果沒有設施，顯示錯誤提示
-  if (!hasAtLeastOneFacility && valid) {
-    // 您可以在這裡添加錯誤提示邏輯，例如使用 Vuetify 的 v-snackbar 或 alert
-    console.error('請至少添加一個設施');
-  }
-};
-
-// 初始化數據
+// 初始化數據 - enhanced for demo data
 onMounted(() => {
   // 從父組件接收數據
   if (props.formData) {
@@ -508,19 +547,34 @@ onMounted(() => {
     }
   }
 
-  // 如果設施列表為空，添加一個示例設施
-  if (localFormData.facilities.length === 0) {
-    localFormData.facilities.push({
-      type: 'power',
-      typeLabel: '動力設備',
-      name: '馬達+抽水機',
-      quantity: 1,
-      unitPrice: 4500,
-      totalPrice: 4500,
-      remark: '',
-      source: '農田水利署'
-    });
+  // 如果設施列表為空，添加示例設施數據
+  if (!localFormData.facilities || localFormData.facilities.length === 0) {
+    localFormData.facilities = [
+      {
+        type: 'power',
+        typeLabel: '動力設備',
+        name: '馬達+抽水機',
+        quantity: 1,
+        unitPrice: 4500,
+        totalPrice: 4500,
+        remark: '',
+        source: '農田水利署'
+      },
+      {
+        type: 'storage',
+        typeLabel: '調蓄設施',
+        name: '鋁合金-20噸',
+        quantity: 1,
+        unitPrice: 20000,
+        totalPrice: 20000,
+        remark: '示範用',
+        source: '農田水利署'
+      }
+    ];
   }
+
+  // Initial update to parent
+  updateFormData();
 });
 
 // 監聽父組件數據變化

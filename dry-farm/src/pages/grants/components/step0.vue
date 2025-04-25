@@ -1,24 +1,53 @@
 <template>
-  <div class="step-content" ref="stepContent">
-    <v-card class="mb-6 pa-0" flat>
+  <div
+    ref="stepContent"
+    class="step-content"
+  >
+    <v-card
+      class="mb-3 pa-0"
+      flat
+    >
       <v-card-text class="pb-0 pt-0">
-        <v-form ref="form" v-model="localValid" @submit.prevent>
+        <v-form
+          ref="form"
+          v-model="localValid"
+          @submit.prevent
+        >
           <!-- 申請人基本資料區塊 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-account-details</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-account-details
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">申請人基本資料</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
               <!-- 姓名與身分證區塊 -->
-              <v-sheet class="mb-3 pa-3 rounded" color="blue-grey-lighten-5">
+              <v-sheet
+                class="mb-3 pa-3 rounded"
+                color="blue-grey-lighten-5"
+              >
                 <div class="d-flex align-center mb-2">
-                  <v-icon size="small" class="me-2">mdi-card-account-details</v-icon>
+                  <v-icon
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-card-account-details
+                  </v-icon>
                   <span class="text-body-2 font-weight-medium">身分資訊</span>
                 </div>
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-text-field
                       v-model="localFormData.name"
                       label="申請人"
@@ -26,9 +55,12 @@
                       density="comfortable"
                       :rules="nameRules"
                       @update:model-value="updateFormData"
-                    ></v-text-field>
+                    />
                   </v-col>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-text-field
                       v-model="localFormData.id"
                       label="身分證字號"
@@ -36,74 +68,113 @@
                       density="comfortable"
                       :rules="idRules"
                       @update:model-value="updateFormData"
-                    ></v-text-field>
+                    />
                   </v-col>
                 </v-row>
               </v-sheet>
 
               <!-- 聯絡資訊區塊 -->
-              <v-sheet class="mb-3 pa-3 rounded" color="blue-grey-lighten-5">
+              <v-sheet
+                class="mb-3 pa-3 rounded"
+                color="blue-grey-lighten-5"
+              >
                 <div class="d-flex align-center mb-2">
-                  <v-icon size="small" class="me-2">mdi-phone</v-icon>
+                  <v-icon
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-phone
+                  </v-icon>
                   <span class="text-body-2 font-weight-medium">聯絡資訊</span>
                 </div>
                 <v-row>
                   <v-col cols="12">
                     <v-text-field
                       v-model="localFormData.phone"
+                      placeholder="請輸入手機號碼"
                       label="連絡電話"
                       variant="outlined"
                       density="comfortable"
                       :rules="phoneRules"
                       @update:model-value="updateFormData"
-                      placeholder="請輸入手機號碼"
-                    ></v-text-field>
+                    />
                   </v-col>
                 </v-row>
               </v-sheet>
 
-              <!-- 地址資訊區塊 -->
-              <v-sheet class="mb-3 pa-3 rounded" color="blue-grey-lighten-5">
+              <!-- 聯絡資訊區塊 -->
+              <v-sheet
+                class="mb-3 pa-3 rounded"
+                color="blue-grey-lighten-5"
+              >
                 <div class="d-flex align-center mb-2">
-                  <v-icon size="small" class="me-2">mdi-home</v-icon>
+                  <v-icon
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-home
+                  </v-icon>
                   <span class="text-body-2 font-weight-medium">通訊地址</span>
                 </div>
                 <v-row>
-                  <v-col cols="12" md="4">
+                  <v-col
+                    cols="12"
+                    md="4"
+                  >
                     <v-select
-                      v-model="localFormData.county"
+                      v-model="selectedCountyId"
                       label="縣市"
-                      :items="counties"
+                      :items="countyItems"
+                      item-title="title"
+                      item-value="value"
                       variant="outlined"
                       density="comfortable"
+                      :loading="domicileStore.isLoading"
                       :rules="[v => !!v || '請選擇縣市']"
-                      @update:model-value="onCountyChange"
-                    ></v-select>
+                      return-object
+                      @update:model-value="handleCountyChange"
+                    />
                   </v-col>
-                  <v-col cols="12" md="4">
+                  <v-col
+                    cols="12"
+                    md="4"
+                  >
                     <v-select
-                      v-model="localFormData.town"
+                      v-model="selectedTownId"
                       label="鄉鎮市區"
-                      :items="towns"
+                      :items="townItems"
+                      item-title="title"
+                      item-value="value"
                       variant="outlined"
                       density="comfortable"
+                      :loading="domicileStore.isLoading"
                       :rules="[v => !!v || '請選擇鄉鎮市區']"
-                      :disabled="!localFormData.county"
-                      @update:model-value="onTownChange"
-                    ></v-select>
+                      :disabled="!selectedCountyId"
+                      return-object
+                      @update:model-value="handleTownChange"
+                    />
                   </v-col>
-                  <v-col cols="12" md="4">
+                  <v-col
+                    cols="12"
+                    md="4"
+                  >
                     <v-select
-                      v-model="localFormData.village"
+                      v-model="selectedVillageId"
                       label="村里"
-                      :items="villages"
+                      :items="villageItems"
+                      item-title="title"
+                      item-value="value"
                       variant="outlined"
                       density="comfortable"
+                      :loading="domicileStore.isLoading"
                       :rules="[v => !!v || '請選擇村里']"
-                      :disabled="!localFormData.town"
-                    ></v-select>
+                      :disabled="!selectedTownId"
+                      return-object
+                      @update:model-value="handleVillageChange"
+                    />
                   </v-col>
                 </v-row>
+
                 <v-row>
                   <v-col cols="12">
                     <v-text-field
@@ -112,9 +183,9 @@
                       variant="outlined"
                       density="comfortable"
                       :rules="[v => !!v || '請輸入詳細地址']"
-                      @update:model-value="updateFormData"
                       placeholder="請輸入門牌號碼及其他地址資訊"
-                    ></v-text-field>
+                      @update:model-value="updateFormData"
+                    />
                   </v-col>
                 </v-row>
               </v-sheet>
@@ -124,33 +195,48 @@
           <!-- 承辦資訊區塊 -->
           <v-card variant="outlined">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-account-tie</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-account-tie
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">承辦資訊</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-text-field
-                      v-model="localFormData.manager"
+                      v-model="localFormData.undertracker"
                       label="承辦人"
                       variant="outlined"
                       density="comfortable"
                       :rules="[v => !!v || '請輸入承辦人']"
                       @update:model-value="updateFormData"
-                    ></v-text-field>
+                    />
                   </v-col>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-select
                       v-model="localFormData.department"
+                      disabled
                       label="管理處"
                       :items="departments"
                       variant="outlined"
                       density="comfortable"
                       :rules="[v => !!v || '請選擇管理處']"
                       @update:model-value="updateFormData"
-                    ></v-select>
+                    />
                   </v-col>
                 </v-row>
               </v-sheet>
@@ -160,26 +246,36 @@
       </v-card-text>
     </v-card>
 
-    <v-card class="step-navigation-card ma-0 pa-0" flat>
-      <div class="d-flex align-center pr-4">
-        <v-spacer></v-spacer>
+    <v-card
+      class="step-navigation-card ma-0 pa-0"
+      flat
+    >
+      <div class="d-flex align-center pr-4 mt-0 pt-0">
+        <v-spacer />
         <div class="navigation-buttons">
           <v-btn
-            color="green-darken-1"
+            color="primary"
+            class="mb-2"
+            size="large"
+            rounded="lg"
             :disabled="!isValid"
             @click="createProject"
-            size="large"
-            rounded="pill"
           >
             成案
-            <v-icon end>mdi-check</v-icon>
+            <v-icon end>
+              mdi-check
+            </v-icon>
           </v-btn>
         </div>
       </div>
     </v-card>
 
     <!-- 處理中對話框 -->
-    <v-dialog v-model="isProcessing" persistent width="300">
+    <v-dialog
+      v-model="isProcessing"
+      persistent
+      width="300"
+    >
       <v-card>
         <v-card-text class="text-center pa-5">
           <v-progress-circular
@@ -187,8 +283,10 @@
             color="primary"
             size="64"
             class="mb-3"
-          ></v-progress-circular>
-          <div class="text-body-1">建立專案中，請稍候...</div>
+          />
+          <div class="text-body-1">
+            建立專案中，請稍候...
+          </div>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -196,12 +294,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useUserStore } from '@/stores/users'
+import { useOfficesStore } from '@/stores/offices'
+import { useDomicileStore } from '@/stores/domicile'
+import { useGrantsStore } from '@/stores/grants'
+
+
+const userStore = useUserStore()
+const officesStore = useOfficesStore()
+const domicileStore = useDomicileStore()
+const grantsStore = useGrantsStore()
 
 const router = useRouter();
 const props = defineProps<{
-  formData: any;  // 接收父組件數據，如果有的話
+  formData: {
+    name?: string;
+    id?: string;
+    phone?: string;
+    county?: string;
+    town?: string;
+    village?: string;
+    address?: string;
+    undertracker?: string;
+    department?: string | null;
+    valid?: boolean;
+    countyId?: string | null; // Add countyId to the type definition
+    townId?: string | null;   // Add townId to the type definition
+    villageId?: string | null; // Add villageId to the type definition
+  };  // 接收父組件數據，如果有的話
 }>();
 
 const emit = defineEmits(['update:formData', 'projectCreated']);
@@ -209,18 +329,27 @@ const localValid = ref(false);
 const form = ref(null);
 const isProcessing = ref(false);
 
-// 本地表單數據
+// Form data - now includes both text values and IDs
 const localFormData = reactive({
   name: '',
   id: '',
   phone: '',
-  county: '',
-  town: '',
-  village: '',
+  county: '',       // Text value for display
+  countyId: null,   // ID value for relationships
+  town: '',         // Text value for display
+  townId: null,     // ID value for relationships
+  village: '',      // Text value for display
+  villageId: null,  // ID value for relationships
   address: '',
-  manager: '',
-  department: ''
-});
+  undertracker: '',
+  department: computed(() => userStore.currentUser?.office?.name || null),
+  departmentId: computed(() => userStore.currentUser?.office?.id || null)
+})
+
+// For the v-select components
+const selectedCountyId = ref<{ title: string; value: number } | null>(null)
+const selectedTownId = ref<{ title: string; value: number } | null>(null)
+const selectedVillageId = ref<{ title: string; value: number } | null>(null)
 
 // 驗證規則
 const nameRules = [
@@ -238,67 +367,94 @@ const phoneRules = [
   (v: string) => /^09\d{8}$/.test(v) || '手機號碼格式不正確'
 ];
 
-// 地址相關數據
-const counties = [
-  '臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '苗栗縣',
-  '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '臺南市',
-  '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣'
-];
+// County dropdown items
+const countyItems = computed(() => {
+  return domicileStore.countyOptions.map(county => ({
+    title: county.title,
+    value: county.value
+  }))
+})
 
-const townsMap = reactive<Record<string, string[]>>({
-  '嘉義縣': ['太保市', '朴子市', '布袋鎮', '大林鎮', '民雄鄉', '溪口鄉', '新港鄉', '六腳鄉', '東石鄉', '義竹鄉', '鹿草鄉', '水上鄉', '中埔鄉', '竹崎鄉', '梅山鄉', '番路鄉', '大埔鄉', '阿里山鄉'],
-  // 其他縣市的鄉鎮區資料可以根據需要添加
-});
+// Town dropdown items (filtered by selected county)
+const townItems = computed(() => {
+  if (!selectedCountyId.value) return []
+  return domicileStore.getTownsForCountyId(selectedCountyId.value?.value).map(town => ({
+    title: town.title,
+    value: town.value
+  }))
+})
 
-const villagesMap = reactive<Record<string, Record<string, string[]>>>({
-  '嘉義縣': {
-    '竹崎鄉': ['龍山村', '灣橋村', '義仁村', '和平村', '塘興村', '光華村', '白杞村', '中和村', '鹿滿村']
-    // 其他鄉鎮的村里資料
-  }
-});
+// Village dropdown items (filtered by selected town)
+const villageItems = computed(() => {
+  if (!selectedTownId.value) return []
+  return domicileStore.getVillagesForTownId(selectedTownId.value?.value).map(village => ({
+    title: village.title,
+    value: village.value
+  }))
+})
+
+
+const handleCountyChange = async (county: County | null): Promise<void> => {
+  if (!county) return
+
+  // Reset dependent fields
+  selectedTownId.value = null
+  selectedVillageId.value = null
+  localFormData.town = ''
+  localFormData.townId = null
+  localFormData.village = ''
+  localFormData.villageId = null
+
+  // Update form data with selected county
+  localFormData.county = county.title
+  localFormData.countyId = county.value
+
+  // Load towns for this county
+  await domicileStore.loadTownsByCountyId(county.value)
+  updateFormData()
+}
+
+// Handle town selection change
+const handleTownChange = async (town) => {
+  if (!town) return
+
+  // Reset dependent fields
+  selectedVillageId.value = null
+  localFormData.village = ''
+  localFormData.villageId = null
+
+  // Update form data with selected town
+  localFormData.town = town.title
+  localFormData.townId = town.value
+
+  // Load villages for this town
+  await domicileStore.loadVillagesByTownId(town.value)
+  updateFormData()
+}
+
+// Handle village selection change
+const handleVillageChange = (village) => {
+  if (!village) return
+
+  // Update form data with selected village
+  localFormData.village = village.title
+  localFormData.villageId = village.value
+  updateFormData()
+}
 
 // 管理處列表
-const departments = [
-  '宜蘭管理處', '北基管理處', '桃園管理處', '石門管理處', '新竹管理處',
-  '苗栗管理處', '臺中管理處', '南投管理處', '彰化管理處', '雲林管理處',
-  '嘉南管理處', '高雄管理處', '屏東管理處', '臺東管理處', '花蓮管理處',
-  '七星管理處', '瑠公管理處'
-];
+const departments = computed(() => officesStore.items)
 
-// 計算屬性
-const towns = computed(() => {
-  return localFormData.county ? (townsMap[localFormData.county] || []) : [];
-});
+// With this filtered version:
+// const departments = computed(() =>
+//   officesStore.items.filter(item => item.raw?.classification === 1 || item.classification === 1)
+// )
 
-const villages = computed(() => {
-  if (!localFormData.county || !localFormData.town) return [];
-  return (villagesMap[localFormData.county]?.[localFormData.town]) || [];
-});
 
 const isValid = computed(() => {
   return localValid.value;
 });
 
-// 方法
-const onCountyChange = () => {
-  localFormData.town = '';
-  localFormData.village = '';
-  updateFormData();
-};
-
-const onTownChange = () => {
-  localFormData.village = '';
-  updateFormData();
-};
-
-// 更新父組件數據
-const updateFormData = () => {
-  emit('update:formData', {
-    ...props.formData,
-    ...localFormData,
-    valid: localValid.value
-  });
-};
 
 // 表單驗證
 const validate = async () => {
@@ -311,65 +467,158 @@ const validate = async () => {
 
 // 建立專案
 const createProject = async () => {
-  const valid = await validate();
-  if (!valid) return;
+  const valid = await validate()
+  if (!valid) return
 
-  isProcessing.value = true;
+  isProcessing.value = true
 
   try {
+    const projectData = {
+      applicant_name: localFormData.name,
+      applicant_id: localFormData.id,
+      applicant_phone: localFormData.phone,
+      county: localFormData.county,
+      county_id: Number(localFormData.countyId),
+      town: localFormData.town,
+      townId: Number(localFormData.townId),
+      village: localFormData.village,
+      village_id: localFormData.villageId ? Number(localFormData.villageId) : undefined,
+      address: localFormData.address,
+      undertracker: localFormData.undertracker,
+      office: localFormData.department || '',
+      office_id: Number(localFormData.departmentId)
+    }
+
+    console.log('Sending to API:', JSON.stringify(projectData));
+
+    // Call the store action to create the project
+    const result = await grantsStore.createProject(projectData)
+
+    // Emit event for parent components
+    emit('projectCreated', {
+      projectId: result.case_number,
+      data: { ...localFormData }
+    })
+
+    // Navigate to the edit page
+    router.push({
+      path: '/grants/edit',
+      query: { id: result.case_number }
+    });
+  } catch (error) {
+    console.error('創建專案失敗', error);
+    // You could add a toast/notification here
+  } finally {
+    isProcessing.value = false;
+  }
+
     // 這裡應該調用後端 API 建立專案
     // 例如: const response = await axios.post('/api/projects/create', localFormData);
 
     // 模擬 API 呼叫延遲
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // await new Promise(resolve => setTimeout(resolve, 1500));
 
     // 假設後端返回了一個專案 ID
-    const projectId = '113010001'; // 這個值應該從後端 API 響應中獲取
+    // const projectId = '113010001'; // 這個值應該從後端 API 響應中獲取
 
     // 觸發專案創建成功事件
-    emit('projectCreated', {
-      projectId,
-      data: { ...localFormData }
-    });
+    // emit('projectCreated', {
+      // projectId,
+      // data: { ...localFormData }
+    // });
 
     // 導航到專案編輯頁面
-    router.push({
-      name: 'grant-edit',
-      params: { id: projectId }
-    });
-  } catch (error) {
-    console.error('創建專案失敗', error);
+    // router.push({
+      // name: 'grant-edit',
+      // params: { id: projectId }
+    // });
+  // } catch (error) {
+    // console.error('創建專案失敗', error);
     // 處理錯誤情況，例如顯示錯誤提示
-  } finally {
-    isProcessing.value = false;
-  }
+  // } finally {
+    // isProcessing.value = false;
+  // }
 };
 
 // 初始化數據
-onMounted(() => {
-  // 從父組件接收數據（如果有的話）
+// onMounted(async () => {
+//   await domicileStore.initializeStore()
+
+//   localFormData.undertracker = userStore.userFullName
+//   // 從父組件接收數據（如果有的話）
+//   // if (props.formData) {
+//   //   Object.keys(localFormData).forEach(key => {
+//   //     if (props.formData[key] !== undefined) {
+//   //       localFormData[key] = props.formData[key];
+//   //     }
+//   //   });
+//   // }
+
+//   // Handle any existing parent data
+//   // if (props.formData) {
+//   //   Object.keys(localFormData).forEach(key => {
+//   //     if (props.formData[key] !== undefined) {
+//   //       localFormData[key] = props.formData[key];
+//   //     }
+//   //   });
+//   // }
+
+//   // Ensure office data is loaded
+//   // if (!officesStore.isOfficesLoaded) {
+//   //   officesStore.fetchOffices()
+//   // }
+// });
+
+// Initialize form data
+onMounted(async () => {
+  // Initialize the domicile store
+  await domicileStore.initializeStore()
+
+  // Set default values from user
+  localFormData.undertracker = userStore.userFullName
+
+  // Restore previous selections if available
   if (props.formData) {
-    Object.keys(localFormData).forEach(key => {
-      if (props.formData[key] !== undefined) {
-        localFormData[key] = props.formData[key];
+    if (props.formData.countyId) {
+      const county = domicileStore.getCountyById(Number(props.formData.countyId))
+      if (county) {
+        selectedCountyId.value = { title: county.name, value: county.id }
+        await domicileStore.loadTownsByCountyId(county.id)
       }
-    });
+    }
+
+    if (props.formData.townId) {
+      const town = domicileStore.getTownById(Number(props.formData.townId))
+      if (town) {
+        selectedTownId.value = { title: town.name, value: town.id }
+        await domicileStore.loadVillagesByTownId(town.id)
+      }
+    }
+
+    if (props.formData.villageId) {
+      const villages = domicileStore.getVillagesForTownId(Number(props.formData.townId))
+      const village = villages.find(v => v.value === Number(props.formData.villageId))
+      if (village) {
+        selectedVillageId.value = { title: village.title, value: village.value }
+      }
+    }
   }
-});
+})
 
 // 監聽父組件數據變化
-watch(() => props.formData, (newVal) => {
-  if (newVal) {
-    Object.keys(localFormData).forEach(key => {
-      if (newVal[key] !== undefined && newVal[key] !== localFormData[key]) {
-        localFormData[key] = newVal[key];
-      }
-    });
-  }
-}, { deep: true });
+// watch(() => props.formData, (newVal) => {
+//   if (newVal) {
+//     Object.keys(localFormData).forEach(key => {
+//       if (newVal[key] !== undefined && newVal[key] !== localFormData[key]) {
+//         localFormData[key] = newVal[key];
+//       }
+//     });
+//   }
+// }, { deep: true });
 
 // 監聽本地數據變化，更新父組件
 watch(localFormData, () => {
+  console.log('localFormData changed:', localFormData)
   updateFormData();
 }, { deep: true });
 
@@ -379,6 +628,28 @@ watch(localValid, (newVal) => {
     updateFormData();
   }
 });
+watchEffect(() => {
+  // This will automatically run whenever user data changes
+  // and update the field immediately
+  if (userStore.userFullName) {
+    // localFormData.undertracker = userStore.userFullName;
+  }
+
+  // Update department when office data is available
+  // if (userStore.currentUser?.office?.id) {
+  //   const officeId = userStore.currentUser.office.id;
+  //   localFormData.department = officeId;
+  // }
+})
+
+// Update parent form data
+const updateFormData = () => {
+  emit('update:formData', {
+    ...props.formData,
+    ...localFormData,
+    valid: localValid.value
+  })
+}
 </script>
 
 <style scoped>

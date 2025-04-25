@@ -207,17 +207,29 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
 
-const props = defineProps<{
-  formData: any;  // 接收父組件資料
-  currentStep: number;
-}>();
+const props = defineProps({
+  formData: {
+    type: Object,
+    default: () => ({})
+  },
+  currentStep: {
+    type: Number,
+    required: true
+  }
+});
 
-const emit = defineEmits(['update:formData', 'validated', 'goBack']);
-const localValid = ref(false);
+// Use correct event names to match edit.vue
+const emit = defineEmits(['update:formData', 'validated', 'go-back']);
+
+// Set default valid state to true for demo
+const localValid = ref(true);
 const form = ref(null);
 const datePickerDialog = ref(false);
 
-// 本地表单数据
+// Create isValid computed property that always returns true for demo
+const isValid = computed(() => true);
+
+// 本地表單數據
 const localFormData = reactive({
   inspector: '',
   inspectionResult: '',
@@ -227,7 +239,8 @@ const localFormData = reactive({
   beforeConstructionPhoto: null,
   afterConstructionPhoto: null,
   beforePhotoPreview: null,
-  afterPhotoPreview: null
+  afterPhotoPreview: null,
+  valid: true // Always set to true for demo
 });
 
 // 驗證規則
@@ -240,73 +253,65 @@ const reasonRules = computed(() => {
 
 const photoRules = [v => !!v || '請上傳照片'];
 
-// 处理照片预览
+// 处理照片预览 (simplified to handle string URLs stored in localStorage)
 const handlePhotoChange = (type: 'before' | 'after') => {
   const file = type === 'before'
     ? localFormData.beforeConstructionPhoto
     : localFormData.afterConstructionPhoto;
 
   if (file) {
-    // 清除之前的預覽
-    if (type === 'before') {
-      if (localFormData.beforePhotoPreview) {
-        URL.revokeObjectURL(localFormData.beforePhotoPreview);
+    // Only create object URLs for actual File objects
+    if (file instanceof File) {
+      // 清除之前的預覽
+      if (type === 'before') {
+        if (localFormData.beforePhotoPreview && localFormData.beforePhotoPreview.startsWith('blob:')) {
+          URL.revokeObjectURL(localFormData.beforePhotoPreview);
+        }
+        localFormData.beforePhotoPreview = URL.createObjectURL(file);
+      } else {
+        if (localFormData.afterPhotoPreview && localFormData.afterPhotoPreview.startsWith('blob:')) {
+          URL.revokeObjectURL(localFormData.afterPhotoPreview);
+        }
+        localFormData.afterPhotoPreview = URL.createObjectURL(file);
       }
-      localFormData.beforePhotoPreview = URL.createObjectURL(file);
-    } else {
-      if (localFormData.afterPhotoPreview) {
-        URL.revokeObjectURL(localFormData.afterPhotoPreview);
-      }
-      localFormData.afterPhotoPreview = URL.createObjectURL(file);
     }
   }
 
   updateFormData();
 };
 
-// 上一步
+// Navigate to previous step - simplified for localStorage demo
 const goToPreviousStep = () => {
-  if (props.currentStep > 1) {
-    emit('goBack');
-  }
+  // Always update data before going back
+  updateFormData();
+
+  console.log('Going back from step 5');
+  emit('go-back'); // FIXED: use 'go-back' to match edit.vue
 };
 
-// 下一步
+// Navigate to next step - simplified for localStorage demo
 const goToNextStep = async () => {
-  const { valid } = await form.value.validate();
-  if (valid) {
-    updateFormData();
-    emit('validated', { valid, step: 5 });
-  }
+  // Always update data before moving forward
+  updateFormData();
+
+  console.log('Emitting validated event for step 5');
+  emit('validated', { valid: true, step: 5 });
 };
 
-// 计算是否有效，用于启用/禁用下一步按钮
-const isValid = computed(() => {
-  return localValid.value;
-});
-
-// 更新父组件数据
+// 更新父組件數據 - modified for localStorage approach
 const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
-    valid: localValid.value
+    valid: true // Always set to true for demo
   });
 };
 
-// 表单验证
-const validate = async () => {
-  const { valid } = await form.value.validate();
-  if (valid) {
-    updateFormData();
-  }
-  emit('validated', { valid, step: 5 });
-};
-
-// 初始化数据
+// 初始化數據 - enhanced for demo data
 onMounted(() => {
-  // 设置初始数据
+  // 從父組件接收數據
   if (props.formData) {
+    // 設置基本屬性
     Object.keys(localFormData).forEach(key => {
       if (props.formData[key] !== undefined) {
         localFormData[key] = props.formData[key];
@@ -314,34 +319,60 @@ onMounted(() => {
     });
   }
 
-  // 设置默认勘查日期（如果未设置）
+  // 設置默認勘查日期（如果未設置）
   if (!localFormData.inspectionDate) {
-    // 使用当前日期
+    // 使用當前日期
     const today = new Date();
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
-    localFormData.inspectionDate = `${year}/${month}/${day}`;
+    localFormData.inspectionDate = `${year}-${month}-${day}`;
   }
+
+  // Set example data for demo
+  if (!localFormData.inspector) {
+    localFormData.inspector = '張工程師';
+  }
+
+  if (!localFormData.inspectionResult) {
+    localFormData.inspectionResult = 'comply';
+  }
+
+  if (!localFormData.remarks) {
+    localFormData.remarks = '設施符合規定，農地平整，排水良好。';
+  }
+
+  // Set example photo previews if none exist
+  if (!localFormData.beforePhotoPreview) {
+    localFormData.beforePhotoPreview = 'https://via.placeholder.com/400x300?text=施工前照片示例';
+  }
+
+  if (!localFormData.afterPhotoPreview) {
+    localFormData.afterPhotoPreview = 'https://via.placeholder.com/400x300?text=施工後照片示例';
+  }
+
+  // Initial update to parent
+  updateFormData();
 });
 
-// 监听父组件数据变化
+// 監聽父組件數據變化
 watch(() => props.formData, (newVal) => {
   if (newVal) {
     Object.keys(localFormData).forEach(key => {
-      if (newVal[key] !== undefined && newVal[key] !== localFormData[key]) {
+      if (newVal[key] !== undefined &&
+          JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
         localFormData[key] = newVal[key];
       }
     });
   }
 }, { deep: true });
 
-// 监听本地数据变化，更新父组件
+// 監聽本地數據變化，更新父組件
 watch(localFormData, () => {
   updateFormData();
 }, { deep: true });
 
-// 监听本地表单验证状态
+// 監聽本地表單驗證狀態
 watch(localValid, (newVal) => {
   if (props.formData?.valid !== newVal) {
     updateFormData();

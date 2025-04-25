@@ -5,9 +5,6 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
-# HTTPNotFoundError is a custom exception class that is used to raise an HTTP 404 error when a resource is not found.
-# from tortoise.contrib.fastapi import HTTPNotFoundError
-
 import src.crud.users as crud
 from src.auth.users import validate_user
 from src.schemas.token import Status

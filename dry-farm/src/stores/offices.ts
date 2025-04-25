@@ -167,6 +167,17 @@ export const useOfficesStore = defineStore('offices', () => {
     }))
   })
 
+  // Add this computed property
+  const managementOffices = computed(() => {
+    return [...offices.value]
+      .filter(office => office.classification === 1)
+      .map(office => ({
+        title: office.name,
+        value: office.id,
+        classification: office.classification
+      }))
+  })
+
   // Initialize store - preload commonly used data
   const initializeStore = async () => {
     if (!isOfficesLoaded.value) {
@@ -192,6 +203,7 @@ export const useOfficesStore = defineStore('offices', () => {
     officeOptions,
     officeSelectItems,
     items,
+    managementOffices,
 
     // Actions
     fetchOffices,

@@ -1,8 +1,32 @@
 <template>
-  <v-container  class="pt-0">
+  <v-container class="pt-0 mb-10">
+    <!-- Loading indicator -->
+    <v-overlay
+      v-if="!isDataLoaded"
+      :value="!isDataLoaded"
+      class="d-flex align-center justify-center"
+    >
+      <v-progress-circular
+        indeterminate
+        size="64"
+        color="primary"
+      />
+      <span class="ml-4 text-h6">載入資料中...</span>
+    </v-overlay>
+
+    <!-- Error display -->
+    <v-alert
+      v-if="grantsStore.error"
+      type="error"
+      class="mb-4"
+    >
+      {{ grantsStore.error }}
+    </v-alert>
+
+    <!-- Step navigation -->
     <v-snackbar
-      timeout="-1"
       v-model="isSnackbarVisible"
+      timeout="-1"
       variant="plain"
       class="ma-0 pa-0"
       max-width="1200"
@@ -18,43 +42,51 @@
           max-height="50"
         >
           <v-stepper-header>
-            <template v-for="step in steps" :key="step.value">
+            <template
+              v-for="step in steps"
+              :key="step.value"
+            >
               <v-stepper-item
                 :value="step.value"
                 :title="step.title"
                 class="pa-3 ml-3 mr-3"
                 rounded="lg"
                 :ripple="false"
-              >
-              </v-stepper-item>
-              <v-divider v-if="step.value > 0 && step.value < 8"></v-divider>
+              />
+              <v-divider
+                v-if="step.value > 0 && step.value < 8"
+              />
             </template>
           </v-stepper-header>
         </v-stepper>
       </v-card>
     </v-snackbar>
 
+    <!-- Main content area with vertical stepper -->
     <div ref="stepperContainer">
       <v-stepper-vertical
-        v-model="currentStep"
+        v-model="displayStep"
         hide-actions
       >
-        <template v-for="step in steps" :key="step.value">
+        <template
+          v-for="step in steps"
+          :key="step.value"
+        >
           <v-stepper-vertical-item
-            :complete=" currentStep > step.value"
-            :step="`Step {{ step.value }}`"
+            :complete="currentStep > step.value"
+            :step="`Step ${step.value}`"
             :value="step.value"
             editable
+            @click="handleStepClick(step.value)"
           >
-              <template #icon>
-                <v-icon size="24">
-                  {{ currentStep > step.value ? 'mdi-check-circle' : 'mdi-circle-outline' }}
-                  {{ currentStep === step.value ? 'mdi-circle' : '' }}
-                  {{ currentStep < step.value ? 'mdi-circle-outline' : '' }}
-                  {{ currentStep === step.value && !submitting ? 'mdi-circle' : '' }}
-                  {{ submitting ? 'mdi-loading' : '' }}
-                </v-icon>
-              </template>
+            <template #icon>
+              <v-icon size="24">
+                {{ currentStep > step.value ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+                {{ currentStep === step.value ? 'mdi-circle' : '' }}
+                {{ currentStep < step.value ? 'mdi-circle-outline' : '' }}
+                {{ submitting ? 'mdi-loading' : '' }}
+              </v-icon>
+            </template>
             <template #subtitle>
               <div class="d-flex align-center">
                 <span
@@ -75,14 +107,71 @@
                 </v-icon>
               </div>
             </template>
-            <step1 v-if="step.value === 1" :formData="forms.step1" />
-            <step2 v-if="step.value === 2" :formData="forms.step2" />
-            <step3 v-if="step.value === 3" :formData="forms.step3" />
-            <step4 v-if="step.value === 4" :formData="forms.step4" />
-            <step5 v-if="step.value === 5" :formData="forms.step5" />
-            <step6 v-if="step.value === 6" :formData="forms.step6" />
-            <step7 v-if="step.value === 7" :formData="forms.step7" />
-            <step8 v-if="step.value === 8" :formData="forms.step8" />
+
+            <!-- Step components -->
+            <step1
+              v-if="step.value === 1 && currentStep === 1"
+              :form-data="grantsStore.formData[1]"
+              @update:form-data="grantsStore.updateFormData(1, $event)"
+              @validated="handleStepValidated"
+              @go-back="handleGoBack"
+            />
+            <step2
+              v-if="step.value === 2 && currentStep === 2"
+              :form-data="grantsStore.formData[2]"
+              :current-step="currentStep"
+              @update:form-data="grantsStore.updateFormData(2, $event)"
+              @validated="handleStepValidated"
+              @go-back="handleGoBack"
+            />
+            <step3
+              v-if="step.value === 3 && currentStep === 3"
+              :form-data="grantsStore.formData[3]"
+              :current-step="currentStep"
+              @update:form-data="grantsStore.updateFormData(3, $event)"
+              @validated="handleStepValidated"
+              @go-back="handleGoBack"
+            />
+            <step4
+              v-if="step.value === 4 && currentStep === 4"
+              :form-data="grantsStore.formData[4]"
+              :current-step="currentStep"
+              @update:form-data="grantsStore.updateFormData(4, $event)"
+              @validated="handleStepValidated"
+              @go-back="handleGoBack"
+            />
+            <step5
+              v-if="step.value === 5 && currentStep === 5"
+              :form-data="grantsStore.formData[5]"
+              :current-step="currentStep"
+              @update:form-data="grantsStore.updateFormData(5, $event)"
+              @validated="handleStepValidated"
+              @go-back="handleGoBack"
+            />
+            <step6
+              v-if="step.value === 6 && currentStep === 6"
+              :form-data="grantsStore.formData[6]"
+              :current-step="currentStep"
+              @update:form-data="grantsStore.updateFormData(6, $event)"
+              @validated="handleStepValidated"
+              @go-back="handleGoBack"
+            />
+            <step7
+              v-if="step.value === 7 && currentStep === 7"
+              :form-data="grantsStore.formData[7]"
+              :current-step="currentStep"
+              @update:form-data="grantsStore.updateFormData(7, $event)"
+              @validated="handleStepValidated"
+              @go-back="handleGoBack"
+            />
+            <step8
+              v-if="step.value === 8 && currentStep === 8"
+              :form-data="grantsStore.formData[8]"
+              :current-step="currentStep"
+              @update:form-data="grantsStore.updateFormData(8, $event)"
+              @validated="handleStepValidated"
+              @go-back="handleGoBack"
+            />
           </v-stepper-vertical-item>
         </template>
       </v-stepper-vertical>
@@ -90,9 +179,14 @@
   </v-container>
 </template>
 
-<script lang="ts" setup>
+<script setup lang="ts">
 import { useDisplay } from 'vuetify'
 import { VStepperVerticalItem } from 'vuetify/labs/VStepperVertical'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import { useGrantsStore } from '@/stores/grants'
+import { GrantStorage } from '@/utils/grant-storage'
+
+// Import step components
 import step1 from './components/step1.vue'
 import step2 from './components/step2.vue'
 import step3 from './components/step3.vue'
@@ -102,20 +196,25 @@ import step6 from './components/step6.vue'
 import step7 from './components/step7.vue'
 import step8 from './components/step8.vue'
 
-const appRouter = useRouter()
+// Setup
 const route = useRoute()
+const router = useRouter()
 const { name } = useDisplay()
 const isSmallScreen = computed(() => name.value === 'xs' || name.value === 'sm')
+const grantsStore = useGrantsStore()
 
+// State refs
 const currentStep = ref(1)
 const isSnackbarVisible = ref(true)
 const displayStep = ref(1)
-
 const submitting = ref(false)
+const isDataLoaded = ref(false)
+const hasUnsavedChanges = ref(false)
+const isNavigating = ref(false)
 
-// Ensure this is the only declaration of `steps`
+// Step definitions
 const steps = [
-  { title: '申請人資料', value: 1 , subtitle: '申請人資料' },
+  { title: '申請人資料', value: 1, subtitle: '申請人資料' },
   { title: '土地資料', value: 2, subtitle: '請填寫土地資料' },
   { title: '灌溉調控設施', value: 3, subtitle: '請填寫灌溉調控設施' },
   { title: '田間管路', value: 4, subtitle: '請填寫田間管路' },
@@ -124,326 +223,437 @@ const steps = [
   { title: '變更設計及結案申報', value: 7, subtitle: '請填寫變更設計及結案申報' },
   { title: '佐證及相關文件上傳', value: 8, subtitle: '請上傳佐證及相關文件' }
 ]
-// 定義表單數據的類型
-interface Step1Form {
-  valid: boolean
-  name: string
-  id: string
-  phone: string
-  address: string
-  manager: string
-}
 
-interface Step2Form {
-  valid: boolean
-  landData: any[] // Replace `any` with a more specific type if available
-}
+// Step validation handling v2
+// const handleStepValidated = async ({ valid, step }) => {
+//   if (valid) {
+//     try {
+//       submitting.value = true
 
-// ... 定義其他步驟的表單數據類型
+//       // Save current step data
+//       await saveCurrentStepData()
 
-interface Forms {
-  step1: Step1Form
-  step2: Step2Form
-  // ... 其他步驟的表單數據
-}
+//       // Proceed to next step if not on the last step
+//       if (step < steps.length) {
+//         currentStep.value = step + 1
+//         displayStep.value = currentStep.value
 
-// 定義步驟的類型
-interface Step {
-  title: string
-  value: number
-}
-
-// 定義表單參考的類型
-interface FormRef {
-  validate: () => Promise<{ valid: boolean }>
-}
-
-// 定義文件上傳的驗證規則類型
-type Rule = (value: any) => boolean | string
-
-// 表單數據
-const forms: Forms = reactive({
-  step1: { valid: false, name: '', id: '', phone: '', address: '', manager: '' },
-  step2: { valid: false, landData: [] },
-  // ... 其他步驟的表單數據
-})
-
-// 表單驗證規則
-const nameRules = [(v: any) => !!v || '請填寫申請人姓名']
-const idRules = [(v: any) => !!v || '請填寫身分證字號', (v: string) => /^[A-Z][12]\d{8}$/.test(v) || '身分證字號格式不正確']
-// ... 其他驗證規則
-
-// 表單參考
-const form1 = ref(null)
-// ... 其他表單參考
-
-
-// 保存步驟數據
-// const saveStepData = async (step) => {
-//   // 將相應步驟的數據發送到後端
-//   // return axios.post(`/api/grants/new/step${step}`, forms[`step${step}`])
+//         // Update URL and load data for the next step
+//         updateStepInURL(currentStep.value)
+//         await loadStepData(currentStep.value)
+//       } else {
+//         // Complete the form if this was the last step
+//         router.push('/grants')
+//       }
+//     } catch (error) {
+//       console.error('Error saving step data:', error)
+//     } finally {
+//       submitting.value = false
+//     }
+//   }
 // }
 
-// 提交整個表單
-const submitForm = async () => {
+// Step validation handling - No validation for steps 2-8
+const handleStepValidated = async ({ valid, step }) => {
+  if (valid && !isNavigating.value) {
+    try {
+      isNavigating.value = true
+      submitting.value = true
+
+      // Save current step data
+      await saveCurrentStepData()
+
+      // Wait a moment to ensure data is saved
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Proceed to next step if not on the last step
+      if (step < steps.length) {
+        currentStep.value = step + 1
+        displayStep.value = currentStep.value
+
+        // Update URL and load data for the next step
+        updateStepInURL(currentStep.value)
+        await loadStepData(currentStep.value)
+      } else {
+        // Complete the form if this was the last step
+        router.push('/grants')
+      }
+    } catch (error) {
+      console.error('Error saving step data:', error)
+    } finally {
+      submitting.value = false
+      // Add a delay before allowing navigation again
+      setTimeout(() => {
+        isNavigating.value = false
+      }, 500)
+    }
+  }
+}
+// Step click handler v2
+// const handleStepClick = (stepValue) => {
+//   // console.log('Step clicked:', stepValue, currentStep.value)
+//   // if (stepValue === currentStep.value) return; // Skip if clicking current step
+
+//   saveCurrentStepData().then(() => {
+//     // Update both current step and display step
+//     currentStep.value = stepValue;
+//     displayStep.value = stepValue;
+
+//     // Update URL and load data
+//     updateStepInURL(stepValue);
+//     loadStepData(stepValue);
+//   }).catch(error => {
+//     console.error('Failed to save data before step change:', error);
+//   });
+// };
+
+const handleStepClick = (stepValue) => {
+  if (stepValue === currentStep.value || isNavigating.value) return // Skip if clicking current step or already navigating
+
+  isNavigating.value = true
+
+  saveCurrentStepData().then(() => {
+    // Update both current step and display step
+    currentStep.value = stepValue;
+    displayStep.value = stepValue;
+
+    // Update URL and load data
+    updateStepInURL(stepValue);
+    loadStepData(stepValue);
+
+    setTimeout(() => {
+      isNavigating.value = false
+    }, 500)
+  }).catch(error => {
+    console.error('Failed to save data before step change:', error);
+    isNavigating.value = false
+  });
+};
+
+// Go back handler for step navigation v2
+// const handleGoBack = async () => {
+//   if (currentStep.value > 1) {
+//     try {
+//       submitting.value = true
+
+//       // Save current step before going back
+//       await saveCurrentStepData()
+
+//       // Go to previous step
+//       currentStep.value -= 1
+//       displayStep.value = currentStep.value
+
+//       // Update URL and load previous step data
+//       updateStepInURL(currentStep.value)
+//       await loadStepData(currentStep.value)
+//     } catch (error) {
+//       console.error('Error saving step data before going back:', error)
+//     } finally {
+//       submitting.value = false
+//     }
+//   }
+// }
+
+// Go back handler for step navigation v3
+const handleGoBack = async () => {
+  if (currentStep.value > 1 && !isNavigating.value) {
+    try {
+      isNavigating.value = true
+      submitting.value = true
+
+      // Save current step before going back
+      await saveCurrentStepData()
+
+      // Go to previous step
+      currentStep.value -= 1
+      displayStep.value = currentStep.value
+
+      // Update URL and load previous step data
+      updateStepInURL(currentStep.value)
+      await loadStepData(currentStep.value)
+    } catch (error) {
+      console.error('Error saving step data before going back:', error)
+    } finally {
+      submitting.value = false
+      setTimeout(() => {
+        isNavigating.value = false
+      }, 500)
+    }
+  }
+}
+
+// // Load data for a specific step v2
+// const loadStepData = async (step: number) => {
+//   if (!route.query.id) return
+
+//   const caseNumber = route.query.id as string
+//   submitting.value = true
+
+//   try {
+//     await grantsStore.loadStepData(caseNumber, step)
+//     hasUnsavedChanges.value = false
+//   } catch (error) {
+//     console.error(`Failed to load data for step ${step}:`, error)
+//   } finally {
+//     submitting.value = false
+//   }
+// }
+
+// Load data for a specific step v3
+const loadStepData = async (step: number) => {
+  if (!route.query.id) return
+
+  const caseNumber = route.query.id as string
   submitting.value = true
+  isDataLoaded.value = false
+
   try {
-    // 提交完整的申請
-    // await axios.post('/api/grants/new/submit', forms)
-    // 成功後導航
-    appRouter.push('/grants')
+    if (step === 1) {
+      // Step 1 loads from the API
+      await grantsStore.loadStepData(caseNumber, step)
+    } else {
+      // Steps 2-8 load from localStorage
+      const stepData = GrantStorage.getStepData(caseNumber, step) || {}
+      grantsStore.formData[step] = stepData
+
+      // If no data exists yet for this step, initialize with empty object
+      if (Object.keys(stepData).length === 0) {
+        grantsStore.formData[step] = {}
+      }
+    }
+
+    hasUnsavedChanges.value = false
+    isDataLoaded.value = true
   } catch (error) {
-    // 處理錯誤
+    console.error(`Failed to load data for step ${step}:`, error)
   } finally {
     submitting.value = false
   }
 }
 
-// 檢查是否有未保存的更改
-const hasUnsavedChanges = computed(() => {
-  // 比較當前表單數據與保存的表單數據
-  const savedForms = localStorage.getItem('grantForms')
-  if (savedForms) {
-    try {
-      const parsedForms = JSON.parse(savedForms)
-      return JSON.stringify(forms) !== JSON.stringify(parsedForms)
-    } catch (e) {
-      console.error('無法解析已保存的表單數據', e)
-    }
-  }
-  return false
-})
 
-// onBeforeRouteLeave((to, from, next) => {
-//   // 檢查是否有未保存的變更
-//   if (hasUnsavedChanges.value) {
-//     const answer = window.confirm('您有未保存的更改，確定要離開嗎？')
-//     if (answer) {
-//       next()
-//     } else {
-//       next(false)
-//     }
-//   } else {
-//     next()
+// // Save current step data v2
+// const saveCurrentStepData = async () => {
+//   const step = currentStep.value
+//   if (!route.query.id) return false
+
+//   const caseNumber = route.query.id as string
+//   submitting.value = true
+
+//   try {
+//     await grantsStore.saveStepData(step, grantsStore.formData[step])
+//     hasUnsavedChanges.value = false
+//     return true
+//   } catch (error) {
+//     console.error(`Failed to save data for step ${step}:`, error)
+//     return false
+//   } finally {
+//     submitting.value = false
 //   }
-// })
+// }
 
-// 初始化時從 URL 讀取步驟
-onMounted(() => {
-  const stepParam = route.query.step
+// Save current step data v3
+const saveCurrentStepData = async () => {
+  const step = currentStep.value
+  if (!route.query.id) return false
 
-  if (stepParam) {
-    // 嘗試從 URL 參數獲取步驟值
-    const stepValue = parseInt(stepParam as string, 10)
-    // 確保步驟值有效
-    if (!isNaN(stepValue) && stepValue >= 1 && stepValue <= steps.length) {
-      currentStep.value = stepValue
-      displayStep.value = stepValue
+  const caseNumber = route.query.id as string
+  submitting.value = true
+
+  try {
+    if (step === 1) {
+      // Step 1 saves to the API
+      await grantsStore.saveStepData(step, grantsStore.formData[step])
     } else {
-      // 如果步驟值無效，重置為第一步
-      currentStep.value = 1
-      displayStep.value = 1
-      resetToStep1()
+      // Steps 2-8 save to localStorage
+      GrantStorage.saveStepData(caseNumber, step, grantsStore.formData[step] || {})
     }
-  } else {
-    // 如果 URL 中沒有步驟參數，則重置為第一步
-    currentStep.value = 1
-    displayStep.value = 1
-    resetToStep1()
-  }
-  // 嘗試從 localStorage 恢復表單數據
-  const savedForms = localStorage.getItem('grantForms')
-  if (savedForms) {
-    try {
-      const parsedForms = JSON.parse(savedForms)
-      Object.assign(forms, parsedForms)
-    } catch (e) {
-      console.error('無法解析已保存的表單數據', e)
-    }
-  }
-})
 
-// 重置到步驟1並更新 URL
-const resetToStep1 = () => {
-  currentStep.value = 1
-  displayStep.value = 1
+    hasUnsavedChanges.value = false
+    return true
+  } catch (error) {
+    console.error(`Failed to save data for step ${step}:`, error)
+    return false
+  } finally {
+    submitting.value = false
+  }
+}
 
-  // 更新 URL 添加 step=1 參數
-  appRouter.replace({
-    query: { ...route.query, step: '1' }
+// URL management
+const updateStepInURL = (step: number) => {
+  router.replace({
+    query: { ...route.query, step: step.toString() }
   })
 }
 
-// 父組件中添加滾動方法
+// Scroll to active step element
 const scrollToActiveStep = () => {
-  // 給渲染 DOM 一點時間
   nextTick(() => {
-    // 查找當前活動步驟的元素
-    const activeStepElement = document.querySelector(`.step-${currentStep.value}`);
+    const activeStepElement = document.querySelector(`.step-${currentStep.value}`)
 
     if (activeStepElement) {
-      // 計算要滾動到的位置 (考慮頁面頂部的固定元素高度)
-      const headerOffset = 70; // 調整為您頁面頂部固定元素的高度
-      const elementPosition = activeStepElement.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      const headerOffset = 100 // Adjust based on your header height
+      const elementPosition = activeStepElement.getBoundingClientRect().top
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset
 
-      // 平滑滾動到該位置
       window.scrollTo({
         top: offsetPosition,
         behavior: 'smooth'
-      });
+      })
     }
-  });
-};
-
-// 當用戶點擊上一步或下一步時也調用
-const goToNextStep = async () => {
-  // 驗證邏輯...
-
-  // 如果驗證通過，變更步驟
-  currentStep.value++;
-  // 滾動功能會通過 watch 自動調用
-};
-
-const goToPreviousStep = () => {
-  currentStep.value--;
-  // 滾動功能會通過 watch 自動調用
-};
-
-watch(currentStep, (newStep) => {
-  displayStep.value = newStep
-  scrollToActiveStep();
-
-  // 更新 URL 查詢參數，但不重新加載頁面
-  appRouter.replace({
-    query: { ...route.query, step: newStep.toString() }
   })
+}
+
+// // Initialize data v2
+// onMounted(async () => {
+//   // Get case number and step from URL
+//   const caseNumber = route.query.id as string
+//   const stepParam = route.query.step
+
+//   if (!caseNumber) {
+//     // Redirect to grants list if no case number provided
+//     router.push('/grants')
+//     return
+//   }
+
+//   try {
+//     // First load the grant to get its basic info
+//     await grantsStore.loadGrant(caseNumber)
+
+//     // Determine starting step (from URL, grant data, or default to 1)
+//     let startStep = 1
+
+//     if (stepParam) {
+//       const stepValue = parseInt(stepParam as string, 10)
+//       if (!isNaN(stepValue) && stepValue >= 1 && stepValue <= steps.length) {
+//         startStep = stepValue
+//       }
+//     } else if (grantsStore.currentGrant?.current_step) {
+//       startStep = grantsStore.currentGrant.current_step
+//     }
+
+//     // Set steps and update URL if needed
+//     currentStep.value = startStep
+//     displayStep.value = startStep
+
+//     if (!stepParam) {
+//       updateStepInURL(startStep)
+//     }
+
+//     // Load data for the starting step
+//     await loadStepData(startStep)
+//     isDataLoaded.value = true
+//   } catch (error) {
+//     console.error('Failed to initialize grant data:', error)
+//   }
+// })
+
+// Initialize data v3
+onMounted(async () => {
+  // Get case number and step from URL
+  const caseNumber = route.query.id as string
+  const stepParam = route.query.step
+
+  if (!caseNumber) {
+    // Redirect to grants list if no case number provided
+    router.push('/grants')
+    return
+  }
+
+  try {
+    // First load the grant to get its basic info
+    await grantsStore.loadGrant(caseNumber)
+
+    // Determine starting step (from URL, grant data, or default to 1)
+    let startStep = 1
+
+    if (stepParam) {
+      const stepValue = parseInt(stepParam as string, 10)
+      if (!isNaN(stepValue) && stepValue >= 1 && stepValue <= steps.length) {
+        startStep = stepValue
+      }
+    } else if (grantsStore.currentGrant?.current_step) {
+      startStep = grantsStore.currentGrant.current_step
+    }
+
+    // Set steps and update URL if needed
+    currentStep.value = startStep
+    displayStep.value = startStep
+
+    if (!stepParam) {
+      updateStepInURL(startStep)
+    }
+
+    // Load data for the starting step
+    await loadStepData(startStep)
+    isDataLoaded.value = true
+  } catch (error) {
+    console.error('Failed to initialize grant data:', error)
+  }
 })
 
-// 監聽 displayStep 變化，更新 currentStep
+// Watchers
+// Watch URL step parameter changes
+watch(() => route.query.step, (newStepParam) => {
+  if (newStepParam) {
+    const newStep = parseInt(newStepParam as string, 10)
+    if (!isNaN(newStep) && newStep >= 1 && newStep <= steps.length && newStep !== currentStep.value) {
+      // If step changed in URL, save current step data before changing
+      saveCurrentStepData().then(() => {
+        currentStep.value = newStep
+        displayStep.value = newStep
+        loadStepData(newStep)
+      }).catch(error => {
+        console.error('Failed to save data before step change:', error)
+      })
+    }
+  }
+})
+
+// Watch display step changes (from stepper UI)
 watch(displayStep, (newStep) => {
-  // 避免自動跳到最後一步，只允許前進或後退一步
-  if (Math.abs(newStep - currentStep.value) <= 1) {
-    currentStep.value = newStep
-  } else {
-    // 如果步驟差距太大，重置為當前步驟
-    nextTick(() => {
-      displayStep.value = currentStep.value
+  if (newStep !== currentStep.value) {
+    saveCurrentStepData().then(() => {
+      currentStep.value = newStep
+      updateStepInURL(newStep)
+      loadStepData(newStep)
+    }).catch(error => {
+      console.error('Failed to save data before step change:', error)
+      displayStep.value = currentStep.value // Reset display step if save fails
     })
   }
 })
 
-// 當表單數據變化時保存到 localStorage
-watch(forms, (newForms) => {
-  localStorage.setItem('grantForms', JSON.stringify(newForms))
+// Watch for form data changes to detect unsaved changes
+watch(() => grantsStore.formData, () => {
+  hasUnsavedChanges.value = true
 }, { deep: true })
 
-// 驗證當前步驟並前進
-const validateAndProceed = async (step: any) => {
-  const formRef = eval(`form${step}`)
-  const { valid } = await formRef.value.validate()
-
-  if (valid) {
-    try {
-      // 呼叫API保存當前步驟數據
-      // await saveStepData(step)
-
-      // 更新步驟 (這會觸發 watch 並更新 URL)
-      currentStep.value++
-    } catch (error) {
-      // 顯示錯誤訊息
+// Route leave guard
+onBeforeRouteLeave((to, from, next) => {
+  // If there are unsaved changes, confirm before leaving
+  if (hasUnsavedChanges.value) {
+    if (window.confirm('您有未保存的更改，確定要離開嗎？')) {
+      next()
+    } else {
+      next(false)
     }
+  } else {
+    next()
   }
-}
-
-// 監聽 URL 參數變化
-watch(
-  () => route.query.step,
-  (newStepParam) => {
-    if (newStepParam) {
-      const newStep = parseInt(newStepParam as string, 10)
-      if (!isNaN(newStep) && newStep >= 1 && newStep <= steps.length) {
-        // 只在 URL 參數變化來源非內部更新時更新 currentStep
-        if (newStep !== currentStep.value) {
-          // 檢查是否是合法的導航 (前進或後退一步)
-          const isValidNavigation = Math.abs(newStep - currentStep.value) <= 1
-
-          // 如果是從瀏覽器歷史記錄導航(例如按下瀏覽器的前進/後退按鈕)，允許跳轉
-          if (isValidNavigation) {
-            currentStep.value = newStep
-            displayStep.value = newStep
-          } else {
-            // 如果是非法跳轉，重置 URL 參數
-            appRouter.replace({
-              query: { ...route.query, step: currentStep.value.toString() }
-            })
-          }
-        }
-      }
-    }
-  }
-)
-
-const navFab = ref(false);
-
-// 判斷是否可以跳到特定步驟（通常只能跳到已完成的步驟和當前步驟的前後一步）
-const canJumpToStep = (step) => {
-  // 只允許跳到之前已驗證過的步驟或當前步驟
-  return step <= currentStep.value + 1 && validatedSteps.has(step) || step === currentStep.value;
-};
-
-// 跳轉到指定步驟
-const jumpToStep = (step) => {
-  if (canJumpToStep(step)) {
-    if (hasUnsavedChanges.value) {
-      // 提示用戶有未保存的更改
-      const confirm = window.confirm('有未保存的更改，是否繼續？');
-      if (!confirm) return;
-    }
-
-    currentStep.value = step;
-    displayStep.value = step;
-
-    // 更新 URL 參數
-    router.replace({
-      query: { ...route.query, step: step.toString() }
-    });
-
-    // 滾動到頂部
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-};
-
-// 跟踪已驗證的步驟
-const validatedSteps = reactive(new Set());
-
-// 當步驟驗證成功時添加到已驗證集合
-const handleStepValidated = ({ valid, step }) => {
-  if (valid) {
-    validatedSteps.add(step);
-    // 進入下一步
-    if (step < steps.length) {
-      currentStep.value++;
-      displayStep.value = currentStep.value;
-    }
-  }
-};
-
-
+})
 </script>
 
 <style scoped>
 .sticky-header {
   position: sticky;
-  top: 110px; /* 留出主 app-bar 的空間 */
+  top: 110px;
   z-index: 4;
   transition: box-shadow 0.3s ease, elevation 0.3s ease;
 }
 
-/* 當重疊時隱藏陰影的輔助類 */
 .elevation-0 {
   box-shadow: none !important;
   background-color: transparent !important;
 }
-
 </style>

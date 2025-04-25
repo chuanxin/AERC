@@ -1,5 +1,8 @@
 <template>
-  <v-container fluid class="pt-0">
+  <v-container
+    :fluid="false"
+    class="pt-0 mb-10"
+  >
     <div ref="stepperContainer">
       <v-stepper-vertical
         v-model="currentStep"
@@ -42,7 +45,10 @@
             </template>
             <template #next />
             <template #prev />
-            <step0 v-if="step.value === 1" :formData="forms.step1" />
+            <step0
+              v-if="step.value === 1"
+              :form-data="forms.step1"
+            />
           </v-stepper-vertical-item>
         </template>
       </v-stepper-vertical>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<schema targetNamespace="http://www.supergeo.com.tw/WFS" xmlns:wfs="http://www.supergeo.com.tw/WFS" xmlns:gml="http://www.opengis.net/gml" xmlns="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+<import namespace="http://www.opengis.net/gml" schemaLocation="http://schemas.opengis.net/gml/2.1.2/feature.xsd"/>
+<element name="Features" type="wfs:featuresType" substitutionGroup="gml:_FeatureCollection"/>
+<complexType name="featuresType">
+	<complexContent><extension base="gml:AbstractFeatureCollectionType"/></complexContent>
+</complexType>
+<element name="Layer_1" type="wfs:Layer_1Type" substitutionGroup="gml:_Feature"/>
+<complexType name="Layer_1Type"> <complexContent><extension base="gml:AbstractFeatureType">
+<sequence>
+	<element name="段號" type="string"/>
+	<element name="地號" type="string"/>
+	<element name="地目" type="string"/>
+	<element name="Section" type="string"/>
+	<element name="Sec_cns" type="string"/>
+	<element name="Land_no" type="string"/>
+	<element name="Desc_area" type="double"/>
+	<element name="Map_area" type="double"/>
+	<element name="L_type" type="string"/>
+	<element name="Ltype_cns" type="string"/>
+	<element name="Town" type="string"/>
+	<element name="Class" type="string"/>
+	<element name="Class_cns" type="string"/>
+	<element name="Use_dir" type="string"/>
+	<element name="Use_dircns" type="string"/>
+	<element name="Cur_price" type="double"/>
+	<element name="Land_price" type="double"/>
+	<element name="Dec_price" type="double"/>
+	<element name="Ymd" type="integer"/>
+	<element name="_SHAPE_" type="gml:MultiPolygonPropertyType"/>
+</sequence>
+<attribute name="name" type="string"/>
+</extension></complexContent></complexType>
+</schema>

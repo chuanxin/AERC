@@ -79,6 +79,7 @@
 
 <script lang="ts" setup>
   import { useDisplay } from 'vuetify'
+  import { GrantStorage } from '@/utils/grant-storage' // Import GrantStorage utility
 
   const allItems = ref<any[]>([])
   const loading = ref(true)
@@ -214,6 +215,22 @@
     }
   ]
 
+  // Status mapping based on current step
+  const statusMapping = {
+    1: '完成申請人資料',
+    2: '完成土地資料',
+    3: '完成灌溉調控設施',
+    4: '完成田間管路',
+    5: '完成現場勘查',
+    6: '完成補助申請資料',
+    7: '完成變更設計及結案申報',
+    8: '完成上傳佐證文件',
+  }
+
+  // Card status options (random assignment for demo)
+  const cardStatusOptions = ['已受理', '審查中', '審查通過', '撥款作業', '結案流程']
+
+
   // Filter items based on search
   const filteredItems = computed(() => {
     if (!search.value) return allItems.value
@@ -228,14 +245,83 @@
     })
   })
 
-  // Load all data at once
+  // // Load all data at once v1
+  // const loadAllItems = () => {
+  //   loading.value = true
+  //   // Simulate API call
+  //   setTimeout(() => {
+  //     allItems.value = apply
+  //     loading.value = false
+  //   }, 500)
+  // }
+
+  // Load all data from localStorage
   const loadAllItems = () => {
     loading.value = true
-    // Simulate API call
-    setTimeout(() => {
-      allItems.value = apply
-      loading.value = false
-    }, 500)
+
+    // Get all grants from localStorage
+    const grants = GrantStorage.getAllGrants()
+
+    // Transform grant data to table format
+    const transformedData = Object.entries(grants).map(([caseNumber, grantData]) => {
+      // Extract applicant name from step 1
+      const step1Data = grantData.steps?.[1] || {}
+      const name = step1Data.name || step1Data.applicantName || '未填寫'
+
+      // Extract year from case number (first 3 digits)
+      const year = caseNumber.substring(0, 3) || '113'
+
+      // Extract land area from step 2
+      const step2Data = grantData.steps?.[2] || {}
+      const areaHa = parseFloat(step2Data.facilityAreaHa || step2Data.landAreaHa || '0')
+      const areaM2 = Math.round(areaHa * 10000) // Convert hectares to square meters
+
+      // Extract irrigation type from step 4
+      const step4Data = grantData.steps?.[4] || {}
+      let irrigationType = '未設定'
+
+      if (step4Data.irrigationType) {
+        // Map from irrigation type to display name
+        const typeMap = {
+          '穿孔管系統': '穿孔管',
+          '噴頭式系統': '噴灌',
+          '微噴系統': '微噴',
+          '滴灌系統': '滴灌',
+          '其他': '其他'
+        }
+        irrigationType = typeMap[step4Data.irrigationType] || step4Data.irrigationType
+      }
+
+      // Determine current step and status
+      const currentStep = grantData.current_step || 1
+      const status = statusMapping[currentStep] || '處理中'
+
+      // Generate random card status for demo
+      const cardStatusIndex = Math.floor(Math.random() * cardStatusOptions.length)
+      const cardStatus = cardStatusOptions[cardStatusIndex]
+
+      return {
+        name: name,
+        calories: irrigationType,
+        fat: areaM2,
+        carbs: status,
+        card: cardStatus,
+        protein: 4, // For action buttons
+        iron: '1',  // For selection
+        year: Number(year),
+        id: caseNumber,
+        value: caseNumber // Needed for editItem and deleteItem functions
+      }
+    })
+
+    // If no data in localStorage, use sample data
+    if (transformedData.length === 0) {
+      allItems.value = sampleApply
+    } else {
+      allItems.value = transformedData
+    }
+
+    loading.value = false
   }
 
   // // Toggle selection of an item
@@ -254,10 +340,24 @@
     // Implement edit functionality
   }
 
-  const deleteItem = (itemName: string) => {
-    console.log('Delete item:', itemName)
-    // Implement delete functionality
-    allItems.value = allItems.value.filter(item => item.name !== itemName)
+  // const deleteItem = (itemName: string) => {
+  //   console.log('Delete item:', itemName)
+  //   // Implement delete functionality
+  //   allItems.value = allItems.value.filter(item => item.name !== itemName)
+  // }
+
+
+  const deleteItem = (itemId: string) => {
+    console.log('Delete item:', itemId)
+
+    // Remove from localStorage
+    try {
+      GrantStorage.removeGrant(itemId)
+      // Also remove from UI
+      allItems.value = allItems.value.filter(item => item.id !== itemId)
+    } catch (error) {
+      console.error('Failed to delete grant:', error)
+    }
   }
 
   // Load data when component is mounted

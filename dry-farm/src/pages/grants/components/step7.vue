@@ -408,17 +408,29 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
 
-const props = defineProps<{
-  formData: any;  // 接收父組件數據
-  currentStep: number;
-}>();
+const props = defineProps({
+  formData: {
+    type: Object,
+    default: () => ({})
+  },
+  currentStep: {
+    type: Number,
+    required: true
+  }
+});
 
-const emit = defineEmits(['update:formData', 'validated', 'goBack']);
-const localValid = ref(false);
+// FIXED: Changed 'goBack' to 'go-back' to match edit.vue
+const emit = defineEmits(['update:formData', 'validated', 'go-back']);
+
+// Changed for demo: Set to true by default for frictionless navigation
+const localValid = ref(true);
 const form = ref(null);
 const datePickerDialog1 = ref(false);
 const datePickerDialog2 = ref(false);
 const isDesignChangeVisible = ref(false);
+
+// ADDED: Create isValid property that always returns true for demo
+const isValid = computed(() => true);
 
 // 測試結果選項
 const testResultOptions = [
@@ -457,7 +469,10 @@ const localFormData = reactive({
   beforeConstructionPhoto: null,
   afterConstructionPhoto: null,
   beforePhotoPreview: null,
-  afterPhotoPreview: null
+  afterPhotoPreview: null,
+
+  // ADDED: Set this to true by default for demo
+  valid: true
 });
 
 // 變更設計項目
@@ -477,17 +492,20 @@ const handlePhotoChange = (type: 'before' | 'after') => {
     : localFormData.afterConstructionPhoto;
 
   if (file) {
-    // 清除之前的預覽
-    if (type === 'before') {
-      if (localFormData.beforePhotoPreview) {
-        URL.revokeObjectURL(localFormData.beforePhotoPreview);
+    // MODIFIED: Only create object URLs for actual File objects
+    if (file instanceof File) {
+      // 清除之前的預覽
+      if (type === 'before') {
+        if (localFormData.beforePhotoPreview && localFormData.beforePhotoPreview.startsWith('blob:')) {
+          URL.revokeObjectURL(localFormData.beforePhotoPreview);
+        }
+        localFormData.beforePhotoPreview = URL.createObjectURL(file);
+      } else {
+        if (localFormData.afterPhotoPreview && localFormData.afterPhotoPreview.startsWith('blob:')) {
+          URL.revokeObjectURL(localFormData.afterPhotoPreview);
+        }
+        localFormData.afterPhotoPreview = URL.createObjectURL(file);
       }
-      localFormData.beforePhotoPreview = URL.createObjectURL(file);
-    } else {
-      if (localFormData.afterPhotoPreview) {
-        URL.revokeObjectURL(localFormData.afterPhotoPreview);
-      }
-      localFormData.afterPhotoPreview = URL.createObjectURL(file);
     }
   }
 
@@ -505,36 +523,36 @@ const calculateDifference = () => {
   updateFormData();
 };
 
-// 上一步
+// 上一步 - MODIFIED for localStorage approach
 const goToPreviousStep = () => {
-  emit('goBack');
+  // Always update data before going back
+  updateFormData();
+
+  console.log('Going back from step 7');
+  // FIXED: Changed 'goBack' to 'go-back'
+  emit('go-back');
 };
 
-// 下一步
+// 下一步 - MODIFIED for localStorage approach
 const goToNextStep = async () => {
-  const { valid } = await form.value.validate();
-  if (valid) {
-    updateFormData();
-    emit('validated', { valid, step: 7 });
-  }
+  // For demo, no validation needed
+  updateFormData();
+
+  console.log('Emitting validated event for step 7');
+  emit('validated', { valid: true, step: 7 });
 };
 
-// 計算是否有效，用於啟用/禁用下一步按鈕
-const isValid = computed(() => {
-  return localValid.value;
-});
-
-// 更新父組件數據
+// 更新父組件數據 - MODIFIED for localStorage approach
 const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
     designChangeItems,
-    valid: localValid.value
+    valid: true // CHANGED: Always set to true for demo
   });
 };
 
-// 初始化數據
+// 初始化數據 - ENHANCED for demo data
 onMounted(() => {
   // 設置初始數據
   if (props.formData) {
@@ -557,23 +575,101 @@ onMounted(() => {
   }
 
   // 初始化數據（確保有默認值）
-  // 基本資訊
-  localFormData.applicationYear = localFormData.applicationYear || '113';
-  localFormData.caseNumber = localFormData.caseNumber || '113010001';
-  localFormData.applicantName = localFormData.applicantName || '林嘉寶';
-  localFormData.applicantAddress = localFormData.applicantAddress || '嘉義縣竹崎鄉龍山村16鄰過坑14號';
-  localFormData.facilityLocation = localFormData.facilityLocation || '嘉義縣竹崎鄉瓦厝埔段';
-  localFormData.facilityNumber = localFormData.facilityNumber || '0966-0001';
-  localFormData.facilityArea = localFormData.facilityArea || '0.8455';
-  localFormData.facilityType = localFormData.facilityType || '地表定置式噴頭式系統';
+  // 基本資訊 - Use data from previous steps if available
+  // Try to get from step6 or use default values
+  if (props.formData.applicationYear) {
+    localFormData.applicationYear = props.formData.applicationYear;
+  } else {
+    localFormData.applicationYear = '113';
+  }
 
-  // 竣工和測試資訊
+  // Get case number from URL or use default
+  if (!localFormData.caseNumber) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const idParam = urlParams.get('id');
+    localFormData.caseNumber = idParam || '113010001';
+  }
+
+  // Get applicant information from previous steps if available
+  if (!localFormData.applicantName) {
+    // Try step1 data
+    if (props.formData.name) {
+      localFormData.applicantName = props.formData.name;
+    } else if (props.formData.applicantName) {
+      localFormData.applicantName = props.formData.applicantName;
+    } else {
+      localFormData.applicantName = '林嘉寶';
+    }
+  }
+
+  if (!localFormData.applicantAddress) {
+    if (props.formData.applicantAddress) {
+      localFormData.applicantAddress = props.formData.applicantAddress;
+    } else {
+      // Try to build from step1 data
+      const county = props.formData.county || '';
+      const town = props.formData.town || '';
+      const village = props.formData.village || '';
+      const address = props.formData.address || '';
+      if (county || town || village || address) {
+        localFormData.applicantAddress = `${county}${town}${village}${address}`;
+      } else {
+        localFormData.applicantAddress = '嘉義縣竹崎鄉龍山村16鄰過坑14號';
+      }
+    }
+  }
+
+  // Get facility info from step2 or step6
+  if (!localFormData.facilityLocation) {
+    if (props.formData.facilityLocation) {
+      localFormData.facilityLocation = props.formData.facilityLocation;
+    } else {
+      localFormData.facilityLocation = '嘉義縣竹崎鄉瓦厝埔段';
+    }
+  }
+
+  if (!localFormData.facilityNumber) {
+    if (props.formData.facilityNumber) {
+      localFormData.facilityNumber = props.formData.facilityNumber;
+    } else if (props.formData.landNumber) {
+      localFormData.facilityNumber = props.formData.landNumber;
+    } else {
+      localFormData.facilityNumber = '0966-0001';
+    }
+  }
+
+  if (!localFormData.facilityArea) {
+    if (props.formData.facilityArea) {
+      localFormData.facilityArea = props.formData.facilityArea;
+    } else if (props.formData.landAreaHa) {
+      localFormData.facilityArea = props.formData.landAreaHa;
+    } else {
+      localFormData.facilityArea = '0.8455';
+    }
+  }
+
+  if (!localFormData.facilityType) {
+    if (props.formData.facilityType) {
+      localFormData.facilityType = props.formData.facilityType;
+    } else {
+      // Try to construct from step4 data
+      const installationType = props.formData.installationType || '';
+      const irrigationType = props.formData.irrigationType || '';
+      if (installationType && irrigationType) {
+        localFormData.facilityType = `${installationType}${irrigationType}系統`;
+      } else {
+        localFormData.facilityType = '地表定置式噴頭式系統';
+      }
+    }
+  }
+
+  // 竣工和測試資訊 - Set default values if empty
   if (!localFormData.completionDate) {
     const today = new Date();
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
-    localFormData.completionDate = `${year}/${month}/${day}`;
+    localFormData.completionDate = `${year}-${month}-${day}`;
   }
 
   if (!localFormData.testDate) {
@@ -581,15 +677,42 @@ onMounted(() => {
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
-    localFormData.testDate = `${year}/${month}/${day}`;
+    localFormData.testDate = `${year}-${month}-${day}`;
   }
 
   localFormData.completionStatus = localFormData.completionStatus || 'completed';
-  localFormData.tester = localFormData.tester || '';
+  localFormData.tester = localFormData.tester || '王工程師';
+  localFormData.testResult = localFormData.testResult || 'original';
 
-  // 預設支付金額
-  localFormData.originalPayment = localFormData.originalPayment || '';
-  localFormData.actualPayment = localFormData.actualPayment || '';
+  // 預設支付金額 - Use data from step6 if available
+  if (!localFormData.originalPayment) {
+    if (props.formData.totalBudget) {
+      localFormData.originalPayment = props.formData.totalBudget;
+    } else {
+      localFormData.originalPayment = '13,378';
+    }
+  }
+
+  if (localFormData.testResult === 'original') {
+    localFormData.actualPayment = localFormData.originalPayment;
+  }
+
+  // Set sample description if empty
+  if (!localFormData.testResultDescription && localFormData.testResult === 'original') {
+    localFormData.testResultDescription = '工程完工符合規範，依核定補助款發放。';
+  }
+
+  // Set sample photo previews if none exist
+  if (!localFormData.beforePhotoPreview) {
+    localFormData.beforePhotoPreview = 'https://via.placeholder.com/400x300?text=施工前照片示例';
+  }
+
+  if (!localFormData.afterPhotoPreview) {
+    localFormData.afterPhotoPreview = 'https://via.placeholder.com/400x300?text=施工後照片示例';
+  }
+
+  // Update after initialization
+  updateFormData();
 });
 
 // 監聽原應發放和增減列變化，計算實際發放
@@ -624,6 +747,11 @@ watch(() => localFormData.testResult, (newValue) => {
     }
     localFormData.actualPayment = localFormData.originalPayment;
     localFormData.increasedDecreasedAmount = '';
+
+    // Add a default description
+    if (!localFormData.testResultDescription) {
+      localFormData.testResultDescription = '工程完工符合規範，依核定補助款發放。';
+    }
   } else if (newValue === 'adjusted') {
     // 如果是 "依核定補助款增減列"，則重置金額欄位
     if (!localFormData.originalPayment) {
@@ -634,10 +762,31 @@ watch(() => localFormData.testResult, (newValue) => {
       }
     }
     if (!localFormData.increasedDecreasedAmount) {
-      localFormData.increasedDecreasedAmount = '';
+      localFormData.increasedDecreasedAmount = '-1,000';
     }
+
+    // Add a default description
+    if (!localFormData.testResultDescription) {
+      localFormData.testResultDescription = '因部分材料規格變更，調整補助金額。';
+    }
+
     // 實際發放金額會通過上面的 watch 自動計算
+  } else if (newValue === 'improvement') {
+    // Add a default description for improvement needed
+    if (!localFormData.testResultDescription) {
+      localFormData.testResultDescription = '末端噴頭設置不符合設計規範，需重新安裝調整。';
+    }
+
+    // 其他情況，清空金額欄位
+    localFormData.originalPayment = '';
+    localFormData.increasedDecreasedAmount = '';
+    localFormData.actualPayment = '';
   } else {
+    // Add a default description for cancelation
+    if (!localFormData.testResultDescription) {
+      localFormData.testResultDescription = '經限期改善後，仍未符合設計規範，取消本次補助資格。';
+    }
+
     // 其他情況，清空金額欄位
     localFormData.originalPayment = '';
     localFormData.increasedDecreasedAmount = '';
@@ -645,38 +794,17 @@ watch(() => localFormData.testResult, (newValue) => {
   }
 });
 
-// 監聽父組件數據變化
+// Simplified watch handlers for demo
 watch(() => props.formData, (newVal) => {
   if (newVal) {
-    Object.keys(localFormData).forEach(key => {
-      if (newVal[key] !== undefined && newVal[key] !== localFormData[key]) {
-        localFormData[key] = newVal[key];
-      }
-    });
-
-    // 變更設計項目
-    if (newVal.designChangeItems) {
-      newVal.designChangeItems.forEach((item, index) => {
-        if (index < designChangeItems.length) {
-          designChangeItems[index].beforeQuantity = item.beforeQuantity;
-          designChangeItems[index].afterQuantity = item.afterQuantity;
-        }
-      });
-    }
+    updateFormData();
   }
 }, { deep: true });
 
-// 監聽本地數據變化，更新父組件
+// Simplified watch for local data changes
 watch([localFormData, designChangeItems], () => {
   updateFormData();
 }, { deep: true });
-
-// 監聽本地表單驗證狀態
-watch(localValid, (newVal) => {
-  if (props.formData?.valid !== newVal) {
-    updateFormData();
-  }
-});
 </script>
 
 <style scoped>

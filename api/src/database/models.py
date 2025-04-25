@@ -1,4 +1,6 @@
 from tortoise import fields, models
+from enum import Enum
+
 
 
 class Users(models.Model):
@@ -38,8 +40,28 @@ class Users(models.Model):
 #     def __str__(self):
 #         return f"{self.title}, {self.author_id} on {self.created_at}"
 
+class GrantStatus(str, Enum):
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+    UNDER_REVIEW = "under_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
+
+
+class GrantTypes(str, Enum):
+    FARMING = "farming"
+    IRRIGATION = "irrigation"
+    EQUIPMENT = "equipment"
+    TECHNOLOGY = "technology"
+    RESEARCH = "research"
+    OTHER = "other"
+
 class Grants(models.Model):
     """補助申請案件資料表"""
+    # Initialize the sn_registry
+    sn_registry = {}
+
     id = fields.IntField(pk=True)
     sn = fields.IntField(description="流水號，每年每管理處內唯一")
     case_number = fields.CharField(max_length=20, description="案件編號")
@@ -51,14 +73,16 @@ class Grants(models.Model):
     applicant_phone = fields.CharField(max_length=20, description="申請人電話")
     
     # 申請人地址
-    # county = fields.ForeignKeyField("models.County", related_name="grant", description="縣市")
-    # town = fields.ForeignKeyField("models.Town", related_name="grant", description="鄉鎮市區")
-    # village = fields.ForeignKeyField("models.Village", related_name="grant", null=True, description="村里")
+    county = fields.CharField(max_length=30, description="縣市")
+    town = fields.CharField(max_length=30, description="鄉鎮市區")
+    village = fields.CharField(max_length=30, null=True, description="村里")
     address = fields.CharField(max_length=255, description="詳細地址")
     
     # 管理處與承辦人
-    office = fields.ForeignKeyField("models.Offices", related_name="grant", null=True, description="管理處")
-    manager = fields.CharField(max_length=50, description="承辦人姓名")
+    # office = fields.ForeignKeyField("models.Offices", related_name="grant", null=True, description="管理處")
+    office = fields.CharField(max_length=50, description="管理處名稱")
+    office_id = fields.IntField(null=True, description="管理處ID", index=False)
+    undertracker = fields.CharField(max_length=50, description="承辦人姓名")
     
     # 申請、收件日期
     received_date = fields.DateField(description="收件日期")
@@ -74,8 +98,11 @@ class Grants(models.Model):
     # 時間戳記
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
     modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
-    created_by = fields.ForeignKeyField("models.Users", related_name="created_grants", description="建立者")
-    modified_by = fields.ForeignKeyField("models.Users", related_name="modified_grants", description="修改者")
+    created_by = fields.ForeignKeyField("models.Users", related_name="created_grants", description="建立人帳號", on_delete=fields.CASCADE)
+    # modified_by = fields.ForeignKeyField("models.Users", related_name="modified_grants", description="修改人帳號")
+    attachments = fields.ReverseRelation["GrantAttachments"]
+    comments = fields.ReverseRelation["GrantComments"]
+    history = fields.ReverseRelation["GrantHistory"]
     
     class Meta:
         table = "grants"
@@ -101,18 +128,62 @@ class Grants(models.Model):
     
     def generate_case_number(self):
         """根據 year + office_id + SN 產生完整案件編號"""
-        return f"{self.year}-{self.office_id.id}-{str(self.sn).zfill(4)}"
+        return f"{self.year}-{self.office_id}-{str(self.sn).zfill(4)}"
 
     async def save(self, *args, **kwargs):
         """在存入資料時，自動產生 SN 與 case_number"""
         if not self.sn:  # 如果 SN 尚未設定，則自動產生
-            self.sn = await self.generate_sn(self.year, self.office_id.id)
+            self.sn = await self.generate_sn(self.year, self.office_id)
         self.case_number = self.generate_case_number()  # 確保 case_number 正確
         await super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.case_number} - {self.applicant_name}"
     
+class GrantAttachments(models.Model):
+    """補助案件附件資料表"""
+    id = fields.IntField(pk=True)
+    grant = fields.ForeignKeyField("models.Grants", related_name="attachments", description="所屬案件")
+    file_name = fields.CharField(max_length=255, description="檔案名稱")
+    file_path = fields.CharField(max_length=255, description="檔案路徑")
+    file_type = fields.CharField(max_length=50, description="檔案類型")
+    file_size = fields.IntField(description="檔案大小(bytes)")
+    upload_time = fields.DatetimeField(auto_now_add=True, description="上傳時間")
+    description = fields.CharField(max_length=255, null=True, description="檔案描述")
+    
+    class Meta:
+        table = "grant_attachments"
+        table_description = "補助案件附件資料表"
+
+
+class GrantComments(models.Model):
+    """補助案件評論資料表"""
+    id = fields.IntField(pk=True)
+    grant = fields.ForeignKeyField("models.Grants", related_name="comments", description="所屬案件")
+    user = fields.ForeignKeyField("models.Users", related_name="grant_comments", description="評論者")
+    comment = fields.TextField(description="評論內容")
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    
+    class Meta:
+        table = "grant_comments"
+        table_description = "補助案件評論資料表"
+
+
+class GrantHistory(models.Model):
+    """補助案件歷史紀錄資料表"""
+    id = fields.IntField(pk=True)
+    grant = fields.ForeignKeyField("models.Grants", related_name="history", description="所屬案件")
+    status = fields.CharEnumField(GrantStatus, description="案件狀態")
+    changed_by = fields.ForeignKeyField(
+        "models.Users", related_name="grant_history_changes", description="修改人員"
+    )
+    changed_at = fields.DatetimeField(auto_now_add=True, description="修改時間")
+    notes = fields.TextField(null=True, description="備註")
+    
+    class Meta:
+        table = "grant_history"
+        table_description = "補助案件歷史紀錄資料表"
+
 class CropCategories(models.Model):
     """作物類別資料表"""
     id = fields.IntField(pk=True)

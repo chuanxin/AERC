@@ -1,5 +1,29 @@
 import { ref, type Ref } from 'vue'
 
+export class ApplicationError extends Error {
+  status: number
+  source: string
+  originalError?: unknown
+
+  constructor({
+    message,
+    status = 500,
+    source = 'unknown',
+    originalError
+  }: {
+    message: string
+    status?: number
+    source?: string
+    originalError?: unknown
+  }) {
+    super(message)
+    this.name = 'ApplicationError'
+    this.status = status
+    this.source = source
+    this.originalError = originalError
+  }
+}
+
 export interface ApiError {
   response?: {
     status?: number;

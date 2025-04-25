@@ -21,12 +21,12 @@
                   <v-select
                     v-model="localFormData.addressCounty"
                     :items="counties"
-                    label="地段"
+                    label="縣市"
                     variant="outlined"
                     density="comfortable"
                     :rules="[v => !!v || '請選擇縣市']"
                     @update:model-value="onCountyChange"
-                  ></v-select>
+                  />
                 </v-col>
                 <v-col cols="12" md="4">
                   <v-select
@@ -38,17 +38,17 @@
                     :rules="[v => !!v || '請選擇鄉鎮市區']"
                     :disabled="!localFormData.addressCounty"
                     @update:model-value="onTownChange"
-                  ></v-select>
+                  />
                 </v-col>
                 <v-col cols="12" md="4">
                   <v-select
                     v-model="localFormData.addressVillage"
                     :items="villages"
-                    label="村里"
+                    label="地段"
                     variant="outlined"
                     density="comfortable"
                     :disabled="!localFormData.addressTown"
-                  ></v-select>
+                  />
                 </v-col>
               </v-row>
             </v-sheet>
@@ -60,20 +60,36 @@
                 <span class="text-body-2 font-weight-medium">地號資訊</span>
               </div>
               <v-row align="center">
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="4" class="d-flex align-center">
                   <v-text-field
-                    v-model="localFormData.landNumber"
+                    v-model="localFormData.landNumberMain"
                     label="地號"
                     variant="outlined"
                     density="comfortable"
-                    :rules="[v => !!v || '請輸入地號']"
-                  ></v-text-field>
+                    class="me-1"
+                    type="number"
+                    style="width: 70px"
+                    :rules="[
+                      v => !!v || '請輸入主地號',
+                      v => (parseInt(v) >= 900 && parseInt(v) < 1000) || '此地段主地號需在 900 以上 1000 以下'
+                    ]"
+                  />
+                  <v-icon class="me-1">mdi-minus</v-icon>
+                  <v-text-field
+                    v-model="localFormData.landNumberSub"
+                    variant="outlined"
+                    density="comfortable"
+                    type="number"
+                    style="width: 60px"
+                    :rules="[v => !!v || '請輸入副地號']"
+                  />
                 </v-col>
                 <v-col cols="12" md="8" class="d-flex align-center">
                   <v-btn
                     color="secondary"
                     variant="tonal"
                     class="me-2"
+                    @click="showLandInfoDialog"
                   >
                     <v-icon size="small" class="me-1">mdi-magnify</v-icon>
                     查詢
@@ -87,7 +103,7 @@
                     hide-details
                     density="compact"
                     class="ms-auto"
-                  ></v-checkbox>
+                  />
                   <div class="ms-1">：否</div>
                 </v-col>
               </v-row>
@@ -106,7 +122,7 @@
                       v-model="localFormData.isIrrigationArea"
                       hide-details
                       density="compact"
-                    ></v-checkbox>
+                    />
                     <span class="ml-1">位於灌區內</span>
                     <span class="ml-1">：</span>
                   </div>
@@ -117,7 +133,7 @@
                       v-model="localFormData.isReapplied"
                       hide-details
                       density="compact"
-                    ></v-checkbox>
+                    />
                     <span class="ml-1">再次申請</span>
                     <span class="ml-1">：</span>
                   </div>
@@ -487,8 +503,8 @@
             class="me-2"
             size="large"
             :disabled="currentStep === 1"
+            rounded="pill"
             @click="goToPreviousStep"
-            rounded="circl"
           >
             <v-icon start>mdi-arrow-left</v-icon>
             上一步
@@ -499,9 +515,9 @@
           <v-btn
             color="green-darken-1"
             :disabled="!isValid"
-            @click="goToNextStep"
             size="large"
-            rounded="circl"
+            rounded="pill"
+            @click="goToNextStep"
           >
             {{ currentStep === 8 ? '完成' : '下一步' }}
             <v-icon end v-if="currentStep < 8">mdi-arrow-right</v-icon>
@@ -510,40 +526,221 @@
         </div>
       </div>
     </v-card>
+
+    <v-dialog v-model="landInfoDialog" max-width="700px">
+      <v-card>
+        <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
+          <v-icon class="me-2" size="small">mdi-map-marker</v-icon>
+          <span class="text-subtitle-1 font-weight-medium">土地資訊</span>
+        </v-card-title>
+
+        <v-card-text class="pa-4">
+          <div class="map-container mb-4">
+            <div ref="mapElement" style="height: 300px; width: 100%;" class="rounded border"></div>
+            <!-- Feature info popup -->
+            <v-card v-if="featureInfoVisible" class="feature-info-card pa-2" elevation="4">
+              <v-card-title class="text-body-1 py-1 px-2">地段資訊</v-card-title>
+              <v-divider></v-divider>
+              <v-card-text class="px-2 py-1">
+                <div v-if="selectedFeatureInfo.number">
+                  <strong>地號:</strong> {{ selectedFeatureInfo.number }}
+                </div>
+                <div v-if="selectedFeatureInfo.section">
+                  <strong>地段:</strong> {{ selectedFeatureInfo.section }}
+                </div>
+                <div v-if="selectedFeatureInfo.area">
+                  <strong>面積:</strong> {{ selectedFeatureInfo.area }} 平方公尺
+                </div>
+                <div class="mt-2">
+                  <v-btn density="compact" color="info" size="small" @click="useSelectedFeature">
+                    使用此地號
+                  </v-btn>
+                  <v-btn density="compact" variant="text" size="small" @click="hideFeatureInfo">
+                    關閉
+                  </v-btn>
+                </div>
+              </v-card-text>
+            </v-card>
+          </div>
+          <v-table density="comfortable" class="border rounded mb-4">
+            <tbody>
+              <tr>
+                <td class="bg-grey-lighten-4 font-weight-medium" width="15%">補助資訊</td>
+                <td>{{ landInfo.subsidyInfo }}</td>
+                <td class="bg-grey-lighten-4 font-weight-medium" width="15%">縣市</td>
+                <td>{{ landInfo.county }}</td>
+              </tr>
+              <tr>
+                <td class="bg-grey-lighten-4 font-weight-medium">地段</td>
+                <td>{{ landInfo.section }}</td>
+                <td class="bg-grey-lighten-4 font-weight-medium">地號</td>
+                <td>{{ localFormData.landNumberMain }}<v-icon>mdi-minus</v-icon>{{ localFormData.landNumberSub }}</td>
+              </tr>
+              <tr>
+                <td class="bg-grey-lighten-4 font-weight-medium">管理處</td>
+                <td>{{ landInfo.managementOffice }}</td>
+                <td class="bg-grey-lighten-4 font-weight-medium">工作站</td>
+                <td>{{ landInfo.workstation }}</td>
+              </tr>
+              <tr>
+                <td class="bg-grey-lighten-4 font-weight-medium">水利小組</td>
+                <td>{{ landInfo.waterResourceGroup }}</td>
+                <td class="bg-grey-lighten-4 font-weight-medium">特殊地</td>
+                <td>{{ landInfo.specialLand ? '是' : '否' }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+
+          <div class="d-flex justify-end">
+            <v-btn color="primary" variant="tonal" @click="useLandInfo">
+              使用此筆資料
+            </v-btn>
+            <v-btn color="grey" class="ms-2" variant="outlined" @click="landInfoDialog = false">
+              關閉
+            </v-btn>
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
-  formData: any;  // 接收父組件數據
-  currentStep: number;
-}>();
+// Import OpenLayers dependencies - add these at the top of your script
+import 'ol/ol.css'; // Make sure to install the 'ol' package
+import Map from 'ol/Map';
+import View from 'ol/View';
+import TileLayer from 'ol/layer/Tile';
+import OSM from 'ol/source/OSM';
+import { fromLonLat } from 'ol/proj';
+import Feature from 'ol/Feature';
+import Point from 'ol/geom/Point';
+import { Vector as VectorLayer } from 'ol/layer';
+import { Vector as VectorSource } from 'ol/source';
+import { Style, Icon, Stroke, Fill } from 'ol/style';
+import GeoJSON from 'ol/format/GeoJSON';
+import { Select } from 'ol/interaction';
+import { click } from 'ol/events/condition';
+import { unByKey } from 'ol/Observable';
 
-const emit = defineEmits(['update:formData', 'validated', 'goBack']);
+// Reference to map element and map instance
+const mapElement = ref(null);
+let map: any = null;
+
 const localValid = ref(false);
 const form = ref(null);
 
-// 步驟指示器顏色
-const getStepColor = (step: number) => {
-  if (step < props.currentStep) return 'success'; // 已完成
-  if (step === props.currentStep) return 'primary'; // 當前
-  return 'grey'; // 未開始
-};
-
-// 上一步
-const goToPreviousStep = () => {
-  if (props.currentStep > 1) {
-    emit('goBack');
+const props = defineProps({
+  formData: {
+    type: Object,
+    required: true,
+    default: () => ({})
+  },
+  currentStep: {
+    type: Number,
+    required: true
   }
+});
+
+// Emit events
+const emit = defineEmits(['update:formData', 'validated', 'go-back']);
+
+// Define isValid for the navigation button - changed to a computed property v2
+const isValid = computed(() => {
+  // For demo purposes, always allow navigation
+  return true;
+});
+
+// Step indicator colors
+const getStepColor = (step: number) => {
+  if (step < props.currentStep) return 'success'; // completed
+  if (step === props.currentStep) return 'primary'; // current
+  return 'grey'; // not started
 };
 
-// 本地表單數據
+// // Navigate to next step v1
+// const goToNextStep = async () => {
+//   const { valid } = await validate();
+//   if (!valid) return;
+
+//   console.log('Emitting validated event for step 2');
+//   emit('validated', { valid: true, step: 2 });
+// };
+
+// Navigate to next step - simplified for localStorage demo
+const goToNextStep = async () => {
+  // For demo, no validation needed, simply emit the event
+  // Update form data before navigation
+  updateFormData();
+
+  console.log('Emitting validated event for step 2');
+  emit('validated', { valid: true, step: 2 });
+};
+
+// // Go back to previous step v1
+// const goToPreviousStep = () => {
+//   console.log('Going back from step 2');
+//   emit('go-back');
+// };
+
+// Go back to previous step - simplified for localStorage demo
+const goToPreviousStep = () => {
+  // Update form data before going back
+  updateFormData();
+
+  console.log('Going back from step 2');
+  emit('go-back');
+};
+
+// // 本地表單數據 v1
+// const localFormData = reactive({
+//   // 設施地址區塊
+//   addressCounty: '',
+//   addressTown: '',
+//   addressVillage: '',
+//   landNumber: '',
+//   isAboriginalArea: false,
+//   isIrrigationArea: false,
+//   isReapplied: false,
+//   longitude: '',
+//   latitude: '',
+//   landArea: '',
+//   landAreaHa: '',
+//   facilityArea: '',
+//   facilityAreaHa: '',
+//   cropCategory: '',
+//   cropName: '',
+//   crops: [] as Array<{category: string, name: string}>,
+//   landData: [],
+//   valid: false,
+
+//   // 所有權人資料區塊
+//   ownerName: '',
+//   ownerId: '',
+//   ownerCounty: '',
+//   ownerTown: '',
+//   ownerVillage: '',
+//   ownerShare1: '',
+//   ownerShare2: '',
+//   ownerArea: '',
+//   owners: [] as Array<{
+//     name: string,
+//     id: string,
+//     address: string,
+//     share: string,
+//     area: string
+//   }>
+// });
+
+// Local form data - keep existing structure v2
 const localFormData = reactive({
-  // 設施地址區塊
+  // Facility address section
   addressCounty: '',
   addressTown: '',
   addressVillage: '',
   landNumber: '',
+  landNumberMain: '',
+  landNumberSub: '',
   isAboriginalArea: false,
   isIrrigationArea: false,
   isReapplied: false,
@@ -556,8 +753,10 @@ const localFormData = reactive({
   cropCategory: '',
   cropName: '',
   crops: [] as Array<{category: string, name: string}>,
+  landData: [],
+  valid: true, // Changed to default true for demo
 
-  // 所有權人資料區塊
+  // Owner data section
   ownerName: '',
   ownerId: '',
   ownerCounty: '',
@@ -588,10 +787,131 @@ const townsMap = reactive<Record<string, string[]>>({
 
 const villagesMap = reactive<Record<string, Record<string, string[]>>>({
   '嘉義縣': {
-    '竹崎鄉': ['龍山村', '灣橋村', '瓦厝埔段'],
+    '竹崎鄉': ['龍山村', '灣橋村', '瓦厝埔段', '內埔子段'],
     // 其他鄉鎮村里
   }
 });
+
+const landInfoDialog = ref(false);
+const landInfo = reactive({
+  subsidyInfo: '符合補助資格',
+  county: '嘉義縣',
+  section: '瓦厝埔段',
+  number: '996-1',
+  managementOffice: '瑠公管理處',
+  workstation: '嘉義工作站',
+  waterResourceGroup: '第三水利小組',
+  specialLand: false
+});
+
+// Function to show the land info dialog
+const showLandInfoDialog = () => {
+  // Update land info with current form data
+  if (localFormData.landNumberMain && localFormData.landNumberSub) {
+    landInfo.number = `${localFormData.landNumberMain}-${localFormData.landNumberSub}`;
+  }
+
+  // // If there's a land number entered, use it for the dialog
+  // if (localFormData.landNumber) {
+  //   landInfo.number = localFormData.landNumber;
+  // }
+
+  // If there's a county selected, use it for the dialog
+  if (localFormData.addressCounty) {
+    landInfo.county = localFormData.addressCounty;
+  }
+
+  // If there's a village selected, use it for the dialog
+  if (localFormData.addressVillage) {
+    landInfo.section = localFormData.addressVillage;
+  }
+
+  landInfoDialog.value = true;
+};
+
+const findAndSelectFeatureByLandNumber = () => {
+  if (!map) return;
+
+  // The land number to find
+  const landNumber = `${localFormData.landNumberMain}-${localFormData.landNumberSub}`;
+
+  // Look through all vector layers
+  const layers = map.getLayers().getArray().filter(layer =>
+    layer instanceof VectorLayer && layer.getSource() instanceof VectorSource
+  );
+
+  // For each layer, try to find the feature
+  for (const layer of layers) {
+    const source = layer.getSource();
+    const features = source.getFeatures();
+
+    // Look for a feature with matching land number
+    const targetFeature = features.find(feature => {
+      const featureNumber = feature.get('number');
+      return featureNumber === landNumber;
+    });
+
+    if (targetFeature) {
+      console.log(`Found feature with land number: ${landNumber}`);
+
+      // Programmatically select the feature
+      if (select) {
+        select.getFeatures().clear(); // Clear any existing selection
+        select.getFeatures().push(targetFeature); // Add this feature to selection
+
+        // Trigger the feature selection handler manually
+        handleFeatureSelect({
+          selected: [targetFeature],
+          deselected: []
+        });
+
+        // Center the map on this feature
+        const geometry = targetFeature.getGeometry();
+        if (geometry) {
+          map.getView().fit(geometry, {
+            padding: [50, 50, 50, 50],
+            duration: 500
+          });
+        }
+
+        return true;
+      }
+    }
+  }
+
+  console.log(`No feature found with land number: ${landNumber}`);
+  return false;
+};
+
+// Function to use the land information
+const useLandInfo = () => {
+  // Update form with data from the dialog
+  localFormData.landNumber = landInfo.number;
+
+  // Set county if not set
+  if (!localFormData.addressCounty) {
+    localFormData.addressCounty = landInfo.county;
+    // This should trigger onCountyChange which will populate towns
+  }
+
+  // Set village if applicable
+  if (landInfo.section && villages.value.includes(landInfo.section)) {
+    localFormData.addressVillage = landInfo.section;
+  }
+
+  // Update aboriginal area status
+  localFormData.isAboriginalArea = landInfo.specialLand;
+
+  if (map) {
+    map.setTarget(null);
+    map = null;
+  }
+  // Close the dialog
+  landInfoDialog.value = false;
+
+  // Update parent form data
+  updateFormData();
+};
 
 // 作物相關數據
 const cropCategoriesData = {
@@ -769,27 +1089,96 @@ const removeOwner = (index: number) => {
   updateFormData();
 };
 
-// 更新父組件數據
+// // 更新父組件數據 v1
+// const updateFormData = () => {
+//   emit('update:formData', {
+//     ...props.formData,
+//     ...localFormData,
+//     valid: localValid.value
+//   });
+// };
+
+// Update parent component data v2
 const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
-    valid: localValid.value
+    valid: true // Always set to true for demo
   });
 };
 
-// 表單驗證
+
+// // 表單驗證 v1
+// const validate = async () => {
+//   if (!form.value) return { valid: false };
+
+//   const { valid } = await form.value.validate();
+//   if (valid) {
+//     updateFormData();
+//   }
+//   // emit('validated', { valid, step: 2 });
+//   return { valid };
+// };
+
+// Form validation - simplified for localStorage demo v2
 const validate = async () => {
-  const { valid } = await form.value.validate();
-  if (valid) {
-    updateFormData();
-  }
-  emit('validated', { valid, step: 2 });
+  updateFormData();
+  return { valid: true }; // Always return valid for demo
 };
 
-// 初始化數據
+// // 初始化數據 v1
+// onMounted(() => {
+//   // 設置預設數據
+//   if (props.formData) {
+//     Object.keys(localFormData).forEach(key => {
+//       if (props.formData[key] !== undefined) {
+//         localFormData[key] = props.formData[key];
+//       }
+//     });
+//   }
+
+//   // 設置模擬數據
+//   if (!localFormData.landNumber) {
+//     localFormData.landNumber = '996-1';
+//   }
+//   if (!localFormData.longitude) {
+//     localFormData.longitude = '120.5734';
+//   }
+//   if (!localFormData.latitude) {
+//     localFormData.latitude = '23.5155';
+//   }
+//   if (!localFormData.landArea) {
+//     localFormData.landArea = '8455';
+//     localFormData.landAreaHa = '0.8455';
+//   }
+//   if (!localFormData.facilityArea) {
+//     localFormData.facilityArea = '8455';
+//     localFormData.facilityAreaHa = '0.8455';
+//   }
+
+//   // 設置一個範例作物
+//   if (localFormData.crops.length === 0) {
+//     localFormData.crops.push({
+//       category: '果樹作物',
+//       name: '橘'
+//     });
+//   }
+
+//   // 設置一個範例所有權人
+//   if (localFormData.owners.length === 0) {
+//     localFormData.owners.push({
+//       name: '王三三',
+//       id: 'A123456789',
+//       address: 'XX',
+//       share: '1/2',
+//       area: '4227.5'
+//     });
+//   }
+// });
+
+// Initialize data v2
 onMounted(() => {
-  // 設置預設數據
+  // Set default data from props
   if (props.formData) {
     Object.keys(localFormData).forEach(key => {
       if (props.formData[key] !== undefined) {
@@ -798,7 +1187,7 @@ onMounted(() => {
     });
   }
 
-  // 設置模擬數據
+  // Set sample data if empty
   if (!localFormData.landNumber) {
     localFormData.landNumber = '996-1';
   }
@@ -817,42 +1206,46 @@ onMounted(() => {
     localFormData.facilityAreaHa = '0.8455';
   }
 
-  // 設置一個範例作物
-  if (localFormData.crops.length === 0) {
-    localFormData.crops.push({
+  // Set a sample crop if empty
+  if (!localFormData.crops || localFormData.crops.length === 0) {
+    localFormData.crops = [{
       category: '果樹作物',
       name: '橘'
-    });
+    }];
   }
 
-  // 設置一個範例所有權人
-  if (localFormData.owners.length === 0) {
-    localFormData.owners.push({
+  // Set a sample owner if empty
+  if (!localFormData.owners || localFormData.owners.length === 0) {
+    localFormData.owners = [{
       name: '王三三',
       id: 'A123456789',
       address: 'XX',
       share: '1/2',
       area: '4227.5'
-    });
+    }];
   }
+
+  // Initial update to parent
+  updateFormData();
 });
 
 // 監聽父組件數據變化
-watch(() => props.formData, (newVal) => {
-  if (newVal) {
+watch(() => props.formData, (newData) => {
+  if (newData) {
     Object.keys(localFormData).forEach(key => {
-      if (newVal[key] !== undefined &&
-          JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
-        localFormData[key] = newVal[key];
+      if (newData[key] !== undefined) {
+        localFormData[key] = newData[key];
       }
     });
   }
 }, { deep: true });
 
+
 // 監聽本地數據變化，更新父組件
 watch(localFormData, () => {
   updateFormData();
 }, { deep: true });
+
 
 // 監聽本地表單驗證狀態
 watch(localValid, (newVal) => {
@@ -860,6 +1253,284 @@ watch(localValid, (newVal) => {
     updateFormData();
   }
 });
+
+// Initialize the map when dialog opens
+watch(landInfoDialog, (isOpen) => {
+  if (isOpen) {
+    // Allow time for DOM to update
+    nextTick(() => {
+      initMap();
+    });
+  }
+});
+
+// Initialize OpenLayers map
+const initMap = () => {
+  if (!mapElement.value || map) return;
+
+  // Convert coordinate strings to numbers
+  const lon = parseFloat(localFormData.longitude || '120.5734');
+  const lat = parseFloat(localFormData.latitude || '23.5155');
+
+  // Create map instance
+  map = new Map({
+    target: mapElement.value,
+    layers: [
+      new TileLayer({
+        source: new OSM()
+      })
+    ],
+    view: new View({
+      center: fromLonLat([lon, lat]),
+      zoom: 16
+    })
+  });
+
+  // // Add marker after GeoJSON is loaded to ensure it's on top
+  // addMarker(lon, lat);
+
+  // Add selection interaction
+  addSelectInteraction();
+  // Load GeoJSON layer
+  loadGeoJSONFile();
+
+};
+
+const addMarker = (lon, lat) => {
+  if (!map) return;
+
+  // Create marker feature
+  const markerFeature = new Feature({
+    geometry: new Point(fromLonLat([lon, lat])),
+    name: '所選位置',
+    type: 'marker'
+  });
+
+  markerFeature.setStyle(
+    new Style({
+      image: new Icon({
+        anchor: [0.5, 1],
+        src: 'https://openlayers.org/en/latest/examples/data/icon.png',
+        scale: 0.7
+      })
+    })
+  );
+
+  const markerSource = new VectorSource({
+    features: [markerFeature]
+  });
+
+  const markerLayer = new VectorLayer({
+    source: markerSource,
+    zIndex: 10  // Set a higher zIndex to keep marker on top
+  });
+
+  map.addLayer(markerLayer);
+};
+
+let select = null;
+let selectedFeatureKey = null;
+const addSelectInteraction = () => {
+  if (!map) return;
+
+  // Define style for selected features
+  const selectedStyle = new Style({
+    stroke: new Stroke({
+      color: 'rgba(255, 105, 0, 1)',
+      width: 3
+    }),
+    fill: new Fill({
+      color: 'rgba(255, 165, 0, 0.4)'
+    })
+  });
+
+  // Create select interaction
+  select = new Select({
+    condition: click,
+    style: selectedStyle,
+    filter: (feature) => {
+      // Don't select the marker
+      return feature.get('type') !== 'marker';
+    }
+  });
+
+  // Add the interaction to the map
+  map.addInteraction(select);
+
+  // Listen for selection changes
+  selectedFeatureKey = select.on('select', handleFeatureSelect);
+};
+
+// Function to handle feature selection
+const handleFeatureSelect = (e) => {
+  const selectedFeatures = e.selected;
+
+  if (selectedFeatures.length > 0) {
+    const feature = selectedFeatures[0];
+    // Get properties from the feature
+    const properties = feature.getProperties();
+    console.log('Selected feature properties:', properties);
+
+    // Populate the land info dialog with feature data
+    if (properties) {
+      // Update land info with feature properties
+      landInfo.section = properties.section || landInfo.section;
+      landInfo.number = properties.number || landInfo.number;
+      landInfo.specialLand = properties.specialLand || landInfo.specialLand;
+
+      // If the feature has coordinates, update the form
+      if (properties.lon && properties.lat) {
+        localFormData.longitude = properties.lon;
+        localFormData.latitude = properties.lat;
+      }
+
+      // You can show a popup with feature info
+      showFeatureInfo(feature);
+    }
+  } else {
+    // Handle deselection
+    hideFeatureInfo();
+  }
+};
+
+// References for feature info popup
+const featureInfoVisible = ref(false);
+const selectedFeatureInfo = ref({});
+
+// Show feature info popup
+const showFeatureInfo = (feature) => {
+  const properties = feature.getProperties();
+  selectedFeatureInfo.value = properties;
+  featureInfoVisible.value = true;
+};
+
+// Hide feature info popup
+const hideFeatureInfo = () => {
+  featureInfoVisible.value = false;
+};
+
+// Clean up interactions when map is destroyed
+const cleanupMap = () => {
+  if (select && selectedFeatureKey) {
+    unByKey(selectedFeatureKey);
+  }
+
+  if (map) {
+    map.setTarget(null);
+    map = null;
+  }
+};
+
+// Update map cleanup in watch
+watch(landInfoDialog, (isOpen) => {
+  if (!isOpen) {
+    cleanupMap();
+  }
+});
+
+// Function to load GeoJSON file (replace the GML function)
+const loadGeoJSONFile = () => {
+  // Path to the GeoJSON file in assets
+  const geoJSONFilePath = `../src/assets/GML/land_parcels.geojson`;
+
+  console.log('Attempting to load GeoJSON from:', geoJSONFilePath);
+
+  // Create a vector source with GeoJSON format
+  const geoJSONSource = new VectorSource({
+    url: geoJSONFilePath,
+    format: new GeoJSON()
+  });
+
+  // Add success event listener
+  geoJSONSource.on('featuresloadend', function(event) {
+    const features = geoJSONSource.getFeatures();
+    console.log(`GeoJSON loaded successfully with ${features.length} features`);
+  });
+
+  // Add success event listener
+  geoJSONSource.on('featuresloadend', function(event) {
+    const features = geoJSONSource.getFeatures();
+    console.log(`GeoJSON loaded successfully with ${features.length} features`);
+
+    // Add properties to features if they don't have them
+    features.forEach((feature, index) => {
+      if (!feature.get('id')) {
+        feature.set('id', `parcel-${index + 1}`);
+      }
+      if (!feature.get('section')) {
+        feature.set('section', localFormData.addressVillage || '瓦厝埔段');
+      }
+      if (!feature.get('number')) {
+        // Create a random land number for demo
+        const mainNum = Math.floor(900 + Math.random() * 100);
+        const subNum = Math.floor(1 + Math.random() * 9);
+        feature.set('number', `${mainNum}-${subNum}`);
+      }
+    });
+    // Try to find and select the feature with matching land number
+    setTimeout(() => {
+      findAndSelectFeatureByLandNumber();
+    }, 100); // Small delay to ensure map is fully initialized
+  });
+
+  // Handle loading errors
+  geoJSONSource.on('loaderror', function(event) {
+    console.error('Error loading GeoJSON file:', event);
+  });
+
+  // Create and add the vector layer
+  const geoJSONLayer = new VectorLayer({
+    source: geoJSONSource,
+    style: new Style({
+      stroke: new Stroke({
+        color: 'rgba(0, 128, 255, 1.0)',
+        width: 2
+      }),
+      fill: new Fill({
+        color: 'rgba(0, 128, 255, 0.2)'
+      })
+    })
+  });
+
+  if (map) {
+    map.addLayer(geoJSONLayer);
+  }
+}
+
+// Clean up map when dialog closes
+watch(landInfoDialog, (isOpen) => {
+  if (!isOpen && map) {
+    // Clean up the map when dialog closes
+    map.setTarget(null);
+    map = null;
+  }
+});
+
+// Update map when coordinates change
+watch([() => localFormData.longitude, () => localFormData.latitude], () => {
+  if (map && localFormData.longitude && localFormData.latitude) {
+    const lon = parseFloat(localFormData.longitude);
+    const lat = parseFloat(localFormData.latitude);
+
+    if (!isNaN(lon) && !isNaN(lat)) {
+      // Update view center
+      map.getView().setCenter(fromLonLat([lon, lat]));
+
+      // Update marker position
+      const vectorLayer = map.getLayers().getArray().find(layer =>
+        layer instanceof VectorLayer
+      );
+
+      if (vectorLayer) {
+        const feature = vectorLayer.getSource().getFeatures()[0];
+        if (feature) {
+          feature.setGeometry(new Point(fromLonLat([lon, lat])));
+        }
+      }
+    }
+  }
+});
+
 </script>
 
 <style scoped>
@@ -908,5 +1579,20 @@ watch(localValid, (newVal) => {
 .v-table th {
   font-weight: 600;
   color: rgba(0, 0, 0, 0.7);
+}
+
+.map-container {
+  position: relative;
+}
+
+.feature-info-card {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 200px;
+  max-width: 40%;
+  background: white;
+  z-index: 100;
+  font-size: 0.875rem;
 }
 </style>

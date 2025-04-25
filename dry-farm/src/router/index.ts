@@ -8,7 +8,7 @@
 import { createRouter, createWebHistory } from 'vue-router/auto'
 import { setupLayouts } from 'virtual:generated-layouts'
 import { routes } from 'vue-router/auto-routes'
-import { createAuthMiddleware } from '@/services/navGuardService'
+import { createAuthMiddleware } from '@/services/navguardService'
 
 // Define which routes are accessible without authentication
 const publicRoutes = [

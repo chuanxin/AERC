@@ -329,14 +329,26 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
 
-const props = defineProps<{
-  formData: any;  // 接收父組件資料
-  currentStep: number;
-}>();
+const props = defineProps({
+  formData: {
+    type: Object,
+    default: () => ({})
+  },
+  currentStep: {
+    type: Number,
+    required: true
+  }
+});
 
-const emit = defineEmits(['update:formData', 'validated', 'goBack']);
-const localValid = ref(true); // 雛形網頁，預設為 true
+// Use correct event name `go-back` to match edit.vue
+const emit = defineEmits(['update:formData', 'validated', 'go-back']);
+
+// Set default valid state to true for demo
+const localValid = ref(true);
 const form = ref(null);
+
+// Create isValid computed property that always returns true for demo
+const isValid = computed(() => true);
 
 // 本地表单数据
 const localFormData = reactive({
@@ -349,13 +361,15 @@ const localFormData = reactive({
   facilityArea: '',     // 設施面積
   facilityType: '',     // 設施型式
 
-
   pipeLineSubsidy: '8,704',
   facilitySubsidy: '4,500',
   designFee: '174',
   totalBudget: '13,378',
 
   isAboriginalArea: false,
+
+  // Always set to true for demo
+  valid: true
 });
 
 // 將金額轉換為中文大寫
@@ -384,7 +398,6 @@ const amountInWords = computed(() => {
 
   return result;
 });
-
 
 const isAboriginalAreaText = computed(() => {
   return localFormData.isAboriginalArea ? '(原民地+10%)' : '';
@@ -436,38 +449,72 @@ const controlFacilities = ref([
 // 文件列印
 const printDocument = (documentType: string) => {
   console.log(`列印檔案: ${documentType}`);
-  // 这里可以实现打印逻辑
+  // Mock print logic for demo
 };
 
-// 上一步
+// 上一步 - Modified to use 'go-back' to match edit.vue
 const goToPreviousStep = () => {
-  emit('goBack');
+  // Always update data before going back
+  updateFormData();
+
+  console.log('Going back from step 6');
+  emit('go-back');
 };
 
-// 下一步
+// 下一步 - Simplified for localStorage demo
 const goToNextStep = () => {
+  // Always update data before moving forward
+  updateFormData();
+
+  console.log('Emitting validated event for step 6');
   emit('validated', { valid: true, step: 6 });
 };
 
-// 更新父組件資料
+// 更新父組件資料 - Modified to always set valid: true for demo
 const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
-    valid: localValid.value
+    valid: true // Always set to true for demo
   });
 };
 
-// 資料初始化
+// 資料初始化 - Enhanced for better demo experience
 onMounted(() => {
   // 從父組件獲取初始化資料
   if (props.formData) {
     // 基本資訊
-    localFormData.applicationYear = props.formData.applicationYear || '113';
-    localFormData.caseNumber = props.formData.caseNumber || '113010001';
-    localFormData.applicantName = props.formData.name || props.formData.applicantName || '林嘉寶';
+    Object.keys(localFormData).forEach(key => {
+      if (props.formData[key] !== undefined) {
+        localFormData[key] = props.formData[key];
+      }
+    });
 
-    // 拼接完整地址
+    // Special handling for nested properties
+    if (props.formData.isAboriginalArea !== undefined) {
+      localFormData.isAboriginalArea = props.formData.isAboriginalArea;
+    }
+  }
+
+  // Set default values if not already set
+  if (!localFormData.applicationYear) {
+    localFormData.applicationYear = new Date().getFullYear().toString();
+  }
+
+  if (!localFormData.caseNumber) {
+    // Use the case number from URL or generate a dummy one
+    const urlParams = new URLSearchParams(window.location.search);
+    const idParam = urlParams.get('id');
+    localFormData.caseNumber = idParam || '113010001';
+  }
+
+  if (!localFormData.applicantName) {
+    // Try to get from other steps or use default
+    localFormData.applicantName = props.formData.name || '林嘉寶';
+  }
+
+  // 拼接完整地址
+  if (!localFormData.applicantAddress) {
     if (props.formData.address) {
       localFormData.applicantAddress = props.formData.address;
     } else {
@@ -477,32 +524,51 @@ onMounted(() => {
       const village = props.formData.village || '';
       const detailAddress = props.formData.address || '';
       localFormData.applicantAddress = `${county}${town}${village}${detailAddress}`;
-    }
 
-    // 設施資訊
+      // If still empty, use default
+      if (!localFormData.applicantAddress) {
+        localFormData.applicantAddress = '嘉義縣竹崎鄉瓦厝埔段123號';
+      }
+    }
+  }
+
+  // 設施資訊 - Try to get from step2 or use defaults
+  if (!localFormData.facilityLocation) {
     if (props.formData.step2) {
-      localFormData.facilityLocation = props.formData.step2.addressCounty + props.formData.step2.addressTown + '瓦厝埔段';
-      localFormData.facilityNumber = props.formData.step2.landNumber || '0966-0001';
-      localFormData.facilityArea = props.formData.step2.landAreaHa || '0.8455';
-      localFormData.isAboriginalArea = props.formData.step2.isAboriginalArea || false;
+      const county = props.formData.step2.addressCounty || '';
+      const town = props.formData.step2.addressTown || '';
+      localFormData.facilityLocation = `${county}${town}瓦厝埔段`;
+    } else if (props.formData.addressCounty && props.formData.addressTown) {
+      localFormData.facilityLocation = `${props.formData.addressCounty}${props.formData.addressTown}瓦厝埔段`;
     } else {
-      // 使用預設值
       localFormData.facilityLocation = '嘉義縣竹崎鄉瓦厝埔段';
-      localFormData.facilityNumber = '0966-0001';
-      localFormData.facilityArea = '0.8455';
     }
+  }
 
-    // 設施類型
+  if (!localFormData.facilityNumber) {
+    localFormData.facilityNumber = props.formData.landNumber || props.formData.step2?.landNumber || '0966-0001';
+  }
+
+  if (!localFormData.facilityArea) {
+    localFormData.facilityArea = props.formData.landAreaHa || props.formData.step2?.landAreaHa || '0.8455';
+  }
+
+  if (!localFormData.facilityType) {
+    // Try to construct from step4 data or use default
     if (props.formData.step4) {
-      const installationType = props.formData.step4.installationType || '';
-      const irrigationType = props.formData.step4.irrigationType || '';
-      localFormData.facilityType = `${installationType}${irrigationType}系統`;
+      const installation = props.formData.step4.installationType || '';
+      const irrigation = props.formData.step4.irrigationType || '';
+      localFormData.facilityType = `${installation}${irrigation}系統`;
+    } else if (props.formData.installationType && props.formData.irrigationType) {
+      localFormData.facilityType = `${props.formData.installationType}${props.formData.irrigationType}系統`;
     } else {
       localFormData.facilityType = '地表定置式噴頭式系統';
     }
+  }
 
-    // 從父組件獲取設施細節
-    if (props.formData.pipes && props.formData.pipes.length > 0) {
+  // 從父組件獲取設施細節 (pipes from step4)
+  if (props.formData.pipes && props.formData.pipes.length > 0) {
+    try {
       const pipeData = props.formData.pipes;
 
       // 分類整理資料
@@ -511,16 +577,23 @@ onMounted(() => {
         length: p.length || '164',
         quantity: p.quantity || 0,
         unitPrice: p.unitPrice || 0,
-        totalPrice: p.totalPrice.toLocaleString() || '',
+        totalPrice: (typeof p.totalPrice === 'number' ? p.totalPrice.toLocaleString() : p.totalPrice) || '',
         unit: p.specification?.includes('支') ? '支' : '個'
       }));
+
+      if (mainPipes.value.length === 0) {
+        // Keep default if no data
+        mainPipes.value = [
+          { name: '田間主管1', remark: '164公尺', quantity: 41, unitPrice: 103, totalPrice: '4,223', unit: '支' }
+        ];
+      }
 
       branchPipes.value = pipeData.filter(p => p.type === 'branch').map(p => ({
         name: p.name || 'PVC',
         specification: p.specification || '',
         quantity: p.quantity || 0,
         unitPrice: p.unitPrice || 0,
-        totalPrice: p.totalPrice.toLocaleString() || '',
+        totalPrice: (typeof p.totalPrice === 'number' ? p.totalPrice.toLocaleString() : p.totalPrice) || '',
         unit: p.specification?.includes('只') ? '只' : '支'
       }));
 
@@ -529,48 +602,82 @@ onMounted(() => {
         specification: p.specification || '',
         quantity: p.quantity || 0,
         unitPrice: p.unitPrice || 0,
-        totalPrice: p.totalPrice.toLocaleString() || '',
+        totalPrice: (typeof p.totalPrice === 'number' ? p.totalPrice.toLocaleString() : p.totalPrice) || '',
         unit: p.specification?.includes('只') ? '只' : '个'
       }));
+    } catch (error) {
+      console.error('Error processing pipe data:', error);
     }
+  }
 
-    // 獲取控制設施資料
-    if (props.formData.facilities && props.formData.facilities.length > 0) {
+  // 獲取控制設施資料 (facilities from step3)
+  if (props.formData.facilities && props.formData.facilities.length > 0) {
+    try {
       controlFacilities.value = props.formData.facilities.map(f => ({
         name: f.typeLabel || '',
         specification: '',
         quantity: f.quantity || 0,
-        unitPrice: f.unitPrice?.toLocaleString() || '',
-        totalPrice: f.totalPrice?.toLocaleString() || '',
+        unitPrice: (typeof f.unitPrice === 'number' ? f.unitPrice.toLocaleString() : f.unitPrice) || '',
+        totalPrice: (typeof f.totalPrice === 'number' ? f.totalPrice.toLocaleString() : f.totalPrice) || '',
         unit: f.type === 'power' ? '台' : (f.type === 'storage' ? '座' : '台'),
         remark: f.remark || f.name
       }));
+    } catch (error) {
+      console.error('Error processing facility data:', error);
     }
-
-    // 計算總費用
-    // 這裏可以根據實際需求進行計算
-    // 但通常會在表單提交時進行計算
-    localFormData.pipeLineSubsidy = props.formData.pipeLineSubsidy || '8,704';
-    localFormData.facilitySubsidy = props.formData.facilitySubsidy || '4,500';
-    localFormData.designFee = props.formData.designFee || '174';
-
-    // 計算總預算
-    const pipeLineValue = parseInt(localFormData.pipeLineSubsidy.replace(/,/g, '')) || 0;
-    const facilityValue = parseInt(localFormData.facilitySubsidy.replace(/,/g, '')) || 0;
-    const designValue = parseInt(localFormData.designFee.replace(/,/g, '')) || 0;
-
-    const total = pipeLineValue + facilityValue + designValue;
-    localFormData.totalBudget = total.toLocaleString();
   }
 
-  // 確保資料可用
+  // Calculate subsidy amounts based on previous step data
+  // This is a simplified calculation for demo purposes
+  try {
+    let pipelineTotal = 0;
+    let facilityTotal = 0;
+
+    // Sum pipeline costs from pipes array
+    if (props.formData.pipes) {
+      pipelineTotal = props.formData.pipes.reduce((sum, pipe) =>
+        sum + (typeof pipe.totalPrice === 'number' ? pipe.totalPrice : 0), 0);
+    }
+
+    // Sum facility costs from facilities array
+    if (props.formData.facilities) {
+      facilityTotal = props.formData.facilities.reduce((sum, facility) =>
+        sum + (typeof facility.totalPrice === 'number' ? facility.totalPrice : 0), 0);
+    }
+
+    // Update values if we have valid data
+    if (pipelineTotal > 0) {
+      localFormData.pipeLineSubsidy = pipelineTotal.toLocaleString();
+    }
+
+    if (facilityTotal > 0) {
+      localFormData.facilitySubsidy = facilityTotal.toLocaleString();
+    }
+
+    // Calculate design fee (2% of pipeline subsidy)
+    const pipelineValue = parseInt(localFormData.pipeLineSubsidy.replace(/,/g, '')) || 0;
+    localFormData.designFee = Math.round(pipelineValue * 0.02).toLocaleString();
+
+    // Calculate total budget
+    const facilityValue = parseInt(localFormData.facilitySubsidy.replace(/,/g, '')) || 0;
+    const designValue = parseInt(localFormData.designFee.replace(/,/g, '')) || 0;
+    const total = pipelineValue + facilityValue + designValue;
+
+    if (total > 0) {
+      localFormData.totalBudget = total.toLocaleString();
+    }
+  } catch (error) {
+    console.error('Error calculating subsidies:', error);
+  }
+
+  // Initial update to parent
   updateFormData();
 });
 
-// 監聽父組件資料變化
+// 監聽父組件資料變化 - Simplified for demo
 watch(() => props.formData, (newVal) => {
   if (newVal) {
-    // 資料更新邏輯
+    // Update local data without complex logic for demo
     updateFormData();
   }
 }, { deep: true });

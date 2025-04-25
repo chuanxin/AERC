@@ -473,19 +473,84 @@
         </v-form>
       </v-card-text>
     </v-card>
+    <v-card class="step-navigation-card ma-0 pa-0" flat>
+      <div class="d-flex align-center pr-4">
+        <v-spacer />
+        <div class="navigation-buttons">
+          <v-btn
+            variant="outlined"
+            color="grey-darken-1"
+            class="me-2"
+            size="large"
+            :disabled="currentStep === 1"
+            rounded="pill"
+            @click="goToPreviousStep"
+          >
+            <v-icon start>mdi-arrow-left</v-icon>
+            上一步
+          </v-btn>
+
+          <!-- <div class="text-caption d-none d-sm-block text-grey"> 步驟 {{ currentStep }}/8 </div> -->
+
+          <v-btn
+            color="green-darken-1"
+            :disabled="!isValid"
+            size="large"
+            rounded="pill"
+            @click="goToNextStep"
+          >
+            {{ currentStep === 8 ? '完成' : '下一步' }}
+            <v-icon end v-if="currentStep < 8">mdi-arrow-right</v-icon>
+            <v-icon end v-else>mdi-check</v-icon>
+          </v-btn>
+        </div>
+      </div>
+    </v-card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
 
-const props = defineProps<{
-  formData: any;  // 接收父組件數據
-}>();
+// Props definition
+const props = defineProps({
+  formData: {
+    type: Object,
+    default: () => ({})
+  },
+  currentStep: {
+    type: Number,
+    required: true
+  }
+});
 
-const emit = defineEmits(['update:formData', 'validated']);
-const localValid = ref(false);
+// Event emitters
+const emit = defineEmits(['update:formData', 'validated', 'go-back']);
+
+// Form ref and validation state
 const form = ref(null);
+const localValid = ref(true); // Default to true for demo purposes
+
+// Make isValid always true for demo
+const isValid = computed(() => true);
+
+// Navigate to next step - simplified for localStorage demo
+const goToNextStep = async () => {
+  // Always update data before moving forward
+  updateFormData();
+
+  console.log('Emitting validated event for step 4');
+  emit('validated', { valid: true, step: 4 });
+};
+
+// Go back to previous step - simplified for localStorage demo
+const goToPreviousStep = () => {
+  // Always update data before going back
+  updateFormData();
+
+  console.log('Going back from step 4');
+  emit('go-back');
+};
 
 // 本地表單數據
 const localFormData = reactive({
@@ -530,7 +595,10 @@ const localFormData = reactive({
     unitPrice: number;
     quantity: number;
     totalPrice: number;
-  }>
+  }>,
+
+  // Default to valid for demo
+  valid: true
 });
 
 // 選項
@@ -779,33 +847,16 @@ const movePipeDown = (index: number) => {
   }
 };
 
-// 更新父組件數據
+// 更新父組件數據 - modified for localStorage approach
 const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
-    valid: localValid.value
+    valid: true // Always set to true for demo
   });
 };
 
-// 表單驗證
-const validate = async () => {
-  const { valid } = await form.value.validate();
-
-  // 更新本地數據
-  updateFormData();
-
-  // 自定義驗證邏輯：至少添加一個管路設施
-  const hasAtLeastOnePipe = localFormData.pipes.length > 0;
-
-  // 返回最終驗證結果
-  const finalValid = valid && hasAtLeastOnePipe;
-
-  // 發送驗證事件
-  emit('validated', { valid: finalValid, step: 4 });
-};
-
-// 初始化數據
+// 初始化數據 - enhanced for demo data
 onMounted(() => {
   // 從父組件接收數據
   if (props.formData) {
@@ -828,40 +879,43 @@ onMounted(() => {
   }
 
   // 如果管路列表為空，添加示例數據
-  if (localFormData.pipes.length === 0) {
-    localFormData.pipes.push({
-      source: '農田水利署',
-      type: 'main',
-      typeLabel: '主管',
-      name: '',
-      specification: '1/2" / 支',
-      unitPrice: 44,
-      quantity: 2,
-      totalPrice: 88
-    });
-
-    localFormData.pipes.push({
-      source: '農田水利署',
-      type: 'branch',
-      typeLabel: '支管',
-      name: '',
-      specification: '3/4" / 只',
-      unitPrice: 50,
-      quantity: 1,
-      totalPrice: 50
-    });
-
-    localFormData.pipes.push({
-      source: '農田水利署',
-      type: 'end',
-      typeLabel: '末端設施',
-      name: '單口噴頭-塑鋼',
-      specification: '1/2" / 只',
-      unitPrice: 35,
-      quantity: 1,
-      totalPrice: 35
-    });
+  if (!localFormData.pipes || localFormData.pipes.length === 0) {
+    localFormData.pipes = [
+      {
+        source: '農田水利署',
+        type: 'main',
+        typeLabel: '主管',
+        name: '',
+        specification: '1/2" / 支',
+        unitPrice: 44,
+        quantity: 2,
+        totalPrice: 88
+      },
+      {
+        source: '農田水利署',
+        type: 'branch',
+        typeLabel: '支管',
+        name: '',
+        specification: '3/4" / 只',
+        unitPrice: 50,
+        quantity: 1,
+        totalPrice: 50
+      },
+      {
+        source: '農田水利署',
+        type: 'end',
+        typeLabel: '末端設施',
+        name: '單口噴頭-塑鋼',
+        specification: '1/2" / 只',
+        unitPrice: 35,
+        quantity: 1,
+        totalPrice: 35
+      }
+    ];
   }
+
+  // Initial update to parent
+  updateFormData();
 });
 
 // 監聽父組件數據變化
@@ -895,6 +949,7 @@ watch(localValid, (newVal) => {
   }
 });
 </script>
+
 
 <style scoped>
 .step-content {
@@ -933,3 +988,4 @@ watch(localValid, (newVal) => {
   color: rgba(0, 0, 0, 0.7);
 }
 </style>
+
