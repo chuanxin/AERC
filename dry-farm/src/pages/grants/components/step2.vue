@@ -1550,6 +1550,7 @@ const showFeatureInfo = (feature) => {
 // Hide feature info popup
 const hideFeatureInfo = () => {
   featureInfoVisible.value = false;
+  landInfoDialog.value = false;
 };
 
 // Clean up interactions when map is destroyed
@@ -1632,6 +1633,8 @@ const useSelectedFeature = () => {
 
     // Hide the feature info popup
     hideFeatureInfo();
+    // Close the dialog
+    landInfoDialog.value = false;
     // Make sure to update parent form data
     updateFormData();
   }
