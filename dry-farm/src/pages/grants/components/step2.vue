@@ -622,6 +622,7 @@ import GeoJSON from 'ol/format/GeoJSON';
 import { Select } from 'ol/interaction';
 import { click } from 'ol/events/condition';
 import { unByKey } from 'ol/Observable';
+import { getArea } from 'ol/sphere';
 
 // Reference to map element and map instance
 const mapElement = ref(null);
@@ -1384,6 +1385,49 @@ const handleFeatureSelect = (e) => {
         localFormData.latitude = properties.lat;
       }
 
+      // Calculate area of the feature if it has a geometry
+      const geometry = feature.getGeometry();
+      let areaValue = 0;
+
+      if (geometry) {
+        // Get area in square meters
+        areaValue = getArea(geometry);
+        // Round to 1 decimal place
+        areaValue = Math.round(areaValue * 10) / 10;
+
+        // Set area property on the feature
+        feature.set('area', areaValue);
+
+        // If the feature already has an area property, use that instead
+        if (properties.area && !isNaN(parseFloat(properties.area))) {
+          areaValue = parseFloat(properties.area);
+        }
+      }
+
+      // Create a copy of properties with updated area
+      const updatedProperties = {
+        ...properties,
+        area: areaValue
+      };
+
+      // Populate the land info dialog with feature data
+      if (updatedProperties) {
+        // Update land info with feature properties
+        landInfo.section = updatedProperties.section || landInfo.section;
+        landInfo.number = updatedProperties.number || landInfo.number;
+        landInfo.specialLand = updatedProperties.specialLand || landInfo.specialLand;
+
+        // If the feature has coordinates, update the form
+        if (updatedProperties.lon && updatedProperties.lat) {
+          localFormData.longitude = updatedProperties.lon;
+          localFormData.latitude = updatedProperties.lat;
+        }
+
+        // You can show a popup with feature info including the area
+        selectedFeatureInfo.value = updatedProperties;
+        featureInfoVisible.value = true;
+      }
+
       // You can show a popup with feature info
       showFeatureInfo(feature);
     }
@@ -1427,6 +1471,28 @@ watch(landInfoDialog, (isOpen) => {
     cleanupMap();
   }
 });
+
+// Add this to the useSelectedFeature function to update the area fields
+const useSelectedFeature = () => {
+  if (selectedFeatureInfo.value) {
+    // Existing code...
+
+    // If the feature has an area, update the area fields
+    if (selectedFeatureInfo.value.area) {
+      localFormData.landArea = selectedFeatureInfo.value.area;
+      // Convert to hectares
+      const areaInHa = (parseFloat(selectedFeatureInfo.value.area) / 10000).toFixed(4);
+      localFormData.landAreaHa = areaInHa;
+
+      // Set the facility area to match land area by default
+      localFormData.facilityArea = selectedFeatureInfo.value.area;
+      localFormData.facilityAreaHa = areaInHa;
+    }
+
+    // Hide the feature info popup
+    hideFeatureInfo();
+  }
+};
 
 // Function to load GeoJSON file (replace the GML function)
 const loadGeoJSONFile = () => {
