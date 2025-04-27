@@ -156,43 +156,55 @@
                 <div class="d-flex align-center mb-3">
                   <div class="d-flex align-center flex-wrap">
                     <div class="me-3 mb-2">
-                      <v-text-field
-                        v-model="localFormData.branchPipeSpacing"
-                        label="支管間距"
-                        variant="outlined"
-                        density="comfortable"
-                        @update:model-value="updateFormData"
-                      />
+                      <div class="text-body-2">支管行距(SL)</div>
+                      <div class="d-flex align-center">
+                        <v-text-field
+                          v-model="localFormData.branchPipeSpacing"
+                          variant="outlined"
+                          density="comfortable"
+                          style="width: 80px"
+                          class="me-1"
+                        />
+                        <span>M</span>
+                      </div>
                     </div>
 
                     <div class="me-3 mb-2">
-                      <v-text-field
-                        v-model="localFormData.sprinklerSpacing"
-                        label="噴頭間距"
-                        variant="outlined"
-                        density="comfortable"
-                        @update:model-value="updateFormData"
-                      />
+                      <div class="text-body-2">噴頭間距(SL)</div>
+                      <div class="d-flex align-center">
+                        <v-text-field
+                          v-model="localFormData.sprinklerSpacing"
+                          variant="outlined"
+                          density="comfortable"
+                          style="width: 80px"
+                          class="me-1"
+                        />
+                        <span>M</span>
+                      </div>
                     </div>
 
                     <div class="me-3 mb-2">
-                      <v-text-field
-                        v-model="localFormData.riserHeight"
-                        label="立管高度"
-                        variant="outlined"
-                        density="comfortable"
-                        @update:model-value="updateFormData"
-                      />
+                      <div class="text-body-2">豎管高(H)</div>
+                      <div class="d-flex align-center">
+                        <v-text-field
+                          v-model="localFormData.riserHeight"
+                          variant="outlined"
+                          density="comfortable"
+                          style="width: 80px"
+                          class="me-1"
+                        />
+                        <span>M</span>
+                      </div>
                     </div>
 
                     <div class="mb-2">
                       <v-select
                         v-model="localFormData.variantType"
                         :items="variantTypeOptions"
-                        label="型式"
+                        label="變徑"
                         variant="outlined"
                         density="comfortable"
-                        @update:model-value="updateFormData"
+                        style="width: 150px"
                       />
                     </div>
                   </div>
