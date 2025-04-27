@@ -4,7 +4,7 @@
     class="step-content"
   >
     <v-card
-      class="mb-6 pa-0"
+      class="mb-0 pa-0"
       flat
     >
       <v-card-text class="pb-0 pt-0">
@@ -15,6 +15,7 @@
         >
           <!-- 系統資訊區塊 -->
           <v-card
+            v-if="!localFormData.caseNumber"
             class="mb-4"
             variant="outlined"
           >
@@ -181,6 +182,7 @@
                     icon="mdi-pencil"
                     size="small"
                     color="primary"
+                    rounded="circle"
                     @click="isEditingAddress = true"
                   />
                   <v-btn
@@ -321,29 +323,28 @@
           </v-card>
         </v-form>
       </v-card-text>
-    </v-card>
-
-    <v-card
-      class="step-navigation-card ma-0 pa-0"
-      flat
-    >
-      <div class="d-flex align-center pr-4">
-        <v-spacer />
-        <div class="navigation-buttons">
-          <v-btn
-            color="green-darken-1"
-            size="large"
-            rounded="pill"
-            :disabled="!localValid"
-            @click="goToNextStep"
-          >
-            下一步
-            <v-icon end>
-              mdi-arrow-right
-            </v-icon>
-          </v-btn>
+      <!-- <v-card-actions
+        class="step-navigation-card ma-0 pa-0"
+        flat
+      >
+        <div class="d-flex align-center pr-4">
+          <div class="navigation-buttons">
+            <v-btn
+              color="green-darken-1"
+              size="large"
+              variant="outlined"
+              rounded="lg"
+              :disabled="!localValid"
+              @click="goToNextStep"
+            >
+              下一步
+              <v-icon end>
+                mdi-arrow-right
+              </v-icon>
+            </v-btn>
+          </div>
         </div>
-      </div>
+      </v-card-actions> -->
     </v-card>
   </div>
 </template>

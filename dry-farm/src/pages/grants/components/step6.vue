@@ -1,6 +1,6 @@
 <template>
   <div class="step-content" ref="stepContent">
-    <v-card class="mb-6 pa-0" flat>
+    <v-card class="mb-0 pa-0" flat>
       <v-card-text class="pb-0 pt-0">
         <v-form ref="form" v-model="localValid" @submit.prevent>
           <!-- 補助申請基本資訊區 -->
@@ -166,8 +166,8 @@
     </v-card>
 
     <!-- 設施明細區 -->
-    <v-card class="mb-6 pa-0" flat>
-      <v-card-text class="pb-0 pt-0">
+    <v-card class="mb-0 pb-0" flat>
+      <v-card-text class="pt-4 pb-0">
         <v-card variant="outlined">
           <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
             <v-icon class="me-2" size="small">mdi-pipe</v-icon>
@@ -295,7 +295,7 @@
       </v-card-text>
     </v-card>
 
-    <v-card class="step-navigation-card ma-0 pa-0" flat>
+    <!-- <v-card class="step-navigation-card ma-0 pa-0" flat>
       <div class="d-flex align-center pr-4">
         <v-spacer></v-spacer>
         <div class="navigation-buttons">
@@ -322,7 +322,7 @@
           </v-btn>
         </div>
       </div>
-    </v-card>
+    </v-card> -->
   </div>
 </template>
 

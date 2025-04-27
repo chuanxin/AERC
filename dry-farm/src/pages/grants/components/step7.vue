@@ -1,6 +1,6 @@
 <template>
   <div class="step-content" ref="stepContent">
-    <v-card class="mb-6 pa-0" flat>
+    <v-card class="mb-0 pa-0" flat>
       <v-card-text class="pb-0 pt-0">
         <v-form ref="form" v-model="localValid" @submit.prevent>
           <!-- 結案申報基本資訊區域 -->
@@ -372,7 +372,7 @@
       </v-card-text>
     </v-card>
 
-    <v-card class="step-navigation-card ma-0 pa-0" flat>
+    <!-- <v-card class="step-navigation-card ma-0 pa-0" flat>
       <div class="d-flex align-center pr-4">
         <v-spacer></v-spacer>
         <div class="navigation-buttons">
@@ -401,7 +401,7 @@
           </v-btn>
         </div>
       </div>
-    </v-card>
+    </v-card> -->
   </div>
 </template>
 

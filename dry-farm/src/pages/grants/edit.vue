@@ -23,165 +23,296 @@
       {{ grantsStore.error }}
     </v-alert>
 
-    <!-- Step navigation -->
-    <v-snackbar
-      v-model="isSnackbarVisible"
-      timeout="-1"
-      variant="plain"
-      class="ma-0 pa-0"
-      max-width="1200"
-      location="bottom"
-      vertical
-    >
-      <v-card class="ma-0 pa-0">
-        <v-stepper
-          v-model="displayStep"
-          flat
-          editable
-          :mobile="isSmallScreen"
-          max-height="50"
-        >
-          <v-stepper-header>
-            <template
-              v-for="step in steps"
-              :key="step.value"
-            >
-              <v-stepper-item
-                :value="step.value"
-                :title="step.title"
-                class="pa-3 ml-3 mr-3"
-                rounded="lg"
-                :ripple="false"
-              />
-              <v-divider
-                v-if="step.value > 0 && step.value < 8"
-              />
-            </template>
-          </v-stepper-header>
-        </v-stepper>
-      </v-card>
-    </v-snackbar>
-
-    <!-- Main content area with vertical stepper -->
-    <div ref="stepperContainer">
-      <v-stepper-vertical
-        v-model="displayStep"
-        hide-actions
+    <!-- Navigation Drawer -->
+    <v-layout>
+      <v-navigation-drawer
+        v-model="drawerOpen"
+        border="b-sm"
+        elevation="0"
+        :rail-width="60"
+        :permanent="!isSmallScreen"
+        :temporary="isSmallScreen"
+        :width="drawerWidth"
+        :rail="isRailMode"
       >
-        <template
-          v-for="step in steps"
-          :key="step.value"
+        <v-list
+          height="55"
+          class="pt-0 mt-0"
         >
-          <v-stepper-vertical-item
-            :complete="currentStep > step.value"
-            :step="`Step ${step.value}`"
+          <v-list-item>
+            <v-list-item-title class="text-h6">
+              補助申請業務 {{ currentStep }}/{{ steps.length }}
+            </v-list-item-title>
+            <template #append>
+              <v-btn
+                icon
+                variant="text"
+                rounded="circle"
+                class="pl-0"
+                @click="isRailMode = !isRailMode"
+              >
+                <v-icon>{{ isRailMode ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
+              </v-btn>
+            </template>
+          </v-list-item>
+        </v-list>
+
+        <v-divider />
+
+        <!-- Step navigation list -->
+        <v-list nav>
+          <v-list-item
+            v-for="step in steps"
+            :key="step.value"
             :value="step.value"
-            editable
+            :active="currentStep === step.value"
+            :disabled="isNavigating"
+            variant="elevated"
+            elevation="0"
             @click="handleStepClick(step.value)"
           >
-            <template #icon>
-              <v-icon size="24">
-                {{ currentStep > step.value ? 'mdi-check-circle' : 'mdi-circle-outline' }}
-                {{ currentStep === step.value ? 'mdi-circle' : '' }}
-                {{ currentStep < step.value ? 'mdi-circle-outline' : '' }}
-                {{ submitting ? 'mdi-loading' : '' }}
+            <template #prepend>
+              <v-icon :color="getStepIconColor(step.value)" size="large">
+                {{ getStepIcon(step.value) }}
               </v-icon>
             </template>
-            <template #subtitle>
-              <div class="d-flex align-center">
-                <span
-                  :class="[
-                    'text-body-1',
-                    currentStep === step.value ? 'text-primary font-weight-bold' : 'text-medium-emphasis'
-                  ]"
-                >
-                  {{ step.subtitle }}
-                </span>
-                <v-icon
-                  v-if="currentStep === step.value"
-                  color="primary"
-                  size="small"
-                  class="ms-2"
-                >
-                  mdi-arrow-right
-                </v-icon>
-              </div>
-            </template>
 
-            <!-- Step components -->
-            <step1
-              v-if="step.value === 1 && currentStep === 1"
-              :form-data="grantsStore.formData[1]"
-              @update:form-data="grantsStore.updateFormData(1, $event)"
-              @validated="handleStepValidated"
-              @go-back="handleGoBack"
-            />
-            <step2
-              v-if="step.value === 2 && currentStep === 2"
-              :form-data="grantsStore.formData[2]"
-              :current-step="currentStep"
-              @update:form-data="grantsStore.updateFormData(2, $event)"
-              @validated="handleStepValidated"
-              @go-back="handleGoBack"
-            />
-            <step3
-              v-if="step.value === 3 && currentStep === 3"
-              :form-data="grantsStore.formData[3]"
-              :current-step="currentStep"
-              @update:form-data="grantsStore.updateFormData(3, $event)"
-              @validated="handleStepValidated"
-              @go-back="handleGoBack"
-            />
-            <step4
-              v-if="step.value === 4 && currentStep === 4"
-              :form-data="grantsStore.formData[4]"
-              :current-step="currentStep"
-              @update:form-data="grantsStore.updateFormData(4, $event)"
-              @validated="handleStepValidated"
-              @go-back="handleGoBack"
-            />
-            <step5
-              v-if="step.value === 5 && currentStep === 5"
-              :form-data="grantsStore.formData[5]"
-              :current-step="currentStep"
-              @update:form-data="grantsStore.updateFormData(5, $event)"
-              @validated="handleStepValidated"
-              @go-back="handleGoBack"
-            />
-            <step6
-              v-if="step.value === 6 && currentStep === 6"
-              :form-data="grantsStore.formData[6]"
-              :current-step="currentStep"
-              @update:form-data="grantsStore.updateFormData(6, $event)"
-              @validated="handleStepValidated"
-              @go-back="handleGoBack"
-            />
-            <step7
-              v-if="step.value === 7 && currentStep === 7"
-              :form-data="grantsStore.formData[7]"
-              :current-step="currentStep"
-              @update:form-data="grantsStore.updateFormData(7, $event)"
-              @validated="handleStepValidated"
-              @go-back="handleGoBack"
-            />
-            <step8
-              v-if="step.value === 8 && currentStep === 8"
-              :form-data="grantsStore.formData[8]"
-              :current-step="currentStep"
-              @update:form-data="grantsStore.updateFormData(8, $event)"
-              @validated="handleStepValidated"
-              @go-back="handleGoBack"
-            />
-          </v-stepper-vertical-item>
-        </template>
-      </v-stepper-vertical>
-    </div>
+            <v-list-item-title>
+              <span :class="{ 'text-primary font-weight-bold': currentStep === step.value }">
+                {{ step.title }}
+              </span>
+            </v-list-item-title>
+
+            <v-list-item-subtitle
+              v-if="!isRailMode"
+              :class="[
+                currentStep === step.value ? 'text-primary' : 'text-medium-emphasis'
+              ]"
+            >
+              {{ step.subtitle }}
+            </v-list-item-subtitle>
+
+            <template
+              v-if="currentStep === step.value && !isRailMode"
+              #append
+            >
+              <v-icon
+                color="primary"
+                size="small"
+                rounded="circle"
+              >
+                mdi-arrow-right
+              </v-icon>
+            </template>
+          </v-list-item>
+        </v-list>
+
+        <!-- <template #append>
+          <div class="pa-2">
+            <v-btn
+              v-if="currentStep > 1"
+              class="mb-2"
+              :disabled="isNavigating"
+              block
+              variant="outlined"
+              @click="handleGoBack"
+            >
+              <v-icon start>
+                mdi-arrow-left
+              </v-icon>
+              上一步
+            </v-btn>
+
+            <v-btn
+              v-if="currentStep < steps.length"
+              :disabled="isNavigating"
+              block
+              color="primary"
+              @click="goToNextStep"
+            >
+              下一步
+              <v-icon end>
+                mdi-arrow-right
+              </v-icon>
+            </v-btn>
+          </div>
+        </template> -->
+      </v-navigation-drawer>
+
+      <!-- Main content area -->
+      <v-main>
+        <div class="px-4 mb-1">
+          <!-- Small screen step indicator -->
+          <v-card
+            v-if="isSmallScreen"
+            class="mb-4 pa-2"
+          >
+            <div class="d-flex align-center">
+              <v-btn
+                icon
+                variant="text"
+                @click="drawerOpen = !drawerOpen"
+              >
+                <v-icon>mdi-menu</v-icon>
+              </v-btn>
+
+              <div class="ml-2">
+                <div class="text-subtitle-1">
+                  補助申請業務 {{ currentStep }}/{{ steps.length }}
+                </div>
+                <div class="text-body-2">
+                  {{ steps.find(s => s.value === currentStep)?.subtitle }}
+                </div>
+              </div>
+
+              <v-spacer />
+
+              <div class="d-flex">
+                <v-btn
+                  v-if="currentStep > 1"
+                  :disabled="isNavigating"
+                  icon
+                  variant="text"
+                  rounded="circle"
+                  @click="handleGoBack"
+                >
+                  <v-icon>mdi-arrow-left</v-icon>
+                </v-btn>
+
+                <v-btn
+                  v-if="currentStep < steps.length"
+                  :disabled="isNavigating"
+                  icon
+                  variant="text"
+                  rounded="circle"
+                  @click="goToNextStep"
+                >
+                  <v-icon>mdi-arrow-right</v-icon>
+                </v-btn>
+              </div>
+            </div>
+          </v-card>
+
+          <!-- Step components container -->
+          <v-card class="pb-0 mb-0">
+            <v-card-title class="text-h5 ml-4">
+              {{ steps.find(s => s.value === currentStep)?.title }}<span class="text-disabled text-h6 mb-6">（{{ grantsStore.currentGrant?.case_number }}）</span>
+            </v-card-title>
+
+            <v-card-text class="pb-0 mb-0">
+              <!-- Step components -->
+              <step1
+                v-if="currentStep === 1"
+                :form-data="grantsStore.formData[1]"
+                @update:form-data="grantsStore.updateFormData(1, $event)"
+                @validated="handleStepValidated"
+                @go-back="handleGoBack"
+              />
+              <step2
+                v-if="currentStep === 2"
+                :form-data="grantsStore.formData[2]"
+                :current-step="currentStep"
+                @update:form-data="grantsStore.updateFormData(2, $event)"
+                @validated="handleStepValidated"
+                @go-back="handleGoBack"
+              />
+              <step3
+                v-if="currentStep === 3"
+                :form-data="grantsStore.formData[3]"
+                :current-step="currentStep"
+                @update:form-data="grantsStore.updateFormData(3, $event)"
+                @validated="handleStepValidated"
+                @go-back="handleGoBack"
+              />
+              <step4
+                v-if="currentStep === 4"
+                :form-data="grantsStore.formData[4]"
+                :current-step="currentStep"
+                @update:form-data="grantsStore.updateFormData(4, $event)"
+                @validated="handleStepValidated"
+                @go-back="handleGoBack"
+              />
+              <step5
+                v-if="currentStep === 5"
+                :form-data="grantsStore.formData[5]"
+                :current-step="currentStep"
+                @update:form-data="grantsStore.updateFormData(5, $event)"
+                @validated="handleStepValidated"
+                @go-back="handleGoBack"
+              />
+              <step6
+                v-if="currentStep === 6"
+                :form-data="grantsStore.formData[6]"
+                :current-step="currentStep"
+                @update:form-data="grantsStore.updateFormData(6, $event)"
+                @validated="handleStepValidated"
+                @go-back="handleGoBack"
+              />
+              <step7
+                v-if="currentStep === 7"
+                :form-data="grantsStore.formData[7]"
+                :current-step="currentStep"
+                @update:form-data="grantsStore.updateFormData(7, $event)"
+                @validated="handleStepValidated"
+                @go-back="handleGoBack"
+              />
+              <step8
+                v-if="currentStep === 8"
+                :form-data="grantsStore.formData[8]"
+                :current-step="currentStep"
+                @update:form-data="grantsStore.updateFormData(8, $event)"
+                @validated="handleStepValidated"
+                @go-back="handleGoBack"
+              />
+            </v-card-text>
+
+            <!-- Step navigation buttons for desktop -->
+            <v-card-actions
+              v-if="!isSmallScreen"
+              class="pt-2"
+            >
+              <v-btn
+                v-if="currentStep > 1"
+                :disabled="isNavigating"
+                size="x-large"
+                class="ml-6"
+                variant="outlined"
+                rounded="lg"
+                :ripple="false"
+                @click="handleGoBack"
+              >
+                <v-icon start>
+                  mdi-arrow-left
+                </v-icon>
+                上一步
+              </v-btn>
+
+              <v-spacer />
+
+              <v-btn
+                :disabled="isNavigating"
+                color="primary"
+                class="mr-5"
+                size="x-large"
+                variant="text"
+                rounded="lg"
+                :ripple="false"
+                @click="goToNextStep"
+              >
+                {{ currentStep === 8 ? '完成' : '下一步' }}
+                <v-icon end v-if="currentStep < 8">mdi-arrow-right</v-icon>
+                <v-icon end v-else>mdi-check</v-icon>
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </div>
+      </v-main>
+    </v-layout>
   </v-container>
 </template>
 
 <script setup lang="ts">
 import { useDisplay } from 'vuetify'
-import { VStepperVerticalItem } from 'vuetify/labs/VStepperVertical'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useGrantsStore } from '@/stores/grants'
 import { GrantStorage } from '@/utils/grant-storage'
@@ -205,12 +336,16 @@ const grantsStore = useGrantsStore()
 
 // State refs
 const currentStep = ref(1)
-const isSnackbarVisible = ref(true)
-const displayStep = ref(1)
 const submitting = ref(false)
 const isDataLoaded = ref(false)
 const hasUnsavedChanges = ref(false)
 const isNavigating = ref(false)
+
+// Navigation drawer state
+const drawerOpen = ref(true)
+// const isRailMode = ref(!isSmallScreen.value)
+const isRailMode = ref(false)
+const drawerWidth = ref(280)
 
 // Step definitions
 const steps = [
@@ -224,37 +359,34 @@ const steps = [
   { title: '佐證及相關文件上傳', value: 8, subtitle: '請上傳佐證及相關文件' }
 ]
 
-// Step validation handling v2
-// const handleStepValidated = async ({ valid, step }) => {
-//   if (valid) {
-//     try {
-//       submitting.value = true
+// Step icon and color logic
 
-//       // Save current step data
-//       await saveCurrentStepData()
+const getStepIcon = (stepValue: number): string => {
+  if (submitting.value && currentStep.value === stepValue) return 'mdi-loading mdi-spin'
+  if (currentStep.value > stepValue) return 'mdi-check-circle'
+  if (currentStep.value === stepValue) return 'mdi-numeric-'+stepValue+'-circle'
+  return 'mdi-circle-outline'
+};
 
-//       // Proceed to next step if not on the last step
-//       if (step < steps.length) {
-//         currentStep.value = step + 1
-//         displayStep.value = currentStep.value
+const getStepIconColor = (stepValue: number) => {
+  if (currentStep.value > stepValue) return 'success'
+  if (currentStep.value === stepValue) return 'primary'
+  return 'grey'
+}
 
-//         // Update URL and load data for the next step
-//         updateStepInURL(currentStep.value)
-//         await loadStepData(currentStep.value)
-//       } else {
-//         // Complete the form if this was the last step
-//         router.push('/grants')
-//       }
-//     } catch (error) {
-//       console.error('Error saving step data:', error)
-//     } finally {
-//       submitting.value = false
-//     }
-//   }
-// }
+// Helper function to trigger next step
+const goToNextStep = () => {
+  if (currentStep.value < steps.length) {
+    handleStepValidated({ valid: true, step: currentStep.value })
+  }
+}
+// Helper function to scroll to top
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
-// Step validation handling - No validation for steps 2-8
-const handleStepValidated = async ({ valid, step }) => {
+// Step validation handling
+const handleStepValidated = async ({ valid, step }: { valid: boolean; step: number }) => {
   if (valid && !isNavigating.value) {
     try {
       isNavigating.value = true
@@ -269,11 +401,13 @@ const handleStepValidated = async ({ valid, step }) => {
       // Proceed to next step if not on the last step
       if (step < steps.length) {
         currentStep.value = step + 1
-        displayStep.value = currentStep.value
 
         // Update URL and load data for the next step
         updateStepInURL(currentStep.value)
         await loadStepData(currentStep.value)
+
+        // Scroll to top after loading new step
+        scrollToTop()
       } else {
         // Complete the form if this was the last step
         router.push('/grants')
@@ -289,37 +423,28 @@ const handleStepValidated = async ({ valid, step }) => {
     }
   }
 }
-// Step click handler v2
-// const handleStepClick = (stepValue) => {
-//   // console.log('Step clicked:', stepValue, currentStep.value)
-//   // if (stepValue === currentStep.value) return; // Skip if clicking current step
 
-//   saveCurrentStepData().then(() => {
-//     // Update both current step and display step
-//     currentStep.value = stepValue;
-//     displayStep.value = stepValue;
-
-//     // Update URL and load data
-//     updateStepInURL(stepValue);
-//     loadStepData(stepValue);
-//   }).catch(error => {
-//     console.error('Failed to save data before step change:', error);
-//   });
-// };
-
-const handleStepClick = (stepValue) => {
+// Step click handler
+const handleStepClick = (stepValue: number) => {
   if (stepValue === currentStep.value || isNavigating.value) return // Skip if clicking current step or already navigating
 
   isNavigating.value = true
 
   saveCurrentStepData().then(() => {
-    // Update both current step and display step
+    // Update current step
     currentStep.value = stepValue;
-    displayStep.value = stepValue;
 
     // Update URL and load data
     updateStepInURL(stepValue);
-    loadStepData(stepValue);
+    loadStepData(stepValue).then(() => {
+      // Scroll to top after loading new step
+      scrollToTop()
+    });
+
+    // Close drawer on mobile after selection
+    if (isSmallScreen.value) {
+      drawerOpen.value = false;
+    }
 
     setTimeout(() => {
       isNavigating.value = false
@@ -330,31 +455,7 @@ const handleStepClick = (stepValue) => {
   });
 };
 
-// Go back handler for step navigation v2
-// const handleGoBack = async () => {
-//   if (currentStep.value > 1) {
-//     try {
-//       submitting.value = true
-
-//       // Save current step before going back
-//       await saveCurrentStepData()
-
-//       // Go to previous step
-//       currentStep.value -= 1
-//       displayStep.value = currentStep.value
-
-//       // Update URL and load previous step data
-//       updateStepInURL(currentStep.value)
-//       await loadStepData(currentStep.value)
-//     } catch (error) {
-//       console.error('Error saving step data before going back:', error)
-//     } finally {
-//       submitting.value = false
-//     }
-//   }
-// }
-
-// Go back handler for step navigation v3
+// Go back handler for step navigation
 const handleGoBack = async () => {
   if (currentStep.value > 1 && !isNavigating.value) {
     try {
@@ -366,11 +467,13 @@ const handleGoBack = async () => {
 
       // Go to previous step
       currentStep.value -= 1
-      displayStep.value = currentStep.value
 
       // Update URL and load previous step data
       updateStepInURL(currentStep.value)
       await loadStepData(currentStep.value)
+
+      // Scroll to top after loading new step
+      scrollToTop()
     } catch (error) {
       console.error('Error saving step data before going back:', error)
     } finally {
@@ -382,24 +485,7 @@ const handleGoBack = async () => {
   }
 }
 
-// // Load data for a specific step v2
-// const loadStepData = async (step: number) => {
-//   if (!route.query.id) return
-
-//   const caseNumber = route.query.id as string
-//   submitting.value = true
-
-//   try {
-//     await grantsStore.loadStepData(caseNumber, step)
-//     hasUnsavedChanges.value = false
-//   } catch (error) {
-//     console.error(`Failed to load data for step ${step}:`, error)
-//   } finally {
-//     submitting.value = false
-//   }
-// }
-
-// Load data for a specific step v3
+// Load data for a specific step
 const loadStepData = async (step: number) => {
   if (!route.query.id) return
 
@@ -431,28 +517,7 @@ const loadStepData = async (step: number) => {
   }
 }
 
-
-// // Save current step data v2
-// const saveCurrentStepData = async () => {
-//   const step = currentStep.value
-//   if (!route.query.id) return false
-
-//   const caseNumber = route.query.id as string
-//   submitting.value = true
-
-//   try {
-//     await grantsStore.saveStepData(step, grantsStore.formData[step])
-//     hasUnsavedChanges.value = false
-//     return true
-//   } catch (error) {
-//     console.error(`Failed to save data for step ${step}:`, error)
-//     return false
-//   } finally {
-//     submitting.value = false
-//   }
-// }
-
-// Save current step data v3
+// Save current step data
 const saveCurrentStepData = async () => {
   const step = currentStep.value
   if (!route.query.id) return false
@@ -486,69 +551,7 @@ const updateStepInURL = (step: number) => {
   })
 }
 
-// Scroll to active step element
-const scrollToActiveStep = () => {
-  nextTick(() => {
-    const activeStepElement = document.querySelector(`.step-${currentStep.value}`)
-
-    if (activeStepElement) {
-      const headerOffset = 100 // Adjust based on your header height
-      const elementPosition = activeStepElement.getBoundingClientRect().top
-      const offsetPosition = elementPosition + window.pageYOffset - headerOffset
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: 'smooth'
-      })
-    }
-  })
-}
-
-// // Initialize data v2
-// onMounted(async () => {
-//   // Get case number and step from URL
-//   const caseNumber = route.query.id as string
-//   const stepParam = route.query.step
-
-//   if (!caseNumber) {
-//     // Redirect to grants list if no case number provided
-//     router.push('/grants')
-//     return
-//   }
-
-//   try {
-//     // First load the grant to get its basic info
-//     await grantsStore.loadGrant(caseNumber)
-
-//     // Determine starting step (from URL, grant data, or default to 1)
-//     let startStep = 1
-
-//     if (stepParam) {
-//       const stepValue = parseInt(stepParam as string, 10)
-//       if (!isNaN(stepValue) && stepValue >= 1 && stepValue <= steps.length) {
-//         startStep = stepValue
-//       }
-//     } else if (grantsStore.currentGrant?.current_step) {
-//       startStep = grantsStore.currentGrant.current_step
-//     }
-
-//     // Set steps and update URL if needed
-//     currentStep.value = startStep
-//     displayStep.value = startStep
-
-//     if (!stepParam) {
-//       updateStepInURL(startStep)
-//     }
-
-//     // Load data for the starting step
-//     await loadStepData(startStep)
-//     isDataLoaded.value = true
-//   } catch (error) {
-//     console.error('Failed to initialize grant data:', error)
-//   }
-// })
-
-// Initialize data v3
+// Initialize data
 onMounted(async () => {
   // Get case number and step from URL
   const caseNumber = route.query.id as string
@@ -572,13 +575,12 @@ onMounted(async () => {
       if (!isNaN(stepValue) && stepValue >= 1 && stepValue <= steps.length) {
         startStep = stepValue
       }
-    } else if (grantsStore.currentGrant?.current_step) {
-      startStep = grantsStore.currentGrant.current_step
+    } else if (grantsStore.currentStep) {
+      startStep = grantsStore.currentStep
     }
 
     // Set steps and update URL if needed
     currentStep.value = startStep
-    displayStep.value = startStep
 
     if (!stepParam) {
       updateStepInURL(startStep)
@@ -601,7 +603,6 @@ watch(() => route.query.step, (newStepParam) => {
       // If step changed in URL, save current step data before changing
       saveCurrentStepData().then(() => {
         currentStep.value = newStep
-        displayStep.value = newStep
         loadStepData(newStep)
       }).catch(error => {
         console.error('Failed to save data before step change:', error)
@@ -610,19 +611,16 @@ watch(() => route.query.step, (newStepParam) => {
   }
 })
 
-// Watch display step changes (from stepper UI)
-watch(displayStep, (newStep) => {
-  if (newStep !== currentStep.value) {
-    saveCurrentStepData().then(() => {
-      currentStep.value = newStep
-      updateStepInURL(newStep)
-      loadStepData(newStep)
-    }).catch(error => {
-      console.error('Failed to save data before step change:', error)
-      displayStep.value = currentStep.value // Reset display step if save fails
-    })
+// Watch for screen size changes
+watch(isSmallScreen, (smallScreen) => {
+  if (smallScreen) {
+    isRailMode.value = false;
+    drawerOpen.value = false;
+  } else {
+    drawerOpen.value = true;
+    isRailMode.value = false; // Changed from true to keep expanded by default
   }
-})
+}, { immediate: true });
 
 // Watch for form data changes to detect unsaved changes
 watch(() => grantsStore.formData, () => {
@@ -645,15 +643,18 @@ onBeforeRouteLeave((to, from, next) => {
 </script>
 
 <style scoped>
-.sticky-header {
-  position: sticky;
-  top: 110px;
-  z-index: 4;
-  transition: box-shadow 0.3s ease, elevation 0.3s ease;
+/* Spinner animation for loading icon */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-.elevation-0 {
-  box-shadow: none !important;
-  background-color: transparent !important;
+.mdi-loading.mdi-spin {
+  animation: spin 1s infinite linear;
 }
+
+/* Make sure the content area takes full height */
+/* .v-main {
+  min-height: 100vh;
+} */
 </style>

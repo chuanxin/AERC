@@ -1,6 +1,6 @@
 <template>
   <div class="step-content" ref="stepContent">
-    <v-card class="mb-6 pa-0" flat>
+    <v-card class="mb-0 pa-0" flat>
       <!-- <v-card-title class="d-flex align-center bg-primary text-white">
         <v-icon class="me-2" color="white">mdi-pipe</v-icon>
         <span class="text-h6">4. 田間管路</span>
@@ -473,7 +473,7 @@
         </v-form>
       </v-card-text>
     </v-card>
-    <v-card class="step-navigation-card ma-0 pa-0" flat>
+    <!-- <v-card class="step-navigation-card ma-0 pa-0" flat>
       <div class="d-flex align-center pr-4">
         <v-spacer />
         <div class="navigation-buttons">
@@ -488,11 +488,11 @@
           >
             <v-icon start>mdi-arrow-left</v-icon>
             上一步
-          </v-btn>
+          </v-btn> -->
 
           <!-- <div class="text-caption d-none d-sm-block text-grey"> 步驟 {{ currentStep }}/8 </div> -->
 
-          <v-btn
+          <!-- <v-btn
             color="green-darken-1"
             :disabled="!isValid"
             size="large"
@@ -505,7 +505,7 @@
           </v-btn>
         </div>
       </div>
-    </v-card>
+    </v-card> -->
   </div>
 </template>
 

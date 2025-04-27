@@ -1,6 +1,6 @@
 <template>
   <div class="step-content" ref="stepContent">
-    <v-card class="mb-6 pa-0" flat>
+    <v-card class="mb-0 pa-0" flat>
       <v-card-text class="pb-0 pt-0">
         <!-- 設施地址區域 -->
         <v-card class="mb-4" variant="outlined">
@@ -491,10 +491,9 @@
       </v-card-text>
     </v-card>
 
-    <v-card class="step-navigation-card ma-0 pa-0" flat>
-
+    <!-- <v-card class="step-navigation-card ma-0 pa-0" flat>
       <div class="d-flex align-center pr-4">
-        <v-spacer></v-spacer>
+        <v-spacer />
         <div class="navigation-buttons">
           <v-btn
             variant="outlined"
@@ -507,11 +506,11 @@
           >
             <v-icon start>mdi-arrow-left</v-icon>
             上一步
-          </v-btn>
+          </v-btn> -->
 
           <!-- <div class="text-caption d-none d-sm-block text-grey"> 步驟 {{ currentStep }}/8 </div> -->
 
-          <v-btn
+          <!-- <v-btn
             color="green-darken-1"
             :disabled="!isValid"
             size="large"
@@ -524,7 +523,7 @@
           </v-btn>
         </div>
       </div>
-    </v-card>
+    </v-card> -->
 
     <v-dialog v-model="landInfoDialog" max-width="700px">
       <v-card>
