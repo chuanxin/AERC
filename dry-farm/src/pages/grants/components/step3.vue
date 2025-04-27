@@ -1,17 +1,38 @@
 <template>
-  <div class="step-content" ref="stepContent">
-    <v-card class="mb-0 pa-0" flat>
+  <div
+    ref="stepContent"
+    class="step-content"
+  >
+    <v-card
+      class="mb-0 pa-0"
+      flat
+    >
       <v-card-text class="pb-0 pt-0">
-        <v-form ref="form" v-model="localValid" @submit.prevent>
+        <v-form
+          ref="form"
+          v-model="localValid"
+          @submit.prevent
+        >
           <!-- 動力設備選擇區域 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-engine</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-engine
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">動力設備</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
                 <div class="d-flex align-center flex-wrap">
                   <v-select
                     v-model="localFormData.powerEquipment"
@@ -22,7 +43,7 @@
                     class="me-2 mb-2"
                     style="min-width: 200px"
                     @update:model-value="onPowerEquipmentChange"
-                  ></v-select>
+                  />
 
                   <v-select
                     v-model="localFormData.powerSource"
@@ -32,15 +53,19 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="min-width: 200px"
-                  ></v-select>
+                  />
 
                   <v-btn
                     color="primary"
                     class="mb-2"
-                    @click="addPowerEquipment"
                     :disabled="!canAddPowerEquipment"
+                    @click="addPowerEquipment"
                   >
-                    <v-icon class="me-1">mdi-plus</v-icon>
+                    <v-icon
+                      class="me-1"
+                    >
+                      mdi-plus
+                    </v-icon>
                     加入
                   </v-btn>
                 </div>
@@ -49,14 +74,25 @@
           </v-card>
 
           <!-- 調蓄設施區域 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-diving-scuba-tank-multiple</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-diving-scuba-tank-multiple
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">調蓄設施</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
                 <div class="d-flex align-center flex-wrap">
                   <v-select
                     v-model="localFormData.storageType"
@@ -67,7 +103,7 @@
                     class="me-2 mb-2"
                     style="min-width: 180px"
                     @update:model-value="onStorageTypeChange"
-                  ></v-select>
+                  />
 
                   <v-select
                     v-model="localFormData.storageTonnage"
@@ -77,7 +113,7 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="min-width: 100px"
-                  ></v-select>
+                  />
 
                   <v-select
                     v-model="localFormData.storageSource"
@@ -87,7 +123,7 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="min-width: 180px"
-                  ></v-select>
+                  />
 
                   <v-text-field
                     v-model="localFormData.storageRemark"
@@ -96,15 +132,17 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="min-width: 200px"
-                  ></v-text-field>
+                  />
 
                   <v-btn
                     color="primary"
                     class="mb-2"
-                    @click="addStorageFacility"
                     :disabled="!canAddStorageFacility"
+                    @click="addStorageFacility"
                   >
-                    <v-icon class="me-1">mdi-plus</v-icon>
+                    <v-icon class="me-1">
+                      mdi-plus
+                    </v-icon>
                     加入
                   </v-btn>
                 </div>
@@ -113,14 +151,25 @@
           </v-card>
 
           <!-- 調節控制設施區域 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-valve</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-valve
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">調節控制設施</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
                 <div class="d-flex align-center flex-wrap">
                   <v-select
                     v-model="localFormData.controlType"
@@ -130,7 +179,7 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="min-width: 180px"
-                  ></v-select>
+                  />
 
                   <v-text-field
                     v-model="localFormData.controlQuantity"
@@ -141,7 +190,7 @@
                     style="width: 80px"
                     type="number"
                     min="1"
-                  ></v-text-field>
+                  />
 
                   <v-text-field
                     v-model="localFormData.controlUnitPrice"
@@ -150,7 +199,7 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 120px"
-                  ></v-text-field>
+                  />
 
                   <v-text-field
                     v-model="controlTotalPrice"
@@ -161,7 +210,7 @@
                     style="width: 120px"
                     readonly
                     bg-color="grey-lighten-4"
-                  ></v-text-field>
+                  />
 
                   <v-select
                     v-model="localFormData.controlSource"
@@ -171,15 +220,17 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="min-width: 180px"
-                  ></v-select>
+                  />
 
                   <v-btn
                     color="primary"
                     class="mb-2"
-                    @click="addControlFacility"
                     :disabled="!canAddControlFacility"
+                    @click="addControlFacility"
                   >
-                    <v-icon class="me-1">mdi-plus</v-icon>
+                    <v-icon class="me-1">
+                      mdi-plus
+                    </v-icon>
                     加入
                   </v-btn>
                 </div>
@@ -190,7 +241,12 @@
           <!-- 設施列表 -->
           <v-card variant="outlined">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-format-list-bulleted</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-format-list-bulleted
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">已新增設施列表</span>
             </v-card-title>
 
@@ -198,25 +254,52 @@
               <v-table class="rounded border">
                 <thead class="bg-grey-lighten-3">
                   <tr>
-                    <th class="text-center" style="width: 50px">NO.</th>
+                    <th
+                      class="text-center"
+                      style="width: 50px"
+                    >
+                      NO.
+                    </th>
                     <th>設施類型</th>
                     <th>設施名稱</th>
-                    <th class="text-center">數量</th>
-                    <th class="text-center">單價</th>
-                    <th class="text-center">小計</th>
+                    <th class="text-center">
+                      數量
+                    </th>
+                    <th class="text-center">
+                      單價
+                    </th>
+                    <th class="text-center">
+                      小計
+                    </th>
                     <th>備註</th>
                     <th>補助來源</th>
-                    <th class="text-center" style="width: 80px">刪除</th>
+                    <th
+                      class="text-center"
+                      style="width: 80px"
+                    >
+                      刪除
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(facility, index) in localFormData.facilities" :key="index">
-                    <td class="text-center">{{ index + 1 }}</td>
+                  <tr
+                    v-for="(facility, index) in localFormData.facilities"
+                    :key="index"
+                  >
+                    <td class="text-center">
+                      {{ index + 1 }}
+                    </td>
                     <td>{{ facility.typeLabel }}</td>
                     <td>{{ facility.name }}</td>
-                    <td class="text-center">{{ facility.quantity }}</td>
-                    <td class="text-center">{{ facility.unitPrice }}</td>
-                    <td class="text-center">{{ facility.totalPrice }}</td>
+                    <td class="text-center">
+                      {{ facility.quantity }}
+                    </td>
+                    <td class="text-center">
+                      {{ facility.unitPrice }}
+                    </td>
+                    <td class="text-center">
+                      {{ facility.totalPrice }}
+                    </td>
                     <td>{{ facility.remark }}</td>
                     <td>{{ facility.source }}</td>
                     <td class="text-center">
@@ -232,7 +315,10 @@
                     </td>
                   </tr>
                   <tr v-if="localFormData.facilities.length === 0">
-                    <td colspan="9" class="text-center py-3 text-grey">
+                    <td
+                      colspan="9"
+                      class="text-center py-3 text-grey"
+                    >
                       尚未新增任何設施，請使用上方各區塊的加入按鈕新增設施
                     </td>
                   </tr>
@@ -243,49 +329,17 @@
         </v-form>
       </v-card-text>
     </v-card>
-
-    <!-- Navigation buttons -->
-    <!-- <v-card class="step-navigation-card ma-0 pa-0" flat>
-      <div class="d-flex align-center pr-4">
-        <v-spacer />
-        <div class="navigation-buttons">
-          <v-btn
-            variant="outlined"
-            color="grey-darken-1"
-            class="me-2"
-            size="large"
-            :disabled="currentStep === 1"
-            rounded="pill"
-            @click="goToPreviousStep"
-          >
-            <v-icon start>mdi-arrow-left</v-icon>
-            上一步
-          </v-btn>
-
-          <v-btn
-            color="green-darken-1"
-            :disabled="!isValid"
-            size="large"
-            rounded="pill"
-            @click="goToNextStep"
-          >
-            {{ currentStep === 8 ? '完成' : '下一步' }}
-            <v-icon end v-if="currentStep < 8">mdi-arrow-right</v-icon>
-            <v-icon end v-else>mdi-check</v-icon>
-          </v-btn>
-        </div>
-      </div>
-    </v-card> -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch, computed } from 'vue';
+import { useGrantsStore } from '@/stores/grants';
 
 // Props definition
 const props = defineProps({
   formData: {
     type: Object,
+    required: true,
     default: () => ({})
   },
   currentStep: {
@@ -297,29 +351,12 @@ const props = defineProps({
 // Event emitters
 const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 
-// Make isValid always true for demo
-const isValid = computed(() => true);
+// Access grants store
+const grantsStore = useGrantsStore();
 
 // Form ref and validation state
 const form = ref(null);
-const localValid = ref(true); // Default to true for demo purposes
-
-// Navigation methods - simplified for localStorage demo
-const goToNextStep = async () => {
-  // Always update data before moving forward
-  updateFormData();
-
-  console.log('Emitting validated event for step 3');
-  emit('validated', { valid: true, step: 3 });
-};
-
-const goToPreviousStep = () => {
-  // Always update data before going back
-  updateFormData();
-
-  console.log('Going back from step 3');
-  emit('go-back'); // Make sure this matches what edit.vue expects
-};
+const localValid = ref(true);
 
 // 本地表單數據
 const localFormData = reactive({
@@ -351,7 +388,7 @@ const localFormData = reactive({
     source: string;
   }>,
 
-  // Default valid state for demo
+  // Always valid for seamless navigation
   valid: true
 });
 
@@ -521,33 +558,35 @@ const removeFacility = (index: number) => {
   updateFormData();
 };
 
-// 更新父組件數據 - modified for localStorage approach
+// 更新父組件數據
 const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
-    valid: true // Always set to true for demo
+    valid: true // Always true for seamless navigation
   });
 };
 
-// 初始化數據 - enhanced for demo data
+// 初始化數據
 onMounted(() => {
-  // 從父組件接收數據
+  console.log("Step 3 mounted, formData:", props.formData);
+
+  // Set form data from props
   if (props.formData) {
-    // 設置基本屬性
+    // Set basic properties
     Object.keys(localFormData).forEach(key => {
       if (props.formData[key] !== undefined) {
         localFormData[key] = props.formData[key];
       }
     });
 
-    // 確保設施列表被正確設置
+    // Ensure facilities array is properly set
     if (Array.isArray(props.formData.facilities)) {
       localFormData.facilities = [...props.formData.facilities];
     }
   }
 
-  // 如果設施列表為空，添加示例設施數據
+  // If facilities list is empty, add sample facility data
   if (!localFormData.facilities || localFormData.facilities.length === 0) {
     localFormData.facilities = [
       {
@@ -577,30 +616,30 @@ onMounted(() => {
   updateFormData();
 });
 
-// 監聽父組件數據變化
-watch(() => props.formData, (newVal) => {
-  if (newVal) {
+// Watch for props changes
+watch(() => props.formData, (newData) => {
+  if (newData) {
     Object.keys(localFormData).forEach(key => {
-      if (key !== 'facilities' && newVal[key] !== undefined &&
-          JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
-        localFormData[key] = newVal[key];
+      if (key !== 'facilities' && newData[key] !== undefined &&
+          JSON.stringify(newData[key]) !== JSON.stringify(localFormData[key])) {
+        localFormData[key] = newData[key];
       }
     });
 
-    // 特別處理設施列表
-    if (Array.isArray(newVal.facilities) &&
-        JSON.stringify(newVal.facilities) !== JSON.stringify(localFormData.facilities)) {
-      localFormData.facilities = [...newVal.facilities];
+    // Special handling for facilities array
+    if (Array.isArray(newData.facilities) &&
+        JSON.stringify(newData.facilities) !== JSON.stringify(localFormData.facilities)) {
+      localFormData.facilities = [...newData.facilities];
     }
   }
 }, { deep: true });
 
-// 監聽本地數據變化，更新父組件
+// Watch local form data and update parent
 watch(localFormData, () => {
   updateFormData();
 }, { deep: true });
 
-// 監聽本地表單驗證狀態
+// Watch for validation status changes
 watch(localValid, (newVal) => {
   if (props.formData?.valid !== newVal) {
     updateFormData();
@@ -620,20 +659,12 @@ watch(localValid, (newVal) => {
   padding: 16px;
 }
 
-.bg-primary {
-  background-color: #1976D2 !important;
-}
-
 .bg-light-blue-lighten-4 {
   background-color: #B3E5FC !important;
 }
 
 .border {
   border: 1px solid rgba(0, 0, 0, 0.12);
-}
-
-.v-card .v-card-title {
-  line-height: 1.5;
 }
 
 .v-table {

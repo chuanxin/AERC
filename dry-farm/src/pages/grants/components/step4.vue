@@ -1,22 +1,38 @@
 <template>
-  <div class="step-content" ref="stepContent">
-    <v-card class="mb-0 pa-0" flat>
-      <!-- <v-card-title class="d-flex align-center bg-primary text-white">
-        <v-icon class="me-2" color="white">mdi-pipe</v-icon>
-        <span class="text-h6">4. 田間管路</span>
-      </v-card-title> -->
-
+  <div
+    ref="stepContent"
+    class="step-content"
+  >
+    <v-card
+      class="mb-0 pa-0"
+      flat
+    >
       <v-card-text class="pb-0 pt-0">
-        <v-form ref="form" v-model="localValid" @submit.prevent>
+        <v-form
+          ref="form"
+          v-model="localValid"
+          @submit.prevent
+        >
           <!-- 補助來源區域 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-currency-usd</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-currency-usd
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">補助來源</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="rgb(255, 243, 205)">
+              <v-sheet
+                class="pa-3 rounded"
+                color="rgb(255, 243, 205)"
+              >
                 <v-select
                   v-model="localFormData.fundingSource"
                   :items="fundingSourceOptions"
@@ -25,13 +41,17 @@
                   density="comfortable"
                   style="max-width: 400px"
                   :rules="[v => !!v || '請選擇補助來源']"
-                ></v-select>
+                  @update:model-value="updateFormData"
+                />
               </v-sheet>
             </v-card-text>
           </v-card>
 
           <!-- 主管區域 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
               <v-icon class="me-2" size="small">mdi-pipe</v-icon>
               <span class="text-subtitle-1 font-weight-medium">主管</span>
@@ -40,10 +60,6 @@
             <v-card-text class="pa-4">
               <v-sheet class="pa-3 rounded" color="grey-lighten-5">
                 <div class="d-flex align-center flex-wrap">
-                  <!-- <div style="width: 100px;" class="d-flex justify-center mr-4">
-                    <div class="text-body-1 font-weight-medium">主管</div>
-                  </div> -->
-
                   <v-text-field
                     v-model="localFormData.mainPipeLength"
                     label="長度(M)"
@@ -52,7 +68,8 @@
                     class="me-2 mb-2"
                     style="width: 120px"
                     :rules="[v => !!v || '請輸入長度']"
-                  ></v-text-field>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-select
                     v-model="localFormData.mainPipeDiameter"
@@ -63,7 +80,8 @@
                     class="me-2 mb-2"
                     style="width: 120px"
                     :rules="[v => !!v || '請選擇管徑']"
-                  ></v-select>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-select
                     v-model="localFormData.mainPipeMaterial"
@@ -74,7 +92,8 @@
                     class="me-2 mb-2"
                     style="width: 120px"
                     :rules="[v => !!v || '請選擇材質']"
-                  ></v-select>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-text-field
                     v-model="localFormData.mainPipeUnitPrice"
@@ -84,7 +103,8 @@
                     class="me-2 mb-2"
                     style="width: 100px"
                     :rules="[v => !!v || '請輸入單價']"
-                  ></v-text-field>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-text-field
                     v-model="localFormData.mainPipeQuantity"
@@ -94,7 +114,8 @@
                     class="me-2 mb-2"
                     style="width: 80px"
                     :rules="[v => !!v || '請輸入數量']"
-                  ></v-text-field>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-text-field
                     v-model="mainPipeTotalPrice"
@@ -105,7 +126,7 @@
                     style="width: 120px"
                     readonly
                     bg-color="grey-lighten-4"
-                  ></v-text-field>
+                  />
                 </div>
 
                 <div class="d-flex justify-end">
@@ -133,62 +154,46 @@
             <v-card-text class="pa-4">
               <v-sheet class="pa-3 rounded" color="grey-lighten-5">
                 <div class="d-flex align-center mb-3">
-                  <!-- <div style="width: 100px;" class="d-flex justify-center mr-4">
-                    <div class="text-body-1 font-weight-medium">支管</div>
-                  </div> -->
-
                   <div class="d-flex align-center flex-wrap">
                     <div class="me-3 mb-2">
-                      <div class="text-body-2">支管行距(SL)</div>
-                      <div class="d-flex align-center">
-                        <v-text-field
-                          v-model="localFormData.branchPipeSpacing"
-                          variant="outlined"
-                          density="comfortable"
-                          style="width: 80px"
-                          class="me-1"
-                        ></v-text-field>
-                        <span>M</span>
-                      </div>
+                      <v-text-field
+                        v-model="localFormData.branchPipeSpacing"
+                        label="支管間距"
+                        variant="outlined"
+                        density="comfortable"
+                        @update:model-value="updateFormData"
+                      />
                     </div>
 
                     <div class="me-3 mb-2">
-                      <div class="text-body-2">噴頭間距(SL)</div>
-                      <div class="d-flex align-center">
-                        <v-text-field
-                          v-model="localFormData.sprinklerSpacing"
-                          variant="outlined"
-                          density="comfortable"
-                          style="width: 80px"
-                          class="me-1"
-                        ></v-text-field>
-                        <span>M</span>
-                      </div>
+                      <v-text-field
+                        v-model="localFormData.sprinklerSpacing"
+                        label="噴頭間距"
+                        variant="outlined"
+                        density="comfortable"
+                        @update:model-value="updateFormData"
+                      />
                     </div>
 
                     <div class="me-3 mb-2">
-                      <div class="text-body-2">豎管高(H)</div>
-                      <div class="d-flex align-center">
-                        <v-text-field
-                          v-model="localFormData.riserHeight"
-                          variant="outlined"
-                          density="comfortable"
-                          style="width: 80px"
-                          class="me-1"
-                        ></v-text-field>
-                        <span>M</span>
-                      </div>
+                      <v-text-field
+                        v-model="localFormData.riserHeight"
+                        label="立管高度"
+                        variant="outlined"
+                        density="comfortable"
+                        @update:model-value="updateFormData"
+                      />
                     </div>
 
                     <div class="mb-2">
                       <v-select
                         v-model="localFormData.variantType"
                         :items="variantTypeOptions"
-                        label="變徑"
+                        label="型式"
                         variant="outlined"
                         density="comfortable"
-                        style="width: 150px"
-                      ></v-select>
+                        @update:model-value="updateFormData"
+                      />
                     </div>
                   </div>
                 </div>
@@ -201,7 +206,8 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 120px"
-                  ></v-text-field>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-select
                     v-model="localFormData.branchPipeDiameter"
@@ -211,7 +217,8 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 120px"
-                  ></v-select>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-select
                     v-model="localFormData.branchPipeMaterial"
@@ -221,7 +228,8 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 120px"
-                  ></v-select>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-text-field
                     v-model="localFormData.branchPipeUnitPrice"
@@ -230,7 +238,8 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 100px"
-                  ></v-text-field>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-text-field
                     v-model="localFormData.branchPipeQuantity"
@@ -239,7 +248,8 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 80px"
-                  ></v-text-field>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-text-field
                     v-model="branchPipeTotalPrice"
@@ -250,7 +260,7 @@
                     style="width: 120px"
                     readonly
                     bg-color="grey-lighten-4"
-                  ></v-text-field>
+                  />
                 </div>
 
                 <div class="d-flex justify-end">
@@ -287,7 +297,7 @@
                     class="me-2 mb-2"
                     style="width: 160px"
                     @update:model-value="onIrrigationTypeChange"
-                  ></v-select>
+                  />
 
                   <v-select
                     v-model="localFormData.installationType"
@@ -298,7 +308,7 @@
                     class="me-2 mb-2"
                     style="width: 160px"
                     @update:model-value="onInstallationTypeChange"
-                  ></v-select>
+                  />
 
                   <v-select
                     v-model="localFormData.waterSource"
@@ -308,7 +318,8 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 160px"
-                  ></v-select>
+                    @update:model-value="updateFormData"
+                  />
                 </div>
 
                 <div class="d-flex align-center flex-wrap">
@@ -320,7 +331,8 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 180px"
-                  ></v-select>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-select
                     v-model="localFormData.endFacilityDiameter"
@@ -330,7 +342,8 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 120px"
-                  ></v-select>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-select
                     v-model="localFormData.endFacilityMaterial"
@@ -340,7 +353,8 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 120px"
-                  ></v-select>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-text-field
                     v-model="localFormData.endFacilityUnitPrice"
@@ -349,7 +363,8 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 100px"
-                  ></v-text-field>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-text-field
                     v-model="localFormData.endFacilityQuantity"
@@ -358,7 +373,8 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 80px"
-                  ></v-text-field>
+                    @update:model-value="updateFormData"
+                  />
 
                   <v-text-field
                     v-model="endFacilityTotalPrice"
@@ -369,7 +385,7 @@
                     style="width: 120px"
                     readonly
                     bg-color="grey-lighten-4"
-                  ></v-text-field>
+                  />
                 </div>
 
                 <div class="d-flex justify-end">
@@ -425,20 +441,20 @@
                         <v-btn
                           icon
                           size="x-small"
-                          color="grey"
+                          color="primary"
                           variant="text"
-                          @click="movePipeUp(index)"
                           :disabled="index === 0"
+                          @click="movePipeUp(index)"
                         >
                           <v-icon size="small">mdi-chevron-up</v-icon>
                         </v-btn>
                         <v-btn
                           icon
                           size="x-small"
-                          color="grey"
+                          color="primary"
                           variant="text"
-                          @click="movePipeDown(index)"
                           :disabled="index === localFormData.pipes.length - 1"
+                          @click="movePipeDown(index)"
                         >
                           <v-icon size="small">mdi-chevron-down</v-icon>
                         </v-btn>
@@ -458,13 +474,13 @@
                   </tr>
                   <tr v-if="localFormData.pipes.length === 0">
                     <td colspan="10" class="text-center py-3 text-grey">
-                      尚未新增任何管路設施，請使用上方各區塊的加入按鈕新增
+                      尚未新增任何管路設施
                     </td>
                   </tr>
                   <tr class="text-muted text-caption bg-grey-lighten-4">
-                    <td colspan="10" class="text-center text-caption">
-                      (單價與數量可修改)
-                    </td>
+                    <td colspan="7" class="text-right font-weight-bold">合計</td>
+                    <td class="text-center font-weight-bold">{{ totalPipesPrice }}</td>
+                    <td colspan="2"></td>
                   </tr>
                 </tbody>
               </v-table>
@@ -473,49 +489,17 @@
         </v-form>
       </v-card-text>
     </v-card>
-    <!-- <v-card class="step-navigation-card ma-0 pa-0" flat>
-      <div class="d-flex align-center pr-4">
-        <v-spacer />
-        <div class="navigation-buttons">
-          <v-btn
-            variant="outlined"
-            color="grey-darken-1"
-            class="me-2"
-            size="large"
-            :disabled="currentStep === 1"
-            rounded="pill"
-            @click="goToPreviousStep"
-          >
-            <v-icon start>mdi-arrow-left</v-icon>
-            上一步
-          </v-btn> -->
-
-          <!-- <div class="text-caption d-none d-sm-block text-grey"> 步驟 {{ currentStep }}/8 </div> -->
-
-          <!-- <v-btn
-            color="green-darken-1"
-            :disabled="!isValid"
-            size="large"
-            rounded="pill"
-            @click="goToNextStep"
-          >
-            {{ currentStep === 8 ? '完成' : '下一步' }}
-            <v-icon end v-if="currentStep < 8">mdi-arrow-right</v-icon>
-            <v-icon end v-else>mdi-check</v-icon>
-          </v-btn>
-        </div>
-      </div>
-    </v-card> -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch, computed } from 'vue';
+import { useGrantsStore } from '@/stores/grants';
 
-// Props definition
+// Props and emits
 const props = defineProps({
   formData: {
     type: Object,
+    required: true,
     default: () => ({})
   },
   currentStep: {
@@ -524,33 +508,14 @@ const props = defineProps({
   }
 });
 
-// Event emitters
 const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 
-// Form ref and validation state
+// Access the grants store
+const grantsStore = useGrantsStore();
+
+// Form validation references
 const form = ref(null);
-const localValid = ref(true); // Default to true for demo purposes
-
-// Make isValid always true for demo
-const isValid = computed(() => true);
-
-// Navigate to next step - simplified for localStorage demo
-const goToNextStep = async () => {
-  // Always update data before moving forward
-  updateFormData();
-
-  console.log('Emitting validated event for step 4');
-  emit('validated', { valid: true, step: 4 });
-};
-
-// Go back to previous step - simplified for localStorage demo
-const goToPreviousStep = () => {
-  // Always update data before going back
-  updateFormData();
-
-  console.log('Going back from step 4');
-  emit('go-back');
-};
+const localValid = ref(true);
 
 // 本地表單數據
 const localFormData = reactive({
@@ -597,7 +562,7 @@ const localFormData = reactive({
     totalPrice: number;
   }>,
 
-  // Default to valid for demo
+  // Always valid for seamless navigation
   valid: true
 });
 
@@ -673,6 +638,11 @@ const endFacilityTotalPrice = computed(() => {
   return (unitPrice * quantity).toString();
 });
 
+const totalPipesPrice = computed(() => {
+  const total = localFormData.pipes.reduce((sum, pipe) => sum + (pipe.totalPrice || 0), 0);
+  return total.toLocaleString();
+});
+
 // 驗證條件
 const canAddMainPipe = computed(() => {
   return !!localFormData.fundingSource &&
@@ -704,7 +674,6 @@ const canAddEndFacility = computed(() => {
 // 方法
 const onIrrigationTypeChange = () => {
   updateFormData();
-  // 根據選擇的灌溉型式，可以更新末端設施選項
 };
 
 const onInstallationTypeChange = () => {
@@ -722,7 +691,7 @@ const addMainPipe = () => {
       source: localFormData.fundingSource,
       type: 'main',
       typeLabel: '主管',
-      name: '',
+      name: `${localFormData.mainPipeMaterial} ${localFormData.mainPipeDiameter}`,
       specification: `${localFormData.mainPipeDiameter} / 支`,
       unitPrice: unitPrice,
       quantity: quantity,
@@ -753,7 +722,7 @@ const addBranchPipe = () => {
       source: localFormData.fundingSource,
       type: 'branch',
       typeLabel: '支管',
-      name: '',
+      name: `${localFormData.branchPipeMaterial} ${localFormData.branchPipeDiameter}`,
       specification: `${localFormData.branchPipeDiameter} / 只`,
       unitPrice: unitPrice,
       quantity: quantity,
@@ -847,17 +816,19 @@ const movePipeDown = (index: number) => {
   }
 };
 
-// 更新父組件數據 - modified for localStorage approach
+// 更新父組件數據
 const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
-    valid: true // Always set to true for demo
+    valid: true // Always true for seamless navigation
   });
 };
 
-// 初始化數據 - enhanced for demo data
+// 初始化數據
 onMounted(() => {
+  console.log("Step 4 mounted, formData:", props.formData);
+
   // 從父組件接收數據
   if (props.formData) {
     // 設置基本屬性
@@ -885,8 +856,8 @@ onMounted(() => {
         source: '農田水利署',
         type: 'main',
         typeLabel: '主管',
-        name: '',
-        specification: '1/2" / 支',
+        name: 'PVC 1"',
+        specification: '1" / 支',
         unitPrice: 44,
         quantity: 2,
         totalPrice: 88
@@ -895,7 +866,7 @@ onMounted(() => {
         source: '農田水利署',
         type: 'branch',
         typeLabel: '支管',
-        name: '',
+        name: 'PVC 3/4"',
         specification: '3/4" / 只',
         unitPrice: 50,
         quantity: 1,
@@ -950,7 +921,6 @@ watch(localValid, (newVal) => {
 });
 </script>
 
-
 <style scoped>
 .step-content {
   padding: 0;
@@ -961,10 +931,6 @@ watch(localValid, (newVal) => {
   font-size: 1.25rem;
   font-weight: 500;
   padding: 16px;
-}
-
-.bg-primary {
-  background-color: #1976D2 !important;
 }
 
 .bg-light-blue-lighten-4 {
@@ -988,4 +954,3 @@ watch(localValid, (newVal) => {
   color: rgba(0, 0, 0, 0.7);
 }
 </style>
-

@@ -352,54 +352,34 @@
         </v-form>
       </v-card-text>
     </v-card>
-
-    <!-- <v-card class="step-navigation-card ma-0 pa-0" flat>
-      <div class="d-flex align-center pr-4">
-        <v-spacer></v-spacer>
-        <div class="navigation-buttons">
-          <v-btn
-            variant="outlined"
-            color="grey-darken-1"
-            class="me-2"
-            size="large"
-            @click="goToPreviousStep"
-            rounded="pill"
-          >
-            <v-icon start>mdi-arrow-left</v-icon>
-            上一步
-          </v-btn>
-
-          <v-btn
-            color="green-darken-1"
-            @click="goToNextStep"
-            size="large"
-            rounded="pill"
-          >
-            完成
-            <v-icon end>mdi-check</v-icon>
-          </v-btn>
-        </div>
-      </div>
-    </v-card> -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch, computed, onUnmounted } from 'vue';
+import { useGrantsStore } from '@/stores/grants';
 
-const props = defineProps<{
-  formData: any;  // 接收父組件數據
-  currentStep: number;
-}>();
+// Props definition
+const props = defineProps({
+  formData: {
+    type: Object,
+    required: true,
+    default: () => ({})
+  },
+  currentStep: {
+    type: Number,
+    required: true
+  }
+});
 
-// FIXED: Changed 'goBack' to 'go-back' to match edit.vue expectations
+// Event emitters
 const emit = defineEmits(['update:formData', 'validated', 'go-back']);
-// Default to valid for demo purposes
-const localValid = ref(true);
-const form = ref(null);
 
-// ADDED: Create isValid computed property that always returns true for demo
-const isValid = computed(() => true);
+// Access grants store
+const grantsStore = useGrantsStore();
+
+// Form validation references
+const form = ref(null);
+const localValid = ref(true);
 
 // 本地表單數據
 const localFormData = reactive({
@@ -455,7 +435,7 @@ const localFormData = reactive({
     designDrawing: false
   },
 
-  // ADDED: Always set to true for demo
+  // Always set to true for seamless navigation
   valid: true
 });
 
@@ -463,13 +443,14 @@ const localFormData = reactive({
 const isImageFile = (file) => {
   if (!file) return false;
 
-  if (typeof file === 'string') return true; // For demo URLs
+  // Handle string URLs (like placeholders or previously saved images)
+  if (typeof file === 'string') return true;
 
   const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg'];
-  return imageTypes.includes(file.type);
+  return file instanceof File && imageTypes.includes(file.type);
 };
 
-// 處理檔案變更並產生預覽（如果是圖片）- MODIFIED for localStorage compatibility
+// 處理檔案變更並產生預覽（如果是圖片）
 const handleFileChange = (type: string) => {
   // 更新檔案上傳狀態
   localFormData.uploadStatus[type] = true;
@@ -477,322 +458,142 @@ const handleFileChange = (type: string) => {
   // 根據不同類型的檔案處理預覽
   switch(type) {
     case 'idFront':
-      if (isImageFile(localFormData.idCardFront)) {
-        if (localFormData.idCardFrontPreview &&
-            typeof localFormData.idCardFrontPreview === 'string' &&
-            localFormData.idCardFrontPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.idCardFrontPreview);
-        }
-        if (localFormData.idCardFront instanceof File) {
-          localFormData.idCardFrontPreview = URL.createObjectURL(localFormData.idCardFront);
-        }
-      }
+      createPreview(localFormData.idCardFront, 'idCardFrontPreview');
       break;
-
     case 'idBack':
-      if (isImageFile(localFormData.idCardBack)) {
-        if (localFormData.idCardBackPreview &&
-            typeof localFormData.idCardBackPreview === 'string' &&
-            localFormData.idCardBackPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.idCardBackPreview);
-        }
-        if (localFormData.idCardBack instanceof File) {
-          localFormData.idCardBackPreview = URL.createObjectURL(localFormData.idCardBack);
-        }
-      }
+      createPreview(localFormData.idCardBack, 'idCardBackPreview');
       break;
-
     case 'applicationFile':
-      if (isImageFile(localFormData.applicationFile)) {
-        if (localFormData.applicationFilePreview &&
-            typeof localFormData.applicationFilePreview === 'string' &&
-            localFormData.applicationFilePreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.applicationFilePreview);
-        }
-        if (localFormData.applicationFile instanceof File) {
-          localFormData.applicationFilePreview = URL.createObjectURL(localFormData.applicationFile);
-        }
-      }
+      createPreview(localFormData.applicationFile, 'applicationFilePreview');
       break;
-
     case 'landReg':
-      if (isImageFile(localFormData.landRegistration)) {
-        if (localFormData.landRegistrationPreview &&
-            typeof localFormData.landRegistrationPreview === 'string' &&
-            localFormData.landRegistrationPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.landRegistrationPreview);
-        }
-        if (localFormData.landRegistration instanceof File) {
-          localFormData.landRegistrationPreview = URL.createObjectURL(localFormData.landRegistration);
-        }
-      }
+      createPreview(localFormData.landRegistration, 'landRegistrationPreview');
       break;
-
     case 'landMap':
-      if (isImageFile(localFormData.landMap)) {
-        if (localFormData.landMapPreview &&
-            typeof localFormData.landMapPreview === 'string' &&
-            localFormData.landMapPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.landMapPreview);
-        }
-        if (localFormData.landMap instanceof File) {
-          localFormData.landMapPreview = URL.createObjectURL(localFormData.landMap);
-        }
-      }
+      createPreview(localFormData.landMap, 'landMapPreview');
       break;
-
     case 'lease':
-      if (isImageFile(localFormData.leaseAgreement)) {
-        if (localFormData.leaseAgreementPreview &&
-            typeof localFormData.leaseAgreementPreview === 'string' &&
-            localFormData.leaseAgreementPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.leaseAgreementPreview);
-        }
-        if (localFormData.leaseAgreement instanceof File) {
-          localFormData.leaseAgreementPreview = URL.createObjectURL(localFormData.leaseAgreement);
-        }
-      }
+      createPreview(localFormData.leaseAgreement, 'leaseAgreementPreview');
       break;
-
     case 'landUse':
-      if (isImageFile(localFormData.landUseConsent)) {
-        if (localFormData.landUseConsentPreview &&
-            typeof localFormData.landUseConsentPreview === 'string' &&
-            localFormData.landUseConsentPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.landUseConsentPreview);
-        }
-        if (localFormData.landUseConsent instanceof File) {
-          localFormData.landUseConsentPreview = URL.createObjectURL(localFormData.landUseConsent);
-        }
-      }
+      createPreview(localFormData.landUseConsent, 'landUseConsentPreview');
       break;
-
     case 'inspection':
-      if (isImageFile(localFormData.inspectionRecord)) {
-        if (localFormData.inspectionRecordPreview &&
-            typeof localFormData.inspectionRecordPreview === 'string' &&
-            localFormData.inspectionRecordPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.inspectionRecordPreview);
-        }
-        if (localFormData.inspectionRecord instanceof File) {
-          localFormData.inspectionRecordPreview = URL.createObjectURL(localFormData.inspectionRecord);
-        }
-      }
+      createPreview(localFormData.inspectionRecord, 'inspectionRecordPreview');
       break;
-
     case 'planning':
-      if (isImageFile(localFormData.planningDoc)) {
-        if (localFormData.planningDocPreview &&
-            typeof localFormData.planningDocPreview === 'string' &&
-            localFormData.planningDocPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.planningDocPreview);
-        }
-        if (localFormData.planningDoc instanceof File) {
-          localFormData.planningDocPreview = URL.createObjectURL(localFormData.planningDoc);
-        }
-      }
+      createPreview(localFormData.planningDoc, 'planningDocPreview');
       break;
-
     case 'subsidy':
-      if (isImageFile(localFormData.subsidy)) {
-        if (localFormData.subsidyPreview &&
-            typeof localFormData.subsidyPreview === 'string' &&
-            localFormData.subsidyPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.subsidyPreview);
-        }
-        if (localFormData.subsidy instanceof File) {
-          localFormData.subsidyPreview = URL.createObjectURL(localFormData.subsidy);
-        }
-      }
+      createPreview(localFormData.subsidy, 'subsidyPreview');
       break;
-
     case 'workInspection':
-      if (isImageFile(localFormData.workInspection)) {
-        if (localFormData.workInspectionPreview &&
-            typeof localFormData.workInspectionPreview === 'string' &&
-            localFormData.workInspectionPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.workInspectionPreview);
-        }
-        if (localFormData.workInspection instanceof File) {
-          localFormData.workInspectionPreview = URL.createObjectURL(localFormData.workInspection);
-        }
-      }
+      createPreview(localFormData.workInspection, 'workInspectionPreview');
       break;
-
     case 'inspectionReport':
-      if (isImageFile(localFormData.inspectionReport)) {
-        if (localFormData.inspectionReportPreview &&
-            typeof localFormData.inspectionReportPreview === 'string' &&
-            localFormData.inspectionReportPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.inspectionReportPreview);
-        }
-        if (localFormData.inspectionReport instanceof File) {
-          localFormData.inspectionReportPreview = URL.createObjectURL(localFormData.inspectionReport);
-        }
-      }
+      createPreview(localFormData.inspectionReport, 'inspectionReportPreview');
       break;
-
     case 'paymentReceipt':
-      if (isImageFile(localFormData.paymentReceipt)) {
-        if (localFormData.paymentReceiptPreview &&
-            typeof localFormData.paymentReceiptPreview === 'string' &&
-            localFormData.paymentReceiptPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.paymentReceiptPreview);
-        }
-        if (localFormData.paymentReceipt instanceof File) {
-          localFormData.paymentReceiptPreview = URL.createObjectURL(localFormData.paymentReceipt);
-        }
-      }
+      createPreview(localFormData.paymentReceipt, 'paymentReceiptPreview');
       break;
-
     case 'designDrawing':
-      if (isImageFile(localFormData.designDrawing)) {
-        if (localFormData.designDrawingPreview &&
-            typeof localFormData.designDrawingPreview === 'string' &&
-            localFormData.designDrawingPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.designDrawingPreview);
-        }
-        if (localFormData.designDrawing instanceof File) {
-          localFormData.designDrawingPreview = URL.createObjectURL(localFormData.designDrawing);
-        }
-      }
+      createPreview(localFormData.designDrawing, 'designDrawingPreview');
       break;
   }
 
   updateFormData();
 };
 
-// 上一步 - FIXED: Changed to use 'go-back' instead of 'goBack'
-const goToPreviousStep = () => {
-  // Update data before going back
-  updateFormData();
+// Helper function to create previews
+const createPreview = (file, previewKey) => {
+  if (isImageFile(file)) {
+    // Clean up existing preview if it's a blob URL
+    if (localFormData[previewKey] &&
+        typeof localFormData[previewKey] === 'string' &&
+        localFormData[previewKey].startsWith('blob:')) {
+      URL.revokeObjectURL(localFormData[previewKey]);
+    }
 
-  console.log('Going back from step 8');
-  emit('go-back');
+    // Create new preview if file is a File object
+    if (file instanceof File) {
+      localFormData[previewKey] = URL.createObjectURL(file);
+    }
+  }
 };
 
-// 下一步（完成）- MODIFIED for simplified localStorage approach
-const goToNextStep = async () => {
-  // Always update and consider valid for demo
-  updateFormData();
-
-  console.log('Emitting validated event for step 8');
-  emit('validated', { valid: true, step: 8 });
-};
-
-// 更新父組件數據 - MODIFIED to always set valid: true
+// 更新父組件數據
 const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
-    valid: true // Always valid for demo purposes
+    valid: true // Always true for seamless navigation
   });
 };
 
-// 表單驗證 - SIMPLIFIED for demo purposes
-const validate = async () => {
-  updateFormData();
-  return { valid: true }; // Always return valid for demo
+// 清理所有預覽資源的函數
+const cleanupAllPreviews = () => {
+  const previewKeys = [
+    'idCardFrontPreview', 'idCardBackPreview', 'applicationFilePreview',
+    'landRegistrationPreview', 'landMapPreview', 'leaseAgreementPreview',
+    'landUseConsentPreview', 'inspectionRecordPreview', 'planningDocPreview',
+    'subsidyPreview', 'workInspectionPreview', 'inspectionReportPreview',
+    'paymentReceiptPreview', 'designDrawingPreview'
+  ];
+
+  previewKeys.forEach(key => {
+    if (localFormData[key] &&
+        typeof localFormData[key] === 'string' &&
+        localFormData[key].startsWith('blob:')) {
+      URL.revokeObjectURL(localFormData[key]);
+      localFormData[key] = null;
+    }
+  });
 };
 
-// 清理預覽資源的函數 - ENHANCED to handle string URLs
-const cleanupPreviews = () => {
-  // Only clean up blob URLs, not external URLs
-  if (localFormData.idCardFrontPreview && typeof localFormData.idCardFrontPreview === 'string' &&
-      localFormData.idCardFrontPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.idCardFrontPreview);
-
-  if (localFormData.idCardBackPreview && typeof localFormData.idCardBackPreview === 'string' &&
-      localFormData.idCardBackPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.idCardBackPreview);
-
-  if (localFormData.applicationFilePreview && typeof localFormData.applicationFilePreview === 'string' &&
-      localFormData.applicationFilePreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.applicationFilePreview);
-
-  if (localFormData.landRegistrationPreview && typeof localFormData.landRegistrationPreview === 'string' &&
-      localFormData.landRegistrationPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.landRegistrationPreview);
-
-  if (localFormData.landMapPreview && typeof localFormData.landMapPreview === 'string' &&
-      localFormData.landMapPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.landMapPreview);
-
-  if (localFormData.leaseAgreementPreview && typeof localFormData.leaseAgreementPreview === 'string' &&
-      localFormData.leaseAgreementPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.leaseAgreementPreview);
-
-  if (localFormData.landUseConsentPreview && typeof localFormData.landUseConsentPreview === 'string' &&
-      localFormData.landUseConsentPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.landUseConsentPreview);
-
-  if (localFormData.inspectionRecordPreview && typeof localFormData.inspectionRecordPreview === 'string' &&
-      localFormData.inspectionRecordPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.inspectionRecordPreview);
-
-  if (localFormData.planningDocPreview && typeof localFormData.planningDocPreview === 'string' &&
-      localFormData.planningDocPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.planningDocPreview);
-
-  if (localFormData.subsidyPreview && typeof localFormData.subsidyPreview === 'string' &&
-      localFormData.subsidyPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.subsidyPreview);
-
-  if (localFormData.workInspectionPreview && typeof localFormData.workInspectionPreview === 'string' &&
-      localFormData.workInspectionPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.workInspectionPreview);
-
-  if (localFormData.inspectionReportPreview && typeof localFormData.inspectionReportPreview === 'string' &&
-      localFormData.inspectionReportPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.inspectionReportPreview);
-
-  if (localFormData.paymentReceiptPreview && typeof localFormData.paymentReceiptPreview === 'string' &&
-      localFormData.paymentReceiptPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.paymentReceiptPreview);
-
-  if (localFormData.designDrawingPreview && typeof localFormData.designDrawingPreview === 'string' &&
-      localFormData.designDrawingPreview.startsWith('blob:'))
-    URL.revokeObjectURL(localFormData.designDrawingPreview);
-};
-
-// 初始化數據 - ENHANCED with sample preview URLs for better demo experience
+// 初始化數據
 onMounted(() => {
+  console.log("Step 8 mounted, formData:", props.formData);
+
   // 從父組件接收數據
   if (props.formData) {
+    // 設置基本屬性
     Object.keys(localFormData).forEach(key => {
-      if (key !== 'uploadStatus' && props.formData[key] !== undefined) {
-        localFormData[key] = props.formData[key];
+      if (props.formData[key] !== undefined) {
+        if (key === 'uploadStatus') {
+          // Handle nested uploadStatus object
+          if (props.formData.uploadStatus) {
+            Object.keys(props.formData.uploadStatus).forEach(statusKey => {
+              if (props.formData.uploadStatus[statusKey] !== undefined) {
+                localFormData.uploadStatus[statusKey] = props.formData.uploadStatus[statusKey];
+              }
+            });
+          }
+        } else {
+          // Handle normal properties
+          localFormData[key] = props.formData[key];
+        }
       }
     });
-
-    // 處理上傳狀態
-    if (props.formData.uploadStatus) {
-      Object.keys(props.formData.uploadStatus).forEach(key => {
-        if (props.formData.uploadStatus[key] !== undefined) {
-          localFormData.uploadStatus[key] = props.formData.uploadStatus[key];
-        }
-      });
-    }
   }
 
-  // ADDED: Set placeholder previews for demo purposes if none exist
+  // Set example data for demonstration purposes
   if (!localFormData.idCardFrontPreview) {
-    localFormData.idCardFrontPreview = 'https://via.placeholder.com/400x250?text=身分證正面';
+    localFormData.idCardFrontPreview = 'https://via.placeholder.com/400x250?text=身分證正面示例';
     localFormData.uploadStatus.idFront = true;
   }
 
   if (!localFormData.idCardBackPreview) {
-    localFormData.idCardBackPreview = 'https://via.placeholder.com/400x250?text=身分證反面';
+    localFormData.idCardBackPreview = 'https://via.placeholder.com/400x250?text=身分證反面示例';
     localFormData.uploadStatus.idBack = true;
   }
 
   if (!localFormData.landRegistrationPreview) {
-    localFormData.landRegistrationPreview = 'https://via.placeholder.com/400x250?text=土地登記謄本';
+    localFormData.landRegistrationPreview = 'https://via.placeholder.com/400x250?text=土地登記謄本示例';
     localFormData.uploadStatus.landReg = true;
   }
 
   if (!localFormData.landMapPreview) {
-    localFormData.landMapPreview = 'https://via.placeholder.com/400x250?text=地籍圖謄本';
+    localFormData.landMapPreview = 'https://via.placeholder.com/400x250?text=地籍圖謄本示例';
     localFormData.uploadStatus.landMap = true;
   }
 
@@ -800,22 +601,40 @@ onMounted(() => {
   updateFormData();
 });
 
-// 監聽父組件數據變化 - SIMPLIFIED for demo purposes
+// 監聽父組件數據變化
 watch(() => props.formData, (newVal) => {
   if (newVal) {
-    // Simplify for demo - just update form data
-    updateFormData();
+    // Simple re-copy of new values, skipping complex file objects
+    Object.keys(localFormData).forEach(key => {
+      if (key !== 'uploadStatus' && newVal[key] !== undefined &&
+          !(newVal[key] instanceof File) && // Skip File objects which can't be deeply compared
+          JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
+        localFormData[key] = newVal[key];
+      }
+    });
+
+    // Handle uploadStatus specifically
+    if (newVal.uploadStatus) {
+      Object.keys(newVal.uploadStatus).forEach(statusKey => {
+        if (newVal.uploadStatus[statusKey] !== undefined &&
+            newVal.uploadStatus[statusKey] !== localFormData.uploadStatus[statusKey]) {
+          localFormData.uploadStatus[statusKey] = newVal.uploadStatus[statusKey];
+        }
+      });
+    }
   }
 }, { deep: true });
 
-// 監聽本地數據變化，更新父組件
-watch(localFormData, () => {
-  updateFormData();
-}, { deep: true });
+// Watch local form validation status
+watch(localValid, (newVal) => {
+  if (props.formData?.valid !== newVal) {
+    updateFormData();
+  }
+});
 
-// 組件卸載時清理資源
+// Clean up on component unmount
 onUnmounted(() => {
-  cleanupPreviews();
+  cleanupAllPreviews();
 });
 </script>
 

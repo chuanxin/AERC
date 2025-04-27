@@ -19,6 +19,8 @@
       v-if="grantsStore.error"
       type="error"
       class="mb-4"
+      dismissible
+      @click:close="grantsStore.clearError()"
     >
       {{ grantsStore.error }}
     </v-alert>
@@ -72,7 +74,10 @@
             @click="handleStepClick(step.value)"
           >
             <template #prepend>
-              <v-icon :color="getStepIconColor(step.value)" size="large">
+              <v-icon
+                :color="getStepIconColor(step.value)"
+                size="large"
+              >
                 {{ getStepIcon(step.value) }}
               </v-icon>
             </template>
@@ -106,37 +111,6 @@
             </template>
           </v-list-item>
         </v-list>
-
-        <!-- <template #append>
-          <div class="pa-2">
-            <v-btn
-              v-if="currentStep > 1"
-              class="mb-2"
-              :disabled="isNavigating"
-              block
-              variant="outlined"
-              @click="handleGoBack"
-            >
-              <v-icon start>
-                mdi-arrow-left
-              </v-icon>
-              上一步
-            </v-btn>
-
-            <v-btn
-              v-if="currentStep < steps.length"
-              :disabled="isNavigating"
-              block
-              color="primary"
-              @click="goToNextStep"
-            >
-              下一步
-              <v-icon end>
-                mdi-arrow-right
-              </v-icon>
-            </v-btn>
-          </div>
-        </template> -->
       </v-navigation-drawer>
 
       <!-- Main content area -->
@@ -196,15 +170,45 @@
           <!-- Step components container -->
           <v-card class="pb-0 mb-0">
             <v-card-title class="text-h5 ml-4">
-              {{ steps.find(s => s.value === currentStep)?.title }}<span class="text-disabled text-h6 mb-6">（{{ grantsStore.currentGrant?.case_number }}）</span>
+              {{ steps.find(s => s.value === currentStep)?.title }}<span
+                v-if="grantsStore.currentGrant?.case_number"
+                class="text-disabled text-h6 mb-6"
+              >（{{ grantsStore.currentGrant?.case_number }}）</span>
             </v-card-title>
 
             <v-card-text class="pb-0 mb-0">
+              <!-- Autosave indicator when there are unsaved changes -->
+              <v-banner
+                v-if="grantsStore.hasUnsavedChanges"
+                color="info"
+                lines="one"
+                icon="mdi-content-save"
+                class="mb-4"
+              >
+                <template v-slot:text>
+                  資料變更尚未儲存，系統將自動儲存
+                  <span v-if="grantsStore.lastSavedAt" class="ms-2 text-caption">
+                    (上次儲存於 {{ grantsStore.lastSavedTime }})
+                  </span>
+                </template>
+
+                <template v-slot:actions>
+                  <v-btn
+                    variant="text"
+                    :loading="grantsStore.isSaving"
+                    @click="saveAllChanges"
+                  >
+                    立即儲存
+                  </v-btn>
+                </template>
+              </v-banner>
+
               <!-- Step components -->
               <step1
                 v-if="currentStep === 1"
                 :form-data="grantsStore.formData[1]"
-                @update:form-data="grantsStore.updateFormData(1, $event)"
+                :current-step="currentStep"
+                @update:form-data="handleFormDataUpdate(1, $event)"
                 @validated="handleStepValidated"
                 @go-back="handleGoBack"
               />
@@ -212,7 +216,7 @@
                 v-if="currentStep === 2"
                 :form-data="grantsStore.formData[2]"
                 :current-step="currentStep"
-                @update:form-data="grantsStore.updateFormData(2, $event)"
+                @update:form-data="handleFormDataUpdate(2, $event)"
                 @validated="handleStepValidated"
                 @go-back="handleGoBack"
               />
@@ -220,7 +224,7 @@
                 v-if="currentStep === 3"
                 :form-data="grantsStore.formData[3]"
                 :current-step="currentStep"
-                @update:form-data="grantsStore.updateFormData(3, $event)"
+                @update:form-data="handleFormDataUpdate(3, $event)"
                 @validated="handleStepValidated"
                 @go-back="handleGoBack"
               />
@@ -228,7 +232,7 @@
                 v-if="currentStep === 4"
                 :form-data="grantsStore.formData[4]"
                 :current-step="currentStep"
-                @update:form-data="grantsStore.updateFormData(4, $event)"
+                @update:form-data="handleFormDataUpdate(4, $event)"
                 @validated="handleStepValidated"
                 @go-back="handleGoBack"
               />
@@ -236,7 +240,7 @@
                 v-if="currentStep === 5"
                 :form-data="grantsStore.formData[5]"
                 :current-step="currentStep"
-                @update:form-data="grantsStore.updateFormData(5, $event)"
+                @update:form-data="handleFormDataUpdate(5, $event)"
                 @validated="handleStepValidated"
                 @go-back="handleGoBack"
               />
@@ -244,7 +248,7 @@
                 v-if="currentStep === 6"
                 :form-data="grantsStore.formData[6]"
                 :current-step="currentStep"
-                @update:form-data="grantsStore.updateFormData(6, $event)"
+                @update:form-data="handleFormDataUpdate(6, $event)"
                 @validated="handleStepValidated"
                 @go-back="handleGoBack"
               />
@@ -252,7 +256,7 @@
                 v-if="currentStep === 7"
                 :form-data="grantsStore.formData[7]"
                 :current-step="currentStep"
-                @update:form-data="grantsStore.updateFormData(7, $event)"
+                @update:form-data="handleFormDataUpdate(7, $event)"
                 @validated="handleStepValidated"
                 @go-back="handleGoBack"
               />
@@ -260,7 +264,7 @@
                 v-if="currentStep === 8"
                 :form-data="grantsStore.formData[8]"
                 :current-step="currentStep"
-                @update:form-data="grantsStore.updateFormData(8, $event)"
+                @update:form-data="handleFormDataUpdate(8, $event)"
                 @validated="handleStepValidated"
                 @go-back="handleGoBack"
               />
@@ -300,8 +304,18 @@
                 @click="goToNextStep"
               >
                 {{ currentStep === 8 ? '完成' : '下一步' }}
-                <v-icon end v-if="currentStep < 8">mdi-arrow-right</v-icon>
-                <v-icon end v-else>mdi-check</v-icon>
+                <v-icon
+                  v-if="currentStep < 8"
+                  end
+                >
+                  mdi-arrow-right
+                </v-icon>
+                <v-icon
+                  v-else
+                  end
+                >
+                  mdi-check
+                </v-icon>
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -315,7 +329,7 @@
 import { useDisplay } from 'vuetify'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useGrantsStore } from '@/stores/grants'
-import { GrantStorage } from '@/utils/grant-storage'
+import { debounce } from 'lodash'
 
 // Import step components
 import step1 from './components/step1.vue'
@@ -338,13 +352,12 @@ const grantsStore = useGrantsStore()
 const currentStep = ref(1)
 const submitting = ref(false)
 const isDataLoaded = ref(false)
-const hasUnsavedChanges = ref(false)
 const isNavigating = ref(false)
+const autoSaveTimer = ref<number | null>(null);
 
 // Navigation drawer state
 const drawerOpen = ref(true)
-// const isRailMode = ref(!isSmallScreen.value)
-const isRailMode = ref(false)
+const isRailMode = ref(false) // Default to expanded
 const drawerWidth = ref(280)
 
 // Step definitions
@@ -360,18 +373,29 @@ const steps = [
 ]
 
 // Step icon and color logic
-
 const getStepIcon = (stepValue: number): string => {
   if (submitting.value && currentStep.value === stepValue) return 'mdi-loading mdi-spin'
   if (currentStep.value > stepValue) return 'mdi-check-circle'
   if (currentStep.value === stepValue) return 'mdi-numeric-'+stepValue+'-circle'
   return 'mdi-circle-outline'
-};
+}
 
 const getStepIconColor = (stepValue: number) => {
   if (currentStep.value > stepValue) return 'success'
   if (currentStep.value === stepValue) return 'primary'
   return 'grey'
+}
+
+// Debounced URL update to prevent recursive update issues
+const debouncedUpdateStepInURL = debounce((step: number) => {
+  router.replace({
+    query: { ...route.query, step: step.toString() }
+  })
+}, 100)
+
+// URL management function that uses debouncing
+const updateStepInURL = (step: number) => {
+  debouncedUpdateStepInURL(step)
 }
 
 // Helper function to trigger next step
@@ -380,23 +404,21 @@ const goToNextStep = () => {
     handleStepValidated({ valid: true, step: currentStep.value })
   }
 }
+
 // Helper function to scroll to top
 const scrollToTop = () => {
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// Step validation handling
+// Step validation handling with improved flow control
 const handleStepValidated = async ({ valid, step }: { valid: boolean; step: number }) => {
   if (valid && !isNavigating.value) {
     try {
       isNavigating.value = true
       submitting.value = true
 
-      // Save current step data
-      await saveCurrentStepData()
-
-      // Wait a moment to ensure data is saved
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Save current step data through the store
+      await saveAllChanges()
 
       // Proceed to next step if not on the last step
       if (step < steps.length) {
@@ -406,7 +428,7 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
         updateStepInURL(currentStep.value)
         await loadStepData(currentStep.value)
 
-        // Scroll to top after loading new step
+        // Scroll to top after loading new step data
         scrollToTop()
       } else {
         // Complete the form if this was the last step
@@ -424,46 +446,70 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
   }
 }
 
-// Step click handler
+// Handle form data updates from step components
+const handleFormDataUpdate = (step: number, data: any) => {
+  grantsStore.updateFormData(step, data)
+
+  // Setup autosave if changes are made
+  if (grantsStore.hasUnsavedChanges && !autoSaveTimer.value) {
+    autoSaveTimer.value = window.setTimeout(async () => {
+      await saveAllChanges()
+      autoSaveTimer.value = null
+    }, 3000) // Autosave after 3 seconds of inactivity
+  }
+}
+
+// Save all unsaved changes
+const saveAllChanges = async () => {
+  if (autoSaveTimer.value) {
+    clearTimeout(autoSaveTimer.value)
+    autoSaveTimer.value = null
+  }
+
+  return grantsStore.saveAllChanges()
+}
+
+// Step click handler with improved error handling
 const handleStepClick = (stepValue: number) => {
   if (stepValue === currentStep.value || isNavigating.value) return // Skip if clicking current step or already navigating
 
   isNavigating.value = true
 
-  saveCurrentStepData().then(() => {
+  // Save current data before switching
+  saveAllChanges().then(() => {
     // Update current step
-    currentStep.value = stepValue;
+    currentStep.value = stepValue
 
-    // Update URL and load data
-    updateStepInURL(stepValue);
+    // Update URL and load data for selected step
+    updateStepInURL(stepValue)
     loadStepData(stepValue).then(() => {
-      // Scroll to top after loading new step
+      // Scroll to top after loading new step data
       scrollToTop()
-    });
+    })
 
     // Close drawer on mobile after selection
     if (isSmallScreen.value) {
-      drawerOpen.value = false;
+      drawerOpen.value = false
     }
 
     setTimeout(() => {
       isNavigating.value = false
     }, 500)
   }).catch(error => {
-    console.error('Failed to save data before step change:', error);
+    console.error('Failed to save data before step change:', error)
     isNavigating.value = false
-  });
-};
+  })
+}
 
-// Go back handler for step navigation
+// Go back handler with improved navigation flow
 const handleGoBack = async () => {
   if (currentStep.value > 1 && !isNavigating.value) {
     try {
       isNavigating.value = true
       submitting.value = true
 
-      // Save current step before going back
-      await saveCurrentStepData()
+      // Save current step data before going back
+      await saveAllChanges()
 
       // Go to previous step
       currentStep.value -= 1
@@ -472,7 +518,7 @@ const handleGoBack = async () => {
       updateStepInURL(currentStep.value)
       await loadStepData(currentStep.value)
 
-      // Scroll to top after loading new step
+      // Scroll to top after loading the previous step
       scrollToTop()
     } catch (error) {
       console.error('Error saving step data before going back:', error)
@@ -485,73 +531,30 @@ const handleGoBack = async () => {
   }
 }
 
-// Load data for a specific step
+// Improved data loading with race condition prevention
+let isLoadingData = false
 const loadStepData = async (step: number) => {
-  if (!route.query.id) return
+  if (!route.query.id || isLoadingData) return
 
+  isLoadingData = true
   const caseNumber = route.query.id as string
   submitting.value = true
   isDataLoaded.value = false
 
   try {
-    if (step === 1) {
-      // Step 1 loads from the API
-      await grantsStore.loadStepData(caseNumber, step)
-    } else {
-      // Steps 2-8 load from localStorage
-      const stepData = GrantStorage.getStepData(caseNumber, step) || {}
-      grantsStore.formData[step] = stepData
+    // Use the grantsStore's loadStepData method for both API and localStorage
+    await grantsStore.loadStepData(caseNumber, step)
 
-      // If no data exists yet for this step, initialize with empty object
-      if (Object.keys(stepData).length === 0) {
-        grantsStore.formData[step] = {}
-      }
-    }
-
-    hasUnsavedChanges.value = false
     isDataLoaded.value = true
   } catch (error) {
     console.error(`Failed to load data for step ${step}:`, error)
   } finally {
     submitting.value = false
+    isLoadingData = false
   }
 }
 
-// Save current step data
-const saveCurrentStepData = async () => {
-  const step = currentStep.value
-  if (!route.query.id) return false
-
-  const caseNumber = route.query.id as string
-  submitting.value = true
-
-  try {
-    if (step === 1) {
-      // Step 1 saves to the API
-      await grantsStore.saveStepData(step, grantsStore.formData[step])
-    } else {
-      // Steps 2-8 save to localStorage
-      GrantStorage.saveStepData(caseNumber, step, grantsStore.formData[step] || {})
-    }
-
-    hasUnsavedChanges.value = false
-    return true
-  } catch (error) {
-    console.error(`Failed to save data for step ${step}:`, error)
-    return false
-  } finally {
-    submitting.value = false
-  }
-}
-
-// URL management
-const updateStepInURL = (step: number) => {
-  router.replace({
-    query: { ...route.query, step: step.toString() }
-  })
-}
-
-// Initialize data
+// Initialize data with better error handling
 onMounted(async () => {
   // Get case number and step from URL
   const caseNumber = route.query.id as string
@@ -579,7 +582,7 @@ onMounted(async () => {
       startStep = grantsStore.currentStep
     }
 
-    // Set steps and update URL if needed
+    // Set step and update URL if needed
     currentStep.value = startStep
 
     if (!stepParam) {
@@ -594,43 +597,60 @@ onMounted(async () => {
   }
 })
 
-// Watchers
-// Watch URL step parameter changes
-watch(() => route.query.step, (newStepParam) => {
+// Watch for URL step parameter changes with improved logic
+watch(() => route.query.step, (newStepParam, oldStepParam) => {
+  // Skip if values are effectively the same or we're currently navigating
+  if (isNavigating.value ||
+      newStepParam === oldStepParam ||
+      (newStepParam && parseInt(newStepParam as string) === currentStep.value)) {
+    return
+  }
+
   if (newStepParam) {
     const newStep = parseInt(newStepParam as string, 10)
     if (!isNaN(newStep) && newStep >= 1 && newStep <= steps.length && newStep !== currentStep.value) {
+      // Set navigating flag to prevent other updates during this operation
+      isNavigating.value = true
+
       // If step changed in URL, save current step data before changing
-      saveCurrentStepData().then(() => {
+      saveAllChanges().then(() => {
         currentStep.value = newStep
-        loadStepData(newStep)
+        return loadStepData(newStep)
       }).catch(error => {
         console.error('Failed to save data before step change:', error)
+      }).finally(() => {
+        // Release the navigation lock after a short delay
+        setTimeout(() => {
+          isNavigating.value = false
+        }, 500)
       })
     }
   }
 })
 
-// Watch for screen size changes
+// Watch for screen size changes and adapt UI
 watch(isSmallScreen, (smallScreen) => {
   if (smallScreen) {
-    isRailMode.value = false;
-    drawerOpen.value = false;
+    isRailMode.value = false
+    drawerOpen.value = false
   } else {
-    drawerOpen.value = true;
-    isRailMode.value = false; // Changed from true to keep expanded by default
+    drawerOpen.value = true
+    isRailMode.value = false // Keep expanded by default
   }
-}, { immediate: true });
+}, { immediate: true })
 
-// Watch for form data changes to detect unsaved changes
-watch(() => grantsStore.formData, () => {
-  hasUnsavedChanges.value = true
-}, { deep: true })
+// Clean up on component unmount
+onUnmounted(() => {
+  if (autoSaveTimer.value) {
+    clearTimeout(autoSaveTimer.value)
+    autoSaveTimer.value = null
+  }
+})
 
-// Route leave guard
+// Route leave guard with unsaved changes check
 onBeforeRouteLeave((to, from, next) => {
   // If there are unsaved changes, confirm before leaving
-  if (hasUnsavedChanges.value) {
+  if (grantsStore.hasUnsavedChanges) {
     if (window.confirm('您有未保存的更改，確定要離開嗎？')) {
       next()
     } else {
@@ -652,9 +672,4 @@ onBeforeRouteLeave((to, from, next) => {
 .mdi-loading.mdi-spin {
   animation: spin 1s infinite linear;
 }
-
-/* Make sure the content area takes full height */
-/* .v-main {
-  min-height: 100vh;
-} */
 </style>

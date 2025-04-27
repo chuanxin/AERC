@@ -11,32 +11,77 @@
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
-                <v-table class="report-table">
+              <v-sheet
+                class="pa-3 rounded"
+                color="bg-amber-lighten-5 border border-amber"
+              >
+                <v-table
+                  class="preview-table"
+                  style="background-color: transparent"
+                  density="compact"
+                >
                   <tbody>
                     <tr>
-                      <td style="width: 150px" class="font-weight-medium text-center">申請年度</td>
-                      <td>{{ localFormData.applicationYear }}</td>
-                      <td style="width: 150px" class="font-weight-medium text-center">案件編號</td>
-                      <td>{{ localFormData.caseNumber }}</td>
+                      <td
+                        class="font-weight-medium text-center"
+                        style="width: 15%"
+                      >
+                        申請年度
+                      </td>
+                      <td style="width: 35%">
+                        {{ localFormData.applicationYear }}
+                      </td>
+                      <td
+                        class="font-weight-medium text-center"
+                        style="width: 15%"
+                      >
+                        案號
+                      </td>
+                      <td style="width: 35%">
+                        {{ localFormData.caseNumber }}
+                      </td>
                     </tr>
                     <tr>
-                      <td class="font-weight-medium text-center">農戶姓名</td>
-                      <td>{{ localFormData.applicantName }}</td>
-                      <td class="font-weight-medium text-center">農戶住址</td>
-                      <td>{{ localFormData.applicantAddress }}</td>
+                      <td class="font-weight-medium text-center">
+                        農戶姓名
+                      </td>
+                      <td>
+                        {{ localFormData.applicantName }}
+                      </td>
+                      <td class="font-weight-medium text-center">
+                        農戶住址
+                      </td>
+                      <td>
+                        {{ localFormData.applicantAddress }}
+                      </td>
                     </tr>
                     <tr>
-                      <td class="font-weight-medium text-center">設施地段</td>
-                      <td>{{ localFormData.facilityLocation }}</td>
-                      <td class="font-weight-medium text-center">設施地號</td>
-                      <td>{{ localFormData.facilityNumber }}</td>
+                      <td class="font-weight-medium text-center">
+                        設施地段
+                      </td>
+                      <td>
+                        {{ localFormData.facilityLocation }}
+                      </td>
+                      <td class="font-weight-medium text-center">
+                        設施地號
+                      </td>
+                      <td>
+                        {{ localFormData.facilityNumber }}
+                      </td>
                     </tr>
                     <tr>
-                      <td class="font-weight-medium text-center">設施面積</td>
-                      <td>{{ localFormData.facilityArea }}公頃</td>
-                      <td class="font-weight-medium text-center">設施型式</td>
-                      <td>{{ localFormData.facilityType }}</td>
+                      <td class="font-weight-medium text-center">
+                        設施面積
+                      </td>
+                      <td>
+                        {{ localFormData.facilityArea }}公頃
+                      </td>
+                      <td class="font-weight-medium text-center">
+                        設施型式
+                      </td>
+                      <td>
+                        {{ localFormData.facilityType }}
+                      </td>
                     </tr>
                   </tbody>
                 </v-table>
@@ -64,6 +109,7 @@
                       @click="datePickerDialog1 = true"
                       :rules="[v => !!v || '請選擇竣工日期']"
                       prepend-icon="mdi-calendar"
+                      @update:model-value="updateFormData"
                     ></v-text-field>
 
                     <v-dialog
@@ -88,6 +134,7 @@
                         v-model="localFormData.completionStatus"
                         inline
                         :rules="[v => !!v || '請選擇竣工狀況']"
+                        @update:model-value="updateFormData"
                       >
                         <v-radio value="completed" label="完工"></v-radio>
                         <v-radio value="incomplete" label="未完工"></v-radio>
@@ -107,6 +154,7 @@
                       @click="datePickerDialog2 = true"
                       :rules="[v => !!v || '請選擇測試日期']"
                       prepend-icon="mdi-calendar"
+                      @update:model-value="updateFormData"
                     ></v-text-field>
 
                     <v-dialog
@@ -132,6 +180,7 @@
                       density="comfortable"
                       :rules="[v => !!v || '請填寫測試人員']"
                       prepend-icon="mdi-account"
+                      @update:model-value="updateFormData"
                     ></v-text-field>
                   </v-col>
                 </v-row>
@@ -146,6 +195,7 @@
                       density="comfortable"
                       :rules="[v => !!v || '請選擇測試結果']"
                       prepend-icon="mdi-clipboard-check"
+                      @update:model-value="updateFormData"
                     ></v-select>
                   </v-col>
                 </v-row>
@@ -171,6 +221,7 @@
                       density="comfortable"
                       readonly
                       bg-color="yellow-lighten-3"
+                      @update:model-value="updateFormData"
                     ></v-text-field>
                   </v-col>
                 </v-row>
@@ -184,6 +235,7 @@
                       density="comfortable"
                       :rules="localFormData.testResult === 'adjusted' ? [v => !!v || '請填寫增減列金額'] : []"
                       bg-color="yellow-lighten-3"
+                      @update:model-value="updateFormData"
                     ></v-text-field>
                   </v-col>
                 </v-row>
@@ -197,6 +249,7 @@
                       density="comfortable"
                       readonly
                       bg-color="yellow-lighten-3"
+                      @update:model-value="updateFormData"
                     ></v-text-field>
                   </v-col>
                 </v-row>
@@ -211,6 +264,7 @@
                       rows="3"
                       auto-grow
                       :rules="[v => localFormData.testResult !== 'improvement' || !!v || '請填寫結果說明']"
+                      @update:model-value="updateFormData"
                     ></v-textarea>
                   </v-col>
                 </v-row>
@@ -243,6 +297,7 @@
                         <th>變更項目</th>
                         <th>變更前數量</th>
                         <th>變更後數量</th>
+                        <th>增減數量</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -254,9 +309,7 @@
                             variant="outlined"
                             density="compact"
                             type="number"
-                            hide-details
-                            readonly
-                            bg-color="grey-lighten-4"
+                            @update:model-value="calculateDifference"
                           ></v-text-field>
                         </td>
                         <td>
@@ -265,17 +318,16 @@
                             variant="outlined"
                             density="compact"
                             type="number"
-                            hide-details
                             @update:model-value="calculateDifference"
                           ></v-text-field>
                         </td>
+                        <td>{{ item.afterQuantity - item.beforeQuantity }}</td>
                       </tr>
                     </tbody>
                     <tfoot>
                       <tr>
-                        <td colspan="3" class="caption text-grey pa-2">
-                          註：從3開始統計差異
-                        </td>
+                        <td colspan="3" class="text-right font-weight-bold">合計增減</td>
+                        <td>{{ totalQuantityChange }}</td>
                       </tr>
                     </tfoot>
                   </v-table>
@@ -343,14 +395,14 @@
                       ></v-img>
                     </div>
 
-                    <div v-if="!localFormData.afterConstructionPhoto" class="mt-2 d-flex align-center text-red">
+                    <div v-if="!localFormData.afterConstructionPhoto && !localFormData.afterPhotoPreview" class="mt-2 d-flex align-center text-red">
                       <v-icon color="red" class="me-1" size="small">mdi-alert-circle</v-icon>
                       <span class="text-caption">卡驗收照片(尚未上傳施工後照片)</span>
                     </div>
                   </v-col>
                 </v-row>
 
-                <v-row v-if="!localFormData.afterConstructionPhoto || !localFormData.beforeConstructionPhoto">
+                <v-row v-if="!localFormData.afterConstructionPhoto && !localFormData.beforeConstructionPhoto && !localFormData.afterPhotoPreview && !localFormData.beforePhotoPreview">
                   <v-col cols="12">
                     <v-alert
                       type="warning"
@@ -359,8 +411,8 @@
                       density="comfortable"
                     >
                       <div class="d-flex align-center">
-                        <v-icon class="me-2">mdi-arrow-right-bold</v-icon>
-                        <span>跳回資料缺失處</span>
+                        <v-icon class="me-2">mdi-alert</v-icon>
+                        <span>尚未上傳施工前後照片，請儘速上傳以完成結案申報程序。</span>
                       </div>
                     </v-alert>
                   </v-col>
@@ -371,46 +423,17 @@
         </v-form>
       </v-card-text>
     </v-card>
-
-    <!-- <v-card class="step-navigation-card ma-0 pa-0" flat>
-      <div class="d-flex align-center pr-4">
-        <v-spacer></v-spacer>
-        <div class="navigation-buttons">
-          <v-btn
-            variant="outlined"
-            color="grey-darken-1"
-            class="me-2"
-            size="large"
-            @click="goToPreviousStep"
-            rounded="pill"
-          >
-            <v-icon start>mdi-arrow-left</v-icon>
-            上一步
-          </v-btn>
-
-          <v-btn
-            color="green-darken-1"
-            :disabled="!isValid"
-            @click="goToNextStep"
-            size="large"
-            rounded="pill"
-          >
-            {{ currentStep === 8 ? '完成' : '下一步' }}
-            <v-icon end v-if="currentStep < 8">mdi-arrow-right</v-icon>
-            <v-icon end v-else>mdi-check</v-icon>
-          </v-btn>
-        </div>
-      </div>
-    </v-card> -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch, computed } from 'vue';
+import { useGrantsStore } from '@/stores/grants';
 
+// Props and emits
 const props = defineProps({
   formData: {
     type: Object,
+    required: true,
     default: () => ({})
   },
   currentStep: {
@@ -419,18 +442,18 @@ const props = defineProps({
   }
 });
 
-// FIXED: Changed 'goBack' to 'go-back' to match edit.vue
+// Event emitters
 const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 
-// Changed for demo: Set to true by default for frictionless navigation
-const localValid = ref(true);
+// Access the grants store
+const grantsStore = useGrantsStore();
+
+// Form validation and dialogs
 const form = ref(null);
+const localValid = ref(true);
 const datePickerDialog1 = ref(false);
 const datePickerDialog2 = ref(false);
 const isDesignChangeVisible = ref(false);
-
-// ADDED: Create isValid property that always returns true for demo
-const isValid = computed(() => true);
 
 // 測試結果選項
 const testResultOptions = [
@@ -471,7 +494,7 @@ const localFormData = reactive({
   beforePhotoPreview: null,
   afterPhotoPreview: null,
 
-  // ADDED: Set this to true by default for demo
+  // 設置默認值，確保與edit.vue中的顯示邏輯保持一致
   valid: true
 });
 
@@ -481,6 +504,13 @@ const designChangeItems = reactive([
   { name: '馬達+抽水機', beforeQuantity: 1, afterQuantity: 0 },
   { name: '單口噴頭-塑鋼', beforeQuantity: 0, afterQuantity: 10 }
 ]);
+
+// 計算變更總量
+const totalQuantityChange = computed(() => {
+  return designChangeItems.reduce((total, item) => {
+    return total + (Number(item.afterQuantity) - Number(item.beforeQuantity));
+  }, 0);
+});
 
 // 驗證規則
 const photoRules = [v => !!v || '請上傳照片'];
@@ -492,16 +522,18 @@ const handlePhotoChange = (type: 'before' | 'after') => {
     : localFormData.afterConstructionPhoto;
 
   if (file) {
-    // MODIFIED: Only create object URLs for actual File objects
+    // Only create object URLs for actual File objects
     if (file instanceof File) {
       // 清除之前的預覽
       if (type === 'before') {
-        if (localFormData.beforePhotoPreview && localFormData.beforePhotoPreview.startsWith('blob:')) {
+        if (localFormData.beforePhotoPreview && typeof localFormData.beforePhotoPreview === 'string' &&
+            localFormData.beforePhotoPreview.startsWith('blob:')) {
           URL.revokeObjectURL(localFormData.beforePhotoPreview);
         }
         localFormData.beforePhotoPreview = URL.createObjectURL(file);
       } else {
-        if (localFormData.afterPhotoPreview && localFormData.afterPhotoPreview.startsWith('blob:')) {
+        if (localFormData.afterPhotoPreview && typeof localFormData.afterPhotoPreview === 'string' &&
+            localFormData.afterPhotoPreview.startsWith('blob:')) {
           URL.revokeObjectURL(localFormData.afterPhotoPreview);
         }
         localFormData.afterPhotoPreview = URL.createObjectURL(file);
@@ -515,48 +547,43 @@ const handlePhotoChange = (type: 'before' | 'after') => {
 // 切換變更設計顯示狀態
 const toggleDesignChange = () => {
   isDesignChangeVisible.value = !isDesignChangeVisible.value;
+  updateFormData();
 };
 
 // 計算變更前後差異
 const calculateDifference = () => {
-  // 計算差異並可能更新其他相關數據
   updateFormData();
 };
 
-// 上一步 - MODIFIED for localStorage approach
-const goToPreviousStep = () => {
-  // Always update data before going back
-  updateFormData();
-
-  console.log('Going back from step 7');
-  // FIXED: Changed 'goBack' to 'go-back'
-  emit('go-back');
-};
-
-// 下一步 - MODIFIED for localStorage approach
-const goToNextStep = async () => {
-  // For demo, no validation needed
-  updateFormData();
-
-  console.log('Emitting validated event for step 7');
-  emit('validated', { valid: true, step: 7 });
-};
-
-// 更新父組件數據 - MODIFIED for localStorage approach
+// 更新父組件數據
 const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
-    designChangeItems,
-    valid: true // CHANGED: Always set to true for demo
+    designChangeItems: [...designChangeItems],
+    valid: true // Always set to true for seamless navigation
   });
 };
 
-// 初始化數據 - ENHANCED for demo data
+// 清理預覽資源的函數
+const cleanupPreviews = () => {
+  // Only clean up blob URLs, not external URLs
+  if (localFormData.beforePhotoPreview && typeof localFormData.beforePhotoPreview === 'string' &&
+      localFormData.beforePhotoPreview.startsWith('blob:')) {
+    URL.revokeObjectURL(localFormData.beforePhotoPreview);
+  }
+
+  if (localFormData.afterPhotoPreview && typeof localFormData.afterPhotoPreview === 'string' &&
+      localFormData.afterPhotoPreview.startsWith('blob:')) {
+    URL.revokeObjectURL(localFormData.afterPhotoPreview);
+  }
+};
+
+// 初始化數據
 onMounted(() => {
-  // 設置初始數據
+  // 從父組件接收數據
   if (props.formData) {
-    // 基本資訊
+    // 設置基本屬性
     Object.keys(localFormData).forEach(key => {
       if (props.formData[key] !== undefined) {
         localFormData[key] = props.formData[key];
@@ -564,106 +591,114 @@ onMounted(() => {
     });
 
     // 變更設計項目
-    if (props.formData.designChangeItems) {
+    if (Array.isArray(props.formData.designChangeItems)) {
       props.formData.designChangeItems.forEach((item, index) => {
         if (index < designChangeItems.length) {
           designChangeItems[index].beforeQuantity = item.beforeQuantity;
           designChangeItems[index].afterQuantity = item.afterQuantity;
+        } else {
+          designChangeItems.push({ ...item });
         }
       });
     }
   }
 
-  // 初始化數據（確保有默認值）
-  // 基本資訊 - Use data from previous steps if available
-  // Try to get from step6 or use default values
-  if (props.formData.applicationYear) {
-    localFormData.applicationYear = props.formData.applicationYear;
-  } else {
-    localFormData.applicationYear = '113';
-  }
-
-  // Get case number from URL or use default
-  if (!localFormData.caseNumber) {
-    const urlParams = new URLSearchParams(window.location.search);
-    const idParam = urlParams.get('id');
-    localFormData.caseNumber = idParam || '113010001';
-  }
-
-  // Get applicant information from previous steps if available
-  if (!localFormData.applicantName) {
-    // Try step1 data
-    if (props.formData.name) {
-      localFormData.applicantName = props.formData.name;
-    } else if (props.formData.applicantName) {
-      localFormData.applicantName = props.formData.applicantName;
+  // Initialize data from other steps if necessary
+  if (!localFormData.applicationYear) {
+    // Try to get from store or use default
+    if (grantsStore.formData[6]?.applicationYear) {
+      localFormData.applicationYear = grantsStore.formData[6].applicationYear;
     } else {
-      localFormData.applicantName = '林嘉寶';
+      const currentYear = new Date().getFullYear() - 1911; // Taiwan calendar year
+      localFormData.applicationYear = `${currentYear}`;
     }
   }
 
+  // Get case number
+  if (!localFormData.caseNumber) {
+    if (grantsStore.caseNumber) {
+      localFormData.caseNumber = grantsStore.caseNumber;
+    }
+  }
+
+  // Get applicant info
+  if (!localFormData.applicantName) {
+    if (grantsStore.formData[1]?.name) {
+      localFormData.applicantName = grantsStore.formData[1].name;
+    } else if (grantsStore.formData[6]?.applicantName) {
+      localFormData.applicantName = grantsStore.formData[6].applicantName;
+    }
+  }
+
+  // Get applicant address
   if (!localFormData.applicantAddress) {
-    if (props.formData.applicantAddress) {
-      localFormData.applicantAddress = props.formData.applicantAddress;
+    if (grantsStore.formData[6]?.applicantAddress) {
+      localFormData.applicantAddress = grantsStore.formData[6].applicantAddress;
     } else {
-      // Try to build from step1 data
-      const county = props.formData.county || '';
-      const town = props.formData.town || '';
-      const village = props.formData.village || '';
-      const address = props.formData.address || '';
-      if (county || town || village || address) {
-        localFormData.applicantAddress = `${county}${town}${village}${address}`;
-      } else {
-        localFormData.applicantAddress = '嘉義縣竹崎鄉龍山村16鄰過坑14號';
+      const step1Data = grantsStore.formData[1];
+      if (step1Data) {
+        const county = step1Data.county || '';
+        const town = step1Data.town || '';
+        const village = step1Data.village || '';
+        const address = step1Data.address || '';
+
+        if (county || town || village || address) {
+          localFormData.applicantAddress = `${county}${town}${village}${address}`;
+        }
       }
     }
   }
 
-  // Get facility info from step2 or step6
+  // Get facility info from previous steps
   if (!localFormData.facilityLocation) {
-    if (props.formData.facilityLocation) {
-      localFormData.facilityLocation = props.formData.facilityLocation;
-    } else {
-      localFormData.facilityLocation = '嘉義縣竹崎鄉瓦厝埔段';
+    if (grantsStore.formData[6]?.facilityLocation) {
+      localFormData.facilityLocation = grantsStore.formData[6].facilityLocation;
+    } else if (grantsStore.formData[2]) {
+      const step2Data = grantsStore.formData[2];
+      const county = step2Data.addressCounty || '';
+      const town = step2Data.addressTown || '';
+      const village = step2Data.addressVillage || '';
+
+      if (county || town || village) {
+        localFormData.facilityLocation = `${county}${town}${village}`;
+      }
     }
   }
 
   if (!localFormData.facilityNumber) {
-    if (props.formData.facilityNumber) {
-      localFormData.facilityNumber = props.formData.facilityNumber;
-    } else if (props.formData.landNumber) {
-      localFormData.facilityNumber = props.formData.landNumber;
-    } else {
-      localFormData.facilityNumber = '0966-0001';
+    if (grantsStore.formData[6]?.facilityNumber) {
+      localFormData.facilityNumber = grantsStore.formData[6].facilityNumber;
+    } else if (grantsStore.formData[2]?.landNumber) {
+      localFormData.facilityNumber = grantsStore.formData[2].landNumber;
     }
   }
 
   if (!localFormData.facilityArea) {
-    if (props.formData.facilityArea) {
-      localFormData.facilityArea = props.formData.facilityArea;
-    } else if (props.formData.landAreaHa) {
-      localFormData.facilityArea = props.formData.landAreaHa;
-    } else {
-      localFormData.facilityArea = '0.8455';
+    if (grantsStore.formData[6]?.facilityArea) {
+      localFormData.facilityArea = grantsStore.formData[6].facilityArea;
+    } else if (grantsStore.formData[2]?.landAreaHa) {
+      localFormData.facilityArea = grantsStore.formData[2].landAreaHa;
     }
   }
 
   if (!localFormData.facilityType) {
-    if (props.formData.facilityType) {
-      localFormData.facilityType = props.formData.facilityType;
+    if (grantsStore.formData[6]?.facilityType) {
+      localFormData.facilityType = grantsStore.formData[6].facilityType;
     } else {
       // Try to construct from step4 data
-      const installationType = props.formData.installationType || '';
-      const irrigationType = props.formData.irrigationType || '';
-      if (installationType && irrigationType) {
-        localFormData.facilityType = `${installationType}${irrigationType}系統`;
-      } else {
-        localFormData.facilityType = '地表定置式噴頭式系統';
+      const step4Data = grantsStore.formData[4];
+      if (step4Data) {
+        const installationType = step4Data.installationType || '';
+        const irrigationType = step4Data.irrigationType || '';
+
+        if (installationType || irrigationType) {
+          localFormData.facilityType = `${installationType}${irrigationType}系統`;
+        }
       }
     }
   }
 
-  // 竣工和測試資訊 - Set default values if empty
+  // Set default completion information
   if (!localFormData.completionDate) {
     const today = new Date();
     const year = today.getFullYear();
@@ -680,24 +715,31 @@ onMounted(() => {
     localFormData.testDate = `${year}-${month}-${day}`;
   }
 
-  localFormData.completionStatus = localFormData.completionStatus || 'completed';
-  localFormData.tester = localFormData.tester || '王工程師';
-  localFormData.testResult = localFormData.testResult || 'original';
+  // Set default values for new forms
+  if (!localFormData.completionStatus) {
+    localFormData.completionStatus = 'completed';
+  }
 
-  // 預設支付金額 - Use data from step6 if available
-  if (!localFormData.originalPayment) {
-    if (props.formData.totalBudget) {
-      localFormData.originalPayment = props.formData.totalBudget;
+  if (!localFormData.tester) {
+    localFormData.tester = '王工程師';
+  }
+
+  if (!localFormData.testResult) {
+    localFormData.testResult = 'original';
+  }
+
+  // Set default payment info
+  if (!localFormData.originalPayment && localFormData.testResult === 'original') {
+    if (grantsStore.formData[6]?.totalBudget) {
+      localFormData.originalPayment = grantsStore.formData[6].totalBudget;
     } else {
       localFormData.originalPayment = '13,378';
     }
-  }
 
-  if (localFormData.testResult === 'original') {
     localFormData.actualPayment = localFormData.originalPayment;
   }
 
-  // Set sample description if empty
+  // Set sample description if needed
   if (!localFormData.testResultDescription && localFormData.testResult === 'original') {
     localFormData.testResultDescription = '工程完工符合規範，依核定補助款發放。';
   }
@@ -711,26 +753,8 @@ onMounted(() => {
     localFormData.afterPhotoPreview = 'https://via.placeholder.com/400x300?text=施工後照片示例';
   }
 
-  // Update after initialization
+  // Initial update to parent
   updateFormData();
-});
-
-// 監聽原應發放和增減列變化，計算實際發放
-watch([() => localFormData.originalPayment, () => localFormData.increasedDecreasedAmount], () => {
-  if (localFormData.testResult === 'adjusted' && localFormData.originalPayment && localFormData.increasedDecreasedAmount) {
-    try {
-      const original = parseFloat(localFormData.originalPayment.replace(/,/g, ''));
-      const adjustment = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
-      if (!isNaN(original) && !isNaN(adjustment)) {
-        const actual = original + adjustment;
-        localFormData.actualPayment = actual.toLocaleString();
-      }
-    } catch (e) {
-      console.error('計算實際發放金額時出錯', e);
-    }
-  } else if (localFormData.testResult === 'original' && localFormData.originalPayment) {
-    localFormData.actualPayment = localFormData.originalPayment;
-  }
 });
 
 // 監聽測試結果變化
@@ -739,8 +763,8 @@ watch(() => localFormData.testResult, (newValue) => {
     // 如果是 "依核定補助款發放"，則自動設置相關金額
     if (!localFormData.originalPayment) {
       // 可以從父組件中獲取預設的補助款金額
-      if (props.formData.totalBudget) {
-        localFormData.originalPayment = props.formData.totalBudget;
+      if (grantsStore.formData[6]?.totalBudget) {
+        localFormData.originalPayment = grantsStore.formData[6].totalBudget;
       } else {
         localFormData.originalPayment = '13,378';
       }
@@ -755,8 +779,8 @@ watch(() => localFormData.testResult, (newValue) => {
   } else if (newValue === 'adjusted') {
     // 如果是 "依核定補助款增減列"，則重置金額欄位
     if (!localFormData.originalPayment) {
-      if (props.formData.totalBudget) {
-        localFormData.originalPayment = props.formData.totalBudget;
+      if (grantsStore.formData[6]?.totalBudget) {
+        localFormData.originalPayment = grantsStore.formData[6].totalBudget;
       } else {
         localFormData.originalPayment = '13,378';
       }
@@ -770,7 +794,17 @@ watch(() => localFormData.testResult, (newValue) => {
       localFormData.testResultDescription = '因部分材料規格變更，調整補助金額。';
     }
 
-    // 實際發放金額會通過上面的 watch 自動計算
+    // 實際發放金額會通過增減列計算
+    try {
+      const original = parseFloat(localFormData.originalPayment.replace(/,/g, ''));
+      const adjustment = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
+      if (!isNaN(original) && !isNaN(adjustment)) {
+        const actual = original + adjustment;
+        localFormData.actualPayment = actual.toLocaleString();
+      }
+    } catch (e) {
+      console.error('計算實際發放金額時出錯', e);
+    }
   } else if (newValue === 'improvement') {
     // Add a default description for improvement needed
     if (!localFormData.testResultDescription) {
@@ -792,19 +826,65 @@ watch(() => localFormData.testResult, (newValue) => {
     localFormData.increasedDecreasedAmount = '';
     localFormData.actualPayment = '';
   }
+
+  updateFormData();
 });
 
-// Simplified watch handlers for demo
+// 監聽原金額與增減列變化
+watch([() => localFormData.originalPayment, () => localFormData.increasedDecreasedAmount], () => {
+  if (localFormData.testResult === 'adjusted' && localFormData.originalPayment && localFormData.increasedDecreasedAmount) {
+    try {
+      const original = parseFloat(localFormData.originalPayment.replace(/,/g, ''));
+      const adjustment = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
+      if (!isNaN(original) && !isNaN(adjustment)) {
+        const actual = original + adjustment;
+        localFormData.actualPayment = actual.toLocaleString();
+      }
+    } catch (e) {
+      console.error('計算實際發放金額時出錯', e);
+    }
+  }
+  updateFormData();
+});
+
+// 監聽父組件數據變化
 watch(() => props.formData, (newVal) => {
   if (newVal) {
-    updateFormData();
+    // 更新基本屬性
+    Object.keys(localFormData).forEach(key => {
+      if (newVal[key] !== undefined &&
+          JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
+        localFormData[key] = newVal[key];
+      }
+    });
+
+    // 更新變更設計項目
+    if (Array.isArray(newVal.designChangeItems) &&
+        JSON.stringify(newVal.designChangeItems) !== JSON.stringify(designChangeItems)) {
+      // Clear existing items
+      while (designChangeItems.length > 0) {
+        designChangeItems.pop();
+      }
+
+      // Add new items
+      newVal.designChangeItems.forEach(item => {
+        designChangeItems.push({ ...item });
+      });
+    }
   }
 }, { deep: true });
 
-// Simplified watch for local data changes
-watch([localFormData, designChangeItems], () => {
-  updateFormData();
-}, { deep: true });
+// 監聽表單驗證狀態變化
+watch(localValid, (newVal) => {
+  if (props.formData?.valid !== newVal) {
+    updateFormData();
+  }
+});
+
+// 組件卸載時清理資源
+onUnmounted(() => {
+  cleanupPreviews();
+});
 </script>
 
 <style scoped>
@@ -833,22 +913,56 @@ watch([localFormData, designChangeItems], () => {
   border-style: solid;
 }
 
-.text-red {
-  color: red;
+.bg-yellow-lighten-3 {
+  background-color: #FFF59D !important;
 }
 
-.report-table {
+.v-table {
+  background-color: white;
+}
+
+.v-table th {
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.inner-table {
+  border: none !important;
+  font-size: 0.875rem;
+}
+
+.inner-table th,
+.inner-table td {
+  padding: 2px 4px !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12) !important;
+}
+
+.inner-table th {
+  background-color: rgba(0, 0, 0, 0.03);
+  font-weight: 500;
+  font-size: 0.8rem;
+}
+
+.inner-table tr:last-child td {
+  border-bottom: none !important;
+}
+
+.preview-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.report-table td {
+.preview-table td {
   border: 1px solid rgba(0, 0, 0, 0.12);
   padding: 10px;
 }
 
-.report-table td.font-weight-medium {
+.preview-table td.font-weight-medium {
   background-color: rgba(255, 224, 130, 0.15);
+}
+
+.text-red {
+  color: red;
 }
 
 .design-change-table {

@@ -169,10 +169,18 @@
               </v-sheet>
 
               <!-- 地址資訊區塊 -->
-              <v-sheet class="mb-3 pa-3 rounded" color="blue-grey-lighten-5">
+              <v-sheet
+                class="mb-3 pa-3 rounded"
+                color="blue-grey-lighten-5"
+              >
                 <div class="d-flex align-center mb-2 justify-space-between">
                   <div class="d-flex align-center">
-                    <v-icon size="small" class="me-2">mdi-home</v-icon>
+                    <v-icon
+                      size="small"
+                      class="me-2"
+                    >
+                      mdi-home
+                    </v-icon>
                     <span class="text-body-2 font-weight-medium">通訊地址</span>
                   </div>
                   <v-btn
@@ -197,7 +205,10 @@
                 </div>
 
                 <!-- Read-only address display -->
-                <div v-if="!isEditingAddress" class="pa-2">
+                <div
+                  v-if="!isEditingAddress"
+                  class="pa-2"
+                >
                   <div class="d-flex flex-column">
                     <span class="text-subtitle-1 mb-2">{{ getFullAddress }}</span>
                     <span class="text-caption text-grey">點擊編輯按鈕以修改地址</span>
@@ -207,7 +218,10 @@
                 <!-- Editable address controls -->
                 <div v-else>
                   <v-row>
-                    <v-col cols="12" md="4">
+                    <v-col
+                      cols="12"
+                      md="4"
+                    >
                       <v-select
                         v-model="selectedCountyId"
                         label="縣市"
@@ -222,7 +236,10 @@
                         @update:model-value="handleCountyChange"
                       />
                     </v-col>
-                    <v-col cols="12" md="4">
+                    <v-col
+                      cols="12"
+                      md="4"
+                    >
                       <v-select
                         v-model="selectedTownId"
                         label="鄉鎮市區"
@@ -238,7 +255,10 @@
                         @update:model-value="handleTownChange"
                       />
                     </v-col>
-                    <v-col cols="12" md="4">
+                    <v-col
+                      cols="12"
+                      md="4"
+                    >
                       <v-select
                         v-model="selectedVillageId"
                         label="村里"
@@ -323,28 +343,6 @@
           </v-card>
         </v-form>
       </v-card-text>
-      <!-- <v-card-actions
-        class="step-navigation-card ma-0 pa-0"
-        flat
-      >
-        <div class="d-flex align-center pr-4">
-          <div class="navigation-buttons">
-            <v-btn
-              color="green-darken-1"
-              size="large"
-              variant="outlined"
-              rounded="lg"
-              :disabled="!localValid"
-              @click="goToNextStep"
-            >
-              下一步
-              <v-icon end>
-                mdi-arrow-right
-              </v-icon>
-            </v-btn>
-          </div>
-        </div>
-      </v-card-actions> -->
     </v-card>
   </div>
 </template>
@@ -353,12 +351,20 @@
 import { useUserStore } from '@/stores/users';
 import { useDomicileStore } from '@/stores/domicile';
 
-const props = defineProps<{
-  formData: any;  // 接收父組件數據
-}>();
+const props = defineProps({
+  formData: {
+    type: Object,
+    required: true,
+    default: () => ({})
+  },
+  currentStep: {
+    type: Number,
+    required: true
+  }
+});
 
-const emit = defineEmits(['update:formData', 'validated']);
-const localValid = ref(false);
+const emit = defineEmits(['update:formData', 'validated', 'go-back']);
+const localValid = ref(true);
 const form = ref(null);
 
 const userStore = useUserStore();
@@ -368,7 +374,6 @@ const domicileStore = useDomicileStore();
 const selectedCountyId = ref<{ title: string; value: number } | null>(null);
 const selectedTownId = ref<{ title: string; value: number } | null>(null);
 const selectedVillageId = ref<{ title: string; value: number } | null>(null);
-
 
 // Define local form data with reactive to track changes
 const localFormData = reactive({
@@ -387,7 +392,8 @@ const localFormData = reactive({
   departmentId: null,
   caseNumber: '',
   receivedDate: '',
-  receivedTime: ''
+  receivedTime: '',
+  valid: true // Default to true to integrate with updated validation flow
 });
 
 // 驗證規則
@@ -433,7 +439,6 @@ const finishEditingAddress = () => {
     updateFormData();
   } else {
     // Show error or keep edit mode open
-    // You could add a snackbar or alert here
     alert('請填寫完整地址資訊');
   }
 };
@@ -513,25 +518,56 @@ const handleVillageChange = (village) => {
   updateFormData();
 };
 
-// 更新父組件數據
+// 更新父組件數據 - Updated to work with new grants store approach
 const updateFormData = () => {
+  // Create data object to send to parent
+  // const updatedData = {
+  //   ...props.formData,
+  //   ...localFormData,
+  //   valid: localValid.value
+  // }
+  // console.log('Updated form data:', updatedData)
+  // Emit to parent to update grants store
+  // emit('update:formData', updatedData)
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
     valid: localValid.value
-  });
+  })
+  // Also update localStorage directly to ensure synchronization
+  try {
+    // Get current grants data from localStorage or initialize empty object
+    const storedData = localStorage.getItem('grantsData');
+    const grantsData = storedData ? JSON.parse(storedData) : {};
+
+    // Update step1 data
+    grantsData.step1 = {
+      name: localFormData.name,
+      id: localFormData.id,
+      phone: localFormData.phone,
+      county: localFormData.county,
+      countyId: localFormData.countyId,
+      town: localFormData.town,
+      townId: localFormData.townId,
+      village: localFormData.village,
+      villageId: localFormData.villageId,
+      address: localFormData.address,
+      manager: localFormData.manager,
+      department: localFormData.department,
+      departmentId: localFormData.departmentId,
+      caseNumber: localFormData.caseNumber,
+      receivedDate: localFormData.receivedDate,
+      receivedTime: localFormData.receivedTime
+    }
+
+    // Store back to localStorage
+    localStorage.setItem('grantsData', JSON.stringify(grantsData));
+  } catch (error) {
+    console.error('Error saving to localStorage:', error);
+  }
 };
 
-// // 表單驗證
-// const validate = async () => {
-//   const { valid } = await form.value.validate();
-//   if (valid) {
-//     updateFormData();
-//   }
-//   emit('validated', { valid, step: 1 });
-// };
-
-// Validate the form
+// Validate and emit validated event
 const validate = async () => {
   if (!form.value) return { valid: false };
 
@@ -541,100 +577,10 @@ const validate = async () => {
     updateFormData();
   }
 
-  // emit('validated', { valid, step: 1 });
   return { valid };
 };
 
-// Navigate to next step
-const goToNextStep = async () => {
-  // const { valid } = await validate();
-  // if (!valid) return;
-
-  // Explicitly emit a 'validated' event with step=1 to indicate we're moving from step 1
-  console.log('Emitting validated event for step 1');
-  emit('validated', { valid: true, step: 1 });
-};
-
-
-// 初始化數據
-onMounted(async () => {
-  // // Initialize the domicile store
-  // await domicileStore.initializeStore();
-  // // Initialize form data from props
-  // if (props.formData) {
-  //   Object.keys(localFormData).forEach(key => {
-  //     if (props.formData[key] !== undefined) {
-  //       localFormData[key] = props.formData[key];
-  //     }
-  //   });
-
-  //   // Set selected items for dropdowns
-  //   if (localFormData.countyId) {
-  //     selectedCountyId.value = {
-  //       title: localFormData.county,
-  //       value: localFormData.countyId
-  //     };
-
-  //     await domicileStore.loadTownsByCountyId(localFormData.countyId);
-
-  //     if (localFormData.townId) {
-  //       selectedTownId.value = {
-  //         title: localFormData.town,
-  //         value: localFormData.townId
-  //       };
-
-  //       await domicileStore.loadVillagesByTownId(localFormData.townId);
-
-  //       if (localFormData.villageId) {
-  //         selectedVillageId.value = {
-  //           title: localFormData.village,
-  //           value: localFormData.villageId
-  //         };
-  //       }
-  //     }
-  //   }
-  // }
-  // // If we have county data but no dropdown selections set,
-  // // load the appropriate location data for the saved address
-  // if (localFormData.county && !selectedCountyId.value) {
-  //   await initializeAddressDropdowns();
-  // }
-  try {
-    // Initialize the domicile store
-    await domicileStore.initializeStore();
-
-    // Set form data from props safely
-    if (props.formData) {
-      Object.keys(localFormData).forEach(key => {
-        if (props.formData[key] !== undefined) {
-          localFormData[key] = props.formData[key];
-        }
-      });
-
-      // Only try to set dropdown selections if we have the necessary data
-      if (localFormData.countyId && domicileStore.counties.length > 0) {
-        // Set county dropdown
-        const countyObj = domicileStore.counties.find(c => c.id === localFormData.countyId);
-        if (countyObj) {
-          selectedCountyId.value = {
-            title: countyObj.name,
-            value: countyObj.id
-          };
-
-          // Continue with town and village setup...
-        }
-      }
-      // If we have county string but no countyId or selections
-      else if (localFormData.county && !selectedCountyId.value) {
-        await initializeAddressDropdowns();
-      }
-    }
-  } catch (error) {
-    console.error('Error in onMounted:', error);
-  }
-});
-
-// Method to initialize dropdowns based on string values from the store
+// Initialize address dropdowns based on string values from the store
 const initializeAddressDropdowns = async () => {
   try {
     // First ensure counties are loaded
@@ -699,20 +645,77 @@ const initializeAddressDropdowns = async () => {
   }
 };
 
-// Watch for changes in props.formData
-watch(() => props.formData, async (newData) => {
-  // if (newData) {
-  //   Object.keys(localFormData).forEach(key => {
-  //     if (newData[key] !== undefined && newData[key] !== localFormData[key]) {
-  //       localFormData[key] = newData[key];
-  //     }
-  //   });
+// Initialize data
+onMounted(async () => {
+  try {
+    // Initialize the domicile store
+    await domicileStore.initializeStore();
 
-  //   // If we have new county data but no dropdown selections
-  //   if (newData.county && !selectedCountyId.value) {
-  //     await initializeAddressDropdowns();
-  //   }
-  // }
+    // Set form data from props safely
+    if (props.formData) {
+      Object.keys(localFormData).forEach(key => {
+        if (props.formData[key] !== undefined) {
+          // Force reactivity with direct assignment
+          localFormData[key] = props.formData[key];
+        }
+      });
+
+      // Only try to set dropdown selections if we have the necessary data
+      if (localFormData.countyId && domicileStore.counties.length > 0) {
+        // Set county dropdown
+        const countyObj = domicileStore.counties.find(c => c.id === localFormData.countyId);
+        if (countyObj) {
+          selectedCountyId.value = {
+            title: countyObj.name,
+            value: countyObj.id
+          };
+
+          // Continue with town and village setup
+          await domicileStore.loadTownsByCountyId(countyObj.id);
+
+          if (localFormData.townId) {
+            const townObj = domicileStore.towns.find(t => t.id === localFormData.townId);
+            if (townObj) {
+              selectedTownId.value = {
+                title: townObj.name,
+                value: townObj.id
+              };
+
+              await domicileStore.loadVillagesByTownId(townObj.id);
+
+              if (localFormData.villageId) {
+                const villageObj = domicileStore.villages.find(v => v.id === localFormData.villageId);
+                if (villageObj) {
+                  selectedVillageId.value = {
+                    title: villageObj.name,
+                    value: villageObj.id
+                  };
+                }
+              }
+            }
+          }
+        }
+      }
+      // If we have county string but no countyId or selections
+      else if (localFormData.county && !selectedCountyId.value) {
+        await initializeAddressDropdowns();
+      }
+    }
+
+    // Set default department if not set
+    if (!localFormData.department) {
+      localFormData.department = userStore.currentUser?.department || '瑠公管理處';
+    }
+
+    // Initial update to parent
+    updateFormData();
+  } catch (error) {
+    console.error('Error in onMounted:', error);
+  }
+});
+
+// Watch for props changes
+watch(() => props.formData, async (newData) => {
   if (!newData) return;
 
   try {

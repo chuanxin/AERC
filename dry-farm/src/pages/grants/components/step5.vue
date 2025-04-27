@@ -20,6 +20,7 @@
                       variant="outlined"
                       density="comfortable"
                       :rules="[v => !!v || '請填寫勘查人員']"
+                      @update:model-value="updateFormData"
                     ></v-text-field>
                   </v-col>
                 </v-row>
@@ -32,6 +33,7 @@
                         v-model="localFormData.inspectionResult"
                         inline
                         :rules="[v => !!v || '請選擇勘查結果']"
+                        @update:model-value="updateFormData"
                       >
                         <v-radio value="comply" label="符合"></v-radio>
                         <v-radio value="notComply" label="不符合"></v-radio>
@@ -51,6 +53,7 @@
                       rows="3"
                       auto-grow
                       :rules="reasonRules"
+                      @update:model-value="updateFormData"
                     ></v-textarea>
                   </v-col>
                 </v-row>
@@ -65,6 +68,7 @@
                       :rules="[v => !!v || '請選擇勘查日期']"
                       readonly
                       @click="datePickerDialog = true"
+                      @update:model-value="updateFormData"
                     >
                       <template v-slot:append>
                         <v-icon>mdi-calendar</v-icon>
@@ -96,6 +100,7 @@
                       density="comfortable"
                       rows="3"
                       auto-grow
+                      @update:model-value="updateFormData"
                     ></v-textarea>
                   </v-col>
                 </v-row>
@@ -169,47 +174,17 @@
         </v-form>
       </v-card-text>
     </v-card>
-
-    <!-- <v-card class="step-navigation-card ma-0 pa-0" flat>
-      <div class="d-flex align-center pr-4">
-        <v-spacer></v-spacer>
-        <div class="navigation-buttons">
-          <v-btn
-            variant="outlined"
-            color="grey-darken-1"
-            class="me-2"
-            size="large"
-            :disabled="currentStep === 1"
-            @click="goToPreviousStep"
-            rounded="pill"
-          >
-            <v-icon start>mdi-arrow-left</v-icon>
-            上一步
-          </v-btn>
-
-          <v-btn
-            color="green-darken-1"
-            :disabled="!isValid"
-            @click="goToNextStep"
-            size="large"
-            rounded="pill"
-          >
-            {{ currentStep === 8 ? '完成' : '下一步' }}
-            <v-icon end v-if="currentStep < 8">mdi-arrow-right</v-icon>
-            <v-icon end v-else>mdi-check</v-icon>
-          </v-btn>
-        </div>
-      </div>
-    </v-card> -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch, computed } from 'vue';
+import { useGrantsStore } from '@/stores/grants';
 
+// Props definition
 const props = defineProps({
   formData: {
     type: Object,
+    required: true,
     default: () => ({})
   },
   currentStep: {
@@ -218,16 +193,16 @@ const props = defineProps({
   }
 });
 
-// Use correct event names to match edit.vue
+// Event emitters - using expected event names from edit.vue
 const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 
-// Set default valid state to true for demo
-const localValid = ref(true);
-const form = ref(null);
-const datePickerDialog = ref(false);
+// Access grants store
+const grantsStore = useGrantsStore();
 
-// Create isValid computed property that always returns true for demo
-const isValid = computed(() => true);
+// Form ref and validation state
+const form = ref(null);
+const localValid = ref(true);
+const datePickerDialog = ref(false);
 
 // 本地表單數據
 const localFormData = reactive({
@@ -240,7 +215,7 @@ const localFormData = reactive({
   afterConstructionPhoto: null,
   beforePhotoPreview: null,
   afterPhotoPreview: null,
-  valid: true // Always set to true for demo
+  valid: true // Always true for seamless navigation
 });
 
 // 驗證規則
@@ -253,7 +228,7 @@ const reasonRules = computed(() => {
 
 const photoRules = [v => !!v || '請上傳照片'];
 
-// 处理照片预览 (simplified to handle string URLs stored in localStorage)
+// 處理照片預覽
 const handlePhotoChange = (type: 'before' | 'after') => {
   const file = type === 'before'
     ? localFormData.beforeConstructionPhoto
@@ -280,35 +255,19 @@ const handlePhotoChange = (type: 'before' | 'after') => {
   updateFormData();
 };
 
-// Navigate to previous step - simplified for localStorage demo
-const goToPreviousStep = () => {
-  // Always update data before going back
-  updateFormData();
-
-  console.log('Going back from step 5');
-  emit('go-back'); // FIXED: use 'go-back' to match edit.vue
-};
-
-// Navigate to next step - simplified for localStorage demo
-const goToNextStep = async () => {
-  // Always update data before moving forward
-  updateFormData();
-
-  console.log('Emitting validated event for step 5');
-  emit('validated', { valid: true, step: 5 });
-};
-
-// 更新父組件數據 - modified for localStorage approach
+// 更新父組件數據
 const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
-    valid: true // Always set to true for demo
+    valid: true // Always true for seamless navigation
   });
 };
 
-// 初始化數據 - enhanced for demo data
+// 初始化數據
 onMounted(() => {
+  console.log("Step 5 mounted, formData:", props.formData);
+
   // 從父組件接收數據
   if (props.formData) {
     // 設置基本屬性
@@ -377,6 +336,25 @@ watch(localValid, (newVal) => {
   if (props.formData?.valid !== newVal) {
     updateFormData();
   }
+});
+
+// 清理預覽資源的函數
+const cleanupPreviews = () => {
+  // Only clean up blob URLs, not external URLs
+  if (localFormData.beforePhotoPreview && typeof localFormData.beforePhotoPreview === 'string' &&
+      localFormData.beforePhotoPreview.startsWith('blob:')) {
+    URL.revokeObjectURL(localFormData.beforePhotoPreview);
+  }
+
+  if (localFormData.afterPhotoPreview && typeof localFormData.afterPhotoPreview === 'string' &&
+      localFormData.afterPhotoPreview.startsWith('blob:')) {
+    URL.revokeObjectURL(localFormData.afterPhotoPreview);
+  }
+};
+
+// 組件卸載時清理資源
+onUnmounted(() => {
+  cleanupPreviews();
 });
 </script>
 
