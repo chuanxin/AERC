@@ -178,8 +178,9 @@
 
             <v-card-text class="pb-0 mb-0">
               <!-- Autosave indicator when there are unsaved changes -->
-              <v-banner
-                v-if="grantsStore.hasUnsavedChanges"
+              <v-snackbar
+                v-model="grantsStore.hasUnsavedChanges"
+                variant="text"
                 color="info"
                 lines="one"
                 icon="mdi-content-save"
@@ -201,7 +202,14 @@
                     立即儲存
                   </v-btn>
                 </template>
-              </v-banner>
+                <v-progress-linear
+                  :active="grantsStore.hasUnsavedChanges"
+                  :indeterminate="grantsStore.hasUnsavedChanges"
+                  color="cyan"
+                  stream
+                  location="bottom"
+                />
+              </v-snackbar>
 
               <!-- Step components -->
               <step1

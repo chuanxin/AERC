@@ -316,7 +316,7 @@
 
     // If no data in localStorage, use sample data
     if (transformedData.length === 0) {
-      allItems.value = sampleApply
+      allItems.value = apply
     } else {
       allItems.value = transformedData
     }

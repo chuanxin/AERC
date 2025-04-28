@@ -107,35 +107,39 @@
                 <v-row align="center">
                   <v-col
                     cols="12"
-                    md="4"
+                    md="5"
                     class="d-flex align-center"
                   >
                     <v-text-field
-                      v-model="localFormData.landNumberMain"
-                      label="地號"
+                      v-model="formattedLandNumberMain"
+                      label="母地號"
                       variant="outlined"
                       density="comfortable"
-                      class="me-1"
-                      type="number"
-                      style="width: 70px"
+                      type="tel"
+                      maxlength="4"
+                      style="width: 15px"
                       :rules="[v => !!v || '請輸入主地號']"
-                      @update:model-value="updateLandNumber"
+                      @focus="landNumberMainFocused = true"
+                      @blur="landNumberMainFocused = false"
                     />
-                    <v-icon class="me-1">
-                      mdi-minus
-                    </v-icon>
+
                     <v-text-field
-                      v-model="localFormData.landNumberSub"
+                      v-model="formattedLandNumberSub"
+                      label="子地號"
+                      prepend-icon="mdi-minus"
                       variant="outlined"
                       density="comfortable"
-                      type="number"
-                      style="width: 60px"
-                      @update:model-value="updateLandNumber"
+                      type="tel"
+                      maxlength="4"
+                      class="pl-3"
+                      style="width: 70px"
+                      @focus="landNumberSubFocused = true"
+                      @blur="landNumberSubFocused = false"
                     />
                   </v-col>
                   <v-col
                     cols="12"
-                    md="8"
+                    md="7"
                     class="d-flex align-center"
                   >
                     <v-btn
@@ -303,7 +307,7 @@
                         readonly
                       />
                       <div class="ms-2">
-                        ha
+                        公頃
                       </div>
                     </div>
                   </v-col>
@@ -312,7 +316,7 @@
                     md="6"
                   >
                     <div class="d-flex align-center">
-                      <span class="text-body-1 font-weight-medium me-2">施設面積</span>
+                      <span class="text-body-1 font-weight-medium me-2">施作面積</span>
                       <v-text-field
                         v-model="localFormData.facilityArea"
                         variant="outlined"
@@ -320,7 +324,7 @@
                         density="compact"
                         class="me-2"
                         style="width: 120px"
-                        :rules="[v => !!v || '請輸入設施面積']"
+                        :rules="[v => !!v || '請輸入施作面積']"
                         @update:model-value="updateFormData"
                       />
                       <div class="me-2">
@@ -335,7 +339,7 @@
                         readonly
                       />
                       <div class="ms-2">
-                        ha
+                        公頃
                       </div>
                     </div>
                   </v-col>
@@ -1025,7 +1029,50 @@ const canAddOwner = computed(() => {
          !!localFormData.ownerArea;
 });
 
+const landNumberMainFocused = ref(false);
+const landNumberSubFocused = ref(false);
+
 // Event handlers
+// Formatted land number with 4 digits (main)
+const formattedLandNumberMain = computed({
+  get: () => {
+    // When focused, show the raw value
+    if (landNumberMainFocused.value) {
+      return localFormData.landNumberMain
+    }
+    // Format with leading zeros when displaying
+    if (!localFormData.landNumberMain) return ''
+    return localFormData.landNumberMain.toString().padStart(4, '0')
+  },
+  set: (val) => {
+    // Store numeric value (remove leading zeros)
+    localFormData.landNumberMain = val ? val.replace(/^0+/, '') || '0' : ''
+    updateLandNumber()
+  }
+});
+
+// Formatted land number with 4 digits (sub)
+const formattedLandNumberSub = computed({
+  get: () => {
+    if (landNumberSubFocused.value) {
+      return localFormData.landNumberSub;
+    }
+    if (!localFormData.landNumberSub) return '';
+    return localFormData.landNumberSub.toString().padStart(4, '0');
+  },
+  set: (val) => {
+    // Store numeric value (remove leading zeros)
+    localFormData.landNumberSub = val ? val.replace(/^0+/, '') || '0' : '';
+    updateLandNumber();
+  }
+});
+
+// Helper function to format land numbers for display elsewhere
+const formatLandNumber = (value) => {
+  if (!value) return '0000';
+  return value.toString().padStart(4, '0');
+};
+
 const updateLandNumber = () => {
   if (localFormData.landNumberMain) {
     localFormData.landNumber = localFormData.landNumberSub
@@ -1614,6 +1661,8 @@ const findAndSelectFeatureByLandNumber = () => {
   // Get the main and sub numbers
   const mainNumber = localFormData.landNumberMain;
   const subNumber = localFormData.landNumberSub;
+  // const mainNumber = localFormData.landNumberMain ? localFormData.landNumberMain.replace(/^0+/, '') || '0' : ''
+  // const subNumber = localFormData.landNumberSub ? localFormData.landNumberSub.replace(/^0+/, '') || '0' : ''
 
   if (!mainNumber) return false;
 
@@ -1787,7 +1836,7 @@ watch(() => props.formData, (newData) => {
       }
     });
   }
-}, { deep: true });
+}, { deep: true })
 
 // Watch local form data and update parent
 watch(localFormData, () => {
