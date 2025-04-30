@@ -75,3 +75,6 @@ Thumbs.db
 dry-farm/public/.well-known/acme-challenge/
 dry-farm/certbot
 *.pem
+
+# Backup files
+backups/

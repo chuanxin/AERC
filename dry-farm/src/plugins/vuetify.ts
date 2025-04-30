@@ -13,6 +13,12 @@ import { VStepperVertical } from 'vuetify/labs/VStepperVertical'
 import { createVuetify } from 'vuetify'
 import { md1 } from 'vuetify/blueprints'
 
+// FontAwesome
+// import { aliases as faAliases, fa } from 'vuetify/iconsets/fa'
+
+// Material Design Icons
+// import { aliases, mdi } from 'vuetify/iconsets/mdi-svg'
+
 // https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
 export default createVuetify({
   components: {
@@ -50,6 +56,15 @@ export default createVuetify({
       }
     },
     defaultTheme: 'light',
+  },
+  icons: {
+    // defaultSet: 'mdi',
+    // aliases: {
+    //   ...faAliases,
+    // },
+    // sets: {
+    //   fa,
+    // },
   },
   blueprint: md1,
 })

@@ -14,11 +14,22 @@ import App from './App.vue'
 import { createApp } from 'vue'
 import { useUserStore } from '@/stores/users'
 
+// FontAwesome
+import { library } from '@fortawesome/fontawesome-svg-core'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { fas } from '@fortawesome/free-solid-svg-icons' // 引入 Solid 圖示
+import { far } from '@fortawesome/free-regular-svg-icons' // 引入 Regular 圖示
+import { fab } from '@fortawesome/free-brands-svg-icons' // 引入 Brands 圖示
+
+library.add(fas, far, fab)
+
 // Create the Vue application
 const app = createApp(App)
 
 // Register plugins (Pinia, Router, Vuetify, etc.)
 registerPlugins(app)
+
+app.component('fai', FontAwesomeIcon)
 
 // Initialize authentication, but mount the app immediately
 // Don't wait for authentication to complete
