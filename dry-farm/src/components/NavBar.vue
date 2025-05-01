@@ -388,7 +388,8 @@
 
 <style scoped>
 .gradient-background{
-  background: linear-gradient(60deg, #0B6E99 0%, #72c4e0 100%);
+  /* background: linear-gradient(60deg, #0B6E99 0%, #72c4e0 100%); */
+  background-color: #3ea0a3;
   color: white;
 }
 

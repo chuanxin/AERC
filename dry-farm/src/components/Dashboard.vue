@@ -1,247 +1,292 @@
 <template>
   <v-container
     fluid
-    class="px-6 py-4 bg-white"
+    class="px-6 py-4 dashboard-container"
+    style="background-color: white"
   >
     <!-- 最新消息區塊 -->
-    <v-row>
-      <v-col cols="12">
-        <h2 class="section-title mb-4">
-          最新消息
-        </h2>
-
-        <div class="announcement-list ma-0 pa-0">
-          <v-hover
-            v-for="(item, index) in announcements"
-            :key="index"
-            v-slot="{ isHovering, props }"
+    <v-row justify="center">
+      <v-col
+        cols="10"
+        lg="10"
+        align-self="center"
+        class="pt-10"
+      >
+        <div class="section-wrapper">
+          <v-card
+            class="mx-auto section-card pa-4 pb-0"
+            variant="outlined"
+            rounded="lg"
           >
-            <v-card
-              v-bind="props"
-              variant="outlined"
-              class="announcement-item mt-4 mb-0 rounded"
-              :elevation="isHovering ? 0 : 0"
-              :style="getCardStyles(!!isHovering)"
-              @click="viewAnnouncementDetail(item)"
+            <v-card-item
+              class="custom-title"
+              color="#3ea0a3"
             >
-              <div class="d-flex align-center pa-3">
-                <!-- 左側標籤 -->
-                <v-icon icon="mdi-water-opacity" class="me-2 announcement-icon"/>
-                <v-chip
-                  :color="isHovering ? getHoverTagColor(item.type) : getTagColor(item.type)"
-                  :variant="isHovering ? 'text' : 'outlined'"
-                  :class="{'chip-hover': isHovering}"
-                  size="large"
+              <v-card-title class="text-h5 font-weight-black">
+                最新消息
+              </v-card-title>
+            </v-card-item>
+            <v-card-text>
+              <v-card
+                class="table-card mb-4"
+                rounded="lg"
+                elevation="0"
+              >
+                <v-table
+                  class="news-table rounded-table pt-4"
+                  hover
+                >
+                  <thead class="table-header-bold">
+                    <tr>
+                      <th class="text-left px-2 text-center font-weight-black">
+                        發布日期
+                      </th>
+                      <th class="text-left text-center font-weight-black">
+                        類型
+                      </th>
+                      <th class="text-left text-center font-weight-black">
+                        標題
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="(item, index) in announcements"
+                      :key="index"
+                      class="news-row text-subtitle-1"
+                      :style="index % 2 === 1 ? { backgroundColor: '#62b7bb30' } : {}"
+                      @click="viewAnnouncementDetail(item)"
+                    >
+                      <td class="date-cell text-left py-3 px-3 text-grey text-subtitle-1 text-center">
+                        <v-chip
+                          color="#FFF8DE"
+                          variant="elevated"
+                          elevation="0"
+                          rounded="lg"
+                          class="date-chip"
+                          density="comfortable"
+                        >
+                          {{ item.date }}
+                        </v-chip>
+                      </td>
+                      <td class="type-cell text-center">
+                        <v-chip
+                          :color="getTypeColor(item.type)"
+                          variant="outlined"
+                          size="small"
+                          label
+                          class="font-weight-medium text-subtitle-1"
+                        >
+                          {{ item.type }}
+                        </v-chip>
+                      </td>
+                      <td
+                        class="content-cell px-2"
+                      >
+                        {{ item.content }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </v-card>
+
+              <!-- 更多連結 -->
+              <div class="d-flex justify-end pa-0 ma-0">
+                <v-btn
+                  class="more-btn"
+                  variant="outlined"
                   rounded="lg"
+                  color="#3ea0a3"
+                  to="/announcements"
+                  size="large"
+                  append-icon="mdi-chevron-right-circle"
                 >
-                  <strong>{{ item.title }}</strong>
-                </v-chip>
-
-                <!-- 中間內容 -->
-                <div
-                  class="announcement-content flex-grow-1 mx-3 font-weight-500"
-                  :style="isHovering ? 'color: #006064' : ''"
-                >
-                  {{ item.content }}
-                </div>
-
-                <!-- 右側發布時間 -->
-                <div
-                  class="announcement-time text-right font-weight-500"
-                  :style="isHovering ? 'color: #006064;' : ''"
-                >
-                  <span>發布時間：{{ item.publishDate }}</span>
-                </div>
+                  更多
+                </v-btn>
               </div>
-            </v-card>
-          </v-hover>
-        </div>
-
-        <!-- 更多連結 -->
-        <div class="d-flex justify-end pa-0 ma-0">
-          <v-btn
-            class="more-btn"
-            variant="plain"
-            color="black"
-            to="/announcements"
-            size="x-large"
-            append-icon="mdi-chevron-right-circle"
-          >
-            更多
-          </v-btn>
+            </v-card-text>
+          </v-card>
         </div>
       </v-col>
     </v-row>
 
-    <!-- 文件下載與預算執行區塊 -->
-    <v-row>
-      <!-- 文件下載區塊 -->
-      <v-col cols="12" md="6">
-        <h2 class="section-title mb-4">文件下載</h2>
-
-        <v-card
-          variant="flat"
-          class="mb-6"
-        >
-          <v-list>
-            <v-list-item
-              v-for="(doc, index) in documents"
-              :key="index"
-              class="document-item"
-              lines="one"
-              @click="downloadFile(doc.id, 'pdf')"
-            >
-              <template #prepend>
-                <v-chip
-                  color="amber-lighten-5"
-                  rounded="lg"
-                  variant="flat"
-                  class="document-date text-amber-darken-5 font-weight-medium"
-                >
-                  {{ doc.date }}
-                </v-chip>
-              </template>
-
-              <v-list-item-title class="document-name">
-                {{ doc.name }}
-              </v-list-item-title>
-
-              <template #append>
-                <div class="d-flex align-center">
-                  <v-btn
-                    icon="mdi-download"
-                    size="small"
-                    color="primary"
-                    density="comfortable"
-                    variant="text"
-                    @click.stop="downloadFile(doc.id, 'pdf')"
-                  />
-                  <v-icon
-                    size="small"
-                    color="grey-darken-1"
-                    class="ms-1"
-                  >
-                    mdi-file-document-outline
-                  </v-icon>
-                </div>
-              </template>
-            </v-list-item>
-          </v-list>
-        </v-card>
-      </v-col>
-
-      <!-- 預算執行區塊 -->
-      <v-col cols="12" md="6">
-        <h2 class="section-title mb-4">預算</h2>
-
-        <v-card
-          variant="flat"
-          class="mb-6"
-        >
-          <v-list>
-            <v-list-item
-              v-for="(budget, index) in budgets"
-              :key="index"
-              class="budget-item"
-              :class="index === budgets.length - 1 ? 'mb-0' : ''"
-              lines="one"
-            >
-              <template #prepend>
-                <v-chip
-                  :color="budget.color"
-                  size="x-large"
-                  rounded="lg"
-                  variant="flat"
-                  link
-                  class="budget-year text-medium-emphasis font-weight-medium"
-                >
-                  {{ budget.year }}年預算
-                </v-chip>
-              </template>
-
-              <v-list-item-title class="budget-name">
-                <!-- {{ budget.name }} -->
-              </v-list-item-title>
-
-              <!-- <template #append>
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  size="small"
-                  class="me-2"
-                  :to="budget.link"
-                >
-                  查看
-                </v-btn>
-              </template> -->
-            </v-list-item>
-          </v-list>
-          <!-- <v-card-text class="pa-4"> -->
-            <!-- 預算執行率摘要 -->
-            <!-- <v-sheet class="pa-3 rounded mb-4" color="green-lighten-5">
-              <div class="d-flex align-center flex-wrap">
-                <div class="me-4 mb-2">
-                  <div class="text-caption text-medium-emphasis mb-1">執行率</div>
-                  <div class="text-green-darken-3 text-h4 font-weight-bold">90%</div>
-                </div>
-                <v-divider vertical class="mx-3 d-none d-sm-block"></v-divider>
-                <div class="me-4 mb-2">
-                  <div class="text-caption text-medium-emphasis mb-1">已動支金額</div>
-                  <div class="text-green-darken-3 text-h6 font-weight-medium">NT$26,442.00</div>
-                </div>
-                <v-divider vertical class="mx-3 d-none d-sm-block"></v-divider>
-                <div class="me-4 mb-2">
-                  <div class="text-caption text-medium-emphasis mb-1">尚餘金額</div>
-                  <div class="text-h6 font-weight-medium">NT$2,938.00</div>
-                </div>
-                <v-spacer class="d-none d-md-block"></v-spacer>
-                <div>
-                  <div class="text-caption text-medium-emphasis mb-1">年度編列預算</div>
-                  <div class="text-h6 font-weight-medium">NT$29,380.00</div>
-                </div>
-              </div>
-            </v-sheet> -->
-
-            <!-- 預算執行進度條 -->
-            <!-- <div class="position-relative mb-4">
-              <div
-                :style="`right: calc(100% - ${budgetStats.executionRate}%)`"
-                class="position-absolute"
-                style="top: -24px"
-              >
-                <v-chip color="green-darken-3" size="small" label>已驗收</v-chip>
-              </div>
-              <v-progress-linear
-                color="green-darken-3"
-                height="22"
-                :model-value="budgetStats.executionRate"
+    <!-- 預算執行區塊 -->
+    <v-row justify="center">
+      <v-col
+        cols="10"
+        lg="10"
+        align-self="center"
+      >
+        <div class="section-wrapper">
+          <v-card
+            class="mx-auto section-card pa-4 pb-0"
+            variant="outlined"
+            rounded="lg"
+            color="#3ea0a3"
+          >
+            <v-card-item class="custom-title">
+              <v-card-title class="text-h5 font-weight-black">
+                預算
+              </v-card-title>
+            </v-card-item>
+            <v-card-text>
+              <v-card
+                class="table-card mb-4"
                 rounded="lg"
+                elevation="0"
               >
-                <v-badge
-                  :style="`right: ${100 - budgetStats.executionRate}%`"
-                  class="position-absolute"
-                  color="white"
-                  dot
-                  inline
-                />
-              </v-progress-linear>
-            </div> -->
+                <!-- 預算執行率摘要 -->
+                <v-sheet
+                  class="pa-4 rounded-lg"
+                  color="#e3f4f4"
+                >
+                  <div class="d-flex align-center flex-wrap">
+                    <div class="budget-data-group me-4 mb-2">
+                      <div class="text-caption text-medium-emphasis mb-1">
+                        執行率
+                      </div>
+                      <div
+                        class="text-h4 font-weight-bold"
+                        style="color: #3ea0a3;"
+                      >
+                        90%
+                      </div>
+                    </div>
+                    <v-divider
+                      vertical
+                      class="mx-3 d-none d-sm-block"
+                      style="height: 50px;"
+                    />
+                    <div class="budget-data-group me-4 mb-2">
+                      <div class="text-caption text-medium-emphasis mb-1">
+                        已動支金額
+                      </div>
+                      <div
+                        class="text-h6 font-weight-medium"
+                        style="color: #3ea0a3;"
+                      >
+                        NT$26,442.00
+                      </div>
+                    </div>
+                    <v-divider
+                      vertical
+                      class="mx-3 d-none d-sm-block"
+                      style="height: 50px;"
+                    />
+                    <div class="budget-data-group me-4 mb-2">
+                      <div class="text-caption text-medium-emphasis mb-1">
+                        尚餘金額
+                      </div>
+                      <div class="text-h6 font-weight-medium">
+                        NT$2,938.00
+                      </div>
+                    </div>
+                    <v-spacer
+                      class="d-none d-md-block"
+                    />
+                    <div class="budget-data-group text-right">
+                      <div class="text-caption text-medium-emphasis mb-1">
+                        年度編列預算
+                      </div>
+                      <div class="text-h6 font-weight-medium">
+                        NT$29,380.00
+                      </div>
+                    </div>
+                  </div>
+                </v-sheet>
 
-            <!-- 查看詳細預算資訊按鈕 -->
-            <!-- <v-sheet class="text-center mt-6">
-              <v-btn
-                color="green-darken-1"
-                variant="tonal"
-                block
-                class="py-3"
-                prepend-icon="mdi-clipboard-text-outline"
-                to="/budget"
-              >
-                <span class="font-weight-medium">查看預算執行詳細資訊</span>
-              </v-btn>
-            </v-sheet>
-          </v-card-text> -->
-        </v-card>
+                <!-- 預算執行進度條 -->
+                <div class="position-relative my-5 px-4 pb-0">
+                  <div
+                    :style="`right: calc(100% - ${budgetStats.executionRate}%)`"
+                    class="position-absolute"
+                    style="top: -24px"
+                  >
+                    <v-chip
+                      color="#3ea0a3"
+                      size="small"
+                      label
+                      class="font-weight-medium"
+                    >
+                      已驗收
+                    </v-chip>
+                  </div>
+                  <v-progress-linear
+                    color="#3ea0a3"
+                    height="22"
+                    :model-value="budgetStats.executionRate"
+                    rounded="lg"
+                  >
+                    <v-badge
+                      :style="`right: ${100 - budgetStats.executionRate}%`"
+                      class="position-absolute"
+                      color="white"
+                      dot
+                      inline
+                    />
+                  </v-progress-linear>
+                </div>
+
+                <!-- 預算詳細資訊 -->
+                <!-- <div class="pa-4 pt-0">
+                  <v-expansion-panels variant="accordion" class="budget-panels">
+                    <v-expansion-panel elevation="0" class="budget-panel">
+                      <v-expansion-panel-title class="py-2">
+                        <div class="d-flex align-center">
+                          <v-icon icon="mdi-currency-usd" class="me-2" color="#3ea0a3"></v-icon>
+                          <span class="font-weight-medium">預算項目明細</span>
+                        </div>
+                      </v-expansion-panel-title>
+                      <v-expansion-panel-text>
+                        <v-table density="compact" class="budget-table">
+                          <thead>
+                            <tr>
+                              <th class="text-left">項目</th>
+                              <th class="text-right">金額</th>
+                              <th class="text-right">執行率</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>灌溉系統設備</td>
+                              <td class="text-right">NT$15,680.00</td>
+                              <td class="text-right">95%</td>
+                            </tr>
+                            <tr>
+                              <td>管線鋪設工程</td>
+                              <td class="text-right">NT$8,762.00</td>
+                              <td class="text-right">82%</td>
+                            </tr>
+                            <tr>
+                              <td>水質監測設備</td>
+                              <td class="text-right">NT$2,000.00</td>
+                              <td class="text-right">100%</td>
+                            </tr>
+                          </tbody>
+                        </v-table>
+                      </v-expansion-panel-text>
+                    </v-expansion-panel>
+                  </v-expansion-panels>
+                </div> -->
+              </v-card>
+
+              <!-- 查看詳細預算資訊按鈕 -->
+              <div class="d-flex justify-end pa-0 ma-0">
+                <v-btn
+                  class="more-btn"
+                  variant="outlined"
+                  rounded="lg"
+                  color="#3ea0a3"
+                  to="/budget"
+                  size="large"
+                  append-icon="mdi-chevron-right-circle"
+                >
+                  查看詳細資訊
+                </v-btn>
+              </div>
+            </v-card-text>
+          </v-card>
+        </div>
       </v-col>
     </v-row>
   </v-container>
@@ -253,24 +298,24 @@ const router = useRouter();
 // 最新消息資料
 const announcements = ref([
   {
-    title: '系統公告',
-    type: 'system',
+    date: '114.01.15',
+    type: '系統公告',
     content: '承辦窗口資訊',
-    publishDate: '114/04/05 14:00'
+    id: 1
   },
   {
-    title: '停機公告',
-    type: 'maintenance',
+    date: '114.01.15',
+    type: '停機公告',
     content: '2025/04/30 14:00~18:00系統更新，請暫停使用',
-    publishDate: '114/04/05 14:00'
+    id: 2
   },
   {
-    title: '停機公告',
-    type: 'maintenance',
-    content: '2025/04/30 14:00~18:00系統更新，請暫停使用',
-    publishDate: '114/04/05 14:00'
+    date: '114.01.15',
+    type: '系統公告',
+    content: '管路灌溉補助申請表格',
+    id: 3
   }
-]);
+])
 
 // 文件下載資料
 const documents = ref([
@@ -284,13 +329,13 @@ const documents = ref([
     id: 2,
     name: '補助宣導摺頁',
     date: '114.01.15',
-    icon: 'mdi-file-document-outline'
+    icon: 'mdi-file-word-outline'
   },
   {
     id: 3,
     name: '管路灌溉補助申請表格',
     date: '114.01.15',
-    icon: 'mdi-file-document-outline'
+    icon: 'mdi-file-pdf-outline'
   }
 ]);
 
@@ -310,58 +355,17 @@ const budgets = ref([
   }
 ]);
 
-// 根據公告類型返回對應的CSS類別
-// const getTagClass = (type: string) => {
-//   switch (type) {
-//     case 'system':
-//       return 'tag-system';
-//     case 'maintenance':
-//       return 'tag-maintenance';
-//     default:
-//       return '';
-//   }
-// };
-
-// 根據公告類型返回一般狀態的顏色
-const getTagColor = (type: string) => {
+// 根據公告類型返回對應的顏色
+const getTypeColor = (type: string) => {
   switch (type) {
-    case 'system':
-      return 'light-blue';
-    case 'maintenance':
+    case '系統公告':
+      return 'blue';
+    case '停機公告':
       return 'deep-orange';
     default:
       return 'grey';
   }
-};
-
-// 根據公告類型返回懸停狀態的顏色
-const getHoverTagColor = (type: string) => {
-  switch (type) {
-    case 'system':
-      return 'light-blue-darken-2';
-    case 'maintenance':
-      return 'deep-orange-darken-2';
-    default:
-      return 'grey-darken-2';
-  }
-};
-
-// 獲取卡片懸停樣式
-const getCardStyles = (isHovering: boolean) => {
-  if (isHovering) {
-    return {
-      backgroundColor: '#E0F2F1',
-      color: '#03A9F4',
-      borderLeft: '3px solid #2a8a89',
-      borderColor: '#E0F2F1',
-      cursor: 'pointer'
-    };
-  }
-  return {
-    borderColor: '#5BC2C1',
-    cursor: 'pointer'
-  };
-};
+}
 
 // 查看公告詳細內容
 const viewAnnouncementDetail = (item) => {
@@ -396,130 +400,190 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 添加特定樣式以處理懸停時的標籤 */
-.chip-hover {
-  background-color: white !important;
-  border: thin solid currentColor !important;
+/* 添加背景圖片樣式 */
+.dashboard-container {
+  background-image: url('@/assets/bg_index.png');
+  background-size: cover;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
-.section-title {
-  color: #2F4D7B;
-  font-weight: 900;
-  font-size: 28px;
+/* 區塊共通容器 */
+.section-wrapper {
+  padding: 8px 4px 0px 4px;
+}
+
+/* 卡片與標題樣式 */
+.section-card {
   position: relative;
-  padding-bottom: 8px;
-  margin-bottom: 16px;
-  letter-spacing: -0.5px;
+  margin: 24px 0;
+  overflow: visible !important;
+  border-top-left-radius: 0 !important;
+  transition: all 0.3s ease;
+
+  /* 毛玻璃效果 */
+  background-color: rgba(255, 255, 255, 0.6) !important; /* 半透明白色背景 */
+  backdrop-filter: blur(10px) !important; /* 背景模糊效果 */
+  -webkit-backdrop-filter: blur(10px) !important; /* Safari 支持 */
+  border: 1px solid rgba(255, 255, 255, 0.25) !important; /* 細微邊框增強玻璃感 */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05) !important; /* 柔和陰影增強玻璃感 */
 }
 
-.section-title:after {
-  content: '';
+.section-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  background-color: rgba(255, 255, 255, 0.85) !important; /* 懸停時略微增加不透明度 */
+}
+
+.section-card:hover .custom-title {
+  background-color: #2d8c8f !important;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.custom-title {
   position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 4px;
-  width: 60px;
-  background-color: #5BC2C1;
-  border-radius: 2px;
+  top: -50px;
+  left: -1px;
+  width: auto !important;
+  min-width: 130px;
+  height: 50px;
+  padding: 0 16px !important;
+  background-color: #3ea0a3 !important;
+  border-radius: 8px 8px 0 0;
+  z-index: 1;
+  transition: all 0.3s ease;
 }
 
+.custom-title:not(.full-width-title) .v-card-title {
+  justify-content: center;
+}
+
+.v-card-title {
+  color: white !important;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding-left: 16px;
+}
+
+/* 表格樣式 */
+.news-table, .files-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-card, .rounded-table {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* 表頭樣式 */
+.table-header-bold th {
+  font-weight: 900 !important;
+  background-color: #62b7bb30 !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  line-height: 2 !important;
+  height: 40px !important;
+}
+
+/* 表格單元格樣式 */
+.news-row td, .file-row td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.news-table thead tr th {
+  font-size: 1.1rem !important;
+}
+
+.news-row, .file-row {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.news-table tbody tr:hover {
+  background-color: rgba(98, 183, 187, 0.2) !important;
+}
+
+/* 日期chip專用樣式 */
+.date-chip {
+  font-weight: 500 !important;
+  color: #6b5e2e !important;
+  min-width: 85px;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid rgba(232, 218, 157, 0.5) !important;
+}
+
+/* 日期單元格樣式 */
+.date-cell {
+  width: 200px;
+  white-space: nowrap;
+  background-color: transparent !important;
+  padding: 8px 12px !important;
+  position: relative;
+  z-index: 1;
+}
+
+.type-cell {
+  width: 200px;
+  padding-right: 10px;
+}
+
+.content-cell, .name-cell {
+  font-weight: 500;
+}
+
+/* 按鈕樣式 */
+.more-btn {
+  font-weight: 500;
+  margin: 8px 0 12px 0;
+  transition: all 0.2s ease;
+}
+
+.more-btn:hover {
+  background-color: #3ea0a3 !important;
+  color: white !important;
+}
+
+/* 預算區塊樣式 */
+.budget-data-group {
+  min-width: 120px;
+}
+
+.budget-panels {
+  border: 1px solid rgba(62, 160, 163, 0.15);
+  border-radius: 8px;
+}
+
+.budget-panel :deep(.v-expansion-panel-title) {
+  min-height: 48px;
+}
+
+.budget-panel :deep(.v-expansion-panel-title:hover) {
+  background-color: rgba(62, 160, 163, 0.05);
+}
+
+.budget-table {
+  margin-top: 8px;
+}
+
+.budget-table th {
+  color: #3ea0a3;
+  font-weight: 700;
+  background-color: rgba(62, 160, 163, 0.08);
+}
+
+/* 輔助樣式 */
 .position-relative {
   position: relative;
 }
 
 .position-absolute {
   position: absolute;
-}
-
-/* 公告項目樣式 */
-.announcement-list {
-  padding: 10px 0;
-}
-
-.announcement-item {
-  transition: all 0.2s ease;
-  margin-bottom: 10px;
-}
-
-.announcement-time {
-  min-width: 200px;
-  font-size: 20px;
-  font-weight: 500;
-  transition: color 0.2s ease;
-}
-
-.announcement-content {
-  font-size: 20px;
-  font-weight: 500;
-  transition: color 0.2s ease;
-}
-
-.announcement-icon {
-  opacity: 0;
-  transform: translateX(-10px);
-  transition: all 0.3s ease;
-}
-
-.announcement-item:hover .announcement-icon {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.more-btn {
-  font-weight: 500;
-}
-
-/* 文件項目樣式 */
-.document-item {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  transition: background-color 0.2s ease;
-  padding: 12px;
-}
-
-/* .document-item:hover {
-  background-color: #f5f5f5;
-  cursor: pointer;
-} */
-
-.document-item:last-child {
-  border-bottom: none;
-}
-
-.document-date {
-  min-width: 80px;
-  font-size: 16px;
-  margin-right: 12px;
-}
-
-.document-name {
-  font-size: 18px;
-  font-weight: 500;
-}
-
-/* 預算項目樣式 */
-.budget-item {
-  /* border-bottom: 1px solid rgba(0, 0, 0, 0.08); */
-  transition: background-color 0.2s ease;
-  padding: 12px;
-}
-
-/* .budget-item:hover {
-  background-color: #f5f5f5;
-  cursor: pointer;
-} */
-
-.budget-item:last-child {
-  border-bottom: none;
-}
-
-.budget-year {
-  min-width: 95px;
-  font-size: 16px;
-  margin-right: 12px;
-}
-
-.budget-name {
-  font-size: 18px;
-  font-weight: 500;
 }
 </style>

@@ -38,7 +38,7 @@
     <router-view />
   </v-main>
   <!-- <ReportBugButton /> -->
-  <AppFooter />
+  <!-- <AppFooter /> -->
 </template>
 
 <script lang="ts" setup>
