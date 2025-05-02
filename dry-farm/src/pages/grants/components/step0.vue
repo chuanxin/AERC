@@ -1,275 +1,8 @@
 <template>
-  <div
-    ref="stepContent"
-    class="step-content"
+  <v-card
+    flat
+    class="form-container pa-6 pb-2"
   >
-    <v-card
-      class="mb-3 pa-0"
-      flat
-    >
-      <v-card-text class="pb-0 pt-0">
-        <v-form
-          ref="form"
-          v-model="localValid"
-          @submit.prevent
-        >
-          <!-- 申請人基本資料區塊 -->
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-account-details
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">申請人基本資料</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <!-- 姓名與身分證區塊 -->
-              <v-sheet
-                class="mb-3 pa-3 rounded"
-                color="blue-grey-lighten-5"
-              >
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                  >
-                    mdi-card-account-details
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">身分資訊</span>
-                </div>
-                <v-row>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <v-text-field
-                      v-model="localFormData.name"
-                      label="申請人"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="nameRules"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <v-text-field
-                      v-model="localFormData.id"
-                      label="身分證字號"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="idRules"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                </v-row>
-              </v-sheet>
-
-              <!-- 聯絡資訊區塊 -->
-              <v-sheet
-                class="mb-3 pa-3 rounded"
-                color="blue-grey-lighten-5"
-              >
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                  >
-                    mdi-phone
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">聯絡資訊</span>
-                </div>
-                <v-row>
-                  <v-col cols="12">
-                    <v-text-field
-                      v-model="localFormData.phone"
-                      placeholder="請輸入手機號碼"
-                      label="連絡電話"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="phoneRules"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                </v-row>
-              </v-sheet>
-
-              <!-- 聯絡資訊區塊 -->
-              <v-sheet
-                class="mb-3 pa-3 rounded"
-                color="blue-grey-lighten-5"
-              >
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                  >
-                    mdi-home
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">通訊地址</span>
-                </div>
-                <v-row>
-                  <v-col
-                    cols="12"
-                    md="4"
-                  >
-                    <v-select
-                      v-model="selectedCountyId"
-                      label="縣市"
-                      :items="countyItems"
-                      item-title="title"
-                      item-value="value"
-                      variant="outlined"
-                      density="comfortable"
-                      :loading="domicileStore.isLoading"
-                      :rules="[v => !!v || '請選擇縣市']"
-                      return-object
-                      @update:model-value="handleCountyChange"
-                    />
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="4"
-                  >
-                    <v-select
-                      v-model="selectedTownId"
-                      label="鄉鎮市區"
-                      :items="townItems"
-                      item-title="title"
-                      item-value="value"
-                      variant="outlined"
-                      density="comfortable"
-                      :loading="domicileStore.isLoading"
-                      :rules="[v => !!v || '請選擇鄉鎮市區']"
-                      :disabled="!selectedCountyId"
-                      return-object
-                      @update:model-value="handleTownChange"
-                    />
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="4"
-                  >
-                    <v-select
-                      v-model="selectedVillageId"
-                      label="村里"
-                      :items="villageItems"
-                      item-title="title"
-                      item-value="value"
-                      variant="outlined"
-                      density="comfortable"
-                      :loading="domicileStore.isLoading"
-                      :rules="[v => !!v || '請選擇村里']"
-                      :disabled="!selectedTownId"
-                      return-object
-                      @update:model-value="handleVillageChange"
-                    />
-                  </v-col>
-                </v-row>
-
-                <v-row>
-                  <v-col cols="12">
-                    <v-text-field
-                      v-model="localFormData.address"
-                      label="詳細地址"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="[v => !!v || '請輸入詳細地址']"
-                      placeholder="請輸入門牌號碼及其他地址資訊"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                </v-row>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
-
-          <!-- 承辦資訊區塊 -->
-          <v-card variant="outlined">
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-account-tie
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">承辦資訊</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <v-row>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <v-text-field
-                      v-model="localFormData.undertracker"
-                      label="承辦人"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="[v => !!v || '請輸入承辦人']"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <v-select
-                      v-model="localFormData.department"
-                      disabled
-                      label="管理處"
-                      :items="departments"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="[v => !!v || '請選擇管理處']"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                </v-row>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
-        </v-form>
-      </v-card-text>
-    </v-card>
-
-    <v-card
-      class="step-navigation-card ma-0 pa-0"
-      flat
-    >
-      <div class="d-flex align-center pr-4 mt-0 pt-0">
-        <v-spacer />
-        <div class="navigation-buttons">
-          <v-btn
-            color="primary"
-            class="mb-2"
-            size="large"
-            rounded="lg"
-            :disabled="!isValid"
-            @click="createProject"
-          >
-            成案
-            <v-icon end>
-              mdi-check
-            </v-icon>
-          </v-btn>
-        </div>
-      </div>
-    </v-card>
-
     <!-- 處理中對話框 -->
     <v-dialog
       v-model="isProcessing"
@@ -290,7 +23,254 @@
         </v-card-text>
       </v-card>
     </v-dialog>
-  </div>
+    <v-form
+      ref="form"
+      v-model="localValid"
+      lazy-validation
+      @submit.prevent
+    >
+      <v-row>
+        <!-- 申請人基本資料 -->
+        <v-col
+          cols="12"
+          md="6"
+        >
+          <v-card
+            flat
+            class="mb-4 pa-4"
+            color="#e3f4f4"
+            rounded="lg"
+          >
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+              style="color: #2d8c8f"
+            >
+              <v-icon
+                color="#3ea0a3"
+                class="me-2 pb-1"
+                size="small"
+              >
+                mdi-account
+              </v-icon>
+              申請人基本資料
+            </v-card-title>
+
+            <v-row dense>
+              <v-col
+                cols="12"
+                md="6"
+              >
+                <v-text-field
+                  v-model="localFormData.name"
+                  label="申請人姓名"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#3ea0a3"
+                  :rules="nameRules"
+                  bg-color="white"
+                  required
+                  @update:model-value="updateFormData"
+                />
+              </v-col>
+
+              <v-col
+                cols="12"
+                md="6"
+              >
+                <v-text-field
+                  v-model="localFormData.id"
+                  label="身分證字號"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#3ea0a3"
+                  :rules="idRules"
+                  bg-color="white"
+                  required
+                  hint="例：A123456789"
+                  persistent-hint
+                  @update:model-value="updateFormData"
+                />
+              </v-col>
+            </v-row>
+            <v-row dense>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="localFormData.phone"
+                  label="聯絡電話"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#3ea0a3"
+                  bg-color="white"
+                  required
+                  :rules="phoneRules"
+                  @update:model-value="updateFormData"
+                />
+              </v-col>
+            </v-row>
+          </v-card>
+        </v-col>
+
+        <!-- 申請人通訊地址 -->
+        <v-col
+          cols="12"
+          md="6"
+        >
+          <v-card
+            flat
+            class="mb-4 pa-4"
+            color="#e3f4f4"
+            rounded="lg"
+          >
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+              style="color: #2d8c8f"
+            >
+              <v-icon
+                color="#3ea0a3"
+                class="me-2 pb-1"
+                size="small"
+              >
+                mdi-map-marker
+              </v-icon>
+              申請人通訊地址
+            </v-card-title>
+
+            <v-row dense>
+              <v-col cols="12" md="4">
+                <v-select
+                  v-model="selectedCountyId"
+                  label="縣市"
+                  :items="countyItems"
+                  item-title="title"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#3ea0a3"
+                  bg-color="white"
+                  :loading="domicileStore.isLoading"
+                  return-object
+                  @update:model-value="handleCountyChange"
+                />
+              </v-col>
+
+              <v-col cols="12" md="4">
+                <v-select
+                  v-model="selectedTownId"
+                  label="鄉鎮市區"
+                  :items="townItems"
+                  item-title="title"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#3ea0a3"
+                  bg-color="white"
+                  :loading="domicileStore.isLoading"
+                  :disabled="!selectedCountyId"
+                  return-object
+                  @update:model-value="handleTownChange"
+                />
+              </v-col>
+
+              <v-col cols="12" md="4">
+                <v-select
+                  v-model="selectedVillageId"
+                  label="村里"
+                  :items="villageItems"
+                  item-title="title"
+                  item-value="value"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#3ea0a3"
+                  bg-color="white"
+                  :loading="domicileStore.isLoading"
+                  :disabled="!selectedTownId"
+                  return-object
+                  @update:model-value="handleVillageChange"
+                />
+              </v-col>
+
+              <v-col cols="12">
+                <v-text-field
+                  v-model="localFormData.address"
+                  label="詳細地址"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#3ea0a3"
+                  bg-color="white"
+                  placeholder="例：中正路100號"
+                  :rules="[v => !!v || '請輸入詳細地址']"
+                  @update:model-value="updateFormData"
+                />
+              </v-col>
+            </v-row>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <!-- 表單提示說明 -->
+      <v-card flat color="blue-grey-lighten-5" class="mt-0 pa-3" rounded="lg">
+        <!-- <v-card flat class="mb-0 mb-4 pa-4 pb-0" rounded="lg" variant="outlined" color="amber-lighten-4"> -->
+        <!-- <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #FB8C00">
+          <v-icon color="#FB8C00" class="me-2" size="small">mdi-account-tie</v-icon>
+          承辦資訊
+        </v-card-title> -->
+
+        <v-row>
+          <v-col cols="12" sm="6">
+            <v-text-field
+              v-model="localFormData.undertracker"
+              label="承辦人姓名"
+              variant="outlined"
+              density="comfortable"
+              bg-color="rgba(255, 255, 255, 1)"
+              @update:model-value="updateFormData"
+            />
+          </v-col>
+
+          <v-col cols="12" sm="6">
+            <v-select
+              v-model="localFormData.department"
+              label="承辦單位"
+              :items="departments"
+              variant="outlined"
+              density="comfortable"
+              color="#3ea0a3"
+              disabled
+              bg-color="white"
+              @update:model-value="updateFormData"
+            />
+          </v-col>
+        </v-row>
+      <!-- </v-card> -->
+        <div class="d-flex">
+          <v-icon color="blue-grey-darken-1" class="me-2">mdi-information-outline</v-icon>
+          <div class="text-caption text-medium-emphasis">
+            <strong>操作提示：</strong>
+            完成基本資料輸入後，點擊「成立案件」按鈕會自動生成案件編號，並進入後續填寫詳細資料的頁面。
+            成立案件後，系統將保留此記錄並可於「補助申請」頁面查詢。
+          </div>
+        </div>
+      </v-card>
+
+
+
+      <!-- 表單底部按鈕 -->
+      <div class="d-flex justify-end mt-2">
+        <v-btn
+          class="action-btn"
+          color="#3ea0a3"
+          variant="outlined"
+          rounded="lg"
+          :disabled="!isValid"
+          size="large"
+          append-icon="mdi-chevron-right-circle"
+          @click="createProject"
+        >
+          成立案件
+        </v-btn>
+      </div>
+    </v-form>
+  </v-card>
 </template>
 
 <script setup lang="ts">
@@ -653,22 +633,36 @@ const updateFormData = () => {
 </script>
 
 <style scoped>
-.step-content {
-  padding: 0;
+.form-container {
+  background-color: transparent !important;
 }
 
-.v-card-title {
-  color: rgba(0, 0, 0, 0.87);
-  font-size: 1.25rem;
+/* 卡片懸停效果 */
+.v-card.pa-4 {
+  transition: all 0.3s ease;
+}
+
+.v-card.pa-4:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+  /* transform: translateY(-2px); */
+}
+
+/* 按鈕懸停效果 */
+.action-btn {
   font-weight: 500;
-  padding: 16px;
+  margin: 8px 0 12px 0;
+  transition: all 0.2s ease;
 }
 
-.bg-light-blue-lighten-4 {
-  background-color: #B3E5FC !important;
+.action-btn:hover {
+  /* transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); */
+  background-color: #3ea0a3 !important;
+  color: white !important;
 }
 
-.bg-light-blue-lighten-5 {
-  background-color: #e3f2fd !important;
+/* 唯讀輸入框樣式 */
+:deep(.v-field--disabled .v-field__input) {
+  color: rgba(0, 0, 0, 1) !important;
 }
 </style>

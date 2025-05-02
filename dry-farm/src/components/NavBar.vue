@@ -272,6 +272,12 @@
       icon: 'mdi-layers-triple'
     },
     {
+      title: '文件下載',
+      value: 'downloads',
+      to: { path: '/downloads' },
+      icon: 'mdi-file-download'
+    },
+    {
       title: '系統管理',
       value: 'config',
       icon: 'mdi-cog',

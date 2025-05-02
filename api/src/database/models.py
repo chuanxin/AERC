@@ -128,7 +128,7 @@ class Grants(models.Model):
     
     def generate_case_number(self):
         """根據 year + office_id + SN 產生完整案件編號"""
-        return f"{self.year}-{self.office_id}-{str(self.sn).zfill(4)}"
+        return f"{self.year}{self.office_id}{str(self.sn).zfill(4)}"
 
     async def save(self, *args, **kwargs):
         """在存入資料時，自動產生 SN 與 case_number"""

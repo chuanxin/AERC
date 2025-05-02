@@ -89,7 +89,7 @@
                 class="me-2"
                 size="small"
               >
-                mdi-account-detail
+                mdi-account-file-text
               </v-icon>
               <span class="text-subtitle-1 font-weight-medium">申請人基本資料</span>
             </v-card-title>

@@ -29,11 +29,11 @@
             <v-card-text>
               <v-card
                 class="table-card mb-4"
-                rounded="lg"
+
                 elevation="0"
               >
                 <v-table
-                  class="news-table rounded-table pt-4"
+                  class="news-table rounded-table pt-4 pb-0"
                   hover
                 >
                   <thead class="table-header-bold">
@@ -471,12 +471,12 @@ onMounted(() => {
 
 /* 表格樣式 */
 .news-table, .files-table {
-  border-collapse: separate;
-  border-spacing: 0;
+  /* border-collapse: separate; */
+  /* border-spacing: 0; */
 }
 
 .table-card, .rounded-table {
-  border-radius: 12px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
@@ -516,7 +516,7 @@ onMounted(() => {
   min-width: 85px;
   justify-content: center;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) !important;
-  border: 1px solid rgba(232, 218, 157, 0.5) !important;
+  /* border: 1px solid rgba(232, 218, 157, 0.5) !important; */
 }
 
 /* 日期單元格樣式 */
@@ -541,7 +541,7 @@ onMounted(() => {
 /* 按鈕樣式 */
 .more-btn {
   font-weight: 500;
-  margin: 8px 0 12px 0;
+  /* margin: 8px 0 12px 0; */
   transition: all 0.2s ease;
 }
 

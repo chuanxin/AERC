@@ -287,6 +287,7 @@
                 v-if="currentStep > 1"
                 :disabled="isNavigating"
                 size="x-large"
+                density="compact"
                 class="ml-6"
                 variant="outlined"
                 rounded="lg"
