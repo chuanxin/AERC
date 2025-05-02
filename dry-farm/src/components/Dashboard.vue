@@ -448,7 +448,7 @@ onMounted(() => {
   width: auto !important;
   min-width: 130px;
   height: 50px;
-  padding: 0 16px !important;
+  padding: 0 0px !important;
   background-color: #3ea0a3 !important;
   border-radius: 8px 8px 0 0;
   z-index: 1;
@@ -466,7 +466,7 @@ onMounted(() => {
   align-items: center;
   width: 100%;
   height: 100%;
-  padding-left: 16px;
+  padding-left: 0px;
 }
 
 /* 表格樣式 */

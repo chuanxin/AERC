@@ -14,7 +14,7 @@
       density="compact"
       active-class="primary--text"
       bg-color="rgba(255, 255, 255, 1)"
-      rounded="lg"
+      tile
     >
       <template #divider>
         <v-icon

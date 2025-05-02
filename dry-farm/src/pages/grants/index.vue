@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="grants-container px-6 py-4" style="background-color: white">
+  <v-container fluid class="grants-container px-6 pb-10 pt-0" style="background-color: white">
     <!-- 標題區域 -->
     <v-row justify="center">
       <v-col cols="10" lg="10" align-self="center" class="pt-0">
@@ -260,7 +260,7 @@ const headers = ref([
   { title: '末端形式', key: 'calories', align: 'end' },
   { title: '施作面積 (m²)', key: 'fat', align: 'end' },
   { title: '案件狀態', key: 'carbs', align: 'end' },
-  { title: '公告狀態（農民卡）', key: 'card', align: 'end' },
+  // { title: '公告狀態（農民卡）', key: 'card', align: 'end' },
   { title: '操作', key: 'protein', align: 'end' },
 ])
 
@@ -613,7 +613,7 @@ onMounted(() => {
   width: auto !important;
   min-width: 130px;
   height: 50px;
-  padding: 0 16px !important;
+  /* padding: 0 16px !important; */
   background-color: #3ea0a3 !important;
   border-radius: 8px 8px 0 0;
   z-index: 1;
@@ -627,7 +627,7 @@ onMounted(() => {
   align-items: center;
   width: 100%;
   height: 100%;
-  padding-left: 16px;
+  /* padding-left: 16px; */
 }
 
 /* 表格區域樣式 */

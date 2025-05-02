@@ -1,5 +1,5 @@
 <template>
-  <v-container class="pt-0 mb-10">
+  <v-container fluid class="grants-edit-container px-6 pb-10 pt-0">
     <!-- Loading indicator -->
     <v-overlay
       v-if="!isDataLoaded"
@@ -9,7 +9,7 @@
       <v-progress-circular
         indeterminate
         size="64"
-        color="primary"
+        color="#3ea0a3"
       />
       <span class="ml-4 text-h6">載入資料中...</span>
     </v-overlay>
@@ -25,312 +25,361 @@
       {{ grantsStore.error }}
     </v-alert>
 
-    <!-- Navigation Drawer -->
-    <v-layout>
-      <v-navigation-drawer
-        v-model="drawerOpen"
-        border="b-sm"
-        elevation="0"
-        :rail-width="60"
-        :permanent="!isSmallScreen"
-        :temporary="isSmallScreen"
-        :width="drawerWidth"
-        :rail="isRailMode"
-      >
-        <v-list
-          height="55"
-          class="pt-0 mt-0"
-        >
-          <v-list-item>
-            <v-list-item-title class="text-h6">
-              補助申請業務 {{ currentStep }}/{{ steps.length }}
-            </v-list-item-title>
-            <template #append>
-              <v-btn
-                icon
-                variant="text"
-                rounded="circle"
-                class="pl-0"
-                @click="isRailMode = !isRailMode"
-              >
-                <v-icon>{{ isRailMode ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
-              </v-btn>
-            </template>
-          </v-list-item>
-        </v-list>
-
-        <v-divider />
-
-        <!-- Step navigation list -->
-        <v-list nav>
-          <v-list-item
-            v-for="step in steps"
-            :key="step.value"
-            :value="step.value"
-            :active="currentStep === step.value"
-            :disabled="isNavigating"
-            variant="elevated"
-            elevation="0"
-            @click="handleStepClick(step.value)"
-          >
-            <template #prepend>
-              <v-icon
-                :color="getStepIconColor(step.value)"
-                size="large"
-              >
-                {{ getStepIcon(step.value) }}
-              </v-icon>
-            </template>
-
-            <v-list-item-title>
-              <span :class="{ 'text-primary font-weight-bold': currentStep === step.value }">
-                {{ step.title }}
-              </span>
-            </v-list-item-title>
-
-            <v-list-item-subtitle
-              v-if="!isRailMode"
-              :class="[
-                currentStep === step.value ? 'text-primary' : 'text-medium-emphasis'
-              ]"
+    <!-- Main content -->
+    <v-row justify="center">
+      <v-col cols="12" lg="11" align-self="center">
+        <div class="section-wrapper">
+          <!-- Navigation Drawer with Glass Effect -->
+          <v-layout>
+            <v-navigation-drawer
+              v-model="drawerOpen"
+              rounded="lg"
+              border="b-sm"
+              elevation="0"
+              :rail-width="60"
+              :permanent="!isSmallScreen"
+              :temporary="isSmallScreen"
+              :width="drawerWidth"
+              :rail="isRailMode"
+              class="navigation-drawer-glass"
             >
-              {{ step.subtitle }}
-            </v-list-item-subtitle>
-
-            <template
-              v-if="currentStep === step.value && !isRailMode"
-              #append
-            >
-              <v-icon
-                color="primary"
-                size="small"
-                rounded="circle"
+              <v-list
+                height="55"
+                class="pt-0 mt-0"
               >
-                mdi-arrow-right
-              </v-icon>
-            </template>
-          </v-list-item>
-        </v-list>
-      </v-navigation-drawer>
+                <v-list-item>
+                  <v-list-item-title class="text-h6 font-weight-bold" style="color: #2d8c8f">
+                    補助申請業務 {{ currentStep }}/{{ steps.length }}
+                  </v-list-item-title>
+                  <template #append>
+                    <v-btn
+                      icon
+                      variant="text"
+                      rounded="circle"
+                      class="pl-0"
+                      @click="isRailMode = !isRailMode"
+                    >
+                      <v-icon>{{ isRailMode ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
+                    </v-btn>
+                  </template>
+                </v-list-item>
+              </v-list>
 
-      <!-- Main content area -->
-      <v-main>
-        <div class="px-4 mb-1">
-          <!-- Small screen step indicator -->
-          <v-card
-            v-if="isSmallScreen"
-            class="mb-4 pa-2"
-          >
-            <div class="d-flex align-center">
-              <v-btn
-                icon
-                variant="text"
-                @click="drawerOpen = !drawerOpen"
-              >
-                <v-icon>mdi-menu</v-icon>
-              </v-btn>
+              <v-divider />
 
-              <div class="ml-2">
-                <div class="text-subtitle-1">
-                  補助申請業務 {{ currentStep }}/{{ steps.length }}
-                </div>
-                <div class="text-body-2">
-                  {{ steps.find(s => s.value === currentStep)?.subtitle }}
-                </div>
-              </div>
-
-              <v-spacer />
-
-              <div class="d-flex">
-                <v-btn
-                  v-if="currentStep > 1"
+              <!-- Step navigation list -->
+              <v-list nav class="step-list">
+                <v-list-item
+                  v-for="step in steps"
+                  :key="step.value"
+                  :value="step.value"
+                  :active="currentStep === step.value"
                   :disabled="isNavigating"
-                  icon
-                  variant="text"
-                  rounded="circle"
-                  @click="handleGoBack"
+                  variant="elevated"
+                  elevation="0"
+                  @click="handleStepClick(step.value)"
+                  class="step-list-item"
                 >
-                  <v-icon>mdi-arrow-left</v-icon>
-                </v-btn>
+                  <template #prepend>
+                    <v-icon
+                      :color="getStepIconColor(step.value)"
+                      size="large"
+                    >
+                      {{ getStepIcon(step.value) }}
+                    </v-icon>
+                  </template>
 
-                <v-btn
-                  v-if="currentStep < steps.length"
-                  :disabled="isNavigating"
-                  icon
-                  variant="text"
-                  rounded="circle"
-                  @click="goToNextStep"
-                >
-                  <v-icon>mdi-arrow-right</v-icon>
-                </v-btn>
-              </div>
-            </div>
-          </v-card>
+                  <v-list-item-title>
+                    <span :class="{ 'text-primary font-weight-bold': currentStep === step.value }">
+                      {{ step.title }}
+                    </span>
+                  </v-list-item-title>
 
-          <!-- Step components container -->
-          <v-card class="pb-0 mb-0">
-            <v-card-title class="text-h5 ml-4">
-              {{ steps.find(s => s.value === currentStep)?.title }}<span
-                v-if="grantsStore.currentGrant?.case_number"
-                class="text-disabled text-h6 mb-6"
-              >（{{ grantsStore.currentGrant?.case_number }}）</span>
-            </v-card-title>
-
-            <v-card-text class="pb-0 mb-0">
-              <!-- Autosave indicator when there are unsaved changes -->
-              <v-snackbar
-                v-model="grantsStore.hasUnsavedChanges"
-                variant="text"
-                color="info"
-                lines="one"
-                icon="mdi-content-save"
-                class="mb-4"
-              >
-                <template v-slot:text>
-                  資料變更尚未儲存，系統將自動儲存
-                  <span v-if="grantsStore.lastSavedAt" class="ms-2 text-caption">
-                    (上次儲存於 {{ grantsStore.lastSavedTime }})
-                  </span>
-                </template>
-
-                <template v-slot:actions>
-                  <v-btn
-                    variant="text"
-                    :loading="grantsStore.isSaving"
-                    @click="saveAllChanges"
+                  <v-list-item-subtitle
+                    v-if="!isRailMode"
+                    :class="[
+                      currentStep === step.value ? 'text-primary' : 'text-medium-emphasis'
+                    ]"
                   >
-                    立即儲存
-                  </v-btn>
-                </template>
-                <v-progress-linear
-                  :active="grantsStore.hasUnsavedChanges"
-                  :indeterminate="grantsStore.hasUnsavedChanges"
-                  color="cyan"
-                  stream
-                  location="bottom"
-                />
-              </v-snackbar>
+                    {{ step.subtitle }}
+                  </v-list-item-subtitle>
 
-              <!-- Step components -->
-              <step1
-                v-if="currentStep === 1"
-                :form-data="grantsStore.formData[1]"
-                :current-step="currentStep"
-                @update:form-data="handleFormDataUpdate(1, $event)"
-                @validated="handleStepValidated"
-                @go-back="handleGoBack"
-              />
-              <step2
-                v-if="currentStep === 2"
-                :form-data="grantsStore.formData[2]"
-                :current-step="currentStep"
-                @update:form-data="handleFormDataUpdate(2, $event)"
-                @validated="handleStepValidated"
-                @go-back="handleGoBack"
-              />
-              <step3
-                v-if="currentStep === 3"
-                :form-data="grantsStore.formData[3]"
-                :current-step="currentStep"
-                @update:form-data="handleFormDataUpdate(3, $event)"
-                @validated="handleStepValidated"
-                @go-back="handleGoBack"
-              />
-              <step4
-                v-if="currentStep === 4"
-                :form-data="grantsStore.formData[4]"
-                :current-step="currentStep"
-                @update:form-data="handleFormDataUpdate(4, $event)"
-                @validated="handleStepValidated"
-                @go-back="handleGoBack"
-              />
-              <step5
-                v-if="currentStep === 5"
-                :form-data="grantsStore.formData[5]"
-                :current-step="currentStep"
-                @update:form-data="handleFormDataUpdate(5, $event)"
-                @validated="handleStepValidated"
-                @go-back="handleGoBack"
-              />
-              <step6
-                v-if="currentStep === 6"
-                :form-data="grantsStore.formData[6]"
-                :current-step="currentStep"
-                @update:form-data="handleFormDataUpdate(6, $event)"
-                @validated="handleStepValidated"
-                @go-back="handleGoBack"
-              />
-              <step7
-                v-if="currentStep === 7"
-                :form-data="grantsStore.formData[7]"
-                :current-step="currentStep"
-                @update:form-data="handleFormDataUpdate(7, $event)"
-                @validated="handleStepValidated"
-                @go-back="handleGoBack"
-              />
-              <step8
-                v-if="currentStep === 8"
-                :form-data="grantsStore.formData[8]"
-                :current-step="currentStep"
-                @update:form-data="handleFormDataUpdate(8, $event)"
-                @validated="handleStepValidated"
-                @go-back="handleGoBack"
-              />
-            </v-card-text>
+                  <template
+                    v-if="currentStep === step.value && !isRailMode"
+                    #append
+                  >
+                    <v-icon
+                      color="primary"
+                      size="small"
+                      rounded="circle"
+                    >
+                      mdi-arrow-right
+                    </v-icon>
+                  </template>
+                </v-list-item>
+              </v-list>
+            </v-navigation-drawer>
 
-            <!-- Step navigation buttons for desktop -->
-            <v-card-actions
-              v-if="!isSmallScreen"
-              class="pt-2"
-            >
-              <v-btn
-                v-if="currentStep > 1"
-                :disabled="isNavigating"
-                size="x-large"
-                density="compact"
-                class="ml-6"
-                variant="outlined"
-                rounded="lg"
-                :ripple="false"
-                @click="handleGoBack"
-              >
-                <v-icon start>
-                  mdi-arrow-left
-                </v-icon>
-                上一步
-              </v-btn>
-
-              <v-spacer />
-
-              <v-btn
-                :disabled="isNavigating"
-                color="primary"
-                class="mr-5"
-                size="x-large"
-                variant="text"
-                rounded="lg"
-                :ripple="false"
-                @click="goToNextStep"
-              >
-                {{ currentStep === 8 ? '完成' : '下一步' }}
-                <v-icon
-                  v-if="currentStep < 8"
-                  end
+            <!-- Main content area -->
+            <v-main class="pt-7">
+              <div class="px-4 mb-1">
+                <!-- Small screen step indicator -->
+                <v-card
+                  v-if="isSmallScreen"
+                  class="mb-4 mt-0 pa-2 pt-0 mobile-step-card"
                 >
-                  mdi-arrow-right
-                </v-icon>
-                <v-icon
-                  v-else
-                  end
-                >
-                  mdi-check
-                </v-icon>
-              </v-btn>
-            </v-card-actions>
-          </v-card>
+                  <div class="d-flex align-center">
+                    <v-btn
+                      icon
+                      variant="text"
+                      @click="drawerOpen = !drawerOpen"
+                    >
+                      <v-icon>mdi-menu</v-icon>
+                    </v-btn>
+
+                    <div class="ml-2">
+                      <div class="text-subtitle-1">
+                        補助申請業務 {{ currentStep }}/{{ steps.length }}
+                      </div>
+                      <div class="text-body-2">
+                        {{ steps.find(s => s.value === currentStep)?.subtitle }}
+                      </div>
+                    </div>
+
+                    <v-spacer />
+
+                    <div class="d-flex">
+                      <v-btn
+                        v-if="currentStep > 1"
+                        :disabled="isNavigating"
+                        icon
+                        variant="text"
+                        rounded="circle"
+                        @click="handleGoBack"
+                      >
+                        <v-icon>mdi-arrow-left</v-icon>
+                      </v-btn>
+
+                      <v-btn
+                        v-if="currentStep < steps.length"
+                        :disabled="isNavigating"
+                        icon
+                        variant="text"
+                        rounded="circle"
+                        @click="goToNextStep"
+                      >
+                        <v-icon>mdi-arrow-right</v-icon>
+                      </v-btn>
+                    </div>
+                  </div>
+                </v-card>
+
+                <!-- Step components container -->
+                <v-card class="section-card pb-0 mb-0" rounded="lg">
+                  <v-card-item class="custom-title">
+                    <v-card-title class="text-h5 font-weight-black">
+                      {{ steps.find(s => s.value === currentStep)?.title }}
+                      <span
+                        v-if="grantsStore.currentGrant?.case_number"
+                        class="text-disabled"
+                      >
+                        <v-chip
+                          color="grey-lighten-3"
+                          size="small"
+                          class="ml-4 mb-1"
+                          variant="flat"
+                          rounded="sm"
+                        >
+                          案號: {{ grantsStore.currentGrant?.case_number }}
+                        </v-chip>
+                      </span>
+                    </v-card-title>
+                  </v-card-item>
+
+                  <v-card-text class="pb-0 mb-0">
+                    <!-- Autosave indicator when there are unsaved changes -->
+                    <v-snackbar
+                      v-model="grantsStore.hasUnsavedChanges"
+                      variant="text"
+                      color="info"
+                      lines="one"
+                      icon="mdi-content-save"
+                      class="mb-4"
+                    >
+                      <template v-slot:text>
+                        資料變更尚未儲存，系統將自動儲存
+                        <span v-if="grantsStore.lastSavedAt" class="ms-2 text-caption">
+                          (上次儲存於 {{ grantsStore.lastSavedTime }})
+                        </span>
+                      </template>
+
+                      <template v-slot:actions>
+                        <v-btn
+                          variant="text"
+                          :loading="grantsStore.isSaving"
+                          @click="saveAllChanges"
+                        >
+                          立即儲存
+                        </v-btn>
+                      </template>
+                      <v-progress-linear
+                        :active="grantsStore.hasUnsavedChanges"
+                        :indeterminate="grantsStore.hasUnsavedChanges"
+                        color="cyan"
+                        stream
+                        location="bottom"
+                      />
+                    </v-snackbar>
+
+                    <!-- Content Card for Step Components -->
+                    <v-card class="content-card mb-4" rounded="lg" elevation="0">
+                      <!-- Step components -->
+                      <step1
+                        v-if="currentStep === 1"
+                        :form-data="grantsStore.formData[1]"
+                        :current-step="currentStep"
+                        @update:form-data="handleFormDataUpdate(1, $event)"
+                        @validated="handleStepValidated"
+                        @go-back="handleGoBack"
+                      />
+                      <step2
+                        v-if="currentStep === 2"
+                        :form-data="grantsStore.formData[2]"
+                        :current-step="currentStep"
+                        @update:form-data="handleFormDataUpdate(2, $event)"
+                        @validated="handleStepValidated"
+                        @go-back="handleGoBack"
+                      />
+                      <step3
+                        v-if="currentStep === 3"
+                        :form-data="grantsStore.formData[3]"
+                        :current-step="currentStep"
+                        @update:form-data="handleFormDataUpdate(3, $event)"
+                        @validated="handleStepValidated"
+                        @go-back="handleGoBack"
+                      />
+                      <step4
+                        v-if="currentStep === 4"
+                        :form-data="grantsStore.formData[4]"
+                        :current-step="currentStep"
+                        @update:form-data="handleFormDataUpdate(4, $event)"
+                        @validated="handleStepValidated"
+                        @go-back="handleGoBack"
+                      />
+                      <step5
+                        v-if="currentStep === 5"
+                        :form-data="grantsStore.formData[5]"
+                        :current-step="currentStep"
+                        @update:form-data="handleFormDataUpdate(5, $event)"
+                        @validated="handleStepValidated"
+                        @go-back="handleGoBack"
+                      />
+                      <step6
+                        v-if="currentStep === 6"
+                        :form-data="grantsStore.formData[6]"
+                        :current-step="currentStep"
+                        @update:form-data="handleFormDataUpdate(6, $event)"
+                        @validated="handleStepValidated"
+                        @go-back="handleGoBack"
+                      />
+                      <step7
+                        v-if="currentStep === 7"
+                        :form-data="grantsStore.formData[7]"
+                        :current-step="currentStep"
+                        @update:form-data="handleFormDataUpdate(7, $event)"
+                        @validated="handleStepValidated"
+                        @go-back="handleGoBack"
+                      />
+                      <step8
+                        v-if="currentStep === 8"
+                        :form-data="grantsStore.formData[8]"
+                        :current-step="currentStep"
+                        @update:form-data="handleFormDataUpdate(8, $event)"
+                        @validated="handleStepValidated"
+                        @go-back="handleGoBack"
+                      />
+                    </v-card>
+                  </v-card-text>
+
+                  <!-- Step navigation buttons for desktop -->
+                  <v-card-actions
+                    v-if="!isSmallScreen"
+                    class="pt-0"
+                  >
+                    <v-btn
+                      v-if="currentStep > 1"
+                      :disabled="isNavigating"
+                      size="x-large"
+                      class="ml-6 navigation-btn"
+                      color="#3ea0a3"
+                      variant="text"
+                      density="compact"
+                      rounded="lg"
+                      :ripple="false"
+                      @click="handleGoBack"
+                    >
+                      <v-icon start>
+                        mdi-arrow-left
+                      </v-icon>
+                      上一步
+                    </v-btn>
+
+                    <v-spacer />
+
+                    <v-btn
+                      :disabled="isNavigating"
+                      color="#3ea0a3"
+                      class="mr-6 next-btn"
+                      size="x-large"
+                      variant="outlined"
+                      density="compact"
+                      rounded="lg"
+                      :ripple="false"
+                      @click="goToNextStep"
+                    >
+                      {{ currentStep === 8 ? '完成' : '下一步' }}
+                      <v-icon
+                        v-if="currentStep < 8"
+                        end
+                      >
+                        mdi-arrow-right
+                      </v-icon>
+                      <v-icon
+                        v-else
+                        end
+                      >
+                        mdi-check
+                      </v-icon>
+                    </v-btn>
+                  </v-card-actions>
+                </v-card>
+              </div>
+            </v-main>
+          </v-layout>
         </div>
-      </v-main>
-    </v-layout>
+      </v-col>
+    </v-row>
+
+    <!-- 處理中對話框 -->
+    <v-dialog
+      v-model="isNavigating"
+      persistent
+      width="300"
+    >
+      <v-card>
+        <v-card-text class="text-center pa-5">
+          <v-progress-circular
+            indeterminate
+            color="#3ea0a3"
+            size="64"
+            class="mb-3"
+          />
+          <div class="text-body-1">
+            處理中，請稍候...
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -362,7 +411,7 @@ const currentStep = ref(1)
 const submitting = ref(false)
 const isDataLoaded = ref(false)
 const isNavigating = ref(false)
-const autoSaveTimer = ref<number | null>(null);
+const autoSaveTimer = ref<number | null>(null)
 
 // Navigation drawer state
 const drawerOpen = ref(true)
@@ -391,7 +440,7 @@ const getStepIcon = (stepValue: number): string => {
 
 const getStepIconColor = (stepValue: number) => {
   if (currentStep.value > stepValue) return 'success'
-  if (currentStep.value === stepValue) return 'primary'
+  if (currentStep.value === stepValue) return '#3ea0a3'
   return 'grey'
 }
 
@@ -672,6 +721,131 @@ onBeforeRouteLeave((to, from, next) => {
 </script>
 
 <style scoped>
+/* 添加背景圖片樣式 */
+.grants-edit-container {
+  background-image: url('@/assets/bg.png');
+  background-size: cover;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* 區塊共通容器 */
+.section-wrapper {
+  padding: 8px 4px 0px 4px;
+}
+
+/* 卡片與標題樣式 */
+.section-card {
+  position: relative;
+  margin: 24px 0;
+  overflow: visible !important;
+  border-top-left-radius: 0 !important;
+  transition: all 0.3s ease;
+
+  /* 毛玻璃效果 */
+  background-color: rgba(255, 255, 255, 0.6) !important; /* 半透明白色背景 */
+  backdrop-filter: blur(10px) !important; /* 背景模糊效果 */
+  -webkit-backdrop-filter: blur(10px) !important; /* Safari 支持 */
+  border: 1px solid rgba(255, 255, 255, 0.25) !important; /* 細微邊框增強玻璃感 */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05) !important; /* 柔和陰影增強玻璃感 */
+}
+
+.section-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  background-color: rgba(255, 255, 255, 0.85) !important; /* 懸停時略微增加不透明度 */
+}
+
+.section-card:hover .custom-title {
+  background-color: #2d8c8f !important;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.custom-title {
+  position: absolute;
+  top: -50px;
+  left: -1px;
+  width: auto !important;
+  min-width: 130px;
+  height: 50px;
+  /* padding: 0 16px !important; */
+  background-color: #3ea0a3 !important;
+  border-radius: 8px 8px 0 0;
+  z-index: 1;
+  transition: all 0.3s ease;
+}
+
+.v-card-title {
+  color: white !important;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  /* padding-left: 16px; */
+}
+
+/* 內容卡片樣式 */
+.content-card {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(62, 160, 163, 0.1);
+  overflow: hidden;
+}
+
+/* Navigation drawer with glass effect */
+.navigation-drawer-glass {
+  background-color: rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Step list items */
+.step-list-item {
+  margin-bottom: 4px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.step-list-item:hover {
+  background-color: rgba(62, 160, 163, 0.1) !important;
+}
+
+/* Mobile step card with glass effect */
+.mobile-step-card {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 12px;
+}
+
+/* 按鈕懸停效果 */
+.next-btn {
+  font-weight: 500;
+  margin: 8px 0 12px 0;
+  transition: all 0.2s ease;
+}
+
+.next-btn:hover {
+  /* transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); */
+  background-color: #3ea0a3 !important;
+  color: white !important;
+}
+
+/* Navigation buttons */
+.navigation-btn {
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.navigation-btn:hover {
+  /* transform: translateY(-2px); */
+  box-shadow: 0 2px 8px rgba(62, 160, 163, 0.2) !important;
+}
+
 /* Spinner animation for loading icon */
 @keyframes spin {
   from { transform: rotate(0deg); }

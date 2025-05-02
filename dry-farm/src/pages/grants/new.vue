@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="grants-new-container px-6 py-4">
+  <v-container fluid class="grants-new-container px-6 pb-10 pt-0">
     <v-row justify="center">
       <v-col cols="10" lg="10" align-self="center" class="pt-8">
         <div class="section-wrapper">
@@ -19,7 +19,7 @@
               <v-card class="content-card mb-0" rounded="lg" elevation="0">
                 <step0
                   :case-number="caseNumber"
-                  :case-data="formData"
+                  :form-data="formData"
                   @update-data="updateFormData"
                   @create-case="handleCreateCase"
                   @cancel="cancelForm"
@@ -212,7 +212,7 @@ watch(displayStep, (newStep) => {
   width: auto !important;
   min-width: 130px;
   height: 50px;
-  padding: 0 16px !important;
+  /* padding: 0 16px !important; */
   background-color: #3ea0a3 !important;
   border-radius: 8px 8px 0 0;
   z-index: 1;
@@ -226,7 +226,7 @@ watch(displayStep, (newStep) => {
   align-items: center;
   width: 100%;
   height: 100%;
-  padding-left: 16px;
+  /* padding-left: 16px; */
 }
 
 /* 內容卡片樣式 */
