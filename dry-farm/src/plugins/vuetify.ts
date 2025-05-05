@@ -7,7 +7,8 @@
 // Styles
 import '@mdi/font/css/materialdesignicons.css'
 import 'vuetify/styles'
-import { VStepperVertical } from 'vuetify/labs/VStepperVertical'
+// import { VStepperVertical } from 'vuetify/labs/VStepperVertical'
+import { VDateInput } from 'vuetify/labs/VDateInput'
 
 // Composables
 import { createVuetify } from 'vuetify'
@@ -22,7 +23,8 @@ import { md1 } from 'vuetify/blueprints'
 // https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
 export default createVuetify({
   components: {
-    VStepperVertical,
+    // VStepperVertical,
+    VDateInput,
   },
   theme: {
     themes: {

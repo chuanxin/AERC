@@ -220,6 +220,12 @@ logger = logging.getLogger(__name__)
 #         return await get_grant(grant.id)
 #     except DoesNotExist:
 #         raise HTTPException(status_code=404, detail=f"補助案件編號 {case_number} 不存在")
+def format_tw_date(date_obj):
+    """將日期對象轉換為民國年格式 (民國YYY/MM/DD)"""
+    if not date_obj:
+        return None
+    tw_year = date_obj.year - 1911
+    return f"{tw_year:03d}/{date_obj.month:02d}/{date_obj.day:02d}"
 
 async def create_grant(data: GrantInSchema, current_user: UserOutSchema) -> Dict[str, Any]:
     """建立新的補助申請案件"""
@@ -266,7 +272,7 @@ async def create_grant(data: GrantInSchema, current_user: UserOutSchema) -> Dict
                 "year": grant.year,
                 "applicant_name": grant.applicant_name,
                 "status": grant.status,
-                "received_date": grant.received_date,
+                "received_date": format_tw_date(grant.received_date),
                 "received_time": grant.received_time.strftime("%H:%M")
             }
         
@@ -300,7 +306,7 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
             "office": grant.office,
             "office_id": grant.office_id,
             "undertracker": grant.undertracker,
-            "received_date": grant.received_date,
+            "received_date": format_tw_date(grant.received_date),
             "received_time": grant.received_time.strftime("%H:%M") if grant.received_time else None,
             "status": grant.status,
             "current_step": grant.current_step,
@@ -394,7 +400,7 @@ async def get_grant_step_data(case_number: str, step: int) -> Dict[str, Any]:
                 "department": grant.office,
                 "departmentId": grant.office_id,
                 "caseNumber": grant.case_number,
-                "receivedDate": grant.received_date.isoformat() if grant.received_date else None,
+                "receivedDate": format_tw_date(grant.received_date) if grant.received_date else None,
                 "receivedTime": grant.received_time.strftime("%H:%M") if grant.received_time else None
             })
         elif step == 2:  # Land information step

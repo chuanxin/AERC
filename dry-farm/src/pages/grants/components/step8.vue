@@ -8,12 +8,12 @@
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
               <v-icon class="me-2" size="small">mdi-file-document</v-icon>
               <span class="text-subtitle-1 font-weight-medium">申請資料</span>
-              <v-chip size="small" color="info" class="ms-2">擇一上傳</v-chip>
+              <!-- <v-chip size="small" color="info" class="ms-2">擇一上傳</v-chip> -->
             </v-card-title>
 
             <v-card-text class="pa-4">
               <v-sheet class="pa-3 rounded" color="grey-lighten-5">
-                <v-row>
+                <!-- <v-row>
                   <v-col cols="12" md="6">
                     <v-file-input
                       v-model="localFormData.idCardFront"
@@ -55,7 +55,7 @@
                       ></v-img>
                     </div>
                   </v-col>
-                </v-row>
+                </v-row> -->
 
                 <v-row>
                   <v-col cols="12" md="6">

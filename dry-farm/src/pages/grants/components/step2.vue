@@ -159,17 +159,18 @@
                     <div class="text-caption text-grey">
                       (若查無地號請洽中心)
                     </div>
+                    <v-spacer />
+                    <div class="ms-1">
+                      原民區域：{{ localFormData.isAboriginalArea ? '是' : '否' }}
+                    </div>
                     <v-checkbox
                       v-model="localFormData.isAboriginalArea"
-                      label="原民區域"
+                      disabled
                       hide-details
                       density="compact"
                       class="ms-auto"
                       @update:model-value="updateFormData"
                     />
-                    <div class="ms-1">
-                      ：{{ localFormData.isAboriginalArea ? '是' : '否' }}
-                    </div>
                   </v-col>
                 </v-row>
               </v-sheet>
@@ -194,14 +195,14 @@
                     md="4"
                   >
                     <div class="d-flex align-center">
+                      <span class="ml-1">位於灌區內</span>
+                      <span class="ml-1">：{{ localFormData.isIrrigationArea ? '是' : '否' }}</span>
                       <v-checkbox
                         v-model="localFormData.isIrrigationArea"
                         hide-details
                         density="compact"
                         @update:model-value="updateFormData"
                       />
-                      <span class="ml-1">位於灌區內</span>
-                      <span class="ml-1">：{{ localFormData.isIrrigationArea ? '是' : '否' }}</span>
                     </div>
                   </v-col>
                   <v-col
@@ -209,14 +210,14 @@
                     md="4"
                   >
                     <div class="d-flex align-center">
+                      <span class="ml-1">再次申請</span>
+                      <span class="ml-1">：{{ localFormData.isReapplied ? '是' : '否' }}</span>
                       <v-checkbox
                         v-model="localFormData.isReapplied"
                         hide-details
                         density="compact"
                         @update:model-value="updateFormData"
                       />
-                      <span class="ml-1">再次申請</span>
-                      <span class="ml-1">：{{ localFormData.isReapplied ? '是' : '否' }}</span>
                     </div>
                   </v-col>
                 </v-row>
@@ -299,7 +300,7 @@
                         ㎡
                       </div>
                       <v-text-field
-                        v-model="localFormData.landAreaHa"
+                        v-model="landAreaHaComputed"
                         variant="outlined"
                         bg-color="yellow-lighten-3"
                         density="compact"
@@ -324,14 +325,17 @@
                         density="compact"
                         class="me-2"
                         style="width: 120px"
-                        :rules="[v => !!v || '請輸入施作面積']"
+                        :rules="[
+                          v => !!v || '請輸入施作面積',
+                          v => !v || parseFloat(v) <= parseFloat(localFormData.landArea) || '施作面積不能大於農地面積'
+                        ]"
                         @update:model-value="updateFormData"
                       />
                       <div class="me-2">
                         ㎡
                       </div>
                       <v-text-field
-                        v-model="localFormData.facilityAreaHa"
+                        v-model="facilityAreaHaComputed"
                         variant="outlined"
                         bg-color="yellow-lighten-3"
                         density="compact"
@@ -619,7 +623,7 @@
                     <div class="d-flex align-center">
                       <span class="text-body-2 font-weight-medium me-2">持分面積</span>
                       <v-text-field
-                        v-model="localFormData.ownerArea"
+                        v-model="ownerAreaComputed"
                         variant="outlined"
                         bg-color="yellow-lighten-3"
                         density="compact"
@@ -1021,12 +1025,27 @@ const crops = computed(() => {
   return localFormData.cropCategory ? (cropCategoriesData[localFormData.cropCategory as keyof typeof cropCategoriesData] || []) : [];
 });
 
+const currentShare = computed(() => {
+  if (!localFormData.ownerShare1 || !localFormData.ownerShare2) return 0;
+
+  const share1 = parseFloat(localFormData.ownerShare1);
+  const share2 = parseFloat(localFormData.ownerShare2);
+
+  return (!isNaN(share1) && !isNaN(share2) && share2 !== 0) ? (share1 / share2) : 0;
+});
+
+const shareExceedsLimit = computed(() => {
+  const totalShareWithNew = calculateTotalShare() + currentShare.value;
+  return totalShareWithNew > 1;
+});
+
 const canAddOwner = computed(() => {
   return !!localFormData.ownerName &&
          !!localFormData.ownerId &&
          !!localFormData.ownerShare1 &&
          !!localFormData.ownerShare2 &&
-         !!localFormData.ownerArea;
+         !!localFormData.ownerArea &&
+         !shareExceedsLimit.value;
 });
 
 const landNumberMainFocused = ref(false);
@@ -1066,6 +1085,70 @@ const formattedLandNumberSub = computed({
     updateLandNumber();
   }
 });
+
+const landAreaHaComputed = computed({
+  get: () => {
+    if (!localFormData.landArea) return '';
+    const area = parseFloat(localFormData.landArea);
+    return !isNaN(area) ? (area / 10000).toFixed(4) : '';
+  },
+  set: (val) => {
+    if (val) {
+      const haArea = parseFloat(val);
+      if (!isNaN(haArea)) {
+        // 更新公頃值
+        localFormData.landAreaHa = val;
+      }
+    } else {
+      localFormData.landAreaHa = '';
+    }
+  }
+});
+
+const facilityAreaHaComputed = computed({
+  get: () => {
+    if (!localFormData.facilityArea) return '';
+    const area = parseFloat(localFormData.facilityArea);
+    return !isNaN(area) ? (area / 10000).toFixed(4) : '';
+  },
+  set: (val) => {
+    if (val) {
+      const haArea = parseFloat(val);
+      if (!isNaN(haArea)) {
+        // 更新公頃值
+        localFormData.facilityAreaHa = val;
+      }
+    } else {
+      localFormData.facilityAreaHa = '';
+    }
+  }
+});
+
+const ownerAreaComputed = computed({
+  get: () => {
+    if (!localFormData.landArea || !localFormData.ownerShare1 || !localFormData.ownerShare2) {
+      return '';
+    }
+
+    const landArea = parseFloat(localFormData.landArea);
+    const share1 = parseFloat(localFormData.ownerShare1);
+    const share2 = parseFloat(localFormData.ownerShare2);
+
+    if (!isNaN(landArea) && !isNaN(share1) && !isNaN(share2) && share2 !== 0) {
+      const calculatedValue = ((landArea * share1) / share2).toFixed(1);
+      // 在 getter 中同步更新 localFormData.ownerArea
+      localFormData.ownerArea = calculatedValue;
+      return calculatedValue;
+    }
+
+    localFormData.ownerArea = '';
+    return '';
+  },
+  set: (val) => {
+    localFormData.ownerArea = val;
+  }
+});
+
 
 // Helper function to format land numbers for display elsewhere
 const formatLandNumber = (value) => {
@@ -1144,10 +1227,32 @@ const removeCrop = (index: number) => {
   updateFormData();
 };
 
+const calculateTotalShare = () => {
+  let totalShare = 0;
+
+  if (localFormData.owners && localFormData.owners.length > 0) {
+    localFormData.owners.forEach(owner => {
+      const shareParts = owner.share.split('/');
+      if (shareParts.length === 2) {
+        const numerator = parseFloat(shareParts[0]);
+        const denominator = parseFloat(shareParts[1]);
+
+        if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+          totalShare += numerator / denominator;
+        }
+      }
+    });
+  }
+
+  return totalShare;
+};
+
 // Add and remove owners
 const addOwner = () => {
   if (localFormData.ownerName && localFormData.ownerId &&
-      localFormData.ownerShare1 && localFormData.ownerShare2 && localFormData.ownerArea) {
+      localFormData.ownerShare1 && localFormData.ownerShare2) {
+
+    const ownerArea = ownerAreaComputed.value;
 
     const ownerAddress = [
       localFormData.ownerCounty,
@@ -1160,7 +1265,7 @@ const addOwner = () => {
       id: localFormData.ownerId,
       address: ownerAddress || 'XX',
       share: `${localFormData.ownerShare1}/${localFormData.ownerShare2}`,
-      area: localFormData.ownerArea
+      area: ownerArea
     };
 
     // Ensure owners array exists
@@ -1197,41 +1302,90 @@ const updateFormData = () => {
 
 // Area calculations
 watch(() => localFormData.landArea, (newVal) => {
+  if (newVal && localFormData.owners && localFormData.owners.length > 0) {
+    const landArea = parseFloat(newVal);
+
+    if (!isNaN(landArea)) {
+      // 更新每個所有權人的持分面積
+      localFormData.owners.forEach((owner, index) => {
+        const shareParts = owner.share.split('/');
+        if (shareParts.length === 2) {
+          const numerator = parseFloat(shareParts[0]);
+          const denominator = parseFloat(shareParts[1]);
+
+          if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+            // 重新計算持分面積
+            const newArea = ((landArea * numerator) / denominator).toFixed(1);
+            localFormData.owners[index] = {
+              ...owner,
+              area: newArea
+            };
+          }
+        }
+      });
+    }
+  }
+
   if (newVal) {
     const area = parseFloat(newVal);
     if (!isNaN(area)) {
-      localFormData.landAreaHa = (area / 10000).toFixed(4);
+      // 更新農地面積公頃值
+      const calculatedHa = (area / 10000).toFixed(4)
+      localFormData.landAreaHa = calculatedHa
+
+      // 檢查設施面積是否超出農地面積
+      const facilityArea = parseFloat(localFormData.facilityArea || '0');
+      if (!isNaN(facilityArea) && facilityArea > area) {
+        // 如果設施面積超出農地面積，將設施面積調整為等於農地面積
+        localFormData.facilityArea = newVal;
+        localFormData.facilityAreaHa = calculatedHa;
+      }
     }
   } else {
     localFormData.landAreaHa = '';
   }
+
+  updateFormData();
 });
 
 watch(() => localFormData.facilityArea, (newVal) => {
   if (newVal) {
-    const area = parseFloat(newVal);
-    if (!isNaN(area)) {
-      localFormData.facilityAreaHa = (area / 10000).toFixed(4);
+    const facilityArea = parseFloat(newVal);
+    const landArea = parseFloat(localFormData.landArea || '0');
+
+    if (!isNaN(facilityArea)) {
+      // 如果設施面積超過農地面積
+      if (!isNaN(landArea) && facilityArea > landArea) {
+        // 調整為等於農地面積
+        localFormData.facilityArea = localFormData.landArea;
+        localFormData.facilityAreaHa = localFormData.landAreaHa;
+      } else {
+        // 正常更新公頃值
+        localFormData.facilityAreaHa = (facilityArea / 10000).toFixed(4);
+      }
     }
   } else {
     localFormData.facilityAreaHa = '';
   }
+
+  // 更新父組件資料
+  updateFormData();
 });
 
 // Calculate owner area
-watch([() => localFormData.landArea, () => localFormData.ownerShare1, () => localFormData.ownerShare2], () => {
-  if (localFormData.landArea && localFormData.ownerShare1 && localFormData.ownerShare2) {
-    const landArea = parseFloat(localFormData.landArea);
-    const share1 = parseFloat(localFormData.ownerShare1);
-    const share2 = parseFloat(localFormData.ownerShare2);
+// watch([() => localFormData.landArea, () => localFormData.ownerShare1, () => localFormData.ownerShare2], () => {
+//   if (localFormData.landArea && localFormData.ownerShare1 && localFormData.ownerShare2) {
+//     const landArea = parseFloat(localFormData.landArea);
+//     const share1 = parseFloat(localFormData.ownerShare1);
+//     const share2 = parseFloat(localFormData.ownerShare2);
 
-    if (!isNaN(landArea) && !isNaN(share1) && !isNaN(share2) && share2 !== 0) {
-      localFormData.ownerArea = ((landArea * share1) / share2).toFixed(1);
-    }
-  } else {
-    localFormData.ownerArea = '';
-  }
-});
+//     if (!isNaN(landArea) && !isNaN(share1) && !isNaN(share2) && share2 !== 0) {
+//       localFormData.ownerArea = ((landArea * share1) / share2).toFixed(1);
+//     }
+//   } else {
+//     localFormData.ownerArea = '';
+//   }
+// });
 
 // Land dialog handlers
 const showLandInfoDialog = () => {
@@ -1784,8 +1938,8 @@ onMounted(() => {
   }
 
   if (!localFormData.landArea) {
-    localFormData.landArea = '8455';
-    localFormData.landAreaHa = '0.8455';
+    localFormData.landArea = '9999';
+    localFormData.landAreaHa = '0.9999';
   }
 
   if (!localFormData.facilityArea) {

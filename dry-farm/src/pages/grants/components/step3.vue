@@ -13,6 +13,36 @@
           v-model="localValid"
           @submit.prevent
         >
+          <!-- 補助來源選擇區域 -->
+          <v-card class="mb-4" variant="outlined">
+            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
+              <v-icon class="me-2" size="small">
+                mdi-hand-coin
+              </v-icon>
+              <span class="text-subtitle-1 font-weight-medium">補助來源</span>
+            </v-card-title>
+
+            <v-card-text class="pa-4">
+              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+                <div class="d-flex align-center flex-wrap">
+                  <v-select
+                    v-model="localFormData.fundingSource"
+                    :items="fundingSourceOptions"
+                    label="補助單位"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="min-width: 250px"
+                    @update:model-value="updateFormData"
+                  />
+                  <span class="text-body-2 text-grey ms-2">
+                    選擇補助來源將自動套用至下方新增的所有設施
+                  </span>
+                </div>
+              </v-sheet>
+            </v-card-text>
+          </v-card>
+
           <!-- 動力設備選擇區域 -->
           <v-card
             class="mb-4"
@@ -45,15 +75,15 @@
                     @update:model-value="onPowerEquipmentChange"
                   />
 
-                  <v-select
-                    v-model="localFormData.powerSource"
+                  <!-- <v-select
+                    v-model="localFormData.fundingSource"
                     :items="powerSourceOptions"
-                    label="農田水利署"
+                    label="補助單位"
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
                     style="min-width: 200px"
-                  />
+                  /> -->
 
                   <v-btn
                     color="primary"
@@ -115,15 +145,15 @@
                     style="min-width: 100px"
                   />
 
-                  <v-select
-                    v-model="localFormData.storageSource"
+                  <!-- <v-select
+                    v-model="localFormData.fundingSource"
                     :items="fundingSourceOptions"
-                    label="補助來源"
+                    label="補助單位"
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
                     style="min-width: 180px"
-                  />
+                  /> -->
 
                   <v-text-field
                     v-model="localFormData.storageRemark"
@@ -170,7 +200,8 @@
                 class="pa-3 rounded"
                 color="grey-lighten-5"
               >
-                <div class="d-flex align-center flex-wrap">
+                <!-- 第一行：調節控制設施選擇和設施名稱 -->
+                <div class="d-flex align-center flex-wrap mb-3">
                   <v-select
                     v-model="localFormData.controlType"
                     :items="controlTypeOptions"
@@ -179,8 +210,31 @@
                     density="comfortable"
                     class="me-2 mb-2"
                     style="min-width: 180px"
+                    @update:model-value="onControlTypeChange"
                   />
 
+                  <v-text-field
+                    v-model="localFormData.controlName"
+                    label="設施名稱"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="min-width: 220px"
+                  />
+
+                  <!-- <v-select
+                    v-model="localFormData.fundingSource"
+                    :items="fundingSourceOptions"
+                    label="補助單位"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="min-width: 180px"
+                  /> -->
+                </div>
+
+                <!-- 第二行：數量、單價、總價和加入按鈕 -->
+                <div class="d-flex align-center flex-wrap">
                   <v-text-field
                     v-model="localFormData.controlQuantity"
                     label="數量"
@@ -195,6 +249,7 @@
                   <v-text-field
                     v-model="localFormData.controlUnitPrice"
                     label="單價"
+                    prefix="$"
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
@@ -204,22 +259,13 @@
                   <v-text-field
                     v-model="controlTotalPrice"
                     label="總價"
+                    prefix="$"
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 120px"
                     readonly
                     bg-color="grey-lighten-4"
-                  />
-
-                  <v-select
-                    v-model="localFormData.controlSource"
-                    :items="fundingSourceOptions"
-                    label="補助來源"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="min-width: 180px"
                   />
 
                   <v-btn
@@ -292,13 +338,44 @@
                     <td>{{ facility.typeLabel }}</td>
                     <td>{{ facility.name }}</td>
                     <td class="text-center">
-                      {{ facility.quantity }}
+                      <v-text-field
+                        v-model="facility.quantity"
+                        type="number"
+                        min="1"
+                        density="compact"
+                        variant="outlined"
+                        hide-details
+                        class="ma-1"
+                        style="width: 70px"
+                        @update:model-value="updateFacilityTotal(index)"
+                      />
                     </td>
                     <td class="text-center">
-                      {{ facility.unitPrice }}
+                      <v-text-field
+                        v-model="facility.unitPrice"
+                        type="number"
+                        prefix="$"
+                        min="0"
+                        density="compact"
+                        variant="outlined"
+                        hide-details
+                        class="ma-1"
+                        style="width: 100px"
+                        @update:model-value="updateFacilityTotal(index)"
+                      />
                     </td>
                     <td class="text-center">
-                      {{ facility.totalPrice }}
+                      <v-text-field
+                        v-model="facility.totalPrice"
+                        type="number"
+                        prefix="$"
+                        readonly
+                        density="compact"
+                        variant="outlined"
+                        hide-details
+                        class="ma-1"
+                        style="width: 100px"
+                      />
                     </td>
                     <td>{{ facility.remark }}</td>
                     <td>{{ facility.source }}</td>
@@ -360,9 +437,9 @@ const localValid = ref(true);
 
 // 本地表單數據
 const localFormData = reactive({
+  fundingSource: '',
   // 動力設備
   powerEquipment: '',
-  powerSource: '',
 
   // 調蓄設施
   storageType: '',
@@ -372,6 +449,7 @@ const localFormData = reactive({
 
   // 調節控制設施
   controlType: '',
+  controlName: '',
   controlQuantity: 1,
   controlUnitPrice: '',
   controlSource: '',
@@ -453,18 +531,32 @@ const controlTotalPrice = computed(() => {
 
 // 驗證條件
 const canAddPowerEquipment = computed(() => {
-  return !!localFormData.powerEquipment && !!localFormData.powerSource;
+  return !!localFormData.powerEquipment && !!localFormData.fundingSource;
 });
 
 const canAddStorageFacility = computed(() => {
-  return !!localFormData.storageType && !!localFormData.storageTonnage && !!localFormData.storageSource;
+  return !!localFormData.storageType && !!localFormData.storageTonnage && !!localFormData.fundingSource
+  ;
 });
 
 const canAddControlFacility = computed(() => {
   return !!localFormData.controlType &&
+         !!localFormData.controlName &&
          !!localFormData.controlQuantity &&
          !!localFormData.controlUnitPrice &&
-         !!localFormData.controlSource;
+         !!localFormData.fundingSource
+});
+
+const formattedPrice = computed({
+  get() {
+    // 顯示格式化價格
+    return formatPrice(localFormData.controlUnitPrice);
+  },
+  set(value) {
+    // 將輸入轉換回純數字儲存
+    const numericValue = value.replace(/[^\d]/g, '');
+    localFormData.controlUnitPrice = numericValue;
+  }
 });
 
 // 方法
@@ -487,12 +579,11 @@ const addPowerEquipment = () => {
       unitPrice: 4500, // 假設這是預設價格，實際上可能需要根據選擇動態獲取
       totalPrice: 4500,
       remark: '',
-      source: localFormData.powerSource
+      source: localFormData.fundingSource
     });
 
     // 清空選擇
     localFormData.powerEquipment = '';
-    localFormData.powerSource = '';
 
     updateFormData();
   }
@@ -513,13 +604,13 @@ const addStorageFacility = () => {
       unitPrice: unitPrice,
       totalPrice: unitPrice,
       remark: localFormData.storageRemark || '',
-      source: localFormData.storageSource
+      source: localFormData.fundingSource
     });
 
     // 清空選擇
     localFormData.storageType = '';
     localFormData.storageTonnage = '';
-    localFormData.storageSource = '';
+    // localFormData.storageSource = '';
     localFormData.storageRemark = '';
 
     updateFormData();
@@ -535,17 +626,18 @@ const addControlFacility = () => {
     localFormData.facilities.push({
       type: 'control',
       typeLabel: '調節控制設施',
-      name: localFormData.controlType,
+      name: localFormData.controlName,
       quantity: quantity,
       unitPrice: unitPrice,
       totalPrice: quantity * unitPrice,
       remark: '',
-      source: localFormData.controlSource
+      source: localFormData.fundingSource
     });
 
     // 清空選擇，但保留數量
     localFormData.controlType = '';
-    localFormData.controlUnitPrice = '';
+    localFormData.controlName = '';
+    // localFormData.controlUnitPrice = '';
     localFormData.controlSource = '';
 
     updateFormData();
@@ -558,6 +650,28 @@ const removeFacility = (index: number) => {
   updateFormData();
 };
 
+// 更新設施的總價
+const updateFacilityTotal = (index) => {
+  const facility = localFormData.facilities[index];
+
+  // 確保數量和單價為有效數字
+  const quantity = parseFloat(facility.quantity) || 0;
+  const unitPrice = parseFloat(facility.unitPrice) || 0;
+
+  // 重新計算總價並更新
+  facility.totalPrice = quantity * unitPrice;
+
+  // 更新父組件資料
+  updateFormData();
+};
+
+// 添加在 script 區塊頂部的工具函數
+const formatPrice = (value) => {
+  if (!value && value !== 0) return '';
+  return Number(value).toLocaleString();
+};
+
+
 // 更新父組件數據
 const updateFormData = () => {
   emit('update:formData', {
@@ -565,6 +679,12 @@ const updateFormData = () => {
     ...localFormData,
     valid: true // Always true for seamless navigation
   });
+};
+
+const onControlTypeChange = () => {
+  // 當選擇變化時，將調節控制設施類型的值自動帶入到設施名稱
+  localFormData.controlName = localFormData.controlType;
+  updateFormData();
 };
 
 // 初始化數據
@@ -674,5 +794,23 @@ watch(localValid, (newVal) => {
 .v-table th {
   font-weight: 600;
   color: rgba(0, 0, 0, 0.7);
+}
+
+/* 可編輯欄位的樣式 */
+.v-text-field.v-input--density-compact .v-field__input {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  min-height: 32px;
+}
+
+.v-text-field.v-input--density-compact {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* 提示可編輯欄位的背景色 */
+.v-text-field.v-input--density-compact .v-field {
+  background-color: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 </style>

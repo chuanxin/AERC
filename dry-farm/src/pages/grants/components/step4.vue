@@ -23,20 +23,24 @@
                 class="me-2"
                 size="small"
               >
-                mdi-currency-usd
+                mdi-hand-coin
               </v-icon>
               <span class="text-subtitle-1 font-weight-medium">補助來源</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet
+              <!-- <v-sheet
                 class="pa-3 rounded"
                 color="rgb(255, 243, 205)"
+              > -->
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
               >
                 <v-select
                   v-model="localFormData.fundingSource"
                   :items="fundingSourceOptions"
-                  label="補助來源"
+                  label="補助單位"
                   variant="outlined"
                   density="comfortable"
                   style="max-width: 400px"

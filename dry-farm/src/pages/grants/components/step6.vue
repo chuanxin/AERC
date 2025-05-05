@@ -3,6 +3,103 @@
     ref="stepContent"
     class="step-content"
   >
+    <!-- 設施明細區 -->
+    <v-card class="mb-4" flat>
+      <v-card-text class="pt-4 pb-0">
+        <v-card variant="outlined">
+          <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
+            <v-icon class="me-2" size="small">mdi-pipe</v-icon>
+            <span class="text-subtitle-1 font-weight-medium">本案設施</span>
+          </v-card-title>
+
+          <v-card-text class="pa-4">
+            <v-table class="facility-table border" density="compact">
+              <thead class="bg-grey-lighten-3">
+                <tr>
+                  <th>設施項目</th>
+                  <th>說明</th>
+                  <th class="text-center">單位</th>
+                  <th class="text-center">數量</th>
+                  <th class="text-center">單價</th>
+                  <th class="text-center">總價</th>
+                  <th>備註</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-weight-medium">A.田間管路設施費</td>
+                  <td></td>
+                  <td class="text-center">全</td>
+                  <td class="text-center"></td>
+                  <td class="text-center"></td>
+                  <td class="text-center">{{ localFormData.pipeLineSubsidy }}</td>
+                  <td></td>
+                </tr>
+                <tr v-for="(item, index) in mainPipes" :key="`main-${index}`">
+                  <td>  田間主管(L{{ index + 1 }})</td>
+                  <td></td>
+                  <td class="text-center">{{ item.unit }}</td>
+                  <td class="text-center">{{ item.quantity }}</td>
+                  <td class="text-center">{{ item.unitPrice }}</td>
+                  <td class="text-center">{{ item.totalPrice }}</td>
+                  <td>{{ item.remark }}</td>
+                </tr>
+                <tr v-for="(item, index) in irrigationSystem" :key="`irrigation-${index}`">
+                  <td>{{ item.name }}</td>
+                  <td></td>
+                  <td class="text-center">{{ item.unit }}</td>
+                  <td class="text-center">{{ item.quantity }}</td>
+                  <td class="text-center">{{ item.unitPrice }}</td>
+                  <td class="text-center">{{ item.totalPrice }}</td>
+                  <td>
+                    詳如數量表
+                    <!-- <v-table density="compact" style="background-color: transparent">
+                      <thead>
+                      </thead>
+                      <tbody>
+                      </tbody>
+                    </v-table> -->
+                  </td>
+                </tr>
+                <tr>
+                  <td class="font-weight-medium">B.灌溉調控設施</td>
+                  <td>依計畫補助標準</td>
+                  <td class="text-center"></td>
+                  <td class="text-center"></td>
+                  <td class="text-center"></td>
+                  <td class="text-center"></td>
+                  <td></td>
+                </tr>
+                <tr v-for="(item, index) in controlFacilities" :key="`control-${index}`">
+                  <td>  {{ item.name }}</td>
+                  <td></td>
+                  <td class="text-center">{{ item.unit }}</td>
+                  <td class="text-center">{{ item.quantity }}</td>
+                  <td class="text-center">{{ item.unitPrice }}</td>
+                  <td class="text-center">{{ item.totalPrice }}</td>
+                  <td>{{ item.remark }}</td>
+                </tr>
+                <tr>
+                  <td class="font-weight-medium">C.規劃設計費</td>
+                  <td>A*2.0%</td>
+                  <td class="text-center"></td>
+                  <td class="text-center">1</td>
+                  <td class="text-center"></td>
+                  <td class="text-center">{{ localFormData.designFee }}</td>
+                  <td></td>
+                </tr>
+                <tr class="bg-grey-lighten-4">
+                  <td colspan="5" class="text-right font-weight-bold">合計</td>
+                  <td class="text-center font-weight-bold">{{ localFormData.totalBudget }}</td>
+                  <td>新臺幣 {{ amountInWords }}元整 {{ isAboriginalAreaText }}</td>
+                </tr>
+              </tbody>
+            </v-table>
+          </v-card-text>
+        </v-card>
+      </v-card-text>
+    </v-card>
+
     <v-card
       class="mb-0 pa-0"
       flat
@@ -14,7 +111,7 @@
           @submit.prevent
         >
           <!-- 補助申請基本資訊區 -->
-          <v-card
+          <!-- <v-card
             class="mb-4"
             variant="outlined"
           >
@@ -107,7 +204,7 @@
                 </v-table>
               </v-sheet>
             </v-card-text>
-          </v-card>
+          </v-card> -->
 
           <!-- 農戶補助明細區 -->
           <v-card class="mb-4" variant="outlined">
@@ -132,6 +229,7 @@
                         政府<br>補助款
                       </td>
                       <td class="font-weight-medium text-center" rowspan="2" style="vertical-align: middle">
+                        農戶<br>請領款
                       </td>
                       <td class="text-center">A項補助費：{{ localFormData.pipeLineSubsidy }}</td>
                     </tr>
@@ -225,102 +323,6 @@
             </v-card-text>
           </v-card>
         </v-form>
-      </v-card-text>
-    </v-card>
-
-    <!-- 設施明細區 -->
-    <v-card class="mb-0 pb-0" flat>
-      <v-card-text class="pt-4 pb-0">
-        <v-card variant="outlined">
-          <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-            <v-icon class="me-2" size="small">mdi-pipe</v-icon>
-            <span class="text-subtitle-1 font-weight-medium">本案設施</span>
-          </v-card-title>
-
-          <v-card-text class="pa-4">
-            <v-table class="facility-table border" density="compact">
-              <thead class="bg-grey-lighten-3">
-                <tr>
-                  <th>設施項目</th>
-                  <th>說明</th>
-                  <th class="text-center">單位</th>
-                  <th class="text-center">數量</th>
-                  <th class="text-center">單價</th>
-                  <th class="text-center">總價</th>
-                  <th>備註</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="font-weight-medium">A.田間管路設施費</td>
-                  <td></td>
-                  <td class="text-center">全</td>
-                  <td class="text-center"></td>
-                  <td class="text-center"></td>
-                  <td class="text-center">{{ localFormData.pipeLineSubsidy }}</td>
-                  <td></td>
-                </tr>
-                <tr v-for="(item, index) in mainPipes" :key="`main-${index}`">
-                  <td>  田間主管(L{{ index + 1 }})</td>
-                  <td></td>
-                  <td class="text-center">{{ item.unit }}</td>
-                  <td class="text-center">{{ item.quantity }}</td>
-                  <td class="text-center">{{ item.unitPrice }}</td>
-                  <td class="text-center">{{ item.totalPrice }}</td>
-                  <td>{{ item.remark }}</td>
-                </tr>
-                <tr v-for="(item, index) in irrigationSystem" :key="`irrigation-${index}`">
-                  <td>{{ item.name }}</td>
-                  <td></td>
-                  <td class="text-center">{{ item.unit }}</td>
-                  <td class="text-center">{{ item.quantity }}</td>
-                  <td class="text-center">{{ item.unitPrice }}</td>
-                  <td class="text-center">{{ item.totalPrice }}</td>
-                  <td>
-                    <v-table density="compact" style="background-color: transparent">
-                      <thead>
-                      </thead>
-                      <tbody>
-                      </tbody>
-                    </v-table>
-                  </td>
-                </tr>
-                <tr>
-                  <td class="font-weight-medium">B.灌溉調控設施</td>
-                  <td>依計畫補助標準</td>
-                  <td class="text-center"></td>
-                  <td class="text-center"></td>
-                  <td class="text-center"></td>
-                  <td class="text-center"></td>
-                  <td></td>
-                </tr>
-                <tr v-for="(item, index) in controlFacilities" :key="`control-${index}`">
-                  <td>  {{ item.name }}</td>
-                  <td></td>
-                  <td class="text-center">{{ item.unit }}</td>
-                  <td class="text-center">{{ item.quantity }}</td>
-                  <td class="text-center">{{ item.unitPrice }}</td>
-                  <td class="text-center">{{ item.totalPrice }}</td>
-                  <td>{{ item.remark }}</td>
-                </tr>
-                <tr>
-                  <td class="font-weight-medium">C.規劃設計費</td>
-                  <td>A*2.0%</td>
-                  <td class="text-center"></td>
-                  <td class="text-center">1</td>
-                  <td class="text-center"></td>
-                  <td class="text-center">{{ localFormData.designFee }}</td>
-                  <td></td>
-                </tr>
-                <tr class="bg-grey-lighten-4">
-                  <td colspan="5" class="text-right font-weight-bold">合計</td>
-                  <td class="text-center font-weight-bold">{{ localFormData.totalBudget }}</td>
-                  <td>新臺幣 {{ amountInWords }}元整 {{ isAboriginalAreaText }}</td>
-                </tr>
-              </tbody>
-            </v-table>
-          </v-card-text>
-        </v-card>
       </v-card-text>
     </v-card>
   </div>

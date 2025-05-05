@@ -232,7 +232,7 @@
                     </v-snackbar>
 
                     <!-- Content Card for Step Components -->
-                    <v-card class="content-card mb-4" rounded="lg" elevation="0">
+                    <v-card class="content-card" rounded="lg" elevation="0">
                       <!-- Step components -->
                       <step1
                         v-if="currentStep === 1"
@@ -306,11 +306,13 @@
                     v-if="!isSmallScreen"
                     class="pt-0"
                   >
+                    <v-spacer />
+
                     <v-btn
                       v-if="currentStep > 1"
                       :disabled="isNavigating"
                       size="x-large"
-                      class="ml-6 navigation-btn"
+                      class="ml-6 mb-1 navigation-btn"
                       color="#3ea0a3"
                       variant="text"
                       density="compact"
@@ -323,8 +325,6 @@
                       </v-icon>
                       上一步
                     </v-btn>
-
-                    <v-spacer />
 
                     <v-btn
                       :disabled="isNavigating"
@@ -425,8 +425,8 @@ const steps = [
   { title: '灌溉調控設施', value: 3, subtitle: '請填寫灌溉調控設施' },
   { title: '田間管路', value: 4, subtitle: '請填寫田間管路' },
   { title: '現場勘查', value: 5, subtitle: '請填寫現場勘查' },
-  { title: '補助申請資料', value: 6, subtitle: '請填寫補助申請資料' },
-  { title: '變更設計及結案申報', value: 7, subtitle: '請填寫變更設計及結案申報' },
+  { title: '文件列印及結案申報', value: 6, subtitle: '請填寫補助申請資料' },
+  { title: '變更設計及功能測試', value: 7, subtitle: '請填寫變更設計及結案申報' },
   { title: '佐證及相關文件上傳', value: 8, subtitle: '請上傳佐證及相關文件' }
 ]
 

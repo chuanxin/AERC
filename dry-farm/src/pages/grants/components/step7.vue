@@ -3,6 +3,70 @@
     <v-card class="mb-0 pa-0" flat>
       <v-card-text class="pb-0 pt-0">
         <v-form ref="form" v-model="localValid" @submit.prevent>
+          <!-- 變更設計部分 -->
+          <v-card class="mb-4" variant="outlined">
+            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
+              <v-icon class="me-2" size="small">mdi-file-compare</v-icon>
+              <span class="text-subtitle-1 font-weight-medium">變更設計</span>
+            </v-card-title>
+
+            <v-card-text class="pa-4">
+              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+                <v-btn
+                  color="primary"
+                  block
+                  class="mb-4"
+                  @click="toggleDesignChange"
+                >
+                  {{ isDesignChangeVisible ? '取消變更設計' : '進行變更設計' }}
+                </v-btn>
+
+                <div v-if="isDesignChangeVisible">
+                  <v-table class="design-change-table border-table">
+                    <thead>
+                      <tr>
+                        <th>變更項目</th>
+                        <th>變更前數量</th>
+                        <th>變更後數量</th>
+                        <th>增減數量</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(item, index) in designChangeItems" :key="index">
+                        <td>{{ item.name }}</td>
+                        <td>
+                          <v-text-field
+                            v-model="item.beforeQuantity"
+                            variant="outlined"
+                            density="compact"
+                            type="number"
+                            @update:model-value="calculateDifference"
+                          ></v-text-field>
+                        </td>
+                        <td>
+                          <v-text-field
+                            v-model="item.afterQuantity"
+                            variant="outlined"
+                            density="compact"
+                            type="number"
+                            @update:model-value="calculateDifference"
+                          ></v-text-field>
+                        </td>
+                        <td>{{ item.afterQuantity - item.beforeQuantity }}</td>
+                      </tr>
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colspan="3" class="text-right font-weight-bold">合計增減</td>
+                        <td>{{ totalQuantityChange }}</td>
+                      </tr>
+                    </tfoot>
+                  </v-table>
+                </div>
+              </v-sheet>
+            </v-card-text>
+          </v-card>
+
           <!-- 結案申報基本資訊區域 -->
           <v-card class="mb-4" variant="outlined">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
@@ -46,13 +110,13 @@
                         農戶姓名
                       </td>
                       <td>
-                        {{ localFormData.applicantName }}
+                        {{ localFormData.name }}
                       </td>
                       <td class="font-weight-medium text-center">
                         農戶住址
                       </td>
                       <td>
-                        {{ localFormData.applicantAddress }}
+                        {{ localFormData.address }}
                       </td>
                     </tr>
                     <tr>
@@ -74,7 +138,7 @@
                         設施面積
                       </td>
                       <td>
-                        {{ localFormData.facilityArea }}公頃
+                        {{ localFormData.facilityAreaHa }}公頃
                       </td>
                       <td class="font-weight-medium text-center">
                         設施型式
@@ -101,28 +165,76 @@
                 <v-row>
                   <v-col cols="12" md="6">
                     <v-text-field
-                      v-model="localFormData.completionDate"
+                      v-model="formattedCompletionDate"
                       label="竣工日期"
                       variant="outlined"
                       density="comfortable"
                       readonly
-                      @click="datePickerDialog1 = true"
-                      :rules="[v => !!v || '請選擇竣工日期']"
                       prepend-icon="mdi-calendar"
+                      :rules="[v => !!localFormData.completionDate || '請選擇竣工日期']"
+                      @click="openDateDialog('completion')"
                       @update:model-value="updateFormData"
-                    ></v-text-field>
+                    />
 
+                    <!-- 自定義日期選擇對話框 -->
                     <v-dialog
                       v-model="datePickerDialog1"
-                      width="auto"
+                      width="600"
                     >
                       <v-card>
+                        <v-card-title class="text-h6 font-weight-bold" style="color: #2d8c8f">
+                          選擇竣工日期
+                        </v-card-title>
                         <v-card-text>
-                          <v-date-picker
-                            v-model="localFormData.completionDate"
-                            @update:model-value="datePickerDialog1 = false"
-                          ></v-date-picker>
+                          <v-row>
+                            <v-col cols="4">
+                              <v-select
+                                v-model="completionDateComponents.year"
+                                :items="yearOptions"
+                                label="年"
+                                variant="outlined"
+                                density="comfortable"
+                                color="#3ea0a3"
+                              />
+                            </v-col>
+                            <v-col cols="4">
+                              <v-select
+                                v-model="completionDateComponents.month"
+                                :items="monthOptions"
+                                label="月"
+                                variant="outlined"
+                                density="comfortable"
+                                color="#3ea0a3"
+                              />
+                            </v-col>
+                            <v-col cols="4">
+                              <v-select
+                                v-model="completionDateComponents.day"
+                                :items="dayOptions('completion')"
+                                label="日"
+                                variant="outlined"
+                                density="comfortable"
+                                color="#3ea0a3"
+                              />
+                            </v-col>
+                          </v-row>
                         </v-card-text>
+                        <v-card-actions>
+                          <v-spacer />
+                          <v-btn
+                            variant="text"
+                            @click="datePickerDialog1 = false"
+                          >
+                            取消
+                          </v-btn>
+                          <v-btn
+                            color="#3ea0a3"
+                            variant="text"
+                            @click="confirmDateSelection('completion')"
+                          >
+                            確定
+                          </v-btn>
+                        </v-card-actions>
                       </v-card>
                     </v-dialog>
                   </v-col>
@@ -146,28 +258,76 @@
                 <v-row>
                   <v-col cols="12" md="6">
                     <v-text-field
-                      v-model="localFormData.testDate"
+                      v-model="formattedTestDate"
                       label="測試日期"
                       variant="outlined"
                       density="comfortable"
                       readonly
-                      @click="datePickerDialog2 = true"
-                      :rules="[v => !!v || '請選擇測試日期']"
                       prepend-icon="mdi-calendar"
+                      :rules="[v => !!localFormData.testDate || '請選擇測試日期']"
+                      @click="openDateDialog('test')"
                       @update:model-value="updateFormData"
-                    ></v-text-field>
+                    />
 
+                    <!-- 自定義日期選擇對話框 -->
                     <v-dialog
                       v-model="datePickerDialog2"
-                      width="auto"
+                      width="600"
                     >
                       <v-card>
+                        <v-card-title class="text-h6 font-weight-bold" style="color: #2d8c8f">
+                          選擇測試日期
+                        </v-card-title>
                         <v-card-text>
-                          <v-date-picker
-                            v-model="localFormData.testDate"
-                            @update:model-value="datePickerDialog2 = false"
-                          ></v-date-picker>
+                          <v-row>
+                            <v-col cols="4">
+                              <v-select
+                                v-model="testDateComponents.year"
+                                :items="yearOptions"
+                                label="年"
+                                variant="outlined"
+                                density="comfortable"
+                                color="#3ea0a3"
+                              />
+                            </v-col>
+                            <v-col cols="4">
+                              <v-select
+                                v-model="testDateComponents.month"
+                                :items="monthOptions"
+                                label="月"
+                                variant="outlined"
+                                density="comfortable"
+                                color="#3ea0a3"
+                              />
+                            </v-col>
+                            <v-col cols="4">
+                              <v-select
+                                v-model="testDateComponents.day"
+                                :items="dayOptions('test')"
+                                label="日"
+                                variant="outlined"
+                                density="comfortable"
+                                color="#3ea0a3"
+                              />
+                            </v-col>
+                          </v-row>
                         </v-card-text>
+                        <v-card-actions>
+                          <v-spacer />
+                          <v-btn
+                            variant="text"
+                            @click="datePickerDialog2 = false"
+                          >
+                            取消
+                          </v-btn>
+                          <v-btn
+                            color="#3ea0a3"
+                            variant="text"
+                            @click="confirmDateSelection('test')"
+                          >
+                            確定
+                          </v-btn>
+                        </v-card-actions>
                       </v-card>
                     </v-dialog>
                   </v-col>
@@ -268,70 +428,6 @@
                     ></v-textarea>
                   </v-col>
                 </v-row>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
-
-          <!-- 變更設計部分 -->
-          <v-card class="mb-4" variant="outlined">
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-file-compare</v-icon>
-              <span class="text-subtitle-1 font-weight-medium">變更設計</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
-                <v-btn
-                  color="primary"
-                  block
-                  class="mb-4"
-                  @click="toggleDesignChange"
-                >
-                  {{ isDesignChangeVisible ? '取消變更設計' : '進行變更設計' }}
-                </v-btn>
-
-                <div v-if="isDesignChangeVisible">
-                  <v-table class="design-change-table border-table">
-                    <thead>
-                      <tr>
-                        <th>變更項目</th>
-                        <th>變更前數量</th>
-                        <th>變更後數量</th>
-                        <th>增減數量</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="(item, index) in designChangeItems" :key="index">
-                        <td>{{ item.name }}</td>
-                        <td>
-                          <v-text-field
-                            v-model="item.beforeQuantity"
-                            variant="outlined"
-                            density="compact"
-                            type="number"
-                            @update:model-value="calculateDifference"
-                          ></v-text-field>
-                        </td>
-                        <td>
-                          <v-text-field
-                            v-model="item.afterQuantity"
-                            variant="outlined"
-                            density="compact"
-                            type="number"
-                            @update:model-value="calculateDifference"
-                          ></v-text-field>
-                        </td>
-                        <td>{{ item.afterQuantity - item.beforeQuantity }}</td>
-                      </tr>
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td colspan="3" class="text-right font-weight-bold">合計增減</td>
-                        <td>{{ totalQuantityChange }}</td>
-                      </tr>
-                    </tfoot>
-                  </v-table>
-                </div>
               </v-sheet>
             </v-card-text>
           </v-card>
@@ -468,11 +564,11 @@ const localFormData = reactive({
   // 基本資訊
   applicationYear: '',     // 申請年度
   caseNumber: '',          // 案號
-  applicantName: '',       // 農戶姓名
+  name: '',       // 農戶姓名
   applicantAddress: '',    // 農戶住址
   facilityLocation: '',    // 設施地段
   facilityNumber: '',      // 設施地號
-  facilityArea: '',        // 設施面積
+  facilityAreaHa: '',        // 設施面積
   facilityType: '',        // 設施型式
 
   // 竣工資訊
@@ -514,6 +610,166 @@ const totalQuantityChange = computed(() => {
 
 // 驗證規則
 const photoRules = [v => !!v || '請上傳照片'];
+
+// 日期選擇組件
+const completionDateComponents = reactive({
+  year: new Date().getFullYear(),
+  month: new Date().getMonth() + 1,
+  day: new Date().getDate()
+});
+
+const testDateComponents = reactive({
+  year: new Date().getFullYear(),
+  month: new Date().getMonth() + 1,
+  day: new Date().getDate()
+});
+
+// 產生年份選項 (民國年)
+const yearOptions = computed(() => {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  // 產生從當前年份到五年前的年份選項
+  for (let year = currentYear - 5; year <= currentYear; year++) {
+    years.push({
+      title: `民國 ${year - 1911} 年`,
+      value: year
+    });
+  }
+  return years;
+});
+
+// 產生月份選項
+const monthOptions = computed(() => {
+  return Array.from({ length: 12 }, (_, i) => ({
+    title: `${i + 1} 月`,
+    value: i + 1
+  }));
+});
+
+// 產生日期選項 (考慮每月天數)
+const dayOptions = (type) => {
+  const components = type === 'completion'
+    ? completionDateComponents
+    : testDateComponents;
+
+  const year = components.year;
+  const month = components.month;
+
+  // 計算當月天數
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  return Array.from({ length: daysInMonth }, (_, i) => ({
+    title: `${i + 1} 日`,
+    value: i + 1
+  }));
+};
+
+// 日期格式化（民國年）
+const formattedCompletionDate = computed(() => {
+  if (!localFormData.completionDate) return '';
+
+  try {
+    const date = new Date(localFormData.completionDate);
+    if (isNaN(date.getTime())) return '';
+
+    // 計算民國年
+    const twYear = date.getFullYear() - 1911;
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `民國 ${twYear} 年 ${month} 月 ${day} 日`;
+  } catch (error) {
+    console.error('日期格式化錯誤:', error);
+    return '';
+  }
+});
+
+const formattedTestDate = computed(() => {
+  if (!localFormData.testDate) return '';
+
+  try {
+    const date = new Date(localFormData.testDate);
+    if (isNaN(date.getTime())) return '';
+
+    // 計算民國年
+    const twYear = date.getFullYear() - 1911;
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `民國 ${twYear} 年 ${month} 月 ${day} 日`;
+  } catch (error) {
+    console.error('日期格式化錯誤:', error);
+    return '';
+  }
+});
+
+// 開啟日期選擇對話框
+const openDateDialog = (type) => {
+  // 選擇要操作的組件和對話框
+  const components = type === 'completion'
+    ? completionDateComponents
+    : testDateComponents;
+
+  const dateValue = type === 'completion'
+    ? localFormData.completionDate
+    : localFormData.testDate;
+
+  const dialog = type === 'completion'
+    ? datePickerDialog1
+    : datePickerDialog2;
+
+  // 如果已有日期，解析它
+  if (dateValue) {
+    try {
+      const date = new Date(dateValue);
+      if (!isNaN(date.getTime())) {
+        components.year = date.getFullYear();
+        components.month = date.getMonth() + 1;
+        components.day = date.getDate();
+      }
+    } catch (error) {
+      console.error('日期解析錯誤:', error);
+      // 預設為今天
+      const today = new Date();
+      components.year = today.getFullYear();
+      components.month = today.getMonth() + 1;
+      components.day = today.getDate();
+    }
+  }
+
+  // 打開對話框
+  if (type === 'completion') {
+    datePickerDialog1.value = true;
+  } else {
+    datePickerDialog2.value = true;
+  }
+};
+
+// 確認日期選擇
+const confirmDateSelection = (type) => {
+  // 選擇要操作的組件和對話框
+  const components = type === 'completion'
+    ? completionDateComponents
+    : testDateComponents;
+
+  // 用選擇的年、月、日構建日期字串
+  const year = components.year;
+  const month = String(components.month).padStart(2, '0');
+  const day = String(components.day).padStart(2, '0');
+  const dateString = `${year}-${month}-${day}`;
+
+  // 更新 localFormData 中的日期
+  if (type === 'completion') {
+    localFormData.completionDate = dateString;
+    datePickerDialog1.value = false;
+  } else {
+    localFormData.testDate = dateString;
+    datePickerDialog2.value = false;
+  }
+
+  // 更新父組件數據
+  updateFormData();
+};
 
 // 處理照片預覽
 const handlePhotoChange = (type: 'before' | 'after') => {
@@ -581,6 +837,9 @@ const cleanupPreviews = () => {
 
 // 初始化數據
 onMounted(() => {
+  console.log('step2 data:', localFormData);
+  console.log('facilityArea from step2:', localFormData.facilityAreaHa);
+  console.log('landAreaHa from step2:', localFormData.landAreaHa);
   // 從父組件接收數據
   if (props.formData) {
     // 設置基本屬性
@@ -622,18 +881,18 @@ onMounted(() => {
   }
 
   // Get applicant info
-  if (!localFormData.applicantName) {
+  if (!localFormData.name) {
     if (grantsStore.formData[1]?.name) {
-      localFormData.applicantName = grantsStore.formData[1].name;
-    } else if (grantsStore.formData[6]?.applicantName) {
-      localFormData.applicantName = grantsStore.formData[6].applicantName;
+      localFormData.name = grantsStore.formData[1].name;
+    } else if (grantsStore.formData[6]?.name) {
+      localFormData.name = grantsStore.formData[6].name;
     }
   }
 
   // Get applicant address
-  if (!localFormData.applicantAddress) {
+  if (!localFormData.address) {
     if (grantsStore.formData[6]?.applicantAddress) {
-      localFormData.applicantAddress = grantsStore.formData[6].applicantAddress;
+      localFormData.address = grantsStore.formData[6].applicantAddress;
     } else {
       const step1Data = grantsStore.formData[1];
       if (step1Data) {
@@ -643,7 +902,7 @@ onMounted(() => {
         const address = step1Data.address || '';
 
         if (county || town || village || address) {
-          localFormData.applicantAddress = `${county}${town}${village}${address}`;
+          localFormData.address = `${county}${town}${village}${address}`;
         }
       }
     }
@@ -673,11 +932,11 @@ onMounted(() => {
     }
   }
 
-  if (!localFormData.facilityArea) {
-    if (grantsStore.formData[6]?.facilityArea) {
-      localFormData.facilityArea = grantsStore.formData[6].facilityArea;
+  if (!localFormData.facilityAreaHa) {
+    if (grantsStore.formData[6]?.facilityAreaHa) {
+      localFormData.facilityAreaHa = grantsStore.formData[6].facilityAreaHa;
     } else if (grantsStore.formData[2]?.landAreaHa) {
-      localFormData.facilityArea = grantsStore.formData[2].landAreaHa;
+      localFormData.facilityAreaHa = grantsStore.formData[2].facilityAreaHa;
     }
   }
 
