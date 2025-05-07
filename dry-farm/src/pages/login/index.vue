@@ -3,7 +3,7 @@
     fluid
     class="fill-height pa-0 background"
   >
-    <v-col>
+    <v-col class="login-content-col">
       <v-img
         src="@/assets/logo-xl.png"
         cover
@@ -549,6 +549,11 @@
     background-position: fixed;
     background-color: rgba(255, 255, 255, 1);
     /* background-blend-mode: overlay; */
+  }
+
+  .login-content-col {
+    margin-bottom: 120px !important; /* 固定底部間距 */
+    padding-bottom: 20px; /* 額外內部間距 */
   }
   /* Disable all possible stepper transitions */
   :deep(.v-stepper) {
