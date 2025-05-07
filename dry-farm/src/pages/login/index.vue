@@ -1,7 +1,7 @@
 <template>
   <v-container
     fluid
-    class="fill-height bg-light pa-0 background"
+    class="fill-height pa-0 background"
   >
     <v-col>
       <v-img
@@ -547,8 +547,8 @@
     background-image: url('@/assets/bg_login.svg');
     background-size: cover;
     background-position: fixed;
-    background-color: rgba(255, 255, 255, 0.2);  /* 白色半透明遮罩 */
-    background-blend-mode: overlay;
+    background-color: rgba(255, 255, 255, 1);
+    /* background-blend-mode: overlay; */
   }
   /* Disable all possible stepper transitions */
   :deep(.v-stepper) {
