@@ -1,7 +1,7 @@
 <template>
   <v-container
     fluid
-    class="px-6 py-4 dashboard-container"
+    class="px-6 py-4 pb-0 dashboard-container"
     style="background-color: white"
   >
     <!-- 最新消息區塊 -->
@@ -402,7 +402,7 @@ onMounted(() => {
 <style scoped>
 /* 添加背景圖片樣式 */
 .dashboard-container {
-  background-image: url('@/assets/bg_index.png');
+  background-image: url('@/assets/bg_index.svg');
   background-size: cover;
   background-position: center bottom;
   background-repeat: no-repeat;

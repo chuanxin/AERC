@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="grants-new-container px-6 pb-10 pt-0">
+  <v-container fluid class="grants-new-container px-6 pb-10 pt-0" style="background-color: white">
     <v-row justify="center">
       <v-col cols="10" lg="10" align-self="center" class="pt-8">
         <div class="section-wrapper">
@@ -166,7 +166,7 @@ watch(displayStep, (newStep) => {
 <style scoped>
 /* 添加背景圖片樣式 */
 .grants-new-container {
-  background-image: url('@/assets/bg.png');
+  background-image: url('@/assets/bg_index.svg');
   background-size: cover;
   background-position: center bottom;
   background-repeat: no-repeat;

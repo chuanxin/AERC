@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="grants-container px-6 pb-10 pt-0" style="background-color: white">
+  <v-container fluid class="grants-container px-6 pb-0 pt-0" style="background-color: white">
     <!-- 標題區域 -->
     <v-row justify="center">
       <v-col cols="10" lg="10" align-self="center" class="pt-0">
@@ -567,12 +567,12 @@ onMounted(() => {
 <style scoped>
 /* 添加背景圖片樣式 */
 .grants-container {
-  background-image: url('@/assets/bg_index.png');
+  background-image: url('@/assets/bg_index.svg');
   background-size: cover;
   background-position: center bottom;
   background-repeat: no-repeat;
   background-attachment: fixed;
-  min-height: 100vh;
+  /* min-height: 100vh; */
 }
 
 /* 區塊共通容器 */
@@ -653,6 +653,7 @@ onMounted(() => {
 
 /* 按鈕樣式 */
 .action-btn {
+  background-color: white !important;
   font-weight: 500;
   transition: all 0.2s ease;
 }

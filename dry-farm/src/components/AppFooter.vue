@@ -1,8 +1,8 @@
 <template>
   <v-footer
     :app="false"
-    class="pa-0 transparent-footer"
-    height="40"
+    class="pa-0 d-flex flex-column transparent-footer"
+    height="auto"
   >
     <!-- <a
       v-for="item in items"
@@ -46,8 +46,10 @@
         MIT License
       </a>
     </div> -->
-    <div class="text-center footer-text">
-      <span>本系統網站建議以Google Chrome、Edge、Firefox等瀏覽器進行最佳瀏覽使用<br>版權所有： 農業部農田水利署、系統開發：財團法人農業工程研究中心</span>
+    <div class="mb-2 footer-content d-flex flex-column justify-end">
+      <div class="text-center footer-text">
+        <span>本系統網站建議以Google Chrome、Edge、Firefox等瀏覽器進行最佳瀏覽使用<br>版權所有： 農業部農田水利署、系統開發：財團法人農業工程研究中心</span>
+      </div>
     </div>
   </v-footer>
 </template>
@@ -90,15 +92,30 @@
 </script>
 
 <style scoped lang="sass">
+.footer-content
+  position: relative
+  width: 100%
+  height: 100%
+  // z-index: 2
+  padding-top: 120px
+
 .footer-text
   font-size: 14px
   width: 100%
   text-align: center
+  padding: 20px 0
+  z-index: 2
 
 .transparent-footer
-  position: absolute
-  bottom: 0
-  width: 100%
-  background-color: rgba(255, 255, 255, 0.5)
+  background-image: url('@/assets/bg_footer.svg');
+  background-size: cover;
+  background-repeat: no-repeat;
+  width: 100%;
+  min-height: 300px
+  background-color: transparent
+  position: relative
+  z-index: 1
+  background-color: rgba(255, 255, 255, 1)
   color: black
+  margin-top: -120px !important
 </style>

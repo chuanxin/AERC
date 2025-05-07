@@ -15,6 +15,9 @@ from src.schemas.grants import (
 )
 from src.schemas.token import Status
 
+from datetime import datetime, date
+import pytz
+
 
 logger = logging.getLogger(__name__)
 
@@ -227,12 +230,33 @@ def format_tw_date(date_obj):
     tw_year = date_obj.year - 1911
     return f"{tw_year:03d}/{date_obj.month:02d}/{date_obj.day:02d}"
 
+def parse_tw_date(date_str: str) -> Optional[date]:
+    """將民國年格式 (YYY/MM/DD) 轉換為西元日期對象"""
+    if not date_str or '/' not in date_str:
+        return None
+    
+    try:
+        parts = date_str.split('/')
+        if len(parts) != 3:
+            return None
+        
+        tw_year, month, day = parts
+        gregorian_year = int(tw_year) + 1911
+        
+        return date(year=gregorian_year, month=int(month), day=int(day))
+    except (ValueError, TypeError):
+        return None
+    
+
 async def create_grant(data: GrantInSchema, current_user: UserOutSchema) -> Dict[str, Any]:
     """建立新的補助申請案件"""
     async with in_transaction():
         try:
             # 準備目前年度(民國年)
             current_year = datetime.now().year - 1911
+
+            tw_timezone = pytz.timezone('Asia/Taipei')
+            tw_now = datetime.now(tw_timezone)
             
             # 建立 Grant 物件但不儲存，讓我們可以生成 case_number
             grant = Grants(
@@ -248,8 +272,8 @@ async def create_grant(data: GrantInSchema, current_user: UserOutSchema) -> Dict
                 office_id=data.office_id,
                 undertracker=data.undertracker,
                 created_by_id=current_user.id,
-                received_date=datetime.now().date(),
-                received_time=datetime.now().time(),
+                received_date=tw_now.date(),
+                received_time=tw_now.time(),
                 status=GrantStatus.DRAFT,
                 current_step=1
             )
@@ -306,7 +330,7 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
             "office": grant.office,
             "office_id": grant.office_id,
             "undertracker": grant.undertracker,
-            "received_date": grant.received_date,
+            "received_date": format_tw_date(grant.received_date) if grant.received_date else None,
             "received_time": grant.received_time.strftime("%H:%M") if grant.received_time else None,
             "status": grant.status,
             "current_step": grant.current_step,
@@ -400,7 +424,7 @@ async def get_grant_step_data(case_number: str, step: int) -> Dict[str, Any]:
                 "department": grant.office,
                 "departmentId": grant.office_id,
                 "caseNumber": grant.case_number,
-                "receivedDate": grant.received_date.isoformat() if grant.received_date else None,
+                "receivedDate": format_tw_date(grant.received_date) if grant.received_date else None,
                 "receivedTime": grant.received_time.strftime("%H:%M") if grant.received_time else None
             })
         elif step == 2:  # Land information step

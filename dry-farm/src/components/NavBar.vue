@@ -5,11 +5,18 @@
     :extension-height="showDrawer ? 0 : 48"
     scroll-behavior="elevate"
   >
-    <!-- <template v-slot:image>
+    <template #image>
+      <!-- Background image for the app bar -->
       <v-img
+        src="@/assets/bg_top.svg"
+        class="d-none d-sm-block"
+        height="100%"
+        position="top right"
+      />
+      <!-- <v-img
         gradient="to top right, rgba(19,84,122,.8), rgba(128,208,199,.8)"
-      ></v-img>
-    </template> -->
+      ></v-img> -->
+    </template>
     <!-- Application title -->
     <component
       :is="name === 'xs' ? 'h4' : 'h1'"

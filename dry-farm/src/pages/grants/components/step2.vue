@@ -163,14 +163,14 @@
                     <div class="ms-1">
                       原民區域：{{ localFormData.isAboriginalArea ? '是' : '否' }}
                     </div>
-                    <v-checkbox
+                    <!-- <v-checkbox
                       v-model="localFormData.isAboriginalArea"
                       disabled
                       hide-details
                       density="compact"
                       class="ms-auto"
                       @update:model-value="updateFormData"
-                    />
+                    /> -->
                   </v-col>
                 </v-row>
               </v-sheet>

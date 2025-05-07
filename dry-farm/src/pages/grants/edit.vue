@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="grants-edit-container px-6 pb-10 pt-0">
+  <v-container fluid class="grants-edit-container px-6 pb-0 pt-0" style="background-color: white">
     <!-- Loading indicator -->
     <v-overlay
       v-if="!isDataLoaded"
@@ -30,12 +30,10 @@
       <v-col cols="12" lg="11" align-self="center">
         <div class="section-wrapper">
           <!-- Navigation Drawer with Glass Effect -->
-          <v-layout>
+          <v-layout class="pb-1">
             <v-navigation-drawer
               v-model="drawerOpen"
               rounded="lg"
-              border="b-sm"
-              elevation="0"
               :rail-width="60"
               :permanent="!isSmallScreen"
               :temporary="isSmallScreen"
@@ -312,7 +310,7 @@
                       v-if="currentStep > 1"
                       :disabled="isNavigating"
                       size="x-large"
-                      class="ml-6 mb-1 navigation-btn"
+                      class="ml-6 mb-1 pr-6 navigation-btn"
                       color="#3ea0a3"
                       variant="text"
                       density="compact"
@@ -329,7 +327,7 @@
                     <v-btn
                       :disabled="isNavigating"
                       color="#3ea0a3"
-                      class="mr-6 next-btn"
+                      class="mr-6 pl-6 next-btn"
                       size="x-large"
                       variant="outlined"
                       density="compact"
@@ -337,7 +335,12 @@
                       :ripple="false"
                       @click="goToNextStep"
                     >
-                      {{ currentStep === 8 ? '完成' : '下一步' }}
+                      <!-- 替換為更詳細的邏輯顯示不同的按鈕文字 -->
+                      <template v-if="currentStep === 8">完成</template>
+                      <template v-else-if="currentStep === 7">結案</template>
+                      <template v-else-if="currentStep === 6">完成申報</template>
+                      <template v-else>下一步</template>
+
                       <v-icon
                         v-if="currentStep < 8"
                         end
@@ -723,12 +726,12 @@ onBeforeRouteLeave((to, from, next) => {
 <style scoped>
 /* 添加背景圖片樣式 */
 .grants-edit-container {
-  background-image: url('@/assets/bg.png');
-  background-size: cover;
+  background-image: url('@/assets/bg_index.svg');
+  /* background-size: cover;
   background-position: center bottom;
   background-repeat: no-repeat;
   background-attachment: fixed;
-  min-height: 100vh;
+  min-height: 100vh; */
 }
 
 /* 區塊共通容器 */
@@ -795,10 +798,31 @@ onBeforeRouteLeave((to, from, next) => {
 
 /* Navigation drawer with glass effect */
 .navigation-drawer-glass {
-  background-color: rgba(255, 255, 255, 0.5) !important;
+  /* background-color: rgba(255, 255, 255, 0.5) !important;
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.3) !important; */
+
+  /* position: relative; */
+  /* overflow: visible !important; */
+  /* border-top-left-radius: 0 !important; */
+  /* transition: all 0.3s ease; */
+
+  /* 毛玻璃效果 */
+  background-color: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+
+  /* 調整邊框和陰影效果與 section-card 一致 */
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  /* box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05) !important; */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+
+  /* 關鍵修改：調整邊距和高度 */
+  margin: 0px 0 !important; /* 與 section-card 一致的上下邊距 */
+  max-height: calc(100% - 8px) !important; /* 減去上下邊距總和 */
+  border-radius: 12px !important; /* 添加與卡片相同的圓角 */
+  overflow: hidden !important;
 }
 
 /* Step list items */

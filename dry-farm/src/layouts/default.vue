@@ -1,6 +1,6 @@
 <template>
   <NavBar />
-  <v-main>
+  <v-main class="default-layout">
     <!-- <v-card
       v-if="route.path !== '/'"
       flat
@@ -10,10 +10,9 @@
     <v-breadcrumbs
       v-if="route.path !== '/'"
       :items="breadcrumbItems"
-      class="pl-10 px-2 py-1"
+      class="pl-10 px-2 py-1 transparent-breadcrumb"
       density="compact"
       active-class="primary--text"
-      bg-color="rgba(255, 255, 255, 1)"
       tile
     >
       <template #divider>
@@ -105,6 +104,11 @@
 </script>
 
 <style scoped>
+.default-layout {
+  position: relative;
+  z-index: 99;
+}
+
 .breadcrumbs-wrapper {
   margin-top: 16px;
   margin-bottom: 12px;
@@ -143,6 +147,16 @@
 :deep(.v-breadcrumbs-divider) {
   padding-inline: 4px;
 }
+
+:deep(.v-breadcrumbs) {
+  background-color: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(5px);
+}
+
+/* .transparent-breadcrumb :deep(.v-breadcrumbs) {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+} */
 
 /* 全局樣式確保 OpenLayers 正確顯示 */
 .ol-viewport {
