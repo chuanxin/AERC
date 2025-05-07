@@ -22,7 +22,14 @@
               class="custom-title"
               color="#3ea0a3"
             >
-              <v-card-title class="text-h5 font-weight-black">
+              <v-card-title class="text-h5 font-weight-black px-4">
+                <v-img
+                  src="@/assets/icons/news.svg"
+                  alt="news icon"
+                  width="24"
+                  height="24"
+                  class="me-2"
+                />
                 最新消息
               </v-card-title>
             </v-card-item>
@@ -125,7 +132,14 @@
             color="#3ea0a3"
           >
             <v-card-item class="custom-title">
-              <v-card-title class="text-h5 font-weight-black">
+              <v-card-title class="text-h5 font-weight-black pr-4">
+                <v-img
+                  src="@/assets/icons/budget.svg"
+                  alt="news icon"
+                  width="24"
+                  height="24"
+                  class="mb-1"
+                />
                 預算
               </v-card-title>
             </v-card-item>

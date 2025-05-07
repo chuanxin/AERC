@@ -260,7 +260,7 @@
           </v-btn>
           <v-btn
             :type="activeForm === 'login' ? 'submit' : 'button'"
-            color="primary"
+            color="#FF9C00"
             rounded="t-0 b-xl"
             size="x-large"
             :text="getButtonText"
@@ -544,7 +544,7 @@
 
 <style scoped>
   .background {
-    background-image: url('@/assets/bg_login.jpg');
+    background-image: url('@/assets/bg_login.svg');
     background-size: cover;
     background-position: fixed;
     background-color: rgba(255, 255, 255, 0.2);  /* 白色半透明遮罩 */
