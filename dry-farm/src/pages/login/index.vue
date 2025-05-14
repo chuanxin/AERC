@@ -53,7 +53,7 @@
                 cols="12"
                 class="pa-0 ma-0 text-center"
               >
-                <div class="text-h4 text-sm-h5">
+                <div class="text-h5 text-sm-h5">
                   <strong>推廣管路灌溉設施管理資料庫</strong>
                 </div>
               </v-col>

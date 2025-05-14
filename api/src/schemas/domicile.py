@@ -23,7 +23,7 @@ class TownSchema(BaseModel):
     county_name: Optional[str] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class VillageSchema(BaseModel):
     id: int
@@ -37,7 +37,7 @@ class VillageSchema(BaseModel):
     county_name: Optional[str] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Input schemas (for creation/updates)
 CountyCreateSchema = pydantic_model_creator(
@@ -61,4 +61,4 @@ class VillageNestedSchema(BaseModel):
     code: str
     
     class Config:
-        orm_mode = True
+        from_attributes = True

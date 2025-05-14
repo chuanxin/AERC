@@ -4,7 +4,7 @@
     class="step-content"
   >
     <v-card
-      class="mb-0 pa-0"
+      class="mt-4 pa-0"
       flat
     >
       <v-card-text class="pb-0 pt-0">
@@ -15,709 +15,755 @@
         >
           <!-- 設施地址區域 -->
           <v-card
-            class="mb-4"
-            variant="outlined"
+            flat
+            class="mb-4 pa-4"
+            color="#e3f4f4"
+            rounded="lg"
           >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
+            <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #2d8c8f">
               <v-icon
-                class="me-2"
+                color="#3ea0a3"
+                class="me-2 pb-1"
                 size="small"
               >
                 mdi-home-map-marker
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">設施地址</span>
+              <span>設施地址</span>
             </v-card-title>
 
-            <v-card-text class="pa-4">
-              <!-- 地址選擇區域 -->
-              <v-sheet
-                class="mb-3 pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                  >
-                    mdi-map
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">行政區域</span>
-                </div>
-                <v-row>
-                  <v-col
-                    cols="12"
-                    md="4"
-                  >
-                    <v-select
-                      v-model="localFormData.addressCounty"
-                      :items="counties"
-                      label="縣市"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="[v => !!v || '請選擇縣市']"
-                      @update:model-value="onCountyChange"
-                    />
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="4"
-                  >
-                    <v-select
-                      v-model="localFormData.addressTown"
-                      :items="towns"
-                      label="鄉鎮市區"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="[v => !!v || '請選擇鄉鎮市區']"
-                      :disabled="!localFormData.addressCounty"
-                      @update:model-value="onTownChange"
-                    />
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="4"
-                  >
-                    <v-select
-                      v-model="localFormData.addressVillage"
-                      :items="villages"
-                      label="地段"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="[v => !!v || '請選擇村里']"
-                      :disabled="!localFormData.addressTown"
-                    />
-                  </v-col>
-                </v-row>
-              </v-sheet>
-
-              <!-- 地號與查詢 -->
-              <v-sheet
-                class="mb-3 pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                  >
-                    mdi-numeric
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">地號資訊</span>
-                </div>
-                <v-row align="center">
-                  <v-col
-                    cols="12"
-                    md="5"
-                    class="d-flex align-center"
-                  >
-                    <v-text-field
-                      v-model="formattedLandNumberMain"
-                      label="母地號"
-                      variant="outlined"
-                      density="comfortable"
-                      type="tel"
-                      maxlength="4"
-                      style="width: 15px"
-                      :rules="[v => !!v || '請輸入主地號']"
-                      @focus="landNumberMainFocused = true"
-                      @blur="landNumberMainFocused = false"
-                    />
-
-                    <v-text-field
-                      v-model="formattedLandNumberSub"
-                      label="子地號"
-                      prepend-icon="mdi-minus"
-                      variant="outlined"
-                      density="comfortable"
-                      type="tel"
-                      maxlength="4"
-                      class="pl-3"
-                      style="width: 70px"
-                      @focus="landNumberSubFocused = true"
-                      @blur="landNumberSubFocused = false"
-                    />
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="7"
-                    class="d-flex align-center"
-                  >
-                    <v-btn
-                      color="secondary"
-                      variant="tonal"
-                      class="me-2"
-                      @click="showLandInfoDialog"
-                    >
-                      <v-icon
-                        size="small"
-                        class="me-1"
-                      >
-                        mdi-magnify
-                      </v-icon>
-                      查詢
-                    </v-btn>
-                    <div class="text-caption text-grey">
-                      (若查無地號請洽中心)
-                    </div>
-                    <v-spacer />
-                    <div class="ms-1">
-                      原民區域：{{ localFormData.isAboriginalArea ? '是' : '否' }}
-                    </div>
-                    <!-- <v-checkbox
-                      v-model="localFormData.isAboriginalArea"
-                      disabled
-                      hide-details
-                      density="compact"
-                      class="ms-auto"
-                      @update:model-value="updateFormData"
-                    /> -->
-                  </v-col>
-                </v-row>
-              </v-sheet>
-
-              <!-- 特性選項區域 -->
-              <v-sheet
-                class="mb-3 pa-3 rounded"
-                color="blue-grey-lighten-5"
-              >
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                  >
-                    mdi-gate
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">土地特性</span>
-                </div>
-                <v-row>
-                  <v-col
-                    cols="12"
-                    md="4"
-                  >
-                    <div class="d-flex align-center">
-                      <span class="ml-1">位於灌區內</span>
-                      <span class="ml-1">：{{ localFormData.isIrrigationArea ? '是' : '否' }}</span>
-                      <v-checkbox
-                        v-model="localFormData.isIrrigationArea"
-                        hide-details
-                        density="compact"
-                        @update:model-value="updateFormData"
-                      />
-                    </div>
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="4"
-                  >
-                    <div class="d-flex align-center">
-                      <span class="ml-1">再次申請</span>
-                      <span class="ml-1">：{{ localFormData.isReapplied ? '是' : '否' }}</span>
-                      <v-checkbox
-                        v-model="localFormData.isReapplied"
-                        hide-details
-                        density="compact"
-                        @update:model-value="updateFormData"
-                      />
-                    </div>
-                  </v-col>
-                </v-row>
-              </v-sheet>
-
-              <!-- 座標資訊 -->
-              <v-sheet
-                class="mb-3 pa-3 rounded"
-                color="blue-grey-lighten-5"
-              >
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                  >
-                    mdi-map-marker
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">座標資訊</span>
-                </div>
-                <v-row>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <v-text-field
-                      v-model="localFormData.longitude"
-                      label="經度"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="[v => !!v || '請輸入經度']"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <v-text-field
-                      v-model="localFormData.latitude"
-                      label="緯度"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="[v => !!v || '請輸入緯度']"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                </v-row>
-              </v-sheet>
-
-              <!-- 面積資訊 -->
-              <v-sheet class="mb-3 pa-3 rounded bg-amber-lighten-5 border border-amber">
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                    color="amber-darken-2"
-                  >
-                    mdi-ruler-square
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">面積資訊</span>
-                </div>
-                <v-row>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <div class="d-flex align-center">
-                      <span class="text-body-1 font-weight-medium me-2">農地面積</span>
-                      <v-text-field
-                        v-model="localFormData.landArea"
-                        variant="outlined"
-                        bg-color="yellow-lighten-3"
-                        density="compact"
-                        class="me-2"
-                        style="width: 120px"
-                        :rules="[v => !!v || '請輸入土地面積']"
-                        @update:model-value="updateFormData"
-                      />
-                      <div class="me-2">
-                        ㎡
-                      </div>
-                      <v-text-field
-                        v-model="landAreaHaComputed"
-                        variant="outlined"
-                        bg-color="yellow-lighten-3"
-                        density="compact"
-                        style="width: 120px"
-                        readonly
-                      />
-                      <div class="ms-2">
-                        公頃
-                      </div>
-                    </div>
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <div class="d-flex align-center">
-                      <span class="text-body-1 font-weight-medium me-2">施作面積</span>
-                      <v-text-field
-                        v-model="localFormData.facilityArea"
-                        variant="outlined"
-                        bg-color="yellow-lighten-3"
-                        density="compact"
-                        class="me-2"
-                        style="width: 120px"
-                        :rules="[
-                          v => !!v || '請輸入施作面積',
-                          v => !v || parseFloat(v) <= parseFloat(localFormData.landArea) || '施作面積不能大於農地面積'
-                        ]"
-                        @update:model-value="updateFormData"
-                      />
-                      <div class="me-2">
-                        ㎡
-                      </div>
-                      <v-text-field
-                        v-model="facilityAreaHaComputed"
-                        variant="outlined"
-                        bg-color="yellow-lighten-3"
-                        density="compact"
-                        style="width: 120px"
-                        readonly
-                      />
-                      <div class="ms-2">
-                        公頃
-                      </div>
-                    </div>
-                  </v-col>
-                </v-row>
-              </v-sheet>
-
-              <!-- 農地種植作物 -->
-              <v-sheet
-                class="mb-3 pa-3 rounded"
-                color="green-lighten-5"
-              >
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                    color="green"
-                  >
-                    mdi-sprout
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">農地種植作物</span>
-                </div>
-                <div class="d-flex align-center mb-2">
+            <!-- 地址選擇區域 -->
+            <v-sheet
+              class="mb-3 pa-3 rounded"
+              color="white"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
+                >
+                  mdi-map
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">行政區域</span>
+              </div>
+              <v-row>
+                <v-col
+                  cols="12"
+                  md="4"
+                >
                   <v-select
-                    v-model="localFormData.cropCategory"
-                    :items="cropCategories"
-                    label="作物類別"
+                    v-model="localFormData.addressCounty"
+                    :items="counties"
+                    label="縣市"
                     variant="outlined"
                     density="comfortable"
-                    class="me-2"
-                    style="width: 200px"
-                    @update:model-value="onCropCategoryChange"
+                    color="#3ea0a3"
+                    bg-color="white"
+                    :rules="[v => !!v || '請選擇縣市']"
+                    @update:model-value="onCountyChange"
                   />
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="4"
+                >
                   <v-select
-                    v-model="localFormData.cropName"
-                    :items="crops"
-                    label="作物名稱"
+                    v-model="localFormData.addressTown"
+                    :items="towns"
+                    label="鄉鎮市區"
                     variant="outlined"
                     density="comfortable"
-                    class="me-2"
-                    style="width: 200px"
-                    :disabled="!localFormData.cropCategory"
+                    color="#3ea0a3"
+                    bg-color="white"
+                    :rules="[v => !!v || '請選擇鄉鎮市區']"
+                    :disabled="!localFormData.addressCounty"
+                    @update:model-value="onTownChange"
                   />
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="4"
+                >
+                  <v-select
+                    v-model="localFormData.addressVillage"
+                    :items="villages"
+                    label="地段"
+                    variant="outlined"
+                    density="comfortable"
+                    color="#3ea0a3"
+                    bg-color="white"
+                    :rules="[v => !!v || '請選擇村里']"
+                    :disabled="!localFormData.addressTown"
+                  />
+                </v-col>
+              </v-row>
+            </v-sheet>
+
+            <!-- 地號與查詢 -->
+            <v-sheet
+              class="mb-3 pa-3 rounded"
+              color="white"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
+                >
+                  mdi-numeric
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">地號資訊</span>
+              </div>
+              <v-row align="center">
+                <v-col
+                  cols="12"
+                  md="5"
+                  class="d-flex align-center"
+                >
+                  <v-text-field
+                    v-model="formattedLandNumberMain"
+                    label="母地號"
+                    variant="outlined"
+                    density="comfortable"
+                    color="#3ea0a3"
+                    bg-color="white"
+                    type="tel"
+                    maxlength="4"
+                    style="width: 15px"
+                    :rules="[v => !!v || '請輸入主地號']"
+                    @focus="landNumberMainFocused = true"
+                    @blur="landNumberMainFocused = false"
+                  />
+
+                  <v-text-field
+                    v-model="formattedLandNumberSub"
+                    label="子地號"
+                    prepend-icon="mdi-minus"
+                    variant="outlined"
+                    density="comfortable"
+                    color="#3ea0a3"
+                    bg-color="white"
+                    type="tel"
+                    maxlength="4"
+                    class="pl-3"
+                    style="width: 70px"
+                    @focus="landNumberSubFocused = true"
+                    @blur="landNumberSubFocused = false"
+                  />
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="7"
+                  class="d-flex align-center"
+                >
                   <v-btn
-                    variant="tonal"
-                    color="success"
-                    size="small"
-                    :disabled="!localFormData.cropCategory || !localFormData.cropName"
-                    @click="addCrop"
+                    color="#3ea0a3"
+                    variant="outlined"
+                    rounded="lg"
+                    class="me-2"
+                    @click="showLandInfoDialog"
                   >
                     <v-icon
                       size="small"
                       class="me-1"
                     >
-                      mdi-plus
+                      mdi-magnify
                     </v-icon>
-                    加入
+                    查詢
                   </v-btn>
-                </div>
+                  <div class="text-caption text-grey">
+                    (若查無地號請洽中心)
+                  </div>
+                  <v-spacer />
+                  <div class="ms-1">
+                    原民區域：{{ localFormData.isAboriginalArea ? '是' : '否' }}
+                  </div>
+                </v-col>
+              </v-row>
+            </v-sheet>
 
-                <v-table
-                  density="compact"
-                  class="rounded border"
+            <!-- 特性選項區域 -->
+            <v-sheet
+              class="mb-3 pa-3 rounded"
+              color="white"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
                 >
-                  <thead class="bg-grey-lighten-3">
-                    <tr>
-                      <th
-                        class="text-center"
-                        style="width: 50px"
-                      >
-                        NO.
-                      </th>
-                      <th>類別</th>
-                      <th>作物</th>
-                      <th
-                        class="text-center"
-                        style="width: 80px"
-                      >
-                        刪除
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="(crop, index) in localFormData.crops"
-                      :key="index"
+                  mdi-gate
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">土地特性</span>
+              </div>
+              <v-row>
+                <v-col
+                  cols="12"
+                  md="4"
+                >
+                  <div class="d-flex align-center">
+                    <span class="ml-1">位於灌區內</span>
+                    <span class="ml-1">：{{ localFormData.isIrrigationArea ? '是' : '否' }}</span>
+                    <v-checkbox
+                      v-model="localFormData.isIrrigationArea"
+                      hide-details
+                      density="compact"
+                      color="#3ea0a3"
+                      @update:model-value="updateFormData"
+                    />
+                  </div>
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="4"
+                >
+                  <div class="d-flex align-center">
+                    <span class="ml-1">再次申請</span>
+                    <span class="ml-1">：{{ localFormData.isReapplied ? '是' : '否' }}</span>
+                    <v-checkbox
+                      v-model="localFormData.isReapplied"
+                      hide-details
+                      density="compact"
+                      color="#3ea0a3"
+                      @update:model-value="updateFormData"
+                    />
+                  </div>
+                </v-col>
+              </v-row>
+            </v-sheet>
+
+            <!-- 座標資訊 -->
+            <v-sheet
+              class="mb-3 pa-3 rounded"
+              color="white"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
+                >
+                  mdi-map-marker
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">座標資訊</span>
+              </div>
+              <v-row>
+                <v-col
+                  cols="12"
+                  md="6"
+                >
+                  <v-text-field
+                    v-model="localFormData.longitude"
+                    label="經度"
+                    variant="outlined"
+                    density="comfortable"
+                    color="#3ea0a3"
+                    bg-color="white"
+                    :rules="[v => !!v || '請輸入經度']"
+                    @update:model-value="updateFormData"
+                  />
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="6"
+                >
+                  <v-text-field
+                    v-model="localFormData.latitude"
+                    label="緯度"
+                    variant="outlined"
+                    density="comfortable"
+                    color="#3ea0a3"
+                    bg-color="white"
+                    :rules="[v => !!v || '請輸入緯度']"
+                    @update:model-value="updateFormData"
+                  />
+                </v-col>
+              </v-row>
+            </v-sheet>
+
+            <!-- 面積資訊 -->
+            <v-sheet
+              class="mb-3 pa-3 rounded"
+              color="rgba(255, 248, 225, 0.6)"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
+                  color="#3ea0a3"
+                >
+                  mdi-ruler-square
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">面積資訊</span>
+              </div>
+              <v-row>
+                <v-col
+                  cols="12"
+                  md="6"
+                >
+                  <div class="d-flex align-center">
+                    <span class="text-body-1 font-weight-medium me-2">農地面積</span>
+                    <v-text-field
+                      v-model="localFormData.landArea"
+                      variant="outlined"
+                      density="compact"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      class="me-2"
+                      style="width: 120px"
+                      :rules="[v => !!v || '請輸入土地面積']"
+                      @update:model-value="updateFormData"
+                    />
+                    <div class="me-2">
+                      ㎡
+                    </div>
+                    <v-text-field
+                      v-model="landAreaHaComputed"
+                      variant="outlined"
+                      density="compact"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      style="width: 120px"
+                      readonly
+                    />
+                    <div class="ms-2">
+                      公頃
+                    </div>
+                  </div>
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="6"
+                >
+                  <div class="d-flex align-center">
+                    <span class="text-body-1 font-weight-medium me-2">施作面積</span>
+                    <v-text-field
+                      v-model="localFormData.facilityArea"
+                      variant="outlined"
+                      density="compact"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      class="me-2"
+                      style="width: 120px"
+                      :rules="[
+                        v => !!v || '請輸入施作面積',
+                        v => !v || parseFloat(v) <= parseFloat(localFormData.landArea) || '施作面積不能大於農地面積'
+                      ]"
+                      @update:model-value="updateFormData"
+                    />
+                    <div class="me-2">
+                      ㎡
+                    </div>
+                    <v-text-field
+                      v-model="facilityAreaHaComputed"
+                      variant="outlined"
+                      density="compact"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      style="width: 120px"
+                      readonly
+                    />
+                    <div class="ms-2">
+                      公頃
+                    </div>
+                  </div>
+                </v-col>
+              </v-row>
+            </v-sheet>
+
+            <!-- 農地種植作物 -->
+            <v-sheet
+              class="mb-3 pa-3 rounded"
+              color="white"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
+                  color="#3ea0a3"
+                >
+                  mdi-sprout
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">農地種植作物</span>
+              </div>
+              <div class="d-flex align-center mb-2">
+                <v-select
+                  v-model="localFormData.cropCategory"
+                  :items="cropCategories"
+                  label="作物類別"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#3ea0a3"
+                  bg-color="white"
+                  class="me-2"
+                  style="width: 200px"
+                  @update:model-value="onCropCategoryChange"
+                />
+                <v-select
+                  v-model="localFormData.cropName"
+                  :items="crops"
+                  label="作物名稱"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#3ea0a3"
+                  bg-color="white"
+                  class="me-2"
+                  style="width: 200px"
+                  :disabled="!localFormData.cropCategory"
+                />
+                <v-btn
+                  variant="outlined"
+                  color="#3ea0a3"
+                  rounded="lg"
+                  size="small"
+                  :disabled="!localFormData.cropCategory || !localFormData.cropName"
+                  @click="addCrop"
+                >
+                  <v-icon
+                    size="small"
+                    class="me-1"
+                  >
+                    mdi-plus
+                  </v-icon>
+                  加入
+                </v-btn>
+              </div>
+
+              <v-table
+                density="compact"
+                class="rounded border"
+              >
+                <thead class="bg-grey-lighten-3">
+                  <tr>
+                    <th
+                      class="text-center"
+                      style="width: 50px"
                     >
-                      <td class="text-center">
-                        {{ index + 1 }}
-                      </td>
-                      <td>{{ crop.category }}</td>
-                      <td>{{ crop.name }}</td>
-                      <td class="text-center">
-                        <v-btn
-                          icon
-                          size="x-small"
-                          color="error"
-                          variant="text"
-                          @click="removeCrop(index)"
-                        >
-                          <v-icon>mdi-close</v-icon>
-                        </v-btn>
-                      </td>
-                    </tr>
-                    <tr v-if="!localFormData.crops || localFormData.crops.length === 0">
-                      <td
-                        colspan="4"
-                        class="text-center py-3 text-grey"
+                      NO.
+                    </th>
+                    <th>類別</th>
+                    <th>作物</th>
+                    <th
+                      class="text-center"
+                      style="width: 80px"
+                    >
+                      刪除
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(crop, index) in localFormData.crops"
+                    :key="index"
+                  >
+                    <td class="text-center">
+                      {{ index + 1 }}
+                    </td>
+                    <td>{{ crop.category }}</td>
+                    <td>{{ crop.name }}</td>
+                    <td class="text-center">
+                      <v-btn
+                        icon
+                        size="x-small"
+                        color="error"
+                        variant="text"
+                        @click="removeCrop(index)"
                       >
-                        尚未新增任何作物，請使用上方加入按鈕新增
-                      </td>
-                    </tr>
-                  </tbody>
-                </v-table>
-              </v-sheet>
-            </v-card-text>
+                        <v-icon>mdi-close</v-icon>
+                      </v-btn>
+                    </td>
+                  </tr>
+                  <tr v-if="!localFormData.crops || localFormData.crops.length === 0">
+                    <td
+                      colspan="4"
+                      class="text-center py-3 text-grey"
+                    >
+                      尚未新增任何作物，請使用上方加入按鈕新增
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-sheet>
           </v-card>
 
           <!-- 所有權人資料區域 -->
-          <v-card variant="outlined">
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
+          <v-card
+            flat
+            class="mb-4 pa-4"
+            color="#e3f4f4"
+            rounded="lg"
+          >
+            <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #2d8c8f">
               <v-icon
-                class="me-2"
+                color="#3ea0a3"
+                class="me-2 pb-1"
                 size="small"
               >
                 mdi-account-multiple
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">所有權人資料</span>
+              <span>所有權人資料</span>
             </v-card-title>
-            <v-card-text class="pa-4">
-              <!-- 所有權人基本資料 -->
-              <v-sheet
-                class="mb-3 pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                  >
-                    mdi-account-details
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">所有權人基本資料</span>
-                </div>
-                <v-row>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <v-text-field
-                      v-model="localFormData.ownerName"
-                      label="持分人姓名"
-                      variant="outlined"
-                      density="comfortable"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <v-text-field
-                      v-model="localFormData.ownerId"
-                      label="持分人身分證字號"
-                      variant="outlined"
-                      density="comfortable"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                </v-row>
-              </v-sheet>
 
-              <!-- 所有權人地址 -->
-              <v-sheet
-                class="mb-3 pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                  >
-                    mdi-home
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">持分人地址</span>
-                </div>
-                <v-row>
-                  <v-col cols="12">
-                    <div class="d-flex align-center flex-wrap">
-                      <v-select
-                        v-model="localFormData.ownerCounty"
-                        :items="counties"
-                        label="縣市"
-                        variant="outlined"
-                        density="comfortable"
-                        class="me-2 mb-2"
-                        style="width: 150px"
-                        @update:model-value="onOwnerCountyChange"
-                      />
-                      <v-select
-                        v-model="localFormData.ownerTown"
-                        :items="ownerTowns"
-                        label="鄉鎮市區"
-                        variant="outlined"
-                        density="comfortable"
-                        class="me-2 mb-2"
-                        style="width: 150px"
-                        :disabled="!localFormData.ownerCounty"
-                        @update:model-value="onOwnerTownChange"
-                      />
-                      <v-select
-                        v-model="localFormData.ownerVillage"
-                        :items="ownerVillages"
-                        label="村里"
-                        variant="outlined"
-                        density="comfortable"
-                        class="mb-2"
-                        style="width: 150px"
-                        :disabled="!localFormData.ownerTown"
-                      />
-                    </div>
-                  </v-col>
-                </v-row>
-              </v-sheet>
-
-              <!-- 持分資訊 -->
-              <v-sheet class="mb-3 pa-3 rounded bg-amber-lighten-5 border border-amber">
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                    color="amber-darken-2"
-                  >
-                    mdi-percent
-                  </v-icon>
-                  <span class="text-body-2 font-weight-medium">持分資訊</span>
-                </div>
-                <v-row align="center">
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <div class="d-flex align-center">
-                      <span class="text-body-2 font-weight-medium me-2">持分比例</span>
-                      <v-text-field
-                        v-model="localFormData.ownerShare1"
-                        variant="outlined"
-                        density="compact"
-                        class="me-1"
-                        style="width: 80px"
-                        type="number"
-                        @update:model-value="updateFormData"
-                      />
-                      <div class="mx-1">
-                        分子
-                      </div>
-                      <div class="mx-1">
-                        /
-                      </div>
-                      <v-text-field
-                        v-model="localFormData.ownerShare2"
-                        variant="outlined"
-                        density="compact"
-                        class="me-1"
-                        style="width: 80px"
-                        type="number"
-                        @update:model-value="updateFormData"
-                      />
-                      <div class="ms-1">
-                        分母
-                      </div>
-                    </div>
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <div class="d-flex align-center">
-                      <span class="text-body-2 font-weight-medium me-2">持分面積</span>
-                      <v-text-field
-                        v-model="ownerAreaComputed"
-                        variant="outlined"
-                        bg-color="yellow-lighten-3"
-                        density="compact"
-                        class="me-2"
-                        style="width: 120px"
-                        readonly
-                      />
-                      <div class="me-2">
-                        ㎡
-                      </div>
-                      <v-btn
-                        variant="tonal"
-                        color="success"
-                        size="small"
-                        :disabled="!canAddOwner"
-                        @click="addOwner"
-                      >
-                        <v-icon
-                          size="small"
-                          class="me-1"
-                        >
-                          mdi-plus
-                        </v-icon>
-                        加入
-                      </v-btn>
-                    </div>
-                  </v-col>
-                </v-row>
-              </v-sheet>
-
-              <!-- 所有權人列表 -->
-              <v-sheet class="pa-0">
-                <v-table
-                  density="comfortable"
-                  class="rounded border"
+            <!-- 所有權人基本資料 -->
+            <v-sheet
+              class="mb-3 pa-3 rounded"
+              color="white"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
                 >
-                  <thead class="bg-grey-lighten-3">
-                    <tr>
-                      <th
-                        class="text-center"
-                        style="width: 50px"
-                      >
-                        NO.
-                      </th>
-                      <th>姓名</th>
-                      <th>身分證字號</th>
-                      <th>地址</th>
-                      <th>持分比例</th>
-                      <th>持分面積㎡</th>
-                      <th
-                        class="text-center"
-                        style="width: 80px"
-                      >
-                        刪除
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="(owner, index) in localFormData.owners"
-                      :key="index"
+                  mdi-account-details
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">所有權人基本資料</span>
+              </div>
+              <v-row>
+                <v-col
+                  cols="12"
+                  md="6"
+                >
+                  <v-text-field
+                    v-model="localFormData.ownerName"
+                    label="持分人姓名"
+                    variant="outlined"
+                    density="comfortable"
+                    color="#3ea0a3"
+                    bg-color="white"
+                    @update:model-value="updateFormData"
+                  />
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="6"
+                >
+                  <v-text-field
+                    v-model="localFormData.ownerId"
+                    label="持分人身分證字號"
+                    variant="outlined"
+                    density="comfortable"
+                    color="#3ea0a3"
+                    bg-color="white"
+                    @update:model-value="updateFormData"
+                  />
+                </v-col>
+              </v-row>
+            </v-sheet>
+
+            <!-- 所有權人地址 -->
+            <v-sheet
+              class="mb-3 pa-3 rounded"
+              color="white"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
+                >
+                  mdi-home
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">持分人地址</span>
+              </div>
+              <v-row>
+                <v-col cols="12">
+                  <div class="d-flex align-center flex-wrap">
+                    <v-select
+                      v-model="localFormData.ownerCounty"
+                      :items="counties"
+                      label="縣市"
+                      variant="outlined"
+                      density="comfortable"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      class="me-2 mb-2"
+                      style="width: 150px"
+                      @update:model-value="onOwnerCountyChange"
+                    />
+                    <v-select
+                      v-model="localFormData.ownerTown"
+                      :items="ownerTowns"
+                      label="鄉鎮市區"
+                      variant="outlined"
+                      density="comfortable"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      class="me-2 mb-2"
+                      style="width: 150px"
+                      :disabled="!localFormData.ownerCounty"
+                      @update:model-value="onOwnerTownChange"
+                    />
+                    <v-select
+                      v-model="localFormData.ownerVillage"
+                      :items="ownerVillages"
+                      label="村里"
+                      variant="outlined"
+                      density="comfortable"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      class="mb-2"
+                      style="width: 150px"
+                      :disabled="!localFormData.ownerTown"
+                    />
+                  </div>
+                </v-col>
+              </v-row>
+            </v-sheet>
+
+            <!-- 持分資訊 -->
+            <v-sheet
+              class="mb-3 pa-3 rounded"
+              color="rgba(255, 248, 225, 0.6)"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
+                  color="#3ea0a3"
+                >
+                  mdi-percent
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">持分資訊</span>
+              </div>
+              <v-row align="center">
+                <v-col
+                  cols="12"
+                  md="6"
+                >
+                  <div class="d-flex align-center">
+                    <span class="text-body-2 font-weight-medium me-2">持分比例</span>
+                    <v-text-field
+                      v-model="localFormData.ownerShare1"
+                      variant="outlined"
+                      density="compact"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      class="me-1"
+                      style="width: 80px"
+                      type="number"
+                      @update:model-value="updateFormData"
+                    />
+                    <div class="mx-1">
+                      分子
+                    </div>
+                    <div class="mx-1">
+                      /
+                    </div>
+                    <v-text-field
+                      v-model="localFormData.ownerShare2"
+                      variant="outlined"
+                      density="compact"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      class="me-1"
+                      style="width: 80px"
+                      type="number"
+                      @update:model-value="updateFormData"
+                    />
+                    <div class="ms-1">
+                      分母
+                    </div>
+                  </div>
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="6"
+                >
+                  <div class="d-flex align-center">
+                    <span class="text-body-2 font-weight-medium me-2">持分面積</span>
+                    <v-text-field
+                      v-model="ownerAreaComputed"
+                      variant="outlined"
+                      density="compact"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      class="me-2"
+                      style="width: 120px"
+                      readonly
+                    />
+                    <div class="me-2">
+                      ㎡
+                    </div>
+                    <v-btn
+                      variant="outlined"
+                      color="#3ea0a3"
+                      rounded="lg"
+                      size="small"
+                      :disabled="!canAddOwner"
+                      @click="addOwner"
                     >
-                      <td class="text-center">
-                        {{ index + 1 }}
-                      </td>
-                      <td>{{ owner.name }}</td>
-                      <td>{{ owner.id }}</td>
-                      <td>{{ owner.address }}</td>
-                      <td>{{ owner.share }}</td>
-                      <td>{{ owner.area }}</td>
-                      <td class="text-center">
-                        <v-btn
-                          icon
-                          size="x-small"
-                          color="error"
-                          variant="text"
-                          @click="removeOwner(index)"
-                        >
-                          <v-icon>mdi-close</v-icon>
-                        </v-btn>
-                      </td>
-                    </tr>
-                    <tr v-if="!localFormData.owners || localFormData.owners.length === 0">
-                      <td
-                        colspan="7"
-                        class="text-center py-3 text-grey"
+                      <v-icon
+                        size="small"
+                        class="me-1"
                       >
-                        尚未新增任何所有權人，請使用上方加入按鈕新增
-                      </td>
-                    </tr>
-                  </tbody>
-                </v-table>
-              </v-sheet>
-            </v-card-text>
+                        mdi-plus
+                      </v-icon>
+                      加入
+                    </v-btn>
+                  </div>
+                </v-col>
+              </v-row>
+            </v-sheet>
+
+            <!-- 所有權人列表 -->
+            <v-sheet class="pa-0">
+              <v-table
+                density="comfortable"
+                class="rounded border"
+              >
+                <thead class="bg-grey-lighten-3">
+                  <tr>
+                    <th
+                      class="text-center"
+                      style="width: 50px"
+                    >
+                      NO.
+                    </th>
+                    <th>姓名</th>
+                    <th>身分證字號</th>
+                    <th>地址</th>
+                    <th>持分比例</th>
+                    <th>持分面積㎡</th>
+                    <th
+                      class="text-center"
+                      style="width: 80px"
+                    >
+                      刪除
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(owner, index) in localFormData.owners"
+                    :key="index"
+                  >
+                    <td class="text-center">
+                      {{ index + 1 }}
+                    </td>
+                    <td>{{ owner.name }}</td>
+                    <td>{{ owner.id }}</td>
+                    <td>{{ owner.address }}</td>
+                    <td>{{ owner.share }}</td>
+                    <td>{{ owner.area }}</td>
+                    <td class="text-center">
+                      <v-btn
+                        icon
+                        size="x-small"
+                        color="error"
+                        variant="text"
+                        @click="removeOwner(index)"
+                      >
+                        <v-icon>mdi-close</v-icon>
+                      </v-btn>
+                    </td>
+                  </tr>
+                  <tr v-if="!localFormData.owners || localFormData.owners.length === 0">
+                    <td
+                      colspan="7"
+                      class="text-center py-3 text-grey"
+                    >
+                      尚未新增任何所有權人，請使用上方加入按鈕新增
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-sheet>
           </v-card>
         </v-form>
       </v-card-text>
@@ -729,14 +775,15 @@
       max-width="700px"
     >
       <v-card>
-        <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
+        <v-card-title class="text-subtitle-1 font-weight-bold pa-4" style="color: #2d8c8f; background-color: #e3f4f4;">
           <v-icon
+            color="#3ea0a3"
             class="me-2"
             size="small"
           >
             mdi-map-marker
           </v-icon>
-          <span class="text-subtitle-1 font-weight-medium">土地資訊</span>
+          <span>土地資訊</span>
         </v-card-title>
 
         <v-card-text class="pa-4">
@@ -769,7 +816,9 @@
                 <div class="mt-2">
                   <v-btn
                     density="compact"
-                    color="info"
+                    color="#3ea0a3"
+                    variant="outlined"
+                    rounded="lg"
                     size="small"
                     @click="useSelectedFeature"
                   >
@@ -807,26 +856,6 @@
                   縣市
                 </td>
                 <td>{{ landInfo.county }}</td>
-              </tr>
-              <tr>
-                <td class="bg-grey-lighten-4 font-weight-medium">
-                  地段
-                </td>
-                <td>{{ landInfo.section }}</td>
-                <td class="bg-grey-lighten-4 font-weight-medium">
-                  地號
-                </td>
-                <td>{{ localFormData.landNumberMain }}<v-icon>mdi-minus</v-icon>{{ localFormData.landNumberSub }}</td>
-              </tr>
-              <tr>
-                <td class="bg-grey-lighten-4 font-weight-medium">
-                  管理處
-                </td>
-                <td>{{ landInfo.managementOffice }}</td>
-                <td class="bg-grey-lighten-4 font-weight-medium">
-                  工作站
-                </td>
-                <td>{{ landInfo.workstation }}</td>
               </tr>
               <tr>
                 <td class="bg-grey-lighten-4 font-weight-medium">
@@ -2044,39 +2073,29 @@ onUnmounted(() => {
 <style scoped>
 .step-content {
   padding: 0;
+  background-color: transparent !important;
+}
+
+/* 卡片懸停效果 */
+.v-card.pa-4 {
+  transition: all 0.3s ease;
+}
+
+.v-card.pa-4:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 按鈕懸停效果 */
+.v-btn[variant="outlined"] {
+  transition: all 0.2s ease;
+}
+
+.v-btn[variant="outlined"]:hover {
+  background-color: #3ea0a3 !important;
+  color: white !important;
 }
 
 .v-card-title {
-  color: rgba(0, 0, 0, 0.87);
-  font-size: 1.25rem;
-  font-weight: 500;
-  padding: 16px;
-}
-
-.bg-primary {
-  background-color: #1976D2 !important;
-}
-
-.bg-light-blue-lighten-4 {
-  background-color: #B3E5FC !important;
-}
-
-.bg-amber-lighten-5 {
-  background-color: #FFF8E1 !important;
-}
-
-.border-amber {
-  border-color: #FFD54F !important;
-  border-width: 1px;
-  border-style: solid;
-}
-
-/* 黃色背景輸入框 */
-.v-text-field.bg-yellow-lighten-3 :deep(.v-field__input) {
-  background-color: #fff9c4;
-}
-
-.v-card .v-card-title {
   line-height: 1.5;
 }
 
@@ -2106,5 +2125,10 @@ onUnmounted(() => {
 
 .border {
   border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+/* 唯讀輸入框樣式 */
+:deep(.v-field--disabled .v-field__input) {
+  color: rgba(0, 0, 0, 1) !important;
 }
 </style>

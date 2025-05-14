@@ -6,7 +6,7 @@ from src.database.models import Grants
 # 基本模型
 class BaseSchema(BaseModel):
     class Config:
-        orm_mode = True
+        from_attributes = True
         arbitrary_types_allowed = True
 
 # 補助申請案件模型

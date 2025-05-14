@@ -274,13 +274,13 @@
 
 <script setup lang="ts">
 import { useUserStore } from '@/stores/users'
-import { useOfficesStore } from '@/stores/offices'
+// import { useOfficesStore } from '@/stores/offices'
 import { useDomicileStore } from '@/stores/domicile'
 import { useGrantsStore } from '@/stores/grants'
 
 
 const userStore = useUserStore()
-const officesStore = useOfficesStore()
+// const officesStore = useOfficesStore()
 const domicileStore = useDomicileStore()
 const grantsStore = useGrantsStore()
 
@@ -422,7 +422,7 @@ const handleVillageChange = (village) => {
 }
 
 // 管理處列表
-const departments = computed(() => officesStore.items)
+// const departments = computed(() => officesStore.items)
 
 // With this filtered version:
 // const departments = computed(() =>

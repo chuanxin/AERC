@@ -85,12 +85,20 @@ const apiService = {
    * @param params query parameters
    * @param config additional configuration
    */
-  async get<T = unknown>(url: string, params?: Record<string, unknown>, config?: InternalAxiosRequestConfig): Promise<T> {
-    const response = await api.get<T>(url, {
-      ...config,
-      params
-    })
-    return response.data
+  // async get<T = unknown>(url: string, params?: Record<string, unknown>, config?: InternalAxiosRequestConfig): Promise<T> {
+  //   const response = await api.get<T>(url, {
+  //     ...config,
+  //     params
+  //   })
+  //   return response.data
+  // },
+  async get<T = unknown>(
+    url: string,
+    config?: InternalAxiosRequestConfig // 直接接收 Axios 配置對象
+  ): Promise<T> {
+    // 直接將傳入的 config (包含了 params 屬性) 傳遞給底層 api.get
+    const response = await api.get<T>(url, config);
+    return response.data;
   },
 
   /**

@@ -76,6 +76,41 @@ export const GRANTS = {
 
 }
 
+// Pipe Fittings related endpoints
+export const PIPE_FITTINGS = {
+  BASE: `${BASE}/pipe_fittings`,
+  CREATE: `${BASE}/pipe_fittings`,
+  LIST: `${BASE}/pipe_fittings`, // For getting all with pagination
+  DETAIL: (pomno: number | string) => `${BASE}/pipe_fittings/${pomno}`,
+  UPDATE: (pomno: number | string) => `${BASE}/pipe_fittings/${pomno}`,
+  DELETE: (pomno: number | string) => `${BASE}/pipe_fittings/${pomno}`,
+  BY_OFFICE_ID: (officeId: number | string) => `${BASE}/pipe_fittings/office/${officeId}`,
+}
+
+export const PF_MODULES = {
+  CREATE: '/pf_modules/',
+  LIST: '/pf_modules/',
+  DETAIL: (id: number | string) => `/pf_modules/${id}`,
+  UPDATE: (id: number | string) => `/pf_modules/${id}`,
+  DELETE: (id: number | string) => `/pf_modules/${id}`,
+};
+
+export const PF_MATERIALS = {
+  CREATE: '/pf_materials/',
+  LIST: '/pf_materials/',
+  DETAIL: (id: number | string) => `/pf_materials/${id}`,
+  UPDATE: (id: number | string) => `/pf_materials/${id}`,
+  DELETE: (id: number | string) => `/pf_materials/${id}`,
+};
+
+export const PF_DIAMETERS = {
+  CREATE: '/pf_diameters/',
+  LIST: '/pf_diameters/',
+  DETAIL: (id: number | string) => `/pf_diameters/${id}`,
+  UPDATE: (id: number | string) => `/pf_diameters/${id}`,
+  DELETE: (id: number | string) => `/pf_diameters/${id}`,
+};
+
 // statistics related endpoints
 export const REPORTS = {
   BASE: `${BASE}/reports`,

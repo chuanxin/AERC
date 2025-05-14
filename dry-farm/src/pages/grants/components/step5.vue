@@ -1,6 +1,6 @@
 <template>
   <div class="step-content" ref="stepContent">
-    <v-card class="mb-0 pa-0" flat>
+    <v-card class="mt-4 pa-0" flat>
       <v-card-text class="pb-0 pt-0">
         <v-form ref="form" v-model="localValid" @submit.prevent>
           <!-- 勘查資訊區域 -->

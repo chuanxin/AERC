@@ -297,3 +297,232 @@ class Sections(models.Model):
     
     def __str__(self):
         return f"{self.town.county.name}{self.town.name}{self.name}"
+
+class PFMaterials(models.Model):
+    """管件材質資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="管件材質名稱")
+    
+    class Meta:
+        table = "pf_materials"
+        table_description = "管件材質資料表"
+    
+    def __str__(self):
+        return self.name
+
+class PFDiameters(models.Model):
+    """管徑資料表"""
+    id = fields.IntField(pk=True)
+    value = fields.FloatField(description="管徑值")
+    name = fields.CharField(max_length=50, description="管徑名稱")
+
+    class Meta:
+        table = "pf_diameters"
+        table_description = "管徑資料表"
+        unique_together = (("name", "value"),)
+    
+    def __str__(self):
+        return f"{self.name} - {self.value}"
+
+class PFModules(models.Model):
+    """管件功能類型資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="管件功能類型名稱")
+    
+    class Meta:
+        table = "pf_modules"
+        table_description = "管件功能類型資料表"
+    
+    def __str__(self):
+        return self.name
+
+class PFGroups(models.Model):
+    """管件分組資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="管件組別名稱")
+
+    class Meta:
+        table = "pf_groups"
+        table_description = "管件分組資料表"
+        
+    def __str__(self):
+        return self.name
+
+class PipeFittings(models.Model):
+    """管件資料表"""
+    pomno = fields.IntField(pk=True, description="管件代碼")
+    name = fields.CharField(max_length=50, unique=False, description="管件名稱或料號")
+    material = fields.ForeignKeyField("models.PFMaterials", related_name="pf_material", description="所屬管件材質")
+    module = fields.ForeignKeyField("models.PFModules", related_name="pf_module", description="所屬管件功能類型")
+    diameter1 = fields.ForeignKeyField("models.PFDiameters", related_name="pf_diameter1", null=True, description="所屬管徑1")
+    diameter2 = fields.ForeignKeyField("models.PFDiameters", related_name="pf_diameter2", null=True, description="所屬管徑2")
+    diameter3 = fields.ForeignKeyField("models.PFDiameters", related_name="pf_diameter3", null=True, description="所屬管徑3")
+    unit = fields.CharField(max_length=10, null=True, description="管件計量單位")
+    description = fields.CharField(max_length=255, null=True, description="管件描述")
+    office = fields.ForeignKeyField("models.Offices", related_name="pipe_fittings", null=True, description="所屬單位/管理處")
+    length = fields.FloatField(null=True, description="管件長度")
+    compatibility_group = fields.JSONField(null=True, description="相容性分組")
+    typical_location = fields.CharField(max_length=255, null=True, description="典型使用位置")
+    is_active = fields.BooleanField(default=True, description="是否啟用")
+    is_terminal = fields.BooleanField(default=False, description="是否為末端設備")
+    year = fields.IntField(null=True, description="管件年份")
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
+    created_by = fields.ForeignKeyField("models.Users", related_name="created_pipe_fittings", description="建立人帳號", null=True, on_delete=fields.CASCADE)
+    modified_by = fields.ForeignKeyField("models.Users", related_name="modified_pipe_fittings", description="修改人帳號", null=True, on_delete=fields.SET_NULL)
+
+    class Meta:
+        table = "pipe_fittings"
+        table_description = "管件資料表"
+        unique_together = (("name", "material", "module", "diameter1", "diameter2", "diameter3", "office"),)
+        indexes = [
+            ("name", "material", "module", "diameter1", "diameter2", "diameter3", "office"),
+        ]
+    def __str__(self):
+        return f"{self.name} - {self.material.name} - {self.module.name} - {self.diameter1.value} - {self.diameter2.value} - {self.diameter3.value}"
+    
+class IrrigationTypes(models.Model):
+    """灌溉類型資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="灌溉類型名稱")
+    code = fields.CharField(max_length=10, unique=True, description="灌溉類型代碼")
+    description = fields.CharField(max_length=255, null=True, description="灌溉類型描述")
+    is_active = fields.BooleanField(default=True, description="是否啟用")
+    parent = fields.ForeignKeyField("models.IrrigationTypes", related_name="children", null=True, description="父類型")
+
+    
+    class Meta:
+        table = "irrigation_types"
+        table_description = "灌溉類型資料表"
+    
+    def __str__(self):
+        return self.name
+    
+class PFAnnualPrices(models.Model):
+    """管件年度價格資料表"""
+    id = fields.IntField(pk=True)
+    pipe_fitting = fields.ForeignKeyField("models.PipeFittings", related_name="annual_prices", description="所屬管件")
+    office= fields.ForeignKeyField("models.Offices", related_name="pf_annual_prices", null=True, description="所屬單位/管理處")
+    is_active = fields.BooleanField(default=True, description="是否啟用")
+    year = fields.IntField(description="年度")
+    price = fields.FloatField(description="價格")
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
+    created_by = fields.ForeignKeyField("models.Users", related_name="created_pf_annual_price", description="建立人帳號", null=True, on_delete=fields.CASCADE)
+    modified_by = fields.ForeignKeyField("models.Users", related_name="modified_pf_annual_price", description="修改人帳號", null=True, on_delete=fields.SET_NULL)
+    
+    class Meta:
+        table = "pf_annual_prices"
+        table_description = "管件年度價格資料表"
+        unique_together = (("pipe_fitting", "year", "office"),)
+        indexes = [
+            ("pipe_fitting", "year", "office"),
+        ]
+    def __str__(self):
+        return f"{self.pipe_fitting.name} - {self.year} - {self.price}"
+    
+class SubsidySettings(models.Model):
+    """補助設定資料表"""
+    id = fields.IntField(pk=True)
+    irrigation_type = fields.ForeignKeyField("models.IrrigationTypes", related_name="subsidy_settings", description="所屬灌溉類型")
+    facility_type = fields.ForeignKeyField("models.FacilityTypes", related_name="subsidy_settings", description="所屬設施類型")
+    year = fields.IntField(description="年度")
+    founding_source = fields.ForeignKeyField("models.FundingSources", related_name="subsidy_settings", description="所屬補助來源")
+    working_fee_cap = fields.FloatField(description="工作費上限(元/公頃)")
+    design_fee_ratio = fields.FloatField(description="規劃設計費比例(%)")
+    subsidy_ratio = fields.FloatField(description="補助比例(%)")
+    subsidy_cap = fields.FloatField(description="補助上限(元/公頃)")
+    is_active = fields.BooleanField(default=True, description="是否啟用")
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
+    created_by = fields.ForeignKeyField("models.Users", related_name="created_subsidy_settings", description="建立人帳號", null=True, on_delete=fields.CASCADE)
+    modified_by = fields.ForeignKeyField("models.Users", related_name="modified_subsidy_settings", description="修改人帳號", null=True, on_delete=fields.SET_NULL)
+    
+    class Meta:
+        table = "subsidy_settings"
+        table_description = "補助設定資料表"
+    
+    def __str__(self):
+        return self.name
+    
+class FacilityTypes(models.Model):
+    """設施類型資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="設施類型名稱")
+    code = fields.CharField(max_length=10, unique=True, null=True, description="設施類型代碼")
+    description = fields.CharField(max_length=255, null=True, description="設施類型描述")
+    is_active = fields.BooleanField(default=True, description="是否啟用")
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
+    
+    class Meta:
+        table = "facility_types"
+        table_description = "設施類型資料表"
+    
+    def __str__(self):
+        return self.name
+    
+class SubsidyPolicies(models.Model):
+    """補助政策資料表"""
+    id = fields.IntField(pk=True)
+    year = fields.IntField(description="年度")
+    funding_source = fields.ForeignKeyField("models.FundingSources", related_name="subsidy_policies", description="所屬補助來源")
+    general_subsidy_ratio = fields.FloatField(description="一般補助比例(%)")
+    gold_corridor_ratio = fields.FloatField(description="金色走廊補助比例(%)")
+    indigenous_increase_ratio = fields.FloatField(description="原民區域增額補助比例(%)")
+    total_cap = fields.FloatField(description="補助上限")
+    person_cap = fields.FloatField(description="每人補助上限")
+    engine_cap = fields.FloatField(description="每台引擎補助上限")
+    control_device_min_area = fields.FloatField(description="控制裝置最小面積(公頃)")
+    control_device_cap = fields.FloatField(description="控制裝置補助上限")
+    storage_cap = fields.FloatField(description="儲水設備補助上限")
+    storage_min_area = fields.FloatField(description="儲水設備最小面積(公頃)")
+    reapplication_ratio = fields.FloatField(description="再申請比例(%)")
+    design_fee_ratio = fields.FloatField(description="設計費比例(%)")
+    is_active = fields.BooleanField(default=True, description="是否啟用")
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
+    created_by = fields.ForeignKeyField("models.Users", related_name="created_subsidy_policies", description="建立人帳號", null=True, on_delete=fields.CASCADE)
+    modified_by = fields.ForeignKeyField("models.Users", related_name="modified_subsidy_policies", description="修改人帳號", null=True, on_delete=fields.SET_NULL)
+    
+    class Meta:
+        table = "subsidy_policies"
+        table_description = "補助政策資料表"
+    
+    def __str__(self):
+        return self.name
+    
+class IrrigationSubsidies(models.Model):
+    """灌溉補助資料表"""
+    id = fields.IntField(pk=True)
+    subsidy_policy = fields.ForeignKeyField("models.SubsidyPolicies", related_name="irrigation_subsidies", description="所屬補助政策")
+    irrigation_type = fields.ForeignKeyField("models.IrrigationTypes", related_name="irrigation_subsidies", description="所屬灌溉類型")
+    facility_type = fields.ForeignKeyField("models.FacilityTypes", related_name="irrigation_subsidies", description="所屬設施類型")
+    facility_fee = fields.FloatField(description="設施費用")
+    subsidy_reference = fields.FloatField(description="補助參考值")
+    working_fee = fields.FloatField(description="工作費")
+    is_active = fields.BooleanField(default=True, description="是否啟用")
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
+    
+    class Meta:
+        table = "irrigation_subsidies"
+        table_description = "灌溉補助資料表"
+    def __str__(self):
+        return f"{self.subsidy_policy.year} - {self.irrigation_type.name} - {self.facility_type.name}"
+
+class WaterSources(models.Model):
+    """水源資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="水源名稱")
+    code = fields.CharField(max_length=10, unique=True, null=True, description="水源代碼")
+    description = fields.CharField(max_length=255, null=True, description="水源描述")
+    is_active = fields.BooleanField(default=True, description="是否啟用")
+    
+    class Meta:
+        table = "water_sources"
+        table_description = "水源資料表"
+    
+    def __str__(self):
+        return self.name
+    
