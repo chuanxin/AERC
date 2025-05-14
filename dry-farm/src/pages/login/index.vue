@@ -218,15 +218,18 @@
                       <v-select
                         v-model="registerForm.department"
                         :items="departments"
+                        item-title="name"
+                        item-value="id"
                         label="單位"
                         prepend-inner-icon="mdi-office-building"
                         variant="outlined"
                         density="comfortable"
+                        :loading="false"
                       >
-                        <template #item="{ item }">
+                        <template #item="{ props, item }"> <!-- 修改插槽 props -->
                           <v-list-item
-                            :title="item.title"
-                            :value="item.value"
+                            v-bind="props"
+                            :title="item.raw.name"
                             :class="{ 'light-blue-text': item.raw?.classification == 2 }"
                           />
                         </template>
@@ -288,16 +291,207 @@
 
 <script lang="ts" setup>
   import { useUserStore } from '@/stores/users'
-  import { useOfficesStore } from '@/stores/offices'
+  // import { useOfficesStore } from '@/stores/offices'
 // import { de } from 'vuetify/locale'
 
+const officesData = [
+    {
+        "id": 18,
+        "name": "金門縣農會",
+        "short_name": "kmfa",
+        "code": "29344216",
+        "classification": 1
+    },
+    {
+        "id": 19,
+        "name": "澎湖縣農會",
+        "short_name": "phfa",
+        "code": "96352609",
+        "classification": 1
+    },
+    {
+        "id": 21,
+        "name": "茶葉改良場",
+        "short_name": "tbrs",
+        "code": "02448982",
+        "classification": 1
+    },
+    {
+        "id": 22,
+        "name": "財團法人農業工程研究中心",
+        "short_name": "aerc",
+        "code": "43509532",
+        "classification": 1
+    },
+    {
+        "id": 23,
+        "name": "高雄市政府農業局",
+        "short_name": "abkcg",
+        "code": "26037087",
+        "classification": 1
+    },
+    {
+        "id": 5,
+        "name": "新竹管理處",
+        "short_name": "iahch",
+        "code": "46807801",
+        "classification": 1
+    },
+    {
+        "id": 15,
+        "name": "花蓮管理處",
+        "short_name": "iahli",
+        "code": "94512406",
+        "classification": 1
+    },
+    {
+        "id": 3,
+        "name": "桃園管理處",
+        "short_name": "iatyu",
+        "code": "43504706",
+        "classification": 1
+    },
+    {
+        "id": 12,
+        "name": "高雄管理處",
+        "short_name": "iakhs",
+        "code": "76013504",
+        "classification": 1
+    },
+    {
+        "id": 2,
+        "name": "北基管理處",
+        "short_name": "iapke",
+        "code": "37303907",
+        "classification": 1
+    },
+    {
+        "id": 9,
+        "name": "彰化管理處",
+        "short_name": "iachu",
+        "code": "60007800",
+        "classification": 1
+    },
+    {
+        "id": 13,
+        "name": "屏東管理處",
+        "short_name": "iaptu",
+        "code": "91008305",
+        "classification": 1
+    },
+    {
+        "id": 4,
+        "name": "石門管理處",
+        "short_name": "iasme",
+        "code": "02686098",
+        "classification": 1
+    },
+    {
+        "id": 11,
+        "name": "嘉南管理處",
+        "short_name": "iacna",
+        "code": "69118503",
+        "classification": 1
+    },
+    {
+        "id": 7,
+        "name": "臺中管理處",
+        "short_name": "iatch",
+        "code": "52024904",
+        "classification": 1
+    },
+    {
+        "id": 8,
+        "name": "南投管理處",
+        "short_name": "ianto",
+        "code": "61611003",
+        "classification": 1
+    },
+    {
+        "id": 6,
+        "name": "苗栗管理處",
+        "short_name": "iamli",
+        "code": "49504204\t",
+        "classification": 1
+    },
+    {
+        "id": 1,
+        "name": "宜蘭管理處",
+        "short_name": "iaila",
+        "code": "40400002",
+        "classification": 1
+    },
+    {
+        "id": 10,
+        "name": "雲林管理處",
+        "short_name": "iayli",
+        "code": "63501707",
+        "classification": 1
+    },
+    {
+        "id": 14,
+        "name": "臺東管理處",
+        "short_name": "iattu",
+        "code": "93507806",
+        "classification": 1
+    },
+    {
+        "id": 16,
+        "name": "七星管理處",
+        "short_name": "iacsi",
+        "code": "03700007",
+        "classification": 2
+    },
+    {
+        "id": 17,
+        "name": "瑠公管理處",
+        "short_name": "ialgo",
+        "code": "03790204",
+        "classification": 2
+    },
+    {
+        "id": 20,
+        "name": "農田水利人力發展中心",
+        "short_name": "isdi",
+        "code": "88498124",
+        "classification": 3
+    },
+    {
+        "id": 99,
+        "name": "農工中心",
+        "short_name": "admin",
+        "code": "none",
+        "classification": 3
+    },
+    {
+        "id": 100,
+        "name": "農業部",
+        "short_name": "moa",
+        "code": "05600783",
+        "classification": 3
+    },
+    {
+        "id": 0,
+        "name": "農業部農田水利署",
+        "short_name": "ia",
+        "code": "87516567",
+        "classification": 2
+    }
+  ]
+
+
+
+
+
   // Add these lines to handle redirection
+
+
   const route = useRoute()
   const router = useRouter()
   const redirectPath = computed(() => route.query.redirect?.toString() || '/')
 
   const userStore = useUserStore()
-  const officesStore = useOfficesStore()
+  // const officesStore = useOfficesStore()
   // const { isLoading, error } = storeToRefs(userStore)
 
   const activeForm = ref('login')
@@ -506,7 +700,7 @@
     password: '',
     confirmPassword: '',
     name: '',
-    department: ''
+    department: null as number | null // 保持類型，因為 item-value 仍是 id (number)
   })
 
 
@@ -514,7 +708,8 @@
   const isOfficesLoading = ref(false)
 
   // Update how departments are loaded
-  const departments = computed(() => officesStore.items)
+  // const departments = computed(() => officesStore.items)
+  const departments = computed(() => officesData) // 直接使用導入的靜態數據
 
   const handleStep = (direction: 'next' | 'prev') => {
     if (direction === 'next') {
