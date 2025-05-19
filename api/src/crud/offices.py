@@ -36,8 +36,8 @@ async def paginate_queryset(queryset, page: int = 1, size: int = 10):
 # ==================== Offices CRUD ====================
 
 async def get_all_offices():
-    """獲取所有管理處/單位，支持分頁和搜索"""
-    return await OfficeOutSchema.from_queryset(Offices.all())
+    """獲取所有管理處/單位並以 id 排序，可以擴充分頁和搜索方法"""
+    return await OfficeOutSchema.from_queryset(Offices.all().order_by("id"))
 
 
 async def get_office_by_id(office_id: int):
