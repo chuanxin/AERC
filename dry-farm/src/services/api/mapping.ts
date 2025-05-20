@@ -1,4 +1,4 @@
-import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS } from './endpoints';
+import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_ANNUAL_PRICES } from './endpoints';
 
 // 後端實際路徑定義
 export const BACKEND_PATHS = {
@@ -45,7 +45,20 @@ export const BACKEND_PATHS = {
     LIST: '/pipe_fittings', // For GET all and POST create
     DETAIL: (pomno: number | string) => `/pipe_fittings/${pomno}`, // For GET one, PUT, DELETE
     BY_OFFICE_ID: (officeId: number | string) => `/pipe_fittings/office/${officeId}`,
-  }
+  },
+  PF_MODULES: {
+    LIST: '/pf_modules/',
+    DETAIL: (id: number | string) => `/pf_modules/${id}`,
+    CREATE: '/pf_modules',
+    UPDATE: (id: number | string) => `/pf_modules/${id}`,
+    DELETE: (id: number | string) => `/pf_modules/${id}`,
+  },
+  PF_ANNUAL_PRICES: {
+    LIST: '/pf_annual_prices/',
+    DETAIL: (id: number | string) => `/pf_annual_prices/${id}`,
+    BY_PIPE_FITTING: (pipeFittingId: number | string) => `/pf_annual_prices/pipe_fitting/${pipeFittingId}`,
+    CURRENT_PRICE: (pipeFittingId: number | string) => `/pf_annual_prices/pipe_fitting/${pipeFittingId}/current`,
+  },
 };
 
 // 前端到後端的直接映射表
@@ -65,6 +78,10 @@ export const API_MAPPING: Record<string, string> = {
   // [GRANTS.STEP]: BACKEND_PATHS.GRANTS.STEP,
   [PIPE_FITTINGS.LIST]: BACKEND_PATHS.PIPE_FITTINGS.LIST,
   [PIPE_FITTINGS.CREATE]: BACKEND_PATHS.PIPE_FITTINGS.LIST, // Assuming POST to the same base path
+  [PF_ANNUAL_PRICES.LIST]: BACKEND_PATHS.PF_ANNUAL_PRICES.LIST,
+  [PF_ANNUAL_PRICES.CREATE]: BACKEND_PATHS.PF_ANNUAL_PRICES.LIST,
+  [PF_MODULES.LIST]: BACKEND_PATHS.PF_MODULES.LIST,
+  [PF_MODULES.CREATE]: BACKEND_PATHS.PF_MODULES.LIST,
 }
 
 // 動態參數路徑匹配規則
@@ -73,11 +90,6 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配用戶詳情路徑 /api/v1/users/123
     pattern: new RegExp(`^${USERS.BASE}/([\\d]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USERS.DETAIL(matches[1])
-  },
-  {
-    // // 匹配筆記詳情路徑 /api/v1/notes/123
-    // pattern: new RegExp(`^${NOTES.BASE}/([\\d]+)$`),
-    // transform: (matches: RegExpMatchArray) => BACKEND_PATHS.NOTES.DETAIL(matches[1])
   },
   {
     // Assuming PIPE_FITTINGS.BASE is /api/v1/pipe_fittings from endpoints.ts
@@ -90,6 +102,22 @@ export const DYNAMIC_PATH_PATTERNS = [
     pattern: new RegExp(`^${PIPE_FITTINGS.BASE}/(?!office/)([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PIPE_FITTINGS.DETAIL(matches[1])
   },
+  {
+    pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE}/pipe_fitting/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PF_ANNUAL_PRICES.BY_PIPE_FITTING(matches[1])
+  },
+  {
+    pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE}/pipe_fitting/([^/]+)/current$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PF_ANNUAL_PRICES.CURRENT_PRICE(matches[1])
+  },
+  {
+    pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE}/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PF_ANNUAL_PRICES.DETAIL(matches[1])
+  },
+  // {
+  //   pattern: new RegExp(`^${PF_MODULES.LIST}/([^/]+)$`),
+  //   transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PF_MODULES.DETAIL(matches[1])
+  // },
 ];
 
 // /**

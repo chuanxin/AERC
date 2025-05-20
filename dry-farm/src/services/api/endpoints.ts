@@ -87,12 +87,23 @@ export const PIPE_FITTINGS = {
   BY_OFFICE_ID: (officeId: number | string) => `${BASE}/pipe_fittings/office/${officeId}`,
 }
 
+export const PF_ANNUAL_PRICES = {
+  BASE: `${BASE}/pf_annual_prices`,
+  CREATE: '/pf_annual_prices/',
+  LIST: '/pf_annual_prices/',
+  DETAIL: (id: number | string) => `/pf_annual_prices/${id}`,
+  BY_PIPE_FITTING: (pipeFittingId: number | string) => `/pf_annual_prices/pipe_fitting/${pipeFittingId}`,
+  CURRENT_PRICE: (pipeFittingId: number | string) => `/pf_annual_prices/pipe_fitting/${pipeFittingId}/current`,
+  UPDATE: (id: number | string) => `/pf_annual_prices/${id}`,
+  DELETE: (id: number | string) => `/pf_annual_prices/${id}`,
+}
+
 export const PF_MODULES = {
-  CREATE: '/pf_modules/',
-  LIST: '/pf_modules/',
-  DETAIL: (id: number | string) => `/pf_modules/${id}`,
-  UPDATE: (id: number | string) => `/pf_modules/${id}`,
-  DELETE: (id: number | string) => `/pf_modules/${id}`,
+  CREATE: `${BASE}/pf_modules`,
+  LIST: `${BASE}/pf_modules/`,
+  DETAIL: (id: number | string) => `${BASE}/pf_modules/${id}`,
+  UPDATE: (id: number | string) => `${BASE}/pf_modules/${id}`,
+  DELETE: (id: number | string) => `${BASE}/pf_modules/${id}`,
 };
 
 export const PF_MATERIALS = {

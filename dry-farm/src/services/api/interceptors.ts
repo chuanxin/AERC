@@ -39,7 +39,7 @@ export function setupInterceptors(
   // 請求攔截器 - 處理 API 路徑映射和認證
   api.interceptors.request.use(
     (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-      // 保存原始 URL 以便調試
+      // 保存原始 URL 以便後續使用
       const originalUrl = config.url;
 
       // 進行 API 路徑映射
