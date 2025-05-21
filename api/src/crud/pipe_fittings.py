@@ -2,7 +2,7 @@ from typing import List, Optional, Type
 from tortoise.exceptions import DoesNotExist, IntegrityError
 from fastapi import HTTPException
 
-from src.database.models import PipeFittings, PFMaterials, PFModules, PFDiameters, Offices, Users
+from src.database.models import PipeFittings, PFAnnualPrices, PFMaterials, PFModules, PFDiameters, Offices, Users
 from src.schemas.pipe_fittings import PipeFittingCreate, PipeFittingUpdate
 
 async def get_pipe_fitting(pomno: int) -> Optional[PipeFittings]:
@@ -10,6 +10,22 @@ async def get_pipe_fitting(pomno: int) -> Optional[PipeFittings]:
         return await PipeFittings.get(pomno=pomno).prefetch_related(
             "material", "module", "diameter1", "diameter2", "diameter3", "office", "created_by", "modified_by"
         )
+        
+        # 獲取價格歷史記錄
+        if pipe_fitting.office_id:
+            pipe_fitting.price_history = await PFAnnualPrices.filter(
+                pipe_fitting_id=pomno,
+                office_id=pipe_fitting.office_id
+            ).order_by("-year").limit(20)
+            
+            # 如果存在價格歷史，設置當前價格（最新年份的價格）
+            if pipe_fitting.price_history:
+                pipe_fitting.current_price = pipe_fitting.price_history[0].price
+        else:
+            pipe_fitting.price_history = []
+            pipe_fitting.current_price = None
+            
+        return pipe_fitting
     except DoesNotExist:
         return None
 
@@ -18,6 +34,14 @@ async def get_pipe_fittings(skip: int = 0, limit: int = 100) -> List[PipeFitting
         "material", "module", "diameter1", "diameter2", "diameter3", "office", "created_by", "modified_by"
     )
 
+    # 獲取所有管件 ID
+    pipe_fitting_ids = [pf.pomno for pf in pipe_fittings]
+    
+    # 獲取價格歷史和當前價格
+    await _add_price_info_to_pipe_fittings(pipe_fittings)
+    
+    return pipe_fittings
+
 async def get_pipe_fittings_count() -> int:
     return await PipeFittings.all().count()
 
@@ -25,9 +49,14 @@ async def get_pipe_fittings_by_office(office_id: int, skip: int = 0, limit: int 
     """
     Retrieve pipe fittings filtered by office_id with pagination.
     """
-    return await PipeFittings.filter(office_id=office_id).offset(skip).limit(limit).prefetch_related(
+    pipe_fittings = await PipeFittings.filter(office_id=office_id).offset(skip).limit(limit).prefetch_related(
         "material", "module", "diameter1", "diameter2", "diameter3", "office", "created_by", "modified_by"
     )
+
+    # 獲取價格歷史和當前價格
+    await _add_price_info_to_pipe_fittings(pipe_fittings, office_id)
+    
+    return pipe_fittings
 
 async def get_pipe_fittings_by_office_count(office_id: int) -> int:
     """
@@ -106,3 +135,38 @@ async def delete_pipe_fitting(pomno: int) -> bool:
         return False
     await pipe_fitting_obj.delete()
     return True
+
+async def _add_price_info_to_pipe_fittings(pipe_fittings: List[PipeFittings], office_id: Optional[int] = None) -> None:
+    """
+    為管件列表添加價格信息
+    """
+    if not pipe_fittings:
+        return
+    
+    # 獲取所有管件 ID
+    pipe_fitting_ids = [pf.pomno for pf in pipe_fittings]
+    
+    # 獲取價格歷史記錄
+    price_query = PFAnnualPrices.filter(pipe_fitting_id__in=pipe_fitting_ids)
+    if office_id is not None:
+        price_query = price_query.filter(office_id=office_id)
+    
+    all_prices = await price_query.all()
+    
+    # 按管件 ID 分組
+    prices_by_pipe_fitting = {}
+    for price in all_prices:
+        if price.pipe_fitting_id not in prices_by_pipe_fitting:
+            prices_by_pipe_fitting[price.pipe_fitting_id] = []
+        prices_by_pipe_fitting[price.pipe_fitting_id].append(price)
+    
+    # 為每個管件添加價格信息
+    for pipe_fitting in pipe_fittings:
+        pipe_fitting_prices = prices_by_pipe_fitting.get(pipe_fitting.pomno, [])
+        
+        # 按年份降序排序
+        pipe_fitting_prices.sort(key=lambda p: p.year, reverse=True)
+        
+        # 設置價格歷史和當前價格
+        pipe_fitting.price_history = pipe_fitting_prices
+        pipe_fitting.current_price = pipe_fitting_prices[0].price if pipe_fitting_prices else None

@@ -57,6 +57,9 @@ export interface PipeFitting {
   office?: OfficeResponseMin | null;
   created_by?: UserResponseMin | null;
   modified_by?: UserResponseMin | null;
+
+  current_price?: number | null;
+  price_history?: PriceHistory[];
 }
 
 export interface PipeFittingCreate {
@@ -104,4 +107,15 @@ export interface PaginatedResponse<T> {
   // page?: number;
   // limit?: number;
   // pages?: number;
+}
+
+export interface PriceHistory {
+  id: number;
+  year: number;
+  price: number;
+  is_active: boolean;
+  pipe_fitting_id: number;
+  office_id?: number | null;
+  created_at: string;
+  modified_at: string;
 }

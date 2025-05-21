@@ -80,6 +80,19 @@ class PipeFittingUpdate(BaseModel):
     year: Optional[int] = Field(None, description="管件年份")
     modified_by_id: Optional[int] = Field(None, description="修改人帳號ID")
 
+class PriceHistoryResponse(BaseModel):
+    id: int = Field(..., description="價格記錄ID")
+    year: int = Field(..., description="年度")
+    price: float = Field(..., description="價格")
+    is_active: bool = Field(..., description="是否啟用")
+    # pipe_fitting_id: int = Field(..., description="所屬管件ID")
+    # office_id: Optional[int] = Field(None, description="所屬單位/管理處ID")
+    # created_at: datetime
+    # modified_at: datetime
+
+    class Config:
+        from_attributes = True
+
 # Schema for responding with PipeFitting data
 class PipeFittingResponse(PipeFittingBase):
     pomno: int = Field(..., description="管件代碼")
@@ -93,6 +106,9 @@ class PipeFittingResponse(PipeFittingBase):
     modified_at: datetime
     created_by: Optional[UserResponseMin] = None
     modified_by: Optional[UserResponseMin] = None
+
+    current_price: Optional[float] = Field(None, description="當前價格")
+    price_history: List[PriceHistoryResponse] = Field(default_factory=list, description="價格歷史記錄")
 
     class Config:
         from_attributes = True

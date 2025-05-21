@@ -378,6 +378,12 @@ class PipeFittings(models.Model):
         indexes = [
             ("name", "material", "module", "diameter1", "diameter2", "diameter3", "office"),
         ]
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.price_history = []
+        self.current_price = None
+    
     def __str__(self):
         return f"{self.name} - {self.material.name} - {self.module.name} - {self.diameter1.value} - {self.diameter2.value} - {self.diameter3.value}"
     

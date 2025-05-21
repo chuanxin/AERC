@@ -79,8 +79,8 @@ export const GRANTS = {
 // Pipe Fittings related endpoints
 export const PIPE_FITTINGS = {
   BASE: `${BASE}/pipe_fittings`,
-  CREATE: `${BASE}/pipe_fittings`,
-  LIST: `${BASE}/pipe_fittings`, // For getting all with pagination
+  CREATE: `${BASE}/pipe_fittings/`,
+  LIST: `${BASE}/pipe_fittings/`, // For getting all with pagination
   DETAIL: (pomno: number | string) => `${BASE}/pipe_fittings/${pomno}`,
   UPDATE: (pomno: number | string) => `${BASE}/pipe_fittings/${pomno}`,
   DELETE: (pomno: number | string) => `${BASE}/pipe_fittings/${pomno}`,
@@ -89,13 +89,13 @@ export const PIPE_FITTINGS = {
 
 export const PF_ANNUAL_PRICES = {
   BASE: `${BASE}/pf_annual_prices`,
-  CREATE: '/pf_annual_prices/',
-  LIST: '/pf_annual_prices/',
-  DETAIL: (id: number | string) => `/pf_annual_prices/${id}`,
-  BY_PIPE_FITTING: (pipeFittingId: number | string) => `/pf_annual_prices/pipe_fitting/${pipeFittingId}`,
-  CURRENT_PRICE: (pipeFittingId: number | string) => `/pf_annual_prices/pipe_fitting/${pipeFittingId}/current`,
-  UPDATE: (id: number | string) => `/pf_annual_prices/${id}`,
-  DELETE: (id: number | string) => `/pf_annual_prices/${id}`,
+  CREATE: `${BASE}/pf_annual_prices/`,
+  LIST: `${BASE}/pf_annual_prices/`,
+  DETAIL: (id: number | string) => `${BASE}/pf_annual_prices/${id}`,
+  BY_PIPE_FITTING: (pipeFittingId: number | string) => `${BASE}/pf_annual_prices/pipe_fitting/${pipeFittingId}`,
+  CURRENT_PRICE: (pipeFittingId: number | string) => `${BASE}/pf_annual_prices/pipe_fitting/${pipeFittingId}/current`,
+  UPDATE: (id: number | string) => `${BASE}/pf_annual_prices/${id}`,
+  DELETE: (id: number | string) => `${BASE}/pf_annual_prices/${id}`,
 }
 
 export const PF_MODULES = {
@@ -107,19 +107,19 @@ export const PF_MODULES = {
 };
 
 export const PF_MATERIALS = {
-  CREATE: '/pf_materials/',
-  LIST: '/pf_materials/',
-  DETAIL: (id: number | string) => `/pf_materials/${id}`,
-  UPDATE: (id: number | string) => `/pf_materials/${id}`,
-  DELETE: (id: number | string) => `/pf_materials/${id}`,
+  CREATE: `${BASE}/pf_materials/`,
+  LIST: `${BASE}/pf_materials/`,
+  DETAIL: (id: number | string) => `${BASE}/pf_materials/${id}`,
+  UPDATE: (id: number | string) => `${BASE}/pf_materials/${id}`,
+  DELETE: (id: number | string) => `${BASE}/pf_materials/${id}`,
 };
 
 export const PF_DIAMETERS = {
-  CREATE: '/pf_diameters/',
-  LIST: '/pf_diameters/',
-  DETAIL: (id: number | string) => `/pf_diameters/${id}`,
-  UPDATE: (id: number | string) => `/pf_diameters/${id}`,
-  DELETE: (id: number | string) => `/pf_diameters/${id}`,
+  CREATE: `${BASE}/pf_diameters/`,
+  LIST: `${BASE}/pf_diameters/`,
+  DETAIL: (id: number | string) => `${BASE}/pf_diameters/${id}`,
+  UPDATE: (id: number | string) => `${BASE}/pf_diameters/${id}`,
+  DELETE: (id: number | string) => `${BASE}/pf_diameters/${id}`,
 };
 
 // statistics related endpoints

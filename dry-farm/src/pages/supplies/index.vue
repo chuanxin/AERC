@@ -79,6 +79,7 @@
                     <v-select
                       v-model="selectedMaterial"
                       :items="materialOptions"
+                      :loading="pfMaterialsStore.isLoading"
                       label="材質"
                       density="comfortable"
                       variant="outlined"
@@ -198,14 +199,13 @@
                       v-if="editingCell === `${item.id}-materialName`"
                       class="editing-cell-container"
                     >
-                      <v-select
+                      <v-text-field
                         v-model="tempEditValue"
-                        :items="materialOptions"
                         density="compact"
                         variant="outlined"
                         hide-details
                         autofocus
-                        class="edit-select"
+                        class="edit-field"
                         @blur="saveCell(item.id, 'materialName')"
                         @keyup.enter="saveCell(item.id, 'materialName')"
                         @keyup.esc="cancelEdit()"
@@ -226,13 +226,17 @@
                       v-if="editingCell === `${item.id}-diameter1`"
                       class="editing-cell-container"
                     >
-                      <v-text-field
+                      <v-select
                         v-model="tempEditValue"
+                        :items="diameter1Options"
+                        :loading="pfDiametersStore.isLoading"
                         density="compact"
                         variant="outlined"
                         hide-details
                         autofocus
                         class="edit-field"
+                        item-title="title"
+                        item-value="value"
                         @blur="saveCell(item.id, 'diameter1')"
                         @keyup.enter="saveCell(item.id, 'diameter1')"
                         @keyup.esc="cancelEdit()"
@@ -241,9 +245,9 @@
                     <div
                       v-else
                       class="editable-cell"
-                      @click="startCellEdit(item.id, 'diameter1', item.raw.diameter1)"
+                      @click="startCellEdit(item.id, 'diameter1', item.raw.diameter1_id || item.raw.diameter1)"
                     >
-                      {{ item.raw.diameter1 }}
+                      {{ getDiameterDisplay(item.raw.diameter1_id) || item.raw.diameter1 }}
                     </div>
                   </template>
 
@@ -252,13 +256,17 @@
                       v-if="editingCell === `${item.id}-diameter2`"
                       class="editing-cell-container"
                     >
-                      <v-text-field
+                      <v-select
                         v-model="tempEditValue"
+                        :items="diameter2Options"
+                        :loading="pfDiametersStore.isLoading"
                         density="compact"
                         variant="outlined"
                         hide-details
                         autofocus
                         class="edit-field"
+                        item-title="title"
+                        item-value="value"
                         @blur="saveCell(item.id, 'diameter2')"
                         @keyup.enter="saveCell(item.id, 'diameter2')"
                         @keyup.esc="cancelEdit()"
@@ -267,9 +275,9 @@
                     <div
                       v-else
                       class="editable-cell"
-                      @click="startCellEdit(item.id, 'diameter2', item.raw.diameter2)"
+                      @click="startCellEdit(item.id, 'diameter2', item.raw.diameter2_id || item.raw.diameter2)"
                     >
-                      {{ item.raw.diameter2 }}
+                      {{ getDiameterDisplay(item.raw.diameter2_id) || item.raw.diameter2 }}
                     </div>
                   </template>
 
@@ -278,13 +286,17 @@
                       v-if="editingCell === `${item.id}-diameter3`"
                       class="editing-cell-container"
                     >
-                      <v-text-field
+                      <v-select
                         v-model="tempEditValue"
+                        :items="diameter3Options"
+                        :loading="pfDiametersStore.isLoading"
                         density="compact"
                         variant="outlined"
                         hide-details
                         autofocus
                         class="edit-field"
+                        item-title="title"
+                        item-value="value"
                         @blur="saveCell(item.id, 'diameter3')"
                         @keyup.enter="saveCell(item.id, 'diameter3')"
                         @keyup.esc="cancelEdit()"
@@ -293,9 +305,9 @@
                     <div
                       v-else
                       class="editable-cell"
-                      @click="startCellEdit(item.id, 'diameter3', item.raw.diameter3)"
+                      @click="startCellEdit(item.id, 'diameter3', item.raw.diameter3_id || item.raw.diameter3)"
                     >
-                      {{ item.raw.diameter3 }}
+                      {{ getDiameterDisplay(item.raw.diameter3_id) || item.raw.diameter3 }}
                     </div>
                   </template>
 
@@ -305,13 +317,17 @@
                       v-if="editingCell === `${item.id}-material`"
                       class="editing-cell-container"
                     >
-                      <v-text-field
+                      <v-select
                         v-model="tempEditValue"
+                        :items="materialOptions"
+                        :loading="pfMaterialsStore.isLoading"
                         density="compact"
                         variant="outlined"
                         hide-details
                         autofocus
                         class="edit-field"
+                        item-title="title"
+                        item-value="value"
                         @blur="saveCell(item.id, 'material')"
                         @keyup.enter="saveCell(item.id, 'material')"
                         @keyup.esc="cancelEdit()"
@@ -383,40 +399,18 @@
 
                   <!-- 目前單價欄位 -->
                   <template #[`item.currentPrice`]="{ item }">
-                    <div
-                      v-if="editingCell === `${item.id}-currentPrice`"
-                      class="editing-cell-container"
-                    >
-                      <v-text-field
-                        v-model.number="tempEditValue"
-                        type="number"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        autofocus
-                        suffix="元"
-                        class="edit-field"
-                        @blur="saveCell(item.id, 'currentPrice')"
-                        @keyup.enter="saveCell(item.id, 'currentPrice')"
-                        @keyup.esc="cancelEdit()"
-                      />
-                    </div>
                     <div class="d-flex align-center">
-                      <div
-                        class="editable-cell text-right"
-                        @click="startCellEdit(item.id, 'currentPrice', item.raw.currentPrice)"
-                      >
-                        {{ item.raw.currentPrice }} 元
-                      </div>
-                      <v-btn
+                      <v-chip
                         title="歷史單價"
-                        icon="mdi-history"
-                        size="x-small"
+                        append-icon="mdi-history"
+                        size="normal"
                         color="amber-darken-2"
                         variant="text"
                         class="ml-2"
                         @click="showPriceHistory(item.raw)"
-                      />
+                      >
+                        {{ item.raw.currentPrice }} 元
+                      </v-chip>
                     </div>
                   </template>
 
@@ -583,7 +577,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(price, index) in currentMaterial.priceHistory" :key="index">
+                <tr v-for="(price, index) in currentMaterial.priceHistory" :key="price.id">
                   <td>{{ price.year }} 年</td>
                   <td class="text-right">
                     <span v-if="editingPriceIndex !== index">{{ price.price }}</span>
@@ -674,43 +668,56 @@
                 />
               </v-col>
               <v-col cols="12" md="6">
-                <v-select
+                <v-text-field
                   v-model="editedItem.materialName"
-                  :items="materialOptions"
                   label="物料名稱"
-                  required
                   density="comfortable"
                   variant="outlined"
                 />
               </v-col>
               <v-col cols="12" md="4">
-                <v-text-field
+                <v-select
                   v-model="editedItem.diameter1"
+                  :items="diameter1Options"
+                  :loading="pfDiametersStore.isLoading"
                   label="口徑1"
                   density="comfortable"
                   variant="outlined"
+                  item-title="title"
+                  item-value="value"
                 />
               </v-col>
               <v-col cols="12" md="4">
-                <v-text-field
+                <v-select
                   v-model="editedItem.diameter2"
+                  :items="diameter2Options"
+                  :loading="pfDiametersStore.isLoading"
                   label="口徑2"
                   density="comfortable"
                   variant="outlined"
+                  item-title="title"
+                  item-value="value"
                 />
               </v-col>
               <v-col cols="12" md="4">
-                <v-text-field
+                <v-select
                   v-model="editedItem.diameter3"
+                  :items="diameter3Options"
+                  :loading="pfDiametersStore.isLoading"
                   label="口徑3"
                   density="comfortable"
                   variant="outlined"
+                  item-title="title"
+                  item-value="value"
                 />
               </v-col>
               <v-col cols="12" md="4">
-                <v-text-field
+                <v-select
                   v-model="editedItem.material"
+                  :items="materialOptions"
+                  :loading="pfMaterialsStore.isLoading"
                   label="材質"
+                  required
                   density="comfortable"
                   variant="outlined"
                 />
@@ -747,7 +754,7 @@
               <v-col cols="12" md="4">
                 <v-select
                   v-model="editedItem.status"
-                  :items="['啟用', '停用', '審核中']"
+                  :items="['啟用', '停用']"
                   label="狀態"
                   required
                   density="comfortable"
@@ -786,12 +793,21 @@ import { useDisplay } from 'vuetify'
 import { usePipeFittingsStore } from '@/stores/pipeFittingsStore'
 import { usePFModulesStore } from '@/stores/pfModulesStore'
 import { useUserStore } from '@/stores/users'
+import { usePFAnnualPricesStore } from '@/stores/pfAnnualPricesStore'
+import { usePFMaterialsStore } from '@/stores/pfMaterialsStore'
+import { usePFDiametersStore } from '@/stores/pfDiametersStore'
+import type { PFMaterial } from '@/types/pfMaterials'
+import type { PFDiameter } from '@/types/pfDiameters'
+import type { PFAnnualPrice } from '@/types/pfAnnualPrices'
 // import type { pad } from 'lodash'
 
-const router = useRouter()
+// const router = useRouter()
 const store = usePipeFittingsStore()
 const pfModulesStore = usePFModulesStore()
 const userStore = useUserStore()
+const annualPricesStore = usePFAnnualPricesStore()
+const pfMaterialsStore = usePFMaterialsStore()
+const pfDiametersStore = usePFDiametersStore()
 
 const tableRef = ref<any>(null); // v-data-table-virtual 的引用
 let scrollableElement: HTMLElement | null = null;
@@ -828,17 +844,17 @@ const mappedPipeFittings = computed(() => {
       id: fitting.pomno, // Assuming 'pomno' is the unique ID and table expects 'id'
       pomno: fitting.pomno, // Keep original pomno if needed for store operations
       moduleId: fitting.module_id,
-      moduleName: fitting.module?.name || `模組 (ID: ${fitting.module_id})`, // Example: if module is nested or just an ID
-      materialName: fitting.name || `物料 (POMNO: ${fitting.pomno})`, // Example: if fitting.name is the material name
-      diameter1: fitting.diameter1?.value || fitting.diameter1_id?.toString() || '', // Example
-      diameter2: fitting.diameter2?.value || fitting.diameter2_id?.toString() || '', // Example
-      diameter3: fitting.diameter3?.value || '', // Example
-      material: fitting.material?.name || `材質 (ID: ${fitting.material_id})`, // Example
-      length: fitting.length ?? '', // Example, use actual field name
-      unit: fitting.unit || '個', // Example
-      // currentPrice: fitting.current_price ?? 0, // Example
-      status: fitting.is_active, // Example
-      // priceHistory: fitting.price_history || [], // Example
+      moduleName: fitting.module?.name || `模組 (ID: ${fitting.module_id})`,
+      materialName: fitting.name || `物料 (POMNO: ${fitting.pomno})`,
+      diameter1: fitting.diameter1?.value || fitting.diameter1_id?.toString() || '',
+      diameter2: fitting.diameter2?.value || fitting.diameter2_id?.toString() || '',
+      diameter3: fitting.diameter3?.value || '',
+      material: fitting.material?.name || `材質 (ID: ${fitting.material_id})`,
+      length: fitting.length ?? '',
+      unit: fitting.unit || '個',
+      currentPrice: fitting.current_price || 0,
+      status: fitting.is_active,
+      priceHistory: fitting.price_history || [],
       note: fitting.description || '', // Example
       rawFitting: fitting,
       // Add any other fields from the original mock 'materials' that your template uses
@@ -919,7 +935,13 @@ const tempEditValue = ref<any>(null)
 
 // 歷史價格對話框
 const priceDialog = ref(false)
-const currentMaterial = ref<any>(null)
+const currentMaterial = ref<{
+  id: string
+  moduleName: string
+  materialName: string
+  rawFitting: any
+  priceHistory: PFAnnualPrice[]
+} | null>(null)
 const editingPriceYear = ref<number | null>(null)
 const editingPrice = ref<number | null>(null)
 const editingPriceIndex = ref<number | null>(null)
@@ -979,16 +1001,55 @@ const dynamicModuleOptions = computed(() => {
   }));
 });
 
+// 動態獲取的材質選項
+const dynamicMaterialOptions = computed(() => {
+  if (!pfMaterialsStore.materials) {
+    return [];
+  }
+  return pfMaterialsStore.materials.map(material => ({
+    title: material.name,
+    value: material.name, // 使用材質名稱作為值以匹配現有篩選邏輯
+  }));
+});
+
+// 動態獲取的口徑選項
+const diameter1Options = computed(() => {
+  if (!pfDiametersStore.diameters) {
+    return [];
+  }
+  return pfDiametersStore.diameters.map(diameter => ({
+    title: `${diameter.name} (${diameter.value})`,
+    value: diameter.id, // 使用 ID 作為值
+  }));
+});
+
+const diameter2Options = computed(() => diameter1Options.value);
+const diameter3Options = computed(() => diameter1Options.value);
+
 // 物料類型選項
-const materialOptions = [
-  { title: '過濾器', value: '過濾器' },
-  { title: '閥門', value: '閥門' },
-  { title: 'PE管', value: 'PE管' },
-  { title: 'PVC管', value: 'PVC管' },
-  { title: '接頭', value: '接頭' },
-  { title: '滴頭', value: '滴頭' },
-  { title: '噴頭', value: '噴頭' }
-]
+const materialOptions = computed(() => {
+  // 如果 store 中有數據，使用動態數據
+  if (pfMaterialsStore.hasMaterials) {
+    return dynamicMaterialOptions.value;
+  }
+
+  // 否則使用靜態備選清單
+  return [
+    { title: '過濾器', value: '過濾器' },
+    { title: '閥門', value: '閥門' },
+    { title: 'PE管', value: 'PE管' },
+    { title: 'PVC管', value: 'PVC管' },
+    { title: '接頭', value: '接頭' },
+    { title: '滴頭', value: '滴頭' },
+    { title: '噴頭', value: '噴頭' }
+  ];
+});
+
+const getDiameterDisplay = (diameterId: number | null) => {
+  if (!diameterId) return '';
+  const diameter = pfDiametersStore.getDiameterById(diameterId);
+  return diameter ? `${diameter.name} (${diameter.value})` : '';
+};
 
 // 新表頭，移除選取與材料編號，增加項次
 const headers = ref<{ title: string; key: string; align?: 'center' | 'end' | 'start'; width?: string }[]>([
@@ -1086,7 +1147,7 @@ const filteredItems = computed(() => {
   }
 
   if (selectedMaterial.value) {
-    result = result.filter(item => item.materialName === selectedMaterial.value);
+    result = result.filter(item => item.material === selectedMaterial.value);
   }
 
   if (search.value) {
@@ -1149,50 +1210,40 @@ const loadMorePipeFittings = async () => {
 // 開始編輯單元格
 const startCellEdit = (itemId: string, field: string, currentValue: any) => {
   editingCell.value = `${itemId}-${field}`
-  // 對於 status 字段，tempEditValue 應該是布爾值
+  // 對於 status 字段，tempEditValue 應該是布林值
   if (field === 'status') {
     const fitting = mappedPipeFittings.value.find(f => String(f.id) === itemId);
     tempEditValue.value = fitting ? fitting.rawFitting.is_active : false;
-  } else {
-    tempEditValue.value = currentValue
+    return
   }
+
+  // 處理口徑字段，需要使用對應的 ID
+  if (field === 'diameter1' || field === 'diameter2' || field === 'diameter3') {
+    const fitting = mappedPipeFittings.value.find(f => String(f.id) === itemId);
+    if (fitting) {
+      // 如果原始數據中有 diameter*_id，使用它作為選擇值
+      const idField = `${field}_id`;
+      if (fitting.rawFitting[idField]) {
+        tempEditValue.value = fitting.rawFitting[idField];
+        return;
+      }
+    }
+  }
+
+  if (field === 'material') {
+    // 如果是材質，嘗試尋找匹配的材質
+    const materialName = currentValue;
+    const material = pfMaterialsStore.materials.find(m => m.name === materialName);
+    if (material && field === 'material') {
+      tempEditValue.value = material.id; // 使用 ID 作為值
+      return;
+    }
+  }
+
+  tempEditValue.value = currentValue
 }
 
-// 取消編輯
-const cancelEdit = () => {
-  editingCell.value = null
-  tempEditValue.value = null
-}
-
-// 儲存單元格編輯
-// const saveCell = (itemId: string, field: string) => {
-//   const index = allItems.value.findIndex(item => item.id === itemId)
-//   if (index !== -1) {
-//     // 更新欄位值
-//     const item = allItems.value[index]
-//     item[field] = tempEditValue.value
-
-//     // 如果更新的是目前單價，也需要更新歷史價格
-//     if (field === 'currentPrice' && tempEditValue.value !== null && tempEditValue.value > 0) {
-//       // 檢查是否有本年度的價格
-//       const currentYearIndex = item.priceHistory.findIndex(p => p.year === currentYear)
-
-//       if (currentYearIndex >= 0) {
-//         // 更新本年度價格
-//         item.priceHistory[currentYearIndex].price = tempEditValue.value
-//       } else {
-//         // 添加本年度價格
-//         item.priceHistory.push({
-//           year: currentYear,
-//           price: tempEditValue.value
-//         })
-
-//         // 按年度排序
-//         item.priceHistory.sort((a, b) => b.year - a.year)
-//       }
-//     }
-//   }
-const saveCell = async (itemId: string, field: string) => { // 改為 async
+const saveCell = async (itemId: string, field: string) => {
   const itemIndex = mappedPipeFittings.value.findIndex(item => item.id === itemId);
   if (itemIndex === -1) {
     cancelEdit();
@@ -1205,7 +1256,7 @@ const saveCell = async (itemId: string, field: string) => { // 改為 async
     return;
   }
 
-  let valueToSave = tempEditValue.value;
+  const valueToSave = tempEditValue.value;
 
   // 準備更新數據
   const updateData: any = {};
@@ -1226,17 +1277,62 @@ const saveCell = async (itemId: string, field: string) => { // 改為 async
     }
   } else if (field === 'materialName') {
     updateData.name = valueToSave; // 假設 materialName 對應 fitting.name
-  } else if (field === 'diameter1') {
-    // 假設 diameter1 存的是 ID
-    // updateData.diameter1_id = valueToSave; // 需要轉換為 ID
-    // 這裡需要 PFDiametersStore 來查找 ID
-  }
-  // ... 為其他可編輯字段添加類似的映射 ...
-  else {
+  } else if (field === 'material') {
+    const selectedMaterial = pfMaterialsStore.materials.find(m => m.name === valueToSave);
+    if (selectedMaterial) {
+      updateData.material_id = selectedMaterial.id;
+    } else {
+      console.warn('Material not found for saving:', tempEditValue.value);
+      cancelEdit();
+      return;
+    }
+  } else if (field === 'diameter1' || field === 'diameter2' || field === 'diameter3') {
+    const idField = `${field}_id`;
+    updateData[idField] = valueToSave;
+  } else if (field === 'currentPrice' && tempEditValue.value !== null && tempEditValue.value > 0) {
+    try {
+      const userOfficeId = userStore.currentUser?.office?.id;
+      const currentYear = new Date().getFullYear() - 1911; // 台灣年號
+
+      // 查詢該管件是否有當前年度的價格記錄
+      await annualPricesStore.fetchAnnualPricesByPipeFitting(
+        Number(itemId),
+        // { office_id: userOfficeId }
+      );
+
+      const priceRecords = annualPricesStore.getAnnualPricesByPipeFittingId(Number(itemId));
+      const currentYearPrice = priceRecords.find(p => p.year === currentYear);
+
+      if (currentYearPrice) {
+        // 更新現有價格
+        await annualPricesStore.updateAnnualPrice(
+          currentYearPrice.id,
+          {
+            price: tempEditValue.value,
+            modified_by_id: userStore.currentUser?.id
+          }
+        );
+      } else {
+        // 創建新價格
+        await annualPricesStore.createAnnualPrice({
+          pipe_fitting_id: Number(itemId),
+          office_id: userOfficeId,
+          year: currentYear,
+          price: tempEditValue.value,
+          is_active: true,
+          created_by_id: userStore.currentUser?.id
+        });
+      }
+    } catch (error) {
+      console.error('更新價格歷史失敗:', error);
+      // 可以顯示錯誤提示但不阻止退出編輯狀態
+    }
+  } else {
     // 假設其他字段名直接對應 PipeFittingUpdate schema 中的字段名
     // 注意：這需要確保 mappedPipeFittings 中的 key 與 PipeFittingUpdate 的 key 一致
     // 或者在這裡進行映射
     // 例如，如果 mappedPipeFittings 的 key 是 'length' 而 PipeFittingUpdate 的 key 也是 'length'
+    console.log('Saving field:', field, 'with value:', valueToSave);
     updateData[field] = valueToSave;
   }
 
@@ -1256,11 +1352,11 @@ const saveCell = async (itemId: string, field: string) => { // 改為 async
   cancelEdit();
 }
 
-//   // 退出編輯模式
-//   editingCell.value = null
-//   tempEditValue.value = null
-// }
-
+// 取消編輯
+const cancelEdit = () => {
+  editingCell.value = null
+  tempEditValue.value = null
+}
 
 const toggleAndSaveStatus = (itemId: string) => {
   // 找到對應的 fitting 來獲取當前 is_active 狀態
@@ -1298,12 +1394,49 @@ const deleteItem = (itemId: string) => {
 }
 
 // 顯示歷史價格對話框
+// const showPriceHistory = async (item: any) => {
+//   try {
+//     // 首先準備當前材料的基本信息
+//     currentMaterial.value = {
+//       id: item.id,
+//       moduleName: item.moduleName,
+//       materialName: item.materialName,
+//       rawFitting: item.rawFitting,
+//       priceHistory: []
+//     };
+
+//     // 加載該管件的價格歷史
+//     // const userOfficeId = userStore.currentUser?.office?.id; // 獲取當前用戶的 office_id
+//     const priceHistory = await annualPricesStore.fetchAnnualPricesByPipeFitting(
+//       Number(item.id),
+//       {
+//         // office_id: userOfficeId,
+//         skip: 0,
+//         limit: 100
+//       }
+//     );
+
+//     // 將獲取的價格歷史賦值給 currentMaterial
+//     if (currentMaterial.value) {
+//       currentMaterial.value.priceHistory = priceHistory;
+//     }
+
+//     // 打開對話框
+//     priceDialog.value = true;
+//     editingPriceIndex.value = null;
+//     editingPriceYear.value = null;
+//     editingPrice.value = null;
+//   } catch (error) {
+//     console.error('加載價格歷史失敗:', error);
+//     // 可以使用 Vuetify 顯示錯誤提示
+//   }
+// }
 const showPriceHistory = (item: any) => {
-  currentMaterial.value = item
-  priceDialog.value = true
-  editingPriceIndex.value = null
-  editingPriceYear.value = null
-  editingPrice.value = null
+  currentMaterial.value = item;
+  priceDialog.value = true;
+  editingPriceIndex.value = null;
+  editingPriceYear.value = null;
+  editingPrice.value = null;
 }
 
 // 開始編輯某個價格
@@ -1313,105 +1446,323 @@ const startEditPrice = (index: number) => {
 }
 
 // 更新價格
-const updatePrice = (index: number) => {
-  if (editingPrice.value !== null && editingPrice.value > 0) {
-    // 更新價格
-    currentMaterial.value.priceHistory[index].price = editingPrice.value
+const updatePrice = async (index: number) => {
+  if (currentMaterial.value && editingPrice.value !== null && editingPrice.value > 0) {
+    try {
+      const priceRecord = currentMaterial.value.priceHistory[index];
+      const updatedPrice = await annualPricesStore.updateAnnualPrice(
+        priceRecord.id,
+        {
+          price: editingPrice.value,
+          modified_by_id: userStore.currentUser?.id
+        }
+      );
 
-    // 如果是最新年份的價格，更新當前價格
-    const year = currentMaterial.value.priceHistory[index].year
-    const latestYear = Math.max(...currentMaterial.value.priceHistory.map((p: any) => p.year))
-    if (year === latestYear) {
-      currentMaterial.value.currentPrice = editingPrice.value
+      // 更新本地數據
+      currentMaterial.value.priceHistory[index] = updatedPrice;
+
+      // 如果是最新年份的價格，則更新當前顯示的價格
+      const maxYear = Math.max(...currentMaterial.value.priceHistory.map(p => p.year));
+      if (priceRecord.year === maxYear) {
+        const materialIndex = indexedItems.value.findIndex(item => item.raw.id === currentMaterial.value?.id);
+        if (materialIndex !== -1) {
+          indexedItems.value[materialIndex].raw.currentPrice = editingPrice.value;
+        }
+      }
+    } catch (error) {
+      console.error('更新價格失敗:', error);
+      // 顯示錯誤提示
     }
   }
 
   // 結束編輯狀態
-  editingPriceIndex.value = null
-  editingPrice.value = null
+  editingPriceIndex.value = null;
+  editingPrice.value = null;
 }
 
 // 新增歷史價格
-const addPriceHistory = () => {
+const addPriceHistory = async () => {
   if (currentMaterial.value && editingPriceYear.value && editingPrice.value) {
-    // 檢查是否已存在該年度價格
-    const existingPriceIndex = currentMaterial.value.priceHistory.findIndex(
-      (p: any) => p.year === editingPriceYear.value
-    )
-
-    if (existingPriceIndex >= 0) {
-      // 更新現有價格
-      currentMaterial.value.priceHistory[existingPriceIndex].price = editingPrice.value
-    } else {
-      // 添加新價格記錄
-      currentMaterial.value.priceHistory.push({
+    try {
+      const userOfficeId = userStore.currentUser?.office?.id;
+      const newPrice = await annualPricesStore.createAnnualPrice({
+        pipe_fitting_id: Number(currentMaterial.value.id),
+        office_id: userOfficeId,
         year: editingPriceYear.value,
-        price: editingPrice.value
-      })
+        price: editingPrice.value,
+        is_active: true,
+        created_by_id: userStore.currentUser?.id
+      });
 
-      // 根據年度排序（降序）
-      currentMaterial.value.priceHistory.sort((a: any, b: any) => b.year - a.year)
+      // 將新的價格添加到本地數據中
+      if (currentMaterial.value) {
+        if (!currentMaterial.value.priceHistory) {
+          currentMaterial.value.priceHistory = [];
+        }
+
+        currentMaterial.value.priceHistory.push(newPrice);
+        // 根據年份排序（降序）
+        currentMaterial.value.priceHistory.sort((a, b) => b.year - a.year);
+      }
+
+      // 如果新增的是最新年份的價格，更新當前 pipe fitting 的當前價格
+      // 這裡需要找到對應映射關係來更新 UI
+      const index = indexedItems.value.findIndex(item => item.raw.id === currentMaterial.value.id);
+      if (index !== -1 &&
+          (!indexedItems.value[index].raw.currentPrice ||
+           editingPriceYear.value >= Math.max(...currentMaterial.value.priceHistory.map(p => p.year)))) {
+        indexedItems.value[index].raw.currentPrice = editingPrice.value;
+      }
+
+      // 重置編輯欄位
+      editingPriceYear.value = null;
+      editingPrice.value = null;
+    } catch (error) {
+      console.error('新增價格歷史失敗:', error);
+      // 顯示錯誤提示
     }
-
-    // 更新當前價格（最新年度的價格）
-    if (!currentMaterial.value.priceHistory.length ||
-        editingPriceYear.value >= Math.max(...currentMaterial.value.priceHistory.map((p: any) => p.year))) {
-      currentMaterial.value.currentPrice = editingPrice.value
-    }
-
-    // 重置編輯欄位
-    editingPriceYear.value = null
-    editingPrice.value = null
   }
 }
 
 // 刪除歷史價格
-const deletePriceHistory = (year: number) => {
+const deletePriceHistory = async (year: number) => {
   if (currentMaterial.value) {
-    currentMaterial.value.priceHistory = currentMaterial.value.priceHistory.filter(
-      (p: any) => p.year !== year
-    )
+    try {
+      // 找出要刪除的價格記錄索引和 ID
+      const priceIndex = currentMaterial.value.priceHistory.findIndex(p => p.year === year);
+      if (priceIndex === -1) return;
 
-    // 如果刪除的是目前顯示的價格，更新為最新年度的價格
-    if (currentMaterial.value.priceHistory.length > 0) {
-      const latestYear = Math.max(...currentMaterial.value.priceHistory.map((p: any) => p.year))
-      const latestPrice = currentMaterial.value.priceHistory.find((p: any) => p.year === latestYear)?.price
-      if (latestPrice) {
-        currentMaterial.value.currentPrice = latestPrice
+      const priceId = currentMaterial.value.priceHistory[priceIndex].id;
+
+      // 調用 API 刪除
+      await annualPricesStore.deleteAnnualPrice(
+        priceId,
+        Number(currentMaterial.value.id)
+      );
+
+      // 從陣列中刪除
+      currentMaterial.value.priceHistory.splice(priceIndex, 1);
+
+      // 如果刪除的是目前顯示的價格，更新為最新年度的價格
+      if (currentMaterial.value.priceHistory.length > 0) {
+        const latestYear = Math.max(...currentMaterial.value.priceHistory.map(p => p.year));
+        const latestPrice = currentMaterial.value.priceHistory.find(p => p.year === latestYear)?.price;
+
+        if (latestPrice) {
+          const materialIndex = indexedItems.value.findIndex(item => item.raw.id === currentMaterial.value?.id);
+          if (materialIndex !== -1) {
+            indexedItems.value[materialIndex].raw.currentPrice = latestPrice;
+          }
+        }
       }
+    } catch (error) {
+      console.error('刪除價格歷史失敗:', error);
+      // 顯示錯誤提示
     }
   }
 }
 
 // 保存編輯的材料
-const saveItem = () => {
-  if (editedItem.id) {
-    // 編輯現有項目
-    const index = allItems.value.findIndex(item => item.id === editedItem.id)
-    if (index !== -1) {
-      // 更新項目
-      Object.assign(allItems.value[index], editedItem)
-    }
-  } else {
-    // 創建新項目
-    const newItem = { ...editedItem }
-    // 生成新ID
-    newItem.id = `M${(allItems.value.length + 1).toString().padStart(3, '0')}`
-    // 添加當前年度價格到歷史記錄
-    if (newItem.currentPrice > 0) {
-      newItem.priceHistory = [{
-        year: currentYear,
-        price: newItem.currentPrice
-      }]
-    }
-    // 添加到列表
-    allItems.value.push(newItem)
-  }
+const saveItem = async () => {
+  // try {
+  //   if (editedItem.id) {
+  //     // 編輯現有項目
+  //     const updateData = {
+  //       name: editedItem.materialName,
+  //       material_id: getMaterialIdByName(editedItem.material),
+  //       module_id: editedItem.moduleId,
+  //       diameter1_id: getDiameterIdByValue(editedItem.diameter1),
+  //       diameter2_id: getDiameterIdByValue(editedItem.diameter2),
+  //       diameter3_id: getDiameterIdByValue(editedItem.diameter3),
+  //       length: editedItem.length ? parseFloat(editedItem.length) : null,
+  //       unit: editedItem.unit,
+  //       is_active: editedItem.status === '啟用',
+  //       description: editedItem.note,
+  //       modified_by_id: userStore.currentUser?.id
+  //     };
 
-  // 關閉對話框
-  editDialog.value = false
-  // 重置編輯項目
-  Object.assign(editedItem, defaultItem)
+  //     await store.updatePipeFitting(editedItem.id, updateData);
+
+  //     // 如果當前價格有變化，更新或創建價格記錄
+  //     if (editedItem.currentPrice > 0) {
+  //       const userOfficeId = userStore.currentUser?.office?.id;
+  //       const currentYear = new Date().getFullYear() - 1911; // 台灣年號
+
+  //       // 查詢該管件是否有當前年度的價格記錄
+  //       const annualPricesStore = usePFAnnualPricesStore();
+  //       await annualPricesStore.fetchAnnualPricesByPipeFitting(
+  //         Number(editedItem.id),
+  //         { office_id: userOfficeId }
+  //       );
+
+  //       const priceRecords = annualPricesStore.getAnnualPricesByPipeFittingId(Number(editedItem.id));
+  //       const currentYearPrice = priceRecords.find(p => p.year === currentYear);
+
+  //       if (currentYearPrice) {
+  //         // 更新現有價格
+  //         await annualPricesStore.updateAnnualPrice(
+  //           currentYearPrice.id,
+  //           {
+  //             price: editedItem.currentPrice,
+  //             modified_by_id: userStore.currentUser?.id
+  //           }
+  //         );
+  //       } else {
+  //         // 創建新價格
+  //         await annualPricesStore.createAnnualPrice({
+  //           pipe_fitting_id: Number(editedItem.id),
+  //           office_id: userOfficeId,
+  //           year: currentYear,
+  //           price: editedItem.currentPrice,
+  //           is_active: true,
+  //           created_by_id: userStore.currentUser?.id
+  //         });
+  //       }
+  //     }
+  //   } else {
+  //     // 創建新項目
+  //     const createData = {
+  //       name: editedItem.materialName,
+  //       material_id: getMaterialIdByName(editedItem.material),
+  //       module_id: editedItem.moduleId,
+  //       diameter1_id: getDiameterIdByValue(editedItem.diameter1),
+  //       diameter2_id: getDiameterIdByValue(editedItem.diameter2),
+  //       diameter3_id: getDiameterIdByValue(editedItem.diameter3),
+  //       length: editedItem.length ? parseFloat(editedItem.length) : null,
+  //       unit: editedItem.unit,
+  //       is_active: editedItem.status === '啟用',
+  //       description: editedItem.note,
+  //       office_id: userStore.currentUser?.office?.id,
+  //       created_by_id: userStore.currentUser?.id
+  //     };
+
+  //     const newPipeFitting = await store.createPipeFitting(createData);
+
+  //     // 為新管件創建價格記錄
+  //     if (editedItem.currentPrice > 0 && newPipeFitting) {
+  //       const annualPricesStore = usePFAnnualPricesStore();
+  //       await annualPricesStore.createAnnualPrice({
+  //         pipe_fitting_id: newPipeFitting.pomno,
+  //         office_id: userStore.currentUser?.office?.id,
+  //         year: new Date().getFullYear() - 1911, // 台灣年號
+  //         price: editedItem.currentPrice,
+  //         is_active: true,
+  //         created_by_id: userStore.currentUser?.id
+  //       });
+  //     }
+  //   }
+
+  //   // 重新獲取資料
+  //   await store.fetchPipeFittingsByOfficeId(userStore.currentUser?.office?.id, {
+  //     skip: 0,
+  //     limit: 50,
+  //     append: false,
+  //   });
+
+  //   // 關閉對話框
+  //   editDialog.value = false;
+  //   // 重置編輯項目
+  //   Object.assign(editedItem, defaultItem);
+  // } catch (error) {
+  //   console.error('保存材料失敗:', error);
+  //   // 顯示錯誤提示
+  // }
+  try {
+    // 準備要保存的數據
+    const saveData: any = { ...editedItem };
+
+    // 處理模組 ID
+    if (typeof saveData.moduleName === 'string') {
+      // 如果是名稱，查找對應的 ID
+      const module = pfModulesStore.allModules.find(m => m.name === saveData.moduleName);
+      if (module) {
+        saveData.module_id = module.id;
+      }
+    } else {
+      // 如果已經是 ID，直接使用
+      saveData.module_id = saveData.moduleName;
+    }
+    delete saveData.moduleName; // 移除非後端字段
+
+    // 處理物料名稱
+    // 保留 name 字段，不做轉換
+    saveData.name = saveData.materialName;
+    delete saveData.materialName; // 移除非後端字段
+
+    // 處理材質 ID
+    if (typeof saveData.material === 'string') {
+      // 如果是名稱，查找對應的 ID
+      const material = pfMaterialsStore.materials.find(m => m.name === saveData.material);
+      if (material) {
+        saveData.material_id = material.id;
+      }
+    } else if (typeof saveData.material === 'number') {
+      // 如果已經是 ID，直接使用
+      saveData.material_id = saveData.material;
+    }
+    delete saveData.material; // 移除非後端字段
+
+    // 處理口徑 ID
+    ['diameter1', 'diameter2', 'diameter3'].forEach(field => {
+      if (saveData[field]) {
+        // 如果值存在，設置對應的 _id 字段
+        saveData[`${field}_id`] = saveData[field];
+        delete saveData[field]; // 移除原字段
+      }
+    });
+
+    // 處理狀態字段
+    if (saveData.status) {
+      saveData.is_active = saveData.status === '啟用';
+      delete saveData.status;
+    }
+
+    // 移除其他非後端字段
+    delete saveData.priceHistory;
+    delete saveData.index; // 如果有
+    delete saveData.raw; // 如果有
+    delete saveData.id; // 後端使用 pomno
+
+    // 當前年度價格處理
+    if (saveData.currentPrice) {
+      // 如果需要在新增時創建價格歷史，可以在此處理
+      const priceData = {
+        year: new Date().getFullYear() - 1911, // 台灣年號
+        price: saveData.currentPrice
+      };
+
+      // Note: 後端可能有專門的 API 來處理價格歷史
+      // 或者價格歷史會在 PipeFitting 創建後通過另一個 API 調用添加
+    }
+    delete saveData.currentPrice; // 移除，除非後端模型有此字段
+
+    console.log('準備儲存的資料:', saveData);
+
+    if (editedItem.id) {
+      // 編輯現有項目
+      await store.updatePipeFitting(editedItem.id, saveData);
+    } else {
+      // 創建新項目
+      await store.createPipeFitting(saveData);
+    }
+
+    // 重新加載數據以反映更改
+    const userOfficeId = userStore.currentUser?.office?.id || 99;
+    await store.fetchPipeFittingsByOfficeId(userOfficeId, {
+      skip: 0,
+      limit: 50,
+      append: false
+    });
+
+    // 關閉對話框
+    editDialog.value = false;
+    // 重置編輯項目
+    Object.assign(editedItem, defaultItem);
+
+  } catch (error) {
+    console.error('保存材料時發生錯誤:', error);
+    // 可以在此添加錯誤提示
+  }
 }
 
 // 組件掛載時載入資料
@@ -1432,6 +1783,9 @@ onMounted(async () => {
   });
 
   await pfModulesStore.ensureAllModulesLoaded()
+  await pfModulesStore.ensureAllModulesLoaded()
+  await pfMaterialsStore.ensureAllMaterialsLoaded()
+  await pfDiametersStore.ensureAllDiametersLoaded()
 
   console.log('Store: Fittings after initial fetch:', fittings.value.length);
   console.log('Store: Total after initial fetch:', store.totalPipeFittings);
@@ -1465,6 +1819,7 @@ onBeforeUnmount(() => {
     scrollableElement.removeEventListener('scroll', handleTableScroll);
     // console.log('Scroll listener removed.');
   }
+  annualPricesStore.clearAllPrices();
 })
 </script>
 
@@ -1543,7 +1898,7 @@ onBeforeUnmount(() => {
   color: #333 !important;
   font-weight: 900 !important;
   position: relative; /* For positioning the icon */
-  text-align: left; /* Default alignment */
+  text-align: start; /* Default alignment */
 }
 
 .materials-table :deep(thead th.text-center .header-content-wrapper) {
@@ -1622,6 +1977,7 @@ onBeforeUnmount(() => {
   min-height: 32px;
   display: flex;
   align-items: center;
+  text-align: start;
 }
 
 .editable-cell:hover {

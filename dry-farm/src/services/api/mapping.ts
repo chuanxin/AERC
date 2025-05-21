@@ -1,4 +1,4 @@
-import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_ANNUAL_PRICES } from './endpoints';
+import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES } from './endpoints';
 
 // 後端實際路徑定義
 export const BACKEND_PATHS = {
@@ -42,16 +42,22 @@ export const BACKEND_PATHS = {
     STEP: (caseNumber: string, step: number) => `/grants/case/${caseNumber}/step/${step}`,
   },
   PIPE_FITTINGS: { // Added PIPE_FITTINGS backend paths
-    LIST: '/pipe_fittings', // For GET all and POST create
+    LIST: '/pipe_fittings/', // For GET all and POST create
     DETAIL: (pomno: number | string) => `/pipe_fittings/${pomno}`, // For GET one, PUT, DELETE
     BY_OFFICE_ID: (officeId: number | string) => `/pipe_fittings/office/${officeId}`,
   },
   PF_MODULES: {
     LIST: '/pf_modules/',
-    DETAIL: (id: number | string) => `/pf_modules/${id}`,
-    CREATE: '/pf_modules',
-    UPDATE: (id: number | string) => `/pf_modules/${id}`,
-    DELETE: (id: number | string) => `/pf_modules/${id}`,
+    // DETAIL: (id: number | string) => `/pf_modules/${id}`,
+    // CREATE: '/pf_modules',
+    // UPDATE: (id: number | string) => `/pf_modules/${id}`,
+    // DELETE: (id: number | string) => `/pf_modules/${id}`,
+  },
+  PF_DIAMETERS: {
+    LIST: '/pf_diameters/',
+  },
+  PF_MATERIALS: {
+    LIST: '/pf_materials/',
   },
   PF_ANNUAL_PRICES: {
     LIST: '/pf_annual_prices/',
@@ -81,7 +87,8 @@ export const API_MAPPING: Record<string, string> = {
   [PF_ANNUAL_PRICES.LIST]: BACKEND_PATHS.PF_ANNUAL_PRICES.LIST,
   [PF_ANNUAL_PRICES.CREATE]: BACKEND_PATHS.PF_ANNUAL_PRICES.LIST,
   [PF_MODULES.LIST]: BACKEND_PATHS.PF_MODULES.LIST,
-  [PF_MODULES.CREATE]: BACKEND_PATHS.PF_MODULES.LIST,
+  [PF_DIAMETERS.LIST]: BACKEND_PATHS.PF_DIAMETERS.LIST,
+  [PF_MATERIALS.LIST]: BACKEND_PATHS.PF_MATERIALS.LIST,
 }
 
 // 動態參數路徑匹配規則
