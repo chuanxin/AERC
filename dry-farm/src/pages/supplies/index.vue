@@ -168,26 +168,8 @@
                   <!-- 模組名稱欄位 -->
                   <template #[`item.moduleName`]="{ item }">
                     <div
-                      v-if="editingCell === `${item.id}-moduleName`"
-                      class="editing-cell-container"
-                    >
-                      <v-select
-                        v-model="tempEditValue"
-                        :items="dynamicModuleOptions"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        autofocus
-                        class="edit-select"
-                        @blur="saveCell(item.id, 'moduleName')"
-                        @keyup.enter="saveCell(item.id, 'moduleName')"
-                        @keyup.esc="cancelEdit()"
-                      />
-                    </div>
-                    <div
-                      v-else
                       class="editable-cell"
-                      @click="startCellEdit(item.id, 'moduleName', item.raw.moduleName)"
+                      @click="editCell(item, 'moduleName', $event)"
                     >
                       {{ item.raw.moduleName }}
                     </div>
@@ -196,25 +178,8 @@
                   <!-- 物料名稱欄位 -->
                   <template #[`item.materialName`]="{ item }">
                     <div
-                      v-if="editingCell === `${item.id}-materialName`"
-                      class="editing-cell-container"
-                    >
-                      <v-text-field
-                        v-model="tempEditValue"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        autofocus
-                        class="edit-field"
-                        @blur="saveCell(item.id, 'materialName')"
-                        @keyup.enter="saveCell(item.id, 'materialName')"
-                        @keyup.esc="cancelEdit()"
-                      />
-                    </div>
-                    <div
-                      v-else
                       class="editable-cell"
-                      @click="startCellEdit(item.id, 'materialName', item.raw.materialName)"
+                      @click="editCell(item, 'materialName', $event)"
                     >
                       {{ item.raw.materialName }}
                     </div>
@@ -223,29 +188,8 @@
                   <!-- 口徑欄位 -->
                   <template #[`item.diameter1`]="{ item }">
                     <div
-                      v-if="editingCell === `${item.id}-diameter1`"
-                      class="editing-cell-container"
-                    >
-                      <v-select
-                        v-model="tempEditValue"
-                        :items="diameter1Options"
-                        :loading="pfDiametersStore.isLoading"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        autofocus
-                        class="edit-field"
-                        item-title="title"
-                        item-value="value"
-                        @blur="saveCell(item.id, 'diameter1')"
-                        @keyup.enter="saveCell(item.id, 'diameter1')"
-                        @keyup.esc="cancelEdit()"
-                      />
-                    </div>
-                    <div
-                      v-else
                       class="editable-cell"
-                      @click="startCellEdit(item.id, 'diameter1', item.raw.diameter1_id || item.raw.diameter1)"
+                      @click="editCell(item, 'diameter1', $event)"
                     >
                       {{ getDiameterDisplay(item.raw.diameter1_id) || item.raw.diameter1 }}
                     </div>
@@ -253,29 +197,8 @@
 
                   <template #[`item.diameter2`]="{ item }">
                     <div
-                      v-if="editingCell === `${item.id}-diameter2`"
-                      class="editing-cell-container"
-                    >
-                      <v-select
-                        v-model="tempEditValue"
-                        :items="diameter2Options"
-                        :loading="pfDiametersStore.isLoading"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        autofocus
-                        class="edit-field"
-                        item-title="title"
-                        item-value="value"
-                        @blur="saveCell(item.id, 'diameter2')"
-                        @keyup.enter="saveCell(item.id, 'diameter2')"
-                        @keyup.esc="cancelEdit()"
-                      />
-                    </div>
-                    <div
-                      v-else
                       class="editable-cell"
-                      @click="startCellEdit(item.id, 'diameter2', item.raw.diameter2_id || item.raw.diameter2)"
+                      @click="editCell(item, 'diameter2', $event)"
                     >
                       {{ getDiameterDisplay(item.raw.diameter2_id) || item.raw.diameter2 }}
                     </div>
@@ -283,29 +206,8 @@
 
                   <template #[`item.diameter3`]="{ item }">
                     <div
-                      v-if="editingCell === `${item.id}-diameter3`"
-                      class="editing-cell-container"
-                    >
-                      <v-select
-                        v-model="tempEditValue"
-                        :items="diameter3Options"
-                        :loading="pfDiametersStore.isLoading"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        autofocus
-                        class="edit-field"
-                        item-title="title"
-                        item-value="value"
-                        @blur="saveCell(item.id, 'diameter3')"
-                        @keyup.enter="saveCell(item.id, 'diameter3')"
-                        @keyup.esc="cancelEdit()"
-                      />
-                    </div>
-                    <div
-                      v-else
                       class="editable-cell"
-                      @click="startCellEdit(item.id, 'diameter3', item.raw.diameter3_id || item.raw.diameter3)"
+                      @click="editCell(item, 'diameter3', $event)"
                     >
                       {{ getDiameterDisplay(item.raw.diameter3_id) || item.raw.diameter3 }}
                     </div>
@@ -314,29 +216,8 @@
                   <!-- 材質欄位 -->
                   <template #[`item.material`]="{ item }">
                     <div
-                      v-if="editingCell === `${item.id}-material`"
-                      class="editing-cell-container"
-                    >
-                      <v-select
-                        v-model="tempEditValue"
-                        :items="materialOptions"
-                        :loading="pfMaterialsStore.isLoading"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        autofocus
-                        class="edit-field"
-                        item-title="title"
-                        item-value="value"
-                        @blur="saveCell(item.id, 'material')"
-                        @keyup.enter="saveCell(item.id, 'material')"
-                        @keyup.esc="cancelEdit()"
-                      />
-                    </div>
-                    <div
-                      v-else
                       class="editable-cell"
-                      @click="startCellEdit(item.id, 'material', item.raw.material)"
+                      @click="editCell(item, 'material', $event)"
                     >
                       {{ item.raw.material }}
                     </div>
@@ -345,26 +226,8 @@
                   <!-- 長度欄位 -->
                   <template #[`item.length`]="{ item }">
                     <div
-                      v-if="editingCell === `${item.id}-length`"
-                      class="editing-cell-container"
-                    >
-                      <v-text-field
-                        v-model="tempEditValue"
-                        type="number"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        autofocus
-                        class="edit-field"
-                        @blur="saveCell(item.id, 'length')"
-                        @keyup.enter="saveCell(item.id, 'length')"
-                        @keyup.esc="cancelEdit()"
-                      />
-                    </div>
-                    <div
-                      v-else
                       class="editable-cell"
-                      @click="startCellEdit(item.id, 'length', item.raw.length)"
+                      @click="editCell(item, 'length', $event)"
                     >
                       {{ item.raw.length }}
                     </div>
@@ -373,25 +236,8 @@
                   <!-- 品項單位欄位 -->
                   <template #[`item.unit`]="{ item }">
                     <div
-                      v-if="editingCell === `${item.id}-unit`"
-                      class="editing-cell-container"
-                    >
-                      <v-text-field
-                        v-model="tempEditValue"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        autofocus
-                        class="edit-field"
-                        @blur="saveCell(item.id, 'unit')"
-                        @keyup.enter="saveCell(item.id, 'unit')"
-                        @keyup.esc="cancelEdit()"
-                      />
-                    </div>
-                    <div
-                      v-else
                       class="editable-cell"
-                      @click="startCellEdit(item.id, 'unit', item.raw.unit)"
+                      @click="editCell(item, 'unit', $event)"
                     >
                       {{ item.raw.unit }}
                     </div>
@@ -418,21 +264,20 @@
                   <template #[`item.status`]="{ item }">
                     <div
                       class="editable-cell d-flex justify-center align-center"
-                      @click="!editingCell ? startCellEdit(item.id, 'status', item.raw.status) : null"
+                      @click="editCell(item, 'status', $event)"
                     >
                       <v-chip
-                        :color="getStatusColor(editingCell === `${item.id}-status` ? tempEditValue : item.raw.status)"
+                        :color="getStatusColor(item.raw.status)"
                         variant="flat"
                         size="small"
                         label
                         class="font-weight-medium"
                         style="cursor: pointer;"
-                        @click.stop="editingCell === `${item.id}-status` ? toggleAndSaveStatus(item.id) : startCellEdit(item.id, 'status', item.raw.status)"
                       >
                         {{
-                          typeof (editingCell === `${item.id}-status` ? tempEditValue : item.raw.status) === 'boolean'
-                            ? ((editingCell === `${item.id}-status` ? tempEditValue : item.raw.status) ? '啟用' : '停用')
-                            : (editingCell === `${item.id}-status` ? tempEditValue : item.raw.status)
+                          typeof item.raw.status === 'boolean'
+                            ? (item.raw.status ? '啟用' : '停用')
+                            : item.raw.status
                         }}
                       </v-chip>
                     </div>
@@ -470,13 +315,6 @@
                         />
                         <span class="ml-2 text-body-2 text-medium-emphasis">載入更多...</span>
                       </div>
-                      <!-- <v-pagination
-                        v-model="page"
-                        :length="Math.ceil(filteredItems.length / itemsPerPage)"
-                        :total-visible="5"
-                        density="comfortable"
-                        color="#3ea0a3"
-                      /> -->
                     </div>
                   </template>
                 </v-data-table-virtual>
@@ -491,7 +329,7 @@
                   size="small"
                 />
                 <span class="text-caption text-medium-emphasis">
-                  點擊欄位可直接編輯內容，點擊「歷史單價」按鈕可查看或編輯價格歷史記錄，「刪除」按鈕將永久移除該材料資料
+                  點擊欄位可觸發編輯對話框，點擊「歷史單價」按鈕可查看或編輯價格歷史記錄，「刪除」按鈕將永久移除該材料資料
                 </span>
               </div>
             </v-card-text>
@@ -500,12 +338,151 @@
       </v-col>
     </v-row>
 
+    <!-- 單欄位編輯對話框 -->
+    <v-dialog v-model="cellEditDialog" :activator="activator" max-width="500px">
+      <v-confirm-edit
+        ref="confirm"
+        v-model="cellEditModel"
+        :title="cellEditDialogTitle"
+        ok-text="儲存"
+        cancel-text="取消"
+        @cancel="cellEditDialog = false"
+        @save="saveCellEdit"
+      >
+        <template v-slot:default="{ model: proxyModel, actions }">
+          <v-card :title="cellEditDialogTitle" class="rounded-lg">
+            <v-card-text>
+              <!-- 模組名稱 -->
+              <v-select
+                v-if="editingField === 'moduleName'"
+                v-model="proxyModel.value.moduleName"
+                :items="dynamicModuleOptions"
+                :loading="pfModulesStore.isLoading"
+                label="模組名稱"
+                density="comfortable"
+                variant="outlined"
+                item-title="title"
+                item-value="value"
+                class="mb-2"
+              />
+
+              <!-- 物料名稱 -->
+              <v-text-field
+                v-if="editingField === 'materialName'"
+                v-model="proxyModel.value.materialName"
+                label="物料名稱"
+                density="comfortable"
+                variant="outlined"
+                class="mb-2"
+              />
+
+              <!-- 口徑欄位 -->
+              <v-select
+                v-if="editingField === 'diameter1'"
+                v-model="proxyModel.value.diameter1"
+                :items="diameter1Options"
+                :loading="pfDiametersStore.isLoading"
+                label="口徑1"
+                density="comfortable"
+                variant="outlined"
+                item-title="title"
+                item-value="value"
+                class="mb-2"
+              />
+
+              <v-select
+                v-if="editingField === 'diameter2'"
+                v-model="proxyModel.value.diameter2"
+                :items="diameter2Options"
+                :loading="pfDiametersStore.isLoading"
+                label="口徑2"
+                density="comfortable"
+                variant="outlined"
+                item-title="title"
+                item-value="value"
+                class="mb-2"
+              />
+
+              <v-select
+                v-if="editingField === 'diameter3'"
+                v-model="proxyModel.value.diameter3"
+                :items="diameter3Options"
+                :loading="pfDiametersStore.isLoading"
+                label="口徑3"
+                density="comfortable"
+                variant="outlined"
+                item-title="title"
+                item-value="value"
+                class="mb-2"
+              />
+
+              <!-- 材質 -->
+              <v-select
+                v-if="editingField === 'material'"
+                v-model="proxyModel.value.material"
+                :items="materialOptions"
+                :loading="pfMaterialsStore.isLoading"
+                label="材質"
+                density="comfortable"
+                variant="outlined"
+                item-title="title"
+                item-value="value"
+                class="mb-2"
+              />
+
+              <!-- 長度 -->
+              <v-text-field
+                v-if="editingField === 'length'"
+                v-model="proxyModel.value.length"
+                label="長度(m)"
+                type="number"
+                density="comfortable"
+                variant="outlined"
+                class="mb-2"
+              />
+
+              <!-- 品項單位 -->
+              <v-text-field
+                v-if="editingField === 'unit'"
+                v-model="proxyModel.value.unit"
+                label="品項單位"
+                density="comfortable"
+                variant="outlined"
+                class="mb-2"
+              />
+
+              <!-- 狀態 -->
+              <v-select
+                v-if="editingField === 'status'"
+                v-model="proxyModel.value.status"
+                :items="[
+                  { title: '啟用', value: true },
+                  { title: '停用', value: false }
+                ]"
+                label="狀態"
+                density="comfortable"
+                variant="outlined"
+                item-title="title"
+                item-value="value"
+                class="mb-2"
+              />
+            </v-card-text>
+
+            <template v-slot:actions>
+              <v-spacer />
+              <component :is="actions" />
+            </template>
+          </v-card>
+        </template>
+      </v-confirm-edit>
+    </v-dialog>
+
     <!-- 歷史價格對話框 -->
     <v-dialog
       v-model="priceDialog"
       max-width="500px"
     >
-      <v-card>
+      <v-card class="rounded-lg">
         <v-card-title class="text-h5 bg-teal-lighten-1">
           <span>材料歷史單價</span>
           <v-spacer />
@@ -646,8 +623,8 @@
     </v-dialog>
 
     <!-- 編輯材料對話框 -->
-    <v-dialog v-model="editDialog" max-width="700px">
-      <v-card>
+    <v-dialog v-model="editDialog" max-width="500px">
+      <v-card class="rounded-lg">
         <v-card-title class="text-h5 bg-teal-lighten-1">
           <span>{{ editedItem.id ? '編輯材料' : '新增材料' }}</span>
           <v-spacer />
@@ -799,9 +776,7 @@ import { usePFDiametersStore } from '@/stores/pfDiametersStore'
 import type { PFMaterial } from '@/types/pfMaterials'
 import type { PFDiameter } from '@/types/pfDiameters'
 import type { PFAnnualPrice } from '@/types/pfAnnualPrices'
-// import type { pad } from 'lodash'
 
-// const router = useRouter()
 const store = usePipeFittingsStore()
 const pfModulesStore = usePFModulesStore()
 const userStore = useUserStore()
@@ -809,129 +784,45 @@ const annualPricesStore = usePFAnnualPricesStore()
 const pfMaterialsStore = usePFMaterialsStore()
 const pfDiametersStore = usePFDiametersStore()
 
-const tableRef = ref<any>(null); // v-data-table-virtual 的引用
-let scrollableElement: HTMLElement | null = null;
-const SCROLL_THRESHOLD = 150; // 距離底部多少像素時觸發加載
+const tableRef = ref<any>(null)
+let scrollableElement: HTMLElement | null = null
+const SCROLL_THRESHOLD = 150
 
 const fittings = computed(() => store.pipeFittings)
 const currentFitting = computed(() => store.currentPipeFitting)
-// const isLoadingFromStore = computed(() => store.isLoading)
 const error = computed(() => store.error)
-// const total = computed(() => store.totalPipeFittings)
-// const loading = isLoadingFromStore
-const isLoadingInitial = computed(() => store.isLoading && !store.isLoadingMore);
-const isLoadingMoreFromStore = computed(() => store.isLoadingMore);
+const isLoadingInitial = computed(() => store.isLoading && !store.isLoadingMore)
+const isLoadingMoreFromStore = computed(() => store.isLoadingMore)
 
 const canLoadMoreItems = computed(() => {
-  return !store.isLoadingMore && store.pipeFittings.length < store.totalPipeFittings;
-});
+  return !store.isLoadingMore && store.pipeFittings.length < store.totalPipeFittings
+})
 
 // 排序相關
 const search = ref('')
-const sortBy = ref('');
-const sortDesc = ref(false);
-const hoveredHeaderKey = ref<string | null>(null); // New ref for hovered header
-const selectedModule = ref<number | null>(null);
-const selectedMaterial = ref(null);
+const sortBy = ref('')
+const sortDesc = ref(false)
+const hoveredHeaderKey = ref<string | null>(null)
+const selectedModule = ref<number | null>(null)
+const selectedMaterial = ref(null)
 
-// Mapped and prepared items for the table from the store's fittings
-// !!! IMPORTANT: Adjust this mapping based on your actual PipeFitting data structure !!!
-const mappedPipeFittings = computed(() => {
-  return fittings.value.map(fitting => {
-    // This is a placeholder mapping. You need to adapt it.
-    // Ensure all fields expected by your table headers and templates are correctly mapped.
-    return {
-      id: fitting.pomno, // Assuming 'pomno' is the unique ID and table expects 'id'
-      pomno: fitting.pomno, // Keep original pomno if needed for store operations
-      moduleId: fitting.module_id,
-      moduleName: fitting.module?.name || `模組 (ID: ${fitting.module_id})`,
-      materialName: fitting.name || `物料 (POMNO: ${fitting.pomno})`,
-      diameter1: fitting.diameter1?.value || fitting.diameter1_id?.toString() || '',
-      diameter2: fitting.diameter2?.value || fitting.diameter2_id?.toString() || '',
-      diameter3: fitting.diameter3?.value || '',
-      material: fitting.material?.name || `材質 (ID: ${fitting.material_id})`,
-      length: fitting.length ?? '',
-      unit: fitting.unit || '個',
-      currentPrice: fitting.current_price || 0,
-      status: fitting.is_active,
-      priceHistory: fitting.price_history || [],
-      note: fitting.description || '', // Example
-      rawFitting: fitting,
-      // Add any other fields from the original mock 'materials' that your template uses
-    };
-  });
-});
-
-// 檢查特定標頭是否懸停
-const isHeaderHovered = (key: string) => {
-  return hoveredHeaderKey.value === key;
-};
-
-// 設定懸停的標頭
-const setHoveredHeader = (key: string) => {
-  const headerConfig = headers.value.find(h => h.key === key);
-  if (headerConfig && headerConfig.sortable !== false) {
-    hoveredHeaderKey.value = key;
-  }
-};
-
-// 清除懸停的標頭
-const clearHoveredHeader = () => {
-  hoveredHeaderKey.value = null;
-};
-
-// 更新排序方法
-const updateSorting = (key: string) => {
-  if (sortBy.value === key) {
-    sortDesc.value = !sortDesc.value;
-  } else {
-    sortBy.value = key;
-    sortDesc.value = false;
-  }
-  // sortItems(); // Calling sortItems here might be problematic. See note below.
-};
-
-// 排序項目
-// !!! IMPORTANT: This function needs a refactor. It previously sorted 'allItems.value' in-place.
-// 'allItems' is removed. Sorting computed properties directly is not advisable.
-// You might need to integrate sorting into 'filteredItems' or use v-data-table-virtual's sorting.
-// For now, its body is commented to prevent errors. Address table sorting as a next step.
-const sortItems = () => {
-  /*
-  if (!sortBy.value) return;
-
-  // This logic needs to be adapted. It cannot sort a computed property like 'mappedPipeFittings.value' in place.
-  // One approach is to sort a copy of the array and have 'filteredItems' use that sorted copy.
-  // Or, if v-data-table-virtual handles sorting via props, this custom function might not be needed.
-
-  // Example of how it might be adapted if filteredItems becomes the source and we sort its copy:
-  // let itemsToSort = [...filteredItems.value]; // Sort a copy
-  // itemsToSort.sort((a, b) => {
-  //   let valueA = a[sortBy.value];
-  //   let valueB = b[sortBy.value];
-
-  //   if (sortBy.value === 'currentPrice' || sortBy.value === 'length') {
-  //     valueA = parseFloat(valueA) || 0;
-  //     valueB = parseFloat(valueB) || 0;
-  //   } else {
-  //     valueA = String(valueA || '').toLowerCase();
-  //     valueB = String(valueB || '').toLowerCase();
-  //   }
-
-  //   if (valueA < valueB) return sortDesc.value ? 1 : -1;
-  //   if (valueA > valueB) return sortDesc.value ? -1 : 1;
-  //   return 0;
-  // });
-  // // Then, 'indexedItems' would need to be based on this 'itemsToSort'
-  // // This requires further refactoring of computed properties.
-  console.warn("sortItems() needs refactoring to work with store-driven data.");
-  */
-};
-
-
-// 直接編輯單元格
-const editingCell = ref<string | null>(null)
-const tempEditValue = ref<any>(null)
+// 單欄位編輯對話框相關
+const cellEditDialog = ref(false)
+const activator = ref(null)
+const confirm = ref(null)
+const cellEditModel = ref({
+  moduleName: '',
+  materialName: '',
+  diameter1: '',
+  diameter2: '',
+  diameter3: '',
+  material: '',
+  length: '',
+  unit: '',
+  status: true,
+})
+const selectedItemId = ref('')
+const editingField = ref<string | null>(null)
 
 // 歷史價格對話框
 const priceDialog = ref(false)
@@ -946,7 +837,7 @@ const editingPriceYear = ref<number | null>(null)
 const editingPrice = ref<number | null>(null)
 const editingPriceIndex = ref<number | null>(null)
 
-// 年度選項 - 動態生成近5年的選項（台灣年號）
+// 年度選項
 const currentYear = new Date().getFullYear() - 1911
 const yearOptions = Array.from({ length: 5 }, (_, i) => {
   const year = currentYear - i
@@ -986,9 +877,29 @@ const defaultItem = {
   note: ''
 }
 
-// // 篩選選項
-// const selectedModule = ref(null)
-// const selectedMaterial = ref(null)
+// Mapped and prepared items for the table from the store's fittings
+const mappedPipeFittings = computed(() => {
+  return fittings.value.map(fitting => {
+    return {
+      id: fitting.pomno,
+      pomno: fitting.pomno,
+      moduleId: fitting.module_id,
+      moduleName: fitting.module?.name || `模組 (ID: ${fitting.module_id})`,
+      materialName: fitting.name || `物料 (POMNO: ${fitting.pomno})`,
+      diameter1: fitting.diameter1?.value || fitting.diameter1_id?.toString() || '',
+      diameter2: fitting.diameter2?.value || fitting.diameter2_id?.toString() || '',
+      diameter3: fitting.diameter3?.value || '',
+      material: fitting.material?.name || `材質 (ID: ${fitting.material_id})`,
+      length: fitting.length ?? '',
+      unit: fitting.unit || '個',
+      currentPrice: fitting.current_price || 0,
+      status: fitting.is_active,
+      priceHistory: fitting.price_history || [],
+      note: fitting.description || '',
+      rawFitting: fitting,
+    }
+  })
+})
 
 // 模組名稱選項
 const dynamicModuleOptions = computed(() => {
@@ -997,7 +908,7 @@ const dynamicModuleOptions = computed(() => {
   }
   return pfModulesStore.allModules.map(module => ({
     title: module.name,
-    value: module.id, // 使用 module.name 作為 value 以匹配現有的篩選邏輯
+    value: module.id,
   }));
 });
 
@@ -1008,7 +919,7 @@ const dynamicMaterialOptions = computed(() => {
   }
   return pfMaterialsStore.materials.map(material => ({
     title: material.name,
-    value: material.name, // 使用材質名稱作為值以匹配現有篩選邏輯
+    value: material.name,
   }));
 });
 
@@ -1019,7 +930,7 @@ const diameter1Options = computed(() => {
   }
   return pfDiametersStore.diameters.map(diameter => ({
     title: `${diameter.name} (${diameter.value})`,
-    value: diameter.id, // 使用 ID 作為值
+    value: diameter.id,
   }));
 });
 
@@ -1028,12 +939,10 @@ const diameter3Options = computed(() => diameter1Options.value);
 
 // 物料類型選項
 const materialOptions = computed(() => {
-  // 如果 store 中有數據，使用動態數據
   if (pfMaterialsStore.hasMaterials) {
     return dynamicMaterialOptions.value;
   }
 
-  // 否則使用靜態備選清單
   return [
     { title: '過濾器', value: '過濾器' },
     { title: '閥門', value: '閥門' },
@@ -1051,7 +960,7 @@ const getDiameterDisplay = (diameterId: number | null) => {
   return diameter ? `${diameter.name} (${diameter.value})` : '';
 };
 
-// 新表頭，移除選取與材料編號，增加項次
+// 新表頭
 const headers = ref<{ title: string; key: string; align?: 'center' | 'end' | 'start'; width?: string }[]>([
   { title: '項次', key: 'index', align: 'center', width: '60px' },
   { title: '模組名稱', key: 'moduleName', align: 'center' },
@@ -1071,8 +980,8 @@ const { name } = useDisplay()
 const isSmallScreen = computed(() => name.value === 'xs' || name.value === 'sm')
 
 // 根據材料狀態返回對應的顏色
-const getStatusColor = (isActive: boolean | string) => { // 參數改為 isActive (布爾值)
-  if (typeof isActive === 'string') { // 處理可能的舊數據或 "審核中"
+const getStatusColor = (isActive: boolean | string) => {
+  if (typeof isActive === 'string') {
     if (isActive === '啟用') return 'light-green-lighten-5';
     if (isActive === '停用') return 'error-lighten-5';
     return 'grey-lighten-4';
@@ -1080,14 +989,59 @@ const getStatusColor = (isActive: boolean | string) => { // 參數改為 isActiv
   return isActive ? 'light-green-lighten-5' : 'error-lighten-5';
 }
 
+// 檢查特定標頭是否懸停
+const isHeaderHovered = (key: string) => {
+  return hoveredHeaderKey.value === key;
+};
+
+// 設定懸停的標頭
+const setHoveredHeader = (key: string) => {
+  const headerConfig = headers.value.find(h => h.key === key);
+  if (headerConfig && headerConfig.sortable !== false) {
+    hoveredHeaderKey.value = key;
+  }
+};
+
+// 清除懸停的標頭
+const clearHoveredHeader = () => {
+  hoveredHeaderKey.value = null;
+};
+
+// 更新排序方法
+const updateSorting = (key: string) => {
+  if (sortBy.value === key) {
+    sortDesc.value = !sortDesc.value;
+  } else {
+    sortBy.value = key;
+    sortDesc.value = false;
+  }
+};
+
+// 過濾資料
+const filteredItems = computed(() => {
+  let result = mappedPipeFittings.value;
+
+  if (selectedModule.value !== null) {
+    result = result.filter(item => item.moduleId === selectedModule.value);
+  }
+
+  if (selectedMaterial.value) {
+    result = result.filter(item => item.material === selectedMaterial.value);
+  }
+
+  if (search.value) {
+    const searchTerm = search.value.toLowerCase();
+    result = result.filter(item => {
+      return Object.values(item).some(val =>
+        String(val).toLowerCase().includes(searchTerm)
+      );
+    });
+  }
+  return result;
+})
 
 // 添加項次序號到項目
 const indexedItems = computed(() => {
-  // Apply sorting here if `sortItems` is not directly mutating the list `filteredItems` is based on
-  // For now, assuming filteredItems is the list to paginate.
-  // If sorting is handled by v-data-table-virtual, this might not need to change much.
-  // If custom sorting is applied before this, ensure `filteredItems` reflects the sorted list.
-
   let itemsToProcess = [...filteredItems.value];
   if (sortBy.value) {
     itemsToProcess.sort((a, b) => {
@@ -1109,79 +1063,119 @@ const indexedItems = computed(() => {
   return itemsToProcess.map((item, globalIndex) => ({
     ...item,
     index: globalIndex + 1,
-    raw: item, // 確保 raw 指向映射後的 item，以便模板中的 item.raw.xxx 能正確工作
+    raw: item,
   }));
 });
 
-// const startIndexInFiltered = (page.value - 1) * itemsPerPage.value;
-//   // const endIndexInFiltered = startIndexInFiltered + itemsPerPage.value;
-//   // const paginatedItems = itemsToPaginate.slice(startIndexInFiltered, endIndexInFiltered); // If manual pagination needed for v-data-table-virtual
+// 單欄位編輯對話框相關函數
+const cellEditDialogTitle = computed(() => {
+  if (!selectedItemId.value) return '編輯資料'
+  const item = mappedPipeFittings.value.find(i => i.id === selectedItemId.value)
+  const itemName = item ? `${item.moduleName} - ${item.materialName}` : ''
 
-//   // v-data-table-virtual handles its own pagination and virtualization from the full list.
-//   // So, indexedItems should provide the full, filtered (and potentially sorted) list with an 'index' property.
-//   // The 'index' should be based on the position in the *currently displayed page* if table does pagination,
-//   // or overall index if table virtualizes the whole list.
-//   // For v-data-table-virtual, usually you provide the full list.
-//   // The 'index' for display might be better handled inside the template slot if it's page-relative.
-//   // Let's provide an overall index for now.
-
-//   return itemsToPaginate.map((item, globalIndex) => {
-//     return {
-//       ...item,
-//       index: globalIndex + 1, // Overall index in the filtered (and sorted) list
-//       raw: item, // Keep the mapped item as raw for template access
-//     };
-//   });
-// });
-
-// 過濾資料
-const filteredItems = computed(() => {
-  let result = mappedPipeFittings.value;
-
-  // if (selectedModule.value) {
-  //   result = result.filter(item => item.moduleName === selectedModule.value);
-  // }
-
-  if (selectedModule.value !== null) { // selectedModule.value 現在是數字或 null
-    result = result.filter(item => item.moduleId === selectedModule.value); // 比較 ID
+  const fieldLabels = {
+    moduleName: '模組名稱',
+    materialName: '物料名稱',
+    diameter1: '口徑1',
+    diameter2: '口徑2',
+    diameter3: '口徑3',
+    material: '材質',
+    length: '長度',
+    unit: '品項單位',
+    status: '狀態'
   }
 
-  if (selectedMaterial.value) {
-    result = result.filter(item => item.material === selectedMaterial.value);
-  }
-
-  if (search.value) {
-    const searchTerm = search.value.toLowerCase();
-
-    result = result.filter(item => {
-      // 確保 item 的每個值都轉換為字符串進行比較
-      return Object.values(item).some(val => // <--- 添加 return 語句
-        String(val).toLowerCase().includes(searchTerm)
-      );
-    });
-    // result = result.filter(item => {
-    //   Object.values(item).some(val =>
-    //     String(val).toLowerCase().includes(searchTerm)
-    //   )
-      // return (
-      //   (item.id && String(item.id).toLowerCase().includes(searchTerm)) ||
-      //   (item.moduleName && String(item.moduleName).toLowerCase().includes(searchTerm)) ||
-      //   (item.materialName && String(item.materialName).toLowerCase().includes(searchTerm)) ||
-      //   (item.material && String(item.material).toLowerCase().includes(searchTerm)) ||
-      //   (item.diameter1 && String(item.diameter1).toLowerCase().includes(searchTerm))
-      // );
-    // });
-  }
-  // Note: Sorting should ideally be applied here if not handled by v-data-table-virtual
-  return result;
+  const fieldLabel = fieldLabels[editingField.value] || editingField.value
+  return `編輯 "${itemName}" 的${fieldLabel}`
 })
 
-// --- 無限滾動相關函數 ---
+// 註冊當前點擊的儲存格作為 dialog 的觸發器
+function registerActivator(event) {
+  activator.value = event.currentTarget
+}
+
+// 選取並載入要編輯的數據 (由儲存格點擊觸發)
+function editCell(item, field, event) {
+  registerActivator(event)
+  selectedItemId.value = item.id
+  editingField.value = field
+
+  // 載入項目數據到 cellEditModel
+  const itemData = item.raw
+
+  // 根據不同欄位設定對應的值
+  if (field === 'moduleName') {
+    cellEditModel.value.moduleName = itemData.moduleId || itemData.moduleName
+  } else if (field === 'materialName') {
+    cellEditModel.value.materialName = itemData.materialName
+  } else if (field === 'diameter1') {
+    cellEditModel.value.diameter1 = itemData.rawFitting.diameter1_id || itemData.diameter1
+  } else if (field === 'diameter2') {
+    cellEditModel.value.diameter2 = itemData.rawFitting.diameter2_id || itemData.diameter2
+  } else if (field === 'diameter3') {
+    cellEditModel.value.diameter3 = itemData.rawFitting.diameter3_id || itemData.diameter3
+  } else if (field === 'material') {
+    cellEditModel.value.material = itemData.material
+  } else if (field === 'length') {
+    cellEditModel.value.length = itemData.length
+  } else if (field === 'unit') {
+    cellEditModel.value.unit = itemData.unit
+  } else if (field === 'status') {
+    cellEditModel.value.status = itemData.rawFitting.is_active
+  }
+
+  cellEditDialog.value = true
+}
+
+// 儲存單欄位編輯
+async function saveCellEdit() {
+  cellEditDialog.value = false
+
+  if (!selectedItemId.value || !editingField.value) return
+
+  const originalFitting = fittings.value.find(f => f.pomno === selectedItemId.value);
+  if (!originalFitting) return;
+
+  const valueToSave = cellEditModel.value[editingField.value];
+  const updateData: any = {};
+
+  try {
+    if (editingField.value === 'status') {
+      updateData.is_active = valueToSave;
+    } else if (editingField.value === 'moduleName') {
+      const selectedModule = pfModulesStore.allModules.find(m => m.id === valueToSave);
+      if (selectedModule) {
+        updateData.module_id = selectedModule.id;
+      }
+    } else if (editingField.value === 'materialName') {
+      updateData.name = valueToSave;
+    } else if (editingField.value === 'material') {
+      const selectedMaterial = pfMaterialsStore.materials.find(m => m.name === valueToSave);
+      if (selectedMaterial) {
+        updateData.material_id = selectedMaterial.id;
+      }
+    } else if (['diameter1', 'diameter2', 'diameter3'].includes(editingField.value)) {
+      const idField = `${editingField.value}_id`;
+      updateData[idField] = valueToSave;
+    } else {
+      updateData[editingField.value] = valueToSave;
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await store.updatePipeFitting(selectedItemId.value, updateData);
+    }
+  } catch (error) {
+    console.error('Failed to save cell:', error);
+  }
+
+  editingField.value = null;
+}
+
+// 無限滾動相關函數
 const handleTableScroll = () => {
   if (!scrollableElement || !canLoadMoreItems.value || isLoadingMoreFromStore.value) return;
 
   const { scrollTop, clientHeight, scrollHeight } = scrollableElement;
-  // 判斷是否滾動到接近底部
   if (scrollHeight - scrollTop - clientHeight < SCROLL_THRESHOLD) {
     loadMorePipeFittings();
   }
@@ -1189,203 +1183,25 @@ const handleTableScroll = () => {
 
 const loadMorePipeFittings = async () => {
   console.log(`[VUE LOADMORE] Attempting to load more. CanLoad: ${canLoadMoreItems.value}, IsLoadingMore: ${isLoadingMoreFromStore.value}`);
-  if (!canLoadMoreItems.value) { // 再次檢查，防止重複調用
-    // console.log('Cannot load more or already loading.');
+  if (!canLoadMoreItems.value) {
     return;
   }
 
   const currentLoadedCount = store.pipeFittings.length;
-  const userOfficeId = 99; // <<<< IMPORTANT: 替換為實際的 office_id
-  const itemsToFetchPerPage = 50; // 每次加載的數量
+  const userOfficeId = 99;
+  const itemsToFetchPerPage = 50;
   console.log(`[VUE LOADMORE] Calling store action with: skip=${currentLoadedCount}, limit=${itemsToFetchPerPage}, append=true`);
-  // console.log(`Requesting more items. Skip: ${currentLoadedCount}, Limit: ${itemsToFetchPerPage}`);
+
   await store.fetchPipeFittingsByOfficeId(userOfficeId, {
     skip: currentLoadedCount,
     limit: itemsToFetchPerPage,
-    append: true, // 標記為追加數據
+    append: true,
   });
 };
-
-
-// 開始編輯單元格
-const startCellEdit = (itemId: string, field: string, currentValue: any) => {
-  editingCell.value = `${itemId}-${field}`
-  // 對於 status 字段，tempEditValue 應該是布林值
-  if (field === 'status') {
-    const fitting = mappedPipeFittings.value.find(f => String(f.id) === itemId);
-    tempEditValue.value = fitting ? fitting.rawFitting.is_active : false;
-    return
-  }
-
-  // 處理口徑字段，需要使用對應的 ID
-  if (field === 'diameter1' || field === 'diameter2' || field === 'diameter3') {
-    const fitting = mappedPipeFittings.value.find(f => String(f.id) === itemId);
-    if (fitting) {
-      // 如果原始數據中有 diameter*_id，使用它作為選擇值
-      const idField = `${field}_id`;
-      if (fitting.rawFitting[idField]) {
-        tempEditValue.value = fitting.rawFitting[idField];
-        return;
-      }
-    }
-  }
-
-  if (field === 'material') {
-    // 如果是材質，嘗試尋找匹配的材質
-    const materialName = currentValue;
-    const material = pfMaterialsStore.materials.find(m => m.name === materialName);
-    if (material && field === 'material') {
-      tempEditValue.value = material.id; // 使用 ID 作為值
-      return;
-    }
-  }
-
-  tempEditValue.value = currentValue
-}
-
-const saveCell = async (itemId: string, field: string) => {
-  const itemIndex = mappedPipeFittings.value.findIndex(item => item.id === itemId);
-  if (itemIndex === -1) {
-    cancelEdit();
-    return;
-  }
-
-  const originalFitting = fittings.value.find(f => f.pomno === itemId);
-  if (!originalFitting) {
-    cancelEdit();
-    return;
-  }
-
-  const valueToSave = tempEditValue.value;
-
-  // 準備更新數據
-  const updateData: any = {};
-
-  if (field === 'status') {
-    updateData.is_active = valueToSave; // valueToSave 應該是布爾值
-  } else if (field === 'moduleName') {
-    // 如果 moduleName 存的是 ID
-    // updateData.module_id = valueToSave; // 假設 tempEditValue 是 module_id
-    // 如果 moduleName 存的是 name，需要轉換為 ID
-    const selectedModule = pfModulesStore.allModules.find(m => m.id === valueToSave); // 假設 tempEditValue 是 id
-    if (selectedModule) {
-      updateData.module_id = selectedModule.id;
-    } else {
-      console.warn('Module not found for saving:', tempEditValue.value);
-      cancelEdit();
-      return;
-    }
-  } else if (field === 'materialName') {
-    updateData.name = valueToSave; // 假設 materialName 對應 fitting.name
-  } else if (field === 'material') {
-    const selectedMaterial = pfMaterialsStore.materials.find(m => m.name === valueToSave);
-    if (selectedMaterial) {
-      updateData.material_id = selectedMaterial.id;
-    } else {
-      console.warn('Material not found for saving:', tempEditValue.value);
-      cancelEdit();
-      return;
-    }
-  } else if (field === 'diameter1' || field === 'diameter2' || field === 'diameter3') {
-    const idField = `${field}_id`;
-    updateData[idField] = valueToSave;
-  } else if (field === 'currentPrice' && tempEditValue.value !== null && tempEditValue.value > 0) {
-    try {
-      const userOfficeId = userStore.currentUser?.office?.id;
-      const currentYear = new Date().getFullYear() - 1911; // 台灣年號
-
-      // 查詢該管件是否有當前年度的價格記錄
-      await annualPricesStore.fetchAnnualPricesByPipeFitting(
-        Number(itemId),
-        // { office_id: userOfficeId }
-      );
-
-      const priceRecords = annualPricesStore.getAnnualPricesByPipeFittingId(Number(itemId));
-      const currentYearPrice = priceRecords.find(p => p.year === currentYear);
-
-      if (currentYearPrice) {
-        // 更新現有價格
-        await annualPricesStore.updateAnnualPrice(
-          currentYearPrice.id,
-          {
-            price: tempEditValue.value,
-            modified_by_id: userStore.currentUser?.id
-          }
-        );
-      } else {
-        // 創建新價格
-        await annualPricesStore.createAnnualPrice({
-          pipe_fitting_id: Number(itemId),
-          office_id: userOfficeId,
-          year: currentYear,
-          price: tempEditValue.value,
-          is_active: true,
-          created_by_id: userStore.currentUser?.id
-        });
-      }
-    } catch (error) {
-      console.error('更新價格歷史失敗:', error);
-      // 可以顯示錯誤提示但不阻止退出編輯狀態
-    }
-  } else {
-    // 假設其他字段名直接對應 PipeFittingUpdate schema 中的字段名
-    // 注意：這需要確保 mappedPipeFittings 中的 key 與 PipeFittingUpdate 的 key 一致
-    // 或者在這裡進行映射
-    // 例如，如果 mappedPipeFittings 的 key 是 'length' 而 PipeFittingUpdate 的 key 也是 'length'
-    console.log('Saving field:', field, 'with value:', valueToSave);
-    updateData[field] = valueToSave;
-  }
-
-
-  if (Object.keys(updateData).length > 0) {
-    try {
-      console.log(`Saving item ${itemId}, field ${field}, value:`, valueToSave, 'Update data:', updateData);
-      await store.updatePipeFitting(itemId, updateData); // 調用 store action 更新後端
-      // 更新成功後，store 應該會重新獲取數據或更新本地數據，
-      // mappedPipeFittings 會自動響應
-    } catch (error) {
-      console.error('Failed to save cell:', error);
-      // 可以添加錯誤提示
-    }
-  }
-
-  cancelEdit();
-}
-
-// 取消編輯
-const cancelEdit = () => {
-  editingCell.value = null
-  tempEditValue.value = null
-}
-
-const toggleAndSaveStatus = (itemId: string) => {
-  // 找到對應的 fitting 來獲取當前 is_active 狀態
-  const fitting = mappedPipeFittings.value.find(f => String(f.id) === itemId);
-  if (fitting) {
-    // 切換狀態
-    tempEditValue.value = !fitting.rawFitting.is_active;
-    // 立即保存
-    saveCell(itemId, 'status');
-  }
-  // 不需要保持編輯模式，因為點擊即保存
-  editingCell.value = null;
-};
-
-const editItem = (itemId: string) => {
-  const item = allItems.value.find(item => item.id === itemId)
-  if (item) {
-    // 複製項目數據到編輯表單
-    Object.assign(editedItem, item)
-    // 開啟編輯對話框
-    editDialog.value = true
-  }
-}
 
 const deleteItem = (itemId: string) => {
   if (confirm(`確定要刪除編號 ${itemId} 的材料嗎？`)) {
     try {
-      // 從UI中移除
-      allItems.value = allItems.value.filter(item => item.id !== itemId)
       console.log('刪除材料:', itemId)
     } catch (error) {
       console.error('刪除材料失敗:', error)
@@ -1394,43 +1210,6 @@ const deleteItem = (itemId: string) => {
 }
 
 // 顯示歷史價格對話框
-// const showPriceHistory = async (item: any) => {
-//   try {
-//     // 首先準備當前材料的基本信息
-//     currentMaterial.value = {
-//       id: item.id,
-//       moduleName: item.moduleName,
-//       materialName: item.materialName,
-//       rawFitting: item.rawFitting,
-//       priceHistory: []
-//     };
-
-//     // 加載該管件的價格歷史
-//     // const userOfficeId = userStore.currentUser?.office?.id; // 獲取當前用戶的 office_id
-//     const priceHistory = await annualPricesStore.fetchAnnualPricesByPipeFitting(
-//       Number(item.id),
-//       {
-//         // office_id: userOfficeId,
-//         skip: 0,
-//         limit: 100
-//       }
-//     );
-
-//     // 將獲取的價格歷史賦值給 currentMaterial
-//     if (currentMaterial.value) {
-//       currentMaterial.value.priceHistory = priceHistory;
-//     }
-
-//     // 打開對話框
-//     priceDialog.value = true;
-//     editingPriceIndex.value = null;
-//     editingPriceYear.value = null;
-//     editingPrice.value = null;
-//   } catch (error) {
-//     console.error('加載價格歷史失敗:', error);
-//     // 可以使用 Vuetify 顯示錯誤提示
-//   }
-// }
 const showPriceHistory = (item: any) => {
   currentMaterial.value = item;
   priceDialog.value = true;
@@ -1458,10 +1237,8 @@ const updatePrice = async (index: number) => {
         }
       );
 
-      // 更新本地數據
       currentMaterial.value.priceHistory[index] = updatedPrice;
 
-      // 如果是最新年份的價格，則更新當前顯示的價格
       const maxYear = Math.max(...currentMaterial.value.priceHistory.map(p => p.year));
       if (priceRecord.year === maxYear) {
         const materialIndex = indexedItems.value.findIndex(item => item.raw.id === currentMaterial.value?.id);
@@ -1471,11 +1248,9 @@ const updatePrice = async (index: number) => {
       }
     } catch (error) {
       console.error('更新價格失敗:', error);
-      // 顯示錯誤提示
     }
   }
 
-  // 結束編輯狀態
   editingPriceIndex.value = null;
   editingPrice.value = null;
 }
@@ -1494,19 +1269,15 @@ const addPriceHistory = async () => {
         created_by_id: userStore.currentUser?.id
       });
 
-      // 將新的價格添加到本地數據中
       if (currentMaterial.value) {
         if (!currentMaterial.value.priceHistory) {
           currentMaterial.value.priceHistory = [];
         }
 
         currentMaterial.value.priceHistory.push(newPrice);
-        // 根據年份排序（降序）
         currentMaterial.value.priceHistory.sort((a, b) => b.year - a.year);
       }
 
-      // 如果新增的是最新年份的價格，更新當前 pipe fitting 的當前價格
-      // 這裡需要找到對應映射關係來更新 UI
       const index = indexedItems.value.findIndex(item => item.raw.id === currentMaterial.value.id);
       if (index !== -1 &&
           (!indexedItems.value[index].raw.currentPrice ||
@@ -1514,12 +1285,10 @@ const addPriceHistory = async () => {
         indexedItems.value[index].raw.currentPrice = editingPrice.value;
       }
 
-      // 重置編輯欄位
       editingPriceYear.value = null;
       editingPrice.value = null;
     } catch (error) {
       console.error('新增價格歷史失敗:', error);
-      // 顯示錯誤提示
     }
   }
 }
@@ -1528,22 +1297,18 @@ const addPriceHistory = async () => {
 const deletePriceHistory = async (year: number) => {
   if (currentMaterial.value) {
     try {
-      // 找出要刪除的價格記錄索引和 ID
       const priceIndex = currentMaterial.value.priceHistory.findIndex(p => p.year === year);
       if (priceIndex === -1) return;
 
       const priceId = currentMaterial.value.priceHistory[priceIndex].id;
 
-      // 調用 API 刪除
       await annualPricesStore.deleteAnnualPrice(
         priceId,
         Number(currentMaterial.value.id)
       );
 
-      // 從陣列中刪除
       currentMaterial.value.priceHistory.splice(priceIndex, 1);
 
-      // 如果刪除的是目前顯示的價格，更新為最新年度的價格
       if (currentMaterial.value.priceHistory.length > 0) {
         const latestYear = Math.max(...currentMaterial.value.priceHistory.map(p => p.year));
         const latestPrice = currentMaterial.value.priceHistory.find(p => p.year === latestYear)?.price;
@@ -1557,196 +1322,71 @@ const deletePriceHistory = async (year: number) => {
       }
     } catch (error) {
       console.error('刪除價格歷史失敗:', error);
-      // 顯示錯誤提示
     }
   }
 }
 
 // 保存編輯的材料
 const saveItem = async () => {
-  // try {
-  //   if (editedItem.id) {
-  //     // 編輯現有項目
-  //     const updateData = {
-  //       name: editedItem.materialName,
-  //       material_id: getMaterialIdByName(editedItem.material),
-  //       module_id: editedItem.moduleId,
-  //       diameter1_id: getDiameterIdByValue(editedItem.diameter1),
-  //       diameter2_id: getDiameterIdByValue(editedItem.diameter2),
-  //       diameter3_id: getDiameterIdByValue(editedItem.diameter3),
-  //       length: editedItem.length ? parseFloat(editedItem.length) : null,
-  //       unit: editedItem.unit,
-  //       is_active: editedItem.status === '啟用',
-  //       description: editedItem.note,
-  //       modified_by_id: userStore.currentUser?.id
-  //     };
-
-  //     await store.updatePipeFitting(editedItem.id, updateData);
-
-  //     // 如果當前價格有變化，更新或創建價格記錄
-  //     if (editedItem.currentPrice > 0) {
-  //       const userOfficeId = userStore.currentUser?.office?.id;
-  //       const currentYear = new Date().getFullYear() - 1911; // 台灣年號
-
-  //       // 查詢該管件是否有當前年度的價格記錄
-  //       const annualPricesStore = usePFAnnualPricesStore();
-  //       await annualPricesStore.fetchAnnualPricesByPipeFitting(
-  //         Number(editedItem.id),
-  //         { office_id: userOfficeId }
-  //       );
-
-  //       const priceRecords = annualPricesStore.getAnnualPricesByPipeFittingId(Number(editedItem.id));
-  //       const currentYearPrice = priceRecords.find(p => p.year === currentYear);
-
-  //       if (currentYearPrice) {
-  //         // 更新現有價格
-  //         await annualPricesStore.updateAnnualPrice(
-  //           currentYearPrice.id,
-  //           {
-  //             price: editedItem.currentPrice,
-  //             modified_by_id: userStore.currentUser?.id
-  //           }
-  //         );
-  //       } else {
-  //         // 創建新價格
-  //         await annualPricesStore.createAnnualPrice({
-  //           pipe_fitting_id: Number(editedItem.id),
-  //           office_id: userOfficeId,
-  //           year: currentYear,
-  //           price: editedItem.currentPrice,
-  //           is_active: true,
-  //           created_by_id: userStore.currentUser?.id
-  //         });
-  //       }
-  //     }
-  //   } else {
-  //     // 創建新項目
-  //     const createData = {
-  //       name: editedItem.materialName,
-  //       material_id: getMaterialIdByName(editedItem.material),
-  //       module_id: editedItem.moduleId,
-  //       diameter1_id: getDiameterIdByValue(editedItem.diameter1),
-  //       diameter2_id: getDiameterIdByValue(editedItem.diameter2),
-  //       diameter3_id: getDiameterIdByValue(editedItem.diameter3),
-  //       length: editedItem.length ? parseFloat(editedItem.length) : null,
-  //       unit: editedItem.unit,
-  //       is_active: editedItem.status === '啟用',
-  //       description: editedItem.note,
-  //       office_id: userStore.currentUser?.office?.id,
-  //       created_by_id: userStore.currentUser?.id
-  //     };
-
-  //     const newPipeFitting = await store.createPipeFitting(createData);
-
-  //     // 為新管件創建價格記錄
-  //     if (editedItem.currentPrice > 0 && newPipeFitting) {
-  //       const annualPricesStore = usePFAnnualPricesStore();
-  //       await annualPricesStore.createAnnualPrice({
-  //         pipe_fitting_id: newPipeFitting.pomno,
-  //         office_id: userStore.currentUser?.office?.id,
-  //         year: new Date().getFullYear() - 1911, // 台灣年號
-  //         price: editedItem.currentPrice,
-  //         is_active: true,
-  //         created_by_id: userStore.currentUser?.id
-  //       });
-  //     }
-  //   }
-
-  //   // 重新獲取資料
-  //   await store.fetchPipeFittingsByOfficeId(userStore.currentUser?.office?.id, {
-  //     skip: 0,
-  //     limit: 50,
-  //     append: false,
-  //   });
-
-  //   // 關閉對話框
-  //   editDialog.value = false;
-  //   // 重置編輯項目
-  //   Object.assign(editedItem, defaultItem);
-  // } catch (error) {
-  //   console.error('保存材料失敗:', error);
-  //   // 顯示錯誤提示
-  // }
   try {
-    // 準備要保存的數據
     const saveData: any = { ...editedItem };
 
-    // 處理模組 ID
     if (typeof saveData.moduleName === 'string') {
-      // 如果是名稱，查找對應的 ID
       const module = pfModulesStore.allModules.find(m => m.name === saveData.moduleName);
       if (module) {
         saveData.module_id = module.id;
       }
     } else {
-      // 如果已經是 ID，直接使用
       saveData.module_id = saveData.moduleName;
     }
-    delete saveData.moduleName; // 移除非後端字段
+    delete saveData.moduleName;
 
-    // 處理物料名稱
-    // 保留 name 字段，不做轉換
     saveData.name = saveData.materialName;
-    delete saveData.materialName; // 移除非後端字段
+    delete saveData.materialName;
 
-    // 處理材質 ID
     if (typeof saveData.material === 'string') {
-      // 如果是名稱，查找對應的 ID
       const material = pfMaterialsStore.materials.find(m => m.name === saveData.material);
       if (material) {
         saveData.material_id = material.id;
       }
     } else if (typeof saveData.material === 'number') {
-      // 如果已經是 ID，直接使用
       saveData.material_id = saveData.material;
     }
-    delete saveData.material; // 移除非後端字段
+    delete saveData.material;
 
-    // 處理口徑 ID
     ['diameter1', 'diameter2', 'diameter3'].forEach(field => {
       if (saveData[field]) {
-        // 如果值存在，設置對應的 _id 字段
         saveData[`${field}_id`] = saveData[field];
-        delete saveData[field]; // 移除原字段
+        delete saveData[field];
       }
     });
 
-    // 處理狀態字段
     if (saveData.status) {
       saveData.is_active = saveData.status === '啟用';
       delete saveData.status;
     }
 
-    // 移除其他非後端字段
-    delete saveData.priceHistory;
-    delete saveData.index; // 如果有
-    delete saveData.raw; // 如果有
-    delete saveData.id; // 後端使用 pomno
-
-    // 當前年度價格處理
     if (saveData.currentPrice) {
-      // 如果需要在新增時創建價格歷史，可以在此處理
       const priceData = {
-        year: new Date().getFullYear() - 1911, // 台灣年號
+        year: new Date().getFullYear() - 1911,
         price: saveData.currentPrice
       };
-
-      // Note: 後端可能有專門的 API 來處理價格歷史
-      // 或者價格歷史會在 PipeFitting 創建後通過另一個 API 調用添加
     }
-    delete saveData.currentPrice; // 移除，除非後端模型有此字段
+    delete saveData.currentPrice;
+
+    delete saveData.priceHistory;
+    delete saveData.index;
+    delete saveData.raw;
+    delete saveData.id;
 
     console.log('準備儲存的資料:', saveData);
 
     if (editedItem.id) {
-      // 編輯現有項目
       await store.updatePipeFitting(editedItem.id, saveData);
     } else {
-      // 創建新項目
       await store.createPipeFitting(saveData);
     }
 
-    // 重新加載數據以反映更改
     const userOfficeId = userStore.currentUser?.office?.id || 99;
     await store.fetchPipeFittingsByOfficeId(userOfficeId, {
       skip: 0,
@@ -1754,35 +1394,27 @@ const saveItem = async () => {
       append: false
     });
 
-    // 關閉對話框
     editDialog.value = false;
-    // 重置編輯項目
     Object.assign(editedItem, defaultItem);
 
   } catch (error) {
     console.error('保存材料時發生錯誤:', error);
-    // 可以在此添加錯誤提示
   }
 }
 
 // 組件掛載時載入資料
 onMounted(async () => {
-  // loadAllItems()
   console.log('Component Mounted: Initializing PipeFittings...');
 
-  // Replace 99 with the actual user's office_id
-  // This should ideally come from auth store or user profile
-  const userOfficeId = userStore.currentUser?.office?.id; // <<<< Access office through currentUser
+  const userOfficeId = userStore.currentUser?.office?.id;
   const initialLimit = 50;
 
-  // 初始數據加載
   await store.fetchPipeFittingsByOfficeId(userOfficeId, {
     skip: 0,
     limit: initialLimit,
-    append: false, // 初始加載，非追加
+    append: false,
   });
 
-  await pfModulesStore.ensureAllModulesLoaded()
   await pfModulesStore.ensureAllModulesLoaded()
   await pfMaterialsStore.ensureAllMaterialsLoaded()
   await pfDiametersStore.ensureAllDiametersLoaded()
@@ -1790,26 +1422,21 @@ onMounted(async () => {
   console.log('Store: Fittings after initial fetch:', fittings.value.length);
   console.log('Store: Total after initial fetch:', store.totalPipeFittings);
 
-  // 設置滾動監聽器
-  await nextTick(); // 等待 DOM 更新完成
+  await nextTick();
   if (tableRef.value && tableRef.value.$el) {
-    // v-data-table-virtual 的滾動容器通常是 .v-table__wrapper
     const wrapper = tableRef.value.$el.querySelector('.v-table__wrapper');
     if (wrapper) {
       scrollableElement = wrapper as HTMLElement;
       scrollableElement.addEventListener('scroll', handleTableScroll);
-      // console.log('Scroll listener attached to .v-table__wrapper');
     } else {
       console.warn('Could not find .v-table__wrapper for v-data-table-virtual. Infinite scroll might not work.');
     }
   }
 
-  // 測試 fetchPipeFittingById (保持不變，但注意 pomno 的來源)
   if (mappedPipeFittings.value.length > 0) {
     const firstItem = mappedPipeFittings.value[0];
     if (firstItem && typeof firstItem.pomno !== 'undefined') {
       await store.fetchPipeFittingById(firstItem.pomno);
-      // console.log('Store: Current fitting after fetch by ID:', currentFitting.value);
     }
   }
 })
@@ -1817,7 +1444,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (scrollableElement) {
     scrollableElement.removeEventListener('scroll', handleTableScroll);
-    // console.log('Scroll listener removed.');
   }
   annualPricesStore.clearAllPrices();
 })
@@ -1847,16 +1473,16 @@ onBeforeUnmount(() => {
   transition: all 0.3s ease;
 
   /* 毛玻璃效果 */
-  background-color: rgba(255, 255, 255, 0.6) !important; /* 半透明白色背景 */
-  backdrop-filter: blur(10px) !important; /* 背景模糊效果 */
-  -webkit-backdrop-filter: blur(10px) !important; /* Safari 支持 */
-  border: 1px solid rgba(255, 255, 255, 0.25) !important; /* 細微邊框增強玻璃感 */
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05) !important; /* 柔和陰影增強玻璃感 */
+  background-color: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05) !important;
 }
 
 .section-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
-  background-color: rgba(255, 255, 255, 0.85) !important; /* 懸停時略微增加不透明度 */
+  background-color: rgba(255, 255, 255, 0.85) !important;
 }
 
 .section-card:hover .custom-title {
@@ -1897,8 +1523,8 @@ onBeforeUnmount(() => {
   background-color: #62b7bb30 !important;
   color: #333 !important;
   font-weight: 900 !important;
-  position: relative; /* For positioning the icon */
-  text-align: start; /* Default alignment */
+  position: relative;
+  text-align: start;
 }
 
 .materials-table :deep(thead th.text-center .header-content-wrapper) {
@@ -1913,35 +1539,34 @@ onBeforeUnmount(() => {
   align-items: center;
   width: 100%;
   height: 100%;
-  min-height: 24px; /* Adjust as needed based on your font size and padding */
+  min-height: 24px;
 }
 
 .header-text {
   transition: opacity 0.2s ease-in-out;
-  flex-grow: 1; /* Allow text to take available space */
+  flex-grow: 1;
 }
 
 .sort-icon-container {
-  display: flex; /* Use flex to center icon if needed */
+  display: flex;
   align-items: center;
-  justify-content: center; /* Center icon if it's the only element */
+  justify-content: center;
   transition: opacity 0.2s ease-in-out;
-  opacity: 0; /* Initially hidden */
-  position: absolute; /* Position it within the th */
+  opacity: 0;
+  position: absolute;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%); /* Center it perfectly */
+  transform: translate(-50%, -50%);
 }
 
 .custom-header.sortable-header:hover .sort-icon-container {
-  opacity: 1; /* Show on hover */
+  opacity: 1;
 }
 
 .custom-header.sortable-header:hover .header-text {
-  opacity: 0; /* Hide text on hover */
+  opacity: 0;
 }
 
-/* Ensure active sort icon is also visible if text is hidden */
 .custom-header.sortable-header:hover .sort-icon-container.active,
 .custom-header.sortable-header .sort-icon-container.active {
   opacity: 1;
@@ -1950,15 +1575,13 @@ onBeforeUnmount(() => {
    opacity: 0;
 }
 
-
 .sort-icon {
-  color: #333; /* Default color */
+  color: #333;
 }
 
 .sort-icon.active {
-  color: #3ea0a3 !important; /* Active sort color */
+  color: #3ea0a3 !important;
 }
-
 
 .materials-table :deep(.v-data-table__tr:hover) {
   background-color: rgba(98, 183, 187, 0.1) !important;
