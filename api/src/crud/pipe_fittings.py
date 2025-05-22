@@ -7,7 +7,7 @@ from src.schemas.pipe_fittings import PipeFittingCreate, PipeFittingUpdate
 
 async def get_pipe_fitting(pomno: int) -> Optional[PipeFittings]:
     try:
-        return await PipeFittings.get(pomno=pomno).prefetch_related(
+        pipe_fitting = await PipeFittings.get(pomno=pomno).prefetch_related(
             "material", "module", "diameter1", "diameter2", "diameter3", "office", "created_by", "modified_by"
         )
         
@@ -30,7 +30,7 @@ async def get_pipe_fitting(pomno: int) -> Optional[PipeFittings]:
         return None
 
 async def get_pipe_fittings(skip: int = 0, limit: int = 100) -> List[PipeFittings]:
-    return await PipeFittings.all().offset(skip).limit(limit).prefetch_related(
+    pipe_fittings = await PipeFittings.all().offset(skip).limit(limit).prefetch_related(
         "material", "module", "diameter1", "diameter2", "diameter3", "office", "created_by", "modified_by"
     )
 
