@@ -1145,7 +1145,7 @@ const calculateWidth = () => {
   if (length > 0 && area > 0) {
     localFormData.fieldWidth = Math.round(area / length);
   }
-  updateFormData();
+  // updateFormData();
 };
 
 const getStandardPipeLength = async (materialId: number | null, diameterId: number | null): Promise<number> => {
@@ -2384,7 +2384,7 @@ onMounted(async () => {
       if (dataToLoad[key] !== undefined) {
         if (key === 'pipes' && Array.isArray(dataToLoad[key])) {
           localFormData.pipes = [...dataToLoad[key]];
-        } else if (key !== 'pipes') { 
+        } else if (key !== 'pipes') {
           localFormData[key] = dataToLoad[key];
         }
       }

@@ -129,15 +129,15 @@
                   </template>
 
                   <!-- 案件狀態欄位 -->
-                  <template #[`item.carbs`]="{ item }">
+                  <template #[`item.status`]="{ item }">
                     <v-chip
-                      :color="getStatusColor(item.carbs)"
+                      :color="getStatusColor(item.status)"
                       variant="flat"
                       size="small"
                       label
                       class="font-weight-medium"
                     >
-                      {{ item.carbs }}
+                      {{ item.status }}
                     </v-chip>
                   </template>
 
@@ -214,6 +214,7 @@
 </template>
 
 <script lang="ts" setup>
+import { useGrantsStore } from '@/stores/grants'
 import { useDisplay } from 'vuetify'
 import { GrantStorage } from '@/utils/grant-storage' // Import GrantStorage utility
 
@@ -222,6 +223,7 @@ const loading = ref(true)
 const search = ref('')
 const selected = ref<string[]>([])
 const router = useRouter()
+const grantsStore = useGrantsStore()
 
 // 分頁
 const page = ref(1)
@@ -259,7 +261,7 @@ const headers = ref([
   { title: '管理處', key: 'office', align: 'start' },
   { title: '末端形式', key: 'calories', align: 'end' },
   { title: '施作面積 (m²)', key: 'fat', align: 'end' },
-  { title: '案件狀態', key: 'carbs', align: 'end' },
+  { title: '案件狀態', key: 'status', align: 'end' },
   // { title: '公告狀態（農民卡）', key: 'card', align: 'end' },
   { title: '操作', key: 'protein', align: 'end' },
 ])
@@ -269,6 +271,8 @@ const isSmallScreen = computed(() => name.value === 'xs' || name.value === 'sm')
 
 // 根據案件狀態返回對應的顏色
 const getStatusColor = (status: string) => {
+  if (!status) return 'grey-lighten-4';
+
   if (status.includes('完成申請人資料') || status.includes('完成土地資料')) {
     return 'blue-lighten-5';
   } else if (status.includes('完成灌溉調控設施') || status.includes('完成田間管路')) {
@@ -305,7 +309,7 @@ const apply = [
     name: '許大利',
     calories: '滴灌',  // 更新末端類型
     fat: 1900,        // 施作面積
-    carbs: '完成申請人資料', // 案件狀態
+    status: '完成申請人資料', // 案件狀態
     card: '已受理',    // 農民卡狀態
     protein: 4,
     iron: '1',
@@ -317,7 +321,7 @@ const apply = [
     name: '陳大明',
     calories: '穿孔管',
     fat: 4000,
-    carbs: '完成灌溉調控設施',
+    status: '完成灌溉調控設施',
     card: '審查中',
     protein: 4,
     iron: '1',
@@ -329,7 +333,7 @@ const apply = [
     name: '劉台北',
     calories: '其他',  // 更新末端類型
     fat: 2800,
-    carbs: '完成田間管路',
+    status: '完成田間管路',
     card: '審查中',
     protein: 4,
     iron: '1',
@@ -341,7 +345,7 @@ const apply = [
     name: '彭大吉',
     calories: '噴灌',  // 更新末端類型
     fat: 4000,
-    carbs: '完成現場勘查',
+    status: '完成現場勘查',
     card: '審查通過',  // 隨機分配
     protein: 4,
     iron: '1',
@@ -353,7 +357,7 @@ const apply = [
     name: '林正雄',
     calories: '滴灌',
     fat: 3500,
-    carbs: '完成申請人資料',
+    status: '完成申請人資料',
     card: '已受理',
     protein: 4,
     iron: '1',
@@ -365,7 +369,7 @@ const apply = [
     name: '王美蓮',
     calories: '噴灌',  // 更新末端類型
     fat: 2600,
-    carbs: '完成土地資料',
+    status: '完成土地資料',
     card: '審查中',
     protein: 4,
     iron: '1',
@@ -377,7 +381,7 @@ const apply = [
     name: '張水源',
     calories: '微噴',
     fat: 3200,
-    carbs: '完成現場勘查',
+    status: '完成現場勘查',
     card: '結案流程',  // 隨機分配
     protein: 4,
     iron: '2',
@@ -389,7 +393,7 @@ const apply = [
     name: '李農田',
     calories: '其他',
     fat: 1800,
-    carbs: '完成現場勘查',
+    status: '完成現場勘查',
     card: '撥款作業',  // 隨機分配
     protein: 4,
     iron: '0',
@@ -401,7 +405,7 @@ const apply = [
     name: '黃水利',
     calories: '滴灌',
     fat: 5200,
-    carbs: '完成田間管路',
+    status: '完成田間管路',
     card: '審查中',
     protein: 4,
     iron: '1',
@@ -413,7 +417,7 @@ const apply = [
     name: '吳田野',
     calories: '微噴',  // 更新末端類型，原先為霧化器
     fat: 4800,
-    carbs: '完成田間管路',
+    status: '完成田間管路',
     card: '審查中',
     protein: 4,
     iron: '1',
@@ -425,14 +429,14 @@ const apply = [
 
 // Status mapping based on current step
 const statusMapping = {
-  1: '完成申請人資料',
-  2: '完成土地資料',
-  3: '完成灌溉調控設施',
-  4: '完成田間管路',
-  5: '完成現場勘查',
-  6: '完成補助申請資料',
-  7: '完成變更設計及結案申報',
-  8: '完成上傳佐證文件',
+  1: '處理中',
+  2: '完成申請人資料',
+  3: '完成土地資料',
+  4: '完成灌溉調控設施',
+  5: '完成田間管路',
+  6: '完成現場勘查',
+  7: '完成補助申請資料',
+  8: '完成變更設計及結案申報',
 }
 
 // Card status options (random assignment for demo)
@@ -508,7 +512,15 @@ const loadAllItems = () => {
     const office = step1Data.department || '瑠公管理處'
 
     // Determine current step and status
-    const currentStep = grantData.current_step || 1
+    // 如果這是當前編輯的案件，從 grantsStore 獲取最新步驟
+    const currentStep = grantData.current_step
+    // if (grantsStore.currentGrant && grantsStore.currentGrant.case_number === caseNumber) {
+    //   currentStep = grantsStore.currentGrant.current_step
+    // } else {
+      // 否則使用本地存儲的步驟
+      // currentStep = grantData.current_step || 1
+    // }
+    // const currentStep = grantData.current_step || 1
     const status = statusMapping[currentStep] || '處理中'
 
     // Generate random card status for demo
@@ -519,7 +531,7 @@ const loadAllItems = () => {
       name: name,
       calories: irrigationType,
       fat: areaM2,
-      carbs: status,
+      status: status,
       card: cardStatus,
       protein: 4, // For action buttons
       iron: '1',  // For selection
@@ -542,7 +554,22 @@ const loadAllItems = () => {
 }
 
 const editItem = (itemId: string) => {
-  router.push(`/grants/edit?id=${itemId}`)
+  const grantData = GrantStorage.getGrant(itemId);
+  if (grantData) {
+    // 確保 grantsStore 中有正確的 current_step 值
+    const currentStep = grantData.current_step || 1;
+
+    // 將 current_step 保存到 store 中
+    grantsStore.updateCurrentStep(currentStep);
+    console.log(`[editItem] Setting current_step to ${currentStep} for grant ${itemId}`);
+
+    // 導航到編輯頁面
+    router.push(`/grants/edit?id=${itemId}&step=${currentStep}`);
+  } else {
+    // 如果找不到數據，只帶 ID 參數導航
+    console.warn(`Grant data not found for ID: ${itemId}, navigating with ID only`);
+    router.push(`/grants/edit?id=${itemId}`);
+  }
 }
 
 const deleteItem = (itemId: string) => {
@@ -561,6 +588,17 @@ const deleteItem = (itemId: string) => {
 // Load data when component is mounted
 onMounted(() => {
   loadAllItems()
+})
+
+watch(() => grantsStore.currentGrant?.current_step, (newStep) => {
+  if (newStep && grantsStore.currentGrant) {
+    // 更新對應案件的狀態
+    const caseNumber = grantsStore.currentGrant.case_number
+    const item = allItems.value.find(item => item.id === caseNumber)
+    if (item) {
+      item.status = statusMapping[newStep] || '處理中'
+    }
+  }
 })
 </script>
 

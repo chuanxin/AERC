@@ -485,6 +485,10 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
       if (step < steps.length) {
         currentStep.value = step + 1
 
+        // 更新 grantsStore 中的 current_step
+        grantsStore.updateCurrentStep(currentStep.value);
+        console.log(`Step validated: Updating grantsStore.current_step to ${currentStep.value}`)
+
         // Update URL and load data for the next step
         updateStepInURL(currentStep.value)
         await loadStepData(currentStep.value)
@@ -492,6 +496,10 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
         // Scroll to top after loading new step data
         scrollToTop()
       } else {
+        // 在最後一步完成時也更新 current_step
+        grantsStore.updateCurrentStep(steps.length);
+        console.log(`Final step completed: Setting grantsStore.current_step to ${steps.length}`)
+
         // Complete the form if this was the last step
         router.push('/grants')
       }
@@ -541,6 +549,10 @@ const handleStepClick = (stepValue: number) => {
     // Update current step
     currentStep.value = stepValue
 
+    // 更新 grantsStore 中的 current_step
+    grantsStore.updateCurrentStep(stepValue)
+    console.log(`Step clicked: Updating grantsStore.current_step to ${stepValue}`)
+
     // Update URL and load data for selected step
     updateStepInURL(stepValue)
     loadStepData(stepValue).then(() => {
@@ -574,6 +586,10 @@ const handleGoBack = async () => {
 
       // Go to previous step
       currentStep.value -= 1
+
+      // 更新 grantsStore 中的 current_step
+      grantsStore.updateCurrentStep(currentStep.value)
+      console.log(`Going back: Updating grantsStore.current_step to ${currentStep.value}`)
 
       // Update URL and load previous step data
       updateStepInURL(currentStep.value)
@@ -647,9 +663,9 @@ onMounted(async () => {
       console.log('[edit.vue onMounted] No stepParam in route. Defaulting to step 1 for initial load.');
       startStep = 1;
     }
-    
+
     // Ensure grantsStore.currentStep is aligned before loading data, especially for initial load.
-    grantsStore.currentStep = startStep; 
+    grantsStore.currentStep = startStep;
     currentStep.value = startStep; // Update local currentStep ref
 
     console.log(`[edit.vue onMounted] Final startStep: ${startStep}. grantsStore.currentStep set to: ${grantsStore.currentStep}`);
@@ -661,7 +677,7 @@ onMounted(async () => {
     console.log(`[edit.vue onMounted] Calling loadStepData for step: ${startStep}`);
     await loadStepData(startStep);
     console.log(`[edit.vue onMounted] loadStepData for step ${startStep} finished. grantsStore.formData[${startStep}]:`, JSON.stringify(grantsStore.formData[startStep], null, 2));
-    
+
     isDataLoaded.value = true;
   } catch (error) {
     console.error('[edit.vue onMounted] Failed to initialize grant data:', error);

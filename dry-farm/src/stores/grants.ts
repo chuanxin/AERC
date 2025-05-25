@@ -382,6 +382,31 @@ export const useGrantsStore = defineStore('grants', () => {
     }
   }
 
+  const updateCurrentStep = (step: number) => {
+    // 更新 store 中的 currentStep
+    currentStep.value = step;
+
+    // 如果有 currentGrant，更新其 current_step 屬性
+    if (currentGrant.value) {
+      // 確保 currentGrant 有 current_step 屬性（TypeScript 可能需要轉型）
+      (currentGrant.value as any).current_step = step;
+
+      // 保存到 localStorage
+      if (currentGrant.value.case_number) {
+        const grantData = GrantStorage.getGrant(currentGrant.value.case_number);
+        if (grantData) {
+          // 更新 current_step
+          grantData.current_step = step;
+          // 保存回 localStorage
+          GrantStorage.saveGrantData(currentGrant.value.case_number, grantData);
+          console.log(`[grantsStore] Updated current_step to ${step} for grant ${currentGrant.value.case_number}`);
+        }
+      }
+    }
+
+    return step;
+  }
+
   return {
     // State
     currentGrant,
@@ -410,6 +435,7 @@ export const useGrantsStore = defineStore('grants', () => {
     clearError,
     saveAllChanges,
     exportGrantBackup,
-    importGrantBackup
+    importGrantBackup,
+    updateCurrentStep
   }
 })
