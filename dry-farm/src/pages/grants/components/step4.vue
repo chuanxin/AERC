@@ -2375,144 +2375,86 @@ const getMockMaterialData = (formInputs: any) => {
 
 // 初始化數據
 onMounted(async () => {
-  console.log("Step 4 mounted, formData:", props.formData);
-  console.log("Step 4 mounted, complete formData structure:", JSON.stringify(props.formData));
-  console.log("Step 2 data available?", !!props.formData?.step2Data);
-  console.log("facilityArea in step2Data:", props.formData?.step2Data?.facilityArea);
-
   await loadDropdownOptions(); // 載入下拉選單數據
 
-  // 優先使用根級別的 facilityArea
-  if (props.formData && props.formData.facilityArea !== undefined) {
-    console.log("Using facilityArea from root level:", props.formData.facilityArea);
-    localFormData.facilityArea = props.formData.facilityArea;
-  }
-  // 如果根級別沒有，就嘗試從 step4Data 獲取
-  else if (props.formData?.step4Data?.facilityArea !== undefined) {
-    console.log("Using facilityArea from step4Data:", props.formData.step4Data.facilityArea);
-    localFormData.facilityArea = props.formData.step4Data.facilityArea;
-  }
-  // 最後使用默認值
-  else {
-    console.log("No facilityArea found, using default");
-    localFormData.facilityArea = 10000;
+  // Populate localFormData with its own persisted data from props.formData (grantsStore.formData[4])
+  if (props.formData) {
+    const dataToLoad = props.formData.step4Data || props.formData; // step4Data for edit, root for create
+    Object.keys(localFormData).forEach(key => {
+      if (dataToLoad[key] !== undefined) {
+        if (key === 'pipes' && Array.isArray(dataToLoad[key])) {
+          localFormData.pipes = [...dataToLoad[key]];
+        } else if (key !== 'pipes') { 
+          localFormData[key] = dataToLoad[key];
+        }
+      }
+    });
+    // Explicitly load facilityArea if it's directly on props.formData and not in step4Data
+    // This handles cases where facilityArea might be at the root of props.formData for this step
+    if (props.formData.facilityArea !== undefined && !props.formData.step4Data?.facilityArea) {
+        localFormData.facilityArea = props.formData.facilityArea;
+    }
   }
 
-  calculateWidth();
-  // 確保初次載入時，如果已有管路數據，則計算一次總價和補助
-  if(localFormData.pipes.length > 0){
+  // Load step 2 data if not already present in store to ensure facilityArea is available
+  // This might be redundant if edit.vue preloads all relevant steps, but good for robustness
+  if (!grantsStore.formData[2]?.facilityArea && grantsStore.currentGrant?.case_number) {
+    await grantsStore.loadStepData(grantsStore.currentGrant.case_number, 2);
+  }
+
+  const step2FacilityArea = grantsStore.formData[2]?.facilityArea;
+  if (step2FacilityArea !== undefined) {
+    localFormData.facilityArea = parseFloat(step2FacilityArea) || 0; // Or keep as string if appropriate
+    console.log("Using facilityArea from Step 2 data:", localFormData.facilityArea);
+  } else if (props.formData?.facilityArea !== undefined) { // Fallback to current step's persisted data
+    localFormData.facilityArea = parseFloat(props.formData.facilityArea) || 0;
+    console.log("Using facilityArea from props.formData (Step 4 persisted):", localFormData.facilityArea);
+  } else {
+    // If facilityArea is still not set (e.g. was not in step2 and not in props.formData.facilityArea),
+    // it might have been set from props.formData.step4Data.facilityArea during the initial population.
+    // If it's still undefined, null, or empty string after all that, then default.
+    const currentLocalFacilityArea = parseFloat(localFormData.facilityArea);
+    if (isNaN(currentLocalFacilityArea) || currentLocalFacilityArea === 0) {
+        localFormData.facilityArea = 10000; // Default if not found anywhere
+        console.log("facilityArea not found, using default:", localFormData.facilityArea);
+    } else {
+        // This means it was likely populated from props.formData.step4Data.facilityArea
+        console.log("Using facilityArea from self-persisted step4Data ("+localFormData.facilityArea+"), as Step2 and props.formData.facilityArea were undefined.");
+    }
+  }
+
+  calculateWidth(); // Ensure width is calculated with the correct facilityArea
+  // ... existing code ...
+  if(localFormData.pipes.length > 0){ // This part was in the original, keep it
       await calculateSubsidy();
   }
-
-  // 從父組件接收數據
-  // if (props.formData) {
-  //   // 設置基本屬性
-  //   Object.keys(localFormData).forEach(key => {
-  //     if (key !== 'pipes' && props.formData[key] !== undefined) {
-  //       localFormData[key] = props.formData[key];
-  //     }
-  //   });
-
-  //   // 確保管路列表被正確設置
-  //   if (Array.isArray(props.formData.pipes)) {
-  //     localFormData.pipes = [...props.formData.pipes];
-  //   }
-  // }
-
-  // // 如果沒有設置補助來源，設置默認值
-  // if (!localFormData.fundingSource) {
-  //   localFormData.fundingSource = '農田水利署';
-  // }
-
-  // // 如果沒有設置面積，根據長寬計算
-  // if (!localFormData.fieldArea && localFormData.fieldLength && localFormData.fieldWidth) {
-  //   localFormData.fieldArea = (parseFloat(localFormData.fieldLength) * parseFloat(localFormData.fieldWidth)).toString();
-  // }
-
-  // // 如果管路列表為空，添加示例數據
-  // if (!localFormData.pipes || localFormData.pipes.length === 0) {
-  //   localFormData.pipes = [
-  //     {
-  //       groupId: 1,
-  //       moduleType: '主管',
-  //       name: 'PVC 1"',
-  //       specification: '1"',
-  //       unit: '支',
-  //       description: '主管管線(PVC)',
-  //       unitPrice: 44,
-  //       quantity: 2,
-  //       totalPrice: 88
-  //     },
-  //     {
-  //       groupId: 2,
-  //       moduleType: '支管',
-  //       name: 'PVC 3/4"',
-  //       specification: '3/4"',
-  //       unit: '支',
-  //       description: '支管管線(PVC)',
-  //       unitPrice: 38,
-  //       quantity: 8,
-  //       totalPrice: 304
-  //     },
-  //     {
-  //       groupId: 3,
-  //       moduleType: '末端設施',
-  //       name: '單口噴頭',
-  //       specification: '1/2"',
-  //       unit: '個',
-  //       description: '噴頭-塑膠',
-  //       unitPrice: 25,
-  //       quantity: 16,
-  //       totalPrice: 400
-  //     }
-  //   ];
-  // }
-
-  // Initial update to parent
-  updateFormData();
+  updateFormData(); // Emit initial data
 });
 
 // 監聽父組件數據變化
-// watch(() => props.formData, (newVal) => {
-//   if (newVal) {
-//     // 更新基本屬性
-//     Object.keys(localFormData).forEach(key => {
-//       if (key !== 'pipes' && newVal[key] !== undefined &&
-//           JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
-//         localFormData[key] = newVal[key];
-//       }
-//     });
-
-//     // 特別處理管路列表
-//     if (Array.isArray(newVal.pipes) &&
-//         JSON.stringify(newVal.pipes) !== JSON.stringify(localFormData.pipes)) {
-//       localFormData.pipes = [...newVal.pipes];
-//     }
-//   }
-// }, { deep: true });
 watch(() => props.formData, (newVal) => {
-  console.log("formData changed, step2Data:", newVal?.step2Data);
-
+  console.log("Step 4 props.formData changed. NewVal step2 facilityArea:", grantsStore.formData[2]?.facilityArea);
   if (newVal) {
-    // 優先使用根級別的 facilityArea
-    if (newVal.facilityArea !== undefined) {
-      localFormData.facilityArea = newVal.facilityArea;
-      calculateWidth();
+    // Prioritize facilityArea from Step 2 store data
+    const step2FacilityArea = grantsStore.formData[2]?.facilityArea;
+    if (step2FacilityArea !== undefined) {
+      localFormData.facilityArea = parseFloat(step2FacilityArea) || 0;
+    } else if (newVal.step4Data?.facilityArea !== undefined) { // Fallback to persisted step4Data
+      localFormData.facilityArea = parseFloat(newVal.step4Data.facilityArea) || 0;
+    } else if (newVal.facilityArea !== undefined) { // Fallback to root of formData prop
+       localFormData.facilityArea = parseFloat(newVal.facilityArea) || 0;
     }
+    // else, keep existing localFormData.facilityArea or default from onMounted
 
-    if (newVal.step4Data) {
-      Object.keys(localFormData).forEach(key => {
-        // 不要从 step4Data 覆盖 facilityArea
-        if (key !== 'pipes' && key !== 'facilityArea' && newVal.step4Data[key] !== undefined &&
-            JSON.stringify(newVal.step4Data[key]) !== JSON.stringify(localFormData[key])) {
-          localFormData[key] = newVal.step4Data[key];
-        }
-      });
-      if (Array.isArray(newVal.step4Data.pipes) &&
-          JSON.stringify(newVal.step4Data.pipes) !== JSON.stringify(localFormData.pipes)) {
-        localFormData.pipes = [...newVal.step4Data.pipes];
+    // Update other fields from newVal.step4Data or newVal
+    const dataToProcess = newVal.step4Data || newVal;
+    Object.keys(localFormData).forEach(key => {
+      if (key !== 'facilityArea' && dataToProcess[key] !== undefined &&
+          JSON.stringify(dataToProcess[key]) !== JSON.stringify(localFormData[key])) {
+        localFormData[key] = dataToProcess[key];
       }
-    }
+    });
+    calculateWidth(); // Recalculate width if facilityArea might have changed
   }
 }, { deep: true });
 

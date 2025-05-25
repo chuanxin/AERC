@@ -468,7 +468,9 @@ const createProject = async () => {
       office_id: Number(localFormData.departmentId)
     }
 
-    console.log('Sending to API:', JSON.stringify(projectData));
+    console.log('[step0.createProject] Data being sent to grantsStore.createProject:', JSON.stringify(projectData, null, 2));
+    // Also log the types of ID fields to ensure they are numbers
+    console.log('[step0.createProject] ID types: county_id:', typeof projectData.county_id, 'townId:', typeof projectData.townId, 'village_id:', typeof projectData.village_id, 'office_id:', typeof projectData.office_id);
 
     // Call the store action to create the project
     const result = await grantsStore.createProject(projectData)

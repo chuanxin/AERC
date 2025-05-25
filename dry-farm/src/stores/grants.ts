@@ -56,29 +56,35 @@ export const useGrantsStore = defineStore('grants', () => {
    * @returns {Promise<GrantCreateResponse>} The created grant
    */
   const createProject = async (projectData: GrantCreateRequest) => {
-    isLoading.value = true
-    error.value = null
+    isLoading.value = true;
+    error.value = null;
+    console.log('[grantsStore.createProject] Attempting to create project with data:', JSON.stringify(projectData, null, 2)); // Log 1
 
     try {
-      const result = await createGrant(projectData)
-      currentGrant.value = result
+      console.log('[grantsStore.createProject] Calling createGrant API service...');
+      const result = await createGrant(projectData);
+      console.log('[grantsStore.createProject] API createGrant successful. Result:', JSON.stringify(result, null, 2)); // Log 2
+      currentGrant.value = result;
 
-      // Initialize local storage for this case
+      console.log(`[grantsStore.createProject] Attempting to save grant data to GrantStorage for case number: ${result.case_number}`); // Log 4
       GrantStorage.saveGrantData(result.case_number, {
         caseNumber: result.case_number,
         status: result.status,
         createdAt: new Date().toISOString(),
-        steps: {}
-      })
+        steps: {} // Initialize with empty steps
+      });
+      console.log(`[grantsStore.createProject] GrantStorage.saveGrantData successful for case number: ${result.case_number}`); // Log 5
 
-      return result
+      return result;
     } catch (err: unknown) {
-      handleError(err, 'createProject')
-      throw err
+      console.error('[grantsStore.createProject] Error during project creation:', err); // Log for any error
+      handleError(err, 'createProject');
+      throw err;
     } finally {
-      isLoading.value = false
+      isLoading.value = false;
+      console.log('[grantsStore.createProject] createProject finished.');
     }
-  }
+  };
 
   /**
    * Load a grant by case number

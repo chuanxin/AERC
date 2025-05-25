@@ -485,37 +485,6 @@ const updateFormData = () => {
     ...localFormData,
     valid: localValid.value
   })
-  // Also update localStorage directly to ensure synchronization
-  try {
-    // Get current grants data from localStorage or initialize empty object
-    const storedData = localStorage.getItem('grantsData');
-    const grantsData = storedData ? JSON.parse(storedData) : {};
-
-    // Update step1 data
-    grantsData.step1 = {
-      name: localFormData.name,
-      id: localFormData.id,
-      phone: localFormData.phone,
-      county: localFormData.county,
-      countyId: localFormData.countyId,
-      town: localFormData.town,
-      townId: localFormData.townId,
-      village: localFormData.village,
-      villageId: localFormData.villageId,
-      address: localFormData.address,
-      manager: localFormData.manager,
-      department: localFormData.department,
-      departmentId: localFormData.departmentId,
-      caseNumber: localFormData.caseNumber,
-      receivedDate: localFormData.receivedDate,
-      receivedTime: localFormData.receivedTime
-    }
-
-    // Store back to localStorage
-    localStorage.setItem('grantsData', JSON.stringify(grantsData));
-  } catch (error) {
-    console.error('Error saving to localStorage:', error);
-  }
 };
 
 // Validate and emit validated event

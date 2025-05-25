@@ -81,13 +81,14 @@ const handleCreateCase = async (data) => {
   try {
     // 實際應用中應該調用 API 建立案件
     await new Promise(resolve => setTimeout(resolve, 1500)); // 模擬 API 請求
-    const result = data;
-    console.log('創建成功:', result);
-
+    // 'data' here is the eventData from step0.vue: { projectId: result.case_number, data: { ...localFormData } }
+    console.log('[new.vue handleCreateCase] Received event data:', JSON.stringify(data, null, 2));
+    console.log('[new.vue handleCreateCase] Navigating with projectId (case_number):', data.projectId);
+    
     // 導航到編輯頁面
     appRouter.push({
       path: '/grants/edit',
-      query: { id: result.projectId }
+      query: { id: data.projectId } // Ensure data.projectId is used here
     });
   } catch (error) {
     console.error('創建失敗:', error);

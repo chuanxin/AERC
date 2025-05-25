@@ -595,68 +595,79 @@ const handleGoBack = async () => {
 // Improved data loading with race condition prevention
 let isLoadingData = false
 const loadStepData = async (step: number) => {
-  if (!route.query.id || isLoadingData) return
+  if (!route.query.id || isLoadingData) return;
 
-  isLoadingData = true
-  const caseNumber = route.query.id as string
-  submitting.value = true
-  isDataLoaded.value = false
+  isLoadingData = true;
+  const caseNum = route.query.id as string;
+  submitting.value = true; // This seems more like an isLoadingData flag
+  isDataLoaded.value = false; // Indicate data for the new step is not yet loaded
+  console.log(`[edit.vue loadStepData] Attempting to load data for step: ${step}, caseNumber: ${caseNum}`);
 
   try {
-    // Use the grantsStore's loadStepData method for both API and localStorage
-    await grantsStore.loadStepData(caseNumber, step)
-
-    isDataLoaded.value = true
+    await grantsStore.loadStepData(caseNum, step);
+    console.log(`[edit.vue loadStepData] grantsStore.loadStepData for step ${step} successful. Form data for step ${step}:`, JSON.stringify(grantsStore.formData[step], null, 2));
+    isDataLoaded.value = true;
   } catch (error) {
-    console.error(`Failed to load data for step ${step}:`, error)
+    console.error(`[edit.vue loadStepData] Failed to load data for step ${step}:`, error);
   } finally {
-    submitting.value = false
-    isLoadingData = false
+    submitting.value = false; // Reset the flag
+    isLoadingData = false;
   }
-}
+};
 
 // Initialize data with better error handling
 onMounted(async () => {
-  // Get case number and step from URL
-  const caseNumber = route.query.id as string
-  const stepParam = route.query.step
+  const caseNumberFromRoute = route.query.id as string;
+  const stepParam = route.query.step;
+  console.log(`[edit.vue onMounted] Case number from route: ${caseNumberFromRoute}, Step param: ${stepParam}`);
 
-  if (!caseNumber) {
-    // Redirect to grants list if no case number provided
-    router.push('/grants')
-    return
+  if (!caseNumberFromRoute) {
+    console.error('[edit.vue onMounted] No case number in route, redirecting to /grants.');
+    router.push('/grants');
+    return;
   }
 
   try {
-    // First load the grant to get its basic info
-    await grantsStore.loadGrant(caseNumber)
+    console.log(`[edit.vue onMounted] Calling grantsStore.loadGrant with caseNumber: ${caseNumberFromRoute}`);
+    await grantsStore.loadGrant(caseNumberFromRoute);
+    console.log('[edit.vue onMounted] grantsStore.loadGrant successful. Current grant:', JSON.stringify(grantsStore.currentGrant, null, 2));
 
-    // Determine starting step (from URL, grant data, or default to 1)
-    let startStep = 1
-
+    let startStep = 1;
     if (stepParam) {
-      const stepValue = parseInt(stepParam as string, 10)
+      const stepValue = parseInt(stepParam as string, 10);
       if (!isNaN(stepValue) && stepValue >= 1 && stepValue <= steps.length) {
-        startStep = stepValue
+        startStep = stepValue;
+        console.log(`[edit.vue onMounted] startStep determined from route.query.step: ${startStep}`);
+      } else {
+        console.warn(`[edit.vue onMounted] Invalid stepParam in route: ${stepParam}. Defaulting to step 1.`);
+        startStep = 1; // Default to 1 if stepParam is invalid
       }
-    } else if (grantsStore.currentStep) {
-      startStep = grantsStore.currentStep
+    } else {
+      // No stepParam in URL, typically means fresh navigation after creation or direct entry
+      console.log('[edit.vue onMounted] No stepParam in route. Defaulting to step 1 for initial load.');
+      startStep = 1;
     }
+    
+    // Ensure grantsStore.currentStep is aligned before loading data, especially for initial load.
+    grantsStore.currentStep = startStep; 
+    currentStep.value = startStep; // Update local currentStep ref
 
-    // Set step and update URL if needed
-    currentStep.value = startStep
+    console.log(`[edit.vue onMounted] Final startStep: ${startStep}. grantsStore.currentStep set to: ${grantsStore.currentStep}`);
 
     if (!stepParam) {
-      updateStepInURL(startStep)
+      updateStepInURL(startStep); // Update URL if it was not set
     }
 
-    // Load data for the starting step
-    await loadStepData(startStep)
-    isDataLoaded.value = true
+    console.log(`[edit.vue onMounted] Calling loadStepData for step: ${startStep}`);
+    await loadStepData(startStep);
+    console.log(`[edit.vue onMounted] loadStepData for step ${startStep} finished. grantsStore.formData[${startStep}]:`, JSON.stringify(grantsStore.formData[startStep], null, 2));
+    
+    isDataLoaded.value = true;
   } catch (error) {
-    console.error('Failed to initialize grant data:', error)
+    console.error('[edit.vue onMounted] Failed to initialize grant data:', error);
+    // grantsStore.handleError might be called internally, or add a specific error display here
   }
-})
+});
 
 // Watch for URL step parameter changes with improved logic
 watch(() => route.query.step, (newStepParam, oldStepParam) => {
