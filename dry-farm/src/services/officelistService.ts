@@ -6,7 +6,8 @@ export interface Office {
   name: string
   short_name: string
   code: string
-  classification: number
+  classification: number,
+  is_funding_source: boolean
 }
 
 // Response interfaces for listing

@@ -13,6 +13,42 @@
           v-model="localValid"
           @submit.prevent
         >
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
+            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-hand-coin
+              </v-icon>
+              <span class="text-subtitle-1 font-weight-medium">補助來源</span>
+            </v-card-title>
+
+            <v-card-text class="pa-4">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
+                <v-select
+                  v-model="localFormData.fundingSourceId"
+                  :items="fundingSourceOptions"
+                  item-title="name"
+                  item-value="id"
+                  label="補助單位"
+                  variant="outlined"
+                  density="comfortable"
+                  style="max-width: 400px"
+                  :rules="[v => (v !== null && v !== undefined) || '請選擇補助來源']"
+                  @update:model-value="updateFormData"
+                />
+              </v-sheet>
+            </v-card-text>
+          </v-card>
+
+
           <v-card class="mb-4" variant="outlined">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
               <v-icon class="me-2" size="small">mdi-layers-triple-outline</v-icon>
@@ -50,7 +86,7 @@
                   <div class="d-flex align-center me-4 mb-2">
                     <div class="text-body-2 me-2">施設面積:</div>
                     <v-text-field
-                      v-model.number="localFormData.fieldArea"
+                      v-model.number="localFormData.facilityArea"
                       suffix="m²"
                       type="number"
                       variant="outlined"
@@ -71,41 +107,6 @@
                     自動帶入材料
                   </v-btn>
                 </div>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
-
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-hand-coin
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">補助來源</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <v-select
-                  v-model="localFormData.fundingSourceId"
-                  :items="fundingSourceOptions"
-                  item-title="name"
-                  item-value="id"
-                  label="補助單位"
-                  variant="outlined"
-                  density="comfortable"
-                  style="max-width: 400px"
-                  :rules="[v => !!v || '請選擇補助來源']"
-                  @update:model-value="updateFormData"
-                />
               </v-sheet>
             </v-card-text>
           </v-card>
@@ -653,6 +654,7 @@
 
 <script setup lang="ts">
 import { useGrantsStore } from '@/stores/grants';
+import { useOfficesStore } from '@/stores/offices'
 
 interface PipeOption {
   id: number | string; // 或者後端期望的類型
@@ -696,6 +698,7 @@ const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 
 // Access the grants store
 const grantsStore = useGrantsStore();
+const officesStore = useOfficesStore();
 
 // Form validation references
 const form = ref<HTMLFormElement | null>(null); // 顯式類型
@@ -711,7 +714,7 @@ const localFormData = reactive({
   // 栅塊形狀和面積
   fieldLength: '100',
   fieldWidth: '100',
-  fieldArea: '1000',
+  facilityArea: '1000',
 
   // 補助來源
   fundingSourceId: null as number | null, // 存儲ID
@@ -875,7 +878,7 @@ const endFacilityMaterialOptions = [
 ];
 
 // --- 選項列表 (應從API獲取) ---
-const fundingSourceOptions = ref<PipeOption[]>([]); // 例如: [{id:0, name:'農田水利署'}, ...]
+// const fundingSourceOptions = ref<PipeOption[]>([]); // 例如: [{id:0, name:'農田水利署'}, ...]
 const pipeDiameterOptions = ref<PipeOption[]>([]);  // 例如: [{id:1, name:'1/2"', value: 0.5}, ...]
 const pipeMaterialOptions = ref<PipeOption[]>([]);  // 例如: [{id:1, name:'PVC'}, ...]
 // const variantTypeOptions = ref<PipeOption[]>([]); // 即 pipeDiameterOptions，用於變徑規格
@@ -891,6 +894,7 @@ const filteredEndFacilityPipeFittings = ref<EndFacilityPipeFitting[]>([]);
 
 // --- 模擬API獲取下拉選單數據 (您需要用真實的API呼叫替換) ---
 const loadDropdownOptions = async () => {
+  await officesStore.fetchOffices();
   // fundingSourceOptions.value = await fundingSourcesService.getAll();
   // pipeDiameterOptions.value = await pfDiametersService.getAll();
   // pipeMaterialOptions.value = await pfMaterialsService.getAll();
@@ -899,11 +903,11 @@ const loadDropdownOptions = async () => {
   // waterSourceOptions.value = await waterSourcesService.getAll();
 
   // 範例硬編碼 (請務必替換為API呼叫)
-  fundingSourceOptions.value = [
-    { id: 0, name: '農田水利署' },
-    { id: 16, name: '七星管理處' },
-    { id: 17, name: '瑠公管理處' }
-  ];
+  // fundingSourceOptions.value = [
+  //   { id: 0, name: '農田水利署' },
+  //   { id: 16, name: '七星管理處' },
+  //   { id: 17, name: '瑠公管理處' }
+  // ];
   pipeDiameterOptions.value = [
     { id: 26, name: '1/2"', standardLength: 4 },   // 假設ID與舊系統MAT_Spec.SpecNo對應
     { id: 27, name: '3/4"', standardLength: 4 },
@@ -925,6 +929,24 @@ const loadDropdownOptions = async () => {
    facilityTypeOptions.value = [ {id: 1, name: '埋設固定式'}, {id: 2, name: '地表定置式'}, {id: 3, name: '附掛棚架式'}];
    waterSourceOptions.value = [ {id:1, name: '灌溉渠道'}, {id:2, name: '野溪'} /* ... */];
 };
+
+const fundingSourceOptions = computed(() => {
+  // console.log('Computing fundingSourceOptions, offices:', officesStore.offices)
+  // console.log('Offices length:', officesStore.offices.length)
+
+  const filtered = officesStore.offices
+    .filter(office => {
+      // console.log('Office:', office.name, 'is_funding_source:', office.is_funding_source)
+      return office.is_funding_source === true
+    })
+    .map(office => ({
+      id: office.id,
+      name: office.name
+    }))
+
+  // console.log('Filtered funding sources:', filtered)
+  return filtered
+});
 
 // 根據灌溉類型篩選末端設施選項
 const filteredEndFacilityOptions = computed(() => {
@@ -1066,7 +1088,7 @@ const canAutoFillMaterials = computed(() => {
   return (
     !!localFormData.fieldLength &&
     !!localFormData.fieldWidth &&
-    !!localFormData.fundingSourceId && // 使用ID
+    (localFormData.fundingSourceId !== null) && // 使用ID
     !!localFormData.irrigationTypeId && // 使用ID
     !!localFormData.facilityTypeId &&   // 使用ID
     (localFormData.mainPipeLength !== null) &&
@@ -1119,7 +1141,7 @@ const canAutoFillMaterials = computed(() => {
 // };
 const calculateWidth = () => {
   const length = localFormData.fieldLength || 0;
-  const area = localFormData.fieldArea || 0;
+  const area = localFormData.facilityArea || 0;
   if (length > 0 && area > 0) {
     localFormData.fieldWidth = Math.round(area / length);
   }
@@ -2354,25 +2376,29 @@ const getMockMaterialData = (formInputs: any) => {
 // 初始化數據
 onMounted(async () => {
   console.log("Step 4 mounted, formData:", props.formData);
+  console.log("Step 4 mounted, complete formData structure:", JSON.stringify(props.formData));
+  console.log("Step 2 data available?", !!props.formData?.step2Data);
+  console.log("facilityArea in step2Data:", props.formData?.step2Data?.facilityArea);
 
   await loadDropdownOptions(); // 載入下拉選單數據
 
-  if (props.formData && props.formData.step4Data) {
-    Object.keys(localFormData).forEach(key => {
-      if (key !== 'pipes' && props.formData.step4Data[key] !== undefined) {
-        localFormData[key] = props.formData.step4Data[key];
-      }
-    });
-    if (Array.isArray(props.formData.step4Data.pipes)) {
-      localFormData.pipes = [...props.formData.step4Data.pipes];
-    }
-  } else {
-    // 預設值或從 grantsStore 初始化
-    localFormData.fieldLength = grantsStore.currentGrant?.landInfo?.fieldLength || 100; // 假設store中有這些值
-    localFormData.fieldArea = grantsStore.currentGrant?.landInfo?.totalArea || 10000;
-    calculateWidth(); // 根據長和面積計算寬度
-    // ... 其他初始化
+  // 優先使用根級別的 facilityArea
+  if (props.formData && props.formData.facilityArea !== undefined) {
+    console.log("Using facilityArea from root level:", props.formData.facilityArea);
+    localFormData.facilityArea = props.formData.facilityArea;
   }
+  // 如果根級別沒有，就嘗試從 step4Data 獲取
+  else if (props.formData?.step4Data?.facilityArea !== undefined) {
+    console.log("Using facilityArea from step4Data:", props.formData.step4Data.facilityArea);
+    localFormData.facilityArea = props.formData.step4Data.facilityArea;
+  }
+  // 最後使用默認值
+  else {
+    console.log("No facilityArea found, using default");
+    localFormData.facilityArea = 10000;
+  }
+
+  calculateWidth();
   // 確保初次載入時，如果已有管路數據，則計算一次總價和補助
   if(localFormData.pipes.length > 0){
       await calculateSubsidy();
@@ -2465,16 +2491,27 @@ onMounted(async () => {
 //   }
 // }, { deep: true });
 watch(() => props.formData, (newVal) => {
-  if (newVal && newVal.step4Data) {
-    Object.keys(localFormData).forEach(key => {
-      if (key !== 'pipes' && newVal.step4Data[key] !== undefined &&
-          JSON.stringify(newVal.step4Data[key]) !== JSON.stringify(localFormData[key])) {
-        localFormData[key] = newVal.step4Data[key];
+  console.log("formData changed, step2Data:", newVal?.step2Data);
+
+  if (newVal) {
+    // 優先使用根級別的 facilityArea
+    if (newVal.facilityArea !== undefined) {
+      localFormData.facilityArea = newVal.facilityArea;
+      calculateWidth();
+    }
+
+    if (newVal.step4Data) {
+      Object.keys(localFormData).forEach(key => {
+        // 不要从 step4Data 覆盖 facilityArea
+        if (key !== 'pipes' && key !== 'facilityArea' && newVal.step4Data[key] !== undefined &&
+            JSON.stringify(newVal.step4Data[key]) !== JSON.stringify(localFormData[key])) {
+          localFormData[key] = newVal.step4Data[key];
+        }
+      });
+      if (Array.isArray(newVal.step4Data.pipes) &&
+          JSON.stringify(newVal.step4Data.pipes) !== JSON.stringify(localFormData.pipes)) {
+        localFormData.pipes = [...newVal.step4Data.pipes];
       }
-    });
-     if (Array.isArray(newVal.step4Data.pipes) &&
-        JSON.stringify(newVal.step4Data.pipes) !== JSON.stringify(localFormData.pipes)) {
-      localFormData.pipes = [...newVal.step4Data.pipes];
     }
   }
 }, { deep: true });

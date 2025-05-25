@@ -14,7 +14,7 @@ OfficeOutSchema = pydantic_model_creator(
     name="OfficeOut",
     # exclude=("grant", "user")
     # exclude_readonly=True,
-    include=("id", "name", "short_name", "code", "classification"), # 只包含 Office 本身的字段
+    include=("id", "name", "short_name", "code", "classification", "is_funding_source"), # 只包含 Office 本身的字段
 )
 
 # OfficeListSchema = pydantic_model_creator(
