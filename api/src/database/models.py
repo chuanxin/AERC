@@ -128,7 +128,17 @@ class Grants(models.Model):
     
     def generate_case_number(self):
         """根據 year + office_id + SN 產生完整案件編號"""
-        return f"{self.year}{self.office_id}{str(self.sn).zfill(4)}"
+        office_id_str = str(self.office_id)
+        if self.office_id is not None:
+            if self.office_id < 10: # 個位數
+                office_id_str = f"0{self.office_id}"
+            elif self.office_id < 100: # 兩位數
+                office_id_str = str(self.office_id)
+            # 三位數或以上則 office_id_str 保持原樣 str(self.office_id)
+        else:
+            office_id_str = "00" # 或者您希望 office_id 為 None 時的默認處理
+
+        return f"{self.year}{office_id_str}{str(self.sn).zfill(4)}"
 
     async def save(self, *args, **kwargs):
         """在存入資料時，自動產生 SN 與 case_number"""
@@ -229,7 +239,8 @@ class Offices(models.Model):
     name = fields.CharField(max_length=50, unique=True, description="單位名稱")
     short_name = fields.CharField(max_length=10, unique=True, description="單位縮寫")
     code = fields.CharField(max_length=10, unique=True, description="單位代碼")
-    classification = fields.IntField(max_length=2, default=1, description="單位類型(1:管理處 2:其他)")
+    classification = fields.IntField(default=1, description="單位類型(1:管理處 2:其他)")
+    is_funding_source = fields.BooleanField(default=False, description="是否為補助來源")
     
     class Meta:
         table = "offices"
@@ -528,6 +539,48 @@ class WaterSources(models.Model):
     class Meta:
         table = "water_sources"
         table_description = "水源資料表"
+    
+    def __str__(self):
+        return self.name
+    
+class PowerEquipments(models.Model):
+    """動力設備資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="動力設備名稱")
+    code = fields.CharField(max_length=10, unique=True, null=True, description="動力設備代碼")
+    description = fields.CharField(max_length=255, null=True, description="動力設備描述")
+    is_active = fields.BooleanField(default=True, description="是否啟用")
+    
+    class Meta:
+        table = "power_equipments"
+        table_description = "動力設備資料表"
+    
+    def __str__(self):
+        return self.name
+    
+class RegulationEquipments(models.Model):
+    """調控設備資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="調控設備名稱")
+    code = fields.CharField(max_length=10, unique=True, null=True, description="調控設備代碼")
+    description = fields.CharField(max_length=255, null=True, description="調控設備描述")
+    is_active = fields.BooleanField(default=True, description="是否啟用")
+    
+    class Meta:
+        table = "regulation_equipments"
+        table_description = "調控設備資料表"
+    
+    def __str__(self):
+        return self.name
+    
+class TankMaterials(models.Model):
+    """儲水設備材質資料表"""
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=50, unique=True, description="儲水設備材質名稱")
+    
+    class Meta:
+        table = "tank_materials"
+        table_description = "儲水設備材質資料表"
     
     def __str__(self):
         return self.name

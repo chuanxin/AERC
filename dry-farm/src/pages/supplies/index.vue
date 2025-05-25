@@ -861,6 +861,7 @@ const editedItem = reactive({
   priceHistory: [] as { year: number, price: number }[],
   note: ''
 })
+
 const defaultItem = {
   id: '',
   moduleName: '',
@@ -943,15 +944,15 @@ const materialOptions = computed(() => {
     return dynamicMaterialOptions.value;
   }
 
-  return [
-    { title: '過濾器', value: '過濾器' },
-    { title: '閥門', value: '閥門' },
-    { title: 'PE管', value: 'PE管' },
-    { title: 'PVC管', value: 'PVC管' },
-    { title: '接頭', value: '接頭' },
-    { title: '滴頭', value: '滴頭' },
-    { title: '噴頭', value: '噴頭' }
-  ];
+  // return [
+  //   { title: '過濾器', value: '過濾器' },
+  //   { title: '閥門', value: '閥門' },
+  //   { title: 'PE管', value: 'PE管' },
+  //   { title: 'PVC管', value: 'PVC管' },
+  //   { title: '接頭', value: '接頭' },
+  //   { title: '滴頭', value: '滴頭' },
+  //   { title: '噴頭', value: '噴頭' }
+  // ];
 });
 
 const getDiameterDisplay = (diameterId: number | null) => {
@@ -976,8 +977,8 @@ const headers = ref<{ title: string; key: string; align?: 'center' | 'end' | 'st
   { title: '操作', key: 'actions', align: 'center' },
 ])
 
-const { name } = useDisplay()
-const isSmallScreen = computed(() => name.value === 'xs' || name.value === 'sm')
+// const { name } = useDisplay()
+// const isSmallScreen = computed(() => name.value === 'xs' || name.value === 'sm')
 
 // 根據材料狀態返回對應的顏色
 const getStatusColor = (isActive: boolean | string) => {
@@ -1188,7 +1189,7 @@ const loadMorePipeFittings = async () => {
   }
 
   const currentLoadedCount = store.pipeFittings.length;
-  const userOfficeId = 99;
+  const userOfficeId = userStore.currentUser?.office?.id;
   const itemsToFetchPerPage = 50;
   console.log(`[VUE LOADMORE] Calling store action with: skip=${currentLoadedCount}, limit=${itemsToFetchPerPage}, append=true`);
 
