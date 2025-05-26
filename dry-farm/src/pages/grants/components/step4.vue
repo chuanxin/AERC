@@ -137,7 +137,7 @@
                   />
                   <v-select
                     v-model="localFormData.mainPipeDiameterId"
-                    :items="pipeDiameterOptions"
+                    :items="pipe1DiameterOptions"
                     item-title="name"
                     item-value="id"
                     label="管徑(吋)"
@@ -147,10 +147,22 @@
                     style="width: 120px"
                     :rules="[v => !!v || '請選擇管徑']"
                     @update:model-value="() => fetchPipePrice(1)"
-                  />
+                  >
+                    <template v-slot:item="{ props, item }">
+                      <v-list-item
+                        v-bind="props"
+                        :title="item.raw.name"
+                        :class="{'text-light-blue-accent-3': item.raw.isFiltered}"
+                      >
+                        <!-- <template v-slot:prepend v-if="item.raw.isFiltered">
+                          <v-icon color="primary" size="small">mdi-check</v-icon>
+                        </template> -->
+                      </v-list-item>
+                    </template>
+                  </v-select>
                   <v-select
                     v-model="localFormData.mainPipeMaterialId"
-                    :items="pipeMaterialOptions"
+                    :items="pipe1MaterialOptions"
                     item-title="name"
                     item-value="id"
                     label="材質"
@@ -160,7 +172,19 @@
                     style="width: 120px"
                     :rules="[v => !!v || '請選擇材質']"
                     @update:model-value="() => fetchPipePrice(1)"
-                  />
+                  >
+                    <template v-slot:item="{ props, item }">
+                      <v-list-item
+                        v-bind="props"
+                        :title="item.raw.name"
+                        :class="{'text-light-blue-accent-3': item.raw.isFiltered}"
+                      >
+                        <!-- <template v-slot:prepend v-if="item.raw.isFiltered">
+                          <v-icon color="primary" size="small">mdi-check</v-icon>
+                        </template> -->
+                      </v-list-item>
+                    </template>
+                  </v-select>
                   <v-text-field
                     v-model.number="localFormData.mainPipeUnitPrice"
                     label="單價"
@@ -197,86 +221,109 @@
 
                 <v-divider class="my-3"></v-divider>
                 <div class="d-flex align-center mb-1">
-                    <v-checkbox-btn
-                        v-model="localFormData.mainPipe2Enabled"
-                        label="啟用主管2"
-                        density="compact"
-                        @update:model-value="toggleMainPipe2"
-                    ></v-checkbox-btn>
+                  <v-checkbox-btn
+                    v-model="localFormData.mainPipe2Enabled"
+                    label="啟用主管2"
+                    density="compact"
+                    @update:model-value="toggleMainPipe2"
+                  />
                 </div>
                 <div v-if="localFormData.mainPipe2Enabled" class="d-flex align-center flex-wrap mt-1">
-                    <v-text-field
-                        v-model.number="localFormData.mainPipe2Length"
-                        label="主管2 長度(M)"
-                        type="number"
-                        variant="outlined"
-                        density="comfortable"
-                        class="me-2 mb-2"
-                        style="width: 120px"
-                        :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入長度') : true]"
-                        @update:model-value="calculateMainPipe2Quantity"
-                    />
-                    <v-select
-                        v-model="localFormData.mainPipe2DiameterId"
-                        :items="pipeDiameterOptions"
-                        item-title="name"
-                        item-value="id"
-                        label="主管2 管徑(吋)"
-                        variant="outlined"
-                        density="comfortable"
-                        class="me-2 mb-2"
-                        style="width: 120px"
-                        :rules="[localFormData.mainPipe2Enabled ? (v => !!v || '請選擇管徑') : true]"
-                        @update:model-value="() => fetchPipePrice(2)"
-                    />
-                    <v-select
-                        v-model="localFormData.mainPipe2MaterialId"
-                        :items="pipeMaterialOptions"
-                        item-title="name"
-                        item-value="id"
-                        label="主管2 材質"
-                        variant="outlined"
-                        density="comfortable"
-                        class="me-2 mb-2"
-                        style="width: 120px"
-                        :rules="[localFormData.mainPipe2Enabled ? (v => !!v || '請選擇材質') : true]"
-                        @update:model-value="() => fetchPipePrice(2)"
-                    />
-                    <v-text-field
-                        v-model.number="localFormData.mainPipe2UnitPrice"
-                        label="主管2 單價"
-                        type="number"
-                        variant="outlined"
-                        density="comfortable"
-                        class="me-2 mb-2"
-                        style="width: 100px"
-                        :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入單價') : true]"
-                        @update:model-value="updateFormData"
-                    />
-                    <v-text-field
-                        v-model.number="localFormData.mainPipe2Quantity"
-                        label="主管2 數量"
-                        type="number"
-                        variant="outlined"
-                        density="comfortable"
-                        class="me-2 mb-2"
-                        style="width: 80px"
-                        :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入數量') : true]"
-                        @update:model-value="updateFormData"
-                    />
-                    <v-text-field
-                        v-model="mainPipe2TotalPrice"
-                        label="主管2 總價"
-                        variant="outlined"
-                        density="comfortable"
-                        class="me-2 mb-2"
-                        style="width: 120px"
-                        readonly
-                        bg-color="grey-lighten-4"
-                    />
+                  <v-text-field
+                    v-model.number="localFormData.mainPipe2Length"
+                    label="主管2 長度(M)"
+                    type="number"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 120px"
+                    :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入長度') : true]"
+                    @update:model-value="calculateMainPipe2Quantity"
+                  />
+                  <v-select
+                    v-model="localFormData.mainPipe2DiameterId"
+                    :items="pipe2DiameterOptions"
+                    item-title="name"
+                    item-value="id"
+                    label="主管2 管徑(吋)"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 120px"
+                    :rules="[localFormData.mainPipe2Enabled ? (v => !!v || '請選擇管徑') : true]"
+                    @update:model-value="() => fetchPipePrice(2)"
+                  >
+                    <template v-slot:item="{ props, item }">
+                      <v-list-item
+                        v-bind="props"
+                        :title="item.raw.name"
+                        :class="{'text-light-blue-accent-3': item.raw.isFiltered}"
+                      >
+                        <!-- <template v-slot:prepend v-if="item.raw.isFiltered">
+                          <v-icon color="primary" size="small">mdi-check</v-icon>
+                        </template> -->
+                      </v-list-item>
+                    </template>
+                  </v-select>
+                  <v-select
+                    v-model="localFormData.mainPipe2MaterialId"
+                    :items="pipe2MaterialOptions"
+                    item-title="name"
+                    item-value="id"
+                    label="主管2 材質"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 120px"
+                    :rules="[localFormData.mainPipe2Enabled ? (v => !!v || '請選擇材質') : true]"
+                    @update:model-value="() => fetchPipePrice(2)"
+                  >
+                    <template v-slot:item="{ props, item }">
+                      <v-list-item
+                        v-bind="props"
+                        :title="item.raw.name"
+                        :class="{'text-light-blue-accent-3': item.raw.isFiltered}"
+                      >
+                        <!-- <template v-slot:prepend v-if="item.raw.isFiltered">
+                          <v-icon color="primary" size="small">mdi-check</v-icon>
+                        </template> -->
+                      </v-list-item>
+                    </template>
+                  </v-select>
+                  <v-text-field
+                    v-model.number="localFormData.mainPipe2UnitPrice"
+                    label="主管2 單價"
+                    type="number"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 100px"
+                    :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入單價') : true]"
+                    @update:model-value="updateFormData"
+                  />
+                  <v-text-field
+                    v-model.number="localFormData.mainPipe2Quantity"
+                    label="主管2 數量"
+                    type="number"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 80px"
+                    :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入數量') : true]"
+                    @update:model-value="updateFormData"
+                  />
+                  <v-text-field
+                    v-model="mainPipe2TotalPrice"
+                    label="主管2 總價"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 120px"
+                    readonly
+                    bg-color="grey-lighten-4"
+                  />
                 </div>
-
-                </v-sheet>
+              </v-sheet>
             </v-card-text>
           </v-card>
 
@@ -338,7 +385,7 @@
                     </div>
 
                     <div class="mb-2">
-                       <v-select
+                      <v-select
                         v-model="localFormData.changeBranchSpecId"
                         :items="pipeDiameterOptions"
                         item-title="name"
@@ -380,7 +427,7 @@
                     style="width: 160px"
                     @update:model-value="updateFormData"
                   />
-                   </div>
+                </div>
               </v-sheet>
             </v-card-text>
           </v-card>
@@ -473,54 +520,54 @@
                 </div>
 
                 <div class="d-flex align-center flex-wrap">
-                    <v-autocomplete
-                        v-model="localFormData.endFacilityPomno"
-                        :items="filteredEndFacilityPipeFittings"
-                        item-title="displayName"
-                        item-value="pomno"
-                        label="末端設施選擇"
-                        variant="outlined"
-                        density="comfortable"
-                        class="me-2 mb-2"
-                        style="width: 250px"
-                        @update:model-value="onSelectedEndFacilityChange"
-                        clearable
-                    >
-                        <template v-slot:item="{ props, item }">
-                        <v-list-item
-                            v-bind="props"
-                            :title="item.raw.displayName"
-                            :subtitle="`材質: ${item.raw.materialName}, 規格: ${item.raw.specName}`"
-                        ></v-list-item>
-                        </template>
-                    </v-autocomplete>
+                  <v-autocomplete
+                    v-model="localFormData.endFacilityPomno"
+                    :items="filteredEndFacilityPipeFittings"
+                    item-title="displayName"
+                    item-value="pomno"
+                    label="末端設施選擇"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 250px"
+                    @update:model-value="onSelectedEndFacilityChange"
+                    clearable
+                  >
+                    <template v-slot:item="{ props, item }">
+                      <v-list-item
+                        v-bind="props"
+                        :title="item.raw.displayName"
+                        :subtitle="`材質: ${item.raw.materialName}, 規格: ${item.raw.specName}`"
+                      />
+                    </template>
+                  </v-autocomplete>
 
-                    <v-select
-                        v-model="localFormData.riserPipeMaterialId"
-                        :items="pipeMaterialOptions"
-                        item-title="name"
-                        item-value="id"
-                        label="豎管材質"
-                        variant="outlined"
-                        density="comfortable"
-                        class="me-2 mb-2"
-                        style="width: 150px"
-                        clearable
-                    />
-                    <v-select
-                        v-model="localFormData.riserPipeSpecId"
-                        :items="pipeDiameterOptions"
-                        item-title="name"
-                        item-value="id"
-                        label="豎管規格"
-                        variant="outlined"
-                        density="comfortable"
-                        class="me-2 mb-2"
-                        style="width: 150px"
-                        clearable
-                    />
+                  <v-select
+                    v-model="localFormData.riserPipeMaterialId"
+                    :items="pipeMaterialOptions"
+                    item-title="name"
+                    item-value="id"
+                    label="豎管材質"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 150px"
+                    clearable
+                  />
+                  <v-select
+                    v-model="localFormData.riserPipeSpecId"
+                    :items="pipeDiameterOptions"
+                    item-title="name"
+                    item-value="id"
+                    label="豎管規格"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 150px"
+                    clearable
+                  />
                 </div>
-                </v-sheet>
+              </v-sheet>
             </v-card-text>
           </v-card>
 
@@ -655,6 +702,9 @@
 <script setup lang="ts">
 import { useGrantsStore } from '@/stores/grants';
 import { useOfficesStore } from '@/stores/offices'
+import { usePipeFittingsStore } from '@/stores/pipeFittingsStore'
+import { usePFDiametersStore } from '@/stores/pfDiametersStore'
+import { usePFMaterialsStore } from '@/stores/pfMaterialsStore'
 
 interface PipeOption {
   id: number | string; // 或者後端期望的類型
@@ -696,9 +746,15 @@ const props = defineProps({
 
 const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 
-// Access the grants store
+// Access the store
 const grantsStore = useGrantsStore();
 const officesStore = useOfficesStore();
+const pipeFittingsStore = usePipeFittingsStore();
+const pfDiametersStore = usePFDiametersStore();
+const pfMaterialsStore = usePFMaterialsStore();
+
+// Store the filtered pipe fittings
+const filteredPipeFittings = ref([]);
 
 // Form validation references
 const form = ref<HTMLFormElement | null>(null); // 顯式類型
@@ -879,8 +935,8 @@ const endFacilityMaterialOptions = [
 
 // --- 選項列表 (應從API獲取) ---
 // const fundingSourceOptions = ref<PipeOption[]>([]); // 例如: [{id:0, name:'農田水利署'}, ...]
-const pipeDiameterOptions = ref<PipeOption[]>([]);  // 例如: [{id:1, name:'1/2"', value: 0.5}, ...]
-const pipeMaterialOptions = ref<PipeOption[]>([]);  // 例如: [{id:1, name:'PVC'}, ...]
+// const pipeDiameterOptions = ref<PipeOption[]>([]);  // 例如: [{id:1, name:'1/2"', value: 0.5}, ...]
+// const pipeMaterialOptions = ref<PipeOption[]>([]);  // 例如: [{id:1, name:'PVC'}, ...]
 // const variantTypeOptions = ref<PipeOption[]>([]); // 即 pipeDiameterOptions，用於變徑規格
 const irrigationTypeOptions = ref<PipeOption[]>([]); // 例如: [{id:1, name:'穿孔管系統'}, ...]
 const sprinklerTypeOptions = ref<PipeOption[]>([]);  // 噴頭子類型
@@ -902,24 +958,26 @@ const loadDropdownOptions = async () => {
   // facilityTypeOptions.value = await facilityTypesService.getAll();
   // waterSourceOptions.value = await waterSourcesService.getAll();
 
-  // 範例硬編碼 (請務必替換為API呼叫)
-  // fundingSourceOptions.value = [
-  //   { id: 0, name: '農田水利署' },
-  //   { id: 16, name: '七星管理處' },
-  //   { id: 17, name: '瑠公管理處' }
+  // Load diameters and materials reference data
+  await pfDiametersStore.fetchDiameters();
+  await pfMaterialsStore.fetchMaterials();
+
+  // Load pipe fittings filtered by module_id=1 (main pipe) and current office
+  await fetchPipeFittings();
+
+  // pipeDiameterOptions.value = [
+  //   { id: 26, name: '1/2"', standardLength: 4 },   // 假設ID與舊系統MAT_Spec.SpecNo對應
+  //   { id: 27, name: '3/4"', standardLength: 4 },
+  //   { id: 28, name: '1"', standardLength: 4 },
+  //   { id: 3, name: '1-1/4"', standardLength: 4 },
+  //   { id: 4, name: '1-1/2"', standardLength: 4 },
+  //   { id: 29, name: '2"', standardLength: 4 },
+  //   // ...更多規格及其標準長度 (standardLength 來自 pipe_fittings.length)
   // ];
-  pipeDiameterOptions.value = [
-    { id: 26, name: '1/2"', standardLength: 4 },   // 假設ID與舊系統MAT_Spec.SpecNo對應
-    { id: 27, name: '3/4"', standardLength: 4 },
-    { id: 28, name: '1"', standardLength: 4 },
-    { id: 3, name: '1-1/4"', standardLength: 4 },
-    { id: 4, name: '1-1/2"', standardLength: 4 },
-    { id: 29, name: '2"', standardLength: 4 },
-    // ...更多規格及其標準長度 (standardLength 來自 pipe_fittings.length)
-  ];
-  pipeMaterialOptions.value = [
-    { id: 1, name: 'PVC管' }, { id: 6, name: 'PE管(10kgf)' }, { id: 7, name: 'PE管(6kgf)'}, /* ... */
-  ];
+  // pipeMaterialOptions.value = [
+  //   { id: 1, name: 'PVC管' }, { id: 6, name: 'PE管(10kgf)' }, { id: 7, name: 'PE管(6kgf)'}, /* ... */
+  // ];
+
   irrigationTypeOptions.value = [
     { id: 1, name: '穿孔管系統' }, { id: 2, name: '噴頭式系統' },
     { id: 3, name: '微噴系統' }, { id: 4, name: '滴灌系統' }, { id: 5, name: '其他' }
@@ -929,6 +987,257 @@ const loadDropdownOptions = async () => {
    facilityTypeOptions.value = [ {id: 1, name: '埋設固定式'}, {id: 2, name: '地表定置式'}, {id: 3, name: '附掛棚架式'}];
    waterSourceOptions.value = [ {id:1, name: '灌溉渠道'}, {id:2, name: '野溪'} /* ... */];
 };
+
+const pipeDiameterOptions = computed(() => {
+  // 使用主管模塊的管件來提取管徑選項
+  const mainPipeFittings = filteredPipeFittingsByModule.value.mainPipe || [];
+
+  // 获取材质-管径组合的有效选项 (有价格的组合)
+  const validCombinations = mainPipeFittings.map(fitting => ({
+    materialId: fitting.material_id,
+    diameterId: fitting.diameter1_id
+  }));
+
+  // 根据当前选择的材质ID过滤管径
+  const materialDiameterFiltered = mainPipeFittings
+    .filter(fitting =>
+      !localFormData.mainPipeMaterialId || // 如果没有选择材质则不过滤
+      fitting.material_id === localFormData.mainPipeMaterialId
+    )
+    .map(fitting => fitting.diameter1_id)
+    .filter(id => id != null);
+
+  // 获取唯一的管径ID列表
+  const uniqueDiameterIds = [...new Set([
+    ...materialDiameterFiltered,
+    // 加入当前已选择的管径ID（如果有值）
+    ...(localFormData.mainPipeDiameterId ? [localFormData.mainPipeDiameterId] : []),
+    ...(localFormData.mainPipe2Enabled && localFormData.mainPipe2DiameterId ? [localFormData.mainPipe2DiameterId] : [])
+  ])];
+
+  // 获取完整的管径列表
+  const allDiameters = pfDiametersStore.diameters.map(diameter => {
+    // 检查此管径对于当前选择的材质是否有有效组合
+    const isFilteredByMaterial = materialDiameterFiltered.includes(diameter.id);
+
+    // 检查此管径是否为当前选择的管径
+    // const isCurrentlySelected =
+    //   diameter.id === localFormData.mainPipeDiameterId ||
+    //   (localFormData.mainPipe2Enabled && diameter.id === localFormData.mainPipe2DiameterId);
+
+    return {
+      id: diameter.id,
+      name: diameter.name,
+      value: diameter.value,
+      // 如有材质筛选或当前选择则标记
+      isFiltered: isFilteredByMaterial,
+      // 获取标准长度
+      standardLength: mainPipeFittings.find(f => f.diameter1_id === diameter.id)?.length || 4
+    };
+  });
+
+  // 确保所有筛选的管径都已包含在列表中
+  uniqueDiameterIds.forEach(id => {
+    if (!allDiameters.some(d => d.id === id)) {
+      const fitting = mainPipeFittings.find(f => f.diameter1_id === id);
+      const diameterInfo = pfDiametersStore.diameters.find(d => d.id === id);
+      allDiameters.push({
+        id,
+        name: diameterInfo?.name || `直径ID: ${id}`,
+        value: diameterInfo?.value ?? 0,
+        isFiltered: materialDiameterFiltered.includes(id) ||
+                    id === localFormData.mainPipeDiameterId ||
+                    (localFormData.mainPipe2Enabled && id === localFormData.mainPipe2DiameterId),
+        standardLength: fitting?.length || 4
+      });
+    }
+  });
+
+
+  return allDiameters.sort((a, b) => {
+    // 优先按数值排序
+    const numA = parseFloat(a.name);
+    const numB = parseFloat(b.name);
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return numA - numB;
+    }
+    return a.name.localeCompare(b.name);
+  });
+});
+
+const pipeMaterialOptions = computed(() => {
+  // 使用主管模塊的管件來提取材質選項
+  const mainPipeFittings = filteredPipeFittingsByModule.value.mainPipe || [];
+
+  // 根据当前选择的管径ID过滤材质
+  const diameterMaterialFiltered = mainPipeFittings
+    .filter(fitting =>
+      !localFormData.mainPipeDiameterId || // 如果没有选择管径则不过滤
+      fitting.diameter1_id === localFormData.mainPipeDiameterId
+    )
+    .map(fitting => fitting.material_id)
+    .filter(id => id != null);
+
+  // 获取唯一的材质ID列表
+  const uniqueMaterialIds = [...new Set([
+    ...diameterMaterialFiltered,
+    // 加入当前已选择的材质ID（如果有值）
+    ...(localFormData.mainPipeMaterialId ? [localFormData.mainPipeMaterialId] : []),
+    ...(localFormData.mainPipe2Enabled && localFormData.mainPipe2MaterialId ? [localFormData.mainPipe2MaterialId] : [])
+  ])];
+
+  // 获取完整的材质列表
+  const allMaterials = pfMaterialsStore.materials.map(material => {
+    // 检查此材质对于当前选择的管径是否有有效组合
+    const isFilteredByDiameter = diameterMaterialFiltered.includes(material.id);
+
+    // 检查此材质是否为当前选择的材质
+    // const isCurrentlySelected =
+    //   material.id === localFormData.mainPipeMaterialId ||
+    //   (localFormData.mainPipe2Enabled && material.id === localFormData.mainPipe2MaterialId);
+
+    return {
+      id: material.id,
+      name: material.name,
+      // 如有管径筛选或当前选择则标记
+      isFiltered: isFilteredByDiameter
+    };
+  });
+
+  // 确保所有筛选的材质都已包含在列表中
+  uniqueMaterialIds.forEach(id => {
+    if (!allMaterials.some(m => m.id === id)) {
+      const materialInfo = pfMaterialsStore.materials.find(m => m.id === id);
+      allMaterials.push({
+        id,
+        name: materialInfo?.name || `材质ID: ${id}`,
+        isFiltered: diameterMaterialFiltered.includes(id) ||
+                    id === localFormData.mainPipeMaterialId ||
+                    (localFormData.mainPipe2Enabled && id === localFormData.mainPipe2MaterialId)
+      });
+    }
+  });
+
+  return allMaterials.sort((a, b) => a.name.localeCompare(b.name));
+});
+
+const getFilteredDiameterOptions = (currentMaterialId) => {
+  const mainPipeFittings = filteredPipeFittingsByModule.value.mainPipe || [];
+
+  // 根据传入的材质ID过滤管径
+  const materialDiameterFiltered = mainPipeFittings
+    .filter(fitting =>
+      !currentMaterialId || // 如果没有选择材质则不过滤
+      fitting.material_id === currentMaterialId
+    )
+    .map(fitting => fitting.diameter1_id)
+    .filter(id => id != null);
+
+  // 构建并返回过滤后的选项列表
+  const allDiameters = pfDiametersStore.diameters.map(diameter => ({
+    id: diameter.id,
+    name: diameter.name,
+    value: diameter.value,
+    isFiltered: materialDiameterFiltered.includes(diameter.id),
+    standardLength: mainPipeFittings.find(f => f.diameter1_id === diameter.id)?.length || 4
+  }));
+
+  // 确保所有筛选的ID都在列表中
+  materialDiameterFiltered.forEach(id => {
+    if (!allDiameters.some(d => d.id === id)) {
+      const fitting = mainPipeFittings.find(f => f.diameter1_id === id);
+      const diameterInfo = pfDiametersStore.diameters.find(d => d.id === id);
+      allDiameters.push({
+        id,
+        name: diameterInfo?.name || `管徑ID: ${id}`,
+        value: diameterInfo?.value ?? 0,
+        isFiltered: true,
+        standardLength: fitting?.length || 4
+      });
+    }
+  });
+
+  return allDiameters.sort((a, b) => {
+    const numA = parseFloat(a.name);
+    const numB = parseFloat(b.name);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    return a.name.localeCompare(b.name);
+  });
+};
+
+const getFilteredMaterialOptions = (currentDiameterId) => {
+  const mainPipeFittings = filteredPipeFittingsByModule.value.mainPipe || [];
+
+  // 根据传入的管径ID过滤材质
+  const diameterMaterialFiltered = mainPipeFittings
+    .filter(fitting =>
+      !currentDiameterId || // 如果没有选择管径则不过滤
+      fitting.diameter1_id === currentDiameterId
+    )
+    .map(fitting => fitting.material_id)
+    .filter(id => id != null);
+
+  // 构建并返回过滤后的选项列表
+  const allMaterials = pfMaterialsStore.materials.map(material => ({
+    id: material.id,
+    name: material.name,
+    isFiltered: diameterMaterialFiltered.includes(material.id)
+  }));
+
+  // 确保所有筛选的ID都在列表中
+  diameterMaterialFiltered.forEach(id => {
+    if (!allMaterials.some(m => m.id === id)) {
+      const materialInfo = pfMaterialsStore.materials.find(m => m.id === id);
+      allMaterials.push({
+        id,
+        name: materialInfo?.name || `材質ID: ${id}`,
+        isFiltered: true
+      });
+    }
+  });
+
+  return allMaterials.sort((a, b) => a.name.localeCompare(b.name));
+};
+
+const pipe1DiameterOptions = computed(() => getFilteredDiameterOptions(localFormData.mainPipeMaterialId));
+const pipe1MaterialOptions = computed(() => getFilteredMaterialOptions(localFormData.mainPipeDiameterId));
+
+const pipe2DiameterOptions = computed(() => getFilteredDiameterOptions(localFormData.mainPipe2MaterialId));
+const pipe2MaterialOptions = computed(() => getFilteredMaterialOptions(localFormData.mainPipe2DiameterId));
+
+// 創建新的計算屬性用於支管的選項
+const branchPipeDiameterOptions = computed(() => {
+  const branchPipeFittings = filteredPipeFittingsByModule.value.branchPipe || [];
+  // 與 pipeDiameterOptions 類似的邏輯，但使用支管模塊的數據
+  // ...
+});
+
+const branchPipeMaterialOptions = computed(() => {
+  const branchPipeFittings = filteredPipeFittingsByModule.value.branchPipe || [];
+  // 與 pipeMaterialOptions 類似的邏輯，但使用支管模塊的數據
+  // ...
+});
+
+const filteredPipeFittingsByModule = computed(() => {
+  const moduleFilters = {
+    mainPipe: 1, // 主管模塊 ID
+    branchPipe: 2, // 支管模塊 ID
+    endFacility: 3, // 末端設施模塊 ID
+    valves: 4, // 閥門模塊 ID
+    // 其他模塊...
+  };
+
+  const result = {};
+
+  // 針對每種模塊類型創建過濾後的列表
+  Object.entries(moduleFilters).forEach(([key, moduleId]) => {
+    result[key] = pipeFittingsStore.pipeFittings.filter(
+      fitting => fitting.module_id === moduleId
+    );
+  });
+
+  return result;
+});
 
 const fundingSourceOptions = computed(() => {
   // console.log('Computing fundingSourceOptions, offices:', officesStore.offices)
@@ -1148,20 +1457,50 @@ const calculateWidth = () => {
   // updateFormData();
 };
 
-const getStandardPipeLength = async (materialId: number | null, diameterId: number | null): Promise<number> => {
-    if (!materialId || !diameterId) return 4; // 預設長度
-    // TODO: API Call or Logic to get standard length for the specific pipe
-    // 例如:
-    // const selectedMaterial = pipeMaterialOptions.value.find(m => m.id === materialId);
-    // const selectedDiameter = pipeDiameterOptions.value.find(d => d.id === diameterId);
-    // if (selectedMaterial && selectedDiameter && selectedMaterial.name === 'PVC管') {
-    //   // 這裡可以更複雜，從 API 獲取特定POMNo的 length 屬性
-    //   // const pipeInfo = await pipeFittingsService.getPipeFittingByCriteria(materialId, diameterId, ...);
-    //   // return pipeInfo?.length || 4;
-    // }
-    // 暫時返回一個基於管徑的模擬值或固定值
-    const option = pipeDiameterOptions.value.find(opt => opt.id === diameterId);
-    return option?.standardLength || 4;
+const fetchPipeFittings = async () => {
+  try {
+    // Get the current grant's office_id
+    const officeId = grantsStore.currentGrant?.office_id;
+
+    if (!officeId) {
+      console.warn('No office_id available for the current grant');
+      return;
+    }
+
+    await pipeFittingsStore.fetchPipeFittingsByOfficeId(officeId, {
+      skip: 0,
+      limit: 1000, // Fetch all pipe fittings for the office
+      append: true,
+    });
+    console.log(`Fetched all pipe fittings for office_id: ${officeId}`);
+    // Store the filtered pipe fittings
+    // filteredPipeFittings.value = pipeFittingsStore.pipeFittings;
+    // console.log(`Fetched ${filteredPipeFittings.value.length} pipe fittings for office_id: ${officeId}`);
+  } catch (error) {
+    console.error('Error fetching pipe fittings:', error);
+  }
+};
+
+
+
+const getStandardPipeLength = async (materialId: number | null, diameterId: number | null, moduleId: number = 1): Promise<number> => {
+  if (!materialId || !diameterId) return 4; // 預設長度
+  // 從 pipeFittingsStore 中尋找匹配的管件
+  const matchingPipe = pipeFittingsStore.pipeFittings.find(pipe =>
+      pipe.material_id === materialId &&
+      pipe.diameter1_id === diameterId &&
+      pipe.module_id === moduleId
+  );
+
+  // 如果找到匹配的管件且有 length 屬性，返回該長度值
+  if (matchingPipe && matchingPipe.length) {
+      console.log(`Found matching pipe with length: ${matchingPipe.length} for materialId=${materialId}, diameterId=${diameterId}, moduleId=${moduleId}`);
+      return matchingPipe.length;
+  }
+
+  // 未找到匹配的管件，返回預設長度
+  console.warn(`No matching pipe found for materialId=${materialId}, diameterId=${diameterId}, moduleId=${moduleId}, using default length: 4`);
+  return 4;
 };
 
 // 計算主管數量（根據長度）
@@ -1178,7 +1517,8 @@ const calculateMainPipeQuantity = async () => {
   if (length > 0) {
     const standardLength = await getStandardPipeLength(
         localFormData.mainPipeMaterialId,
-        localFormData.mainPipeDiameterId
+        localFormData.mainPipeDiameterId,
+        1 // module_id=1 for main pipe
     );
     localFormData.mainPipeStandardLength = standardLength;
     localFormData.mainPipeQuantity = Math.ceil(length / standardLength);
@@ -1192,7 +1532,8 @@ const calculateMainPipe2Quantity = async () => {
   if (length > 0) {
      const standardLength = await getStandardPipeLength(
         localFormData.mainPipe2MaterialId,
-        localFormData.mainPipe2DiameterId
+        localFormData.mainPipe2DiameterId,
+        1 // module_id=1 for main pipe
     );
     localFormData.mainPipe2StandardLength = standardLength;
     localFormData.mainPipe2Quantity = Math.ceil(length / standardLength);
@@ -1379,7 +1720,7 @@ const onInstallationTypeChange = () => {
 //     console.error('Error fetching pipe price:', error);
 //   }
 // };
-// 價格獲取 (應改為真實API調用)
+// 價格獲取
 const fetchPipePrice = async (pipeNumber: 1 | 2) => {
   let materialId: number | null, diameterId: number | null;
   if (pipeNumber === 1) {
@@ -1394,24 +1735,48 @@ const fetchPipePrice = async (pipeNumber: 1 | 2) => {
 
   try {
     console.log(`Workspaceing pipe ${pipeNumber} price for: materialId=${materialId}, diameterId=${diameterId}`);
-    // TODO: API Call to FastAPI to get price and standard length
-    // const response = await yourApiService.getPipePrice({ materialId, diameterId, year: props.mapNoRelatedYear, officeId: props.mapNoRelatedOfficeId });
-    // const price = response.data.price;
-    // const standardLength = response.data.standardLength; // e.g., from pipe_fittings.length
+     // 從 filteredPipeFittingsByModule 中篩選出主管類型的管件
+    const mainPipeFittings = filteredPipeFittingsByModule.value.mainPipe || [];
 
-    // Mock
-    const price = Math.floor(Math.random() * 100) + 50;
-    const standardLength = pipeDiameterOptions.value.find(opt => opt.id === diameterId)?.standardLength || 4;
+    // 進一步篩選符合 materialId 和 diameterId 的管件
+    const matchingPipe = mainPipeFittings.find(pipe =>
+      pipe.material_id === materialId &&
+      pipe.diameter1_id === diameterId
+    );
 
+    if (matchingPipe) {
+      console.log(`Found matching pipe: ${matchingPipe.name}, price: ${matchingPipe.current_price}, length: ${matchingPipe.length}`);
 
-    if (pipeNumber === 1) {
-      localFormData.mainPipeUnitPrice = price;
-      localFormData.mainPipeStandardLength = standardLength;
-      await calculateMainPipeQuantity(); // Recalculate quantity based on new standard length
+      const price = matchingPipe.current_price;
+      const standardLength = matchingPipe.length || 4; // 如果沒有長度資訊，預設為 4
+
+      if (pipeNumber === 1) {
+        localFormData.mainPipeUnitPrice = price;
+        localFormData.mainPipeStandardLength = standardLength;
+        await calculateMainPipeQuantity(); // 根據新的標準長度重新計算數量
+      } else {
+        localFormData.mainPipe2UnitPrice = price;
+        localFormData.mainPipe2StandardLength = standardLength;
+        await calculateMainPipe2Quantity();
+      }
     } else {
-      localFormData.mainPipe2UnitPrice = price;
-      localFormData.mainPipe2StandardLength = standardLength;
-      await calculateMainPipe2Quantity();
+      console.warn(`No matching pipe found for materialId=${materialId}, diameterId=${diameterId}`);
+
+      // 未找到匹配的管件，使用預設值
+      // const defaultPrice = Math.floor(Math.random() * 100) + 50; // 預設隨機價格
+      // const standardLength = pipeDiameterOptions.value.find(opt => opt.id === diameterId)?.standardLength || 4;
+
+      if (pipeNumber === 1) {
+        localFormData.mainPipeUnitPrice = 0;
+        // localFormData.mainPipeStandardLength = standardLength;
+        await calculateMainPipeQuantity();
+      } else {
+        localFormData.mainPipe2UnitPrice = 0;
+        // localFormData.mainPipe2StandardLength = standardLength;
+        await calculateMainPipe2Quantity();
+      }
+
+      // console.log(`Using default price: ${defaultPrice} and standard length: ${standardLength}`);
     }
   } catch (error) {
     console.error(`Error fetching pipe ${pipeNumber} price:`, error);
@@ -2476,6 +2841,40 @@ watch(localValid, (newVal) => {
     }
 });
 
+watch(() => grantsStore.currentGrant?.office_id, async (newOfficeId) => {
+  if (newOfficeId) {
+    console.log(`Current grant office_id changed to: ${newOfficeId}, refreshing pipe fittings`);
+    await fetchPipeFittings();
+  }
+});
+
+// Provide fallback options if no pipe fittings are found
+watch(pipeDiameterOptions, (newOptions) => {
+  if (newOptions.length === 0) {
+    console.warn('No pipe diameter options found, using defaults');
+    // Provide default options
+    pipeDiameterOptions.value = [
+      { id: 26, name: '1/2"', standardLength: 4 },
+      { id: 27, name: '3/4"', standardLength: 4 },
+      { id: 28, name: '1"', standardLength: 4 },
+      { id: 3, name: '1-1/4"', standardLength: 4 },
+      { id: 4, name: '1-1/2"', standardLength: 4 },
+      { id: 29, name: '2"', standardLength: 4 },
+    ];
+  }
+});
+
+watch(pipeMaterialOptions, (newOptions) => {
+  if (newOptions.length === 0) {
+    console.warn('No pipe material options found, using defaults');
+    // Provide default options
+    pipeMaterialOptions.value = [
+      { id: 1, name: 'PVC管' },
+      { id: 6, name: 'PE管(10kgf)' },
+      { id: 7, name: 'PE管(6kgf)' }
+    ];
+  }
+});
 </script>
 
 <style scoped>

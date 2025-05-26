@@ -34,7 +34,7 @@ async def read_pipe_fitting_endpoint(pomno: int):
 @router.get("/", response_model=PipeFittingListResponse, summary="Read Pipe Fittings")
 async def read_pipe_fittings_endpoint(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of records to return"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
 ):
     """
     Retrieve a list of pipe fittings with pagination.
@@ -47,7 +47,7 @@ async def read_pipe_fittings_endpoint(
 async def read_pipe_fittings_by_office_endpoint(
     office_id: int,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of records to return"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
 ):
     """
     Retrieve a list of pipe fittings filtered by `office_id` with pagination.
