@@ -69,6 +69,8 @@ export const useGrantsStore = defineStore('grants', () => {
       console.log(`[grantsStore.createProject] Attempting to save grant data to GrantStorage for case number: ${result.case_number}`); // Log 4
       GrantStorage.saveGrantData(result.case_number, {
         caseNumber: result.case_number,
+        applicant_name: result.applicant_name,
+        office_name: projectData.office,
         status: result.status,
         createdAt: new Date().toISOString(),
         steps: {} // Initialize with empty steps

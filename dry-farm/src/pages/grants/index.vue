@@ -181,13 +181,13 @@
                         共 {{ filteredItems.length }} 筆資料
                       </span>
                       <v-spacer />
-                      <v-pagination
+                      <!-- <v-pagination
                         v-model="page"
                         :length="Math.ceil(filteredItems.length / itemsPerPage)"
                         :total-visible="5"
                         density="comfortable"
                         color="#3ea0a3"
-                      />
+                      /> -->
                     </div>
                   </template>
                 </v-data-table-virtual>
@@ -482,7 +482,8 @@ const loadAllItems = () => {
   const transformedData = Object.entries(grants).map(([caseNumber, grantData]) => {
     // Extract applicant name from step 1
     const step1Data = grantData.steps?.[1] || {}
-    const name = step1Data.name || step1Data.applicantName || '未填寫'
+    // console.log(`[loadAllItems] Processing case: ${caseNumber}`, grantData)
+    const name = step1Data.name || grantData.applicant_name || '未填寫'
 
     // Extract year from case number (first 3 digits)
     const year = parseInt(caseNumber.substring(0, 3)) || 113
@@ -509,7 +510,7 @@ const loadAllItems = () => {
     }
 
     // Extract office from store data or default
-    const office = step1Data.department || '瑠公管理處'
+    const office = step1Data.department || grantData.office_name
 
     // Determine current step and status
     // 如果這是當前編輯的案件，從 grantsStore 獲取最新步驟

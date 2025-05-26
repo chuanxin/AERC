@@ -16,7 +16,8 @@ export interface GrantCreateRequest {
   address: string
   undertracker: string
   department: string
-  departmentId: number
+  departmentId: number,
+  office: string
 }
 
 export interface GrantCreateResponse {

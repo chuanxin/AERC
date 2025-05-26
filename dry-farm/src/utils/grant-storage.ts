@@ -19,6 +19,8 @@ export interface GrantStepData {
 // Main grant data structure
 export interface GrantData {
   caseNumber: string;
+  applicant_name?: string;
+  office_name?: string;
   status?: string;
   createdAt?: string;
   updatedAt?: string;
