@@ -1332,6 +1332,9 @@ const saveItem = async () => {
   try {
     const saveData: any = { ...editedItem };
 
+    const userOfficeId = userStore.currentUser?.office?.id;
+    saveData.office_id = userOfficeId;
+
     if (typeof saveData.moduleName === 'string') {
       const module = pfModulesStore.allModules.find(m => m.name === saveData.moduleName);
       if (module) {
@@ -1367,7 +1370,9 @@ const saveItem = async () => {
       delete saveData.status;
     }
 
+    let currentPriceValue = null;
     if (saveData.currentPrice) {
+      currentPriceValue = saveData.currentPrice;
       const priceData = {
         year: new Date().getFullYear() - 1911,
         price: saveData.currentPrice
@@ -1382,13 +1387,35 @@ const saveItem = async () => {
 
     console.log('準備儲存的資料:', saveData);
 
+    let savedPipeFittingId;
+
     if (editedItem.id) {
       await store.updatePipeFitting(editedItem.id, saveData);
+      savedPipeFittingId = editedItem.id;
     } else {
-      await store.createPipeFitting(saveData);
+      // await store.createPipeFitting(saveData);
+      // 創建新管件並獲取回傳的資料，其中應包含新建的管件ID
+      const newPipeFitting = await store.createPipeFitting(saveData);
+      savedPipeFittingId = newPipeFitting.pomno;
     }
 
-    const userOfficeId = userStore.currentUser?.office?.id || 99;
+    // 如果有設定目前單價，建立一筆價格記錄
+    if (currentPriceValue && savedPipeFittingId) {
+      try {
+        await annualPricesStore.createAnnualPrice({
+          pipe_fitting_id: Number(savedPipeFittingId),
+          office_id: userOfficeId,
+          year: new Date().getFullYear() - 1911, // 民國年
+          price: currentPriceValue,
+          is_active: true,
+          created_by_id: userStore.currentUser?.id
+        });
+        console.log(`成功為管件 ID: ${savedPipeFittingId} 建立價格記錄: ${currentPriceValue}`);
+      } catch (priceError) {
+        console.error('建立價格記錄時發生錯誤:', priceError);
+      }
+    }
+
     await store.fetchPipeFittingsByOfficeId(userOfficeId, {
       skip: 0,
       limit: 50,
