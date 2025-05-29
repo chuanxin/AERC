@@ -1435,7 +1435,7 @@ onMounted(async () => {
   console.log('Component Mounted: Initializing PipeFittings...');
 
   const userOfficeId = userStore.currentUser?.office?.id;
-  const initialLimit = 50;
+  const initialLimit = 500;
 
   await store.fetchPipeFittingsByOfficeId(userOfficeId, {
     skip: 0,
