@@ -150,6 +150,12 @@ export const DOMICILE = {
   VILLAGES_LIST: `${BASE}/domicile/villages`,
 }
 
+export const IRRIGATION_TYPES = {
+  LIST: `${BASE}/irrigation_types`,
+  OPTIONS: `${BASE}/irrigation_types/options`,
+  DETAIL: (id: number | string) => `${BASE}/irrigation_types/${id}`,
+}
+
 // export const API_MAPPING = {
 //   [`${BASE}/auth/login`]: BACKEND_PATHS.AUTH.LOGIN,
 //   [`${BASE}/auth/register`]: BACKEND_PATHS.AUTH.REGISTER,

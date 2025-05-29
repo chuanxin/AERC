@@ -1,4 +1,4 @@
-import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES } from './endpoints';
+import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES } from './endpoints';
 
 // 後端實際路徑定義
 export const BACKEND_PATHS = {
@@ -15,14 +15,14 @@ export const BACKEND_PATHS = {
     DETAIL: (id: number | string) => `/user/${id}`,
     DELETE: (id: number | string) => `/user/${id}`
   },
-  // 筆記相關
-  NOTES: {
-    LIST: '/notes',
-    CREATE: '/notes',
-    DETAIL: (id: number | string) => `/note/${id}`,
-    UPDATE: (id: number | string) => `/note/${id}`,
-    DELETE: (id: number | string) => `/note/${id}`
-  },
+  // // 筆記相關
+  // NOTES: {
+  //   LIST: '/notes',
+  //   CREATE: '/notes',
+  //   DETAIL: (id: number | string) => `/note/${id}`,
+  //   UPDATE: (id: number | string) => `/note/${id}`,
+  //   DELETE: (id: number | string) => `/note/${id}`
+  // },
   OFFICES: {
     LIST: '/offices',
   },
@@ -65,6 +65,11 @@ export const BACKEND_PATHS = {
     BY_PIPE_FITTING: (pipeFittingId: number | string) => `/pf_annual_prices/pipe_fitting/${pipeFittingId}`,
     CURRENT_PRICE: (pipeFittingId: number | string) => `/pf_annual_prices/pipe_fitting/${pipeFittingId}/current`,
   },
+  IRRIGATION_TYPES: {
+    LIST: '/irrigation_types/',
+    OPTIONS: '/irrigation_types/options',
+    DETAIL: (id: number | string) => `/irrigation_types/${id}`,
+  }
 };
 
 // 前端到後端的直接映射表
@@ -89,6 +94,8 @@ export const API_MAPPING: Record<string, string> = {
   [PF_MODULES.LIST]: BACKEND_PATHS.PF_MODULES.LIST,
   [PF_DIAMETERS.LIST]: BACKEND_PATHS.PF_DIAMETERS.LIST,
   [PF_MATERIALS.LIST]: BACKEND_PATHS.PF_MATERIALS.LIST,
+  [IRRIGATION_TYPES.LIST]: BACKEND_PATHS.IRRIGATION_TYPES.LIST,
+  [IRRIGATION_TYPES.OPTIONS]: BACKEND_PATHS.IRRIGATION_TYPES.OPTIONS,
 }
 
 // 動態參數路徑匹配規則

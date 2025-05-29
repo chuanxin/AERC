@@ -1,37 +1,17 @@
 <template>
-  <div
-    ref="stepContent"
-    class="step-content"
-  >
-    <v-card
-      class="mb-0 pa-0"
-      flat
-    >
+  <div ref="stepContent" class="step-content">
+    <v-card class="mb-0 pa-0" flat>
       <v-card-text class="pb-0 pt-0">
-        <v-form
-          ref="form"
-          v-model="localValid"
-          @submit.prevent
-        >
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
+        <v-form ref="form" v-model="localValid" @submit.prevent>
+          <!-- STEP 1: 補助來源選擇 -->
+          <v-card class="mb-4" variant="outlined">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-hand-coin
-              </v-icon>
+              <v-icon class="me-2" size="small">mdi-hand-coin</v-icon>
               <span class="text-subtitle-1 font-weight-medium">補助來源</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
-              >
+              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
                 <v-select
                   v-model="localFormData.fundingSourceId"
                   :items="fundingSourceOptions"
@@ -41,18 +21,18 @@
                   variant="outlined"
                   density="comfortable"
                   style="max-width: 400px"
-                  :rules="[v => (v !== null && v !== undefined) || '請選擇補助來源']"
+                  :rules="[v => (v !== null && v !== undefined) || '請選擇補助單位']"
                   @update:model-value="updateFormData"
                 />
               </v-sheet>
             </v-card-text>
           </v-card>
 
-
+          <!-- STEP 2: 坵塊形狀長度調整 -->
           <v-card class="mb-4" variant="outlined">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-layers-triple-outline</v-icon>
-              <span class="text-subtitle-1 font-weight-medium">田間管路配置</span>
+              <v-icon class="me-2" size="small">mdi-land-fields</v-icon>
+              <span class="text-subtitle-1 font-weight-medium">坵塊大小</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -95,33 +75,21 @@
                       readonly
                     />
                   </div>
-
-                  <v-btn
-                    color="success"
-                    class="ms-auto mb-2"
-                    :loading="isLoadingMaterials"
-                    :disabled="!canAutoFillMaterials"
-                    @click="autoFillMaterials"
-                  >
-                    <v-icon start size="small">mdi-autorenew</v-icon>
-                    自動帶入材料
-                  </v-btn>
                 </div>
               </v-sheet>
             </v-card-text>
           </v-card>
 
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
+          <!-- STEP 3: 田間主管資訊 -->
+          <v-card class="mb-4" variant="outlined">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
               <v-icon class="me-2" size="small">mdi-pipe</v-icon>
-              <span class="text-subtitle-1 font-weight-medium">主管</span>
+              <span class="text-subtitle-1 font-weight-medium">田間主管配置</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
               <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+                <!-- 主管1 -->
                 <div class="text-subtitle-2 mb-1">主管 1</div>
                 <div class="d-flex align-center flex-wrap">
                   <v-text-field
@@ -153,11 +121,7 @@
                         v-bind="props"
                         :title="item.raw.name"
                         :class="{'text-light-blue-accent-3': item.raw.isFiltered}"
-                      >
-                        <!-- <template v-slot:prepend v-if="item.raw.isFiltered">
-                          <v-icon color="primary" size="small">mdi-check</v-icon>
-                        </template> -->
-                      </v-list-item>
+                      />
                     </template>
                   </v-select>
                   <v-select
@@ -178,11 +142,7 @@
                         v-bind="props"
                         :title="item.raw.name"
                         :class="{'text-light-blue-accent-3': item.raw.isFiltered}"
-                      >
-                        <!-- <template v-slot:prepend v-if="item.raw.isFiltered">
-                          <v-icon color="primary" size="small">mdi-check</v-icon>
-                        </template> -->
-                      </v-list-item>
+                      />
                     </template>
                   </v-select>
                   <v-text-field
@@ -219,7 +179,9 @@
                   />
                 </div>
 
-                <v-divider class="my-3"></v-divider>
+                <v-divider class="my-3" />
+
+                <!-- 主管2 -->
                 <div class="d-flex align-center mb-1">
                   <v-checkbox-btn
                     v-model="localFormData.mainPipe2Enabled"
@@ -258,11 +220,7 @@
                         v-bind="props"
                         :title="item.raw.name"
                         :class="{'text-light-blue-accent-3': item.raw.isFiltered}"
-                      >
-                        <!-- <template v-slot:prepend v-if="item.raw.isFiltered">
-                          <v-icon color="primary" size="small">mdi-check</v-icon>
-                        </template> -->
-                      </v-list-item>
+                      />
                     </template>
                   </v-select>
                   <v-select
@@ -283,11 +241,7 @@
                         v-bind="props"
                         :title="item.raw.name"
                         :class="{'text-light-blue-accent-3': item.raw.isFiltered}"
-                      >
-                        <!-- <template v-slot:prepend v-if="item.raw.isFiltered">
-                          <v-icon color="primary" size="small">mdi-check</v-icon>
-                        </template> -->
-                      </v-list-item>
+                      />
                     </template>
                   </v-select>
                   <v-text-field
@@ -327,18 +281,204 @@
             </v-card-text>
           </v-card>
 
+          <!-- STEP 4: 灌溉型式與相關管路配置 -->
           <v-card class="mb-4" variant="outlined">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-pipe-disconnected</v-icon>
-              <span class="text-subtitle-1 font-weight-medium">支管</span>
+              <v-icon class="me-2" size="small">mdi-sprinkler</v-icon>
+              <span class="text-subtitle-1 font-weight-medium">灌溉管路配置</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
               <v-sheet class="pa-3 rounded" color="grey-lighten-5">
-                <div class="d-flex align-center mb-3">
-                  <div class="d-flex align-center flex-wrap">
+                <div class="d-flex align-center flex-wrap mb-3">
+                  <!-- 灌溉型式選擇 -->
+                  <v-select
+                    v-model="localFormData.irrigationTypeId"
+                    :items="irrigationTypeOptions"
+                    item-title="description"
+                    item-value="id"
+                    label="灌溉型式"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 180px"
+                    @update:model-value="onIrrigationTypeChange"
+                  />
+                  <!-- 水源選擇 (適用於所有灌溉類型) -->
+                  <v-select
+                    v-model="localFormData.waterSourceId"
+                    :items="waterSourceOptions"
+                    item-title="name"
+                    item-value="id"
+                    label="灌溉水源"
+                    variant="outlined"
+                    density="comfortable"
+                    class="mb-2"
+                    style="width: 160px"
+                    @update:model-value="updateFormData"
+                  />
+                </div>
+
+                <!-- 穿孔管系统相关配置 -->
+                <div v-if="localFormData.irrigationTypeId === 1" class="irrigation-type-config">
+                  <v-divider class="mb-3"></v-divider>
+                  <div class="text-subtitle-2 mb-3">穿孔管系統配置</div>
+
+                  <div class="d-flex flex-wrap">
+                    <!-- 穿孔管出水方向 -->
+                    <v-select
+                      v-model="localFormData.perforatedPipeDirection"
+                      :items="perforatedPipeTypeOptions"
+                      item-title="title"
+                      item-value="value"
+                      label="穿孔管出水方向"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 160px"
+                      @update:model-value="onEndFacilityParamsChange"
+                    />
+
+                    <!-- 支管行距(SL) -->
                     <div class="me-3 mb-2">
-                      <div class="text-body-2">支管行距(SL)</div>
+                      <div class="text-body-2 mb-1">支管行距(SL)</div>
+                      <div class="d-flex align-center">
+                        <v-text-field
+                          v-model.number="localFormData.branchPipeSpacing_SL"
+                          variant="outlined"
+                          density="comfortable"
+                          type="number"
+                          style="width: 80px"
+                          class="me-1"
+                          @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
+                        />
+                        <span>M</span>
+                      </div>
+                    </div>
+
+                    <!-- 支管變徑規格 -->
+                    <v-select
+                      v-model="localFormData.changeBranchSpecId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管變徑規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      clearable
+                      hint="若不變徑則不選"
+                    />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 末端設施規格和名稱 -->
+                    <v-select
+                      v-model="localFormData.endFacilitySpecId"
+                      :items="endFacilityDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="末端設施規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      @update:model-value="onEndFacilitySpecChange"
+                    />
+
+                    <v-autocomplete
+                      v-model="localFormData.endFacilityPomno"
+                      :items="filteredEndFacilityPipeFittings"
+                      item-title="displayName"
+                      item-value="pomno"
+                      label="末端設施名稱"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 250px"
+                      clearable
+                      @update:model-value="onSelectedEndFacilityChange"
+                    >
+                      <template v-slot:item="{ props, item }">
+                        <v-list-item
+                          v-bind="props"
+                          :title="item.raw.displayName"
+                          :subtitle="`材質: ${item.raw.materialName}`"
+                        />
+                      </template>
+                    </v-autocomplete>
+                  </div>
+                </div>
+
+                <!-- 噴頭式系統相關配置 -->
+                <div v-else-if="localFormData.irrigationTypeId === 2" class="irrigation-type-config">
+                  <v-divider class="mb-3"></v-divider>
+                  <div class="text-subtitle-2 mb-3">噴頭式系統配置</div>
+
+                  <div class="d-flex flex-wrap">
+                    <!-- 噴頭子系統選擇 -->
+                    <v-select
+                      v-model="localFormData.sprinklerSubtypeId"
+                      :items="sprinklerTypeOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="噴頭類型"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 180px"
+                      @update:model-value="onEndFacilityParamsChange"
+                    />
+
+                    <!-- 設施型式 -->
+                    <v-select
+                      v-model="localFormData.facilityTypeId"
+                      :items="facilityTypeOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="設施型式"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 160px"
+                      @update:model-value="onEndFacilityParamsChange"
+                    />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 支管材質和規格 -->
+                    <v-select
+                      v-model="localFormData.branchPipeMaterialId"
+                      :items="pipeMaterialOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管材質"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      @update:model-value="updateFormData"
+                    />
+
+                    <v-select
+                      v-model="localFormData.branchPipeDiameterId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      @update:model-value="updateFormData"
+                    />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 支管行距與間距 -->
+                    <div class="me-3 mb-2">
+                      <div class="text-body-2 mb-1">支管行距(SL)</div>
                       <div class="d-flex align-center">
                         <v-text-field
                           v-model.number="localFormData.branchPipeSpacing_SL"
@@ -354,7 +494,7 @@
                     </div>
 
                     <div class="me-3 mb-2">
-                      <div class="text-body-2">噴頭間距(SS)</div>
+                      <div class="text-body-2 mb-1">噴頭間距(SS)</div>
                       <div class="d-flex align-center">
                         <v-text-field
                           v-model.number="localFormData.sprinklerSpacing_SS"
@@ -369,8 +509,64 @@
                       </div>
                     </div>
 
+                    <!-- 支管變徑規格 -->
+                    <v-select
+                      v-model="localFormData.changeBranchSpecId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管變徑規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      clearable
+                      hint="若不變徑則不選"
+                    />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 末端設施規格和名稱 -->
+                    <v-select
+                      v-model="localFormData.endFacilitySpecId"
+                      :items="endFacilityDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="末端設施規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      @update:model-value="onEndFacilitySpecChange"
+                    />
+
+                    <v-autocomplete
+                      v-model="localFormData.endFacilityPomno"
+                      :items="filteredEndFacilityPipeFittings"
+                      item-title="displayName"
+                      item-value="pomno"
+                      label="末端設施名稱"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 250px"
+                      clearable
+                      @update:model-value="onSelectedEndFacilityChange"
+                    >
+                      <template v-slot:item="{ props, item }">
+                        <v-list-item
+                          v-bind="props"
+                          :title="item.raw.displayName"
+                          :subtitle="`材質: ${item.raw.materialName}`"
+                        />
+                      </template>
+                    </v-autocomplete>
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 豎管相關配置 -->
                     <div class="me-3 mb-2">
-                      <div class="text-body-2">豎管高(H)</div>
+                      <div class="text-body-2 mb-1">豎管高度(H)</div>
                       <div class="d-flex align-center">
                         <v-text-field
                           v-model.number="localFormData.riserHeight_H"
@@ -384,203 +580,410 @@
                       </div>
                     </div>
 
-                    <div class="mb-2">
-                      <v-select
-                        v-model="localFormData.changeBranchSpecId"
-                        :items="pipeDiameterOptions"
-                        item-title="name"
-                        item-value="id"
-                        label="變徑規格"
-                        variant="outlined"
-                        density="comfortable"
-                        style="width: 150px"
-                        clearable
-                        hint="若不變徑則不選"
-                      />
-                    </div>
+                    <v-select
+                      v-model="localFormData.riserPipeMaterialId"
+                      :items="pipeMaterialOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="豎管材質"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      clearable
+                    />
+
+                    <v-select
+                      v-model="localFormData.riserPipeSpecId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="豎管規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      clearable
+                    />
                   </div>
                 </div>
 
-                <div class="d-flex align-center flex-wrap">
-                  <v-select
-                    v-model="localFormData.branchPipeMaterialId"
-                    :items="pipeMaterialOptions"
-                    item-title="name"
-                    item-value="id"
-                    label="支管主要材質"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 160px"
-                    @update:model-value="updateFormData"
-                  />
+                <!-- 微噴系統相關配置 -->
+                <div v-else-if="localFormData.irrigationTypeId === 3" class="irrigation-type-config">
+                  <v-divider class="mb-3"></v-divider>
+                  <div class="text-subtitle-2 mb-3">微噴系統配置</div>
 
-                  <v-select
-                    v-model="localFormData.branchPipeDiameterId"
-                    :items="pipeDiameterOptions"
-                    item-title="name"
-                    item-value="id"
-                    label="支管主要管徑(吋)"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 160px"
-                    @update:model-value="updateFormData"
-                  />
+                  <div class="d-flex flex-wrap">
+                    <!-- 設施型式 -->
+                    <v-select
+                      v-model="localFormData.facilityTypeId"
+                      :items="facilityTypeOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="設施型式"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 160px"
+                      @update:model-value="onEndFacilityParamsChange"
+                    />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 支管材質和規格 -->
+                    <v-select
+                      v-model="localFormData.branchPipeMaterialId"
+                      :items="pipeMaterialOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管材質"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      @update:model-value="updateFormData"
+                    />
+
+                    <v-select
+                      v-model="localFormData.branchPipeDiameterId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      @update:model-value="updateFormData"
+                    />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 支管行距和間距 -->
+                    <div class="me-3 mb-2">
+                      <div class="text-body-2 mb-1">支管行距(SL)</div>
+                      <div class="d-flex align-center">
+                        <v-text-field
+                          v-model.number="localFormData.branchPipeSpacing_SL"
+                          variant="outlined"
+                          density="comfortable"
+                          type="number"
+                          style="width: 80px"
+                          class="me-1"
+                          @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
+                        />
+                        <span>M</span>
+                      </div>
+                    </div>
+
+                    <div class="me-3 mb-2">
+                      <div class="text-body-2 mb-1">噴頭間距(SS)</div>
+                      <div class="d-flex align-center">
+                        <v-text-field
+                          v-model.number="localFormData.sprinklerSpacing_SS"
+                          variant="outlined"
+                          type="number"
+                          density="comfortable"
+                          style="width: 80px"
+                          class="me-1"
+                          @update:model-value="calculateSprinklerQuantity"
+                        />
+                        <span>M</span>
+                      </div>
+                    </div>
+
+                    <!-- 支管變徑規格 -->
+                    <v-select
+                      v-model="localFormData.changeBranchSpecId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管變徑規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      clearable
+                      hint="若不變徑則不選"
+                    />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 末端設施規格和名稱 -->
+                    <v-select
+                      v-model="localFormData.endFacilitySpecId"
+                      :items="endFacilityDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="末端設施規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      @update:model-value="onEndFacilitySpecChange"
+                    />
+
+                    <v-autocomplete
+                      v-model="localFormData.endFacilityPomno"
+                      :items="filteredEndFacilityPipeFittings"
+                      item-title="displayName"
+                      item-value="pomno"
+                      label="末端設施名稱"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 250px"
+                      clearable
+                      @update:model-value="onSelectedEndFacilityChange"
+                    >
+                      <template v-slot:item="{ props, item }">
+                        <v-list-item
+                          v-bind="props"
+                          :title="item.raw.displayName"
+                          :subtitle="`材質: ${item.raw.materialName}`"
+                        />
+                      </template>
+                    </v-autocomplete>
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 豎管相關配置 -->
+                    <div class="me-3 mb-2">
+                      <div class="text-body-2 mb-1">豎管高度(H)</div>
+                      <div class="d-flex align-center">
+                        <v-text-field
+                          v-model.number="localFormData.riserHeight_H"
+                          variant="outlined"
+                          type="number"
+                          density="comfortable"
+                          style="width: 80px"
+                          class="me-1"
+                        />
+                        <span>M</span>
+                      </div>
+                    </div>
+
+                    <v-select
+                      v-model="localFormData.riserPipeMaterialId"
+                      :items="pipeMaterialOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="豎管材質"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      clearable
+                    />
+
+                    <v-select
+                      v-model="localFormData.riserPipeSpecId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="豎管規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      clearable
+                    />
+                  </div>
+                </div>
+
+                <!-- 滴灌系統相關配置 -->
+                <div v-else-if="localFormData.irrigationTypeId === 4" class="irrigation-type-config">
+                  <v-divider class="mb-3"></v-divider>
+                  <div class="text-subtitle-2 mb-3">滴灌系統配置</div>
+
+                  <div class="d-flex flex-wrap">
+                    <!-- 滴灌子系統選擇 -->
+                    <v-select
+                      v-model="localFormData.dripperSubtypeId"
+                      :items="dripperTypeOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="滴頭類型"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 180px"
+                      @update:model-value="onEndFacilityParamsChange"
+                    />
+
+                    <!-- 設施型式 -->
+                    <v-select
+                      v-model="localFormData.facilityTypeId"
+                      :items="facilityTypeOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="設施型式"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 160px"
+                      @update:model-value="onEndFacilityParamsChange"
+                    />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 支管材質和規格 -->
+                    <v-select
+                      v-model="localFormData.branchPipeMaterialId"
+                      :items="pipeMaterialOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管材質"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      @update:model-value="updateFormData"
+                    />
+
+                    <v-select
+                      v-model="localFormData.branchPipeDiameterId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      @update:model-value="updateFormData"
+                    />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 支管行距和間距 -->
+                    <div class="me-3 mb-2">
+                      <div class="text-body-2 mb-1">支管行距(SL)</div>
+                      <div class="d-flex align-center">
+                        <v-text-field
+                          v-model.number="localFormData.branchPipeSpacing_SL"
+                          variant="outlined"
+                          density="comfortable"
+                          type="number"
+                          style="width: 80px"
+                          class="me-1"
+                          @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
+                        />
+                        <span>M</span>
+                      </div>
+                    </div>
+
+                    <div class="me-3 mb-2">
+                      <div class="text-body-2 mb-1">噴頭間距(SS)</div>
+                      <div class="d-flex align-center">
+                        <v-text-field
+                          v-model.number="localFormData.sprinklerSpacing_SS"
+                          variant="outlined"
+                          type="number"
+                          density="comfortable"
+                          style="width: 80px"
+                          class="me-1"
+                          @update:model-value="calculateSprinklerQuantity"
+                        />
+                        <span>M</span>
+                      </div>
+                    </div>
+
+                    <!-- 支管變徑規格 -->
+                    <v-select
+                      v-model="localFormData.changeBranchSpecId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管變徑規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      clearable
+                      hint="若不變徑則不選"
+                    />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2">
+                    <!-- 末端設施規格和名稱 -->
+                    <v-select
+                      v-model="localFormData.endFacilitySpecId"
+                      :items="endFacilityDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="末端設施規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      @update:model-value="onEndFacilitySpecChange"
+                    />
+
+                    <v-autocomplete
+                      v-model="localFormData.endFacilityPomno"
+                      :items="filteredEndFacilityPipeFittings"
+                      item-title="displayName"
+                      item-value="pomno"
+                      label="末端設施名稱"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 250px"
+                      clearable
+                      @update:model-value="onSelectedEndFacilityChange"
+                    >
+                      <template v-slot:item="{ props, item }">
+                        <v-list-item
+                          v-bind="props"
+                          :title="item.raw.displayName"
+                          :subtitle="`材質: ${item.raw.materialName}`"
+                        />
+                      </template>
+                    </v-autocomplete>
+                  </div>
                 </div>
               </v-sheet>
             </v-card-text>
           </v-card>
 
-          <v-card class="mb-4" variant="outlined">
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-sprinkler</v-icon>
-              <span class="text-subtitle-1 font-weight-medium">末端設施</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
-                <div class="d-flex align-center flex-wrap mb-2">
-                  <v-select
-                    v-model="localFormData.irrigationTypeId"
-                    :items="irrigationTypeOptions"
-                    item-title="name"
-                    item-value="id"
-                    label="灌溉型式"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 180px"
-                    @update:model-value="onIrrigationTypeChange"
-                  />
-
-                  <v-select
-                    v-model="localFormData.sprinklerSubtypeId"
-                    v-if="localFormData.irrigationTypeId === 2" :items="sprinklerTypeOptions"
-                    item-title="name"
-                    item-value="id"
-                    label="噴頭類型"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 160px"
-                    @update:model-value="onEndFacilityParamsChange"
-                  />
-                  <v-select
-                    v-model="localFormData.dripperSubtypeId"
-                    v-if="localFormData.irrigationTypeId === 4" :items="dripperTypeOptions"
-                    item-title="name"
-                    item-value="id"
-                    label="滴頭類型"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 160px"
-                    @update:model-value="onEndFacilityParamsChange"
-                  />
-                  <v-select
-                    v-model="localFormData.perforatedPipeDirection"
-                    v-if="localFormData.irrigationTypeId === 1" :items="perforatedPipeTypeOptions"
-                    item-title="title"
-                    item-value="value"
-                    label="穿孔管出水方向"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 160px"
-                    @update:model-value="onEndFacilityParamsChange"
-                  />
-
-
-                  <v-select
-                    v-model="localFormData.facilityTypeId"
-                    :items="facilityTypeOptions"
-                    item-title="name"
-                    item-value="id"
-                    label="設施型式"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 160px"
-                    @update:model-value="onEndFacilityParamsChange"
-                  />
-
-                  <v-select
-                    v-model="localFormData.waterSourceId"
-                    :items="waterSourceOptions"
-                    item-title="name"
-                    item-value="id"
-                    label="灌溉水源"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 160px"
-                    @update:model-value="updateFormData"
-                  />
-                </div>
-
-                <div class="d-flex align-center flex-wrap">
-                  <v-autocomplete
-                    v-model="localFormData.endFacilityPomno"
-                    :items="filteredEndFacilityPipeFittings"
-                    item-title="displayName"
-                    item-value="pomno"
-                    label="末端設施選擇"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 250px"
-                    @update:model-value="onSelectedEndFacilityChange"
-                    clearable
-                  >
-                    <template v-slot:item="{ props, item }">
-                      <v-list-item
-                        v-bind="props"
-                        :title="item.raw.displayName"
-                        :subtitle="`材質: ${item.raw.materialName}, 規格: ${item.raw.specName}`"
-                      />
-                    </template>
-                  </v-autocomplete>
-
-                  <v-select
-                    v-model="localFormData.riserPipeMaterialId"
-                    :items="pipeMaterialOptions"
-                    item-title="name"
-                    item-value="id"
-                    label="豎管材質"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 150px"
-                    clearable
-                  />
-                  <v-select
-                    v-model="localFormData.riserPipeSpecId"
-                    :items="pipeDiameterOptions"
-                    item-title="name"
-                    item-value="id"
-                    label="豎管規格"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 150px"
-                    clearable
-                  />
-                </div>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
-
-          <v-card variant="outlined">
+          <!-- STEP 6: 已新增管路設施列表 -->
+          <v-card variant="outlined" class="mb-4">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
               <v-icon class="me-2" size="small">mdi-format-list-bulleted</v-icon>
-              <span class="text-subtitle-1 font-weight-medium">已新增管路設施列表</span>
+              <span class="text-subtitle-1 font-weight-medium">管路設施列表</span>
             </v-card-title>
+            <v-card-text class="pa-4">
+              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+                <v-btn
+                  color="success"
+                  class="mb-2"
+                  :loading="isLoadingMaterials"
+                  :disabled="!canAutoFillMaterials"
+                  block
+                  @click="autoFillMaterials"
+                >
+                  <v-icon start size="small">mdi-autorenew</v-icon>
+                  自動帶入材料
+                </v-btn>
+              </v-sheet>
+            </v-card-text>
+
             <v-card-text class="pa-4">
               <v-table class="rounded border">
                 <thead class="bg-grey-lighten-3">
                   <tr>
-                    <th class="text-center" style="width: 80px">項目</th> <th class="text-center" style="width: 100px">群組</th> <th>名稱</th> <th>類別</th> <th>規格</th> <th>單位</th> <th>說明</th> <th class="text-center">單價</th> <th class="text-center">數量</th> <th class="text-center">總價</th> <th class="text-center" style="width: 50px">排序</th>
+                    <th class="text-center" style="width: 80px">項目</th>
+                    <th class="text-center" style="width: 100px">群組</th>
+                    <th>名稱</th>
+                    <th>類別</th>
+                    <th>規格</th>
+                    <th>單位</th>
+                    <th>說明</th>
+                    <th class="text-center">單價</th>
+                    <th class="text-center">數量</th>
+                    <th class="text-center">總價</th>
+                    <th class="text-center" style="width: 50px">排序</th>
                     <th class="text-center" style="width: 80px">刪除</th>
                   </tr>
                 </thead>
@@ -596,7 +999,8 @@
                       <td class="text-center">{{ group.groupName }}</td>
                       <td>{{ pipe.matname }}</td>
                       <td>{{ pipe.module }}</td>
-                      <td>{{ pipe.specification }}</td> <td>{{ pipe.itemunit }}</td>
+                      <td>{{ pipe.specification }}</td>
+                      <td>{{ pipe.itemunit }}</td>
                       <td>{{ pipe.description }}</td>
                       <td class="text-center">{{ pipe.matprice?.toLocaleString() }}</td>
                       <td class="text-center">{{ pipe.matamount }}</td>
@@ -654,6 +1058,7 @@
             </v-card-text>
           </v-card>
 
+          <!-- 補助計算結果 -->
           <v-card variant="outlined" class="mt-4">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
               <v-icon class="me-2" size="small">mdi-calculator</v-icon>
@@ -705,6 +1110,8 @@ import { useOfficesStore } from '@/stores/offices'
 import { usePipeFittingsStore } from '@/stores/pipeFittingsStore'
 import { usePFDiametersStore } from '@/stores/pfDiametersStore'
 import { usePFMaterialsStore } from '@/stores/pfMaterialsStore'
+import { useIrrigationTypesStore } from '@/stores/irrigationTypesStore'
+
 
 interface PipeOption {
   id: number | string; // 或者後端期望的類型
@@ -752,6 +1159,8 @@ const officesStore = useOfficesStore();
 const pipeFittingsStore = usePipeFittingsStore();
 const pfDiametersStore = usePFDiametersStore();
 const pfMaterialsStore = usePFMaterialsStore();
+const irrigationTypesStore = useIrrigationTypesStore()
+
 
 // Store the filtered pipe fittings
 const filteredPipeFittings = ref([]);
@@ -821,18 +1230,6 @@ const localFormData = reactive({
   riserPipeMaterialId: null as number | null, // 豎管材質ID (原 StdpipeMat)
   riserPipeSpecId: null as number | null,     // 豎管規格ID (原 StdpipeSpec)
 
-  // irrigationType: '',
-  // installationType: '',
-  // waterSource: '',
-  // perforatedPipeType: '',  // 穿孔管類型
-  // sprinklerType: '', // 噴頭類型
-  // dripperType: '', // 滴灌類型
-  // endFacilityType: '',
-  // endFacilityDiameter: '',
-  // endFacilityMaterial: '',
-  // endFacilityUnitPrice: '',
-  // endFacilityQuantity: '',
-
   // 管路列表 (結構將由API響應決定，這裡的初始值不重要)
   pipes: [] as Array<{
     pomno: number; // 新增: 材料的POMNo
@@ -860,62 +1257,6 @@ const localFormData = reactive({
   valid: true
 });
 
-// 選項
-// const fundingSourceOptions = [
-//   '農田水利署',
-//   '七星管理處作業基金',
-//   '瑠公管理處作業基金'
-// ];
-
-// const pipeDiameterOptions = [
-//   '1/2"', '3/4"', '1"', '1-1/4"', '1-1/2"', '2"', '3"', '4"', '5"', '6"', '其他'
-// ];
-//
-// const pipeMaterialOptions = [
-//   'PVC', 'PE', 'PVCA', 'PVCB', 'PVCE', 'PVCS', 'PVCW', '不鏽鋼', '鐵', '其他'
-// ];
-
-const variantTypeOptions = [
-  { value: 1, title: '全長不變徑' },
-  { value: 2, title: '1/3管長變徑' }
-];
-
-// const irrigationTypeOptions = [
-//   '穿孔管系統',
-//   '噴頭式系統',
-//   '微噴系統',
-//   '滴灌系統',
-//   '其他'
-// ];
-
-// const perforatedPipeTypeOptions = [
-//   { value: 1, title: '單向' },
-//   { value: 2, title: '雙向' }
-// ];
-
-// const sprinklerTypeOptions = [
-//   { value: 2, title: '一般' },
-//   { value: 6, title: '高壓大型噴頭系統' }
-// ];
-
-// const dripperTypeOptions = [
-//   { value: 7, title: '滴嘴滴灌系統' },
-//   { value: 8, title: '滴水管滴灌系統' }
-// ];
-
-const installationTypeOptions = [
-  { value: 1, title: '埋設固定式' },
-  { value: 2, title: '地表定置式' },
-  { value: 3, title: '附掛棚架式' }
-];
-
-// const waterSourceOptions = [
-//   { value: 1, title: '灌溉渠道' },
-//   { value: 2, title: '野溪' },
-//   { value: 3, title: '埤(池)塘' },
-//   { value: 4, title: '地下水' },
-//   { value: 5, title: '其他' }
-// ];
 
 // 根據灌溉類型篩選末端設施選項
 const endFacilityOptions = [
@@ -929,22 +1270,24 @@ const endFacilityOptions = [
   { value: '滴灌-滴水管', irrigationType: '滴灌系統' }
 ];
 
-const endFacilityMaterialOptions = [
-  '塑膠', '塑鋼', '不鏽鋼', '金屬', '其他'
-];
 
 // --- 選項列表 (應從API獲取) ---
-// const fundingSourceOptions = ref<PipeOption[]>([]); // 例如: [{id:0, name:'農田水利署'}, ...]
-// const pipeDiameterOptions = ref<PipeOption[]>([]);  // 例如: [{id:1, name:'1/2"', value: 0.5}, ...]
-// const pipeMaterialOptions = ref<PipeOption[]>([]);  // 例如: [{id:1, name:'PVC'}, ...]
-// const variantTypeOptions = ref<PipeOption[]>([]); // 即 pipeDiameterOptions，用於變徑規格
-const irrigationTypeOptions = ref<PipeOption[]>([]); // 例如: [{id:1, name:'穿孔管系統'}, ...]
-const sprinklerTypeOptions = ref<PipeOption[]>([]);  // 噴頭子類型
-const dripperTypeOptions = ref<PipeOption[]>([]);    // 滴灌子類型
 const perforatedPipeTypeOptions = ref([ { value: 1, title: '單向' }, { value: 2, title: '雙向' } ]); // 這個選項較固定
 const facilityTypeOptions = ref<PipeOption[]>([]);   // 設施型式
 const waterSourceOptions = ref<PipeOption[]>([]);    // 灌溉水源
 
+
+const irrigationTypeOptions = computed(() => {
+  return irrigationTypesStore.getIrrigationTypeSelectOptions
+})
+
+const sprinklerTypeOptions = computed(() => {
+  return irrigationTypesStore.getSprinklerTypeOptions
+})
+
+const dripperTypeOptions = computed(() => {
+  return irrigationTypesStore.getDripperTypeOptions
+})
 // 末端設施的選項列表 (動態載入)
 const filteredEndFacilityPipeFittings = ref<EndFacilityPipeFitting[]>([]);
 
@@ -965,27 +1308,11 @@ const loadDropdownOptions = async () => {
   // Load pipe fittings filtered by module_id=1 (main pipe) and current office
   await fetchPipeFittings();
 
-  // pipeDiameterOptions.value = [
-  //   { id: 26, name: '1/2"', standardLength: 4 },   // 假設ID與舊系統MAT_Spec.SpecNo對應
-  //   { id: 27, name: '3/4"', standardLength: 4 },
-  //   { id: 28, name: '1"', standardLength: 4 },
-  //   { id: 3, name: '1-1/4"', standardLength: 4 },
-  //   { id: 4, name: '1-1/2"', standardLength: 4 },
-  //   { id: 29, name: '2"', standardLength: 4 },
-  //   // ...更多規格及其標準長度 (standardLength 來自 pipe_fittings.length)
-  // ];
-  // pipeMaterialOptions.value = [
-  //   { id: 1, name: 'PVC管' }, { id: 6, name: 'PE管(10kgf)' }, { id: 7, name: 'PE管(6kgf)'}, /* ... */
-  // ];
+  await irrigationTypesStore.fetchIrrigationTypeOptions()
 
-  irrigationTypeOptions.value = [
-    { id: 1, name: '穿孔管系統' }, { id: 2, name: '噴頭式系統' },
-    { id: 3, name: '微噴系統' }, { id: 4, name: '滴灌系統' }, { id: 5, name: '其他' }
-  ];
-   sprinklerTypeOptions.value = [ { id: 2, name: '一般小型噴頭' }, { id: 6, name: '高壓大型噴頭系統' } ];
-   dripperTypeOptions.value = [ { id: 7, name: '滴嘴滴灌系統' }, { id: 8, name: '滴水管滴灌系統' } ];
-   facilityTypeOptions.value = [ {id: 1, name: '埋設固定式'}, {id: 2, name: '地表定置式'}, {id: 3, name: '附掛棚架式'}];
-   waterSourceOptions.value = [ {id:1, name: '灌溉渠道'}, {id:2, name: '野溪'} /* ... */];
+  // 模擬設施型式和水源選項
+  facilityTypeOptions.value = [ {id: 1, name: '埋設固定式'}, {id: 2, name: '地表定置式'}, {id: 3, name: '附掛棚架式'}];
+  waterSourceOptions.value = [ {id:1, name: '灌溉渠道'}, {id:2, name: '野溪'} /* ... */];
 };
 
 const pipeDiameterOptions = computed(() => {
@@ -998,7 +1325,7 @@ const pipeDiameterOptions = computed(() => {
     diameterId: fitting.diameter1_id
   }));
 
-  // 根据当前选择的材质ID过滤管径
+  // 根據當前選擇的材質ID過濾管徑
   const materialDiameterFiltered = mainPipeFittings
     .filter(fitting =>
       !localFormData.mainPipeMaterialId || // 如果没有选择材质则不过滤
@@ -1007,36 +1334,31 @@ const pipeDiameterOptions = computed(() => {
     .map(fitting => fitting.diameter1_id)
     .filter(id => id != null);
 
-  // 获取唯一的管径ID列表
+  // 獲取唯一的管徑ID列表
   const uniqueDiameterIds = [...new Set([
     ...materialDiameterFiltered,
-    // 加入当前已选择的管径ID（如果有值）
+    // 加入當前已選擇的管徑ID（如果有值）
     ...(localFormData.mainPipeDiameterId ? [localFormData.mainPipeDiameterId] : []),
     ...(localFormData.mainPipe2Enabled && localFormData.mainPipe2DiameterId ? [localFormData.mainPipe2DiameterId] : [])
   ])];
 
-  // 获取完整的管径列表
+  // 獲取完整的管徑列表
   const allDiameters = pfDiametersStore.diameters.map(diameter => {
-    // 检查此管径对于当前选择的材质是否有有效组合
+    // 檢查此管徑對於當前選擇的材質是否有有效組合
     const isFilteredByMaterial = materialDiameterFiltered.includes(diameter.id);
-
-    // 检查此管径是否为当前选择的管径
-    // const isCurrentlySelected =
-    //   diameter.id === localFormData.mainPipeDiameterId ||
-    //   (localFormData.mainPipe2Enabled && diameter.id === localFormData.mainPipe2DiameterId);
 
     return {
       id: diameter.id,
       name: diameter.name,
       value: diameter.value,
-      // 如有材质筛选或当前选择则标记
+      // 如有管徑篩選或當前選擇則標記
       isFiltered: isFilteredByMaterial,
-      // 获取标准长度
+      // 獲取此管徑的標準長度
       standardLength: mainPipeFittings.find(f => f.diameter1_id === diameter.id)?.length || 4
     };
   });
 
-  // 确保所有筛选的管径都已包含在列表中
+  // 確保所有篩選的管徑都已包含在列表中
   uniqueDiameterIds.forEach(id => {
     if (!allDiameters.some(d => d.id === id)) {
       const fitting = mainPipeFittings.find(f => f.diameter1_id === id);
@@ -1055,7 +1377,7 @@ const pipeDiameterOptions = computed(() => {
 
 
   return allDiameters.sort((a, b) => {
-    // 优先按数值排序
+    // 優先按數字排序，如果無法轉換為數字則按字母排序
     const numA = parseFloat(a.name);
     const numB = parseFloat(b.name);
     if (!isNaN(numA) && !isNaN(numB)) {
@@ -1065,11 +1387,67 @@ const pipeDiameterOptions = computed(() => {
   });
 });
 
+// 根據灌溉型式提供不同來源的末端設施規格選項
+const endFacilityDiameterOptions = computed(() => {
+  // 依據灌溉型式選擇不同的來源
+  if (localFormData.irrigationTypeId === 1) {
+    // 穿孔管系統 - 使用穿孔管管件
+    return convertToSelectOptions(filteredPipeFittingsByModule.value.perforatedPipe || []);
+  }
+  else if (localFormData.irrigationTypeId === 2 || localFormData.sprinklerSubtypeId === 6) {
+    // 噴頭式系統或高壓大型噴頭系統 - 使用噴頭管件
+    return convertToSelectOptions(filteredPipeFittingsByModule.value.sprinkler || []);
+  }
+  else if (localFormData.irrigationTypeId === 3) {
+    // 微噴系統 - 使用微噴管件
+    // 假設微噴也使用噴頭模組，您可能需要調整這裡
+    return convertToSelectOptions(filteredPipeFittingsByModule.value.microSprinkler || []);
+  }
+  else if (localFormData.dripperSubtypeId === 7) {
+    // 滴灌系統 - 使用滴頭管件
+    // 這裡需要確認您的數據結構中滴頭管件的模組名稱
+    return convertToSelectOptions(filteredPipeFittingsByModule.value.nozzleDrip || []);
+  }
+  else if (localFormData.dripperSubtypeId === 8) {
+    // 滴灌系統 - 使用滴水管件
+    return convertToSelectOptions(filteredPipeFittingsByModule.value.pipeDrip || []);
+  }
+
+  // 默認返回所有管徑選項
+  return pipeDiameterOptions.value;
+});
+
+// 輔助函數：將管件數據轉換為下拉選項格式
+const convertToSelectOptions = (fittings) => {
+  if (!fittings || fittings.length === 0) return pipeDiameterOptions.value;
+
+  // 提取唯一的管徑 ID
+  const diameterIds = [...new Set(fittings.map(f => f.diameter1_id).filter(id => id != null))];
+
+  // 獲取這些 ID 對應的完整管徑資訊
+  const diameters = diameterIds.map(id => {
+    const fitting = fittings.find(f => f.diameter1_id === id);
+    const diameterInfo = pfDiametersStore.diameters.find(d => d.id === id);
+
+    return {
+      id: id,
+      name: diameterInfo?.name || `規格ID: ${id}`,
+      value: diameterInfo?.value || 0,
+      standardLength: fitting?.length || 4
+    };
+  });
+
+  // 確保有選項，若沒有則回退到所有管徑
+  return diameters.length > 0 ? diameters : pipeDiameterOptions.value;
+};
+
+
+
 const pipeMaterialOptions = computed(() => {
   // 使用主管模塊的管件來提取材質選項
   const mainPipeFittings = filteredPipeFittingsByModule.value.mainPipe || [];
 
-  // 根据当前选择的管径ID过滤材质
+  // 根據當前選擇的管徑ID過濾材質
   const diameterMaterialFiltered = mainPipeFittings
     .filter(fitting =>
       !localFormData.mainPipeDiameterId || // 如果没有选择管径则不过滤
@@ -1078,39 +1456,34 @@ const pipeMaterialOptions = computed(() => {
     .map(fitting => fitting.material_id)
     .filter(id => id != null);
 
-  // 获取唯一的材质ID列表
+  // 獲取唯一的材質ID列表
   const uniqueMaterialIds = [...new Set([
     ...diameterMaterialFiltered,
-    // 加入当前已选择的材质ID（如果有值）
+    // 加入當前已選擇的材質ID（如果有值）
     ...(localFormData.mainPipeMaterialId ? [localFormData.mainPipeMaterialId] : []),
     ...(localFormData.mainPipe2Enabled && localFormData.mainPipe2MaterialId ? [localFormData.mainPipe2MaterialId] : [])
   ])];
 
-  // 获取完整的材质列表
+  // 獲取完整的材質列表
   const allMaterials = pfMaterialsStore.materials.map(material => {
-    // 检查此材质对于当前选择的管径是否有有效组合
+    // 檢查此材質對於當前選擇的管徑是否有有效組合
     const isFilteredByDiameter = diameterMaterialFiltered.includes(material.id);
-
-    // 检查此材质是否为当前选择的材质
-    // const isCurrentlySelected =
-    //   material.id === localFormData.mainPipeMaterialId ||
-    //   (localFormData.mainPipe2Enabled && material.id === localFormData.mainPipe2MaterialId);
 
     return {
       id: material.id,
       name: material.name,
-      // 如有管径筛选或当前选择则标记
+      // 如有材質篩選或當前選擇則標記
       isFiltered: isFilteredByDiameter
     };
   });
 
-  // 确保所有筛选的材质都已包含在列表中
+  // 確保所有篩選的材質都已包含在列表中
   uniqueMaterialIds.forEach(id => {
     if (!allMaterials.some(m => m.id === id)) {
       const materialInfo = pfMaterialsStore.materials.find(m => m.id === id);
       allMaterials.push({
         id,
-        name: materialInfo?.name || `材质ID: ${id}`,
+        name: materialInfo?.name || `材質ID: ${id}`,
         isFiltered: diameterMaterialFiltered.includes(id) ||
                     id === localFormData.mainPipeMaterialId ||
                     (localFormData.mainPipe2Enabled && id === localFormData.mainPipe2MaterialId)
@@ -1124,10 +1497,10 @@ const pipeMaterialOptions = computed(() => {
 const getFilteredDiameterOptions = (currentMaterialId) => {
   const mainPipeFittings = filteredPipeFittingsByModule.value.mainPipe || [];
 
-  // 根据传入的材质ID过滤管径
+  // 根據當前選擇的材質ID過濾管徑
   const materialDiameterFiltered = mainPipeFittings
     .filter(fitting =>
-      !currentMaterialId || // 如果没有选择材质则不过滤
+      !currentMaterialId || // 如果沒有選擇材質則不過濾
       fitting.material_id === currentMaterialId
     )
     .map(fitting => fitting.diameter1_id)
@@ -1224,7 +1597,12 @@ const filteredPipeFittingsByModule = computed(() => {
     branchPipe: 2, // 支管模塊 ID
     endFacility: 3, // 末端設施模塊 ID
     valves: 4, // 閥門模塊 ID
-    // 其他模塊...
+    sprinkler: 5, // 噴頭模塊 ID
+    perforatedPipe: 6, // 穿孔管模塊 ID
+    // riser: 7, // 豎管模塊 ID
+    microSprinkler: 8, // 微噴模塊 ID
+    nozzleDrip: 9, // 滴嘴滴灌 ID
+    pipeDrip: 12 // 滴水滴灌 ID
   };
 
   const result = {};
@@ -1270,13 +1648,7 @@ const showEndFacilityType = computed(() => {
   return ['穿孔管系統', '噴頭式系統', '滴灌系統'].includes(localFormData.irrigationType);
 });
 
-// 計算屬性
-// const mainPipeTotalPrice = computed(() => {
-//   const length = parseFloat(localFormData.mainPipeLength) || 0;
-//   const unitPrice = parseFloat(localFormData.mainPipeUnitPrice) || 0;
-//   const quantity = parseFloat(localFormData.mainPipeQuantity) || 0;
-//   return Math.round(length * unitPrice * quantity).toString();
-// });
+
 // Computed Properties
 const mainPipeTotalPrice = computed(() => {
   if (!localFormData.mainPipeQuantity || !localFormData.mainPipeUnitPrice) return '0';
@@ -1287,12 +1659,6 @@ const mainPipe2TotalPrice = computed(() => {
   return Math.round(localFormData.mainPipe2Quantity * localFormData.mainPipe2UnitPrice).toLocaleString();
 });
 
-// const branchPipeTotalPrice = computed(() => {
-//   const length = parseFloat(localFormData.branchPipeLength) || 0;
-//   const unitPrice = parseFloat(localFormData.branchPipeUnitPrice) || 0;
-//   const quantity = parseFloat(localFormData.branchPipeQuantity) || 0;
-//   return Math.round(length * unitPrice * quantity).toString();
-// });
 // 支管總價等原有的 computed properties 保持不變或按需調整
 const branchPipeTotalPrice = computed(() => {
   // 支管的價格通常由後端自動帶入材料列表時一併給出，此處計算可能僅為UI示意
@@ -1301,16 +1667,8 @@ const branchPipeTotalPrice = computed(() => {
   return Math.round(unitPrice * quantity).toLocaleString();
 });
 
-// const endFacilityTotalPrice = computed(() => {
-//   const unitPrice = parseFloat(localFormData.endFacilityUnitPrice) || 0;
-//   const quantity = parseFloat(localFormData.endFacilityQuantity) || 0;
-//   return Math.round(unitPrice * quantity).toString();
-// });
+
 const endFacilityTotalPrice = computed(() => {
-  // 末端設施的價格通常由後端自動帶入材料列表時一併給出
-  // const unitPrice = parseFloat(localFormData.endFacilityUnitPrice?.toString() || '0');
-  // const quantity = parseFloat(localFormData.endFacilityQuantity?.toString() || '0');
-  // return Math.round(unitPrice * quantity).toLocaleString();
   return '0'; // 暫時，因為末端設施通常是POMNo選擇
 });
 
@@ -1407,47 +1765,6 @@ const canAutoFillMaterials = computed(() => {
   );
 });
 
-// canAddMainPipe, canAddBranchPipe, canAddEndFacility 可以暫時移除或調整
-// 因為主要材料應由 autoFillMaterials 帶入
-// const canAddMainPipe = computed(() => {
-//   return !!localFormData.fundingSource &&
-//          !!localFormData.mainPipeLength &&
-//          !!localFormData.mainPipeDiameter &&
-//          !!localFormData.mainPipeMaterial &&
-//          !!localFormData.mainPipeUnitPrice &&
-//          !!localFormData.mainPipeQuantity;
-// });
-
-// const canAddBranchPipe = computed(() => {
-//   return !!localFormData.fundingSource &&
-//          !!localFormData.branchPipeLength &&
-//          !!localFormData.branchPipeDiameter &&
-//          !!localFormData.branchPipeMaterial &&
-//          !!localFormData.branchPipeUnitPrice &&
-//          !!localFormData.branchPipeQuantity;
-// });
-
-// const canAddEndFacility = computed(() => {
-//   return !!localFormData.fundingSource &&
-//          !!localFormData.endFacilityType &&
-//          !!localFormData.endFacilityDiameter &&
-//          !!localFormData.endFacilityMaterial &&
-//          !!localFormData.endFacilityUnitPrice &&
-//          !!localFormData.endFacilityQuantity;
-// });
-
-// 方法
-// 計算寬度（基於長度和面積）
-// const calculateWidth = () => {
-//   const length = parseFloat(localFormData.fieldLength) || 0;
-//   const area = parseFloat(localFormData.fieldArea) || 0;
-
-//   if (length > 0 && area > 0) {
-//     localFormData.fieldWidth = Math.round(area / length).toString();
-//   }
-
-//   updateFormData();
-// };
 const calculateWidth = () => {
   const length = localFormData.fieldLength || 0;
   const area = localFormData.facilityArea || 0;
@@ -1481,8 +1798,6 @@ const fetchPipeFittings = async () => {
   }
 };
 
-
-
 const getStandardPipeLength = async (materialId: number | null, diameterId: number | null, moduleId: number = 1): Promise<number> => {
   if (!materialId || !diameterId) return 4; // 預設長度
   // 從 pipeFittingsStore 中尋找匹配的管件
@@ -1504,14 +1819,6 @@ const getStandardPipeLength = async (materialId: number | null, diameterId: numb
 };
 
 // 計算主管數量（根據長度）
-// const calculateMainPipeQuantity = () => {
-//   const length = parseFloat(localFormData.mainPipeLength) || 0;
-//   if (length > 0) {
-//     // 每支管長通常為4公尺，數量為向上取整的長度除以4
-//     localFormData.mainPipeQuantity = Math.ceil(length / 4).toString();
-//   }
-//   updateFormData();
-// };
 const calculateMainPipeQuantity = async () => {
   const length = localFormData.mainPipeLength || 0;
   if (length > 0) {
@@ -1553,18 +1860,6 @@ const toggleMainPipe2 = () => {
 };
 
 // 計算支管數量
-// const calculateBranchPipeQuantity = () => {
-//   const fieldLength = parseFloat(localFormData.fieldLength) || 0;
-//   const branchPipeSpacing = parseFloat(localFormData.branchPipeSpacing) || 0;
-
-//   if (fieldLength > 0 && branchPipeSpacing > 0) {
-//     // 支管數量為場地長度除以支管間距，向上取整
-//     const quantity = Math.ceil(fieldLength / branchPipeSpacing);
-//     localFormData.branchPipeQuantity = quantity.toString();
-//   }
-
-//   updateFormData();
-// };
 const calculateBranchPipeQuantity = () => {
   // 這個函數在原 .NET 中主要用於計算 BN (支管列數)
   // 支管的總材料數量 (如多少支標準長度的管材) 是在 MaterialModule 中詳細計算的
@@ -1574,31 +1869,6 @@ const calculateBranchPipeQuantity = () => {
 };
 
 // 計算噴頭數量
-// const calculateSprinklerQuantity = () => {
-//   const fieldLength = parseFloat(localFormData.fieldLength) || 0;
-//   const fieldWidth = parseFloat(localFormData.fieldWidth) || 0;
-//   const branchPipeSpacing = parseFloat(localFormData.branchPipeSpacing) || 0;
-//   const sprinklerSpacing = parseFloat(localFormData.sprinklerSpacing) || 0;
-
-//   if (fieldLength > 0 && fieldWidth > 0 && branchPipeSpacing > 0 && sprinklerSpacing > 0) {
-//     // 支管數量 = 場地長度 / 支管間距
-//     const branchPipes = Math.ceil(fieldLength / branchPipeSpacing);
-
-//     // 每個支管上的噴頭數量 = 場地寬度 / 噴頭間距
-//     const sprinklersPerBranch = Math.ceil(fieldWidth / sprinklerSpacing);
-
-//     // 總噴頭數量 = 支管數量 * 每個支管上的噴頭數量
-//     const totalSprinklers = branchPipes * sprinklersPerBranch;
-
-//     if (localFormData.irrigationType === '噴頭式系統' ||
-//         localFormData.irrigationType === '微噴系統' ||
-//         localFormData.irrigationType === '滴灌系統') {
-//       localFormData.endFacilityQuantity = totalSprinklers.toString();
-//     }
-//   }
-
-//   updateFormData();
-// };
 const calculateSprinklerQuantity = () => {
   // 這個函數在原 .NET 中主要用於計算 SN (每列支管上的噴頭數)
   // 並進一步計算末端設施總數 BN * SN
@@ -1626,24 +1896,6 @@ const calculateSprinklerQuantity = () => {
 
 
 // 灌溉類型變更
-// const onIrrigationTypeChange = () => {
-//   // 重置末端設施相關欄位
-//   localFormData.endFacilityType = '';
-//   localFormData.perforatedPipeType = '';
-//   localFormData.sprinklerType = '';
-//   localFormData.dripperType = '';
-
-//   // 根據灌溉類型設置默認值
-//   if (localFormData.irrigationType === '穿孔管系統') {
-//     localFormData.perforatedPipeType = perforatedPipeTypeOptions[0].value;
-//   } else if (localFormData.irrigationType === '噴頭式系統') {
-//     localFormData.sprinklerType = sprinklerTypeOptions[0].value;
-//   } else if (localFormData.irrigationType === '滴灌系統') {
-//     localFormData.dripperType = dripperTypeOptions[0].value;
-//   }
-
-//   updateFormData();
-// };
 const onIrrigationTypeChange = async () => {
   localFormData.sprinklerSubtypeId = null;
   localFormData.dripperSubtypeId = null;
@@ -1656,8 +1908,14 @@ const onIrrigationTypeChange = async () => {
 };
 
 const onEndFacilityParamsChange = async () => {
+  localFormData.endFacilityPomno = null; // 清除之前選擇的末端設施
   await loadEndFacilityOptions();
   updateFormData();
+};
+
+const onEndFacilitySpecChange = async () => {
+  localFormData.endFacilityPomno = null; // 清除之前選擇的末端設施
+  await loadEndFacilityOptions(); // 重新載入與當前規格匹配的末端設施選項
 };
 
 const loadEndFacilityOptions = async () => {
@@ -1665,20 +1923,50 @@ const loadEndFacilityOptions = async () => {
   // based on irrigationTypeId, sprinklerSubtypeId, dripperSubtypeId, facilityTypeId, operating_unit_id
   // This API should return a list of objects like EndFacilityPipeFitting interface
   // Example: filteredEndFacilityPipeFittings.value = await pipeFittingsService.getTerminalFittings({ type: localFormData.irrigationTypeId, ... });
-  console.log('Placeholder: Load end facility options based on current selections.');
-  // 範例:
-  if (localFormData.irrigationTypeId === 2) { // 噴頭
-     filteredEndFacilityPipeFittings.value = [
-        { pomno: 2001, displayName: "A型噴頭 (塑膠 1/2\")", materialName: "塑膠", specName: "1/2\"", specId: 26 },
-        { pomno: 2002, displayName: "B型噴頭 (銅製 3/4\")", materialName: "銅製", specName: "3/4\"", specId: 27 },
-     ];
-  } else if (localFormData.irrigationTypeId === 4 && localFormData.dripperSubtypeId === 7) { // 滴嘴
-      filteredEndFacilityPipeFittings.value = [
-        { pomno: 4001, displayName: "壓力補償式滴頭", materialName: "塑膠", specName: "2L/H", specId: 50 },
-     ];
-  } else {
-      filteredEndFacilityPipeFittings.value = [];
+  // 根據灌溉類型和末端設施規格篩選末端設施選項
+  const irrigationTypeId = localFormData.irrigationTypeId;
+  const dripperSubtypeId = localFormData.dripperSubtypeId;
+  const endFacilitySpecId = localFormData.endFacilitySpecId;
+
+  let fittings = [];
+
+  if (irrigationTypeId === 1) {
+    // 穿孔管系統
+    fittings = filteredPipeFittingsByModule.value.perforatedPipe || [];
   }
+  else if (irrigationTypeId === 2 || localFormData.sprinklerSubtypeId === 6) {
+    // 噴頭式系統
+    fittings = filteredPipeFittingsByModule.value.sprinkler || [];
+  }
+  else if (irrigationTypeId === 3) {
+    // 微噴系統
+    fittings = filteredPipeFittingsByModule.value.microSprinkler || []; // 假設使用相同模組
+  }
+  else if (dripperSubtypeId === 7) {
+    // 滴灌系統
+    fittings = filteredPipeFittingsByModule.value.nozzleDrip || [];
+  }
+  else if (dripperSubtypeId === 8) {
+    // 滴灌系統
+    fittings = filteredPipeFittingsByModule.value.pipeDrip || [];
+  }
+
+
+  // 根據選擇的規格進一步篩選
+  if (endFacilitySpecId) {
+    fittings = fittings.filter(f => f.diameter1_id === endFacilitySpecId);
+  }
+
+  // 轉換為末端設施選項格式
+  filteredEndFacilityPipeFittings.value = fittings.map(fitting => ({
+    pomno: fitting.pomno,
+    displayName: fitting.name || `${fitting.material_name || ''} ${fitting.diameter1_name || ''}`.trim(),
+    materialName: fitting.material.name || '',
+    specName: fitting.diameter1_name || '',
+    specId: fitting.diameter1_id
+  }));
+
+  console.log(`已載入 ${filteredEndFacilityPipeFittings.value.length} 個末端設施選項`);
 };
 
 const onSelectedEndFacilityChange = (selectedPomno: number | null) => {
@@ -1700,27 +1988,6 @@ const onInstallationTypeChange = () => {
 };
 
 // 獲取管路價格
-// const fetchPipePrice = async () => {
-//   if (!localFormData.mainPipeMaterial || !localFormData.mainPipeDiameter) return;
-
-//   try {
-//     // 模擬API調用獲取價格
-//     // 實際應用中應替換為真實的API調用
-//     console.log('Fetching pipe price for:', localFormData.mainPipeMaterial, localFormData.mainPipeDiameter);
-
-//     // 模擬延遲
-//     await new Promise(resolve => setTimeout(resolve, 300));
-
-//     // 模擬價格
-//     const price = Math.floor(Math.random() * 100) + 50;
-//     localFormData.mainPipeUnitPrice = price.toString();
-
-//     updateFormData();
-//   } catch (error) {
-//     console.error('Error fetching pipe price:', error);
-//   }
-// };
-// 價格獲取
 const fetchPipePrice = async (pipeNumber: 1 | 2) => {
   let materialId: number | null, diameterId: number | null;
   if (pipeNumber === 1) {
@@ -1947,23 +2214,6 @@ const addEndFacility = () => {
 };
 
 // 移除管路
-// const removePipe = (groupIndex, pipeIndex) => {
-//   const group = groupedPipes.value[groupIndex];
-//   const pipe = group.items[pipeIndex];
-
-//   // 找到在原數組中的索引
-//   const originalIndex = localFormData.pipes.findIndex(p =>
-//     p.groupId === pipe.groupId &&
-//     p.name === pipe.name &&
-//     p.specification === pipe.specification &&
-//     p.unitPrice === pipe.unitPrice &&
-//     p.quantity === pipe.quantity);
-
-//   if (originalIndex >= 0) {
-//     localFormData.pipes.splice(originalIndex, 1);
-//     updateFormData();
-//   }
-// };
 const removePipe = (groupNo: number, pipeIndexInGroup: number) => {
   const group = groupedPipes.value.find(g => g.groupNo === groupNo);
   if (!group) return;
@@ -1983,36 +2233,6 @@ const removePipe = (groupNo: number, pipeIndexInGroup: number) => {
 };
 
 // 上移管路順序
-// const movePipeUp = (groupIndex, pipeIndex) => {
-//   if (pipeIndex <= 0) return;
-
-//   const group = groupedPipes.value[groupIndex];
-//   const pipe1 = group.items[pipeIndex];
-//   const pipe2 = group.items[pipeIndex - 1];
-
-//   // 找到在原數組中的索引
-//   const index1 = localFormData.pipes.findIndex(p =>
-//     p.groupId === pipe1.groupId &&
-//     p.name === pipe1.name &&
-//     p.specification === pipe1.specification &&
-//     p.unitPrice === pipe1.unitPrice &&
-//     p.quantity === pipe1.quantity);
-
-//   const index2 = localFormData.pipes.findIndex(p =>
-//     p.groupId === pipe2.groupId &&
-//     p.name === pipe2.name &&
-//     p.specification === pipe2.specification &&
-//     p.unitPrice === pipe2.unitPrice &&
-//     p.quantity === pipe2.quantity);
-
-//   if (index1 >= 0 && index2 >= 0) {
-//     // 交換元素
-//     const temp = localFormData.pipes[index1];
-//     localFormData.pipes[index1] = localFormData.pipes[index2];
-//     localFormData.pipes[index2] = temp;
-//     updateFormData();
-//   }
-// };
 const movePipeUp = (groupNo: number, pipeIndexInGroup: number) => {
   if (pipeIndexInGroup <= 0) return;
   const groupItems = localFormData.pipes.filter(p => p.groupId === groupNo).sort((a,b) => (a.order || 0) - (b.order || 0));
@@ -2030,36 +2250,6 @@ const movePipeUp = (groupNo: number, pipeIndexInGroup: number) => {
 
 
 // 下移管路順序
-// const movePipeDown = (groupIndex, pipeIndex) => {
-//   const group = groupedPipes.value[groupIndex];
-//   if (pipeIndex >= group.items.length - 1) return;
-
-//   const pipe1 = group.items[pipeIndex];
-//   const pipe2 = group.items[pipeIndex + 1];
-
-//   // 找到在原數組中的索引
-//   const index1 = localFormData.pipes.findIndex(p =>
-//     p.groupId === pipe1.groupId &&
-//     p.name === pipe1.name &&
-//     p.specification === pipe1.specification &&
-//     p.unitPrice === pipe1.unitPrice &&
-//     p.quantity === pipe1.quantity);
-
-//   const index2 = localFormData.pipes.findIndex(p =>
-//     p.groupId === pipe2.groupId &&
-//     p.name === pipe2.name &&
-//     p.specification === pipe2.specification &&
-//     p.unitPrice === pipe2.unitPrice &&
-//     p.quantity === pipe2.quantity);
-
-//   if (index1 >= 0 && index2 >= 0) {
-//     // 交換元素
-//     const temp = localFormData.pipes[index1];
-//     localFormData.pipes[index1] = localFormData.pipes[index2];
-//     localFormData.pipes[index2] = temp;
-//     updateFormData();
-//   }
-// };
 const movePipeDown = (groupNo: number, pipeIndexInGroup: number) => {
   const groupItems = localFormData.pipes.filter(p => p.groupId === groupNo).sort((a,b) => (a.order || 0) - (b.order || 0));
   if (pipeIndexInGroup >= groupItems.length - 1) return;
@@ -2285,86 +2475,6 @@ const autoFillMaterials = async () => {
 };
 
 // 計算補助金額
-// const calculateSubsidy = async () => {
-//   isCalculatingSubsidy.value = true;
-
-//   try {
-//     // 構建請求數據
-//     const requestData = {
-//       // 補助來源
-//       Unit: getFundingSourceId(localFormData.fundingSource),
-
-//       // 栅塊形狀
-//       Block: `${localFormData.fieldLength}x${localFormData.fieldWidth}`,
-
-//       // 灌溉系統數據
-//       EndTypeDataAry: [{
-//         Endtype: getEndTypeId(localFormData.irrigationType),
-//         Fac: parseInt(localFormData.installationType) || 1,
-//         SS: parseFloat(localFormData.sprinklerSpacing) || 0,
-//         SL: parseFloat(localFormData.branchPipeSpacing) || 0,
-//         BranchPipeMaterial: localFormData.branchPipeMaterial,
-//         BranchPipeSpec: parseInt(getSpecId(localFormData.branchPipeDiameter)) || 1,
-//         StdpipeHei: parseFloat(localFormData.riserHeight) || 0,
-//         NozzleSpec: 1,
-//         NozzleType: '',
-//         StdpipeMat: '',
-//         StdpipeSpec: 1,
-//         PerforatedPipe: parseInt(localFormData.perforatedPipeType) || 1
-//       }],
-
-//       // 灌溉水源
-//       IrrWCode: parseInt(localFormData.waterSource) || 1,
-
-//       // 主管數據
-//       MainJsonDataAry: [{
-//         Length: parseFloat(localFormData.mainPipeLength) || 0,
-//         Mat: localFormData.mainPipeMaterial,
-//         Spec: parseInt(getSpecId(localFormData.mainPipeDiameter)) || 1,
-//         LPrice: parseFloat(localFormData.mainPipeUnitPrice) || 0,
-//         Amount: parseInt(localFormData.mainPipeQuantity) || 0
-//       }],
-
-//       // 材料清單數據
-//       PriceJsonDataAry: localFormData.pipes.map(pipe => ({
-//         POMNo: getPOMNo(pipe.moduleType, pipe.name),
-//         Group: pipe.groupId,
-//         Order: 1,
-//         Amt: pipe.quantity,
-//         Price: pipe.unitPrice,
-//         TotalPrice: pipe.totalPrice
-//       })),
-
-//       // 總價格
-//       TotalPrice: getTotalPrice()
-//     };
-
-//     console.log('Calculating subsidy with data:', requestData);
-
-//     // 模擬API調用（實際使用中替換為真實的API調用）
-//     // const response = await axios.post('../FarmerSys/GetTotalPrice', requestData);
-
-//     // 模擬延遲
-//     await new Promise(resolve => setTimeout(resolve, 1000));
-
-//     // 模擬API響應數據（format: "總價;補助金額;自付金額"）
-//     const mockResponse = {
-//       data: `${getTotalPrice()};${Math.round(getTotalPrice() * 0.6)};${Math.round(getTotalPrice() * 0.4)}`
-//     };
-
-//     // 處理響應數據
-//     const priceData = mockResponse.data.split(';');
-//     localFormData.subsidyTotal = parseInt(priceData[0]) || 0;
-//     localFormData.subsidyAmount = parseInt(priceData[1]) || 0;
-//     localFormData.farmerSelfAmount = parseInt(priceData[2]) || 0;
-
-//     updateFormData();
-//   } catch (error) {
-//     console.error('Error calculating subsidy:', error);
-//   } finally {
-//     isCalculatingSubsidy.value = false;
-//   }
-// };
 const calculateSubsidy = async () => {
   if (localFormData.pipes.length === 0) {
     // alert('請先自動帶入或新增管路設施!');
@@ -2475,15 +2585,6 @@ const updatePipeOrderWithinGroups = () => {
 
 
 // 更新父組件數據
-// const updateFormData = () => {
-//   emit('update:formData', {
-//     ...props.formData,
-//     ...localFormData,
-//     valid: true // Always true for seamless navigation
-//   });
-// };
-
-// 更新父組件數據
 const updateFormData = () => {
   // 在此處進行任何必要的驗證
   // localValid.value = form.value?.validate() ?? false; // 如果需要Vuetify的表單驗證
@@ -2569,133 +2670,6 @@ const getTotalPrice = () => {
 };
 
 // 獲取模擬材料數據
-// const getMockMaterialData = () => {
-//   // 模擬按群組返回材料數據
-//   return [
-//     {
-//       GroupNo: 1,
-//       GroupName: '主管配件',
-//       List: [
-//         {
-//           module: '主管',
-//           matname: `${localFormData.mainPipeMaterial} ${localFormData.mainPipeDiameter} 管`,
-//           spec1: localFormData.mainPipeDiameter,
-//           spec2: '',
-//           spec3: '',
-//           itemunit: '支',
-//           matprice: parseFloat(localFormData.mainPipeUnitPrice) || 60,
-//           matamount: parseInt(localFormData.mainPipeQuantity) || 10,
-//           description: '主管管線'
-//         },
-//         {
-//           module: '主管',
-//           matname: '配件-閥門',
-//           spec1: localFormData.mainPipeDiameter,
-//           spec2: '',
-//           spec3: '',
-//           itemunit: '個',
-//           matprice: 180,
-//           matamount: 2,
-//           description: '控制閥門'
-//         }
-//       ]
-//     },
-//     {
-//       GroupNo: 2,
-//       GroupName: '支管配件',
-//       List: [
-//         {
-//           module: '支管',
-//           matname: 'PVC 3/4" 管',
-//           spec1: '3/4"',
-//           spec2: '',
-//           spec3: '',
-//           itemunit: '支',
-//           matprice: 40,
-//           matamount: Math.ceil(parseFloat(localFormData.fieldLength) / (parseFloat(localFormData.branchPipeSpacing) || 5)),
-//           description: '支管管線'
-//         },
-//         {
-//           module: '支管',
-//           matname: '配件-T型接頭',
-//           spec1: '3/4"',
-//           spec2: '',
-//           spec3: '',
-//           itemunit: '個',
-//           matprice: 25,
-//           matamount: Math.ceil(parseFloat(localFormData.fieldLength) / (parseFloat(localFormData.branchPipeSpacing) || 5)),
-//           description: 'T型連接器'
-//         }
-//       ]
-//     },
-//     {
-//       GroupNo: 3,
-//       GroupName: '末端設施',
-//       List: [
-//         {
-//           module: '末端設施',
-//           matname: localFormData.irrigationType === '滴灌系統' ? '滴嘴' :
-//                    localFormData.irrigationType === '噴頭式系統' ? '噴頭' :
-//                    localFormData.irrigationType === '穿孔管系統' ? '穿孔管' : '噴頭',
-//           spec1: '1/2"',
-//           spec2: '',
-//           spec3: '',
-//           itemunit: '個',
-//           matprice: 35,
-//           matamount: localFormData.sprinklerSpacing && localFormData.branchPipeSpacing ?
-//                      Math.ceil(parseFloat(localFormData.fieldLength) / parseFloat(localFormData.branchPipeSpacing)) *
-//                      Math.ceil(parseFloat(localFormData.fieldWidth) / parseFloat(localFormData.sprinklerSpacing)) : 20,
-//           description: '用於灌溉的末端裝置'
-//         }
-//       ]
-//     },
-//     {
-//       GroupNo: 4,
-//       GroupName: '閥件',
-//       List: [
-//         {
-//           module: '閥件',
-//           matname: '球閥',
-//           spec1: '1"',
-//           spec2: '',
-//           spec3: '',
-//           itemunit: '個',
-//           matprice: 120,
-//           matamount: 2,
-//           description: '用於控制水流的球閥'
-//         }
-//       ]
-//     },
-//     {
-//       GroupNo: 7,
-//       GroupName: '雜項',
-//       List: [
-//         {
-//           module: '雜項',
-//           matname: '快速接頭',
-//           spec1: '1"',
-//           spec2: '',
-//           spec3: '',
-//           itemunit: '個',
-//           matprice: 45,
-//           matamount: 4,
-//           description: '用於快速連接水管的接頭'
-//         },
-//         {
-//           module: '雜項',
-//           matname: '預備費',
-//           spec1: '',
-//           spec2: '',
-//           spec3: '',
-//           itemunit: '式',
-//           matprice: Math.round(getTotalPrice() * 0.02),
-//           matamount: 1,
-//           description: '預備費用約2%'
-//         }
-//       ]
-//     }
-//   ];
-// };
 // 模擬材料數據 (應根據API的真實響應結構調整)
 const getMockMaterialData = (formInputs: any) => {
   console.log("Mock data generation based on form inputs:", formInputs);
@@ -2908,5 +2882,11 @@ watch(pipeMaterialOptions, (newOptions) => {
 .v-table th {
   font-weight: 600;
   color: rgba(0, 0, 0, 0.7);
+}
+
+.irrigation-type-config {
+  background-color: rgba(0, 0, 0, 0.02);
+  padding: 15px;
+  border-radius: 8px;
 }
 </style>
