@@ -32,7 +32,7 @@
           <v-card class="mb-4" variant="outlined">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
               <v-icon class="me-2" size="small">mdi-land-fields</v-icon>
-              <span class="text-subtitle-1 font-weight-medium">坵塊大小</span>
+              <span class="text-subtitle-1 font-weight-medium">田間坵塊</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -90,7 +90,7 @@
             <v-card-text class="pa-4">
               <v-sheet class="pa-3 rounded" color="grey-lighten-5">
                 <!-- 主管1 -->
-                <div class="text-subtitle-2 mb-1">主管 1</div>
+                <div class="text-subtitle-2 mb-1">主管 1（L1）</div>
                 <div class="d-flex align-center flex-wrap">
                   <v-text-field
                     v-model.number="localFormData.mainPipeLength"
@@ -185,7 +185,7 @@
                 <div class="d-flex align-center mb-1">
                   <v-checkbox-btn
                     v-model="localFormData.mainPipe2Enabled"
-                    label="啟用主管2"
+                    label="啟用主管2（L2）"
                     density="compact"
                     @update:model-value="toggleMainPipe2"
                   />
@@ -1400,17 +1400,16 @@ const endFacilityDiameterOptions = computed(() => {
   }
   else if (localFormData.irrigationTypeId === 3) {
     // 微噴系統 - 使用微噴管件
-    // 假設微噴也使用噴頭模組，您可能需要調整這裡
     return convertToSelectOptions(filteredPipeFittingsByModule.value.microSprinkler || []);
   }
-  else if (localFormData.dripperSubtypeId === 7) {
-    // 滴灌系統 - 使用滴頭管件
-    // 這裡需要確認您的數據結構中滴頭管件的模組名稱
-    return convertToSelectOptions(filteredPipeFittingsByModule.value.nozzleDrip || []);
-  }
-  else if (localFormData.dripperSubtypeId === 8) {
-    // 滴灌系統 - 使用滴水管件
-    return convertToSelectOptions(filteredPipeFittingsByModule.value.pipeDrip || []);
+  else if (localFormData.irrigationTypeId === 4) { // 滴灌系統
+    if (localFormData.dripperSubtypeId === 8) {
+      // 滴灌系統 - 使用滴水管件
+      return convertToSelectOptions(filteredPipeFittingsByModule.value.pipeDrip || []);
+    } else {
+      // 滴灌系統 - 使用滴頭管件 (默認 dripperSubtypeId === 7 或未設置)
+      return convertToSelectOptions(filteredPipeFittingsByModule.value.nozzleDrip || []);
+    }
   }
 
   // 默認返回所有管徑選項
@@ -1593,16 +1592,16 @@ const branchPipeMaterialOptions = computed(() => {
 
 const filteredPipeFittingsByModule = computed(() => {
   const moduleFilters = {
-    mainPipe: 1, // 主管模塊 ID
-    branchPipe: 2, // 支管模塊 ID
-    endFacility: 3, // 末端設施模塊 ID
-    valves: 4, // 閥門模塊 ID
-    sprinkler: 5, // 噴頭模塊 ID
-    perforatedPipe: 6, // 穿孔管模塊 ID
-    // riser: 7, // 豎管模塊 ID
-    microSprinkler: 8, // 微噴模塊 ID
-    nozzleDrip: 9, // 滴嘴滴灌 ID
-    pipeDrip: 12 // 滴水滴灌 ID
+    mainPipe: 1, // 輸水管模組 ID
+    branchPipe: 2, // 支管模組 ID
+    endFacility: 3, // 末端設施模組 ID
+    valves: 10, // 制水閥模組 ID
+    sprinkler: 5, // 噴頭模組 ID
+    perforatedPipe: 6, // 穿孔管模組 ID
+    riser: 4, // 豎管模組 ID
+    microSprinkler: 8, // 微噴模組 ID
+    nozzleDrip: 9, // 滴嘴滴灌模組 ID
+    pipeDrip: 12 // 滴水滴灌模組  ID
   };
 
   const result = {};
@@ -1898,10 +1897,23 @@ const calculateSprinklerQuantity = () => {
 // 灌溉類型變更
 const onIrrigationTypeChange = async () => {
   localFormData.sprinklerSubtypeId = null;
-  localFormData.dripperSubtypeId = null;
   localFormData.perforatedPipeDirection = 1; // Default for perforated
   localFormData.endFacilityPomno = null;
   localFormData.endFacilitySpecId = null;
+
+  if (localFormData.irrigationTypeId === 2) { // 噴頭系統
+    localFormData.sprinklerSubtypeId = 2; // 默認為一般噴頭系統
+  } else {
+    localFormData.sprinklerSubtypeId = null;
+  }
+
+  // 為滴灌系統設置默認子類型，確保能夠正確加載對應的末端設施
+  if (localFormData.irrigationTypeId === 4) { // 滴灌系統
+    // 默認選擇滴嘴滴灌系統(7)，除非用戶已經明確選擇了另一個子類型
+    localFormData.dripperSubtypeId = 7; // 默認為滴嘴滴灌系統
+  } else {
+    localFormData.dripperSubtypeId = null;
+  }
 
   await loadEndFacilityOptions(); // 動態載入末端設施選項
   updateFormData();
@@ -1930,25 +1942,33 @@ const loadEndFacilityOptions = async () => {
 
   let fittings = [];
 
+  console.log(`loadEndFacilityOptions: irrigationTypeId=${irrigationTypeId}, dripperSubtypeId=${dripperSubtypeId}`);
+
   if (irrigationTypeId === 1) {
     // 穿孔管系統
     fittings = filteredPipeFittingsByModule.value.perforatedPipe || [];
+    console.log(`Using perforatedPipe fittings, count: ${fittings.length}`);
   }
   else if (irrigationTypeId === 2 || localFormData.sprinklerSubtypeId === 6) {
     // 噴頭式系統
     fittings = filteredPipeFittingsByModule.value.sprinkler || [];
+    console.log(`Using sprinkler fittings, count: ${fittings.length}`);
   }
   else if (irrigationTypeId === 3) {
     // 微噴系統
-    fittings = filteredPipeFittingsByModule.value.microSprinkler || []; // 假設使用相同模組
+    fittings = filteredPipeFittingsByModule.value.microSprinkler || [];
+    console.log(`Using microSprinkler fittings, count: ${fittings.length}`);
   }
-  else if (dripperSubtypeId === 7) {
-    // 滴灌系統
-    fittings = filteredPipeFittingsByModule.value.nozzleDrip || [];
-  }
-  else if (dripperSubtypeId === 8) {
-    // 滴灌系統
-    fittings = filteredPipeFittingsByModule.value.pipeDrip || [];
+  else if (irrigationTypeId === 4) { // 滴灌系統
+    if (dripperSubtypeId === 8) {
+      // 滴水管滴灌系統
+      fittings = filteredPipeFittingsByModule.value.pipeDrip || [];
+      console.log(`Using pipeDrip fittings for drip pipe system, count: ${fittings.length}`);
+    } else {
+      // 默認使用滴嘴系統 (dripperSubtypeId === 7 或未設置)
+      fittings = filteredPipeFittingsByModule.value.nozzleDrip || [];
+      console.log(`Using nozzleDrip fittings for drip nozzle system, count: ${fittings.length}`);
+    }
   }
 
 
@@ -2409,8 +2429,8 @@ const autoFillMaterials = async () => {
         L2MatAmt: localFormData.mainPipe2Enabled ? (localFormData.mainPipe2Quantity || 0) : 0,
 
         ddl_EndType: localFormData.irrigationTypeId,
-        ddl_Sprinkler: localFormData.irrigationTypeId === 2 ? localFormData.sprinklerSubtypeId : null, // 假設 2 是噴頭ID
-        ddl_Drop: localFormData.irrigationTypeId === 4 ? localFormData.dripperSubtypeId : null,       // 假設 4 是滴灌ID
+        ddl_Sprinkler: localFormData.irrigationTypeId === 2 ? localFormData.sprinklerSubtypeId : null,
+        ddl_Drop: localFormData.irrigationTypeId === 4 ? localFormData.dripperSubtypeId : null,
         ddl_FacType: localFormData.facilityTypeId,
         ddl_WtaerSrc: localFormData.waterSourceId,
 
@@ -2600,63 +2620,6 @@ const updateFormData = () => {
 
 
 // 實用函數
-// 取得材質類型ID
-const getMatTypeId = (materialName) => {
-  const materialMap = {
-    'PVC': 1,
-    'PE': 2,
-    'PVCA': 3,
-    'PVCB': 4,
-    'PVCE': 5,
-    'PVCS': 6,
-    'PVCW': 7,
-    '不鏽鋼': 8,
-    '鐵': 9,
-    '其他': 10
-  };
-  return materialMap[materialName] || 1;
-};
-
-// 取得規格ID
-const getSpecId = (diameter) => {
-  const specMap = {
-    '1/2"': 1,
-    '3/4"': 2,
-    '1"': 3,
-    '1-1/4"': 4,
-    '1-1/2"': 5,
-    '2"': 6,
-    '3"': 7,
-    '4"': 8,
-    '5"': 9,
-    '6"': 10,
-    '其他': 11
-  };
-  return specMap[diameter] || 1;
-};
-
-// 取得末端設施類型ID
-const getEndTypeId = (irrigationType) => {
-  const typeMap = {
-    '穿孔管系統': 1,
-    '噴頭式系統': 2,
-    '微噴系統': 3,
-    '滴灌系統': 4,
-    '其他': 5
-  };
-  return typeMap[irrigationType] || 1;
-};
-
-// 取得補助來源ID
-const getFundingSourceId = (fundingSource) => {
-  const sourceMap = {
-    '農田水利署': 0,
-    '七星管理處作業基金': 16,
-    '瑠公管理處作業基金': 17
-  };
-  return sourceMap[fundingSource] || 0;
-};
-
 // 模擬取得物料編號
 const getPOMNo = (moduleType, name) => {
   // 實際應用中，這裡應該使用真實的物料編號邏輯
