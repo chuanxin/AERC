@@ -955,6 +955,9 @@
             </v-card-title>
             <v-card-text class="pa-4">
               <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+                <div class="text-body-2 mb-2 text-grey-darken-1">
+                  點擊下方按鈕可根據您選擇的灌溉型式和設施配置，自動帶入相應的材料清單。
+                </div>
                 <v-btn
                   color="success"
                   class="mb-2"
@@ -966,6 +969,18 @@
                   <v-icon start size="small">mdi-autorenew</v-icon>
                   自動帶入材料
                 </v-btn>
+                <div v-if="!canAutoFillMaterials" class="text-caption text-red mt-1">
+                  請先完成上方配置中的必填欄位，才能自動帶入材料
+                  <v-btn
+                    variant="text"
+                    size="small"
+                    color="info"
+                    class="ml-2 mt-n1"
+                    @click="showMissingFieldsInfo"
+                  >
+                    查看缺少欄位
+                  </v-btn>
+                </div>
               </v-sheet>
             </v-card-text>
 
@@ -1749,19 +1764,94 @@ const farmerSelfAmount = computed(() => {
   return localFormData.farmerSelfAmount.toLocaleString();
 });
 
-// 驗證條件
+// 驗證條件 - 依照不同灌溉型式驗證自動帶入材料所需欄位
 const canAutoFillMaterials = computed(() => {
-  return (
+  console.log("檢查自動帶入材料條件", JSON.parse(JSON.stringify(localFormData)));
+  
+  // 基本必要條件 (對所有灌溉型式都需要)
+  const basicConditions = 
     !!localFormData.fieldLength &&
     !!localFormData.fieldWidth &&
-    (localFormData.fundingSourceId !== null) && // 使用ID
-    !!localFormData.irrigationTypeId && // 使用ID
-    !!localFormData.facilityTypeId &&   // 使用ID
+    (localFormData.fundingSourceId !== null) && 
+    !!localFormData.irrigationTypeId &&
+    !!localFormData.waterSourceId &&
     (localFormData.mainPipeLength !== null) &&
-    !!localFormData.mainPipeMaterialId && // 使用ID
-    (localFormData.branchPipeSpacing_SL !== null) &&
-    (localFormData.sprinklerSpacing_SS !== null)
+    !!localFormData.mainPipeMaterialId &&
+    !!localFormData.mainPipeDiameterId;
+  
+  // 如果主管2已啟用，則需要檢查主管2的相關欄位
+  const mainPipe2Conditions = !localFormData.mainPipe2Enabled || (
+    !!localFormData.mainPipe2Length &&
+    !!localFormData.mainPipe2MaterialId &&
+    !!localFormData.mainPipe2DiameterId
   );
+
+  // 根據不同灌溉型式的特定條件
+  let irrigationTypeSpecificConditions = true;
+
+  // 穿孔管系統 (irrigationTypeId === 1)
+  if (localFormData.irrigationTypeId === 1) {
+    // 注意：穿孔管系統的判斷條件最簡單，根據原始專案邏輯
+    irrigationTypeSpecificConditions = 
+      // 穿孔管出水方向 (1=單向 或 2=雙向)
+      [1, 2].includes(localFormData.perforatedPipeDirection) &&
+      // 支管行距必須有值
+      (localFormData.branchPipeSpacing_SL !== null && localFormData.branchPipeSpacing_SL > 0) &&
+      // 末端設施規格必須選擇 (但不需要選擇末端設施名稱)
+      !!localFormData.endFacilitySpecId;
+      
+    // 重要：穿孔管系統不需要支管材質和規格作為必填欄位
+    // 原始專案中這些欄位在選擇穿孔管系統時會被隱藏
+  }
+  // 噴頭式系統 (irrigationTypeId === 2)
+  else if (localFormData.irrigationTypeId === 2) {
+    irrigationTypeSpecificConditions = 
+      !!localFormData.sprinklerSubtypeId &&
+      (localFormData.branchPipeSpacing_SL !== null && localFormData.branchPipeSpacing_SL > 0) &&
+      (localFormData.sprinklerSpacing_SS !== null && localFormData.sprinklerSpacing_SS > 0) &&
+      !!localFormData.branchPipeMaterialId &&
+      !!localFormData.branchPipeDiameterId &&
+      (localFormData.riserHeight_H !== null && localFormData.riserHeight_H > 0) &&
+      !!localFormData.riserPipeMaterialId &&
+      !!localFormData.riserPipeSpecId &&
+      !!localFormData.endFacilitySpecId &&
+      !!localFormData.endFacilityPomno;
+  }
+  // 微噴系統 (irrigationTypeId === 3) 
+  else if (localFormData.irrigationTypeId === 3) {
+    irrigationTypeSpecificConditions = 
+      !!localFormData.facilityTypeId &&
+      (localFormData.branchPipeSpacing_SL !== null && localFormData.branchPipeSpacing_SL > 0) &&
+      (localFormData.sprinklerSpacing_SS !== null && localFormData.sprinklerSpacing_SS > 0) &&
+      !!localFormData.branchPipeMaterialId &&
+      !!localFormData.branchPipeDiameterId &&
+      (localFormData.riserHeight_H !== null && localFormData.riserHeight_H > 0) &&
+      !!localFormData.endFacilitySpecId &&
+      !!localFormData.endFacilityPomno;
+  }
+  // 滴灌系統 (irrigationTypeId === 4)
+  else if (localFormData.irrigationTypeId === 4) {
+    irrigationTypeSpecificConditions = 
+      !!localFormData.dripperSubtypeId &&
+      !!localFormData.facilityTypeId &&
+      (localFormData.branchPipeSpacing_SL !== null && localFormData.branchPipeSpacing_SL > 0) &&
+      !!localFormData.branchPipeMaterialId &&
+      !!localFormData.branchPipeDiameterId &&
+      !!localFormData.endFacilitySpecId &&
+      !!localFormData.endFacilityPomno;
+  }
+
+  const result = basicConditions && mainPipe2Conditions && irrigationTypeSpecificConditions;
+  
+  // 輸出判斷結果供調試
+  console.log("自動帶入材料判斷結果:", {
+    basicConditions,
+    mainPipe2Conditions,
+    irrigationTypeSpecificConditions,
+    finalResult: result
+  });
+  
+  return result;
 });
 
 const calculateWidth = () => {
@@ -2401,7 +2491,105 @@ const autoFillMaterials = async () => {
   }
   if (!canAutoFillMaterials.value) {
     console.error('Not all required fields for auto-filling materials are filled or valid.');
-    // 可以加入提示訊息給使用者
+    
+    // 根據不同灌溉型式提供相應的提示訊息
+    let errorMessage = '請填寫以下必填欄位：\n';
+    
+    // 基本必要欄位檢查
+    if (!localFormData.fieldLength || !localFormData.fieldWidth) {
+      errorMessage += '- 田間坵塊的長度與寬度\n';
+    }
+    if (localFormData.fundingSourceId === null) {
+      errorMessage += '- 補助單位\n';
+    }
+    if (!localFormData.irrigationTypeId) {
+      errorMessage += '- 灌溉型式\n';
+    }
+    if (!localFormData.waterSourceId) {
+      errorMessage += '- 灌溉水源\n';
+    }
+    if (localFormData.mainPipeLength === null || !localFormData.mainPipeMaterialId || !localFormData.mainPipeDiameterId) {
+      errorMessage += '- 田間主管1的長度、材質和管徑\n';
+    }
+    
+    // 如果主管2已啟用但欄位未填寫完整
+    if (localFormData.mainPipe2Enabled && 
+        (!localFormData.mainPipe2Length || !localFormData.mainPipe2MaterialId || !localFormData.mainPipe2DiameterId)) {
+      errorMessage += '- 田間主管2的長度、材質和管徑\n';
+    }
+    
+    // 根據灌溉型式檢查特定欄位
+    if (localFormData.irrigationTypeId === 1) { // 穿孔管系統
+      if (localFormData.perforatedPipeDirection === null) {
+        errorMessage += '- 穿孔管出水方向\n';
+      }
+      if (localFormData.branchPipeSpacing_SL === null) {
+        errorMessage += '- 支管行距(SL)\n';
+      }
+      // 穿孔管系統不需要支管材質和規格作為必填欄位
+      if (!localFormData.endFacilitySpecId) {
+        errorMessage += '- 末端設施規格\n';
+      }
+    } 
+    else if (localFormData.irrigationTypeId === 2) { // 噴頭式系統
+      if (!localFormData.sprinklerSubtypeId) {
+        errorMessage += '- 噴頭類型\n';
+      }
+      if (localFormData.branchPipeSpacing_SL === null || localFormData.sprinklerSpacing_SS === null) {
+        errorMessage += '- 支管行距(SL)和噴頭間距(SS)\n';
+      }
+      if (!localFormData.branchPipeMaterialId || !localFormData.branchPipeDiameterId) {
+        errorMessage += '- 支管材質和規格\n';
+      }
+      if (!localFormData.riserHeight_H || !localFormData.riserPipeMaterialId || !localFormData.riserPipeSpecId) {
+        errorMessage += '- 豎管高度、材質和規格\n';
+      }
+      if (!localFormData.endFacilitySpecId || !localFormData.endFacilityPomno) {
+        errorMessage += '- 末端設施規格和名稱\n';
+      }
+    }
+    else if (localFormData.irrigationTypeId === 3) { // 微噴系統
+      if (!localFormData.facilityTypeId) {
+        errorMessage += '- 設施型式\n';
+      }
+      if (localFormData.branchPipeSpacing_SL === null || localFormData.sprinklerSpacing_SS === null) {
+        errorMessage += '- 支管行距(SL)和噴頭間距(SS)\n';
+      }
+      if (!localFormData.branchPipeMaterialId || !localFormData.branchPipeDiameterId) {
+        errorMessage += '- 支管材質和規格\n';
+      }
+      if (!localFormData.riserHeight_H) {
+        errorMessage += '- 豎管高度\n';
+      }
+      if (!localFormData.endFacilitySpecId || !localFormData.endFacilityPomno) {
+        errorMessage += '- 末端設施規格和名稱\n';
+      }
+    }
+    else if (localFormData.irrigationTypeId === 4) { // 滴灌系統
+      if (!localFormData.dripperSubtypeId) {
+        errorMessage += '- 滴灌類型\n';
+      }
+      if (!localFormData.facilityTypeId) {
+        errorMessage += '- 設施型式\n';
+      }
+      if (localFormData.branchPipeSpacing_SL === null) {
+        errorMessage += '- 支管行距(SL)\n';
+      }
+      if (!localFormData.branchPipeMaterialId || !localFormData.branchPipeDiameterId) {
+        errorMessage += '- 支管材質和規格\n';
+      }
+      if (!localFormData.endFacilitySpecId || !localFormData.endFacilityPomno) {
+        errorMessage += '- 末端設施規格和名稱\n';
+      }
+    }
+    
+    // 使用Vuetify的提示元件顯示錯誤訊息
+    emit('show-snackbar', {
+      text: errorMessage,
+      color: 'error',
+      timeout: 7000  // 顯示7秒
+    });
+    
     return;
   }
 
@@ -2616,6 +2804,163 @@ const updateFormData = () => {
   };
   // console.log('Emitting update:formData with:', JSON.parse(JSON.stringify(dataToEmit)));
   emit('update:formData', dataToEmit);
+};
+
+// 顯示缺少的必填欄位詳細信息
+const showMissingFieldsInfo = () => {
+  // 準備診斷信息
+  const basicFieldStatus = {
+    'fieldLength': !!localFormData.fieldLength ? '✓' : '✗',
+    'fieldWidth': !!localFormData.fieldWidth ? '✓' : '✗',
+    'fundingSourceId': (localFormData.fundingSourceId !== null) ? '✓' : '✗',
+    'irrigationTypeId': !!localFormData.irrigationTypeId ? '✓' : '✗',
+    'waterSourceId': !!localFormData.waterSourceId ? '✓' : '✗',
+    'mainPipeLength': (localFormData.mainPipeLength !== null) ? '✓' : '✗',
+    'mainPipeMaterialId': !!localFormData.mainPipeMaterialId ? '✓' : '✗',
+    'mainPipeDiameterId': !!localFormData.mainPipeDiameterId ? '✓' : '✗'
+  };
+
+  // 主管2狀態 (如果啟用)
+  const mainPipe2Status = localFormData.mainPipe2Enabled ? {
+    'mainPipe2Length': !!localFormData.mainPipe2Length ? '✓' : '✗',
+    'mainPipe2MaterialId': !!localFormData.mainPipe2MaterialId ? '✓' : '✗',
+    'mainPipe2DiameterId': !!localFormData.mainPipe2DiameterId ? '✓' : '✗'
+  } : { '主管2': '未啟用' };
+
+  // 依灌溉型式建立不同的檢查項目
+  let typeSpecificStatus = {};
+  const irrigationType = localFormData.irrigationTypeId;
+  
+  if (irrigationType === 1) { // 穿孔管系統
+    typeSpecificStatus = {
+      'perforatedPipeDirection': (localFormData.perforatedPipeDirection !== null) ? '✓' : '✗',
+      'branchPipeSpacing_SL': (localFormData.branchPipeSpacing_SL !== null) ? '✓' : '✗',
+      'endFacilitySpecId': !!localFormData.endFacilitySpecId ? '✓' : '✗',
+      // 支管材質和規格在穿孔管系統中不是必填欄位
+      'branchPipeMaterialId (非必填)': !!localFormData.branchPipeMaterialId ? '✓' : '✗',
+      'branchPipeDiameterId (非必填)': !!localFormData.branchPipeDiameterId ? '✓' : '✗'
+    };
+  } else if (irrigationType === 2) { // 噴頭式系統
+    typeSpecificStatus = {
+      'sprinklerSubtypeId': !!localFormData.sprinklerSubtypeId ? '✓' : '✗',
+      'branchPipeSpacing_SL': (localFormData.branchPipeSpacing_SL !== null) ? '✓' : '✗',
+      'sprinklerSpacing_SS': (localFormData.sprinklerSpacing_SS !== null) ? '✓' : '✗',
+      'branchPipeMaterialId': !!localFormData.branchPipeMaterialId ? '✓' : '✗',
+      'branchPipeDiameterId': !!localFormData.branchPipeDiameterId ? '✓' : '✗',
+      'riserHeight_H': !!localFormData.riserHeight_H ? '✓' : '✗',
+      'riserPipeMaterialId': !!localFormData.riserPipeMaterialId ? '✓' : '✗',
+      'riserPipeSpecId': !!localFormData.riserPipeSpecId ? '✓' : '✗',
+      'endFacilitySpecId': !!localFormData.endFacilitySpecId ? '✓' : '✗',
+      'endFacilityPomno': !!localFormData.endFacilityPomno ? '✓' : '✗'
+    };
+  } else if (irrigationType === 3) { // 微噴系統
+    typeSpecificStatus = {
+      'facilityTypeId': !!localFormData.facilityTypeId ? '✓' : '✗',
+      'branchPipeSpacing_SL': (localFormData.branchPipeSpacing_SL !== null) ? '✓' : '✗',
+      'sprinklerSpacing_SS': (localFormData.sprinklerSpacing_SS !== null) ? '✓' : '✗',
+      'branchPipeMaterialId': !!localFormData.branchPipeMaterialId ? '✓' : '✗',
+      'branchPipeDiameterId': !!localFormData.branchPipeDiameterId ? '✓' : '✗',
+      'riserHeight_H': !!localFormData.riserHeight_H ? '✓' : '✗',
+      'endFacilitySpecId': !!localFormData.endFacilitySpecId ? '✓' : '✗',
+      'endFacilityPomno': !!localFormData.endFacilityPomno ? '✓' : '✗'
+    };
+  } else if (irrigationType === 4) { // 滴灌系統
+    typeSpecificStatus = {
+      'dripperSubtypeId': !!localFormData.dripperSubtypeId ? '✓' : '✗',
+      'facilityTypeId': !!localFormData.facilityTypeId ? '✓' : '✗',
+      'branchPipeSpacing_SL': (localFormData.branchPipeSpacing_SL !== null) ? '✓' : '✗',
+      'branchPipeMaterialId': !!localFormData.branchPipeMaterialId ? '✓' : '✗',
+      'branchPipeDiameterId': !!localFormData.branchPipeDiameterId ? '✓' : '✗',
+      'endFacilitySpecId': !!localFormData.endFacilitySpecId ? '✓' : '✗',
+      'endFacilityPomno': !!localFormData.endFacilityPomno ? '✓' : '✗'
+    };
+  } else {
+    typeSpecificStatus = { '灌溉型式': '未選擇或不支援的類型' };
+  }
+
+  // 組合所有狀態資訊
+  const allStatus = {
+    '基本資料': basicFieldStatus,
+    '主管2': mainPipe2Status,
+    '灌溉型式特定欄位': typeSpecificStatus,
+    '目前選擇的灌溉型式': irrigationType
+  };
+
+  // 輸出完整診斷資訊到控制台
+  console.log('自動帶入材料必填欄位狀態:', allStatus);
+  console.log('原始表單數據:', JSON.parse(JSON.stringify(localFormData)));
+
+  // 顯示給使用者的診斷訊息
+  let missingFields = [];
+  
+  // 檢查基本欄位
+  Object.entries(basicFieldStatus).forEach(([field, status]) => {
+    if (status === '✗') {
+      const fieldName = getFieldDisplayName(field);
+      missingFields.push(fieldName);
+    }
+  });
+  
+  // 檢查主管2欄位 (如果啟用)
+  if (localFormData.mainPipe2Enabled) {
+    Object.entries(mainPipe2Status).forEach(([field, status]) => {
+      if (status === '✗') {
+        const fieldName = getFieldDisplayName(field);
+        missingFields.push(fieldName);
+      }
+    });
+  }
+  
+  // 檢查特定灌溉型式欄位
+  Object.entries(typeSpecificStatus).forEach(([field, status]) => {
+    if (status === '✗') {
+      const fieldName = getFieldDisplayName(field);
+      missingFields.push(fieldName);
+    }
+  });
+
+  // 準備訊息
+  let message = '';
+  if (missingFields.length > 0) {
+    message = `缺少以下必填欄位:\n${missingFields.map(f => `• ${f}`).join('\n')}`;
+  } else {
+    message = '所有必填欄位皆已填寫，但可能有其他條件未滿足。請檢查控制台以獲取更多信息。';
+  }
+
+  // 使用 alert 顯示訊息 (或可以改用其他 UI 元件)
+  alert(message);
+};
+
+// 欄位名稱對照表，轉換為更友善的顯示名稱
+const getFieldDisplayName = (fieldName) => {
+  const fieldNameMap = {
+    'fieldLength': '田間坵塊長度',
+    'fieldWidth': '田間坵塊寬度',
+    'fundingSourceId': '補助單位',
+    'irrigationTypeId': '灌溉型式',
+    'waterSourceId': '灌溉水源',
+    'mainPipeLength': '主管1長度',
+    'mainPipeMaterialId': '主管1材質',
+    'mainPipeDiameterId': '主管1管徑',
+    'mainPipe2Length': '主管2長度',
+    'mainPipe2MaterialId': '主管2材質',
+    'mainPipe2DiameterId': '主管2管徑',
+    'perforatedPipeDirection': '穿孔管出水方向',
+    'branchPipeSpacing_SL': '支管行距(SL)',
+    'sprinklerSpacing_SS': '噴頭間距(SS)',
+    'branchPipeMaterialId': '支管材質',
+    'branchPipeDiameterId': '支管規格',
+    'facilityTypeId': '設施型式',
+    'sprinklerSubtypeId': '噴頭類型',
+    'dripperSubtypeId': '滴灌類型',
+    'riserHeight_H': '豎管高度',
+    'riserPipeMaterialId': '豎管材質',
+    'riserPipeSpecId': '豎管規格',
+    'endFacilitySpecId': '末端設施規格',
+    'endFacilityPomno': '末端設施名稱'
+  };
+  
+  return fieldNameMap[fieldName] || fieldName;
 };
 
 
