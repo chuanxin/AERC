@@ -1,7 +1,16 @@
 <template>
-  <v-container fluid class="grants-new-container px-6 pb-10 pt-0" style="background-color: white">
+  <v-container
+    fluid
+    class="grants-new-container px-6 pb-10 pt-0"
+    style="background-color: white"
+  >
     <v-row justify="center">
-      <v-col cols="10" lg="10" align-self="center" class="pt-8">
+      <v-col
+        cols="10"
+        lg="10"
+        align-self="center"
+        class="pt-8"
+      >
         <div class="section-wrapper">
           <v-card
             class="mx-auto section-card pt-4"
@@ -16,7 +25,11 @@
 
             <v-card-text>
               <!-- 案件表單內容 -->
-              <v-card class="content-card mb-0" rounded="lg" elevation="0">
+              <v-card
+                class="content-card mb-0"
+                rounded="lg"
+                elevation="0"
+              >
                 <step0
                   :case-number="caseNumber"
                   :form-data="formData"

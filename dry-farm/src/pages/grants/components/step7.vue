@@ -1,17 +1,38 @@
 <template>
-  <div class="step-content" ref="stepContent">
-    <v-card class="mb-0 pa-0" flat>
+  <div
+    ref="stepContent"
+    class="step-content"
+  >
+    <v-card
+      class="mb-0 pa-0"
+      flat
+    >
       <v-card-text class="pb-0 pt-0">
-        <v-form ref="form" v-model="localValid" @submit.prevent>
+        <v-form
+          ref="form"
+          v-model="localValid"
+          @submit.prevent
+        >
           <!-- 變更設計部分 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-file-compare</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-file-compare
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">變更設計</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
                 <v-btn
                   color="primary"
                   block
@@ -32,7 +53,10 @@
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="(item, index) in designChangeItems" :key="index">
+                      <tr
+                        v-for="(item, index) in designChangeItems"
+                        :key="index"
+                      >
                         <td>{{ item.name }}</td>
                         <td>
                           <v-text-field
@@ -41,7 +65,7 @@
                             density="compact"
                             type="number"
                             @update:model-value="calculateDifference"
-                          ></v-text-field>
+                          />
                         </td>
                         <td>
                           <v-text-field
@@ -50,14 +74,19 @@
                             density="compact"
                             type="number"
                             @update:model-value="calculateDifference"
-                          ></v-text-field>
+                          />
                         </td>
                         <td>{{ item.afterQuantity - item.beforeQuantity }}</td>
                       </tr>
                     </tbody>
                     <tfoot>
                       <tr>
-                        <td colspan="3" class="text-right font-weight-bold">合計增減</td>
+                        <td
+                          colspan="3"
+                          class="text-right font-weight-bold"
+                        >
+                          合計增減
+                        </td>
                         <td>{{ totalQuantityChange }}</td>
                       </tr>
                     </tfoot>
@@ -68,9 +97,17 @@
           </v-card>
 
           <!-- 結案申報基本資訊區域 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-clipboard-text</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-clipboard-text
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">結案申報基本資訊</span>
             </v-card-title>
 
@@ -154,16 +191,30 @@
           </v-card>
 
           <!-- 竣工和測試資訊區域 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-check-decagram</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-check-decagram
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">竣工與測試資訊</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-text-field
                       v-model="formattedCompletionDate"
                       label="竣工日期"
@@ -182,7 +233,10 @@
                       width="600"
                     >
                       <v-card>
-                        <v-card-title class="text-h6 font-weight-bold" style="color: #2d8c8f">
+                        <v-card-title
+                          class="text-h6 font-weight-bold"
+                          style="color: #2d8c8f"
+                        >
                           選擇竣工日期
                         </v-card-title>
                         <v-card-text>
@@ -239,7 +293,10 @@
                     </v-dialog>
                   </v-col>
 
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <label class="text-body-2 font-weight-medium mb-2 d-block">竣工狀況</label>
                     <div class="d-flex align-center">
                       <v-radio-group
@@ -248,15 +305,24 @@
                         :rules="[v => !!v || '請選擇竣工狀況']"
                         @update:model-value="updateFormData"
                       >
-                        <v-radio value="completed" label="完工"></v-radio>
-                        <v-radio value="incomplete" label="未完工"></v-radio>
+                        <v-radio
+                          value="completed"
+                          label="完工"
+                        />
+                        <v-radio
+                          value="incomplete"
+                          label="未完工"
+                        />
                       </v-radio-group>
                     </div>
                   </v-col>
                 </v-row>
 
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-text-field
                       v-model="formattedTestDate"
                       label="測試日期"
@@ -275,7 +341,10 @@
                       width="600"
                     >
                       <v-card>
-                        <v-card-title class="text-h6 font-weight-bold" style="color: #2d8c8f">
+                        <v-card-title
+                          class="text-h6 font-weight-bold"
+                          style="color: #2d8c8f"
+                        >
                           選擇測試日期
                         </v-card-title>
                         <v-card-text>
@@ -332,7 +401,10 @@
                     </v-dialog>
                   </v-col>
 
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-text-field
                       v-model="localFormData.tester"
                       label="測試人員"
@@ -341,7 +413,7 @@
                       :rules="[v => !!v || '請填寫測試人員']"
                       prepend-icon="mdi-account"
                       @update:model-value="updateFormData"
-                    ></v-text-field>
+                    />
                   </v-col>
                 </v-row>
 
@@ -356,7 +428,7 @@
                       :rules="[v => !!v || '請選擇測試結果']"
                       prepend-icon="mdi-clipboard-check"
                       @update:model-value="updateFormData"
-                    ></v-select>
+                    />
                   </v-col>
                 </v-row>
               </v-sheet>
@@ -364,14 +436,26 @@
           </v-card>
 
           <!-- 測試結果詳細資訊區域 -->
-          <v-card class="mb-4" variant="outlined" v-if="localFormData.testResult">
+          <v-card
+            v-if="localFormData.testResult"
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-check-circle</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-check-circle
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">測試結果詳細資訊</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="bg-amber-lighten-5 border border-amber">
+              <v-sheet
+                class="pa-3 rounded"
+                color="bg-amber-lighten-5 border border-amber"
+              >
                 <v-row v-if="localFormData.testResult === 'original'">
                   <v-col cols="12">
                     <v-text-field
@@ -382,7 +466,7 @@
                       readonly
                       bg-color="yellow-lighten-3"
                       @update:model-value="updateFormData"
-                    ></v-text-field>
+                    />
                   </v-col>
                 </v-row>
 
@@ -396,7 +480,7 @@
                       :rules="localFormData.testResult === 'adjusted' ? [v => !!v || '請填寫增減列金額'] : []"
                       bg-color="yellow-lighten-3"
                       @update:model-value="updateFormData"
-                    ></v-text-field>
+                    />
                   </v-col>
                 </v-row>
 
@@ -410,7 +494,7 @@
                       readonly
                       bg-color="yellow-lighten-3"
                       @update:model-value="updateFormData"
-                    ></v-text-field>
+                    />
                   </v-col>
                 </v-row>
 
@@ -425,7 +509,7 @@
                       auto-grow
                       :rules="[v => localFormData.testResult !== 'improvement' || !!v || '請填寫結果說明']"
                       @update:model-value="updateFormData"
-                    ></v-textarea>
+                    />
                   </v-col>
                 </v-row>
               </v-sheet>
@@ -435,14 +519,25 @@
           <!-- 照片上傳區域 -->
           <v-card variant="outlined">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-camera</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-camera
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">施工照片</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <label class="text-body-2 font-weight-medium mb-2 d-block">
                       <span class="text-red">*</span> 施工前照片
                     </label>
@@ -455,19 +550,25 @@
                       prepend-icon="mdi-camera"
                       :rules="photoRules"
                       @update:model-value="handlePhotoChange('before')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.beforePhotoPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.beforePhotoPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.beforePhotoPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
 
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <label class="text-body-2 font-weight-medium mb-2 d-block">
                       <span class="text-red">*</span> 施工後照片
                     </label>
@@ -480,19 +581,31 @@
                       prepend-icon="mdi-camera"
                       :rules="photoRules"
                       @update:model-value="handlePhotoChange('after')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.afterPhotoPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.afterPhotoPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.afterPhotoPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
 
-                    <div v-if="!localFormData.afterConstructionPhoto && !localFormData.afterPhotoPreview" class="mt-2 d-flex align-center text-red">
-                      <v-icon color="red" class="me-1" size="small">mdi-alert-circle</v-icon>
+                    <div
+                      v-if="!localFormData.afterConstructionPhoto && !localFormData.afterPhotoPreview"
+                      class="mt-2 d-flex align-center text-red"
+                    >
+                      <v-icon
+                        color="red"
+                        class="me-1"
+                        size="small"
+                      >
+                        mdi-alert-circle
+                      </v-icon>
                       <span class="text-caption">卡驗收照片(尚未上傳施工後照片)</span>
                     </div>
                   </v-col>
@@ -507,7 +620,9 @@
                       density="comfortable"
                     >
                       <div class="d-flex align-center">
-                        <v-icon class="me-2">mdi-alert</v-icon>
+                        <v-icon class="me-2">
+                          mdi-alert
+                        </v-icon>
                         <span>尚未上傳施工前後照片，請儘速上傳以完成結案申報程序。</span>
                       </div>
                     </v-alert>

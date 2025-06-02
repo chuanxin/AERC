@@ -1,8 +1,17 @@
 <template>
-  <v-container fluid class="grants-container px-6 pb-0 pt-0" style="background-color: white">
+  <v-container
+    fluid
+    class="grants-container px-6 pb-0 pt-0"
+    style="background-color: white"
+  >
     <!-- 標題區域 -->
     <v-row justify="center">
-      <v-col cols="10" lg="10" align-self="center" class="pt-0">
+      <v-col
+        cols="10"
+        lg="10"
+        align-self="center"
+        class="pt-0"
+      >
         <!-- 功能按鈕區 -->
         <div class="d-flex flex-wrap align-center pr-2">
           <v-spacer />
@@ -51,7 +60,10 @@
                 rounded="lg"
                 elevation="0"
               >
-                <div class="d-flex flex-wrap align-center gap-3 pa-4" style="background-color: #e3f4f4;">
+                <div
+                  class="d-flex flex-wrap align-center gap-3 pa-4"
+                  style="background-color: #e3f4f4;"
+                >
                   <v-icon
                     icon="mdi-filter-variant"
                     color="#3ea0a3"
@@ -111,6 +123,7 @@
                 elevation="0"
               >
                 <v-data-table-virtual
+                  v-model:selected="selected"
                   fixed-header
                   :headers="headers"
                   :items="filteredItems"
@@ -118,7 +131,6 @@
                   :height="500"
                   density="comfortable"
                   item-value="name"
-                  v-model:selected="selected"
                   show-select
                   :item-selectable="item => item.iron !== '0'"
                   class="grants-table rounded-lg"

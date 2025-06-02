@@ -1,18 +1,39 @@
 <template>
-  <div class="step-content" ref="stepContent">
-    <v-card class="mb-0 pa-0" flat>
+  <div
+    ref="stepContent"
+    class="step-content"
+  >
+    <v-card
+      class="mb-0 pa-0"
+      flat
+    >
       <v-card-text class="pb-0 pt-0">
-        <v-form ref="form" v-model="localValid" @submit.prevent>
+        <v-form
+          ref="form"
+          v-model="localValid"
+          @submit.prevent
+        >
           <!-- 申請資料區域 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-file-document</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-file-document
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">申請資料</span>
               <!-- <v-chip size="small" color="info" class="ms-2">擇一上傳</v-chip> -->
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
                 <!-- <v-row>
                   <v-col cols="12" md="6">
                     <v-file-input
@@ -58,7 +79,10 @@
                 </v-row> -->
 
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.applicationFile"
                       label="申請資料"
@@ -67,15 +91,18 @@
                       accept=".pdf,.jpg,.jpeg,.png"
                       prepend-icon="mdi-file-document"
                       @update:model-value="handleFileChange('applicationFile')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.applicationFilePreview" class="mt-2">
+                    <div
+                      v-if="localFormData.applicationFilePreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.applicationFilePreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
                 </v-row>
@@ -84,16 +111,30 @@
           </v-card>
 
           <!-- 土地資料區域 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-map</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-map
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">土地資料</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.landRegistration"
                       label="土地登記謄本"
@@ -102,19 +143,25 @@
                       accept=".pdf,.jpg,.jpeg,.png"
                       prepend-icon="mdi-file-document"
                       @update:model-value="handleFileChange('landReg')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.landRegistrationPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.landRegistrationPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.landRegistrationPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
 
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.landMap"
                       label="地籍圖謄本"
@@ -123,21 +170,27 @@
                       accept=".pdf,.jpg,.jpeg,.png"
                       prepend-icon="mdi-map"
                       @update:model-value="handleFileChange('landMap')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.landMapPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.landMapPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.landMapPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
                 </v-row>
 
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.leaseAgreement"
                       label="租賃同意書"
@@ -146,19 +199,25 @@
                       accept=".pdf,.jpg,.jpeg,.png"
                       prepend-icon="mdi-file-document-outline"
                       @update:model-value="handleFileChange('lease')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.leaseAgreementPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.leaseAgreementPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.leaseAgreementPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
 
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.landUseConsent"
                       label="土地施設同意書"
@@ -167,15 +226,18 @@
                       accept=".pdf,.jpg,.jpeg,.png"
                       prepend-icon="mdi-file-document-outline"
                       @update:model-value="handleFileChange('landUse')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.landUseConsentPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.landUseConsentPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.landUseConsentPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
                 </v-row>
@@ -186,14 +248,25 @@
           <!-- 其他資料區域 -->
           <v-card variant="outlined">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">mdi-file-multiple</v-icon>
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-file-multiple
+              </v-icon>
               <span class="text-subtitle-1 font-weight-medium">其他資料</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.inspectionRecord"
                       label="現勘紀錄表"
@@ -202,19 +275,25 @@
                       accept=".pdf,.jpg,.jpeg,.png"
                       prepend-icon="mdi-clipboard-check"
                       @update:model-value="handleFileChange('inspection')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.inspectionRecordPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.inspectionRecordPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.inspectionRecordPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
 
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.planningDoc"
                       label="委託規劃書"
@@ -223,21 +302,27 @@
                       accept=".pdf,.jpg,.jpeg,.png"
                       prepend-icon="mdi-file-document-outline"
                       @update:model-value="handleFileChange('planning')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.planningDocPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.planningDocPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.planningDocPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
                 </v-row>
 
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.subsidy"
                       label="接受補助切結書"
@@ -246,19 +331,25 @@
                       accept=".pdf,.jpg,.jpeg,.png"
                       prepend-icon="mdi-file-document-outline"
                       @update:model-value="handleFileChange('subsidy')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.subsidyPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.subsidyPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.subsidyPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
 
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.workInspection"
                       label="竣工報驗書"
@@ -267,21 +358,27 @@
                       accept=".pdf,.jpg,.jpeg,.png"
                       prepend-icon="mdi-file-document-outline"
                       @update:model-value="handleFileChange('workInspection')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.workInspectionPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.workInspectionPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.workInspectionPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
                 </v-row>
 
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.inspectionReport"
                       label="驗收報告書"
@@ -290,19 +387,25 @@
                       accept=".pdf,.jpg,.jpeg,.png"
                       prepend-icon="mdi-file-document-outline"
                       @update:model-value="handleFileChange('inspectionReport')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.inspectionReportPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.inspectionReportPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.inspectionReportPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
 
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.paymentReceipt"
                       label="領款收據"
@@ -311,21 +414,27 @@
                       accept=".pdf,.jpg,.jpeg,.png"
                       prepend-icon="mdi-receipt"
                       @update:model-value="handleFileChange('paymentReceipt')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.paymentReceiptPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.paymentReceiptPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.paymentReceiptPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
                 </v-row>
 
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-file-input
                       v-model="localFormData.designDrawing"
                       label="設計圖"
@@ -334,15 +443,18 @@
                       accept=".pdf,.jpg,.jpeg,.png,.dwg,.dxf"
                       prepend-icon="mdi-drawing"
                       @update:model-value="handleFileChange('designDrawing')"
-                    ></v-file-input>
+                    />
 
-                    <div v-if="localFormData.designDrawingPreview" class="mt-2">
+                    <div
+                      v-if="localFormData.designDrawingPreview"
+                      class="mt-2"
+                    >
                       <v-img
                         :src="localFormData.designDrawingPreview"
                         max-height="200"
                         contain
                         class="bg-grey-lighten-3 rounded"
-                      ></v-img>
+                      />
                     </div>
                   </v-col>
                 </v-row>

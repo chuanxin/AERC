@@ -136,7 +136,10 @@
             </v-card-title>
 
             <v-row dense>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-select
                   v-model="selectedCountyId"
                   label="縣市"
@@ -153,7 +156,10 @@
                 />
               </v-col>
 
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-select
                   v-model="selectedTownId"
                   label="鄉鎮市區"
@@ -171,7 +177,10 @@
                 />
               </v-col>
 
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-select
                   v-model="selectedVillageId"
                   label="村里"
@@ -208,7 +217,12 @@
       </v-row>
 
       <!-- 表單提示說明 -->
-      <v-card flat color="blue-grey-lighten-5" class="mt-0 mb-0 pa-4 pb-0" rounded="lg">
+      <v-card
+        flat
+        color="blue-grey-lighten-5"
+        class="mt-0 mb-0 pa-4 pb-0"
+        rounded="lg"
+      >
         <!-- <v-card flat class="mb-0 mb-4 pa-4 pb-0" rounded="lg" variant="outlined" color="amber-lighten-4"> -->
         <!-- <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #FB8C00">
           <v-icon color="#FB8C00" class="me-2" size="small">mdi-account-tie</v-icon>
@@ -216,7 +230,10 @@
         </v-card-title> -->
 
         <v-row>
-          <v-col cols="12" sm="3">
+          <v-col
+            cols="12"
+            sm="3"
+          >
             <v-text-field
               v-model="localFormData.undertracker"
               label="承辦人姓名"
@@ -240,9 +257,17 @@
               @update:model-value="updateFormData"
             />
           </v-col> -->
-          <v-col cols="12" sm="9">
+          <v-col
+            cols="12"
+            sm="9"
+          >
             <div class="d-flex">
-              <v-icon color="blue-grey-darken-1" class="me-2">mdi-information-outline</v-icon>
+              <v-icon
+                color="blue-grey-darken-1"
+                class="me-2"
+              >
+                mdi-information-outline
+              </v-icon>
               <div class="text-caption text-medium-emphasis">
                 <strong>操作提示：</strong>
                 完成基本資料輸入後，點擊「成立案件」按鈕會自動生成案件編號，並進入後續填寫詳細資料的頁面。

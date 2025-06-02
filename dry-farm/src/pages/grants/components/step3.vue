@@ -14,16 +14,25 @@
           @submit.prevent
         >
           <!-- 補助來源選擇區域 -->
-          <v-card class="mb-4" variant="outlined">
+          <v-card
+            class="mb-4"
+            variant="outlined"
+          >
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon class="me-2" size="small">
+              <v-icon
+                class="me-2"
+                size="small"
+              >
                 mdi-hand-coin
               </v-icon>
               <span class="text-subtitle-1 font-weight-medium">補助來源</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <v-sheet class="pa-3 rounded" color="grey-lighten-5">
+              <v-sheet
+                class="pa-3 rounded"
+                color="grey-lighten-5"
+              >
                 <div class="d-flex align-center flex-wrap">
                   <v-select
                     v-model="localFormData.fundingSource"

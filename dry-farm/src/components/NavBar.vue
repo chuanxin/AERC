@@ -69,13 +69,24 @@
               size="x-large"
               @click.stop="preventTabSelection"
             >
-              <v-icon :icon="item.icon" class="me-2" />
+              <v-icon
+                :icon="item.icon"
+                class="me-2"
+              />
               {{ item.title }}
-              <v-icon icon="mdi-chevron-down" size="small" class="ms-2" />
+              <v-icon
+                icon="mdi-chevron-down"
+                size="small"
+                class="ms-2"
+              />
             </v-tab>
           </template>
 
-          <v-list density="compact" bg-color="white" elevation="1">
+          <v-list
+            density="compact"
+            bg-color="white"
+            elevation="1"
+          >
             <v-list-item
               v-for="child in item.children"
               :key="child.value"
@@ -83,7 +94,7 @@
               link
             >
               <template #prepend>
-                <v-icon :icon="child.icon"></v-icon>
+                <v-icon :icon="child.icon" />
               </template>
               {{ child.title }}
             </v-list-item>

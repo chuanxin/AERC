@@ -28,6 +28,7 @@ export interface GrantCreateResponse {
   status: string;
   received_date: string;
   received_time: string;
+  office_id?: number;
 }
 
 // Add these interfaces

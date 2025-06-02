@@ -1,18 +1,48 @@
 <template>
-  <div class="step-content" ref="stepContent">
-    <v-card class="mt-4 pa-0" flat>
+  <div
+    ref="stepContent"
+    class="step-content"
+  >
+    <v-card
+      class="mt-4 pa-0"
+      flat
+    >
       <v-card-text class="pb-0 pt-0">
-        <v-form ref="form" v-model="localValid" @submit.prevent>
+        <v-form
+          ref="form"
+          v-model="localValid"
+          @submit.prevent
+        >
           <!-- 勘查資訊區域 -->
-          <v-card flat class="mb-4 pa-4" color="#e3f4f4" rounded="lg">
-            <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #2d8c8f">
-              <v-icon color="#3ea0a3" class="me-2 pb-1" size="small">mdi-clipboard-check</v-icon>
+          <v-card
+            flat
+            class="mb-4 pa-4"
+            color="#e3f4f4"
+            rounded="lg"
+          >
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+              style="color: #2d8c8f"
+            >
+              <v-icon
+                color="#3ea0a3"
+                class="me-2 pb-1"
+                size="small"
+              >
+                mdi-clipboard-check
+              </v-icon>
               <span>勘查資訊</span>
             </v-card-title>
 
-            <v-sheet class="pa-3 rounded" color="white">
+            <v-sheet
+              class="pa-3 rounded"
+              color="white"
+            >
               <v-row>
-                <v-col cols="12" md="6">
+                <v-col
+                  cols="12"
+                  md="6"
+                >
                   <v-text-field
                     v-model="localFormData.inspector"
                     label="勘查人員"
@@ -25,7 +55,10 @@
                   />
                 </v-col>
 
-                <v-col cols="12" md="6">
+                <v-col
+                  cols="12"
+                  md="6"
+                >
                   <!-- 使用簡單的日期輸入 -->
                   <v-text-field
                     v-model="formattedInspectionDate"
@@ -36,8 +69,8 @@
                     color="#3ea0a3"
                     bg-color="white"
                     readonly
-                    @click="openDateDialog"
                     :rules="[v => !!v || '請選擇勘查日期']"
+                    @click="openDateDialog"
                   />
 
                   <!-- 自定義日期選擇對話框 -->
@@ -46,7 +79,10 @@
                     width="600"
                   >
                     <v-card>
-                      <v-card-title class="text-h6 font-weight-bold" style="color: #2d8c8f">
+                      <v-card-title
+                        class="text-h6 font-weight-bold"
+                        style="color: #2d8c8f"
+                      >
                         選擇日期
                       </v-card-title>
                       <v-card-text>
@@ -59,7 +95,7 @@
                               variant="outlined"
                               density="comfortable"
                               color="#3ea0a3"
-                            ></v-select>
+                            />
                           </v-col>
                           <v-col cols="4">
                             <v-select
@@ -69,7 +105,7 @@
                               variant="outlined"
                               density="comfortable"
                               color="#3ea0a3"
-                            ></v-select>
+                            />
                           </v-col>
                           <v-col cols="4">
                             <v-select
@@ -79,12 +115,12 @@
                               variant="outlined"
                               density="comfortable"
                               color="#3ea0a3"
-                            ></v-select>
+                            />
                           </v-col>
                         </v-row>
                       </v-card-text>
                       <v-card-actions>
-                        <v-spacer></v-spacer>
+                        <v-spacer />
                         <v-btn
                           variant="text"
                           @click="datePickerDialog = false"
@@ -112,12 +148,21 @@
                       v-model="localFormData.inspectionResult"
                       inline
                       :rules="[v => !!v || '請選擇勘查結果']"
-                      @update:model-value="updateFormData"
                       color="#3ea0a3"
+                      @update:model-value="updateFormData"
                     >
-                      <v-radio value="comply" label="符合"></v-radio>
-                      <v-radio value="notComply" label="不符合"></v-radio>
-                      <v-radio value="other" label="其他"></v-radio>
+                      <v-radio
+                        value="comply"
+                        label="符合"
+                      />
+                      <v-radio
+                        value="notComply"
+                        label="不符合"
+                      />
+                      <v-radio
+                        value="other"
+                        label="其他"
+                      />
                     </v-radio-group>
                   </div>
                 </v-col>
@@ -159,15 +204,35 @@
           </v-card>
 
           <!-- 照片上傳區域 -->
-          <v-card flat class="mb-4 pa-4" color="#e3f4f4" rounded="lg">
-            <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #2d8c8f">
-              <v-icon color="#3ea0a3" class="me-2 pb-1" size="small">mdi-camera</v-icon>
+          <v-card
+            flat
+            class="mb-4 pa-4"
+            color="#e3f4f4"
+            rounded="lg"
+          >
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+              style="color: #2d8c8f"
+            >
+              <v-icon
+                color="#3ea0a3"
+                class="me-2 pb-1"
+                size="small"
+              >
+                mdi-camera
+              </v-icon>
               <span>現場照片</span>
             </v-card-title>
 
-            <v-sheet class="pa-3 rounded" color="white">
+            <v-sheet
+              class="pa-3 rounded"
+              color="white"
+            >
               <v-row>
-                <v-col cols="12" md="6">
+                <v-col
+                  cols="12"
+                  md="6"
+                >
                   <label class="text-body-2 font-weight-medium mb-2 d-block">
                     <span class="text-red">*</span> 施工前照片
                   </label>
@@ -184,7 +249,10 @@
                     @update:model-value="handlePhotoChange('before')"
                   />
 
-                  <div v-if="localFormData.beforePhotoPreview" class="mt-2">
+                  <div
+                    v-if="localFormData.beforePhotoPreview"
+                    class="mt-2"
+                  >
                     <v-img
                       :src="localFormData.beforePhotoPreview"
                       max-height="200"
@@ -194,7 +262,10 @@
                   </div>
                 </v-col>
 
-                <v-col cols="12" md="6">
+                <v-col
+                  cols="12"
+                  md="6"
+                >
                   <label class="text-body-2 font-weight-medium mb-2 d-block">
                     <span class="text-red">*</span> 施工後照片
                   </label>
@@ -211,7 +282,10 @@
                     @update:model-value="handlePhotoChange('after')"
                   />
 
-                  <div v-if="localFormData.afterPhotoPreview" class="mt-2">
+                  <div
+                    v-if="localFormData.afterPhotoPreview"
+                    class="mt-2"
+                  >
                     <v-img
                       :src="localFormData.afterPhotoPreview"
                       max-height="200"

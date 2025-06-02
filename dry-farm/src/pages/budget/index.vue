@@ -1,14 +1,20 @@
 <template>
-  <v-container :fluid="isFluid" class="pt-0">
+  <v-container
+    :fluid="isFluid"
+    class="pt-0"
+  >
     <v-card class="pa-0 mb-6">
       <v-card-title class="d-flex align-center">
-        <v-icon icon="mdi-currency-usd" class="pe-2" />
+        <v-icon
+          icon="mdi-currency-usd"
+          class="pe-2"
+        />
         本年度預算執行即時資訊
         <v-btn
           icon
           variant="text"
-          @click="toggleFluid"
           :title="isFluid ? '切換為固定寬度' : '切換為全寬模式'"
+          @click="toggleFluid"
         >
           <v-icon>{{ isFluid ? 'mdi-arrow-collapse-horizontal' : 'mdi-arrow-expand-horizontal' }}</v-icon>
         </v-btn>
@@ -16,7 +22,10 @@
       <v-divider />
 
       <!-- Budget Data Table -->
-      <div class="table-container" ref="tableContainer">
+      <div
+        ref="tableContainer"
+        class="table-container"
+      >
         <v-data-table-server
           :headers="headers"
           :items="items"
@@ -30,22 +39,49 @@
           <!-- Custom footer for totals -->
           <template #body.append>
             <tr>
-              <td class="text-end font-weight-bold">合計</td>
-              <td class="text-end">{{ totalExecutionArea }}</td>
-              <td class="text-end">{{ totalExecutionBudget }}</td>
-              <td class="text-end">{{ totalHouseholds }}</td>
-              <td class="text-end">{{ totalArea }}</td>
-              <td class="text-end">{{ totalSubsidy }}</td>
-              <td class="text-end">{{ totalRemainingSubsidy }}</td>
-              <td class="text-end">{{ totalAcceptedHouseholds }}</td>
-              <td class="text-end">{{ totalAcceptedArea }}</td>
-              <td class="text-end">{{ totalAcceptedAmount }}</td>
-              <td class="text-end">{{ totalAreaExecutionRate }}</td>
-              <td class="text-end">{{ totalBudgetExecutionRate }}</td>
+              <td class="text-end font-weight-bold">
+                合計
+              </td>
+              <td class="text-end">
+                {{ totalExecutionArea }}
+              </td>
+              <td class="text-end">
+                {{ totalExecutionBudget }}
+              </td>
+              <td class="text-end">
+                {{ totalHouseholds }}
+              </td>
+              <td class="text-end">
+                {{ totalArea }}
+              </td>
+              <td class="text-end">
+                {{ totalSubsidy }}
+              </td>
+              <td class="text-end">
+                {{ totalRemainingSubsidy }}
+              </td>
+              <td class="text-end">
+                {{ totalAcceptedHouseholds }}
+              </td>
+              <td class="text-end">
+                {{ totalAcceptedArea }}
+              </td>
+              <td class="text-end">
+                {{ totalAcceptedAmount }}
+              </td>
+              <td class="text-end">
+                {{ totalAreaExecutionRate }}
+              </td>
+              <td class="text-end">
+                {{ totalBudgetExecutionRate }}
+              </td>
             </tr>
           </template>
         </v-data-table-server>
-        <div v-if="isOverflowing" class="scroll-hint">
+        <div
+          v-if="isOverflowing"
+          class="scroll-hint"
+        >
           滑動下方捲軸以查看完整表格內容
         </div>
       </div>

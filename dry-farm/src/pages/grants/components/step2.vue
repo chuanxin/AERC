@@ -20,7 +20,10 @@
             color="#e3f4f4"
             rounded="lg"
           >
-            <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #2d8c8f">
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+              style="color: #2d8c8f"
+            >
               <v-icon
                 color="#3ea0a3"
                 class="me-2 pb-1"
@@ -490,7 +493,10 @@
             color="#e3f4f4"
             rounded="lg"
           >
-            <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #2d8c8f">
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+              style="color: #2d8c8f"
+            >
               <v-icon
                 color="#3ea0a3"
                 class="me-2 pb-1"
@@ -775,7 +781,10 @@
       max-width="700px"
     >
       <v-card>
-        <v-card-title class="text-subtitle-1 font-weight-bold pa-4" style="color: #2d8c8f; background-color: #e3f4f4;">
+        <v-card-title
+          class="text-subtitle-1 font-weight-bold pa-4"
+          style="color: #2d8c8f; background-color: #e3f4f4;"
+        >
           <v-icon
             color="#3ea0a3"
             class="me-2"

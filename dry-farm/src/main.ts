@@ -29,7 +29,7 @@ const app = createApp(App)
 // Register plugins (Pinia, Router, Vuetify, etc.)
 registerPlugins(app)
 
-app.component('fai', FontAwesomeIcon)
+app.component('Fai', FontAwesomeIcon)
 
 // Initialize authentication, but mount the app immediately
 // Don't wait for authentication to complete

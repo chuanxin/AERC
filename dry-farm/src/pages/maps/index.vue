@@ -1,37 +1,53 @@
 <template>
-  <v-container :fluid="isFluid" class="pt-0 container-full-height">
+  <v-container
+    :fluid="isFluid"
+    class="pt-0 container-full-height"
+  >
     <v-card class="pa-0 mb-6 map-card">
       <v-card-title class="d-flex align-center pe-2">
         <v-icon icon="mdi-map-marker-path" />
         &nbsp; GIS 圖台
-        <v-spacer></v-spacer>
+        <v-spacer />
         <v-btn
           density="compact"
           variant="text"
           prepend-icon="mdi-link"
-          @click="copyMapLink"
           class="me-2"
+          @click="copyMapLink"
         >
           複製地圖連結
         </v-btn>
         <v-btn
           icon
           variant="text"
-          @click="toggleFluid"
           :title="isFluid ? '切換為固定寬度' : '切換為全寬模式'"
+          @click="toggleFluid"
         >
           <v-icon>{{ isFluid ? 'mdi-arrow-collapse-horizontal' : 'mdi-arrow-expand-horizontal' }}</v-icon>
         </v-btn>
       </v-card-title>
       <v-divider />
-      <div id="map" ref="mapContainer" class="map-container">
+      <div
+        id="map"
+        ref="mapContainer"
+        class="map-container"
+      >
         <!-- 地圖容器 -->
         <div class="map-controls">
-          <v-card class="map-control-panel" elevation="3" rounded="xs">
+          <v-card
+            class="map-control-panel"
+            elevation="3"
+            rounded="xs"
+          >
             <!-- 放大按鈕 -->
             <v-row class="ma-0">
               <v-col class="pa-0">
-                <v-btn icon variant="text" @click="zoomIn" density="comfortable">
+                <v-btn
+                  icon
+                  variant="text"
+                  density="comfortable"
+                  @click="zoomIn"
+                >
                   <v-icon>mdi-plus</v-icon>
                 </v-btn>
               </v-col>
@@ -40,7 +56,12 @@
             <!-- 縮小按鈕 -->
             <v-row class="ma-0">
               <v-col class="pa-0">
-                <v-btn icon variant="text" @click="zoomOut" density="comfortable">
+                <v-btn
+                  icon
+                  variant="text"
+                  density="comfortable"
+                  @click="zoomOut"
+                >
                   <v-icon>mdi-minus</v-icon>
                 </v-btn>
               </v-col>
@@ -49,7 +70,12 @@
             <v-divider />
             <v-row class="ma-0">
               <v-col class="pa-0">
-                <v-btn icon variant="text" @click="resetView" density="comfortable">
+                <v-btn
+                  icon
+                  variant="text"
+                  density="comfortable"
+                  @click="resetView"
+                >
                   <v-icon>mdi-home</v-icon>
                 </v-btn>
               </v-col>
@@ -59,7 +85,11 @@
       </div>
     </v-card>
     <!-- 顯示成功訊息的Snackbar -->
-    <v-snackbar v-model="showSnackbar" :timeout="2000" color="success">
+    <v-snackbar
+      v-model="showSnackbar"
+      :timeout="2000"
+      color="success"
+    >
       {{ snackbarMessage }}
     </v-snackbar>
   </v-container>

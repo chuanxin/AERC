@@ -1,25 +1,47 @@
 <template>
-  <v-container fluid class="pt-0">
+  <v-container
+    fluid
+    class="pt-0"
+  >
     <v-row>
-      <v-col cols="12" md="3">
+      <v-col
+        cols="12"
+        md="3"
+      >
         <!-- 左側查詢條件面板 -->
         <v-card class="mb-4">
           <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-            <v-icon class="me-2" size="small">mdi-file-document-multiple</v-icon>
+            <v-icon
+              class="me-2"
+              size="small"
+            >
+              mdi-file-document-multiple
+            </v-icon>
             <span class="text-subtitle-1 font-weight-medium">統計報表查詢</span>
           </v-card-title>
 
           <v-card-text class="pa-3">
-            <v-tabs v-model="activeTab" color="primary" density="compact" class="mb-3">
-              <v-tab value="category">表單種類查詢</v-tab>
-              <v-tab value="detail">案件查詢</v-tab>
+            <v-tabs
+              v-model="activeTab"
+              color="primary"
+              density="compact"
+              class="mb-3"
+            >
+              <v-tab value="category">
+                表單種類查詢
+              </v-tab>
+              <v-tab value="detail">
+                案件查詢
+              </v-tab>
             </v-tabs>
 
             <v-window v-model="activeTab">
               <!-- 表單種類查詢標籤內容 -->
               <v-window-item value="category">
                 <div class="py-2">
-                  <div class="text-body-2 font-weight-medium mb-2">表單種類</div>
+                  <div class="text-body-2 font-weight-medium mb-2">
+                    表單種類
+                  </div>
                   <v-select
                     v-model="formCategory"
                     :items="formCategories"
@@ -28,9 +50,11 @@
                     density="compact"
                     hide-details
                     class="mb-3"
-                  ></v-select>
+                  />
 
-                  <div class="text-body-2 font-weight-medium mb-2">關鍵字</div>
+                  <div class="text-body-2 font-weight-medium mb-2">
+                    關鍵字
+                  </div>
                   <div class="d-flex mb-3">
                     <v-text-field
                       v-model="keyword"
@@ -39,10 +63,12 @@
                       density="compact"
                       hide-details
                       class="flex-grow-1"
-                    ></v-text-field>
+                    />
                   </div>
 
-                  <div class="text-body-2 font-weight-medium mb-2">匯出表格格式</div>
+                  <div class="text-body-2 font-weight-medium mb-2">
+                    匯出表格格式
+                  </div>
                   <v-select
                     v-model="exportFormat"
                     :items="exportFormats"
@@ -51,7 +77,7 @@
                     density="compact"
                     hide-details
                     class="mb-3"
-                  ></v-select>
+                  />
 
                   <div class="d-flex mt-4">
                     <v-btn
@@ -67,8 +93,8 @@
                       color="primary"
                       variant="elevated"
                       size="small"
-                      @click="search"
                       :loading="isLoading"
+                      @click="search"
                     >
                       查詢
                     </v-btn>
@@ -79,7 +105,9 @@
               <!-- 案件查詢標籤內容 -->
               <v-window-item value="detail">
                 <div class="py-2">
-                  <div class="text-body-2 font-weight-medium mb-2">案件關鍵字</div>
+                  <div class="text-body-2 font-weight-medium mb-2">
+                    案件關鍵字
+                  </div>
                   <div class="d-flex mb-3">
                     <v-text-field
                       v-model="caseKeyword"
@@ -88,10 +116,12 @@
                       density="compact"
                       hide-details
                       class="flex-grow-1"
-                    ></v-text-field>
+                    />
                   </div>
 
-                  <div class="text-body-2 font-weight-medium mb-2">申請日期範圍</div>
+                  <div class="text-body-2 font-weight-medium mb-2">
+                    申請日期範圍
+                  </div>
                   <div class="d-flex align-center mb-3">
                     <v-text-field
                       v-model="dateFrom"
@@ -101,7 +131,7 @@
                       density="compact"
                       hide-details
                       class="me-2"
-                    ></v-text-field>
+                    />
                     <span class="mx-2">～</span>
                     <v-text-field
                       v-model="dateTo"
@@ -110,10 +140,12 @@
                       variant="outlined"
                       density="compact"
                       hide-details
-                    ></v-text-field>
+                    />
                   </div>
 
-                  <div class="text-body-2 font-weight-medium mb-2">案件狀態</div>
+                  <div class="text-body-2 font-weight-medium mb-2">
+                    案件狀態
+                  </div>
                   <v-select
                     v-model="caseStatus"
                     :items="caseStatuses"
@@ -122,7 +154,7 @@
                     density="compact"
                     hide-details
                     class="mb-3"
-                  ></v-select>
+                  />
 
                   <div class="d-flex mt-4">
                     <v-btn
@@ -138,8 +170,8 @@
                       color="primary"
                       variant="elevated"
                       size="small"
-                      @click="searchCase"
                       :loading="isCaseLoading"
+                      @click="searchCase"
                     >
                       查詢
                     </v-btn>
@@ -151,27 +183,51 @@
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="9">
+      <v-col
+        cols="12"
+        md="9"
+      >
         <!-- 右側查詢結果面板 -->
         <v-card class="mb-4">
-          <v-card-text class="pa-0" v-if="!selectedReport">
-            <div class="d-flex flex-column align-center justify-center" style="height: 300px;">
+          <v-card-text
+            v-if="!selectedReport"
+            class="pa-0"
+          >
+            <div
+              class="d-flex flex-column align-center justify-center"
+              style="height: 300px;"
+            >
               <v-img
 
                 width="120"
                 class="mb-3"
-              ></v-img>
-              <div class="text-body-1 text-grey-darken-1">請點選左側查詢條件</div>
-              <div class="text-body-2 text-grey">並按下查詢按鈕!</div>
+              />
+              <div class="text-body-1 text-grey-darken-1">
+                請點選左側查詢條件
+              </div>
+              <div class="text-body-2 text-grey">
+                並按下查詢按鈕!
+              </div>
             </div>
           </v-card-text>
 
           <template v-if="selectedReport">
             <v-card-title class="bg-light-blue-lighten-4 d-flex align-center justify-space-between py-2 px-4">
               <div class="d-flex align-center">
-                <v-icon class="me-2" size="small">mdi-file-chart</v-icon>
+                <v-icon
+                  class="me-2"
+                  size="small"
+                >
+                  mdi-file-chart
+                </v-icon>
                 <span class="text-subtitle-1 font-weight-medium">{{ selectedReport.title }}</span>
-                <v-icon v-if="selectedReport.dropdown" class="ms-1" size="small">mdi-chevron-down</v-icon>
+                <v-icon
+                  v-if="selectedReport.dropdown"
+                  class="ms-1"
+                  size="small"
+                >
+                  mdi-chevron-down
+                </v-icon>
               </div>
 
               <v-btn
@@ -186,7 +242,10 @@
               </v-btn>
             </v-card-title>
 
-            <v-card-text class="pa-3" v-if="selectedReport.hasQueryForm">
+            <v-card-text
+              v-if="selectedReport.hasQueryForm"
+              class="pa-3"
+            >
               <div class="bg-yellow-lighten-5 pa-3 rounded mb-3">
                 <div class="d-flex flex-wrap align-center">
                   <span class="text-body-2 font-weight-medium me-2">年份：</span>
@@ -199,7 +258,7 @@
                     hide-details
                     class="me-4"
                     style="width: 120px"
-                  ></v-select>
+                  />
 
                   <span class="text-body-2 font-weight-medium me-2">縣市：</span>
                   <v-select
@@ -211,22 +270,30 @@
                     hide-details
                     class="me-4"
                     style="width: 120px"
-                  ></v-select>
+                  />
 
                   <v-btn
                     color="primary"
                     variant="elevated"
                     size="small"
-                    @click="searchReport"
                     :loading="isReportLoading"
+                    @click="searchReport"
                   >
-                    <v-icon size="small" class="me-1">mdi-magnify</v-icon>
+                    <v-icon
+                      size="small"
+                      class="me-1"
+                    >
+                      mdi-magnify
+                    </v-icon>
                     查詢
                   </v-btn>
                 </div>
               </div>
 
-              <div class="bg-yellow-lighten-5 pa-3 rounded mb-3" v-if="selectedReport.hasRangeQuery">
+              <div
+                v-if="selectedReport.hasRangeQuery"
+                class="bg-yellow-lighten-5 pa-3 rounded mb-3"
+              >
                 <div class="d-flex flex-wrap align-center">
                   <span class="text-body-2 font-weight-medium me-2">申請月份：</span>
                   <div class="d-flex align-center">
@@ -238,7 +305,7 @@
                       hide-details
                       class="me-2"
                       style="width: 100px"
-                    ></v-text-field>
+                    />
                     <span class="mx-1">～</span>
                     <v-text-field
                       v-model="reportParameters.endMonth"
@@ -247,7 +314,7 @@
                       density="compact"
                       hide-details
                       style="width: 100px"
-                    ></v-text-field>
+                    />
                   </div>
                 </div>
               </div>
@@ -260,28 +327,52 @@
               class="px-3"
               color="primary"
             >
-              <v-tab v-for="(tab, index) in selectedReport.tabs" :key="index" :value="tab.value">
+              <v-tab
+                v-for="(tab, index) in selectedReport.tabs"
+                :key="index"
+                :value="tab.value"
+              >
                 {{ tab.label }}
-                <v-icon v-if="tab.icon" size="small" :class="tab.icon === 'up' ? 'ms-1' : 'ms-1'">
+                <v-icon
+                  v-if="tab.icon"
+                  size="small"
+                  :class="tab.icon === 'up' ? 'ms-1' : 'ms-1'"
+                >
                   {{ tab.icon === 'up' ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
                 </v-icon>
               </v-tab>
             </v-tabs>
 
-            <v-divider v-if="selectedReport.hasTabs"></v-divider>
+            <v-divider v-if="selectedReport.hasTabs" />
 
-            <v-window v-if="selectedReport.hasTabs" v-model="reportTab">
+            <v-window
+              v-if="selectedReport.hasTabs"
+              v-model="reportTab"
+            >
               <v-window-item
                 v-for="(tab, index) in selectedReport.tabs"
                 :key="index"
                 :value="tab.value"
               >
-                <div v-if="tab.value === 'table1'" class="pa-3">
-                  <v-table class="mb-3 elevation-1" density="compact">
+                <div
+                  v-if="tab.value === 'table1'"
+                  class="pa-3"
+                >
+                  <v-table
+                    class="mb-3 elevation-1"
+                    density="compact"
+                  >
                     <thead>
                       <tr>
-                        <th class="text-center" style="width: 80px">申請年度</th>
-                        <th class="text-center">案號</th>
+                        <th
+                          class="text-center"
+                          style="width: 80px"
+                        >
+                          申請年度
+                        </th>
+                        <th class="text-center">
+                          案號
+                        </th>
                         <th>申請人姓名</th>
                         <th>案件狀態</th>
                         <th>總計</th>
@@ -289,8 +380,12 @@
                     </thead>
                     <tbody>
                       <tr>
-                        <td class="text-center">113</td>
-                        <td class="text-center">11310100001</td>
+                        <td class="text-center">
+                          113
+                        </td>
+                        <td class="text-center">
+                          11310100001
+                        </td>
                         <td>王家一</td>
                         <td>完成</td>
                         <td>1</td>
@@ -299,12 +394,25 @@
                   </v-table>
                 </div>
 
-                <div v-if="tab.value === 'table2'" class="pa-3">
-                  <v-table class="mb-3 elevation-1" density="compact">
+                <div
+                  v-if="tab.value === 'table2'"
+                  class="pa-3"
+                >
+                  <v-table
+                    class="mb-3 elevation-1"
+                    density="compact"
+                  >
                     <thead>
                       <tr>
-                        <th class="text-center" style="width: 80px">年度</th>
-                        <th class="text-center">期間</th>
+                        <th
+                          class="text-center"
+                          style="width: 80px"
+                        >
+                          年度
+                        </th>
+                        <th class="text-center">
+                          期間
+                        </th>
                         <th>累計件數</th>
                         <th>核准件數</th>
                         <th>駁回件數</th>
@@ -312,15 +420,23 @@
                     </thead>
                     <tbody>
                       <tr>
-                        <td class="text-center">113</td>
-                        <td class="text-center">1月-3月</td>
+                        <td class="text-center">
+                          113
+                        </td>
+                        <td class="text-center">
+                          1月-3月
+                        </td>
                         <td>10</td>
                         <td>8</td>
                         <td>2</td>
                       </tr>
                       <tr>
-                        <td class="text-center">113</td>
-                        <td class="text-center">4月-6月</td>
+                        <td class="text-center">
+                          113
+                        </td>
+                        <td class="text-center">
+                          4月-6月
+                        </td>
                         <td>15</td>
                         <td>12</td>
                         <td>3</td>
@@ -329,8 +445,16 @@
                   </v-table>
                 </div>
 
-                <div v-for="(list, listIndex) in selectedReport.lists" :key="`list-${listIndex}`" v-if="tab.value === `list${listIndex+1}`" class="pa-2">
-                  <v-list density="compact" class="pa-0 elevation-1">
+                <div
+                  v-for="(list, listIndex) in selectedReport.lists"
+                  v-if="tab.value === `list${listIndex+1}`"
+                  :key="`list-${listIndex}`"
+                  class="pa-2"
+                >
+                  <v-list
+                    density="compact"
+                    class="pa-0 elevation-1"
+                  >
                     <v-list-item
                       v-for="(item, i) in list.items"
                       :key="`item-${i}`"
@@ -347,9 +471,12 @@
               </v-window-item>
             </v-window>
 
-            <v-card-text class="pa-3" v-if="!selectedReport.hasTabs && selectedReport.content">
+            <v-card-text
+              v-if="!selectedReport.hasTabs && selectedReport.content"
+              class="pa-3"
+            >
               <!-- 報表內容 -->
-              <component :is="selectedReport.content"></component>
+              <component :is="selectedReport.content" />
             </v-card-text>
           </template>
         </v-card>

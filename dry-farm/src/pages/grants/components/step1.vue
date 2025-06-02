@@ -15,16 +15,36 @@
         >
           <!-- 申請人基本資料區塊 -->
           <v-row>
-            <v-col cols="12" md="6">
-              <v-card flat class="mb-4 pa-4" color="#e3f4f4" rounded="lg">
-                <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #2d8c8f">
-                  <v-icon color="#3ea0a3" class="me-2 pb-1" size="small">mdi-account</v-icon>
+            <v-col
+              cols="12"
+              md="6"
+            >
+              <v-card
+                flat
+                class="mb-4 pa-4"
+                color="#e3f4f4"
+                rounded="lg"
+              >
+                <v-card-title
+                  class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+                  style="color: #2d8c8f"
+                >
+                  <v-icon
+                    color="#3ea0a3"
+                    class="me-2 pb-1"
+                    size="small"
+                  >
+                    mdi-account
+                  </v-icon>
                   申請人基本資料
                 </v-card-title>
 
                 <!-- 姓名與身分證區塊 -->
                 <v-row dense>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-text-field
                       v-model="localFormData.name"
                       label="申請人"
@@ -36,7 +56,10 @@
                       @update:model-value="updateFormData"
                     />
                   </v-col>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-text-field
                       v-model="localFormData.id"
                       label="身分證字號"
@@ -70,10 +93,27 @@
             </v-col>
 
             <!-- 地址資訊區塊 -->
-            <v-col cols="12" md="6">
-              <v-card flat class="mb-4 pa-4" color="#e3f4f4" rounded="lg">
-                <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #2d8c8f">
-                  <v-icon color="#3ea0a3" class="me-2 pb-1" size="small">mdi-map-marker</v-icon>
+            <v-col
+              cols="12"
+              md="6"
+            >
+              <v-card
+                flat
+                class="mb-4 pa-4"
+                color="#e3f4f4"
+                rounded="lg"
+              >
+                <v-card-title
+                  class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+                  style="color: #2d8c8f"
+                >
+                  <v-icon
+                    color="#3ea0a3"
+                    class="me-2 pb-1"
+                    size="small"
+                  >
+                    mdi-map-marker
+                  </v-icon>
                   申請人通訊地址
                 </v-card-title>
 
@@ -120,7 +160,10 @@
                 <!-- Editable address controls -->
                 <div v-else>
                   <v-row dense>
-                    <v-col cols="12" md="4">
+                    <v-col
+                      cols="12"
+                      md="4"
+                    >
                       <v-select
                         v-model="selectedCountyId"
                         label="縣市"
@@ -137,7 +180,10 @@
                         @update:model-value="handleCountyChange"
                       />
                     </v-col>
-                    <v-col cols="12" md="4">
+                    <v-col
+                      cols="12"
+                      md="4"
+                    >
                       <v-select
                         v-model="selectedTownId"
                         label="鄉鎮市區"
@@ -155,7 +201,10 @@
                         @update:model-value="handleTownChange"
                       />
                     </v-col>
-                    <v-col cols="12" md="4">
+                    <v-col
+                      cols="12"
+                      md="4"
+                    >
                       <v-select
                         v-model="selectedVillageId"
                         label="村里"
@@ -195,14 +244,31 @@
           </v-row>
 
           <!-- 承辦資訊區塊 -->
-          <v-card flat class="mb-4 pa-4" color="blue-grey-lighten-5" rounded="lg">
-            <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #2d8c8f">
-              <v-icon color="#3ea0a3" class="me-2 pb-1" size="small">mdi-account-tie</v-icon>
+          <v-card
+            flat
+            class="mb-4 pa-4"
+            color="blue-grey-lighten-5"
+            rounded="lg"
+          >
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+              style="color: #2d8c8f"
+            >
+              <v-icon
+                color="#3ea0a3"
+                class="me-2 pb-1"
+                size="small"
+              >
+                mdi-account-tie
+              </v-icon>
               承辦資訊
             </v-card-title>
 
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model="localFormData.manager"
                   label="承辦人"
@@ -214,7 +280,10 @@
                   @update:model-value="updateFormData"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model="localFormData.department"
                   label="管理處"
@@ -236,7 +305,10 @@
             color="blue-grey-lighten-5"
             rounded="lg"
           >
-            <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #2d8c8f">
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+              style="color: #2d8c8f"
+            >
               <v-icon
                 class="me-2 pb-1"
                 size="small"

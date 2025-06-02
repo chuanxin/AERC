@@ -1,16 +1,24 @@
 <template>
-  <v-container :fluid="isFluid" class="pt-0">
+  <v-container
+    :fluid="isFluid"
+    class="pt-0"
+  >
     <v-card class="pa-0 mb-6">
       <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-        <v-icon class="me-2" size="small">mdi-currency-usd</v-icon>
+        <v-icon
+          class="me-2"
+          size="small"
+        >
+          mdi-currency-usd
+        </v-icon>
         <span class="text-subtitle-1 font-weight-medium">本年度預算執行即時資訊</span>
-        <v-spacer></v-spacer>
+        <v-spacer />
         <v-btn
           icon
           variant="text"
           size="small"
-          @click="toggleFluid"
           :title="isFluid ? '切換為固定寬度' : '切換為全寬模式'"
+          @click="toggleFluid"
         >
           <v-icon>{{ isFluid ? 'mdi-arrow-collapse-horizontal' : 'mdi-arrow-expand-horizontal' }}</v-icon>
         </v-btn>
@@ -18,8 +26,8 @@
           icon
           variant="text"
           size="small"
-          @click="exportToExcel"
           title="匯出為Excel"
+          @click="exportToExcel"
         >
           <v-icon>mdi-microsoft-excel</v-icon>
         </v-btn>
@@ -27,8 +35,8 @@
           icon
           variant="text"
           size="small"
-          @click="printTable"
           title="列印"
+          @click="printTable"
         >
           <v-icon>mdi-printer</v-icon>
         </v-btn>
@@ -37,7 +45,11 @@
       <!-- 查詢條件區域 -->
       <v-card-text class="pa-3">
         <v-row dense>
-          <v-col cols="12" sm="6" md="3">
+          <v-col
+            cols="12"
+            sm="6"
+            md="3"
+          >
             <v-select
               v-model="selectedYear"
               :items="yearOptions"
@@ -46,9 +58,13 @@
               density="compact"
               hide-details
               class="mb-2"
-            ></v-select>
+            />
           </v-col>
-          <v-col cols="12" sm="6" md="3">
+          <v-col
+            cols="12"
+            sm="6"
+            md="3"
+          >
             <v-select
               v-model="selectedMonth"
               :items="monthOptions"
@@ -57,18 +73,27 @@
               density="compact"
               hide-details
               class="mb-2"
-            ></v-select>
+            />
           </v-col>
-          <v-col cols="12" sm="6" md="3">
+          <v-col
+            cols="12"
+            sm="6"
+            md="3"
+          >
             <v-btn
               color="primary"
               variant="elevated"
               size="small"
-              @click="fetchBudgetData"
               :loading="isLoading"
               class="mb-2"
+              @click="fetchBudgetData"
             >
-              <v-icon size="small" class="me-1">mdi-magnify</v-icon>
+              <v-icon
+                size="small"
+                class="me-1"
+              >
+                mdi-magnify
+              </v-icon>
               查詢
             </v-btn>
           </v-col>
@@ -76,7 +101,10 @@
       </v-card-text>
 
       <!-- Budget Data Table -->
-      <div class="table-container" ref="tableContainer">
+      <div
+        ref="tableContainer"
+        class="table-container"
+      >
         <v-data-table
           :headers="headers"
           :items="budgetItems"
@@ -86,7 +114,7 @@
           fixed-header
         >
           <!-- Custom header formatting -->
-          <template v-slot:header="{ columns }">
+          <template #header="{ columns }">
             <tr>
               <th
                 v-for="(column, i) in columns"
@@ -113,15 +141,22 @@
           </template>
 
           <!-- Custom cell formatting -->
-          <template v-slot:item="{ item, index }">
-            <td v-for="(column, colIndex) in headers" :key="colIndex" :class="column.key === 'unit' ? getUnitCellClass(index) : 'text-right'">
+          <template #item="{ item, index }">
+            <td
+              v-for="(column, colIndex) in headers"
+              :key="colIndex"
+              :class="column.key === 'unit' ? getUnitCellClass(index) : 'text-right'"
+            >
               <span v-if="column.key === 'unit'">{{ item.unit }}</span>
               <span v-else-if="column.key === 'executionArea'">{{ formatNumber(item.executionArea) }}</span>
               <span v-else-if="column.key === 'executionBudget'">{{ formatCurrency(item.executionBudget) }}</span>
               <span v-else-if="column.key === 'households'">{{ formatNumber(item.households) }}</span>
               <span v-else-if="column.key === 'area'">{{ formatNumber(item.area, 4) }}</span>
               <span v-else-if="column.key === 'subsidy'">{{ formatCurrency(item.subsidy) }}</span>
-              <span v-else-if="column.key === 'remainingSubsidy'" :class="{'negative-value': item.remainingSubsidy < 0}">{{ formatCurrency(item.remainingSubsidy) }}</span>
+              <span
+                v-else-if="column.key === 'remainingSubsidy'"
+                :class="{'negative-value': item.remainingSubsidy < 0}"
+              >{{ formatCurrency(item.remainingSubsidy) }}</span>
               <span v-else-if="column.key === 'acceptedHouseholds'">{{ formatNumber(item.acceptedHouseholds) }}</span>
               <span v-else-if="column.key === 'acceptedArea'">{{ formatNumber(item.acceptedArea, 4) }}</span>
               <span v-else-if="column.key === 'acceptedAmount'">{{ formatCurrency(item.acceptedAmount) }}</span>
@@ -132,24 +167,54 @@
           </template>
 
           <!-- Custom footer for totals -->
-          <template v-slot:bottom>
+          <template #bottom>
             <tr class="total-row">
-              <td class="font-weight-bold">合計</td>
-              <td class="text-right">{{ formatNumber(totalExecutionArea) }}</td>
-              <td class="text-right">{{ formatCurrency(totalExecutionBudget) }}</td>
-              <td class="text-right">{{ formatNumber(totalHouseholds) }}</td>
-              <td class="text-right">{{ formatNumber(totalArea, 4) }}</td>
-              <td class="text-right">{{ formatCurrency(totalSubsidy) }}</td>
-              <td class="text-right" :class="{'negative-value': totalRemainingSubsidy < 0}">{{ formatCurrency(totalRemainingSubsidy) }}</td>
-              <td class="text-right">{{ formatNumber(totalAcceptedHouseholds) }}</td>
-              <td class="text-right">{{ formatNumber(totalAcceptedArea, 4) }}</td>
-              <td class="text-right">{{ formatCurrency(totalAcceptedAmount) }}</td>
-              <td class="text-right">{{ totalAreaExecutionRate }}</td>
-              <td class="text-right">{{ totalBudgetExecutionRate }}</td>
+              <td class="font-weight-bold">
+                合計
+              </td>
+              <td class="text-right">
+                {{ formatNumber(totalExecutionArea) }}
+              </td>
+              <td class="text-right">
+                {{ formatCurrency(totalExecutionBudget) }}
+              </td>
+              <td class="text-right">
+                {{ formatNumber(totalHouseholds) }}
+              </td>
+              <td class="text-right">
+                {{ formatNumber(totalArea, 4) }}
+              </td>
+              <td class="text-right">
+                {{ formatCurrency(totalSubsidy) }}
+              </td>
+              <td
+                class="text-right"
+                :class="{'negative-value': totalRemainingSubsidy < 0}"
+              >
+                {{ formatCurrency(totalRemainingSubsidy) }}
+              </td>
+              <td class="text-right">
+                {{ formatNumber(totalAcceptedHouseholds) }}
+              </td>
+              <td class="text-right">
+                {{ formatNumber(totalAcceptedArea, 4) }}
+              </td>
+              <td class="text-right">
+                {{ formatCurrency(totalAcceptedAmount) }}
+              </td>
+              <td class="text-right">
+                {{ totalAreaExecutionRate }}
+              </td>
+              <td class="text-right">
+                {{ totalBudgetExecutionRate }}
+              </td>
             </tr>
           </template>
         </v-data-table>
-        <div v-if="isOverflowing" class="scroll-hint">
+        <div
+          v-if="isOverflowing"
+          class="scroll-hint"
+        >
           滑動下方捲軸以查看完整表格內容
         </div>
       </div>

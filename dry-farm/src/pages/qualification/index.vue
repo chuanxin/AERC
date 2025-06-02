@@ -1,11 +1,19 @@
 <template>
   <v-container class="pt-0">
     <v-row>
-      <v-col cols="12" md="8">
+      <v-col
+        cols="12"
+        md="8"
+      >
         <!-- 查詢區域 -->
         <v-card class="mb-4">
           <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-            <v-icon class="me-2" size="small">mdi-magnify</v-icon>
+            <v-icon
+              class="me-2"
+              size="small"
+            >
+              mdi-magnify
+            </v-icon>
             <span class="text-subtitle-1 font-weight-medium">重複案件查詢</span>
           </v-card-title>
 
@@ -13,10 +21,17 @@
             <v-form @submit.prevent="searchLand">
               <!-- 查詢表單內容 -->
               <v-row dense>
-                <v-col cols="12" md="2" class="d-flex align-center pt-2">
+                <v-col
+                  cols="12"
+                  md="2"
+                  class="d-flex align-center pt-2"
+                >
                   <span class="text-body-2 font-weight-medium">查詢類型</span>
                 </v-col>
-                <v-col cols="12" md="10">
+                <v-col
+                  cols="12"
+                  md="10"
+                >
                   <v-btn-toggle
                     v-model="queryType"
                     color="primary"
@@ -25,8 +40,18 @@
                     rounded="lg"
                     class="mb-2"
                   >
-                    <v-btn value="general" size="small">一般區域</v-btn>
-                    <v-btn value="indigenous" size="small">原民區域</v-btn>
+                    <v-btn
+                      value="general"
+                      size="small"
+                    >
+                      一般區域
+                    </v-btn>
+                    <v-btn
+                      value="indigenous"
+                      size="small"
+                    >
+                      原民區域
+                    </v-btn>
                   </v-btn-toggle>
                 </v-col>
               </v-row>
@@ -34,10 +59,17 @@
               <v-expand-transition>
                 <div v-if="queryType === 'general'">
                   <v-row dense>
-                    <v-col cols="12" md="2" class="d-flex align-center">
+                    <v-col
+                      cols="12"
+                      md="2"
+                      class="d-flex align-center"
+                    >
                       <span class="text-body-2 font-weight-medium">地段</span>
                     </v-col>
-                    <v-col cols="12" md="10">
+                    <v-col
+                      cols="12"
+                      md="10"
+                    >
                       <div class="d-flex flex-wrap">
                         <v-select
                           v-model="searchParams.county"
@@ -49,7 +81,7 @@
                           class="me-2 mb-2"
                           style="width: 120px"
                           @update:model-value="onCountyChange"
-                        ></v-select>
+                        />
 
                         <v-select
                           v-model="searchParams.town"
@@ -62,7 +94,7 @@
                           style="width: 140px"
                           :disabled="!searchParams.county"
                           @update:model-value="onTownChange"
-                        ></v-select>
+                        />
 
                         <v-select
                           v-model="searchParams.section"
@@ -74,16 +106,23 @@
                           class="mb-2"
                           style="width: 140px"
                           :disabled="!searchParams.town"
-                        ></v-select>
+                        />
                       </div>
                     </v-col>
                   </v-row>
 
                   <v-row dense>
-                    <v-col cols="12" md="2" class="d-flex align-center">
+                    <v-col
+                      cols="12"
+                      md="2"
+                      class="d-flex align-center"
+                    >
                       <span class="text-body-2 font-weight-medium">地號</span>
                     </v-col>
-                    <v-col cols="12" md="10">
+                    <v-col
+                      cols="12"
+                      md="10"
+                    >
                       <div class="d-flex align-center">
                         <v-text-field
                           v-model="searchParams.landNumber"
@@ -93,7 +132,7 @@
                           hide-details
                           class="me-2"
                           style="max-width: 200px"
-                        ></v-text-field>
+                        />
 
                         <v-btn
                           color="primary"
@@ -103,16 +142,30 @@
                           :loading="isLoading"
                           :disabled="!canSearch"
                         >
-                          <v-icon size="small" class="me-1">mdi-magnify</v-icon>
+                          <v-icon
+                            size="small"
+                            class="me-1"
+                          >
+                            mdi-magnify
+                          </v-icon>
                           查詢
                         </v-btn>
                       </div>
                     </v-col>
                   </v-row>
 
-                  <v-row dense v-if="showAlert">
-                    <v-col cols="12" md="2"></v-col>
-                    <v-col cols="12" md="10">
+                  <v-row
+                    v-if="showAlert"
+                    dense
+                  >
+                    <v-col
+                      cols="12"
+                      md="2"
+                    />
+                    <v-col
+                      cols="12"
+                      md="10"
+                    >
                       <v-alert
                         type="warning"
                         variant="tonal"
@@ -132,10 +185,17 @@
               <v-expand-transition>
                 <div v-if="queryType === 'indigenous'">
                   <v-row dense>
-                    <v-col cols="12" md="2" class="d-flex align-center">
+                    <v-col
+                      cols="12"
+                      md="2"
+                      class="d-flex align-center"
+                    >
                       <span class="text-body-2 font-weight-medium">地段</span>
                     </v-col>
-                    <v-col cols="12" md="10">
+                    <v-col
+                      cols="12"
+                      md="10"
+                    >
                       <div class="d-flex flex-wrap align-center">
                         <v-select
                           v-model="indigenousParams.county"
@@ -147,7 +207,7 @@
                           class="me-2 mb-2"
                           style="width: 120px"
                           @update:model-value="onIndigenousCountyChange"
-                        ></v-select>
+                        />
 
                         <v-select
                           v-model="indigenousParams.town"
@@ -159,7 +219,7 @@
                           class="me-2 mb-2"
                           style="width: 140px"
                           :disabled="!indigenousParams.county"
-                        ></v-select>
+                        />
 
                         <v-btn
                           color="primary"
@@ -169,7 +229,12 @@
                           :disabled="!canSearchIndigenous"
                           @click="searchIndigenous"
                         >
-                          <v-icon size="small" class="me-1">mdi-magnify</v-icon>
+                          <v-icon
+                            size="small"
+                            class="me-1"
+                          >
+                            mdi-magnify
+                          </v-icon>
                           查詢
                         </v-btn>
 
@@ -186,9 +251,18 @@
                     </v-col>
                   </v-row>
 
-                  <v-row dense v-if="isIndigenousAreaChecked">
-                    <v-col cols="12" md="2"></v-col>
-                    <v-col cols="12" md="10">
+                  <v-row
+                    v-if="isIndigenousAreaChecked"
+                    dense
+                  >
+                    <v-col
+                      cols="12"
+                      md="2"
+                    />
+                    <v-col
+                      cols="12"
+                      md="10"
+                    >
                       <div class="d-flex align-center mt-2">
                         <v-chip
                           :color="isIndigenousArea ? 'red-darken-2' : 'grey'"
@@ -212,27 +286,58 @@
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="4">
+      <v-col
+        cols="12"
+        md="4"
+      >
         <!-- 查詢說明區域 -->
         <v-card class="mb-4">
           <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-            <v-icon class="me-2" size="small">mdi-information</v-icon>
+            <v-icon
+              class="me-2"
+              size="small"
+            >
+              mdi-information
+            </v-icon>
             <span class="text-subtitle-1 font-weight-medium">查詢說明</span>
           </v-card-title>
 
           <v-card-text class="pa-3">
-            <v-list density="compact" class="bg-transparent pa-0">
-              <v-list-item prepend-icon="mdi-check-circle" class="px-1">
-                <v-list-item-title class="text-body-2">查詢前請確認地段與地號資訊</v-list-item-title>
+            <v-list
+              density="compact"
+              class="bg-transparent pa-0"
+            >
+              <v-list-item
+                prepend-icon="mdi-check-circle"
+                class="px-1"
+              >
+                <v-list-item-title class="text-body-2">
+                  查詢前請確認地段與地號資訊
+                </v-list-item-title>
               </v-list-item>
-              <v-list-item prepend-icon="mdi-check-circle" class="px-1">
-                <v-list-item-title class="text-body-2">可查詢該地號是否已有補助申請紀錄</v-list-item-title>
+              <v-list-item
+                prepend-icon="mdi-check-circle"
+                class="px-1"
+              >
+                <v-list-item-title class="text-body-2">
+                  可查詢該地號是否已有補助申請紀錄
+                </v-list-item-title>
               </v-list-item>
-              <v-list-item prepend-icon="mdi-check-circle" class="px-1">
-                <v-list-item-title class="text-body-2">若為原民區域請選擇原民區域查詢</v-list-item-title>
+              <v-list-item
+                prepend-icon="mdi-check-circle"
+                class="px-1"
+              >
+                <v-list-item-title class="text-body-2">
+                  若為原民區域請選擇原民區域查詢
+                </v-list-item-title>
               </v-list-item>
-              <v-list-item prepend-icon="mdi-check-circle" class="px-1">
-                <v-list-item-title class="text-body-2">查詢結果會顯示已申請面積與剩餘可申請面積</v-list-item-title>
+              <v-list-item
+                prepend-icon="mdi-check-circle"
+                class="px-1"
+              >
+                <v-list-item-title class="text-body-2">
+                  查詢結果會顯示已申請面積與剩餘可申請面積
+                </v-list-item-title>
               </v-list-item>
             </v-list>
           </v-card-text>
@@ -241,12 +346,20 @@
         <!-- 最近查詢區域 (選擇性功能) -->
         <v-card class="mb-4">
           <v-card-title class="bg-grey-lighten-3 d-flex align-center py-2 px-4">
-            <v-icon class="me-2" size="small">mdi-history</v-icon>
+            <v-icon
+              class="me-2"
+              size="small"
+            >
+              mdi-history
+            </v-icon>
             <span class="text-subtitle-1 font-weight-medium">最近查詢</span>
           </v-card-title>
 
           <v-card-text class="pa-0">
-            <v-list lines="two" density="compact">
+            <v-list
+              lines="two"
+              density="compact"
+            >
               <v-list-item
                 v-for="(item, index) in recentSearches"
                 :key="index"
@@ -273,16 +386,33 @@
 
     <!-- 查詢結果顯示區域 -->
     <v-expand-transition>
-      <v-card v-if="searchResults.length > 0 || showNoResultMessage" class="mb-4" variant="outlined">
+      <v-card
+        v-if="searchResults.length > 0 || showNoResultMessage"
+        class="mb-4"
+        variant="outlined"
+      >
         <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-          <v-icon class="me-2" size="small">mdi-file-search</v-icon>
+          <v-icon
+            class="me-2"
+            size="small"
+          >
+            mdi-file-search
+          </v-icon>
           <span class="text-subtitle-1 font-weight-medium">查詢結果</span>
         </v-card-title>
 
         <v-card-text class="pa-4">
           <!-- 有查詢結果 -->
-          <v-sheet v-if="searchResults.length > 0" class="rounded pa-3 mb-4" color="blue-lighten-5">
-            <div v-for="(result, index) in searchResults" :key="index" class="mb-2">
+          <v-sheet
+            v-if="searchResults.length > 0"
+            class="rounded pa-3 mb-4"
+            color="blue-lighten-5"
+          >
+            <div
+              v-for="(result, index) in searchResults"
+              :key="index"
+              class="mb-2"
+            >
               <div class="text-body-2">
                 <span class="font-weight-medium">{{ result.year }}年度</span>
                 【{{ result.department }}】申請補助
@@ -291,64 +421,160 @@
               </div>
               <div class="d-flex justify-space-between text-body-2 mb-2">
                 <div>
-                  <span v-if="result.waterUsage" class="me-4">灌水設備{{ result.waterUsage }}㎡</span>
-                  <span v-if="result.powerEquipment" class="me-4">動力設備{{ result.powerEquipment }}㎡</span>
-                  <span v-if="result.fieldPipeline" class="me-4">田間管路{{ result.fieldPipeline }}㎡</span>
+                  <span
+                    v-if="result.waterUsage"
+                    class="me-4"
+                  >灌水設備{{ result.waterUsage }}㎡</span>
+                  <span
+                    v-if="result.powerEquipment"
+                    class="me-4"
+                  >動力設備{{ result.powerEquipment }}㎡</span>
+                  <span
+                    v-if="result.fieldPipeline"
+                    class="me-4"
+                  >田間管路{{ result.fieldPipeline }}㎡</span>
                 </div>
               </div>
-              <v-divider v-if="index < searchResults.length - 1" class="mb-2"></v-divider>
+              <v-divider
+                v-if="index < searchResults.length - 1"
+                class="mb-2"
+              />
             </div>
 
             <!-- 土地面積統計區域 -->
-            <v-divider class="mb-3 mt-2"></v-divider>
+            <v-divider class="mb-3 mt-2" />
 
             <v-row dense>
-              <v-col cols="12" sm="6" md="4">
-                <v-card flat color="transparent" class="px-2 py-1">
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">設查詢地號總面積</v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">{{ landTotalArea }} ㎡</v-card-text>
+              <v-col
+                cols="12"
+                sm="6"
+                md="4"
+              >
+                <v-card
+                  flat
+                  color="transparent"
+                  class="px-2 py-1"
+                >
+                  <v-card-subtitle class="pa-0 pb-1 text-caption">
+                    設查詢地號總面積
+                  </v-card-subtitle>
+                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                    {{ landTotalArea }} ㎡
+                  </v-card-text>
                 </v-card>
               </v-col>
 
-              <v-col cols="12" sm="6" md="4">
-                <v-card flat color="transparent" class="px-2 py-1">
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">已經補助申請設施面積</v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">{{ usedArea }} ㎡</v-card-text>
+              <v-col
+                cols="12"
+                sm="6"
+                md="4"
+              >
+                <v-card
+                  flat
+                  color="transparent"
+                  class="px-2 py-1"
+                >
+                  <v-card-subtitle class="pa-0 pb-1 text-caption">
+                    已經補助申請設施面積
+                  </v-card-subtitle>
+                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                    {{ usedArea }} ㎡
+                  </v-card-text>
                 </v-card>
               </v-col>
 
-              <v-col cols="12" sm="6" md="4">
-                <v-card flat color="transparent" class="px-2 py-1">
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">剩餘申請面積</v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">{{ remainingArea }} ㎡</v-card-text>
+              <v-col
+                cols="12"
+                sm="6"
+                md="4"
+              >
+                <v-card
+                  flat
+                  color="transparent"
+                  class="px-2 py-1"
+                >
+                  <v-card-subtitle class="pa-0 pb-1 text-caption">
+                    剩餘申請面積
+                  </v-card-subtitle>
+                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                    {{ remainingArea }} ㎡
+                  </v-card-text>
                 </v-card>
               </v-col>
 
-              <v-col cols="12" sm="6" md="4">
-                <v-card flat color="transparent" class="px-2 py-1">
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">已經補助微灌設施面積</v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">{{ microIrrigationArea }} ㎡</v-card-text>
+              <v-col
+                cols="12"
+                sm="6"
+                md="4"
+              >
+                <v-card
+                  flat
+                  color="transparent"
+                  class="px-2 py-1"
+                >
+                  <v-card-subtitle class="pa-0 pb-1 text-caption">
+                    已經補助微灌設施面積
+                  </v-card-subtitle>
+                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                    {{ microIrrigationArea }} ㎡
+                  </v-card-text>
                 </v-card>
               </v-col>
 
-              <v-col cols="12" sm="6" md="4">
-                <v-card flat color="transparent" class="px-2 py-1">
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">剩餘申請面積</v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">{{ remainingMicroArea }} ㎡</v-card-text>
+              <v-col
+                cols="12"
+                sm="6"
+                md="4"
+              >
+                <v-card
+                  flat
+                  color="transparent"
+                  class="px-2 py-1"
+                >
+                  <v-card-subtitle class="pa-0 pb-1 text-caption">
+                    剩餘申請面積
+                  </v-card-subtitle>
+                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                    {{ remainingMicroArea }} ㎡
+                  </v-card-text>
                 </v-card>
               </v-col>
 
-              <v-col cols="12" sm="6" md="4">
-                <v-card flat color="transparent" class="px-2 py-1">
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">已經補助噴水設施面積</v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">{{ sprinklerArea }} ㎡</v-card-text>
+              <v-col
+                cols="12"
+                sm="6"
+                md="4"
+              >
+                <v-card
+                  flat
+                  color="transparent"
+                  class="px-2 py-1"
+                >
+                  <v-card-subtitle class="pa-0 pb-1 text-caption">
+                    已經補助噴水設施面積
+                  </v-card-subtitle>
+                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                    {{ sprinklerArea }} ㎡
+                  </v-card-text>
                 </v-card>
               </v-col>
 
-              <v-col cols="12" sm="6" md="4">
-                <v-card flat color="transparent" class="px-2 py-1">
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">剩餘申請面積</v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">{{ remainingSprinklerArea }} ㎡</v-card-text>
+              <v-col
+                cols="12"
+                sm="6"
+                md="4"
+              >
+                <v-card
+                  flat
+                  color="transparent"
+                  class="px-2 py-1"
+                >
+                  <v-card-subtitle class="pa-0 pb-1 text-caption">
+                    剩餘申請面積
+                  </v-card-subtitle>
+                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                    {{ remainingSprinklerArea }} ㎡
+                  </v-card-text>
                 </v-card>
               </v-col>
             </v-row>
@@ -370,7 +596,12 @@
                 to="/grants/new"
               >
                 立即申請
-                <v-icon end size="small">mdi-arrow-right</v-icon>
+                <v-icon
+                  end
+                  size="small"
+                >
+                  mdi-arrow-right
+                </v-icon>
               </v-btn>
             </div>
           </v-alert>
@@ -379,7 +610,10 @@
     </v-expand-transition>
 
     <!-- 原民鄉對話框 -->
-    <v-dialog v-model="indigenousDialog" max-width="700px">
+    <v-dialog
+      v-model="indigenousDialog"
+      max-width="700px"
+    >
       <v-card>
         <v-card-title class="bg-light-blue-lighten-4 py-3 px-4">
           <span class="text-subtitle-1 font-weight-medium">原民鄉清單</span>
@@ -387,7 +621,9 @@
 
         <v-card-text class="pa-4">
           <div class="mb-4">
-            <div class="font-weight-medium mb-2">山地鄉(30個)</div>
+            <div class="font-weight-medium mb-2">
+              山地鄉(30個)
+            </div>
             <div class="text-body-2 text-wrap">
               臺灣市茂林區、臺灣市桃源區、臺灣市那瑪夏區、新北市烏來區、宜蘭縣大同鄉、
               宜蘭縣南澳鄉、桃園市復興區、新竹縣尖石鄉、新竹縣五峰鄉、苗栗縣泰安鄉、
@@ -399,7 +635,9 @@
           </div>
 
           <div class="mb-4">
-            <div class="font-weight-medium mb-2">平地鄉(25個)</div>
+            <div class="font-weight-medium mb-2">
+              平地鄉(25個)
+            </div>
             <div class="text-body-2 text-wrap">
               新竹縣關西鎮、苗栗縣南庄鄉、苗栗縣獅潭鄉、南投縣魚池鄉、屏東縣滿州鄉、
               花蓮縣花蓮市、花蓮縣光復鄉、花蓮縣玉里鎮、花蓮縣新城鄉、花蓮縣吉安鄉、
@@ -411,7 +649,7 @@
         </v-card-text>
 
         <v-card-actions class="pa-4">
-          <v-spacer></v-spacer>
+          <v-spacer />
           <v-btn
             color="primary"
             variant="elevated"

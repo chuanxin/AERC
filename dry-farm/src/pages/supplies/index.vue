@@ -339,7 +339,11 @@
     </v-row>
 
     <!-- 單欄位編輯對話框 -->
-    <v-dialog v-model="cellEditDialog" :activator="activator" max-width="500px">
+    <v-dialog
+      v-model="cellEditDialog"
+      :activator="activator"
+      max-width="500px"
+    >
       <v-confirm-edit
         ref="confirm"
         v-model="cellEditModel"
@@ -349,8 +353,11 @@
         @cancel="cellEditDialog = false"
         @save="saveCellEdit"
       >
-        <template v-slot:default="{ model: proxyModel, actions }">
-          <v-card :title="cellEditDialogTitle" class="rounded-lg">
+        <template #default="{ model: proxyModel, actions }">
+          <v-card
+            :title="cellEditDialogTitle"
+            class="rounded-lg"
+          >
             <v-card-text>
               <!-- 模組名稱 -->
               <v-select
@@ -468,7 +475,7 @@
               />
             </v-card-text>
 
-            <template v-slot:actions>
+            <template #actions>
               <v-spacer />
               <component :is="actions" />
             </template>
@@ -549,12 +556,19 @@
               <thead>
                 <tr>
                   <th>年度</th>
-                  <th class="text-right">單價 (元)</th>
-                  <th class="text-center">操作</th>
+                  <th class="text-right">
+                    單價 (元)
+                  </th>
+                  <th class="text-center">
+                    操作
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(price, index) in currentMaterial.priceHistory" :key="price.id">
+                <tr
+                  v-for="(price, index) in currentMaterial.priceHistory"
+                  :key="price.id"
+                >
                   <td>{{ price.year }} 年</td>
                   <td class="text-right">
                     <span v-if="editingPriceIndex !== index">{{ price.price }}</span>
@@ -623,18 +637,26 @@
     </v-dialog>
 
     <!-- 編輯材料對話框 -->
-    <v-dialog v-model="editDialog" max-width="500px">
+    <v-dialog
+      v-model="editDialog"
+      max-width="500px"
+    >
       <v-card class="rounded-lg">
         <v-card-title class="text-h5 bg-teal-lighten-1">
           <span>{{ editedItem.id ? '編輯材料' : '新增材料' }}</span>
           <v-spacer />
-          <v-icon @click="editDialog = false">mdi-close</v-icon>
+          <v-icon @click="editDialog = false">
+            mdi-close
+          </v-icon>
         </v-card-title>
 
         <v-card-text class="pa-4">
           <v-container>
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-select
                   v-model="editedItem.moduleName"
                   :items="dynamicModuleOptions"
@@ -644,7 +666,10 @@
                   variant="outlined"
                 />
               </v-col>
-              <v-col cols="12" md="6">
+              <v-col
+                cols="12"
+                md="6"
+              >
                 <v-text-field
                   v-model="editedItem.materialName"
                   label="物料名稱"
@@ -652,7 +677,10 @@
                   variant="outlined"
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-select
                   v-model="editedItem.diameter1"
                   :items="diameter1Options"
@@ -664,7 +692,10 @@
                   item-value="value"
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-select
                   v-model="editedItem.diameter2"
                   :items="diameter2Options"
@@ -676,7 +707,10 @@
                   item-value="value"
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-select
                   v-model="editedItem.diameter3"
                   :items="diameter3Options"
@@ -688,7 +722,10 @@
                   item-value="value"
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-select
                   v-model="editedItem.material"
                   :items="materialOptions"
@@ -699,7 +736,10 @@
                   variant="outlined"
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-text-field
                   v-model="editedItem.length"
                   label="長度(m)"
@@ -708,7 +748,10 @@
                   variant="outlined"
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-text-field
                   v-model="editedItem.unit"
                   label="品項單位"
@@ -717,7 +760,10 @@
                   variant="outlined"
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-text-field
                   v-model.number="editedItem.currentPrice"
                   label="目前單價"
@@ -728,7 +774,10 @@
                   suffix="元"
                 />
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <v-select
                   v-model="editedItem.status"
                   :items="['啟用', '停用']"
@@ -753,10 +802,18 @@
 
         <v-card-actions>
           <v-spacer />
-          <v-btn color="grey" variant="text" @click="editDialog = false">
+          <v-btn
+            color="grey"
+            variant="text"
+            @click="editDialog = false"
+          >
             取消
           </v-btn>
-          <v-btn color="#3ea0a3" variant="elevated" @click="saveItem">
+          <v-btn
+            color="#3ea0a3"
+            variant="elevated"
+            @click="saveItem"
+          >
             儲存
           </v-btn>
         </v-card-actions>
@@ -1043,7 +1100,7 @@ const filteredItems = computed(() => {
 
 // 添加項次序號到項目
 const indexedItems = computed(() => {
-  let itemsToProcess = [...filteredItems.value];
+  const itemsToProcess = [...filteredItems.value];
   if (sortBy.value) {
     itemsToProcess.sort((a, b) => {
       let valueA = a[sortBy.value];

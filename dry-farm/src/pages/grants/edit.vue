@@ -1,5 +1,9 @@
 <template>
-  <v-container fluid class="grants-edit-container px-6 pb-0 pt-0" style="background-color: white">
+  <v-container
+    fluid
+    class="grants-edit-container px-6 pb-0 pt-0"
+    style="background-color: white"
+  >
     <!-- Loading indicator -->
     <v-overlay
       v-if="!isDataLoaded"
@@ -27,7 +31,11 @@
 
     <!-- Main content -->
     <v-row justify="center">
-      <v-col cols="12" lg="11" align-self="center">
+      <v-col
+        cols="12"
+        lg="11"
+        align-self="center"
+      >
         <div class="section-wrapper">
           <!-- Navigation Drawer with Glass Effect -->
           <v-layout class="pb-1">
@@ -46,7 +54,10 @@
                 class="pt-0 mt-0"
               >
                 <v-list-item>
-                  <v-list-item-title class="text-h6 font-weight-bold" style="color: #2d8c8f">
+                  <v-list-item-title
+                    class="text-h6 font-weight-bold"
+                    style="color: #2d8c8f"
+                  >
                     補助申請業務 {{ currentStep }}/{{ steps.length }}
                   </v-list-item-title>
                   <template #append>
@@ -66,7 +77,10 @@
               <v-divider />
 
               <!-- Step navigation list -->
-              <v-list nav class="step-list">
+              <v-list
+                nav
+                class="step-list"
+              >
                 <v-list-item
                   v-for="step in steps"
                   :key="step.value"
@@ -75,8 +89,8 @@
                   :disabled="isNavigating"
                   variant="elevated"
                   elevation="0"
-                  @click="handleStepClick(step.value)"
                   class="step-list-item"
+                  @click="handleStepClick(step.value)"
                 >
                   <template #prepend>
                     <v-icon
@@ -173,7 +187,10 @@
                 </v-card>
 
                 <!-- Step components container -->
-                <v-card class="section-card pb-0 mb-0" rounded="lg">
+                <v-card
+                  class="section-card pb-0 mb-0"
+                  rounded="lg"
+                >
                   <v-card-item class="custom-title">
                     <v-card-title class="text-h5 font-weight-black">
                       {{ steps.find(s => s.value === currentStep)?.title }}
@@ -204,14 +221,17 @@
                       icon="mdi-content-save"
                       class="mb-4"
                     >
-                      <template v-slot:text>
+                      <template #text>
                         資料變更尚未儲存，系統將自動儲存
-                        <span v-if="grantsStore.lastSavedAt" class="ms-2 text-caption">
+                        <span
+                          v-if="grantsStore.lastSavedAt"
+                          class="ms-2 text-caption"
+                        >
                           (上次儲存於 {{ grantsStore.lastSavedTime }})
                         </span>
                       </template>
 
-                      <template v-slot:actions>
+                      <template #actions>
                         <v-btn
                           variant="text"
                           :loading="grantsStore.isSaving"
@@ -230,7 +250,11 @@
                     </v-snackbar>
 
                     <!-- Content Card for Step Components -->
-                    <v-card class="content-card" rounded="lg" elevation="0">
+                    <v-card
+                      class="content-card"
+                      rounded="lg"
+                      elevation="0"
+                    >
                       <!-- Step components -->
                       <step1
                         v-if="currentStep === 1"
@@ -336,10 +360,18 @@
                       @click="goToNextStep"
                     >
                       <!-- 替換為更詳細的邏輯顯示不同的按鈕文字 -->
-                      <template v-if="currentStep === 8">完成</template>
-                      <template v-else-if="currentStep === 7">結案</template>
-                      <template v-else-if="currentStep === 6">完成申報</template>
-                      <template v-else>下一步</template>
+                      <template v-if="currentStep === 8">
+                        完成
+                      </template>
+                      <template v-else-if="currentStep === 7">
+                        結案
+                      </template>
+                      <template v-else-if="currentStep === 6">
+                        完成申報
+                      </template>
+                      <template v-else>
+                        下一步
+                      </template>
 
                       <v-icon
                         v-if="currentStep < 8"

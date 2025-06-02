@@ -1,25 +1,63 @@
 <template>
-  <v-card flat class="step0-container pa-6">
+  <v-card
+    flat
+    class="step0-container pa-6"
+  >
     <div class="text-center mb-6">
-      <v-avatar size="80" class="mb-4" color="#e3f4f4">
-        <v-icon size="40" color="#3ea0a3">mdi-sprout</v-icon>
+      <v-avatar
+        size="80"
+        class="mb-4"
+        color="#e3f4f4"
+      >
+        <v-icon
+          size="40"
+          color="#3ea0a3"
+        >
+          mdi-sprout
+        </v-icon>
       </v-avatar>
-      <h2 class="text-h4 font-weight-bold mb-2" style="color: #2d8c8f">歡迎使用管路灌溉補助申請系統</h2>
+      <h2
+        class="text-h4 font-weight-bold mb-2"
+        style="color: #2d8c8f"
+      >
+        歡迎使用管路灌溉補助申請系統
+      </h2>
       <p class="text-body-1 text-medium-emphasis mb-6">
         透過本系統，您可以輕鬆申請農業部農田水利署的管路灌溉設施補助
       </p>
     </div>
 
     <v-row>
-      <v-col cols="12" md="6">
-        <v-card class="feature-card mb-4 h-100" rounded="lg" flat>
+      <v-col
+        cols="12"
+        md="6"
+      >
+        <v-card
+          class="feature-card mb-4 h-100"
+          rounded="lg"
+          flat
+        >
           <v-card-text class="pa-6">
             <div class="d-flex mb-4">
-              <v-avatar size="56" color="#e3f4f4" class="mr-4">
-                <v-icon size="32" color="#3ea0a3">mdi-water</v-icon>
+              <v-avatar
+                size="56"
+                color="#e3f4f4"
+                class="mr-4"
+              >
+                <v-icon
+                  size="32"
+                  color="#3ea0a3"
+                >
+                  mdi-water
+                </v-icon>
               </v-avatar>
               <div>
-                <h3 class="text-h6 font-weight-bold" style="color: #2d8c8f">補助內容</h3>
+                <h3
+                  class="text-h6 font-weight-bold"
+                  style="color: #2d8c8f"
+                >
+                  補助內容
+                </h3>
                 <p class="text-subtitle-2 text-medium-emphasis">
                   符合條件的農地可獲得管路灌溉設施的補助
                 </p>
@@ -33,30 +71,63 @@
                 density="comfortable"
               >
                 <template #prepend>
-                  <v-icon color="#3ea0a3" size="small" class="me-2">mdi-check-circle</v-icon>
+                  <v-icon
+                    color="#3ea0a3"
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-check-circle
+                  </v-icon>
                 </template>
-                <v-list-item-title class="text-body-2">{{ item }}</v-list-item-title>
+                <v-list-item-title class="text-body-2">
+                  {{ item }}
+                </v-list-item-title>
               </v-list-item>
             </v-list>
           </v-card-text>
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="6">
-        <v-card class="feature-card mb-4 h-100" rounded="lg" flat>
+      <v-col
+        cols="12"
+        md="6"
+      >
+        <v-card
+          class="feature-card mb-4 h-100"
+          rounded="lg"
+          flat
+        >
           <v-card-text class="pa-6">
             <div class="d-flex mb-4">
-              <v-avatar size="56" color="#e3f4f4" class="mr-4">
-                <v-icon size="32" color="#3ea0a3">mdi-file-document-outline</v-icon>
+              <v-avatar
+                size="56"
+                color="#e3f4f4"
+                class="mr-4"
+              >
+                <v-icon
+                  size="32"
+                  color="#3ea0a3"
+                >
+                  mdi-file-document-outline
+                </v-icon>
               </v-avatar>
               <div>
-                <h3 class="text-h6 font-weight-bold" style="color: #2d8c8f">申請流程</h3>
+                <h3
+                  class="text-h6 font-weight-bold"
+                  style="color: #2d8c8f"
+                >
+                  申請流程
+                </h3>
                 <p class="text-subtitle-2 text-medium-emphasis">
                   請依照以下步驟完成申請
                 </p>
               </div>
             </div>
-            <v-timeline density="compact" align="start" class="steps-timeline">
+            <v-timeline
+              density="compact"
+              align="start"
+              class="steps-timeline"
+            >
               <v-timeline-item
                 v-for="(step, index) in applicationSteps"
                 :key="index"
@@ -69,7 +140,9 @@
                     <span class="step-number mr-2">{{ index + 1 }}</span>
                     {{ step.title }}
                   </p>
-                  <p class="text-caption text-medium-emphasis">{{ step.description }}</p>
+                  <p class="text-caption text-medium-emphasis">
+                    {{ step.description }}
+                  </p>
                 </div>
               </v-timeline-item>
             </v-timeline>
@@ -80,9 +153,17 @@
 
     <v-row class="mt-4">
       <v-col cols="12">
-        <v-card class="notice-card" flat>
+        <v-card
+          class="notice-card"
+          flat
+        >
           <v-card-text class="d-flex align-center pa-4">
-            <v-icon color="#3ea0a3" class="me-3">mdi-information-outline</v-icon>
+            <v-icon
+              color="#3ea0a3"
+              class="me-3"
+            >
+              mdi-information-outline
+            </v-icon>
             <span class="text-body-2">
               請點擊<strong>下一步</strong>開始申請流程，或查看
               <v-btn
@@ -107,11 +188,13 @@
             width="200"
             rounded="lg"
             class="start-btn"
-            @click="$emit('next-step')"
             elevation="1"
+            @click="$emit('next-step')"
           >
             <span class="font-weight-medium">開始申請</span>
-            <v-icon class="ms-2">mdi-arrow-right</v-icon>
+            <v-icon class="ms-2">
+              mdi-arrow-right
+            </v-icon>
           </v-btn>
         </div>
       </v-col>
