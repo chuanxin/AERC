@@ -1319,6 +1319,8 @@ import type { PipeFitting } from '@/types/pipeFittings'
 
 // Type definitions for material generation
 interface MaterialData {
+  Length?: string | number;
+  width?: string | number;
   L1Len?: number;
   L1Material?: number;
   L1Spec?: number;
@@ -1341,7 +1343,7 @@ interface MaterialData {
   SS?: number;
   BranchMaterial?: number;
   BranchSpec?: number;
-  BranchLength?: number;
+  BranchLength?: string | number;
   StdpipeMat?: number;
   StdpipeSpec?: number;
   NozzleMaterial?: number;
@@ -3646,11 +3648,19 @@ const generateL2MainPipeLine = (data: any) => {
 // 生成穿孔管系統材料
 const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
   const materials = [];
-  const perforatedLength = data.BranchAmt * data.BranchLength;
+  // 新的穿孔管管材計算方式:
+  // 1. 行數 = Math.floor(fieldLength / branchPipeSpacing_SL) (已在BranchAmt中實現)
+  // 2. 穿孔管長度 = 行數 * fieldWidth
+  // 3. 穿孔管數量 = Math.ceil(穿孔管長度 / 100) (以100m為單位計價)
+  // 注意：雙向出水時穿孔管管材長度不變，只有配件數量會加倍
+  const perforatedTotalLength = data.BranchAmt * data.BranchLength; // 總穿孔管長度
   const isDoubleDirection = data.PerforatedPipe === 2;
-  const multiplier = isDoubleDirection ? 2 : 1;
+  const multiplier = isDoubleDirection ? 2 : 1; // 僅用於配件計算
 
-  // 穿孔管 - 使用 Math.ceil 進行管材數量計算
+  // 計算以100m為單位的穿孔管數量（不受雙向影響）
+  const perforatedQuantityPer100m = Math.ceil(perforatedTotalLength / 100);
+
+  // 穿孔管 - 按100m單位計價
   materials.push({
     pomno: 3001,
     module: '穿孔管',
@@ -3659,10 +3669,10 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
     spec1: pipeDiameterOptions.value.find(d => d.id === data.NozzleMaterial)?.name || '3/4"',
     spec2: '',
     spec3: '',
-    itemunit: 'm',
-    matprice: 8,
-    matamount: Math.ceil(perforatedLength * multiplier),
-    description: '穿孔管材',
+    itemunit: '100m',
+    matprice: 800, // 800元/100m (原8元/m × 100)
+    matamount: perforatedQuantityPer100m,
+    description: '穿孔管材(100m計價)',
     order: 1,
     group: 3
   });
