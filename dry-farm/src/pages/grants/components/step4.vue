@@ -3348,7 +3348,11 @@ const mapToLegacyFields = (formInputs: FormInputs) => {
     L1Price: formInputs.L1Price || localFormData.mainPipeUnitPrice || 0,
     L1MatAmt: formInputs.L1MatAmt || localFormData.mainPipeQuantity || 0,
     L1Bend: 3, // 預設彎頭數量
-    L1Receptacle: 1, // 預設塞口數量
+    // L1Receptacle logic: 當主管1和主管2都配置且口徑相同時，塞口數量為2；否則為1
+    L1Receptacle: (localFormData.mainPipe2Enabled &&
+                   localFormData.mainPipeDiameterId &&
+                   localFormData.mainPipe2DiameterId &&
+                   localFormData.mainPipeDiameterId === localFormData.mainPipe2DiameterId) ? 2 : 1,
 
     // 主管2相關
     L2Len: localFormData.mainPipe2Enabled ? (localFormData.mainPipe2Length || 0) : 0,
@@ -3454,6 +3458,9 @@ const generateMaterialsByFormula = (formulaNumber: number, data: MaterialData): 
 
   // 所有公式都包含主管1材料
   materialGroups.push(generateL1MainPipeLine(data));
+
+  // 當主管材質為鍍鋅鋼時，添加制水閥到滴水管組
+  materialGroups.push(generateGalvanizedSteelValveGroup(data));
 
   // 根據公式添加特定材料組
   switch (formulaNumber) {
@@ -3568,28 +3575,41 @@ const generateL1MainPipeLine = (data: any) => {
     group: 1
   });
 
-  // PE材質特殊配件
-  if (data.L1Material === 20) { // PE材質
-    materials.push({
-      pomno: 1004,
-      module: '主管配件',
-      matname: '制水閥',
-      mattype: L1MaterialName,
-      spec1: L1SpecName,
-      spec2: '',
-      spec3: '',
-      itemunit: '個',
-      matprice: 50,
-      matamount: Math.floor(1),
-      description: 'PE主管制水閥',
-      order: 4,
-      group: 1
-    });
-  }
-
   return {
     GroupNo: 1,
     GroupName: '主管組',
+    List: materials
+  };
+};
+
+// 生成鍍鋅鋼制水閥材料組 (當主管使用鍍鋅鋼材質時)
+const generateGalvanizedSteelValveGroup = (data: any) => {
+  if (data.L1Material !== 20) { // 非鍍鋅鋼材質則返回空組
+    return { GroupNo: 4, GroupName: '滴水管組', List: [] };
+  }
+
+  const L1MaterialName = pipeMaterialOptions.value.find(m => m.id === data.L1Material)?.name || 'PVC管';
+  const L1SpecName = pipeDiameterOptions.value.find(d => d.id === data.L1Spec)?.name || '1"';
+
+  const materials = [{
+    pomno: 1004,
+    module: '主管配件',
+    matname: '制水閥',
+    mattype: L1MaterialName,
+    spec1: L1SpecName,
+    spec2: '',
+    spec3: '',
+    itemunit: '個',
+    matprice: 50,
+    matamount: Math.floor(1),
+    description: '鍍鋅鋼主管制水閥',
+    order: 1,
+    group: 4
+  }];
+
+  return {
+    GroupNo: 4,
+    GroupName: '滴水管組',
     List: materials
   };
 };
