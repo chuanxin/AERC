@@ -1160,7 +1160,19 @@
                       :key="`pipe-${group.groupNo}-${pipe.pomno}-${pipeIndex}`"
                     >
                       <td class="text-center">
-                        {{ groupIndex + 1 }}-{{ pipe.order }}
+                        <div class="d-flex align-center justify-center">
+                          <span>{{ groupIndex + 1 }}-{{ pipe.order }}</span>
+                          <v-btn
+                            icon
+                            size="x-small"
+                            variant="text"
+                            color="info"
+                            class="ml-1"
+                            @click="showDebugInfo(pipe)"
+                          >
+                            <v-icon size="x-small">mdi-information</v-icon>
+                          </v-btn>
+                        </div>
                       </td>
                       <td>{{ pipe.matname }}</td>
                       <td>{{ pipe.module }}</td>
@@ -1306,6 +1318,216 @@
       </v-card-text>
     </v-card>
   </div>
+
+  <!-- 除錯資訊對話框 -->
+  <v-dialog
+    v-model="debugDialog"
+    max-width="800px"
+    scrollable
+  >
+    <v-card>
+      <v-card-title class="d-flex align-center">
+        <v-icon class="me-2" color="info">mdi-bug</v-icon>
+        <span>材料匹配除錯資訊</span>
+        <v-spacer />
+        <v-btn
+          icon
+          variant="text"
+          @click="debugDialog = false"
+        >
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+
+      <v-card-text v-if="selectedMaterialDebugInfo">
+        <v-row>
+          <!-- 生成的材料資訊 -->
+          <v-col cols="12" md="6">
+            <v-card variant="outlined" class="mb-4">
+              <v-card-title class="bg-blue-lighten-5 py-2">
+                <v-icon class="me-2" size="small">mdi-wrench</v-icon>
+                生成的材料資訊
+              </v-card-title>
+              <v-card-text class="pa-3">
+                <v-table density="compact">
+                  <tbody>
+                    <tr>
+                      <td class="font-weight-bold">POMNO</td>
+                      <td>{{ selectedMaterialDebugInfo.generated.pomno }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">模組</td>
+                      <td>{{ selectedMaterialDebugInfo.generated.module }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">模組ID</td>
+                      <td>{{ selectedMaterialDebugInfo.generated.module_id }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">材料名稱</td>
+                      <td>{{ selectedMaterialDebugInfo.generated.matname }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">材質</td>
+                      <td>{{ selectedMaterialDebugInfo.generated.mattype || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">規格1</td>
+                      <td>{{ selectedMaterialDebugInfo.generated.spec1 || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">規格2</td>
+                      <td>{{ selectedMaterialDebugInfo.generated.spec2 || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">規格3</td>
+                      <td>{{ selectedMaterialDebugInfo.generated.spec3 || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">單價</td>
+                      <td>{{ selectedMaterialDebugInfo.generated.matprice }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">數量</td>
+                      <td>{{ selectedMaterialDebugInfo.generated.matamount }}</td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </v-card-text>
+            </v-card>
+          </v-col>
+
+          <!-- 匹配狀態與條件 -->
+          <v-col cols="12" md="6">
+            <v-card variant="outlined" class="mb-4">
+              <v-card-title class="py-2" :class="selectedMaterialDebugInfo.matchStatus === 'success' ? 'bg-green-lighten-5' : 'bg-red-lighten-5'">
+                <v-icon
+                  class="me-2"
+                  size="small"
+                  :color="selectedMaterialDebugInfo.matchStatus === 'success' ? 'success' : 'error'"
+                >
+                  {{ selectedMaterialDebugInfo.matchStatus === 'success' ? 'mdi-check-circle' : 'mdi-alert-circle' }}
+                </v-icon>
+                匹配狀態: {{ selectedMaterialDebugInfo.matchStatus === 'success' ? '成功' : '失敗' }}
+              </v-card-title>
+              <v-card-text class="pa-3">
+                <div class="mb-3">
+                  <div class="font-weight-bold mb-2">匹配條件:</div>
+                  <v-chip-group column>
+                    <v-chip size="small" color="primary">
+                      模組ID: {{ selectedMaterialDebugInfo.matchCriteria.module_id }}
+                    </v-chip>
+                    <v-chip size="small" color="secondary">
+                      規格: {{ selectedMaterialDebugInfo.matchCriteria.spec1 }}
+                    </v-chip>
+                    <v-chip
+                      v-if="selectedMaterialDebugInfo.matchCriteria.mattype"
+                      size="small"
+                      color="accent"
+                    >
+                      材質: {{ selectedMaterialDebugInfo.matchCriteria.mattype }}
+                    </v-chip>
+                  </v-chip-group>
+                </div>
+              </v-card-text>
+            </v-card>
+
+            <!-- 匹配的 pipeFittingsStore 資料 -->
+            <v-card
+              v-if="selectedMaterialDebugInfo.matched"
+              variant="outlined"
+            >
+              <v-card-title class="bg-green-lighten-5 py-2">
+                <v-icon class="me-2" size="small" color="success">mdi-database-check</v-icon>
+                匹配的 Store 資料
+              </v-card-title>
+              <v-card-text class="pa-3">
+                <v-table density="compact">
+                  <tbody>
+                    <tr>
+                      <td class="font-weight-bold">POMNO</td>
+                      <td>{{ selectedMaterialDebugInfo.matched.pomno }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">名稱</td>
+                      <td>{{ selectedMaterialDebugInfo.matched.name }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">模組ID</td>
+                      <td>{{ selectedMaterialDebugInfo.matched.module_id }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">材質ID</td>
+                      <td>{{ selectedMaterialDebugInfo.matched.material_id }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">材質名稱</td>
+                      <td>{{ selectedMaterialDebugInfo.matched.material?.name || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">規格1 ID</td>
+                      <td>{{ selectedMaterialDebugInfo.matched.diameter1_id || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">規格1 值</td>
+                      <td>{{ selectedMaterialDebugInfo.matched.diameter1?.value || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">規格1 名稱</td>
+                      <td>{{ selectedMaterialDebugInfo.matched.diameter1?.name || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">目前價格</td>
+                      <td class="text-success font-weight-bold">{{ selectedMaterialDebugInfo.matched.current_price || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">單位</td>
+                      <td>{{ selectedMaterialDebugInfo.matched.unit || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td class="font-weight-bold">說明</td>
+                      <td>{{ selectedMaterialDebugInfo.matched.description || 'N/A' }}</td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </v-card-text>
+            </v-card>
+
+            <!-- 未匹配提示 -->
+            <v-card
+              v-else
+              variant="outlined"
+            >
+              <v-card-title class="bg-red-lighten-5 py-2">
+                <v-icon class="me-2" size="small" color="error">mdi-database-remove</v-icon>
+                未找到匹配資料
+              </v-card-title>
+              <v-card-text class="pa-3">
+                <v-alert
+                  type="warning"
+                  variant="tonal"
+                  class="mb-0"
+                >
+                  在 pipeFittingsStore 中未找到符合條件的材料。使用預設的 POMNO 和價格。
+                </v-alert>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-card-text>
+
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          color="primary"
+          variant="text"
+          @click="debugDialog = false"
+        >
+          關閉
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -1497,6 +1719,10 @@ const stepContent = ref<HTMLElement | null>(null); // 顯式類型
 // 載入與計算狀態
 const isLoadingMaterials = ref(false);
 const isCalculatingSubsidy = ref(false);
+
+// 除錯資訊相關
+const debugDialog = ref(false);
+const selectedMaterialDebugInfo = ref<any>(null);
 
 // 本地表單數據
 const localFormData = reactive({
@@ -2071,8 +2297,13 @@ const groupedPipes = computed(() => {
     groups[pipe.groupId].items.push(pipe);
   });
 
-  // 按 GroupNo 排序並返回
-  return Object.values(groups).sort((a, b) => a.groupNo - b.groupNo);
+  // 按 GroupNo 排序，並且每個群組內的項目按 order 排序
+  return Object.values(groups)
+    .sort((a, b) => a.groupNo - b.groupNo)
+    .map(group => ({
+      ...group,
+      items: group.items.sort((a, b) => (a.order || 0) - (b.order || 0))
+    }));
 });
 
 const totalPipesPrice = computed(() => {
@@ -2674,35 +2905,118 @@ const removePipe = (groupNo: number, pipeIndexInGroup: number) => {
 // 上移管路順序
 const movePipeUp = (groupNo: number, pipeIndexInGroup: number) => {
   if (pipeIndexInGroup <= 0) return;
-  const groupItems = localFormData.pipes.filter(p => p.groupId === groupNo).sort((a,b) => (a.order || 0) - (b.order || 0));
-  const actualPipeIndex1 = localFormData.pipes.findIndex(p => p.pomno === groupItems[pipeIndexInGroup].pomno && p.order === groupItems[pipeIndexInGroup].order);
-  const actualPipeIndex2 = localFormData.pipes.findIndex(p => p.pomno === groupItems[pipeIndexInGroup-1].pomno && p.order === groupItems[pipeIndexInGroup-1].order);
 
-  if(actualPipeIndex1 !== -1 && actualPipeIndex2 !== -1){
-    // 交換 order 屬性
-    const order1 = localFormData.pipes[actualPipeIndex1].order;
-    localFormData.pipes[actualPipeIndex1].order = localFormData.pipes[actualPipeIndex2].order;
-    localFormData.pipes[actualPipeIndex2].order = order1;
+  // 獲取同群組的所有項目，按 order 排序
+  const groupItems = localFormData.pipes.filter(p => p.groupId === groupNo).sort((a,b) => (a.order || 0) - (b.order || 0));
+
+  // 找到要交換的兩個項目在原數組中的索引
+  const currentItem = groupItems[pipeIndexInGroup];
+  const previousItem = groupItems[pipeIndexInGroup - 1];
+
+  const currentIndex = localFormData.pipes.findIndex(p =>
+    p.pomno === currentItem.pomno &&
+    p.order === currentItem.order &&
+    p.groupId === currentItem.groupId
+  );
+  const previousIndex = localFormData.pipes.findIndex(p =>
+    p.pomno === previousItem.pomno &&
+    p.order === previousItem.order &&
+    p.groupId === previousItem.groupId
+  );
+
+  if (currentIndex !== -1 && previousIndex !== -1) {
+    // 交換兩個項目的完整數據
+    const temp = { ...localFormData.pipes[currentIndex] };
+    localFormData.pipes[currentIndex] = { ...localFormData.pipes[previousIndex] };
+    localFormData.pipes[previousIndex] = temp;
+
+    // 重新編號該群組的所有項目
+    reorderGroupItems(groupNo);
   }
   updateFormData();
 };
 
-
 // 下移管路順序
 const movePipeDown = (groupNo: number, pipeIndexInGroup: number) => {
+  // 獲取同群組的所有項目，按 order 排序
   const groupItems = localFormData.pipes.filter(p => p.groupId === groupNo).sort((a,b) => (a.order || 0) - (b.order || 0));
+
   if (pipeIndexInGroup >= groupItems.length - 1) return;
 
-  const actualPipeIndex1 = localFormData.pipes.findIndex(p => p.pomno === groupItems[pipeIndexInGroup].pomno && p.order === groupItems[pipeIndexInGroup].order);
-  const actualPipeIndex2 = localFormData.pipes.findIndex(p => p.pomno === groupItems[pipeIndexInGroup+1].pomno && p.order === groupItems[pipeIndexInGroup+1].order);
+  // 找到要交換的兩個項目在原數組中的索引
+  const currentItem = groupItems[pipeIndexInGroup];
+  const nextItem = groupItems[pipeIndexInGroup + 1];
 
-  if(actualPipeIndex1 !== -1 && actualPipeIndex2 !== -1){
-    // 交換 order 屬性
-    const order1 = localFormData.pipes[actualPipeIndex1].order;
-    localFormData.pipes[actualPipeIndex1].order = localFormData.pipes[actualPipeIndex2].order;
-    localFormData.pipes[actualPipeIndex2].order = order1;
+  const currentIndex = localFormData.pipes.findIndex(p =>
+    p.pomno === currentItem.pomno &&
+    p.order === currentItem.order &&
+    p.groupId === currentItem.groupId
+  );
+  const nextIndex = localFormData.pipes.findIndex(p =>
+    p.pomno === nextItem.pomno &&
+    p.order === nextItem.order &&
+    p.groupId === nextItem.groupId
+  );
+
+  if (currentIndex !== -1 && nextIndex !== -1) {
+    // 交換兩個項目的完整數據
+    const temp = { ...localFormData.pipes[currentIndex] };
+    localFormData.pipes[currentIndex] = { ...localFormData.pipes[nextIndex] };
+    localFormData.pipes[nextIndex] = temp;
+
+    // 重新編號該群組的所有項目
+    reorderGroupItems(groupNo);
   }
   updateFormData();
+};
+
+// 重新編號群組內項目的順序
+const reorderGroupItems = (groupNo: number) => {
+  const groupItems = localFormData.pipes.filter(p => p.groupId === groupNo);
+  groupItems.forEach((item, index) => {
+    const actualIndex = localFormData.pipes.findIndex(p =>
+      p.pomno === item.pomno &&
+      p.groupId === item.groupId &&
+      p.matname === item.matname
+    );
+    if (actualIndex !== -1) {
+      localFormData.pipes[actualIndex].order = index + 1;
+    }
+  });
+};
+
+// 顯示除錯資訊
+const showDebugInfo = (pipe: any) => {
+  selectedMaterialDebugInfo.value = {
+    // 生成的材料資訊
+    generated: {
+      pomno: pipe.pomno,
+      module: pipe.module,
+      matname: pipe.matname,
+      module_id: pipe.module_id,
+      mattype: pipe.mattype,
+      spec1: pipe.spec1,
+      spec2: pipe.spec2,
+      spec3: pipe.spec3,
+      itemunit: pipe.itemunit,
+      matprice: pipe.matprice,
+      matamount: pipe.matamount,
+      description: pipe.description,
+      order: pipe.order,
+      group: pipe.group
+    },
+    // 匹配的 pipeFittingsStore 資料
+    matched: pipe.debugMatchData,
+    // 匹配狀態
+    matchStatus: pipe.debugMatchData ? 'success' : 'failed',
+    // 匹配條件
+    matchCriteria: {
+      module_id: pipe.module_id,
+      spec1: pipe.spec1,
+      mattype: pipe.mattype || null
+    }
+  };
+  debugDialog.value = true;
 };
 
 
@@ -2986,6 +3300,7 @@ const autoFillMaterials = async () => {
           groupName: group.GroupName,
           module: material.module,
           matname: material.matname,
+          module_id: material.module_id, // 加入缺少的 module_id
           mattype: material.mattype,
           specification: `${material.spec1 || ''} ${material.spec2 || ''} ${material.spec3 || ''}`.trim(),
           spec1: material.spec1,
@@ -2996,7 +3311,8 @@ const autoFillMaterials = async () => {
           matprice: material.matprice,
           matamount: material.matamount,
           totalPrice: Math.round(material.matprice * material.matamount),
-          order: material.order
+          order: material.order,
+          debugMatchData: material.debugMatchData // 加入除錯匹配資料
         });
       });
     });
@@ -3452,6 +3768,79 @@ const calculateMaterialAmount = (amount: number, itemType: string): number => {
   return Math.ceil(amount);
 };
 
+// 材料匹配函數 - 根據 module_id 和 spec1 匹配 pipeFittingsStore 中的材料
+const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string, spec3?: string, mattype?: string): { pomno: number | null, matprice: number | null, matchedData: any | null } => {
+  if (!pipeFittingsStore.pipeFittings || pipeFittingsStore.pipeFittings.length === 0) {
+    return { pomno: null, matprice: null, matchedData: null };
+  }
+
+  // 解析 spec1 中的數值 (例如: "1\"" -> 1, "2\"" -> 2, "3/4\"" -> 0.75)
+  const parseSpecValue = (spec: string): number => {
+    if (!spec) return 0;
+    // 移除雙引號和單位
+    const cleanSpec = spec.replace(/["\s]/g, '');
+    // 處理分數格式 (如 3/4)
+    if (cleanSpec.includes('/')) {
+      const [numerator, denominator] = cleanSpec.split('/').map(Number);
+      return numerator / denominator;
+    }
+    return parseFloat(cleanSpec) || 0;
+  };
+
+  const spec1Value = parseSpecValue(spec1);
+  const spec2Value = spec2 ? parseSpecValue(spec2) : 0;
+  const spec3Value = spec3 ? parseSpecValue(spec3) : 0;
+
+  // 在 pipeFittingsStore 中查找匹配的材料
+  const matchedMaterial = pipeFittingsStore.pipeFittings.find(fitting => {
+    // 檢查 module_id 是否匹配
+    if (fitting.module_id !== moduleId) return false;
+
+    // 當 module_id 為 1（管材類）時，需要額外比對材質名稱
+    if (moduleId === 1 && mattype) {
+      // 比對 material.name 中是否包含 mattype
+      const materialNameMatch = fitting.material?.name?.includes(mattype) ||
+                               fitting.name?.includes(mattype);
+      if (!materialNameMatch) return false;
+    }
+
+    // 檢查規格是否匹配 - 比對 diameter1, diameter2, diameter3 的 id 或 value
+    const diameterMatches = [
+      fitting.diameter1_id,
+      fitting.diameter2_id,
+      fitting.diameter3_id
+    ].some(diameterId => {
+      if (!diameterId) return false;
+
+      // 如果有 diameter 物件，比對 value
+      const diameter1Match = fitting.diameter1?.value === spec1Value;
+      const diameter2Match = fitting.diameter2?.value === spec1Value;
+      const diameter3Match = fitting.diameter3?.value === spec1Value;
+
+      return diameter1Match || diameter2Match || diameter3Match;
+    });
+
+    // 或者比對 diameter_id 直接匹配
+    const diameterIdMatches = [
+      fitting.diameter1_id === pipeDiameterOptions.value.find(d => d.name === spec1)?.id,
+      fitting.diameter2_id === pipeDiameterOptions.value.find(d => d.name === spec1)?.id,
+      fitting.diameter3_id === pipeDiameterOptions.value.find(d => d.name === spec1)?.id
+    ].some(Boolean);
+
+    return diameterMatches || diameterIdMatches;
+  });
+
+  if (matchedMaterial) {
+    return {
+      pomno: matchedMaterial.pomno,
+      matprice: matchedMaterial.current_price || null,
+      matchedData: matchedMaterial
+    };
+  }
+
+  return { pomno: null, matprice: null, matchedData: null };
+};
+
 // 根據公式生成材料列表
 const generateMaterialsByFormula = (formulaNumber: number, data: MaterialData): Array<typeof localFormData.pipes[0]> => {
   const materialGroups: any[] = [];
@@ -3525,54 +3914,63 @@ const generateL1MainPipeLine = (data: any) => {
   const L1SpecName = pipeDiameterOptions.value.find(d => d.id === data.L1Spec)?.name || '1"';
 
   // 主管材料
+  const mainPipeMatch = matchMaterialFromStore(1, L1SpecName, '', '', L1MaterialName);
   materials.push({
-    pomno: 1001,
+    pomno: mainPipeMatch.pomno,
     module: '主管',
     matname: `${L1MaterialName} ${L1SpecName}`,
+    module_id: 1,
     mattype: L1MaterialName,
     spec1: L1SpecName,
     spec2: '',
     spec3: '',
     itemunit: '支',
-    matprice: data.L1Price || 60,
+    matprice: mainPipeMatch.matprice || data.L1Price,
     matamount: Math.ceil(data.L1MatAmt || Math.ceil(data.L1Len / 4)),
     description: '主管1管材',
     order: 1,
-    group: 1
+    group: 1,
+    debugMatchData: mainPipeMatch.matchedData // 除錯用資料
   });
 
   // 彎頭
+  const bendMatch = matchMaterialFromStore(2, L1SpecName);
   materials.push({
-    pomno: 1002,
+    pomno: bendMatch.pomno,
     module: '主管配件',
     matname: '彎頭',
+    module_id: 2,
     mattype: L1MaterialName,
     spec1: L1SpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 20,
+    matprice: bendMatch.matprice,
     matamount: Math.floor(data.L1Bend || 3),
     description: '90度彎頭',
     order: 2,
-    group: 1
+    group: 1,
+    debugMatchData: bendMatch.matchedData // 除錯用資料
   });
 
   // 塞口
+  const capMatch = matchMaterialFromStore(2, L1SpecName);
   materials.push({
-    pomno: 1003,
+    pomno: capMatch.pomno,
     module: '主管配件',
     matname: '塞口',
+    module_id: 2,
     mattype: L1MaterialName,
     spec1: L1SpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 10,
+    matprice: capMatch.matprice,
     matamount: Math.floor(data.L1Receptacle || 1),
     description: '主管塞口',
     order: 3,
-    group: 1
+    group: 1,
+    debugMatchData: capMatch.matchedData // 除錯用資料
   });
 
   return {
@@ -3591,20 +3989,24 @@ const generateGalvanizedSteelValveGroup = (data: any) => {
   const L1MaterialName = pipeMaterialOptions.value.find(m => m.id === data.L1Material)?.name || 'PVC管';
   const L1SpecName = pipeDiameterOptions.value.find(d => d.id === data.L1Spec)?.name || '1"';
 
+  // 匹配制水閥材料
+  const valveMatch = matchMaterialFromStore(10, L1SpecName);
   const materials = [{
-    pomno: 1004,
+    pomno: valveMatch.pomno,
     module: '主管配件',
     matname: '制水閥',
+    module_id: 10,
     mattype: L1MaterialName,
     spec1: L1SpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 50,
+    matprice: valveMatch.matprice,
     matamount: Math.floor(1),
     description: '鍍鋅鋼主管制水閥',
     order: 1,
-    group: 4
+    group: 4,
+    debugMatchData: valveMatch.matchedData // 除錯用資料
   }];
 
   return {
@@ -3625,37 +4027,43 @@ const generateL2MainPipeLine = (data: any) => {
   const L2SpecName = pipeDiameterOptions.value.find(d => d.id === data.L2Spec)?.name || '1"';
 
   // 主管2材料 - 使用 Math.ceil 進行管材數量計算
+  const mainPipe2Match = matchMaterialFromStore(1, L2SpecName, '', '', L2MaterialName);
   materials.push({
-    pomno: 1101,
+    pomno: mainPipe2Match.pomno,
     module: '主管',
     matname: `${L2MaterialName} ${L2SpecName}`,
+    module_id: 1,
     mattype: L2MaterialName,
     spec1: L2SpecName,
     spec2: '',
     spec3: '',
     itemunit: '支',
-    matprice: data.L2Price || 60,
+    matprice: mainPipe2Match.matprice || data.L2Price,
     matamount: Math.ceil(data.L2MatAmt || Math.ceil(data.L2Len / 4)),
     description: '主管2管材',
     order: 1,
-    group: 1
+    group: 1,
+    debugMatchData: mainPipe2Match.matchedData // 除錯用資料
   });
 
   // 主管2彎頭 - 使用 Math.floor 進行配件數量計算
+  const bend2Match = matchMaterialFromStore(2, L2SpecName);
   materials.push({
-    pomno: 1102,
+    pomno: bend2Match.pomno,
     module: '主管配件',
     matname: '彎頭',
+    module_id: 2,
     mattype: L2MaterialName,
     spec1: L2SpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 20,
+    matprice: bend2Match.matprice,
     matamount: Math.floor(data.L2Bend || 2),
     description: '主管2彎頭',
     order: 2,
-    group: 1
+    group: 1,
+    debugMatchData: bend2Match.matchedData // 除錯用資料
   });
 
   return {
@@ -3680,91 +4088,109 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
   // 計算以100m為單位的穿孔管數量（不受雙向影響）
   const perforatedQuantityPer100m = Math.ceil(perforatedTotalLength / 100);
 
+  const nozzleSpecName = pipeDiameterOptions.value.find(d => d.id === data.NozzleMaterial)?.name || '3/4"';
+  const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name || '1"';
+
   // 穿孔管 - 按100m單位計價
+  const perforatedPipeMatch = matchMaterialFromStore(6, nozzleSpecName, '', '', 'PE');
   materials.push({
-    pomno: 3001,
+    pomno: perforatedPipeMatch.pomno,
     module: '穿孔管',
     matname: '穿孔管',
+    module_id: 6,
     mattype: 'PE',
-    spec1: pipeDiameterOptions.value.find(d => d.id === data.NozzleMaterial)?.name || '3/4"',
+    spec1: nozzleSpecName,
     spec2: '',
     spec3: '',
     itemunit: '100m',
-    matprice: 800, // 800元/100m (原8元/m × 100)
+    matprice: perforatedPipeMatch.matprice,
     matamount: perforatedQuantityPer100m,
     description: '穿孔管材(100m計價)',
     order: 1,
-    group: 3
+    group: 3,
+    debugMatchData: perforatedPipeMatch.matchedData // 除錯用資料
   });
 
   // 三通或四通 - 使用 Math.floor 進行配件數量計算
   const fittingName = data.PerforatedPipe === 1 ? '三通' : '四通';
-  const fittingModule = data.PerforatedPipe === 1 ? 'TeePipe' : 'ReducingCross';
+  const fittingSpec = `${mainSpecName}×${nozzleSpecName}`;
+  const fittingMatch = matchMaterialFromStore(2, fittingSpec);
   materials.push({
-    pomno: 3002,
+    pomno: fittingMatch.pomno,
     module: '穿孔管配件',
     matname: fittingName,
+    module_id: 2,
     mattype: 'PVC',
-    spec1: `${pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name || '1"'}×${pipeDiameterOptions.value.find(d => d.id === data.NozzleMaterial)?.name || '3/4"'}`,
+    spec1: fittingSpec,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: data.PerforatedPipe === 1 ? 25 : 35,
+    matprice: fittingMatch.matprice,
     matamount: Math.floor(data.BranchAmt),
     description: `主管轉穿孔管${fittingName}`,
     order: 2,
-    group: 3
+    group: 3,
+    debugMatchData: fittingMatch.matchedData // 除錯用資料
   });
 
   // 制水閥 - 使用 Math.floor 進行配件數量計算
+  const valveMatch = matchMaterialFromStore(10, nozzleSpecName);
   materials.push({
-    pomno: 3003,
+    pomno: valveMatch.pomno,
     module: '穿孔管配件',
     matname: '制水閥',
+    module_id: 10,
     mattype: 'PVC',
-    spec1: pipeDiameterOptions.value.find(d => d.id === data.NozzleMaterial)?.name || '3/4"',
+    spec1: nozzleSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 30,
+    matprice: valveMatch.matprice,
     matamount: Math.floor(data.BranchAmt * multiplier),
     description: '穿孔管制水閥',
     order: 3,
-    group: 3
+    group: 3,
+    debugMatchData: valveMatch.matchedData // 除錯用資料
   });
 
   // 穿孔管接頭 - 配件用無條件捨去
+  const connectorMatch = matchMaterialFromStore(2, nozzleSpecName);
   materials.push({
-    pomno: 3004,
+    pomno: connectorMatch.pomno,
     module: '穿孔管配件',
     matname: '穿孔管接頭',
+    module_id: 2,
     mattype: 'PE',
-    spec1: pipeDiameterOptions.value.find(d => d.id === data.NozzleMaterial)?.name || '3/4"',
+    spec1: nozzleSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 15,
+    matprice: connectorMatch.matprice,
     matamount: Math.floor(data.BranchAmt * multiplier),
     description: '穿孔管首端配件',
     order: 4,
-    group: 3
+    group: 3,
+    debugMatchData: connectorMatch.matchedData // 除錯用資料
   });
 
   // 穿孔管尾夾 - 配件用無條件捨去
+  const endClampMatch = matchMaterialFromStore(2, nozzleSpecName);
   materials.push({
-    pomno: 3005,
+    pomno: endClampMatch.pomno,
     module: '穿孔管配件',
     matname: '穿孔管尾夾',
+    module_id: 2,
     mattype: 'PE',
-    spec1: pipeDiameterOptions.value.find(d => d.id === data.NozzleMaterial)?.name || '3/4"',
+    spec1: nozzleSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 8,
+    matprice: endClampMatch.matprice,
     matamount: Math.floor(data.BranchAmt * multiplier),
     description: '穿孔管末端固定',
     order: 5,
-    group: 3
+    group: 3,
+    debugMatchData: endClampMatch.matchedData // 除錯用資料
   });
 
   return {
@@ -3805,88 +4231,104 @@ const generateBranchPipeMaterials = (data: any, mainPipeSpec: any, groupId: numb
   const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name || '1"';
 
   // 支管 - 使用 Math.ceil 進行管材數量計算
+  const branchPipeMatch = matchMaterialFromStore(1, branchSpecName, '', '', branchMaterialName);
   materials.push({
-    pomno: 2001,
+    pomno: branchPipeMatch.pomno,
     module: '支管',
     matname: `${branchMaterialName} ${branchSpecName}`,
+    module_id: 1,
     mattype: branchMaterialName,
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: 'm',
-    matprice: 5,
+    matprice: branchPipeMatch.matprice,
     matamount: Math.ceil(data.BranchAmt * data.BranchLength),
     description: '支管材料',
     order: 1,
-    group: groupId
+    group: groupId,
+    debugMatchData: branchPipeMatch.matchedData // 除錯用資料
   });
 
   // 三通 - 使用 Math.floor 進行配件數量計算
+  const teeSpec = `${mainSpecName}×${branchSpecName}`;
+  const teeMatch = matchMaterialFromStore(2, teeSpec);
   materials.push({
-    pomno: 2002,
+    pomno: teeMatch.pomno,
     module: '支管配件',
     matname: '三通',
+    module_id: 2,
     mattype: 'PVC',
-    spec1: `${mainSpecName}×${branchSpecName}`,
+    spec1: teeSpec,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 25,
+    matprice: teeMatch.matprice,
     matamount: Math.floor(data.BranchAmt),
     description: '主管轉支管三通',
     order: 2,
-    group: groupId
+    group: groupId,
+    debugMatchData: teeMatch.matchedData // 除錯用資料
   });
 
   // 制水閥 - 使用 Math.floor 進行配件數量計算
+  const branchValveMatch = matchMaterialFromStore(10, branchSpecName);
   materials.push({
-    pomno: 2003,
+    pomno: branchValveMatch.pomno,
     module: '支管配件',
     matname: '制水閥',
+    module_id: 10,
     mattype: 'PVC',
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 30,
+    matprice: branchValveMatch.matprice,
     matamount: Math.floor(data.BranchAmt),
     description: '支管制水閥',
     order: 3,
-    group: groupId
+    group: groupId,
+    debugMatchData: branchValveMatch.matchedData // 除錯用資料
   });
 
   // 閥接頭 - 使用 Math.floor 進行配件數量計算
+  const valveConnectorMatch = matchMaterialFromStore(2, branchSpecName);
   materials.push({
-    pomno: 2004,
+    pomno: valveConnectorMatch.pomno,
     module: '支管配件',
     matname: '閥接頭',
+    module_id: 2,
     mattype: 'PVC',
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 12,
+    matprice: valveConnectorMatch.matprice,
     matamount: Math.floor(data.BranchAmt * 2),
     description: '制水閥接頭',
     order: 4,
-    group: groupId
+    group: groupId,
+    debugMatchData: valveConnectorMatch.matchedData // 除錯用資料
   });
 
   // 塞口 - 配件用無條件捨去
+  const branchCapMatch = matchMaterialFromStore(2, branchSpecName);
   materials.push({
-    pomno: 2005,
+    pomno: branchCapMatch.pomno,
     module: '支管配件',
     matname: '塞口',
+    module_id: 2,
     mattype: 'PVC',
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 8,
+    matprice: branchCapMatch.matprice,
     matamount: Math.floor(data.BranchAmt),
     description: '支管末端塞口',
     order: 5,
-    group: groupId
+    group: groupId,
+    debugMatchData: branchCapMatch.matchedData // 除錯用資料
   });
 
   return materials;
@@ -3895,75 +4337,88 @@ const generateBranchPipeMaterials = (data: any, mainPipeSpec: any, groupId: numb
 // 生成豎管材料
 const generateStandPipeMaterials = (data: any, groupId: number) => {
   const materials = [];
+  const standPipeMaterialName = pipeMaterialOptions.value.find(m => m.id === data.StdpipeMat)?.name || 'PVC';
   const standPipeSpecName = pipeDiameterOptions.value.find(d => d.id === data.StandPipeSpec)?.name || '1/2"';
   const branchSpecName = pipeDiameterOptions.value.find(d => d.id === data.BranchSpec)?.name || '3/4"';
 
-  // 豎管 - 管材用無條件進位
+  // 豎管 - 管材用無條件進位，加入比對機制
+  const riserPipeMatch = matchMaterialFromStore(4, standPipeSpecName, '', '', standPipeMaterialName);
   materials.push({
-    pomno: 5001,
+    pomno: riserPipeMatch.pomno,
     module: '豎管',
     matname: `豎管 ${standPipeSpecName}`,
-    mattype: 'PVC',
+    module_id: 4,
+    mattype: standPipeMaterialName,
     spec1: standPipeSpecName,
     spec2: '',
     spec3: '',
     itemunit: 'm',
-    matprice: 8,
+    matprice: riserPipeMatch.matprice,
     matamount: Math.ceil(data.NozzleAmt * data.StandPipeLength),
     description: '豎管材料',
     order: 1,
-    group: groupId
+    group: groupId,
+    debugMatchData: riserPipeMatch.matchedData // 除錯用資料
   });
 
-  // 豎管三通 - 配件用無條件捨去
+  // 豎管三通 - 配件用無條件捨去，加入比對機制
+  const riserTeeMatch = matchMaterialFromStore(2, `${branchSpecName}×${standPipeSpecName}`);
   materials.push({
-    pomno: 5002,
+    pomno: riserTeeMatch.pomno,
     module: '豎管配件',
     matname: '三通',
+    module_id: 2,
     mattype: 'PVC',
     spec1: `${branchSpecName}×${standPipeSpecName}`,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 18,
+    matprice: riserTeeMatch.matprice,
     matamount: Math.floor(data.NozzleAmt),
     description: '支管轉豎管三通',
     order: 2,
-    group: groupId
+    group: groupId,
+    debugMatchData: riserTeeMatch.matchedData // 除錯用資料
   });
 
-  // 豎管制水閥 - 配件用無條件捨去
+  // 豎管制水閥 - 配件用無條件捨去，加入比對機制
+  const riserValveMatch = matchMaterialFromStore(10, standPipeSpecName);
   materials.push({
-    pomno: 5003,
+    pomno: riserValveMatch.pomno,
     module: '豎管配件',
     matname: '制水閥',
+    module_id: 10,
     mattype: 'PVC',
     spec1: standPipeSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 25,
+    matprice: riserValveMatch.matprice,
     matamount: Math.floor(data.NozzleAmt),
     description: '豎管制水閥',
     order: 3,
-    group: groupId
+    group: groupId,
+    debugMatchData: riserValveMatch.matchedData // 除錯用資料
   });
 
-  // 豎管閥接頭 - 配件用無條件捨去
+  // 豎管閥接頭 - 配件用無條件捨去，加入比對機制
+  const riserConnectorMatch = matchMaterialFromStore(2, standPipeSpecName);
   materials.push({
-    pomno: 5004,
+    pomno: riserConnectorMatch.pomno,
     module: '豎管配件',
     matname: '閥接頭',
+    module_id: 2,
     mattype: 'PVC',
     spec1: standPipeSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 10,
+    matprice: riserConnectorMatch.matprice,
     matamount: Math.floor(data.NozzleAmt * 2),
     description: '豎管制水閥接頭',
     order: 4,
-    group: groupId
+    group: groupId,
+    debugMatchData: riserConnectorMatch.matchedData // 除錯用資料
   });
 
   return materials;
@@ -3971,41 +4426,47 @@ const generateStandPipeMaterials = (data: any, groupId: number) => {
 
 // 生成固定設施材料
 const generateFixedFacilities = (data: any, groupId: number) => {
+  const fixedFacilityMatch = matchMaterialFromStore(11, '支架用');
   return [{
-    pomno: 6001,
+    pomno: fixedFacilityMatch.pomno,
     module: '固定設施',
     matname: '鍍鋅鋼管',
+    module_id: 11,
     mattype: '鋼管',
     spec1: '支架用',
     spec2: '',
     spec3: '',
     itemunit: '支',
-    matprice: 80,
+    matprice: fixedFacilityMatch.matprice,
     matamount: Math.floor(data.NozzleAmt), // 配件用無條件捨去
     description: '噴頭固定支架',
     order: 1,
-    group: groupId
+    group: groupId,
+    debugMatchData: fixedFacilityMatch.matchedData // 除錯用資料
   }];
 };
 
 // 生成噴頭材料
 const generateSprinklerHeads = (data: any, groupId: number) => {
   const nozzleSpecName = pipeDiameterOptions.value.find(d => d.id === data.NozzleMaterial)?.name || '1/2"';
+  const sprinklerMatch = matchMaterialFromStore(5, nozzleSpecName);
 
   return [{
-    pomno: 8001,
+    pomno: sprinklerMatch.pomno,
     module: '噴頭',
     matname: '可調式噴頭',
+    module_id: 5,
     mattype: '塑膠',
     spec1: nozzleSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 35,
+    matprice: sprinklerMatch.matprice,
     matamount: Math.floor(data.NozzleAmt), // 配件用無條件捨去
     description: '末端噴灑裝置',
     order: 1,
-    group: groupId
+    group: groupId,
+    debugMatchData: sprinklerMatch.matchedData // 除錯用資料
   }];
 };
 
@@ -4042,21 +4503,24 @@ const generateMicroSprinklerSystem = (data: any, mainPipeSpec: any) => {
 // 生成微噴頭材料
 const generateMicroSprinklerHeads = (data: any, groupId: number) => {
   const nozzleSpecName = pipeDiameterOptions.value.find(d => d.id === data.NozzleMaterial)?.name || '1/4"';
+  const microSprinklerMatch = matchMaterialFromStore(8, nozzleSpecName);
 
   return [{
-    pomno: 8002,
+    pomno: microSprinklerMatch.pomno,
     module: '微噴頭',
     matname: '微噴頭',
+    module_id: 8,
     mattype: '塑膠',
     spec1: nozzleSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 25,
+    matprice: microSprinklerMatch.matprice,
     matamount: Math.floor(data.NozzleAmt), // 配件用無條件捨去
     description: '微噴頭裝置',
     order: 1,
-    group: groupId
+    group: groupId,
+    debugMatchData: microSprinklerMatch.matchedData // 除錯用資料
   }];
 };
 
@@ -4074,105 +4538,124 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
   const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name || '1"';
 
   // 滴灌管 - 管材用無條件進位
+  const dripPipeMatch = matchMaterialFromStore(12, branchSpecName, '', '', branchMaterialName);
   materials.push({
-    pomno: 4001,
+    pomno: dripPipeMatch.pomno,
     module: '滴灌管',
     matname: `滴灌管 ${branchSpecName}`,
+    module_id: 12,
     mattype: branchMaterialName,
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: 'm',
-    matprice: 3,
+    matprice: dripPipeMatch.matprice,
     matamount: Math.ceil(data.BranchAmt * data.width), // 管材用無條件進位
     description: '滴灌管材',
     order: 1,
-    group: 4
+    group: 4,
+    debugMatchData: dripPipeMatch.matchedData // 除錯用資料
   });
 
   // 三通 - 配件用無條件捨去
+  const dripTeeSpec = `${mainSpecName}×${branchSpecName}`;
+  const dripTeeMatch = matchMaterialFromStore(2, dripTeeSpec);
   materials.push({
-    pomno: 4002,
+    pomno: dripTeeMatch.pomno,
     module: '滴灌配件',
     matname: '三通',
+    module_id: 2,
     mattype: 'PVC',
-    spec1: `${mainSpecName}×${branchSpecName}`,
+    spec1: dripTeeSpec,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 20,
+    matprice: dripTeeMatch.matprice,
     matamount: Math.floor(data.BranchAmt),
     description: '主管轉滴灌管三通',
     order: 2,
-    group: 4
+    group: 4,
+    debugMatchData: dripTeeMatch.matchedData // 除錯用資料
   });
 
   // 制水閥 - 配件用無條件捨去
+  const dripValveMatch = matchMaterialFromStore(10, branchSpecName);
   materials.push({
-    pomno: 4003,
+    pomno: dripValveMatch.pomno,
     module: '滴灌配件',
     matname: '制水閥',
+    module_id: 10,
     mattype: 'PVC',
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 25,
+    matprice: dripValveMatch.matprice,
     matamount: Math.floor(data.BranchAmt),
     description: '滴灌管制水閥',
     order: 3,
-    group: 4
+    group: 4,
+    debugMatchData: dripValveMatch.matchedData // 除錯用資料
   });
 
   // 閥接頭 - 配件用無條件捨去
+  const dripValveConnectorMatch = matchMaterialFromStore(2, branchSpecName);
   materials.push({
-    pomno: 4004,
+    pomno: dripValveConnectorMatch.pomno,
     module: '滴灌配件',
     matname: '閥接頭',
+    module_id: 2,
     mattype: 'PVC',
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 8,
+    matprice: dripValveConnectorMatch.matprice,
     matamount: Math.floor(data.BranchAmt * 2),
     description: '滴灌制水閥接頭',
     order: 4,
-    group: 4
+    group: 4,
+    debugMatchData: dripValveConnectorMatch.matchedData // 除錯用資料
   });
 
   // 塞口 - 配件用無條件捨去
+  const dripCapMatch = matchMaterialFromStore(2, branchSpecName);
   materials.push({
-    pomno: 4005,
+    pomno: dripCapMatch.pomno,
     module: '滴灌配件',
     matname: '塞口',
+    module_id: 2,
     mattype: 'PVC',
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 5,
+    matprice: dripCapMatch.matprice,
     matamount: Math.floor(data.BranchAmt),
     description: '滴灌管末端塞口',
     order: 5,
-    group: 4
+    group: 4,
+    debugMatchData: dripCapMatch.matchedData // 除錯用資料
   });
 
   // 滴嘴 - 配件用無條件捨去
+  const dripperMatch = matchMaterialFromStore(9, '2L/hr');
   materials.push({
-    pomno: 8003,
+    pomno: dripperMatch.pomno,
     module: '滴嘴',
     matname: '滴嘴',
+    module_id: 9,
     mattype: '塑膠',
     spec1: '2L/hr',
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 2,
+    matprice: dripperMatch.matprice,
     matamount: Math.floor(data.NozzleAmt),
     description: '滴灌滴嘴',
     order: 1,
-    group: 8
+    group: 8,
+    debugMatchData: dripperMatch.matchedData // 除錯用資料
   });
 
   return {
@@ -4189,88 +4672,104 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
   const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name || '1"';
 
   // 滴水帶 - 管材用無條件進位
+  const dripTapeMatch = matchMaterialFromStore(12, branchSpecName, '', '', 'PE');
   materials.push({
-    pomno: 4101,
+    pomno: dripTapeMatch.pomno,
     module: '滴水帶',
     matname: `滴水帶 ${branchSpecName}`,
+    module_id: 12,
     mattype: 'PE',
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: 'm',
-    matprice: 4,
+    matprice: dripTapeMatch.matprice,
     matamount: Math.ceil(data.BranchAmt * data.width), // 管材用無條件進位
     description: '滴水帶材料',
     order: 1,
-    group: 4
+    group: 4,
+    debugMatchData: dripTapeMatch.matchedData // 除錯用資料
   });
 
   // 三通 - 配件用無條件捨去
+  const dripTapeTeeSpec = `${mainSpecName}×${branchSpecName}`;
+  const dripTapeTeeMatch = matchMaterialFromStore(2, dripTapeTeeSpec);
   materials.push({
-    pomno: 4102,
+    pomno: dripTapeTeeMatch.pomno,
     module: '滴水帶配件',
     matname: '三通',
+    module_id: 2,
     mattype: 'PVC',
-    spec1: `${mainSpecName}×${branchSpecName}`,
+    spec1: dripTapeTeeSpec,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 22,
+    matprice: dripTapeTeeMatch.matprice,
     matamount: Math.floor(data.BranchAmt),
     description: '主管轉滴水帶三通',
     order: 2,
-    group: 4
+    group: 4,
+    debugMatchData: dripTapeTeeMatch.matchedData // 除錯用資料
   });
 
   // 制水閥 - 配件用無條件捨去
+  const dripTapeValveMatch = matchMaterialFromStore(10, branchSpecName);
   materials.push({
-    pomno: 4103,
+    pomno: dripTapeValveMatch.pomno,
     module: '滴水帶配件',
     matname: '制水閥',
+    module_id: 10,
     mattype: 'PVC',
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 28,
+    matprice: dripTapeValveMatch.matprice,
     matamount: Math.floor(data.BranchAmt),
     description: '滴水帶制水閥',
     order: 3,
-    group: 4
+    group: 4,
+    debugMatchData: dripTapeValveMatch.matchedData // 除錯用資料
   });
 
   // 管首接頭 - 配件用無條件捨去
+  const dripTapeConnectorMatch = matchMaterialFromStore(2, branchSpecName);
   materials.push({
-    pomno: 4104,
+    pomno: dripTapeConnectorMatch.pomno,
     module: '滴水帶配件',
     matname: '管首接頭',
+    module_id: 2,
     mattype: 'PE',
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 10,
+    matprice: dripTapeConnectorMatch.matprice,
     matamount: Math.floor(data.BranchAmt * 2),
     description: '滴水帶首端接頭',
     order: 4,
-    group: 4
+    group: 4,
+    debugMatchData: dripTapeConnectorMatch.matchedData // 除錯用資料
   });
 
   // 管尾束 - 配件用無條件捨去
+  const dripTapeEndMatch = matchMaterialFromStore(2, branchSpecName);
   materials.push({
-    pomno: 4105,
+    pomno: dripTapeEndMatch.pomno,
     module: '滴水帶配件',
     matname: '管尾束',
+    module_id: 2,
     mattype: 'PE',
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matprice: 5,
+    matprice: dripTapeEndMatch.matprice,
     matamount: Math.floor(data.BranchAmt),
     description: '滴水帶末端束扣',
     order: 5,
-    group: 4
+    group: 4,
+    debugMatchData: dripTapeEndMatch.matchedData // 除錯用資料
   });
 
   return {
