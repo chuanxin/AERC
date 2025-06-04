@@ -1328,7 +1328,7 @@
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon class="me-2" color="info">mdi-bug</v-icon>
-        <span>材料匹配除錯資訊</span>
+        <span>材料比對除錯資訊</span>
         <v-spacer />
         <v-btn
           icon
@@ -1397,7 +1397,7 @@
             </v-card>
           </v-col>
 
-          <!-- 匹配狀態與條件 -->
+          <!-- 比對狀態與條件 -->
           <v-col cols="12" md="6">
             <v-card variant="outlined" class="mb-4">
               <v-card-title class="py-2" :class="selectedMaterialDebugInfo.matchStatus === 'success' ? 'bg-green-lighten-5' : 'bg-red-lighten-5'">
@@ -1408,11 +1408,11 @@
                 >
                   {{ selectedMaterialDebugInfo.matchStatus === 'success' ? 'mdi-check-circle' : 'mdi-alert-circle' }}
                 </v-icon>
-                匹配狀態: {{ selectedMaterialDebugInfo.matchStatus === 'success' ? '成功' : '失敗' }}
+                比對狀態: {{ selectedMaterialDebugInfo.matchStatus === 'success' ? '成功' : '失敗' }}
               </v-card-title>
               <v-card-text class="pa-3">
                 <div class="mb-3">
-                  <div class="font-weight-bold mb-2">匹配條件:</div>
+                  <div class="font-weight-bold mb-2">比對條件:</div>
                   <v-chip-group column>
                     <v-chip size="small" color="primary">
                       模組ID: {{ selectedMaterialDebugInfo.matchCriteria.module_id }}
@@ -1432,14 +1432,14 @@
               </v-card-text>
             </v-card>
 
-            <!-- 匹配的 pipeFittingsStore 資料 -->
+            <!-- 比對的 pipeFittingsStore 資料 -->
             <v-card
               v-if="selectedMaterialDebugInfo.matched"
               variant="outlined"
             >
               <v-card-title class="bg-green-lighten-5 py-2">
                 <v-icon class="me-2" size="small" color="success">mdi-database-check</v-icon>
-                匹配的 Store 資料
+                比對的 Store 資料
               </v-card-title>
               <v-card-text class="pa-3">
                 <v-table density="compact">
@@ -1493,14 +1493,14 @@
               </v-card-text>
             </v-card>
 
-            <!-- 未匹配提示 -->
+            <!-- 未比對提示 -->
             <v-card
               v-else
               variant="outlined"
             >
               <v-card-title class="bg-red-lighten-5 py-2">
                 <v-icon class="me-2" size="small" color="error">mdi-database-remove</v-icon>
-                未找到匹配資料
+                未找到比對資料
               </v-card-title>
               <v-card-text class="pa-3">
                 <v-alert
@@ -2440,20 +2440,20 @@ const fetchPipeFittings = async () => {
 
 const getStandardPipeLength = async (materialId: number | null, diameterId: number | null, moduleId: number = 1): Promise<number> => {
   if (!materialId || !diameterId) return 4; // 預設長度
-  // 從 pipeFittingsStore 中尋找匹配的管件
+  // 從 pipeFittingsStore 中尋找比對的管件
   const matchingPipe = pipeFittingsStore.pipeFittings.find(pipe =>
       pipe.material_id === materialId &&
       pipe.diameter1_id === diameterId &&
       pipe.module_id === moduleId
   );
 
-  // 如果找到匹配的管件且有 length 屬性，返回該長度值
+  // 如果找到比對的管件且有 length 屬性，返回該長度值
   if (matchingPipe && matchingPipe.length) {
       console.log(`Found matching pipe with length: ${matchingPipe.length} for materialId=${materialId}, diameterId=${diameterId}, moduleId=${moduleId}`);
       return matchingPipe.length;
   }
 
-  // 未找到匹配的管件，返回預設長度
+  // 未找到比對的管件，返回預設長度
   console.warn(`No matching pipe found for materialId=${materialId}, diameterId=${diameterId}, moduleId=${moduleId}, using default length: 4`);
   return 4;
 };
@@ -2568,7 +2568,7 @@ const onEndFacilityParamsChange = async () => {
 
 const onEndFacilitySpecChange = async () => {
   localFormData.endFacilityPomno = null; // 清除之前選擇的末端設施
-  await loadEndFacilityOptions(); // 重新載入與當前規格匹配的末端設施選項
+  await loadEndFacilityOptions(); // 重新載入與當前規格比對的末端設施選項
 };
 
 const loadEndFacilityOptions = async () => {
@@ -2990,11 +2990,11 @@ const showDebugInfo = (pipe: any) => {
       order: pipe.order,
       group: pipe.group
     },
-    // 匹配的 pipeFittingsStore 資料
+    // 比對的 pipeFittingsStore 資料
     matched: pipe.debugMatchData,
-    // 匹配狀態
+    // 比對狀態
     matchStatus: pipe.debugMatchData ? 'success' : 'failed',
-    // 匹配條件
+    // 比對條件
     matchCriteria: {
       module_id: pipe.module_id,
       spec1: pipe.spec1,
@@ -3297,7 +3297,7 @@ const autoFillMaterials = async () => {
           matamount: material.matamount,
           totalPrice: Math.round(material.matprice * material.matamount),
           order: material.order,
-          debugMatchData: material.debugMatchData // 加入除錯匹配資料
+          debugMatchData: material.debugMatchData // 加入除錯比對資料
         });
       });
     });
@@ -3754,7 +3754,7 @@ const calculateMaterialAmount = (amount: number, itemType: string): number => {
   return Math.ceil(amount);
 };
 
-// 直接根據 pomno 匹配材料 - 用於用戶已明確選擇的材料
+// 直接根據 pomno 比對材料 - 用於用戶已明確選擇的材料
 const matchMaterialByPomno = (pomno: string | number): { pomno: number | null, matprice: number | null, matchedData: any | null } => {
   if (!pipeFittingsStore.pipeFittings || pipeFittingsStore.pipeFittings.length === 0) {
     return { pomno: null, matprice: null, matchedData: null };
@@ -3763,7 +3763,7 @@ const matchMaterialByPomno = (pomno: string | number): { pomno: number | null, m
   const matchedMaterial = pipeFittingsStore.pipeFittings.find(fitting => fitting.pomno === pomno);
 
   if (matchedMaterial) {
-    console.log(`[matchMaterialByPomno] 直接匹配成功: pomno=${pomno} -> ${matchedMaterial.name}`);
+    console.log(`[matchMaterialByPomno] 直接比對成功: pomno=${pomno} -> ${matchedMaterial.name}`);
     return {
       pomno: matchedMaterial.pomno,
       matprice: matchedMaterial.current_price || null,
@@ -3771,11 +3771,11 @@ const matchMaterialByPomno = (pomno: string | number): { pomno: number | null, m
     };
   }
 
-  console.warn(`[matchMaterialByPomno] 直接匹配失敗: pomno=${pomno}`);
+  console.warn(`[matchMaterialByPomno] 直接比對失敗: pomno=${pomno}`);
   return { pomno: null, matprice: null, matchedData: null };
 };
 
-// 材料匹配函數 - 根據 module_id 和 spec1 匹配 pipeFittingsStore 中的材料
+// 材料比對函數 - 根據 module_id 和 spec1 比對 pipeFittingsStore 中的材料
 const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string, spec3?: string, mattype?: string, matname?: string): { pomno: number | null, matprice: number | null, matchedData: any | null } => {
   if (!pipeFittingsStore.pipeFittings || pipeFittingsStore.pipeFittings.length === 0) {
     return { pomno: null, matprice: null, matchedData: null };
@@ -3806,19 +3806,19 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
 
     console.log('[fuzzyTextMatch] Comparing:', { search, target });
 
-    // 完全匹配
+    // 完全比對
     if (target.includes(search)) {
       console.log('[fuzzyTextMatch] Complete match found');
       return true;
     }
 
-    // 反向匹配 - 檢查搜尋詞是否包含目標詞
+    // 反向比對 - 檢查搜尋詞是否包含目標詞
     if (search.includes(target)) {
       console.log('[fuzzyTextMatch] Reverse match found');
       return true;
     }
 
-    // 關鍵字匹配 - 將搜尋文字拆分成關鍵字進行比對
+    // 關鍵字比對 - 將搜尋文字拆分成關鍵字進行比對
     const searchKeywords = search.split(/[\s\-_、，,]+/).filter(keyword => keyword.length > 0);
     const targetKeywords = target.split(/[\s\-_、，,]+/).filter(keyword => keyword.length > 0);
 
@@ -3832,7 +3832,7 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
 
     console.log('[fuzzyTextMatch] Matched keywords:', { matchedFromSearch, matchedFromTarget });
 
-    // 如果搜尋關鍵字中有超過一半匹配，或者目標關鍵字中有任一匹配
+    // 如果搜尋關鍵字中有超過一半比對，或者目標關鍵字中有任一比對
     const searchMatchRatio = matchedFromSearch.length / searchKeywords.length;
     const targetMatchRatio = matchedFromTarget.length / targetKeywords.length;
 
@@ -3866,7 +3866,7 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
 
     const spec1Value = parseSpecValue(spec1);
 
-    // 檢查是否有任何 diameter 匹配
+    // 檢查是否有任何 diameter 比對
     const diameterChecks = [
       { check: fitting.diameter1?.value === spec1Value, desc: `diameter1.value(${fitting.diameter1?.value}) === spec1Value(${spec1Value})` },
       { check: fitting.diameter2?.value === spec1Value, desc: `diameter2.value(${fitting.diameter2?.value}) === spec1Value(${spec1Value})` },
@@ -3884,7 +3884,7 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
       return false;
     });
 
-    // 對於配件類，如果名稱已經匹配了，我們可以更寬鬆地處理規格
+    // 對於配件類，如果名稱已經比對了，我們可以更寬鬆地處理規格
     // 特別是一些通用配件可能沒有嚴格的規格限制
     const isCompatible = hasAnyDiameterMatch ||
                         // 沒有設定規格的配件
@@ -3899,9 +3899,9 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
   const spec2Value = spec2 ? parseSpecValue(spec2) : 0;
   const spec3Value = spec3 ? parseSpecValue(spec3) : 0;
 
-  // 在 pipeFittingsStore 中查找匹配的材料
+  // 在 pipeFittingsStore 中查找比對的材料
   const matchedMaterial = pipeFittingsStore.pipeFittings.find(fitting => {
-    // 檢查 module_id 是否匹配
+    // 檢查 module_id 是否比對
     if (fitting.module_id !== moduleId) return false;
 
     // 當 module_id 為 1（管材類）時，需要額外比對材質名稱
@@ -3919,7 +3919,7 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
       const nameMatch = fuzzyTextMatch(matname, fitting.name || '');
       if (nameMatch) {
         console.log(`[matchMaterialFromStore] Name match found! Checking spec compatibility...`);
-        // 如果名稱匹配成功，還需要檢查規格是否相容
+        // 如果名稱比對成功，還需要檢查規格是否相容
         const hasSpecMatch = checkSpecCompatibility(fitting, spec1, spec2, spec3);
         console.log(`[matchMaterialFromStore] Spec compatibility: ${hasSpecMatch}`);
         if (hasSpecMatch) {
@@ -3936,7 +3936,7 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
     // 當 module_id 為 2 或 3 但沒有提供 matname 時，或者 module_id 為 1 時
     // 執行規格比對邏輯
 
-    // 檢查規格是否匹配 - 比對 diameter1, diameter2, diameter3 的 id 或 value
+    // 檢查規格是否比對 - 比對 diameter1, diameter2, diameter3 的 id 或 value
     const diameterMatches = [
       fitting.diameter1_id,
       fitting.diameter2_id,
@@ -3952,7 +3952,7 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
       return diameter1Match || diameter2Match || diameter3Match;
     });
 
-    // 或者比對 diameter_id 直接匹配
+    // 或者比對 diameter_id 直接比對
     const diameterIdMatches = [
       fitting.diameter1_id === pipeDiameterOptions.value.find(d => d.name === spec1)?.id,
       fitting.diameter2_id === pipeDiameterOptions.value.find(d => d.name === spec1)?.id,
@@ -4043,7 +4043,7 @@ const addMaterial = (
   }
 };
 
-// 舊版函數保留以供向後相容 - 只有成功匹配的材料才會被添加
+// 舊版函數保留以供向後相容 - 只有成功比對的材料才會被添加
 // const addMaterialIfMatched = (
 //   materials: any[],
 //   moduleId: number,
@@ -4244,7 +4244,7 @@ const generateGalvanizedSteelValveGroup = (data: any) => {
   const L1MaterialName = pipeMaterialOptions.value.find(m => m.id === data.L1Material)?.name || 'PVC管';
   const L1SpecName = pipeDiameterOptions.value.find(d => d.id === data.L1Spec)?.name || '1"';
 
-  // 匹配制水閥材料
+  // 比對制水閥材料
   const valveMatch = matchMaterialFromStore(10, L1SpecName, '', '', '', '制水閥');
   const materials = [{
     pomno: valveMatch.pomno,
@@ -4358,7 +4358,7 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
 
   const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name;
 
-  // 穿孔管 - 直接使用用戶選擇的末端設施 pomno 進行精確匹配
+  // 穿孔管 - 直接使用用戶選擇的末端設施 pomno 進行精確比對
   const perforatedPipeMatch = matchMaterialByPomno(localFormData.endFacilityPomno);
 
     // 取得實際的標準長度，若無資料則預設為100
@@ -4367,7 +4367,7 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
   // 計算穿孔管數量 = Math.ceil(總長度 / 標準長度)
   const perforatedQuantity = Math.ceil(perforatedTotalLength / standardLength);
 
-  // 穿孔管 - 使用統一的 addMaterial 函數進行精確匹配
+  // 穿孔管 - 使用統一的 addMaterial 函數進行精確比對
   addMaterial(materials, localFormData.endFacilityPomno, nozzleSpecName, endFacilityMaterial, '', {
     module: '穿孔管',
     matname: perforatedPipeMatch.matchedData?.name || '穿孔管',
@@ -4710,7 +4710,7 @@ const generateSprinklerHeadsGroup = (data: any) => {
 const generateSprinklerHeads = (data: any, groupId: number) => {
   const materials = [];
 
-  // 噴頭 - 直接使用用戶選擇的末端設施 pomno 進行精確匹配
+  // 噴頭 - 直接使用用戶選擇的末端設施 pomno 進行精確比對
   const sprinklerMatch = matchMaterialByPomno(localFormData.endFacilityPomno);
   materials.push({
     pomno: sprinklerMatch.pomno,
@@ -4777,7 +4777,7 @@ const generateMicroSprinklerHeadsGroup = (data: any) => {
 const generateMicroSprinklerHeads = (data: any, groupId: number) => {
   const materials = [];
 
-  // 微噴頭 - 直接使用用戶選擇的末端設施 pomno 進行精確匹配
+  // 微噴頭 - 直接使用用戶選擇的末端設施 pomno 進行精確比對
   const microSprinklerMatch = matchMaterialByPomno(localFormData.endFacilityPomno);
   materials.push({
     pomno: microSprinklerMatch.pomno,
@@ -4905,7 +4905,7 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
 const generateDripperHeads = (data: any) => {
   const materials = [];
 
-  // 滴嘴 - 直接使用用戶選擇的末端設施 pomno 進行精確匹配
+  // 滴嘴 - 直接使用用戶選擇的末端設施 pomno 進行精確比對
   const dripperMatch = matchMaterialByPomno(localFormData.endFacilityPomno);
   materials.push({
     pomno: dripperMatch.pomno,
