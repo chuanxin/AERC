@@ -4370,7 +4370,7 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
   // 穿孔管 - 使用統一的 addMaterial 函數進行精確匹配
   addMaterial(materials, localFormData.endFacilityPomno, nozzleSpecName, endFacilityMaterial, '', {
     module: '穿孔管',
-    matname: '穿孔管',
+    matname: perforatedPipeMatch.matchedData?.name || '穿孔管',
     module_id: 6,
     mattype: endFacilityMaterial,
     spec1: nozzleSpecName,
@@ -4710,20 +4710,24 @@ const generateSprinklerHeadsGroup = (data: any) => {
 const generateSprinklerHeads = (data: any, groupId: number) => {
   const materials = [];
 
-  // 噴頭 - 使用統一的 addMaterial 函數進行精確匹配
-  addMaterial(materials, localFormData.endFacilityPomno, '', '', '', {
+  // 噴頭 - 直接使用用戶選擇的末端設施 pomno 進行精確匹配
+  const sprinklerMatch = matchMaterialByPomno(localFormData.endFacilityPomno);
+  materials.push({
+    pomno: sprinklerMatch.pomno,
     module: '噴頭',
-    matname: '可調式噴頭',
+    matname: sprinklerMatch.matchedData?.name || '可調式噴頭',
     module_id: 5,
-    mattype: '塑膠',
-    spec1: '1/2"',
+    mattype: sprinklerMatch.matchedData?.material?.name || '塑膠',
+    spec1: sprinklerMatch.matchedData?.diameter1?.name || '1/2"',
     spec2: '',
     spec3: '',
     itemunit: '個',
+    matprice: sprinklerMatch.matprice,
     matamount: Math.floor(data.NozzleAmt), // 配件用無條件捨去
     description: '末端噴灑裝置',
     order: 1,
-    group: groupId
+    group: groupId,
+    debugMatchData: sprinklerMatch.matchedData
   });
 
   return materials;
@@ -4773,20 +4777,24 @@ const generateMicroSprinklerHeadsGroup = (data: any) => {
 const generateMicroSprinklerHeads = (data: any, groupId: number) => {
   const materials = [];
 
-  // 微噴頭 - 使用統一的 addMaterial 函數進行精確匹配
-  addMaterial(materials, localFormData.endFacilityPomno, '', '', '', {
+  // 微噴頭 - 直接使用用戶選擇的末端設施 pomno 進行精確匹配
+  const microSprinklerMatch = matchMaterialByPomno(localFormData.endFacilityPomno);
+  materials.push({
+    pomno: microSprinklerMatch.pomno,
     module: '微噴頭',
-    matname: '微噴頭',
+    matname: microSprinklerMatch.matchedData?.name || '微噴頭',
     module_id: 8,
-    mattype: '塑膠',
-    spec1: '1/4"',
+    mattype: microSprinklerMatch.matchedData?.material?.name || '塑膠',
+    spec1: microSprinklerMatch.matchedData?.diameter1?.name || '1/4"',
     spec2: '',
     spec3: '',
     itemunit: '個',
+    matprice: microSprinklerMatch.matprice,
     matamount: Math.floor(data.NozzleAmt), // 配件用無條件捨去
     description: '微噴頭裝置',
     order: 1,
-    group: groupId
+    group: groupId,
+    debugMatchData: microSprinklerMatch.matchedData
   });
 
   return materials;
@@ -4897,20 +4905,24 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
 const generateDripperHeads = (data: any) => {
   const materials = [];
 
-  // 滴嘴 - 使用統一的 addMaterial 函數進行精確匹配
-  addMaterial(materials, localFormData.endFacilityPomno, '', '', '', {
+  // 滴嘴 - 直接使用用戶選擇的末端設施 pomno 進行精確匹配
+  const dripperMatch = matchMaterialByPomno(localFormData.endFacilityPomno);
+  materials.push({
+    pomno: dripperMatch.pomno,
     module: '滴嘴',
-    matname: '滴嘴',
+    matname: dripperMatch.matchedData?.name || '滴嘴',
     module_id: 9,
-    mattype: '塑膠',
-    spec1: '2L/hr',
+    mattype: dripperMatch.matchedData?.material?.name || '塑膠',
+    spec1: dripperMatch.matchedData?.diameter1?.name || '2L/hr',
     spec2: '',
     spec3: '',
     itemunit: '個',
+    matprice: dripperMatch.matprice,
     matamount: Math.floor(data.NozzleAmt),
     description: '滴灌滴嘴',
     order: 1,
-    group: 8
+    group: 8,
+    debugMatchData: dripperMatch.matchedData
   });
 
   return {
