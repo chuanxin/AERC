@@ -66,6 +66,7 @@ class Grants(models.Model):
     sn = fields.IntField(description="流水號，每年每管理處內唯一")
     case_number = fields.CharField(max_length=20, description="案件編號")
     year = fields.IntField(description="申請年度")
+    active_version_id = fields.ForeignKeyField("models.GrantVersions", related_name="active_grant", null=True, description="目前現行的版本ID")
     
     # 申請人資訊
     applicant_name = fields.CharField(max_length=50, description="申請人姓名")
@@ -585,3 +586,22 @@ class TankMaterials(models.Model):
     def __str__(self):
         return self.name
     
+class GrantVersions(models.Model):
+    """補助申請單版本資料表"""
+    id = fields.IntField(pk=True)
+    grant = fields.ForeignKeyField("models.Grants", related_name="versions", description="所屬補助申請")
+    version = fields.IntField(description="版本資訊")
+    all_steps_data = fields.JSONField(description="所有步驟的資料(JSON格式)")
+    all_steps_data_hash = fields.CharField(max_length=64, description="所有步驟資料的Hash值，用於檢查版本變更", null=True)
+    comment = fields.CharField(max_length=255, null=True, description="版本說明")
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    created_by = fields.ForeignKeyField("models.Users", related_name="created_versions", description="建立人帳號", null=True, on_delete=fields.CASCADE)
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
+    
+    class Meta:
+        table = "grant_versions"
+        table_description = "補助申請單版本資料表"
+        unique_together = (("grant", "version"),)
+    
+    def __str__(self):
+        return f"{self.grant.case_number} - Version {self.version}"

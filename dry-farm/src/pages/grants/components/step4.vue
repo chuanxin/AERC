@@ -3427,7 +3427,7 @@ const updateFormData = () => {
 
   const dataToEmit = {
     ...props.formData, // 保留父組件的其他步驟數據
-    step4Data: { ...localFormData }, // 將此步驟的數據嵌套
+    ...localFormData, // 將此步驟的數據嵌套
     valid: localValid.value // 或總是true，取決於您的導航邏輯
   };
   // console.log('Emitting update:formData with:', JSON.parse(JSON.stringify(dataToEmit)));
@@ -5032,13 +5032,12 @@ onMounted(async () => {
 
   // Populate localFormData with its own persisted data from props.formData (grantsStore.formData[4])
   if (props.formData) {
-    const dataToLoad = props.formData.step4Data || props.formData; // step4Data for edit, root for create
     Object.keys(localFormData).forEach(key => {
-      if (dataToLoad[key] !== undefined) {
-        if (key === 'pipes' && Array.isArray(dataToLoad[key])) {
-          localFormData.pipes = [...dataToLoad[key]];
+      if (props.formData[key] !== undefined) {
+        if (key === 'pipes' && Array.isArray(props.formData[key])) {
+          localFormData.pipes = [...props.formData[key]];
         } else if (key !== 'pipes') {
-          localFormData[key] = dataToLoad[key];
+          localFormData[key] = props.formData[key];
         }
       }
     });
@@ -5092,19 +5091,16 @@ watch(() => props.formData, (newVal) => {
     const step2FacilityArea = grantsStore.formData[2]?.facilityArea;
     if (step2FacilityArea !== undefined) {
       localFormData.facilityArea = parseFloat(step2FacilityArea) || 0;
-    } else if (newVal.step4Data?.facilityArea !== undefined) { // Fallback to persisted step4Data
-      localFormData.facilityArea = parseFloat(newVal.step4Data.facilityArea) || 0;
     } else if (newVal.facilityArea !== undefined) { // Fallback to root of formData prop
        localFormData.facilityArea = parseFloat(newVal.facilityArea) || 0;
     }
     // else, keep existing localFormData.facilityArea or default from onMounted
 
     // Update other fields from newVal.step4Data or newVal
-    const dataToProcess = newVal.step4Data || newVal;
     Object.keys(localFormData).forEach(key => {
-      if (key !== 'facilityArea' && dataToProcess[key] !== undefined &&
-          JSON.stringify(dataToProcess[key]) !== JSON.stringify(localFormData[key])) {
-        localFormData[key] = dataToProcess[key];
+      if (key !== 'facilityArea' && newVal[key] !== undefined &&
+          JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
+        localFormData[key] = newVal[key];
       }
     });
     calculateWidth(); // Recalculate width if facilityArea might have changed
@@ -5117,7 +5113,7 @@ watch(localFormData, () => {
 }, { deep: true });
 
 watch(localValid, (newVal) => {
-    const parentValid = props.formData?.step4Data?.valid;
+    const parentValid = props.formData?.valid;
     if (parentValid !== newVal) {
         updateFormData();
     }

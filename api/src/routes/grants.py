@@ -270,3 +270,45 @@ async def upload_document(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"上傳檔案失敗: {str(e)}",
         )
+
+
+@router.post(
+    "/case/{case_number}/create-version",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(get_current_user)],
+)
+async def create_version_from_frontend_data_api(
+    case_number: str = Path(..., description="案件編號"),
+    all_steps_data: Dict[str, Any] = Body(..., description="所有步驟的完整資料"),
+    comment: Optional[str] = Body(None, description="版本說明"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """從前端提供的完整資料建立新版本（適用於變更設計功能）"""
+    try:
+        # 取得案件資訊
+        grant = await crud.get_grant_by_case_number(case_number)
+        
+        # 使用 grant_versions CRUD 建立版本
+        from src.schemas.grant_versions import GrantVersionCreateSchema
+        from src.crud.grant_versions import create_grant_version
+        
+        version_data = GrantVersionCreateSchema(
+            grant_id=grant["id"],
+            all_steps_data=all_steps_data,
+            comment=comment or f"從前端資料建立版本 - {case_number}"
+        )
+        
+        result = await create_grant_version(version_data, current_user)
+        
+        return {
+            **result,
+            "case_number": case_number,
+            "message": "從前端資料建立版本成功"
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"從前端資料建立版本失敗: {str(e)}",
+        )
