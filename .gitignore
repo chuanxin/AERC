@@ -78,3 +78,6 @@ dry-farm/certbot
 
 # Backup files
 backups/
+
+# Test cases
+test_cases/
