@@ -284,6 +284,8 @@
                         v-if="currentStep === 4"
                         :form-data="grantsStore.formData[4]"
                         :current-step="currentStep"
+                        :map-no="parseInt(route.query.id as string)"
+                        :operating-unit-id="grantsStore.currentGrant?.office_id"
                         @update:form-data="handleFormDataUpdate(4, $event)"
                         @validated="handleStepValidated"
                         @go-back="handleGoBack"
@@ -549,14 +551,44 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
 
 // Handle form data updates from step components
 const handleFormDataUpdate = (step: number, data: any) => {
+  console.log(`🔄 edit.vue handleFormDataUpdate called for step ${step}`);
+  console.log('📤 Received data keys:', Object.keys(data));
+  console.log('📤 Received data sample:', {
+    fieldLength: data.fieldLength,
+    fieldWidth: data.fieldWidth,
+    facilityArea: data.facilityArea,
+    fundingSourceId: data.fundingSourceId
+  });
+
+  // 🔧 修復：確保 grantsStore.currentStep 與實際步驟一致
+  if (grantsStore.currentStep !== step) {
+    console.log(`🔧 Fixing currentStep: ${grantsStore.currentStep} → ${step}`);
+    grantsStore.updateCurrentStep(step);
+    currentStep.value = step;
+  }
+
   grantsStore.updateFormData(step, data)
+
+  console.log('📊 After updateFormData - grantsStore.hasUnsavedChanges:', grantsStore.hasUnsavedChanges);
+  console.log('📊 grantsStore.currentStep:', grantsStore.currentStep);
+  console.log('📊 grantsStore.formData[' + step + '] sample:', {
+    fieldLength: grantsStore.formData[step]?.fieldLength,
+    fieldWidth: grantsStore.formData[step]?.fieldWidth,
+    facilityArea: grantsStore.formData[step]?.facilityArea
+  });
 
   // Setup autosave if changes are made
   if (grantsStore.hasUnsavedChanges && !autoSaveTimer.value) {
+    console.log('⏰ Setting up autosave timer (3 seconds)');
     autoSaveTimer.value = window.setTimeout(async () => {
+      console.log('💾 Autosave triggered for step', grantsStore.currentStep);
       await saveAllChanges()
       autoSaveTimer.value = null
     }, 3000) // Autosave after 3 seconds of inactivity
+  } else if (grantsStore.hasUnsavedChanges) {
+    console.log('⏰ Autosave timer already exists');
+  } else {
+    console.log('⚠️ No unsaved changes detected');
   }
 }
 

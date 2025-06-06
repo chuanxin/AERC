@@ -232,12 +232,15 @@ export const useGrantsStore = defineStore('grants', () => {
         }
       } else {
         // Steps 2-8 save to localStorage
+        // console.log(`💾 Saving step ${step} to localStorage with data:`, JSON.stringify(data, null, 2));
         GrantStorage.saveStepData(caseNumber, step, data)
+        // console.log('✅ GrantStorage.saveStepData completed');
         savedData = data
       }
 
       // Update form data
       formData[step] = { ...data, valid: true }
+      // console.log(`📊 Updated formData[${step}] after save:`, JSON.stringify(formData[step], null, 2));
 
       // Update last saved timestamp
       lastSavedAt.value = new Date()
@@ -260,11 +263,17 @@ export const useGrantsStore = defineStore('grants', () => {
    * @param {any} data - The form data to update
    */
   const updateFormData = (step: number, data: any) => {
+    // console.log(`🔄 grantsStore.updateFormData called for step ${step}`);
+    // console.log('📥 Received data keys:', Object.keys(data));
+    // console.log('📥 Current formData[' + step + '] before update:', JSON.stringify(formData[step], null, 2));
+
     // Mark that we have unsaved changes
     hasUnsavedChanges.value = true
+    // console.log('✅ hasUnsavedChanges set to true');
 
     // Update the form data
     formData[step] = { ...formData[step], ...data }
+    // console.log('📥 Updated formData[' + step + ']:', JSON.stringify(formData[step], null, 2));
   }
 
   /**
@@ -316,19 +325,31 @@ export const useGrantsStore = defineStore('grants', () => {
    * @returns {Promise<boolean>} Whether the save was successful
    */
   const saveAllChanges = async (): Promise<boolean> => {
-    if (!currentGrant.value?.case_number || !hasUnsavedChanges.value) return true
+    // console.log('💾 grantsStore.saveAllChanges called');
+    // console.log('📊 currentGrant.case_number:', currentGrant.value?.case_number);
+    // console.log('📊 hasUnsavedChanges:', hasUnsavedChanges.value);
+    // console.log('📊 currentStep:', currentStep.value);
+
+    if (!currentGrant.value?.case_number || !hasUnsavedChanges.value) {
+      // console.log('⚠️ Skipping save - no case number or no unsaved changes');
+      return true;
+    }
 
     try {
       isSaving.value = true
+      // console.log('💾 Starting to save step data...');
 
       // Save the current step data
       await saveStepData(currentStep.value, formData[currentStep.value])
+      // console.log('✅ saveStepData completed');
 
       // Reset unsaved changes flag
       hasUnsavedChanges.value = false
+      // console.log('✅ hasUnsavedChanges reset to false');
 
       return true
     } catch (err) {
+      // console.error('❌ Error in saveAllChanges:', err);
       handleError(err, 'saveAllChanges')
       return false
     } finally {

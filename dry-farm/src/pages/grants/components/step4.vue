@@ -1686,14 +1686,15 @@ const props = defineProps({
     type: Number,
     required: true
   },
-  // 新增上下文 ID
-  mapNo: { // 對應舊 MapNo，可能是案件 ID
+  mapNo: { // 對應舊 MapNo
     type: Number,
-    required: true // 或 false，取決於您的流程
+    required: false,
+    default: 0
   },
-  operatingUnitId: { // 對應舊 Session["UnitID"]
+  operatingUnitId: { // 對應舊 OperatingUnitId
     type: Number,
-    required: true // 或 false
+    required: false,
+    default: 1
   }
 });
 
@@ -1719,6 +1720,8 @@ const stepContent = ref<HTMLElement | null>(null); // 顯式類型
 // 載入與計算狀態
 const isLoadingMaterials = ref(false);
 const isCalculatingSubsidy = ref(false);
+const isUpdating = ref(false);
+
 
 // 除錯資訊相關
 const debugDialog = ref(false);
@@ -1727,12 +1730,12 @@ const selectedMaterialDebugInfo = ref<any>(null);
 // 本地表單數據
 const localFormData = reactive({
   // 栅塊形狀和面積
-  fieldLength: '100',
-  fieldWidth: '100',
-  facilityArea: '1000',
+  fieldLength: null as number | null,
+  fieldWidth: null as number | null,
+  facilityArea: null as number | null,
 
   // 補助來源
-  fundingSourceId: null as number | null, // 存儲ID
+  fundingSourceId: 0, // 存儲ID
 
   // 主管
   mainPipeLength: null as number | null,
@@ -1885,7 +1888,6 @@ const pipeDiameterOptions = computed(() => {
   // 使用主管模塊的管件來提取管徑選項
   const mainPipeFittings = filteredPipeFittingsByModule.value.mainPipe || [];
 
-  // 获取材质-管径组合的有效选项 (有价格的组合)
   const validCombinations = mainPipeFittings.map(fitting => ({
     materialId: fitting.material_id,
     diameterId: fitting.diameter1_id
@@ -2317,7 +2319,7 @@ const farmerSelfAmount = computed(() => {
 
 // 驗證條件 - 依照不同灌溉型式驗證自動帶入材料所需欄位
 const canAutoFillMaterials = computed(() => {
-  console.log("檢查自動帶入材料條件", JSON.parse(JSON.stringify(localFormData)));
+  // console.log("檢查自動帶入材料條件", JSON.parse(JSON.stringify(localFormData)));
 
   // 基本必要條件 (對所有灌溉型式都需要)
   const basicConditions =
@@ -2395,12 +2397,12 @@ const canAutoFillMaterials = computed(() => {
   const result = basicConditions && mainPipe2Conditions && irrigationTypeSpecificConditions;
 
   // 輸出判斷結果供調試
-  console.log("自動帶入材料判斷結果:", {
-    basicConditions,
-    mainPipe2Conditions,
-    irrigationTypeSpecificConditions,
-    finalResult: result
-  });
+  // console.log("自動帶入材料判斷結果:", {
+  //   basicConditions,
+  //   mainPipe2Conditions,
+  //   irrigationTypeSpecificConditions,
+  //   finalResult: result
+  // });
 
   return result;
 });
@@ -2429,7 +2431,7 @@ const fetchPipeFittings = async () => {
       limit: 1000, // Fetch all pipe fittings for the office
       append: true,
     });
-    console.log(`Fetched all pipe fittings for office_id: ${officeId}`);
+    // console.log(`Fetched all pipe fittings for office_id: ${officeId}`);
     // Store the filtered pipe fittings
     // filteredPipeFittings.value = pipeFittingsStore.pipeFittings;
     // console.log(`Fetched ${filteredPipeFittings.value.length} pipe fittings for office_id: ${officeId}`);
@@ -2449,7 +2451,7 @@ const getStandardPipeLength = async (materialId: number | null, diameterId: numb
 
   // 如果找到比對的管件且有 length 屬性，返回該長度值
   if (matchingPipe && matchingPipe.length) {
-      console.log(`Found matching pipe with length: ${matchingPipe.length} for materialId=${materialId}, diameterId=${diameterId}, moduleId=${moduleId}`);
+      // console.log(`Found matching pipe with length: ${matchingPipe.length} for materialId=${materialId}, diameterId=${diameterId}, moduleId=${moduleId}`);
       return matchingPipe.length;
   }
 
@@ -2583,32 +2585,32 @@ const loadEndFacilityOptions = async () => {
 
   let fittings = [];
 
-  console.log(`loadEndFacilityOptions: irrigationTypeId=${irrigationTypeId}, dripperSubtypeId=${dripperSubtypeId}`);
+  // console.log(`loadEndFacilityOptions: irrigationTypeId=${irrigationTypeId}, dripperSubtypeId=${dripperSubtypeId}`);
 
   if (irrigationTypeId === 1) {
     // 穿孔管系統
     fittings = filteredPipeFittingsByModule.value.perforatedPipe || [];
-    console.log(`Using perforatedPipe fittings, count: ${fittings.length}`);
+    // console.log(`Using perforatedPipe fittings, count: ${fittings.length}`);
   }
   else if (irrigationTypeId === 2 || localFormData.sprinklerSubtypeId === 6) {
     // 噴頭式系統
     fittings = filteredPipeFittingsByModule.value.sprinkler || [];
-    console.log(`Using sprinkler fittings, count: ${fittings.length}`);
+    // console.log(`Using sprinkler fittings, count: ${fittings.length}`);
   }
   else if (irrigationTypeId === 3) {
     // 微噴系統
     fittings = filteredPipeFittingsByModule.value.microSprinkler || [];
-    console.log(`Using microSprinkler fittings, count: ${fittings.length}`);
+    // console.log(`Using microSprinkler fittings, count: ${fittings.length}`);
   }
   else if (irrigationTypeId === 4) { // 滴灌系統
     if (dripperSubtypeId === 8) {
       // 滴水管滴灌系統
       fittings = filteredPipeFittingsByModule.value.pipeDrip || [];
-      console.log(`Using pipeDrip fittings for drip pipe system, count: ${fittings.length}`);
+      // console.log(`Using pipeDrip fittings for drip pipe system, count: ${fittings.length}`);
     } else {
       // 默認使用滴嘴系統 (dripperSubtypeId === 7 或未設置)
       fittings = filteredPipeFittingsByModule.value.nozzleDrip || [];
-      console.log(`Using nozzleDrip fittings for drip nozzle system, count: ${fittings.length}`);
+      // console.log(`Using nozzleDrip fittings for drip nozzle system, count: ${fittings.length}`);
     }
   }
 
@@ -2627,7 +2629,7 @@ const loadEndFacilityOptions = async () => {
     specId: fitting.diameter1_id
   }));
 
-  console.log(`已載入 ${filteredEndFacilityPipeFittings.value.length} 個末端設施選項`);
+  // console.log(`已載入 ${filteredEndFacilityPipeFittings.value.length} 個末端設施選項`);
 };
 
 const onSelectedEndFacilityChange = (selectedPomno: number | null) => {
@@ -2662,7 +2664,7 @@ const fetchPipePrice = async (pipeNumber: 1 | 2) => {
   if (!materialId || !diameterId) return;
 
   try {
-    console.log(`Workspaceing pipe ${pipeNumber} price for: materialId=${materialId}, diameterId=${diameterId}`);
+    // console.log(`Workspaceing pipe ${pipeNumber} price for: materialId=${materialId}, diameterId=${diameterId}`);
      // 從 filteredPipeFittingsByModule 中篩選出主管類型的管件
     const mainPipeFittings = filteredPipeFittingsByModule.value.mainPipe || [];
 
@@ -2673,7 +2675,7 @@ const fetchPipePrice = async (pipeNumber: 1 | 2) => {
     );
 
     if (matchingPipe) {
-      console.log(`Found matching pipe: ${matchingPipe.name}, price: ${matchingPipe.current_price}, length: ${matchingPipe.length}`);
+      // console.log(`Found matching pipe: ${matchingPipe.name}, price: ${matchingPipe.current_price}, length: ${matchingPipe.length}`);
 
       const price = matchingPipe.current_price;
       const standardLength = matchingPipe.length || 4; // 如果沒有長度資訊，預設為 4
@@ -2713,7 +2715,7 @@ const fetchBranchPipePrice = async () => {
 
   try {
     // 模擬API調用獲取價格
-    console.log('Fetching branch pipe price for:', localFormData.branchPipeMaterial, localFormData.branchPipeDiameter);
+    // console.log('Fetching branch pipe price for:', localFormData.branchPipeMaterial, localFormData.branchPipeDiameter);
 
     // 模擬延遲
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -2734,7 +2736,7 @@ const fetchEndFacilityPrice = async () => {
 
   try {
     // 模擬API調用獲取價格
-    console.log('Fetching end facility price for:', localFormData.endFacilityType, localFormData.endFacilityDiameter);
+    // console.log('Fetching end facility price for:', localFormData.endFacilityType, localFormData.endFacilityDiameter);
 
     // 模擬延遲
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -3268,12 +3270,12 @@ const autoFillMaterials = async () => {
       }
     };
 
-    console.log('Auto-filling materials with payload:', JSON.stringify(requestPayload, null, 2));
+    // console.log('Auto-filling materials with payload:', JSON.stringify(requestPayload, null, 2));
 
     // 使用真實的前端輸入條件動態生成材料，基於14種舊系統公式
-    console.log('Generating materials using dynamic formula calculation...');
+    // console.log('Generating materials using dynamic formula calculation...');
 
-    // 直接使用真實的前端數據進行材料計算，不再依賴模擬數據
+    // 直接使用真實的前端數據進行材料計算
     const materialGroupsFromApi = getMockMaterialData(requestPayload.form_inputs);
 
     localFormData.pipes = []; // 清空現有
@@ -3377,7 +3379,7 @@ const calculateSubsidy = async () => {
         // TotalPrice: parseFloat(totalPipesPrice.value.replace(/,/g, '')) // 由後端計算，或前端先計算一次傳給後端參考
     };
 
-    console.log('Calculating subsidy with payload:', JSON.stringify(requestPayload, null, 2));
+    // console.log('Calculating subsidy with payload:', JSON.stringify(requestPayload, null, 2));
 
     // 【TODO: API Call】 替換為真實的 FastAPI 端點呼叫
     // const response = await yourApiService.post('/api/subsidy/calculate-total-price', requestPayload);
@@ -3422,15 +3424,21 @@ const updatePipeOrderWithinGroups = () => {
 
 // 更新父組件數據
 const updateFormData = () => {
-  // 在此處進行任何必要的驗證
-  // localValid.value = form.value?.validate() ?? false; // 如果需要Vuetify的表單驗證
 
+  if (isUpdating.value) {
+    return;
+  }
+
+  // 在此處進行任何必要的驗證
   const dataToEmit = {
     ...props.formData, // 保留父組件的其他步驟數據
     ...localFormData, // 將此步驟的數據嵌套
     valid: localValid.value // 或總是true，取決於您的導航邏輯
   };
-  // console.log('Emitting update:formData with:', JSON.parse(JSON.stringify(dataToEmit)));
+
+  console.log('🔄 step4.vue updateFormData called');
+  console.log('📤 Emitting update:formData with facilityArea:', dataToEmit.facilityArea);
+
   emit('update:formData', dataToEmit);
 };
 
@@ -3515,8 +3523,8 @@ const showMissingFieldsInfo = () => {
   };
 
   // 輸出完整診斷資訊到控制台
-  console.log('自動帶入材料必填欄位狀態:', allStatus);
-  console.log('原始表單數據:', JSON.parse(JSON.stringify(localFormData)));
+  // console.log('自動帶入材料必填欄位狀態:', allStatus);
+  // console.log('原始表單數據:', JSON.parse(JSON.stringify(localFormData)));
 
   // 顯示給使用者的診斷訊息
   const missingFields = [];
@@ -3607,15 +3615,15 @@ const getTotalPrice = () => {
 
 // 獲取材料數據 - 實現14種公式條件的動態材料計算
 const getMockMaterialData = (formInputs: FormInputs) => {
-  console.log("Dynamic material calculation based on form inputs:", formInputs);
+  // console.log("Dynamic material calculation based on form inputs:", formInputs);
 
   // 映射前端欄位到legacy欄位名稱
   const legacyData = mapToLegacyFields(formInputs);
-  console.log("Legacy data mapping:", legacyData);
+  // console.log("Legacy data mapping:", legacyData);
 
   // 決定使用哪個公式
   const formulaNumber = determineFormula(legacyData);
-  console.log(`Using formula ${formulaNumber} for material calculation`);
+  // console.log(`Using formula ${formulaNumber} for material calculation`);
 
   // 根據公式生成材料列表
   return generateMaterialsByFormula(formulaNumber, legacyData);
@@ -3763,7 +3771,7 @@ const matchMaterialByPomno = (pomno: string | number): { pomno: number | null, m
   const matchedMaterial = pipeFittingsStore.pipeFittings.find(fitting => fitting.pomno === pomno);
 
   if (matchedMaterial) {
-    console.log(`[matchMaterialByPomno] 直接比對成功: pomno=${pomno} -> ${matchedMaterial.name}`);
+    // console.log(`[matchMaterialByPomno] 直接比對成功: pomno=${pomno} -> ${matchedMaterial.name}`);
     return {
       pomno: matchedMaterial.pomno,
       matprice: matchedMaterial.current_price || null,
@@ -3771,7 +3779,7 @@ const matchMaterialByPomno = (pomno: string | number): { pomno: number | null, m
     };
   }
 
-  console.warn(`[matchMaterialByPomno] 直接比對失敗: pomno=${pomno}`);
+  // console.warn(`[matchMaterialByPomno] 直接比對失敗: pomno=${pomno}`);
   return { pomno: null, matprice: null, matchedData: null };
 };
 
@@ -3797,24 +3805,24 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
   // 文字模糊比對函數
   const fuzzyTextMatch = (searchText: string, targetText: string): boolean => {
     if (!searchText || !targetText) {
-      console.log('[fuzzyTextMatch] Empty input:', { searchText, targetText });
+      // console.log('[fuzzyTextMatch] Empty input:', { searchText, targetText });
       return false;
     }
 
     const search = searchText.toLowerCase().trim();
     const target = targetText.toLowerCase().trim();
 
-    console.log('[fuzzyTextMatch] Comparing:', { search, target });
+    // console.log('[fuzzyTextMatch] Comparing:', { search, target });
 
     // 完全比對
     if (target.includes(search)) {
-      console.log('[fuzzyTextMatch] Complete match found');
+      // console.log('[fuzzyTextMatch] Complete match found');
       return true;
     }
 
     // 反向比對 - 檢查搜尋詞是否包含目標詞
     if (search.includes(target)) {
-      console.log('[fuzzyTextMatch] Reverse match found');
+      // console.log('[fuzzyTextMatch] Reverse match found');
       return true;
     }
 
@@ -3822,7 +3830,7 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
     const searchKeywords = search.split(/[\s\-_、，,]+/).filter(keyword => keyword.length > 0);
     const targetKeywords = target.split(/[\s\-_、，,]+/).filter(keyword => keyword.length > 0);
 
-    console.log('[fuzzyTextMatch] Keywords:', { searchKeywords, targetKeywords });
+    // console.log('[fuzzyTextMatch] Keywords:', { searchKeywords, targetKeywords });
 
     // 檢查搜尋關鍵字是否在目標文字中
     const matchedFromSearch = searchKeywords.filter(keyword => target.includes(keyword));
@@ -3830,7 +3838,7 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
     // 檢查目標關鍵字是否在搜尋文字中
     const matchedFromTarget = targetKeywords.filter(keyword => search.includes(keyword));
 
-    console.log('[fuzzyTextMatch] Matched keywords:', { matchedFromSearch, matchedFromTarget });
+    // console.log('[fuzzyTextMatch] Matched keywords:', { matchedFromSearch, matchedFromTarget });
 
     // 如果搜尋關鍵字中有超過一半比對，或者目標關鍵字中有任一比對
     const searchMatchRatio = matchedFromSearch.length / searchKeywords.length;
@@ -3838,29 +3846,29 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
 
     const isMatch = searchMatchRatio >= 0.5 || targetMatchRatio >= 0.5 || matchedFromTarget.length > 0;
 
-    console.log('[fuzzyTextMatch] Match result:', {
-      searchMatchRatio,
-      targetMatchRatio,
-      isMatch,
-      reason: isMatch ? 'Keywords matched' : 'No sufficient keyword match'
-    });
+    // console.log('[fuzzyTextMatch] Match result:', {
+    //   searchMatchRatio,
+    //   targetMatchRatio,
+    //   isMatch,
+    //   reason: isMatch ? 'Keywords matched' : 'No sufficient keyword match'
+    // });
 
     return isMatch;
   };
 
   // 輔助函數：檢查規格相容性
   const checkSpecCompatibility = (fitting: any, spec1: string, spec2?: string, spec3?: string): boolean => {
-    console.log(`[checkSpecCompatibility] Checking fitting:`, {
-      fittingName: fitting.name,
-      spec1,
-      diameter1: fitting.diameter1,
-      diameter2: fitting.diameter2,
-      diameter3: fitting.diameter3
-    });
+    // console.log(`[checkSpecCompatibility] Checking fitting:`, {
+    //   fittingName: fitting.name,
+    //   spec1,
+    //   diameter1: fitting.diameter1,
+    //   diameter2: fitting.diameter2,
+    //   diameter3: fitting.diameter3
+    // });
 
     // 如果沒有提供規格要求，則認為相容
     if (!spec1 || spec1.trim() === '') {
-      console.log(`[checkSpecCompatibility] No spec requirement, compatible`);
+      // console.log(`[checkSpecCompatibility] No spec requirement, compatible`);
       return true;
     }
 
@@ -3878,7 +3886,7 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
 
     const hasAnyDiameterMatch = diameterChecks.some(dc => {
       if (dc.check) {
-        console.log(`[checkSpecCompatibility] Match found: ${dc.desc}`);
+        // console.log(`[checkSpecCompatibility] Match found: ${dc.desc}`);
         return true;
       }
       return false;
@@ -3890,7 +3898,7 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
                         // 沒有設定規格的配件
                         (!fitting.diameter1_id && !fitting.diameter2_id && !fitting.diameter3_id);
 
-    console.log(`[checkSpecCompatibility] Result: ${isCompatible}, hasAnyDiameterMatch: ${hasAnyDiameterMatch}`);
+    // console.log(`[checkSpecCompatibility] Result: ${isCompatible}, hasAnyDiameterMatch: ${hasAnyDiameterMatch}`);
 
     return isCompatible;
   };
@@ -3914,22 +3922,22 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
 
     // 當 module_id 為 2(配件類) 或 3(其他特殊模組) 時，必須通過名稱模糊比對
     if ((moduleId === 2 || moduleId === 3) && matname) {
-      console.log(`[matchMaterialFromStore] Trying fuzzy match for module_id=${moduleId}, matname="${matname}", fitting.name="${fitting.name}"`);
+      // console.log(`[matchMaterialFromStore] Trying fuzzy match for module_id=${moduleId}, matname="${matname}", fitting.name="${fitting.name}"`);
 
       const nameMatch = fuzzyTextMatch(matname, fitting.name || '');
       if (nameMatch) {
-        console.log(`[matchMaterialFromStore] Name match found! Checking spec compatibility...`);
+        // console.log(`[matchMaterialFromStore] Name match found! Checking spec compatibility...`);
         // 如果名稱比對成功，還需要檢查規格是否相容
         const hasSpecMatch = checkSpecCompatibility(fitting, spec1, spec2, spec3);
-        console.log(`[matchMaterialFromStore] Spec compatibility: ${hasSpecMatch}`);
+        // console.log(`[matchMaterialFromStore] Spec compatibility: ${hasSpecMatch}`);
         if (hasSpecMatch) {
-          console.log(`[matchMaterialFromStore] FUZZY MATCH SUCCESS for "${matname}" -> "${fitting.name}"`);
+          // console.log(`[matchMaterialFromStore] FUZZY MATCH SUCCESS for "${matname}" -> "${fitting.name}"`);
           return true;
         }
       }
       // 對於 module_id = 2 或 3，如果提供了 matname 但名稱比對失敗，直接返回 false
       // 不允許僅通過規格比對成功而忽略名稱比對失敗的情況
-      console.log(`[matchMaterialFromStore] Name match failed for module_id=${moduleId}, matname="${matname}", fitting.name="${fitting.name}"`);
+      // console.log(`[matchMaterialFromStore] Name match failed for module_id=${moduleId}, matname="${matname}", fitting.name="${fitting.name}"`);
       return false;
     }
 
@@ -4001,12 +4009,12 @@ const addMaterial = (
   if (typeof moduleIdOrPomno === 'string' || (typeof moduleIdOrPomno === 'number' && moduleIdOrPomno.toString().length > 3)) {
     // 直接使用 pomno 比對
     match = matchMaterialByPomno(moduleIdOrPomno);
-    console.log(`[addMaterial] 使用直接 pomno 比對: ${moduleIdOrPomno}`);
+    // console.log(`[addMaterial] 使用直接 pomno 比對: ${moduleIdOrPomno}`);
   } else {
     // 使用模糊比對
     const moduleId = moduleIdOrPomno as number;
     match = matchMaterialFromStore(moduleId, spec1, materialConfig.spec2 || '', materialConfig.spec3 || '', mattype, matname);
-    console.log(`[addMaterial] 使用模糊比對: moduleId=${moduleId}, spec1=${spec1}`);
+    // console.log(`[addMaterial] 使用模糊比對: moduleId=${moduleId}, spec1=${spec1}`);
   }
 
   if (match.pomno !== null && match.matprice !== null) {
@@ -4021,7 +4029,7 @@ const addMaterial = (
       debugMatchData: match.matchedData
     });
 
-    console.log(`[addMaterial] Successfully matched: ${materialConfig.matname} -> ${match.matchedData?.name} (${materialConfig.description})`);
+    // console.log(`[addMaterial] Successfully matched: ${materialConfig.matname} -> ${match.matchedData?.name} (${materialConfig.description})`);
     return true;
   } else {
     // 比對失敗：使用原始材料配置，但 pomno 和 matprice 設為空值
@@ -4348,12 +4356,12 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
                      selectedEndFacility.diameter2?.name ||
                      selectedEndFacility.diameter3?.name;
     endFacilityMaterial = selectedEndFacility.material?.name;
-    console.log(`[generatePerforatedPipe] 使用末端設施規格: ${nozzleSpecName}, 材質: ${endFacilityMaterial}`);
+    // console.log(`[generatePerforatedPipe] 使用末端設施規格: ${nozzleSpecName}, 材質: ${endFacilityMaterial}`);
   } else {
     // 回退到舊邏輯
     // nozzleSpecName = pipeDiameterOptions.value.find(d => d.id === data.NozzleMaterial)?.name || '3/4"';
     // endFacilityMaterial = 'PE';
-    console.warn(`[generatePerforatedPipe] 未找到末端設施 pomno=${localFormData.endFacilityPomno}，使用預設規格: ${nozzleSpecName}`);
+    // console.warn(`[generatePerforatedPipe] 未找到末端設施 pomno=${localFormData.endFacilityPomno}，使用預設規格: ${nozzleSpecName}`);
   }
 
   const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name;
@@ -5027,101 +5035,176 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
 };
 
 // 初始化數據
-onMounted(async () => {
-  await loadDropdownOptions(); // 載入下拉選單數據
+// onMounted(async () => {
+//   await loadDropdownOptions(); // 載入下拉選單數據
 
-  // Populate localFormData with its own persisted data from props.formData (grantsStore.formData[4])
-  if (props.formData) {
-    Object.keys(localFormData).forEach(key => {
-      if (props.formData[key] !== undefined) {
-        if (key === 'pipes' && Array.isArray(props.formData[key])) {
-          localFormData.pipes = [...props.formData[key]];
-        } else if (key !== 'pipes') {
-          localFormData[key] = props.formData[key];
-        }
-      }
-    });
-    // Explicitly load facilityArea if it's directly on props.formData and not in step4Data
-    // This handles cases where facilityArea might be at the root of props.formData for this step
-    if (props.formData.facilityArea !== undefined && !props.formData.step4Data?.facilityArea) {
-        localFormData.facilityArea = props.formData.facilityArea;
-    }
+//   if (props.formData) {
+//     Object.keys(localFormData).forEach(key => {
+//       if (props.formData[key] !== undefined) {
+//         localFormData[key] = props.formData[key];
+//       }
+//     });
+//   }
+
+//   // console.log('🔄 step4.vue onMounted - props.formData:', props.formData);
+//   // console.log('🔄 step4.vue onMounted - localFormData before loading:', JSON.stringify(localFormData, null, 2));
+
+//   // 如果 props.formData 有資料就載入，否則等 watch 觸發
+//   if (props.formData && Object.keys(props.formData).length > 0) {
+//     // console.log('📥 Loading data in onMounted');
+//     // loadDataFromProps(props.formData);
+//   } else {
+//     // console.log('⏰ No data in props.formData, waiting for watch to trigger');
+//   }
+//   // Load step 2 data if not already present in store to ensure facilityArea is available
+//   // This might be redundant if edit.vue preloads all relevant steps, but good for robustness
+//   if (!grantsStore.formData[2]?.facilityArea && grantsStore.currentGrant?.case_number) {
+//     await grantsStore.loadStepData(grantsStore.currentGrant.case_number, 2);
+//   }
+
+//   // 最終 facilityArea 處理：如果沒有載入到值，使用預設值
+//   if (!localFormData.facilityArea || localFormData.facilityArea === 0 || localFormData.facilityArea === '0') {
+//     const step2FacilityArea = grantsStore.formData[2]?.facilityArea;
+//     if (step2FacilityArea !== undefined) {
+//       localFormData.facilityArea = parseFloat(step2FacilityArea) || 0;
+//       // console.log("Final: Using facilityArea from Step 2 data:", localFormData.facilityArea);
+//     } else {
+//       // localFormData.facilityArea = 10000;
+//       // console.log("Final: facilityArea not found, using default:", localFormData.facilityArea);
+//     }
+//   }
+//   calculateWidth(); // Ensure width is calculated with the correct facilityArea
+
+//   // 如果有管路設施，計算補助金額
+//   if(localFormData.pipes && localFormData.pipes.length > 0){
+//       await calculateSubsidy();
+//   }
+
+//   updateFormData(); // Emit initial data
+// });
+
+// 統一的資料載入函數
+const loadDataFromProps = (propsData: any) => {
+  console.log('📥 loadDataFromProps called with:', propsData);
+
+  if (!propsData || Object.keys(propsData).length === 0) {
+    console.log('⚠️ No props data to load');
+    return;
   }
 
-  // Load step 2 data if not already present in store to ensure facilityArea is available
-  // This might be redundant if edit.vue preloads all relevant steps, but good for robustness
+  // 防止在更新過程中觸發新的更新
+  if (isUpdating.value) {
+    console.log('⚠️ Already updating, skipping loadDataFromProps');
+    return;
+  }
+
+  let loadedCount = 0;
+  Object.keys(localFormData).forEach(key => {
+    if (propsData[key] !== undefined) {
+      const oldValue = localFormData[key];
+      const newValue = propsData[key];
+
+      // 只有當值真的不同時才更新（包括 null 到具體值的轉換）
+      if (oldValue !== newValue) {
+        localFormData[key] = newValue;
+        console.log(`📥 Loading ${key}: ${oldValue} → ${newValue}`);
+        loadedCount++;
+      }
+    }
+  });
+
+  console.log(`✅ Loaded ${loadedCount} fields from props`);
+
+  // 只有當實際載入了資料時才重新計算 width
+  if (loadedCount > 0) {
+    calculateWidth();
+  }
+};
+
+onMounted(async () => {
+  isUpdating.value = true;
+
+  await loadDropdownOptions();
+
+  console.log('🔄 step4.vue onMounted - props.formData:', props.formData);
+
+  // 1. 先從 props.formData 載入所有數據（包含 localStorage 數據）
+  if (props.formData && Object.keys(props.formData).length > 0) {
+    console.log('📥 Loading data from props.formData in onMounted');
+    Object.keys(localFormData).forEach(key => {
+      if (props.formData[key] !== undefined && props.formData[key] !== localFormData[key]) {
+        const oldValue = localFormData[key];
+        const newValue = props.formData[key];
+        localFormData[key] = newValue;
+        console.log(`Loading ${key}: ${oldValue} → ${newValue}`);
+      }
+    });
+  }
+
+  // 2. 確保 step2 數據載入
   if (!grantsStore.formData[2]?.facilityArea && grantsStore.currentGrant?.case_number) {
     await grantsStore.loadStepData(grantsStore.currentGrant.case_number, 2);
   }
 
-  const step2FacilityArea = grantsStore.formData[2]?.facilityArea;
-  if (step2FacilityArea !== undefined) {
-    localFormData.facilityArea = parseFloat(step2FacilityArea) || 0; // Or keep as string if appropriate
-    console.log("Using facilityArea from Step 2 data:", localFormData.facilityArea);
-  } else if (props.formData?.facilityArea !== undefined) { // Fallback to current step's persisted data
-    localFormData.facilityArea = parseFloat(props.formData.facilityArea) || 0;
-    console.log("Using facilityArea from props.formData (Step 4 persisted):", localFormData.facilityArea);
-  } else {
-    // If facilityArea is still not set (e.g. was not in step2 and not in props.formData.facilityArea),
-    // it might have been set from props.formData.step4Data.facilityArea during the initial population.
-    // If it's still undefined, null, or empty string after all that, then default.
-    const currentLocalFacilityArea = parseFloat(localFormData.facilityArea);
-    if (isNaN(currentLocalFacilityArea) || currentLocalFacilityArea === 0) {
-        localFormData.facilityArea = 10000; // Default if not found anywhere
-        console.log("facilityArea not found, using default:", localFormData.facilityArea);
-    } else {
-        // This means it was likely populated from props.formData.step4Data.facilityArea
-        console.log("Using facilityArea from self-persisted step4Data ("+localFormData.facilityArea+"), as Step2 and props.formData.facilityArea were undefined.");
-    }
-  }
-
-  calculateWidth(); // Ensure width is calculated with the correct facilityArea
-  // ... existing code ...
-  if(localFormData.pipes.length > 0){ // This part was in the original, keep it
-      await calculateSubsidy();
-  }
-  updateFormData(); // Emit initial data
-});
-
-// 監聽父組件數據變化
-watch(() => props.formData, (newVal) => {
-  console.log("Step 4 props.formData changed. NewVal step2 facilityArea:", grantsStore.formData[2]?.facilityArea);
-  if (newVal) {
-    // Prioritize facilityArea from Step 2 store data
+  // 3. 只有在沒有從 props 載入到 facilityArea 時，才從 step2 載入
+  if (!localFormData.facilityArea || localFormData.facilityArea === 0 || localFormData.facilityArea === '0') {
     const step2FacilityArea = grantsStore.formData[2]?.facilityArea;
     if (step2FacilityArea !== undefined) {
       localFormData.facilityArea = parseFloat(step2FacilityArea) || 0;
-    } else if (newVal.facilityArea !== undefined) { // Fallback to root of formData prop
-       localFormData.facilityArea = parseFloat(newVal.facilityArea) || 0;
+      console.log("✅ Using facilityArea from Step 2:", localFormData.facilityArea);
     }
-    // else, keep existing localFormData.facilityArea or default from onMounted
+  }
 
-    // Update other fields from newVal.step4Data or newVal
-    Object.keys(localFormData).forEach(key => {
-      if (key !== 'facilityArea' && newVal[key] !== undefined &&
-          JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
-        localFormData[key] = newVal[key];
-      }
-    });
-    calculateWidth(); // Recalculate width if facilityArea might have changed
+  calculateWidth();
+
+  // 如果有管路設施，計算補助金額
+  if (localFormData.pipes && localFormData.pipes.length > 0) {
+    await calculateSubsidy();
+  }
+
+  isUpdating.value = false; // 結束更新標記
+
+  // 只在 mounted 完成後才發送第一次更新
+  updateFormData();
+});
+
+// 監聽父組件數據變化
+watch(() => props.formData, (newVal, oldVal) => {
+  console.log("🔄 Step 4 props.formData changed:", newVal);
+
+  // 防止在更新過程中觸發新的 watch
+  if (isUpdating.value) {
+    console.log('⚠️ Already updating, skipping watch');
+    return;
+  }
+
+  // 只有當真的有新數據時才載入
+  if (newVal && Object.keys(newVal).length > 0 && newVal !== oldVal) {
+    isUpdating.value = true;
+    loadDataFromProps(newVal);
+    isUpdating.value = false;
   }
 }, { deep: true });
 
-// 監聽本地數據變化，更新父組件
+// 修改本地數據的 watch，添加防護
 watch(localFormData, () => {
-  updateFormData();
+  if (!isUpdating.value) {
+    updateFormData();
+  }
 }, { deep: true });
 
 watch(localValid, (newVal) => {
+  if (!isUpdating.value) {
     const parentValid = props.formData?.valid;
     if (parentValid !== newVal) {
-        updateFormData();
+      updateFormData();
     }
+  }
 });
 
 watch(() => grantsStore.currentGrant?.office_id, async (newOfficeId) => {
   if (newOfficeId) {
-    console.log(`Current grant office_id changed to: ${newOfficeId}, refreshing pipe fittings`);
+    // console.log(`Current grant office_id changed to: ${newOfficeId}, refreshing pipe fittings`);
     await fetchPipeFittings();
   }
 });
