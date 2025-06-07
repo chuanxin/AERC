@@ -419,9 +419,9 @@
 }
 
 .app-title {
-  font-weight: 900 !important;
-  letter-spacing: -0.5px;
-  text-shadow: 1px 0 0 currentColor;
+  /* font-weight: 900 !important; */
+  /* letter-spacing: -0.5px; */
+  /* text-shadow: 1px 0 0 currentColor; */
 }
 
 h1.app-title {
