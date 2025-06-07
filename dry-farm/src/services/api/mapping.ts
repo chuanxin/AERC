@@ -1,4 +1,4 @@
-import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES } from './endpoints';
+import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, GRANT_VERSIONS } from './endpoints';
 
 // 後端實際路徑定義
 export const BACKEND_PATHS = {
@@ -15,14 +15,6 @@ export const BACKEND_PATHS = {
     DETAIL: (id: number | string) => `/user/${id}`,
     DELETE: (id: number | string) => `/user/${id}`
   },
-  // // 筆記相關
-  // NOTES: {
-  //   LIST: '/notes',
-  //   CREATE: '/notes',
-  //   DETAIL: (id: number | string) => `/note/${id}`,
-  //   UPDATE: (id: number | string) => `/note/${id}`,
-  //   DELETE: (id: number | string) => `/note/${id}`
-  // },
   OFFICES: {
     LIST: '/offices',
   },
@@ -69,6 +61,18 @@ export const BACKEND_PATHS = {
     LIST: '/irrigation_types/',
     OPTIONS: '/irrigation_types/options',
     DETAIL: (id: number | string) => `/irrigation_types/${id}`,
+  },
+  GRANT_VERSIONS: {
+    CREATE: '/grant-versions',
+    COMPARE: `/grant-versions/compare`,
+    BY_GRANT: (grantId: number | string) => `/grant-versions/grant/${grantId}`,
+    DETAIL: (versionId: number | string) => `/grant-versions/${versionId}`,
+    UPDATE: (versionId: number | string) => `/grant-versions/${versionId}`,
+    DELETE: (versionId: number | string) => `/grant-versions/${versionId}`,
+    SET_ACTIVE: (grantId: number | string, versionId: number | string) => `/grant-versions/grant/${grantId}/active-version/${versionId}`,
+    GET_ACTIVE: (grantId: number | string) => `/grant-versions/grant/${grantId}/active`,
+    FROM_CURRENT: (caseNumber: string) => `/grant-versions/from-current/${caseNumber}`,
+    SUMMARY: (grantId: number | string) => `/grant-versions/grant/${grantId}/summary`,
   }
 };
 
@@ -87,8 +91,9 @@ export const API_MAPPING: Record<string, string> = {
   // [GRANTS.DETAIL]: BACKEND_PATHS.GRANTS.DETAIL,
   // [GRANTS.BY_CASE_NUMBER]: BACKEND_PATHS.GRANTS.BY_CASE_NUMBER,
   // [GRANTS.STEP]: BACKEND_PATHS.GRANTS.STEP,
-  [PIPE_FITTINGS.LIST]: BACKEND_PATHS.PIPE_FITTINGS.LIST,
+  [PIPE_FITTINGS.LIST]: BACKEND_PATHS.PIPE_FITTINGS.LIST,  // Maps '/v1/pipe_fittings/' -> '/pipe_fittings/'
   [PIPE_FITTINGS.CREATE]: BACKEND_PATHS.PIPE_FITTINGS.LIST, // Assuming POST to the same base path
+  // Note: '/v1/pipe_fittings' (without trailing slash) is handled by the alternative path logic in mapApiPath()
   [PF_ANNUAL_PRICES.LIST]: BACKEND_PATHS.PF_ANNUAL_PRICES.LIST,
   [PF_ANNUAL_PRICES.CREATE]: BACKEND_PATHS.PF_ANNUAL_PRICES.LIST,
   [PF_MODULES.LIST]: BACKEND_PATHS.PF_MODULES.LIST,
@@ -96,6 +101,9 @@ export const API_MAPPING: Record<string, string> = {
   [PF_MATERIALS.LIST]: BACKEND_PATHS.PF_MATERIALS.LIST,
   [IRRIGATION_TYPES.LIST]: BACKEND_PATHS.IRRIGATION_TYPES.LIST,
   [IRRIGATION_TYPES.OPTIONS]: BACKEND_PATHS.IRRIGATION_TYPES.OPTIONS,
+  [GRANT_VERSIONS.CREATE]: BACKEND_PATHS.GRANT_VERSIONS.CREATE,
+  [GRANT_VERSIONS.COMPARE]: BACKEND_PATHS.GRANT_VERSIONS.COMPARE,
+  // Note: GRANT_VERSIONS functions are handled by dynamic patterns
 }
 
 // 動態參數路徑匹配規則
@@ -127,6 +135,38 @@ export const DYNAMIC_PATH_PATTERNS = [
   {
     pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE}/([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PF_ANNUAL_PRICES.DETAIL(matches[1])
+  },
+  // GRANT_VERSIONS dynamic patterns
+  {
+    // Pattern for /grant-versions/grant/{grantId}/active-version/{versionId}
+    pattern: new RegExp(`^${GRANT_VERSIONS.BASE}/grant/([^/]+)/active-version/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANT_VERSIONS.SET_ACTIVE(matches[1], matches[2])
+  },
+  {
+    // Pattern for /grant-versions/grant/{grantId}/active
+    pattern: new RegExp(`^${GRANT_VERSIONS.BASE}/grant/([^/]+)/active$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANT_VERSIONS.GET_ACTIVE(matches[1])
+  },
+  {
+    // Pattern for /grant-versions/grant/{grantId}/summary
+    pattern: new RegExp(`^${GRANT_VERSIONS.BASE}/grant/([^/]+)/summary$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANT_VERSIONS.SUMMARY(matches[1])
+  },
+  {
+    // Pattern for /grant-versions/grant/{grantId}
+    pattern: new RegExp(`^${GRANT_VERSIONS.BASE}/grant/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANT_VERSIONS.BY_GRANT(matches[1])
+  },
+  {
+    // Pattern for /grant-versions/from-current/{caseNumber}
+    pattern: new RegExp(`^${GRANT_VERSIONS.BASE}/from-current/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANT_VERSIONS.FROM_CURRENT(matches[1])
+  },
+  {
+    // Pattern for /grant-versions/{versionId} (DETAIL, UPDATE, DELETE)
+    // This should be last to avoid conflicts with other patterns
+    pattern: new RegExp(`^${GRANT_VERSIONS.BASE}/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANT_VERSIONS.DETAIL(matches[1])
   },
   // {
   //   pattern: new RegExp(`^${PF_MODULES.LIST}/([^/]+)$`),
@@ -215,8 +255,22 @@ export function mapApiPath(frontendPath: string): string {
 
   // 1. Try static mapping first
   mappedBasePath = API_MAPPING[basePathFromFrontend];
-  if (mappedBasePath) {
+  if (mappedBasePath && mappedBasePath.trim()) { // Also check for empty strings
     console.debug(`[mapApiPath] Static mapping found for ${basePathFromFrontend}: ${mappedBasePath}`);
+    if (queryString) {
+      return `${mappedBasePath}?${queryString}`;
+    }
+    return mappedBasePath;
+  }
+
+  // 1.1 Try static mapping with/without trailing slash if initial attempt failed
+  const alternativePath = basePathFromFrontend.endsWith('/')
+    ? basePathFromFrontend.slice(0, -1)  // Remove trailing slash
+    : `${basePathFromFrontend}/`;        // Add trailing slash
+
+  mappedBasePath = API_MAPPING[alternativePath];
+  if (mappedBasePath && mappedBasePath.trim()) {
+    console.debug(`[mapApiPath] Static mapping found for alternative path ${alternativePath}: ${mappedBasePath}`);
     if (queryString) {
       return `${mappedBasePath}?${queryString}`;
     }

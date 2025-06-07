@@ -183,24 +183,34 @@ async def get_active_version_api(
 )
 async def create_version_from_current_data_api(
     case_number: str = Path(..., description="案件編號"),
+    all_steps_data: Dict[str, Any] = Body(..., description="所有步驟的完整資料"),
     comment: Optional[str] = Body(None, description="版本說明"),
     current_user: UserOutSchema = Depends(get_current_user)
 ):
-    """從目前的申請資料建立新版本（用於結案前保存完整資料）"""
+    """從前端提供的完整資料建立新版本（適用於變更設計功能）"""
     try:
-        # 這裡需要從現有的申請資料中收集所有步驟的資料
-        # 這個功能需要與現有的資料結構整合
+        # 取得案件資訊
+        from src.crud.grants import get_grant_by_case_number
+        grant = await get_grant_by_case_number(case_number)
         
-        # 目前先返回錯誤，提示需要實作完整的資料收集邏輯
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="此功能需要與現有資料結構整合後才能實作"
+        # 建立版本資料
+        version_data = GrantVersionCreateSchema(
+            grant_id=grant["id"],
+            all_steps_data=all_steps_data,
+            comment=comment or f"從前端資料建立版本 - {case_number}"
         )
+        
+        result = await crud.create_grant_version(version_data, current_user)
+        
+        return {
+            **result,
+            "case_number": case_number
+        }
         
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"從目前資料建立版本失敗: {str(e)}",
+            detail=f"從前端資料建立版本失敗: {str(e)}",
         )
 
 

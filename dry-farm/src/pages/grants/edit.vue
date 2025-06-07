@@ -186,6 +186,40 @@
                   </div>
                 </v-card>
 
+                <!-- 版本管理區域 -->
+                <div v-if="grantsStore.currentGrant?.case_number" class="mb-4">
+                  <v-expansion-panels v-model="versionManagerExpanded" variant="accordion">
+                    <v-expansion-panel>
+                      <v-expansion-panel-title>
+                        <div class="d-flex align-center">
+                          <v-icon class="mr-2">mdi-source-branch</v-icon>
+                          版本管理
+                          <v-spacer />
+                          <v-chip
+                            v-if="grantsStore.hasVersions"
+                            color="primary"
+                            size="small"
+                            variant="flat"
+                            class="mr-2"
+                          >
+                            {{ grantsStore.totalVersions }} 個版本
+                          </v-chip>
+                          <v-chip
+                            :color="grantsStore.currentVersionMode === 'local' ? 'success' : 'info'"
+                            size="small"
+                            variant="flat"
+                          >
+                            {{ grantsStore.currentVersionMode === 'local' ? '編輯模式' : '檢視模式' }}
+                          </v-chip>
+                        </div>
+                      </v-expansion-panel-title>
+                      <v-expansion-panel-text>
+                        <VersionManager />
+                      </v-expansion-panel-text>
+                    </v-expansion-panel>
+                  </v-expansion-panels>
+                </div>
+
                 <!-- Step components container -->
                 <v-card
                   class="section-card pb-0 mb-0"
@@ -435,6 +469,7 @@ import step5 from './components/step5.vue'
 import step6 from './components/step6.vue'
 import step7 from './components/step7.vue'
 import step8 from './components/step8.vue'
+import VersionManager from './components/VersionManager.vue'
 
 // Setup
 const route = useRoute()
@@ -454,6 +489,9 @@ const autoSaveTimer = ref<number | null>(null)
 const drawerOpen = ref(true)
 const isRailMode = ref(false) // Default to expanded
 const drawerWidth = ref(280)
+
+// Version manager state
+const versionManagerExpanded = ref<number | undefined>(undefined) // undefined means collapsed
 
 // Step definitions
 const steps = [

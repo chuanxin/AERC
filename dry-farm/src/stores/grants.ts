@@ -8,6 +8,18 @@ import {
   type GrantCreateResponse,
   type GrantStepData
 } from '@/services/grantsService'
+import {
+  createVersionFromCurrentData,
+  getGrantVersionsSummary,
+  getActiveVersion,
+  setActiveVersion,
+  getGrantVersionDetail,
+  compareGrantVersions,
+  type GrantVersionResponse,
+  type GrantVersionSummary,
+  type GrantVersionDetail,
+  type GrantVersionCompareResult
+} from '@/services/grantVersionsService'
 import { ApplicationError } from '@/utils/asyncHelpers'
 import { GrantStorage } from '@/utils/grant-storage'
 
@@ -25,6 +37,13 @@ export const useGrantsStore = defineStore('grants', () => {
   const isSaving = ref<boolean>(false)
   const error = ref<string | null>(null)
   const lastSavedAt = ref<Date | null>(null)
+
+  // Version management state
+  const versionSummary = ref<GrantVersionSummary | null>(null)
+  const activeVersion = ref<GrantVersionDetail | null>(null)
+  const isVersionLoading = ref<boolean>(false)
+  const currentVersionMode = ref<'local' | 'database'>('local') // 'local' for localStorage, 'database' for version data
+  const versionError = ref<string | null>(null)
 
   // Form data for all steps
   const formData = reactive<Record<number, any>>({
@@ -46,6 +65,13 @@ export const useGrantsStore = defineStore('grants', () => {
   const caseNumber = computed(() => currentGrant.value?.case_number || '')
   const status = computed(() => currentGrant.value?.status || '')
   const lastSavedTime = computed(() => lastSavedAt.value?.toLocaleTimeString() || '')
+  
+  // Version management getters
+  const hasVersions = computed(() => versionSummary.value?.has_versions || false)
+  const totalVersions = computed(() => versionSummary.value?.total_versions || 0)
+  const latestVersionNumber = computed(() => versionSummary.value?.latest_version?.version || 0)
+  const activeVersionNumber = computed(() => versionSummary.value?.active_version?.version || 0)
+  const isUsingActiveVersion = computed(() => currentVersionMode.value === 'database' && !!activeVersion.value)
 
   // Form status
   const hasUnsavedChanges = ref(false)
@@ -318,6 +344,7 @@ export const useGrantsStore = defineStore('grants', () => {
     })
     hasUnsavedChanges.value = false
     lastSavedAt.value = null
+    clearVersionState()
   }
 
   /**
@@ -430,6 +457,264 @@ export const useGrantsStore = defineStore('grants', () => {
     return step;
   }
 
+  /**
+   * Version Management Functions
+   */
+
+  /**
+   * Load version summary for the current grant
+   */
+  const loadVersionSummary = async () => {
+    if (!currentGrant.value?.id) {
+      console.warn('Cannot load version summary: no current grant')
+      return
+    }
+
+    try {
+      isVersionLoading.value = true
+      versionError.value = null
+      
+      const summary = await getGrantVersionsSummary(currentGrant.value.id)
+      versionSummary.value = summary
+      
+      console.log('Version summary loaded:', summary)
+    } catch (err) {
+      versionError.value = '載入版本摘要失敗'
+      console.error('Failed to load version summary:', err)
+    } finally {
+      isVersionLoading.value = false
+    }
+  }
+
+  /**
+   * Create a new version from current localStorage data
+   */
+  const createVersionFromLocalData = async (comment?: string): Promise<GrantVersionResponse | null> => {
+    if (!currentGrant.value?.case_number) {
+      error.value = '無法建立版本：尚未載入案件'
+      return null
+    }
+
+    try {
+      isSaving.value = true
+      error.value = null
+
+      // Collect all localStorage data
+      const caseNumber = currentGrant.value.case_number
+      const allStepsData: Record<string, any> = {}
+
+      // Collect data from all steps
+      for (let step = 1; step <= 8; step++) {
+        const stepData = GrantStorage.getStepData(caseNumber, step)
+        if (stepData) {
+          allStepsData[step.toString()] = stepData
+        }
+      }
+
+      // Also include grant metadata
+      const grantData = GrantStorage.getGrant(caseNumber)
+      if (grantData) {
+        allStepsData['metadata'] = {
+          caseNumber: grantData.caseNumber,
+          applicant_name: grantData.applicant_name,
+          office_name: grantData.office_name,
+          status: grantData.status,
+          createdAt: grantData.createdAt,
+          updatedAt: grantData.updatedAt,
+          current_step: grantData.current_step
+        }
+      }
+
+      console.log('Creating version with data:', allStepsData)
+
+      const result = await createVersionFromCurrentData(caseNumber, allStepsData, comment)
+      
+      // Refresh version summary
+      await loadVersionSummary()
+
+      console.log('Version created successfully:', result)
+      return result
+
+    } catch (err) {
+      handleError(err, 'createVersionFromLocalData')
+      return null
+    } finally {
+      isSaving.value = false
+    }
+  }
+
+  /**
+   * Load active version data
+   */
+  const loadActiveVersion = async () => {
+    if (!currentGrant.value?.id) {
+      console.warn('Cannot load active version: no current grant')
+      return
+    }
+
+    try {
+      isVersionLoading.value = true
+      versionError.value = null
+
+      const version = await getActiveVersion(currentGrant.value.id)
+      activeVersion.value = version
+
+      if (version) {
+        console.log('Active version loaded:', version)
+      } else {
+        console.log('No active version found')
+      }
+
+    } catch (err) {
+      versionError.value = '載入現行版本失敗'
+      console.error('Failed to load active version:', err)
+    } finally {
+      isVersionLoading.value = false
+    }
+  }
+
+  /**
+   * Switch to using version data instead of localStorage
+   */
+  const switchToVersionMode = async (versionId: number) => {
+    try {
+      isVersionLoading.value = true
+      versionError.value = null
+
+      // Load the version data
+      const version = await getGrantVersionDetail(versionId)
+      
+      if (version.all_steps_data) {
+        // Clear current form data
+        Object.keys(formData).forEach(key => {
+          formData[Number(key)] = {}
+        })
+
+        // Load version data into form
+        Object.entries(version.all_steps_data).forEach(([stepKey, stepData]) => {
+          const stepNumber = parseInt(stepKey)
+          if (!isNaN(stepNumber) && stepNumber >= 1 && stepNumber <= 8) {
+            formData[stepNumber] = { ...stepData, valid: true }
+          }
+        })
+
+        // Update mode
+        currentVersionMode.value = 'database'
+        activeVersion.value = version
+
+        console.log('Switched to version mode with version:', version.version)
+      }
+
+    } catch (err) {
+      versionError.value = '切換版本模式失敗'
+      console.error('Failed to switch to version mode:', err)
+    } finally {
+      isVersionLoading.value = false
+    }
+  }
+
+  /**
+   * Switch back to localStorage mode
+   */
+  const switchToLocalMode = async () => {
+    if (!currentGrant.value?.case_number) {
+      return
+    }
+
+    try {
+      isLoading.value = true
+
+      // Clear current form data
+      Object.keys(formData).forEach(key => {
+        formData[Number(key)] = {}
+      })
+
+      // Reload data from localStorage
+      const caseNumber = currentGrant.value.case_number
+      for (let step = 1; step <= 8; step++) {
+        const stepData = GrantStorage.getStepData(caseNumber, step)
+        if (stepData) {
+          formData[step] = { ...stepData, valid: true }
+        }
+      }
+
+      // Update mode
+      currentVersionMode.value = 'local'
+      activeVersion.value = null
+
+      console.log('Switched back to local mode')
+
+    } catch (err) {
+      handleError(err, 'switchToLocalMode')
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  /**
+   * Set a specific version as the active version
+   */
+  const makeVersionActive = async (versionId: number): Promise<boolean> => {
+    if (!currentGrant.value?.id) {
+      error.value = '無法設定現行版本：尚未載入案件'
+      return false
+    }
+
+    try {
+      isSaving.value = true
+      error.value = null
+
+      await setActiveVersion(currentGrant.value.id, versionId)
+      
+      // Refresh version summary and active version
+      await Promise.all([
+        loadVersionSummary(),
+        loadActiveVersion()
+      ])
+
+      console.log('Version set as active:', versionId)
+      return true
+
+    } catch (err) {
+      handleError(err, 'makeVersionActive')
+      return false
+    } finally {
+      isSaving.value = false
+    }
+  }
+
+  /**
+   * Compare two versions
+   */
+  const compareVersions = async (versionAId: number, versionBId: number): Promise<GrantVersionCompareResult | null> => {
+    try {
+      isVersionLoading.value = true
+      versionError.value = null
+
+      const result = await compareGrantVersions(versionAId, versionBId)
+      console.log('Version comparison result:', result)
+      
+      return result
+
+    } catch (err) {
+      versionError.value = '版本比較失敗'
+      console.error('Failed to compare versions:', err)
+      return null
+    } finally {
+      isVersionLoading.value = false
+    }
+  }
+
+  /**
+   * Clear version-related state
+   */
+  const clearVersionState = () => {
+    versionSummary.value = null
+    activeVersion.value = null
+    currentVersionMode.value = 'local'
+    versionError.value = null
+  }
+
   return {
     // State
     currentGrant,
@@ -441,11 +726,23 @@ export const useGrantsStore = defineStore('grants', () => {
     lastSavedAt,
     hasUnsavedChanges,
 
+    // Version management state
+    versionSummary,
+    activeVersion,
+    isVersionLoading,
+    currentVersionMode,
+    versionError,
+
     // Getters
     isGrantLoaded,
     caseNumber,
     status,
     lastSavedTime,
+    hasVersions,
+    totalVersions,
+    latestVersionNumber,
+    activeVersionNumber,
+    isUsingActiveVersion,
 
     // Actions
     loadGrant,
@@ -459,6 +756,16 @@ export const useGrantsStore = defineStore('grants', () => {
     saveAllChanges,
     exportGrantBackup,
     importGrantBackup,
-    updateCurrentStep
+    updateCurrentStep,
+
+    // Version management actions
+    loadVersionSummary,
+    createVersionFromLocalData,
+    loadActiveVersion,
+    switchToVersionMode,
+    switchToLocalMode,
+    makeVersionActive,
+    compareVersions,
+    clearVersionState
   }
 })

@@ -4,28 +4,6 @@ const API_VERSION = import.meta.env.FAST_API_VERSION || ''
 // base URL for the API
 const BASE = `${import.meta.env.FAST_API_BASE_URL || ''}/${API_VERSION}`
 
-// // path for the backend API
-// const BACKEND_PATHS = {
-//   AUTH: {
-//     LOGIN: '/login',
-//     REGISTER: '/register',
-//     WHO_AM_I: '/users/whoami',
-//     LOGOUT: '/logout'
-//   },
-//   USERS: {
-//     LIST: '/users',
-//     DETAIL: (id: number | string) => `/user/${id}`,
-//     DELETE: (id: number | string) => `/user/${id}`
-//   },
-//   NOTES: {
-//     LIST: '/notes',
-//     CREATE: '/notes',
-//     DETAIL: (id: number | string) => `/note/${id}`,
-//     UPDATE: (id: number | string) => `/note/${id}`,
-//     DELETE: (id: number | string) => `/note/${id}`
-//   }
-// }
-
 // authentication related endpoints
 export const AUTH = {
   REGISTER: `${BASE}/auth/register`,
@@ -156,39 +134,19 @@ export const IRRIGATION_TYPES = {
   DETAIL: (id: number | string) => `${BASE}/irrigation_types/${id}`,
 }
 
-// export const API_MAPPING = {
-//   [`${BASE}/auth/login`]: BACKEND_PATHS.AUTH.LOGIN,
-//   [`${BASE}/auth/register`]: BACKEND_PATHS.AUTH.REGISTER,
-//   [`${BASE}/auth/me`]: BACKEND_PATHS.AUTH.WHO_AM_I,
-//   [`${BASE}/users`]: BACKEND_PATHS.USERS.LIST,
-//   [`${BASE}/notes`]: BACKEND_PATHS.NOTES.LIST,
-//   [`${BASE}/notes/create`]: BACKEND_PATHS.NOTES.CREATE
-// }
+// Grant versions related endpoints
+export const GRANT_VERSIONS = {
+  BASE: `${BASE}/grant-versions`,
+  CREATE: `${BASE}/grant-versions`,
+  BY_GRANT: (grantId: number | string) => `${BASE}/grant-versions/grant/${grantId}`,
+  DETAIL: (versionId: number | string) => `${BASE}/grant-versions/${versionId}`,
+  UPDATE: (versionId: number | string) => `${BASE}/grant-versions/${versionId}`,
+  DELETE: (versionId: number | string) => `${BASE}/grant-versions/${versionId}`,
+  COMPARE: `${BASE}/grant-versions/compare`,
+  SET_ACTIVE: (grantId: number | string, versionId: number | string) => `${BASE}/grant-versions/grant/${grantId}/active-version/${versionId}`,
+  GET_ACTIVE: (grantId: number | string) => `${BASE}/grant-versions/grant/${grantId}/active`,
+  FROM_CURRENT: (caseNumber: string) => `${BASE}/grant-versions/from-current/${caseNumber}`,
+  SUMMARY: (grantId: number | string) => `${BASE}/grant-versions/grant/${grantId}/summary`,
+}
 
-// export const mapApiPath = (path: string): string => {
-//   // 直接映射
-//   if (API_MAPPING[path]) {
-//     return API_MAPPING[path]
-//   }
-
-//   // 處理動態路徑映射
-//   // 如 /api/v1/users/123 -> /user/123
-
-//   // 用戶詳情
-//   const userDetailRegex = new RegExp(`^${BASE}/users/(\\d+)$`);
-//   if (userDetailRegex.test(path)) {
-//     const id = path.match(userDetailRegex)?.[1]
-//     return BACKEND_PATHS.USERS.DETAIL(id as string)
-//   }
-
-//   // 筆記詳情
-//   const noteDetailRegex = new RegExp(`^${BASE}/notes/(\\d+)$`)
-//   if (noteDetailRegex.test(path)) {
-//     const id = path.match(noteDetailRegex)?.[1]
-//     return BACKEND_PATHS.NOTES.DETAIL(id as string)
-//   }
-
-//   // 如果沒有映射規則，返回原路徑
-//   return path
-// }
 // other related endpoints
