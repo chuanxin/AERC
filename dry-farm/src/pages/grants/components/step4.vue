@@ -1284,19 +1284,19 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td>總經費</td>
+                    <td>設施總經費</td>
                     <td class="text-center">
                       {{ subsidyTotalAmount }}
                     </td>
                   </tr>
                   <tr>
-                    <td>政府補助</td>
+                    <td>A. 政府補助款</td>
                     <td class="text-center text-success font-weight-bold">
                       {{ subsidyAmount }}
                     </td>
                   </tr>
                   <tr>
-                    <td>農民自付</td>
+                    <td>B. 農戶自備款</td>
                     <td class="text-center text-warning font-weight-bold">
                       {{ farmerSelfAmount }}
                     </td>
@@ -2524,14 +2524,6 @@ const calculateSprinklerQuantity = () => {
     const branchPipes = Math.ceil(fieldLength / branchPipeSpacing);
     const sprinklersPerBranch = Math.ceil(fieldWidth / sprinklerSpacing);
     const totalSprinklers = branchPipes * sprinklersPerBranch;
-
-    // 暫時移除自動填充末端設施數量，此數量應由後端計算更佳
-    // if (localFormData.irrigationTypeId === 2 ||  // 噴頭
-    //     localFormData.irrigationTypeId === 3 ||  // 微噴
-    //     localFormData.irrigationTypeId === 4 && localFormData.dripperSubtypeId === 7 // 滴嘴
-    // ) {
-    //   // localFormData.endFacilityQuantity = totalSprinklers; // 數量應由後端計算並返回
-    // }
   }
   updateFormData();
 };
@@ -2578,6 +2570,9 @@ const loadEndFacilityOptions = async () => {
   // based on irrigationTypeId, sprinklerSubtypeId, dripperSubtypeId, facilityTypeId, operating_unit_id
   // This API should return a list of objects like EndFacilityPipeFitting interface
   // Example: filteredEndFacilityPipeFittings.value = await pipeFittingsService.getTerminalFittings({ type: localFormData.irrigationTypeId, ... });
+  // 保存當前選擇的項目
+  const currentSelection = localFormData.endFacilityPomno;
+
   // 根據灌溉類型和末端設施規格篩選末端設施選項
   const irrigationTypeId = localFormData.irrigationTypeId;
   const dripperSubtypeId = localFormData.dripperSubtypeId;
@@ -2614,14 +2609,13 @@ const loadEndFacilityOptions = async () => {
     }
   }
 
-
   // 根據選擇的規格進一步篩選
   if (endFacilitySpecId) {
     fittings = fittings.filter(f => f.diameter1_id === endFacilitySpecId);
   }
 
   // 轉換為末端設施選項格式
-  filteredEndFacilityPipeFittings.value = fittings.map(fitting => ({
+  const newFittings = fittings.map(fitting => ({
     pomno: fitting.pomno,
     displayName: fitting.name || `${fitting.material_name || ''} ${fitting.diameter1_name || ''}`.trim(),
     materialName: fitting.material.name || '',
@@ -2629,7 +2623,16 @@ const loadEndFacilityOptions = async () => {
     specId: fitting.diameter1_id
   }));
 
-  // console.log(`已載入 ${filteredEndFacilityPipeFittings.value.length} 個末端設施選項`);
+  // 去重複
+  const uniqueFittings = newFittings.reduce((acc, current) => {
+    const exists = acc.find(item => item.pomno === current.pomno);
+    if (!exists) {
+      acc.push(current);
+    }
+    return acc;
+  }, [] as EndFacilityPipeFitting[]);
+
+  filteredEndFacilityPipeFittings.value = uniqueFittings;
 };
 
 const onSelectedEndFacilityChange = (selectedPomno: number | null) => {
@@ -3323,61 +3326,61 @@ const calculateSubsidy = async () => {
   }
   isCalculatingSubsidy.value = true;
   try {
-    const mainPipesData = [];
-    if (localFormData.mainPipeLength && localFormData.mainPipeMaterialId && localFormData.mainPipeDiameterId) {
-        mainPipesData.push({
-            Length: localFormData.mainPipeLength,
-            Mat: pipeMaterialOptions.value.find(m => m.id === localFormData.mainPipeMaterialId)?.name || '', // 材質名稱
-            Spec: localFormData.mainPipeDiameterId, // 規格ID
-            LPrice: localFormData.mainPipeUnitPrice || 0,
-            Amount: localFormData.mainPipeQuantity || 0
-        });
-    }
-    if (localFormData.mainPipe2Enabled && localFormData.mainPipe2Length && localFormData.mainPipe2MaterialId && localFormData.mainPipe2DiameterId) {
-        mainPipesData.push({
-            Length: localFormData.mainPipe2Length,
-            Mat: pipeMaterialOptions.value.find(m => m.id === localFormData.mainPipe2MaterialId)?.name || '', // 材質名稱
-            Spec: localFormData.mainPipe2DiameterId, // 規格ID
-            LPrice: localFormData.mainPipe2UnitPrice || 0,
-            Amount: localFormData.mainPipe2Quantity || 0
-        });
-    }
+    // const mainPipesData = [];
+    // if (localFormData.mainPipeLength && localFormData.mainPipeMaterialId && localFormData.mainPipeDiameterId) {
+    //     mainPipesData.push({
+    //         Length: localFormData.mainPipeLength,
+    //         Mat: pipeMaterialOptions.value.find(m => m.id === localFormData.mainPipeMaterialId)?.name || '', // 材質名稱
+    //         Spec: localFormData.mainPipeDiameterId, // 規格ID
+    //         LPrice: localFormData.mainPipeUnitPrice || 0,
+    //         Amount: localFormData.mainPipeQuantity || 0
+    //     });
+    // }
+    // if (localFormData.mainPipe2Enabled && localFormData.mainPipe2Length && localFormData.mainPipe2MaterialId && localFormData.mainPipe2DiameterId) {
+    //     mainPipesData.push({
+    //         Length: localFormData.mainPipe2Length,
+    //         Mat: pipeMaterialOptions.value.find(m => m.id === localFormData.mainPipe2MaterialId)?.name || '', // 材質名稱
+    //         Spec: localFormData.mainPipe2DiameterId, // 規格ID
+    //         LPrice: localFormData.mainPipe2UnitPrice || 0,
+    //         Amount: localFormData.mainPipe2Quantity || 0
+    //     });
+    // }
 
-    const requestPayload = {
-        map_no: props.mapNo, // 需要傳入
-        // operating_unit_id: props.operatingUnitId, // GetTotalPrice 可能不需要此參數，但後端可按需加入
+    // const requestPayload = {
+    //     map_no: props.mapNo, // 需要傳入
+    //     // operating_unit_id: props.operatingUnitId, // GetTotalPrice 可能不需要此參數，但後端可按需加入
 
-        // 以下對應 ParaJsonData
-        Unit: localFormData.fundingSourceId, // 補助單位ID
-        Block: `${localFormData.fieldLength}x${localFormData.fieldWidth}`,
-        IrrWCode: localFormData.waterSourceId, // 灌溉水源ID
+    //     // 以下對應 ParaJsonData
+    //     Unit: localFormData.fundingSourceId, // 補助單位ID
+    //     Block: `${localFormData.fieldLength}x${localFormData.fieldWidth}`,
+    //     IrrWCode: localFormData.waterSourceId, // 灌溉水源ID
 
-        EndTypeDataAry: [{ // 這裡簡化為只處理第一個末端系統，若有多個需擴展
-            Endtype: localFormData.irrigationTypeId, // 末端型式主ID
-            Fac: localFormData.facilityTypeId,       // 設施型式ID
-            BranchPipeMaterial: pipeMaterialOptions.value.find(m=>m.id === localFormData.branchPipeMaterialId)?.name || '', // 支管材質名稱
-            BranchPipeSpec: localFormData.branchPipeDiameterId, // 支管規格ID
-            SS: localFormData.sprinklerSpacing_SS,
-            SL: localFormData.branchPipeSpacing_SL,
-            StdpipeHei: localFormData.riserHeight_H,
-            NozzleSpec: localFormData.endFacilitySpecId, // 末端設施主要規格ID
-            NozzleType: filteredEndFacilityPipeFittings.value.find(f => f.pomno === localFormData.endFacilityPomno)?.displayName || '', // 末端設施名稱或類型描述
-            StdpipeMat: pipeMaterialOptions.value.find(m => m.id === localFormData.riserPipeMaterialId)?.name || '', // 豎管材質名稱
-            StdpipeSpec: localFormData.riserPipeSpecId,   // 豎管規格ID
-            PerforatedPipe: localFormData.irrigationTypeId === 1 ? localFormData.perforatedPipeDirection : 1
-        }],
-        MainJsonDataAry: mainPipesData,
-        PriceJsonDataAry: localFormData.pipes.map(pipe => ({
-            POMNo: pipe.pomno,
-            Group: pipe.groupId,
-            Order: pipe.order || 1, // 確保有值
-            Amt: pipe.matamount,
-            Price: pipe.matprice,
-            TotalPrice: pipe.totalPrice
-        })),
-        FacNo: null, // 公版設施系統代號, 若有選擇公版系統則傳入, 此處可能為null或特定值
-        // TotalPrice: parseFloat(totalPipesPrice.value.replace(/,/g, '')) // 由後端計算，或前端先計算一次傳給後端參考
-    };
+    //     EndTypeDataAry: [{ // 這裡簡化為只處理第一個末端系統，若有多個需擴展
+    //         Endtype: localFormData.irrigationTypeId, // 末端型式主ID
+    //         Fac: localFormData.facilityTypeId,       // 設施型式ID
+    //         BranchPipeMaterial: pipeMaterialOptions.value.find(m=>m.id === localFormData.branchPipeMaterialId)?.name || '', // 支管材質名稱
+    //         BranchPipeSpec: localFormData.branchPipeDiameterId, // 支管規格ID
+    //         SS: localFormData.sprinklerSpacing_SS,
+    //         SL: localFormData.branchPipeSpacing_SL,
+    //         StdpipeHei: localFormData.riserHeight_H,
+    //         NozzleSpec: localFormData.endFacilitySpecId, // 末端設施主要規格ID
+    //         NozzleType: filteredEndFacilityPipeFittings.value.find(f => f.pomno === localFormData.endFacilityPomno)?.displayName || '', // 末端設施名稱或類型描述
+    //         StdpipeMat: pipeMaterialOptions.value.find(m => m.id === localFormData.riserPipeMaterialId)?.name || '', // 豎管材質名稱
+    //         StdpipeSpec: localFormData.riserPipeSpecId,   // 豎管規格ID
+    //         PerforatedPipe: localFormData.irrigationTypeId === 1 ? localFormData.perforatedPipeDirection : 1
+    //     }],
+    //     MainJsonDataAry: mainPipesData,
+    //     PriceJsonDataAry: localFormData.pipes.map(pipe => ({
+    //         POMNo: pipe.pomno,
+    //         Group: pipe.groupId,
+    //         Order: pipe.order || 1, // 確保有值
+    //         Amt: pipe.matamount,
+    //         Price: pipe.matprice,
+    //         TotalPrice: pipe.totalPrice
+    //     })),
+    //     FacNo: null, // 公版設施系統代號, 若有選擇公版系統則傳入, 此處可能為null或特定值
+    //     // TotalPrice: parseFloat(totalPipesPrice.value.replace(/,/g, '')) // 由後端計算，或前端先計算一次傳給後端參考
+    // };
 
     // console.log('Calculating subsidy with payload:', JSON.stringify(requestPayload, null, 2));
 
@@ -3385,12 +3388,59 @@ const calculateSubsidy = async () => {
     // const response = await yourApiService.post('/api/subsidy/calculate-total-price', requestPayload);
     // const priceData = response.data.split(';'); // 假設後端返回 "總價;補助金額;自付金額"
 
-     // 模擬延遲和響應
+    // 根據灌溉型式和原民區域狀態計算補助金額
     await new Promise(resolve => setTimeout(resolve, 1000));
+
     const currentTotalPipesPrice = parseFloat(totalPipesPrice.value.replace(/,/g, ''));
-    const mockApiResponse = `${currentTotalPipesPrice};${Math.round(currentTotalPipesPrice * 0.49)};${currentTotalPipesPrice - Math.round(currentTotalPipesPrice * 0.49)}`; // 假設49%補助
+    const facilityAreaInHectares = (localFormData.facilityArea || 0) / 10000; // 轉換為公頃
+
+    // 從 step2 數據中獲取原民區域狀態
+    const isAboriginalArea = grantsStore.formData[2]?.isAboriginalArea || false;
+
+    // 根據灌溉型式和原民區域狀態設定每公頃補助金額
+    let subsidyPerHectare = 0;
+    const irrigationTypeId = localFormData.irrigationTypeId;
+
+    if (irrigationTypeId === 1) { // 穿孔管系統
+      subsidyPerHectare = isAboriginalArea ? 68200 : 62000;
+    } else if (irrigationTypeId === 2) { // 噴頭式系統
+      subsidyPerHectare = isAboriginalArea ? 132000 : 120000;
+    } else if (irrigationTypeId === 3) { // 微噴系統
+      subsidyPerHectare = isAboriginalArea ? 19800 : 180000;
+    } else if (irrigationTypeId === 4) { // 滴灌系統
+      subsidyPerHectare = isAboriginalArea ? 22000 : 200000;
+    }
+
+    // 計算政府補助金額上限
+    const maxSubsidyAmount = Math.round(facilityAreaInHectares * subsidyPerHectare);
+
+    // 計算實際補助金額和農民自付金額
+    let actualSubsidyAmount, farmerSelfAmount;
+
+    if (currentTotalPipesPrice > maxSubsidyAmount) {
+      // 總價超過補助上限，農民需自付超出部分
+      actualSubsidyAmount = maxSubsidyAmount;
+      farmerSelfAmount = currentTotalPipesPrice - maxSubsidyAmount;
+    } else {
+      // 總價不超過補助上限，政府全額補助
+      actualSubsidyAmount = currentTotalPipesPrice;
+      farmerSelfAmount = 0;
+    }
+
+    // 模擬 API 回傳格式
+    const mockApiResponse = `${currentTotalPipesPrice};${actualSubsidyAmount};${farmerSelfAmount}`;
     const priceData = mockApiResponse.split(';');
 
+    console.log('💰 補助計算結果:', {
+      灌溉型式: irrigationTypeId,
+      原民區域: isAboriginalArea,
+      施設面積公頃: facilityAreaInHectares,
+      每公頃補助額: subsidyPerHectare,
+      補助上限: maxSubsidyAmount,
+      總工程費: currentTotalPipesPrice,
+      政府補助: actualSubsidyAmount,
+      農民自付: farmerSelfAmount
+    });
 
     localFormData.subsidyTotal = parseInt(priceData[0]) || 0;
     localFormData.subsidyAmount = parseInt(priceData[1]) || 0;
@@ -4121,14 +4171,14 @@ const generateMaterialsByFormula = (formulaNumber: number, data: MaterialData): 
       // 噴頭式系統 - 分別添加各個組件以保持正確分組
       materialGroups.push(generateBranchPipeGroup(data, data.L1Spec));
       materialGroups.push(generateStandPipeGroup(data));
-      materialGroups.push(generateFixedFacilitiesGroup(data));
+      // materialGroups.push(generateFixedFacilitiesGroup(data));
       materialGroups.push(generateSprinklerHeadsGroup(data));
       break;
     case 4:
       // 噴頭式系統加L2主管 - 分別添加各個組件以保持正確分組
       materialGroups.push(generateBranchPipeGroup(data, data.L1Spec));
       materialGroups.push(generateStandPipeGroup(data));
-      materialGroups.push(generateFixedFacilitiesGroup(data));
+      // materialGroups.push(generateFixedFacilitiesGroup(data));
       materialGroups.push(generateSprinklerHeadsGroup(data));
       materialGroups.push(generateL2MainPipeLine(data));
       break;
@@ -4143,14 +4193,14 @@ const generateMaterialsByFormula = (formulaNumber: number, data: MaterialData): 
       // 微噴系統 - 分別添加各個組件以保持正確分組
       materialGroups.push(generateBranchPipeGroup(data, data.L1Spec));
       materialGroups.push(generateStandPipeGroup(data));
-      materialGroups.push(generateFixedFacilitiesGroup(data));
+      // materialGroups.push(generateFixedFacilitiesGroup(data));
       materialGroups.push(generateMicroSprinklerHeadsGroup(data));
       break;
     case 8:
       // 微噴系統加L2主管 - 分別添加各個組件以保持正確分組
       materialGroups.push(generateBranchPipeGroup(data, data.L1Spec));
       materialGroups.push(generateStandPipeGroup(data));
-      materialGroups.push(generateFixedFacilitiesGroup(data));
+      // materialGroups.push(generateFixedFacilitiesGroup(data));
       materialGroups.push(generateMicroSprinklerHeadsGroup(data));
       materialGroups.push(generateL2MainPipeLine(data));
       break;
@@ -4199,26 +4249,26 @@ const generateL1MainPipeLine = (data: any) => {
     spec3: '',
     itemunit: '支',
     matamount: Math.ceil(data.L1MatAmt || Math.ceil(data.L1Len / 4)),
-    description: '主管管材',
+    description: '主管管材(L1)',
     order: 1,
     group: 1
   });
 
-  // 彎頭
-  addMaterial(materials, 2, L1SpecName, '', '彎頭', {
-    module: '主管配件',
-    matname: '彎頭',
-    module_id: 2,
-    mattype: L1MaterialName,
-    spec1: L1SpecName,
-    spec2: '',
-    spec3: '',
-    itemunit: '個',
-    matamount: Math.floor(data.L1Bend || 3),
-    description: '90度彎頭',
-    order: 2,
-    group: 1
-  });
+  // 彎頭 (2025/06/06 更新：不需要顯示彎頭管材的計算結果)
+  // addMaterial(materials, 2, L1SpecName, '', '彎頭', {
+  //   module: '主管配件',
+  //   matname: '彎頭',
+  //   module_id: 2,
+  //   mattype: L1MaterialName,
+  //   spec1: L1SpecName,
+  //   spec2: '',
+  //   spec3: '',
+  //   itemunit: '個',
+  //   matamount: Math.floor(data.L1Bend || 3),
+  //   description: '90度彎頭',
+  //   order: 2,
+  //   group: 1
+  // });
 
   // 塞口
   addMaterial(materials, 2, L1SpecName, '', '塞口', {
@@ -4232,7 +4282,7 @@ const generateL1MainPipeLine = (data: any) => {
     itemunit: '個',
     matamount: Math.floor(data.L1Receptacle || 1),
     description: '塞口',
-    order: 3,
+    order: 2,
     group: 1
   });
 
@@ -4300,26 +4350,27 @@ const generateL2MainPipeLine = (data: any) => {
     spec3: '',
     itemunit: '支',
     matamount: Math.ceil(data.L2MatAmt || Math.ceil(data.L2Len / 4)),
-    description: '主管管材',
-    order: 1,
+    description: '主管管材(L2)',
+    order: 3,
     group: 1
   });
 
+
   // 主管2彎頭
-  addMaterial(materials, 2, L2SpecName, '', '彎頭', {
-    module: '主管配件',
-    matname: '彎頭',
-    module_id: 2,
-    mattype: L2MaterialName,
-    spec1: L2SpecName,
-    spec2: '',
-    spec3: '',
-    itemunit: '個',
-    matamount: Math.floor(data.L2Bend || 2),
-    description: '90度彎頭',
-    order: 2,
-    group: 1
-  });
+  // addMaterial(materials, 2, L2SpecName, '', '彎頭', {
+  //   module: '主管配件',
+  //   matname: '彎頭',
+  //   module_id: 2,
+  //   mattype: L2MaterialName,
+  //   spec1: L2SpecName,
+  //   spec2: '',
+  //   spec3: '',
+  //   itemunit: '個',
+  //   matamount: Math.floor(data.L2Bend || 2),
+  //   description: '90度彎頭',
+  //   order: 2,
+  //   group: 1
+  // });
 
   return {
     GroupNo: 1,
@@ -4369,13 +4420,13 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
   // 穿孔管 - 直接使用用戶選擇的末端設施 pomno 進行精確比對
   const perforatedPipeMatch = matchMaterialByPomno(localFormData.endFacilityPomno);
 
-    // 取得實際的標準長度，若無資料則預設為100
+  // 取得實際的標準長度，若無資料則預設為100
   const standardLength = perforatedPipeMatch.matchedData?.length || 100;
 
   // 計算穿孔管數量 = Math.ceil(總長度 / 標準長度)
   const perforatedQuantity = Math.ceil(perforatedTotalLength / standardLength);
 
-  // 穿孔管 - 使用統一的 addMaterial 函數進行精確比對
+  // 穿孔管
   addMaterial(materials, localFormData.endFacilityPomno, nozzleSpecName, endFacilityMaterial, '', {
     module: '穿孔管',
     matname: perforatedPipeMatch.matchedData?.name || '穿孔管',
@@ -4385,13 +4436,13 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
     spec2: '',
     spec3: '',
     itemunit: standardLength === 100 ? '100m' : `${standardLength}m`,
-    matamount: perforatedQuantity,
+    matamount: perforatedQuantity * multiplier,
     description: `穿孔管材(${standardLength}m計價)`,
     order: 1,
     group: 3
   });
 
-  // 三通或四通 - 使用 addMaterial 確保統一處理
+  // 三通或四通
   const fittingName = data.PerforatedPipe === 1 ? '三通' : '四通';
   const fittingSpec = `${mainSpecName}×${nozzleSpecName}`;
   addMaterial(materials, 2, fittingSpec, '', fittingName, {
@@ -4409,7 +4460,7 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
     group: 3
   });
 
-  // 制水閥 - 使用 addMaterial 確保統一處理
+  // 制水閥
   addMaterial(materials, 10, nozzleSpecName, '', '制水閥', {
     module: '穿孔管配件',
     matname: '制水閥',
@@ -4425,7 +4476,7 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
     group: 3
   });
 
-  // 穿孔管接頭 - 使用 addMaterial 確保統一處理
+  // 穿孔管接頭
   addMaterial(materials, 2, nozzleSpecName, '', '穿孔管接頭', {
     module: '穿孔管配件',
     matname: '穿孔管接頭',
@@ -4441,7 +4492,7 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
     group: 3
   });
 
-  // 穿孔管尾夾 - 使用 addMaterial 確保統一處理
+  // 穿孔管尾夾
   addMaterial(materials, 2, nozzleSpecName, '', '穿孔管尾夾', {
     module: '穿孔管配件',
     matname: '穿孔管尾夾',
@@ -4500,10 +4551,11 @@ const generateBranchPipeGroup = (data: any, mainPipeSpec: any) => {
 // 生成支管材料的通用函數
 const generateBranchPipeMaterials = (data: any, mainPipeSpec: any, groupId: number) => {
   const materials = [];
-  const branchMaterialName = pipeMaterialOptions.value.find(m => m.id === data.BranchMaterial)?.name || 'PE管';
-  const branchSpecName = pipeDiameterOptions.value.find(d => d.id === data.BranchSpec)?.name || '3/4"';
-  const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name || '1"';
+  const branchMaterialName = pipeMaterialOptions.value.find(m => m.id === data.BranchMaterial)?.name;
+  const branchSpecName = pipeDiameterOptions.value.find(d => d.id === data.BranchSpec)?.name;
+  const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name;
 
+  // TODO: 以實際的支管材質的長度規格做為計價單位，目前假設支管長度為4m計價
   // 支管
   addMaterial(materials, 1, branchSpecName, branchMaterialName, '', {
     module: '支管',
@@ -4513,9 +4565,9 @@ const generateBranchPipeMaterials = (data: any, mainPipeSpec: any, groupId: numb
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
-    itemunit: 'm',
-    matamount: Math.ceil(data.BranchAmt * data.BranchLength),
-    description: '支管材料',
+    itemunit: '4m',
+    matamount: Math.ceil((data.BranchAmt * data.BranchLength) / 4), // 每4m計價
+    description: '支管管材(4m計價)',
     order: 1,
     group: groupId
   });
@@ -4554,20 +4606,20 @@ const generateBranchPipeMaterials = (data: any, mainPipeSpec: any, groupId: numb
   });
 
   // 閥接頭
-  addMaterial(materials, 2, branchSpecName, '', '閥接頭', {
-    module: '支管配件',
-    matname: '閥接頭',
-    module_id: 2,
-    mattype: 'PVC',
-    spec1: branchSpecName,
-    spec2: '',
-    spec3: '',
-    itemunit: '個',
-    matamount: Math.floor(data.BranchAmt * 2),
-    description: '制水閥接頭',
-    order: 4,
-    group: groupId
-  });
+  // addMaterial(materials, 2, branchSpecName, '', '閥接頭', {
+  //   module: '支管配件',
+  //   matname: '閥接頭',
+  //   module_id: 2,
+  //   mattype: 'PVC',
+  //   spec1: branchSpecName,
+  //   spec2: '',
+  //   spec3: '',
+  //   itemunit: '個',
+  //   matamount: Math.floor(data.BranchAmt * 2),
+  //   description: '制水閥接頭',
+  //   order: 4,
+  //   group: groupId
+  // });
 
   // 塞口
   addMaterial(materials, 2, branchSpecName, '', '塞口', {
@@ -4581,7 +4633,7 @@ const generateBranchPipeMaterials = (data: any, mainPipeSpec: any, groupId: numb
     itemunit: '個',
     matamount: Math.floor(data.BranchAmt),
     description: '支管末端塞口',
-    order: 5,
+    order: 4,
     group: groupId
   });
 
@@ -4601,22 +4653,23 @@ const generateStandPipeGroup = (data: any) => {
 // 生成豎管材料
 const generateStandPipeMaterials = (data: any, groupId: number) => {
   const materials = [];
-  const standPipeMaterialName = pipeMaterialOptions.value.find(m => m.id === data.StdpipeMat)?.name || 'PVC';
-  const standPipeSpecName = pipeDiameterOptions.value.find(d => d.id === data.StandPipeSpec)?.name || '1/2"';
-  const branchSpecName = pipeDiameterOptions.value.find(d => d.id === data.BranchSpec)?.name || '3/4"';
+  const standPipeMaterialName = pipeMaterialOptions.value.find(m => m.id === data.StdpipeMat)?.name;
+  const standPipeSpecName = pipeDiameterOptions.value.find(d => d.id === data.StandPipeSpec)?.name;
+  const branchSpecName = pipeDiameterOptions.value.find(d => d.id === data.BranchSpec)?.name;
 
+  // TODO: 以實際的豎管材質的長度規格做為計價單位，目前假設豎管長度為4m計價
   // 豎管
   addMaterial(materials, 4, standPipeSpecName, standPipeMaterialName, '', {
     module: '豎管',
-    matname: `豎管 ${standPipeSpecName}`,
+    matname: `${standPipeSpecName} ${standPipeMaterialName} 豎管`,
     module_id: 4,
     mattype: standPipeMaterialName,
     spec1: standPipeSpecName,
     spec2: '',
     spec3: '',
-    itemunit: 'm',
-    matamount: Math.ceil(data.NozzleAmt * data.StandPipeLength),
-    description: '豎管材料',
+    itemunit: '4m',
+    matamount: Math.ceil((data.NozzleAmt * data.StandPipeLength)/4), // 每4m計價
+    description: '豎管材料(4m計價)',
     order: 1,
     group: groupId
   });
@@ -4653,21 +4706,36 @@ const generateStandPipeMaterials = (data: any, groupId: number) => {
     group: groupId
   });
 
-  // 豎管閥接頭
-  addMaterial(materials, 2, standPipeSpecName, '', '閥接頭', {
+  addMaterial(materials, 2, standPipeSpecName, '', '直龍口', {
     module: '豎管配件',
-    matname: '閥接頭',
+    matname: '直龍口',
     module_id: 2,
     mattype: 'PVC',
     spec1: standPipeSpecName,
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matamount: Math.floor(data.NozzleAmt * 2),
-    description: '豎管制水閥接頭',
+    matamount: Math.floor(data.NozzleAmt),
+    description: '豎管直龍口',
     order: 4,
     group: groupId
   });
+
+  // 豎管閥接頭
+  // addMaterial(materials, 2, standPipeSpecName, '', '閥接頭', {
+  //   module: '豎管配件',
+  //   matname: '閥接頭',
+  //   module_id: 2,
+  //   mattype: 'PVC',
+  //   spec1: standPipeSpecName,
+  //   spec2: '',
+  //   spec3: '',
+  //   itemunit: '個',
+  //   matamount: Math.floor(data.NozzleAmt * 2),
+  //   description: '豎管制水閥接頭',
+  //   order: 4,
+  //   group: groupId
+  // });
 
   return materials;
 };
@@ -4821,7 +4889,7 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
   const branchSpecName = pipeDiameterOptions.value.find(d => d.id === data.BranchSpec)?.name || '16mm';
   const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name || '1"';
 
-  // 滴灌管 - 管材用無條件進位
+  // 滴灌管
   addMaterial(materials, 12, branchSpecName, branchMaterialName, '', {
     module: '滴灌管',
     matname: `滴灌管 ${branchSpecName}`,
@@ -4837,7 +4905,7 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
     group: 4
   });
 
-  // 三通 - 配件用無條件捨去
+  // 三通
   const dripTeeSpec = `${mainSpecName}×${branchSpecName}`;
   addMaterial(materials, 2, dripTeeSpec, '', '三通', {
     module: '滴灌配件',
@@ -4854,7 +4922,7 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
     group: 4
   });
 
-  // 制水閥 - 配件用無條件捨去
+  // 制水閥
   addMaterial(materials, 10, branchSpecName, '', '制水閥', {
     module: '滴灌配件',
     matname: '制水閥',
@@ -4870,10 +4938,10 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
     group: 4
   });
 
-  // 閥接頭 - 配件用無條件捨去
-  addMaterial(materials, 2, branchSpecName, '', '閥接頭', {
+  // 管首接頭
+  addMaterial(materials, 2, branchSpecName, '', '管首接頭', {
     module: '滴灌配件',
-    matname: '閥接頭',
+    matname: '管首接頭',
     module_id: 2,
     mattype: 'PVC',
     spec1: branchSpecName,
@@ -4881,15 +4949,15 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
     spec3: '',
     itemunit: '個',
     matamount: Math.floor(data.BranchAmt * 2),
-    description: '滴灌制水閥接頭',
+    description: '滴灌管首端接頭',
     order: 4,
     group: 4
   });
 
-  // 塞口 - 配件用無條件捨去
-  addMaterial(materials, 2, branchSpecName, '', '塞口', {
+  // 管尾束
+  addMaterial(materials, 2, branchSpecName, '', '管尾束', {
     module: '滴灌配件',
-    matname: '塞口',
+    matname: '管尾束',
     module_id: 2,
     mattype: 'PVC',
     spec1: branchSpecName,
@@ -4897,7 +4965,7 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
     spec3: '',
     itemunit: '個',
     matamount: Math.floor(data.BranchAmt),
-    description: '滴灌管末端塞口',
+    description: '滴灌管末端束扣',
     order: 5,
     group: 4
   });
@@ -5147,15 +5215,21 @@ onMounted(async () => {
   }
 
   // 3. 只有在沒有從 props 載入到 facilityArea 時，才從 step2 載入
-  if (!localFormData.facilityArea || localFormData.facilityArea === 0 || localFormData.facilityArea === '0') {
+  // if (!localFormData.facilityArea || localFormData.facilityArea === 0 || localFormData.facilityArea === '0') {
     const step2FacilityArea = grantsStore.formData[2]?.facilityArea;
     if (step2FacilityArea !== undefined) {
       localFormData.facilityArea = parseFloat(step2FacilityArea) || 0;
       console.log("✅ Using facilityArea from Step 2:", localFormData.facilityArea);
     }
-  }
+  // }
 
   calculateWidth();
+
+  // 4. 如果有灌溉型式，載入末端設施選項
+  if (localFormData.irrigationTypeId) {
+    console.log('🔄 Loading end facility options in onMounted');
+    await loadEndFacilityOptions();
+  }
 
   // 如果有管路設施，計算補助金額
   if (localFormData.pipes && localFormData.pipes.length > 0) {
