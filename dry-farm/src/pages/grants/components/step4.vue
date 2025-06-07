@@ -2906,12 +2906,16 @@ const movePipeUp = (groupNo: number, pipeIndexInGroup: number) => {
   const currentIndex = localFormData.pipes.findIndex(p =>
     p.pomno === currentItem.pomno &&
     p.order === currentItem.order &&
-    p.groupId === currentItem.groupId
+    p.groupId === currentItem.groupId &&
+    p.matname === currentItem.matname &&
+    p.description === currentItem.description
   );
   const previousIndex = localFormData.pipes.findIndex(p =>
     p.pomno === previousItem.pomno &&
     p.order === previousItem.order &&
-    p.groupId === previousItem.groupId
+    p.groupId === previousItem.groupId &&
+    p.matname === previousItem.matname &&
+    p.description === previousItem.description
   );
 
   if (currentIndex !== -1 && previousIndex !== -1) {
@@ -2940,12 +2944,16 @@ const movePipeDown = (groupNo: number, pipeIndexInGroup: number) => {
   const currentIndex = localFormData.pipes.findIndex(p =>
     p.pomno === currentItem.pomno &&
     p.order === currentItem.order &&
-    p.groupId === currentItem.groupId
+    p.groupId === currentItem.groupId &&
+    p.matname === currentItem.matname &&
+    p.description === currentItem.description
   );
   const nextIndex = localFormData.pipes.findIndex(p =>
     p.pomno === nextItem.pomno &&
     p.order === nextItem.order &&
-    p.groupId === nextItem.groupId
+    p.groupId === nextItem.groupId &&
+    p.matname === nextItem.matname &&
+    p.description === nextItem.description
   );
 
   if (currentIndex !== -1 && nextIndex !== -1) {
@@ -2964,10 +2972,13 @@ const movePipeDown = (groupNo: number, pipeIndexInGroup: number) => {
 const reorderGroupItems = (groupNo: number) => {
   const groupItems = localFormData.pipes.filter(p => p.groupId === groupNo);
   groupItems.forEach((item, index) => {
+    // 使用更精確的匹配條件，包括當前的 order 值來確保找到正確的項目
     const actualIndex = localFormData.pipes.findIndex(p =>
       p.pomno === item.pomno &&
       p.groupId === item.groupId &&
-      p.matname === item.matname
+      p.matname === item.matname &&
+      p.order === item.order &&
+      p.description === item.description
     );
     if (actualIndex !== -1) {
       localFormData.pipes[actualIndex].order = index + 1;
@@ -4374,7 +4385,7 @@ const generateL2MainPipeLine = (data: any) => {
 
   return {
     GroupNo: 1,
-    GroupName: '主管組(L2)',
+    GroupName: '主管組',
     List: materials
   };
 };
