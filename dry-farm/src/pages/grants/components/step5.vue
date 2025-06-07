@@ -267,7 +267,7 @@
                   md="6"
                 >
                   <label class="text-body-2 font-weight-medium mb-2 d-block">
-                    <span class="text-red">*</span> 施工後照片
+                    <span class="text-red">*</span> 竣工照片
                   </label>
                   <v-file-input
                     v-model="localFormData.afterConstructionPhoto"
@@ -539,7 +539,7 @@ onMounted(() => {
   }
 
   if (!localFormData.afterPhotoPreview) {
-    localFormData.afterPhotoPreview = 'https://via.placeholder.com/400x300?text=施工後照片示例';
+    localFormData.afterPhotoPreview = 'https://via.placeholder.com/400x300?text=竣工照片示例';
   }
 
   // Initial update to parent

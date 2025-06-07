@@ -253,6 +253,10 @@
                     style="width: 80px"
                     type="number"
                     min="1"
+                    :rules="[
+                      v => !!v || '請輸入數量',
+                      v => v > 0 || '數量必須大於0'
+                    ]"
                   />
 
                   <v-text-field
@@ -353,9 +357,13 @@
                         min="1"
                         density="compact"
                         variant="outlined"
-                        hide-details
+                        hide-details="auto"
                         class="ma-1"
                         style="width: 70px"
+                        :rules="[
+                          v => !!v || '請輸入數量',
+                          v => v > 0 || '數量必須大於0'
+                        ]"
                         @update:model-value="updateFacilityTotal(index)"
                       />
                     </td>
@@ -481,8 +489,8 @@ const localFormData = reactive({
 
 // 選項
 const powerEquipmentOptions = [
-  '馬達+抽水機',
-  '馬達+柱塞泵',
+  '馬達（含抽水機）',
+  '柱塞式泵',
   '汽油引擎',
   '柴油引擎'
 ];

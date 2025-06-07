@@ -64,6 +64,11 @@
                             variant="outlined"
                             density="compact"
                             type="number"
+                            min="0"
+                            :rules="[
+                              v => v >= 0 || '數量不能為負數'
+                            ]"
+                            hide-details="auto"
                             @update:model-value="calculateDifference"
                           />
                         </td>
@@ -73,6 +78,11 @@
                             variant="outlined"
                             density="compact"
                             type="number"
+                            min="0"
+                            :rules="[
+                              v => v >= 0 || '數量不能為負數'
+                            ]"
+                            hide-details="auto"
                             @update:model-value="calculateDifference"
                           />
                         </td>
@@ -108,7 +118,7 @@
               >
                 mdi-clipboard-text
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">結案申報基本資訊</span>
+              <span class="text-subtitle-1 font-weight-medium">本案基本資訊</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -202,7 +212,7 @@
               >
                 mdi-check-decagram
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">竣工與測試資訊</span>
+              <span class="text-subtitle-1 font-weight-medium">功能測試(驗收)</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -217,12 +227,12 @@
                   >
                     <v-text-field
                       v-model="formattedCompletionDate"
-                      label="竣工日期"
+                      label="申報結案日期"
                       variant="outlined"
                       density="comfortable"
                       readonly
                       prepend-icon="mdi-calendar"
-                      :rules="[v => !!localFormData.completionDate || '請選擇竣工日期']"
+                      :rules="[v => !!localFormData.completionDate || '請選擇申報結案日期']"
                       @click="openDateDialog('completion')"
                       @update:model-value="updateFormData"
                     />
@@ -237,7 +247,7 @@
                           class="text-h6 font-weight-bold"
                           style="color: #2d8c8f"
                         >
-                          選擇竣工日期
+                          選擇申報結案日期
                         </v-card-title>
                         <v-card-text>
                           <v-row>
@@ -297,12 +307,12 @@
                     cols="12"
                     md="6"
                   >
-                    <label class="text-body-2 font-weight-medium mb-2 d-block">竣工狀況</label>
+                    <label class="text-body-2 font-weight-medium mb-2 d-block">實際工程辦理情形</label>
                     <div class="d-flex align-center">
                       <v-radio-group
                         v-model="localFormData.completionStatus"
                         inline
-                        :rules="[v => !!v || '請選擇竣工狀況']"
+                        :rules="[v => !!v || '請選擇實際工程辦理情形']"
                         @update:model-value="updateFormData"
                       >
                         <v-radio
@@ -325,12 +335,12 @@
                   >
                     <v-text-field
                       v-model="formattedTestDate"
-                      label="測試日期"
+                      label="功能測試日期"
                       variant="outlined"
                       density="comfortable"
                       readonly
                       prepend-icon="mdi-calendar"
-                      :rules="[v => !!localFormData.testDate || '請選擇測試日期']"
+                      :rules="[v => !!localFormData.testDate || '請選擇功能測試日期']"
                       @click="openDateDialog('test')"
                       @update:model-value="updateFormData"
                     />
@@ -345,7 +355,7 @@
                           class="text-h6 font-weight-bold"
                           style="color: #2d8c8f"
                         >
-                          選擇測試日期
+                          選擇功能測試日期
                         </v-card-title>
                         <v-card-text>
                           <v-row>
@@ -435,7 +445,7 @@
             </v-card-text>
           </v-card>
 
-          <!-- 測試結果詳細資訊區域 -->
+          <!-- 功能測試(驗收)結果區域 -->
           <v-card
             v-if="localFormData.testResult"
             class="mb-4"
@@ -448,7 +458,7 @@
               >
                 mdi-check-circle
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">測試結果詳細資訊</span>
+              <span class="text-subtitle-1 font-weight-medium">功能測試(驗收)結果</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -570,7 +580,7 @@
                     md="6"
                   >
                     <label class="text-body-2 font-weight-medium mb-2 d-block">
-                      <span class="text-red">*</span> 施工後照片
+                      <span class="text-red">*</span> 竣工照片
                     </label>
                     <v-file-input
                       v-model="localFormData.afterConstructionPhoto"
@@ -606,7 +616,7 @@
                       >
                         mdi-alert-circle
                       </v-icon>
-                      <span class="text-caption">卡驗收照片(尚未上傳施工後照片)</span>
+                      <span class="text-caption">卡驗收照片(尚未上傳竣工照片)</span>
                     </div>
                   </v-col>
                 </v-row>
@@ -687,13 +697,13 @@ const localFormData = reactive({
   facilityType: '',        // 設施型式
 
   // 竣工資訊
-  completionDate: '',      // 竣工日期
-  completionStatus: '',    // 竣工狀況
-  testDate: '',            // 測試日期
+  completionDate: '',      // 申報結案日期
+  completionStatus: '',    // 實際工程辦理情形
+  testDate: '',            // 功能測試日期
   tester: '',              // 測試人員
   testResult: '',          // 測試結果
 
-  // 測試結果詳細資訊
+  // 功能測試(驗收)結果
   originalPayment: '',          // 原應發放
   increasedDecreasedAmount: '', // 增減列
   actualPayment: '',            // 實際發放
@@ -1124,7 +1134,7 @@ onMounted(() => {
   }
 
   if (!localFormData.afterPhotoPreview) {
-    localFormData.afterPhotoPreview = 'https://via.placeholder.com/400x300?text=施工後照片示例';
+    localFormData.afterPhotoPreview = 'https://via.placeholder.com/400x300?text=竣工照片示例';
   }
 
   // Initial update to parent

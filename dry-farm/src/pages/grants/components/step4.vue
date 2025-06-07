@@ -49,7 +49,7 @@
             </v-card-text>
           </v-card>
 
-          <!-- STEP 2: 坵塊形狀長度調整 -->
+          <!-- STEP 2: 設施基地長寬長度調整 -->
           <v-card
             class="mb-4"
             variant="outlined"
@@ -72,7 +72,7 @@
                 <div class="d-flex flex-wrap align-center mb-4">
                   <div class="d-flex align-center flex-wrap me-4 mb-2">
                     <div class="text-body-2 me-2">
-                      坵塊形狀:
+                      設施基地長寬:
                     </div>
                     <v-text-field
                       v-model.number="localFormData.fieldLength"
@@ -1086,6 +1086,21 @@
                   </v-icon>
                   自動帶入材料
                 </v-btn>
+                <v-btn
+                  color="primary"
+                  variant="outlined"
+                  class="mb-2"
+                  block
+                  @click="openManualAddDialog"
+                >
+                  <v-icon
+                    start
+                    size="small"
+                  >
+                    mdi-plus
+                  </v-icon>
+                  手動新增材料
+                </v-btn>
                 <div
                   v-if="!canAutoFillMaterials"
                   class="text-caption text-red mt-1"
@@ -1162,7 +1177,7 @@
                       <td class="text-center">
                         <div class="d-flex align-center justify-center">
                           <span>{{ groupIndex + 1 }}-{{ pipe.order }}</span>
-                          <v-btn
+                          <!-- <v-btn
                             icon
                             size="x-small"
                             variant="text"
@@ -1171,7 +1186,7 @@
                             @click="showDebugInfo(pipe)"
                           >
                             <v-icon size="x-small">mdi-information</v-icon>
-                          </v-btn>
+                          </v-btn> -->
                         </div>
                       </td>
                       <td>{{ pipe.matname }}</td>
@@ -1183,7 +1198,20 @@
                         {{ pipe.matprice?.toLocaleString() }}
                       </td>
                       <td class="text-center">
-                        {{ pipe.matamount }}
+                        <v-text-field
+                          v-model.number="pipe.matamount"
+                          type="number"
+                          min="0"
+                          density="compact"
+                          variant="outlined"
+                          hide-details="auto"
+                          class="ma-1"
+                          style="width: 100px"
+                          :rules="[
+                            v => v >= 0 || '數量不能為負數'
+                          ]"
+                          @update:model-value="(value) => updatePipeQuantity(group.groupNo, pipeIndex, Number(value) || 0)"
+                        />
                       </td>
                       <td class="text-center">
                         {{ pipe.totalPrice?.toLocaleString() }}
@@ -1528,6 +1556,121 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <!-- 手動新增材料對話框 -->
+  <v-dialog v-model="showManualAddDialog" max-width="800">
+    <v-card>
+      <v-card-title class="bg-primary text-white d-flex align-center">
+        <v-icon class="me-2">mdi-plus</v-icon>
+        手動新增材料
+      </v-card-title>
+
+      <v-card-text class="pa-4">
+        <v-form ref="manualAddForm">
+          <v-row>
+            <!-- 材料搜尋與選擇 -->
+            <v-col cols="12">
+              <v-autocomplete
+                v-model="selectedMaterialPomno"
+                :items="filteredMaterialOptions"
+                item-title="searchText"
+                item-value="pomno"
+                label="搜尋並選擇材料"
+                placeholder="請輸入材料名稱、材質或管徑進行搜尋"
+                clearable
+                no-data-text="沒有找到相符的材料"
+                @update:search="onMaterialSearch"
+              >
+                <template #item="{ props, item }">
+                  <v-list-item v-bind="props">
+                    <template #title>
+                      {{ item.raw.name }}
+                    </template>
+                    <template #subtitle>
+                      POMNO: {{ item.raw.pomno }} |
+                      {{ item.raw.material?.name || 'N/A' }} |
+                      {{ item.raw.module?.name || 'N/A' }} |
+                      單價: ${{ item.raw.current_price?.toLocaleString() || 'N/A' }}
+                    </template>
+                  </v-list-item>
+                </template>
+              </v-autocomplete>
+            </v-col>
+
+            <!-- 選中材料的詳細資訊 -->
+            <v-col v-if="selectedMaterial" cols="12">
+              <v-card variant="outlined" color="grey-lighten-5">
+                <v-card-text>
+                  <div class="text-subtitle-2 mb-2">選中的材料：</div>
+                  <div class="d-flex align-center">
+                    <div class="flex-grow-1">
+                      <div class="text-body-2 font-weight-medium">{{ selectedMaterial.name }}</div>
+                      <div class="text-caption text-grey-darken-1">
+                        POMNO: {{ selectedMaterial.pomno }} |
+                        {{ selectedMaterial.material?.name || 'N/A' }} |
+                        {{ selectedMaterial.module?.name || 'N/A' }} |
+                        單價: ${{ selectedMaterial.current_price?.toLocaleString() || 'N/A' }}
+                      </div>
+                    </div>
+                    <v-chip size="small" color="primary" variant="outlined">
+                      {{ selectedMaterial.unit || '個' }}
+                    </v-chip>
+                  </div>
+                </v-card-text>
+              </v-card>
+            </v-col>
+
+            <!-- 選擇組別 -->
+            <v-col cols="12" md="6">
+              <v-select
+                v-model="selectedGroup"
+                :items="materialGroupOptions"
+                item-title="name"
+                item-value="id"
+                label="選擇材料組別"
+                required
+                :rules="[v => !!v || '請選擇材料組別']"
+              />
+            </v-col>
+
+            <!-- 數量輸入 -->
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model.number="materialQuantity"
+                type="number"
+                label="數量"
+                min="1"
+                step="1"
+                required
+                :rules="[
+                  v => !!v || '請輸入數量',
+                  v => v > 0 || '數量必須大於0'
+                ]"
+              />
+            </v-col>
+          </v-row>
+        </v-form>
+      </v-card-text>
+
+      <v-card-actions class="px-4 pb-4">
+        <v-spacer />
+        <v-btn
+          variant="outlined"
+          @click="closeManualAddDialog"
+        >
+          取消
+        </v-btn>
+        <v-btn
+          color="primary"
+          :disabled="!canAddMaterial"
+          :loading="isAddingMaterial"
+          @click="addMaterialToList"
+        >
+          新增材料
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -1541,6 +1684,45 @@ import type { PipeFitting } from '@/types/pipeFittings'
 
 // Type definitions for material generation
 interface MaterialData {
+  pomno: number;
+  groupId: number;
+  groupName?: string;
+  module: string;
+  matname: string;
+  mattype?: string;
+  specification: string;
+  spec1?: string;
+  spec2?: string;
+  spec3?: string;
+  itemunit: string;
+  description: string;
+  matprice: number;
+  matamount: number;
+  totalPrice: number;
+  order?: number;
+  moduleType?: string;
+  module_id?: number;
+  GroupNo?: number;
+  GroupName?: string;
+  List?: Array<{
+    pomno: number;
+    groupId: number;
+    groupName?: string;
+    module: string;
+    matname: string;
+    mattype?: string;
+    specification: string;
+    spec1?: string;
+    spec2?: string;
+    spec3?: string;
+    itemunit: string;
+    description: string;
+    matprice: number;
+    matamount: number;
+    totalPrice: number;
+    order?: number;
+  }>;
+  // Legacy properties
   Length?: string | number;
   width?: string | number;
   L1Len?: number;
@@ -1575,21 +1757,19 @@ interface MaterialData {
   SpecChange?: number;
   BranchAmt?: number;
   NozzleAmt?: number;
-  // Additional fields as needed
-  [key: string]: string | number | boolean | null | undefined;
 }
 
 interface FormInputs {
-  Length?: number;
-  width?: number;
-  L1Len?: number;
-  L1Material?: number;
-  L1Spec?: number;
+  Length?: number | null;
+  width?: number | null;
+  L1Len?: number | null;
+  L1Material?: number | null;
+  L1Spec?: number | null;
   L1Price?: number;
   L1MatAmt?: number;
-  L2Len?: number;
-  L2Material?: number;
-  L2Spec?: number;
+  L2Len?: number | null;
+  L2Material?: number | null;
+  L2Spec?: number | null;
   L2Price?: number;
   L2MatAmt?: number;
   ddl_EndType?: number;
@@ -1611,32 +1791,39 @@ interface FormInputs {
   [key: string]: string | number | boolean | null | undefined;
 }
 
+interface MaterialData {
+  pomno: number;
+  groupId: number;
+  groupName?: string;
+  module: string;
+  matname: string;
+  mattype?: string;
+  specification: string;
+  spec1?: string;
+  spec2?: string;
+  spec3?: string;
+  itemunit: string;
+  description: string;
+  matprice: number;
+  matamount: number;
+  totalPrice: number;
+  order?: number;
+  moduleType?: string;
+  // Add missing properties that are referenced in the code
+  List?: MaterialData[];
+  GroupNo?: number;
+  GroupName?: string;
+  module_id?: number;
+}
+
 interface MaterialGroup {
   id?: number;
   groupNo: number;
   groupName: string;
-  items: any[];
+  items: MaterialData[];
   GroupNo: number;
   GroupName: string;
-  List: Array<{
-    pomno: number;
-    groupId: number;
-    groupName?: string;
-    module: string;
-    matname: string;
-    mattype?: string;
-    specification: string;
-    spec1?: string;
-    spec2?: string;
-    spec3?: string;
-    itemunit: string;
-    description: string;
-    matprice: number;
-    matamount: number;
-    totalPrice: number;
-    order?: number;
-    moduleType?: string;
-  }>;
+  List: MaterialData[];
 }
 
 
@@ -1719,6 +1906,14 @@ const stepContent = ref<HTMLElement | null>(null); // 顯式類型
 
 // 載入與計算狀態
 const isLoadingMaterials = ref(false);
+
+// 手動新增材料相關狀態
+const showManualAddDialog = ref(false);
+const selectedMaterialPomno = ref<number | null>(null);
+const selectedGroup = ref<number | null>(null);
+const materialQuantity = ref<number>(1);
+const materialSearchQuery = ref('');
+const isAddingMaterial = ref(false);
 const isCalculatingSubsidy = ref(false);
 const isUpdating = ref(false);
 
@@ -2407,6 +2602,49 @@ const canAutoFillMaterials = computed(() => {
   return result;
 });
 
+// 手動新增材料相關計算屬性
+const filteredMaterialOptions = computed(() => {
+  if (!materialSearchQuery.value) {
+    return pipeFittingsStore.pipeFittings.map(fitting => ({
+      ...fitting,
+      searchText: `${fitting.name} ${fitting.material?.name || ''} ${fitting.module?.name || ''}`
+    }));
+  }
+
+  const query = materialSearchQuery.value.toLowerCase();
+  return pipeFittingsStore.pipeFittings
+    .filter(fitting => {
+      const searchText = `${fitting.name} ${fitting.material?.name || ''} ${fitting.module?.name || ''}`.toLowerCase();
+      return searchText.includes(query);
+    })
+    .map(fitting => ({
+      ...fitting,
+      searchText: `${fitting.name} ${fitting.material?.name || ''} ${fitting.module?.name || ''}`
+    }));
+});
+
+const selectedMaterial = computed(() => {
+  if (!selectedMaterialPomno.value) return null;
+  return pipeFittingsStore.pipeFittings.find(
+    fitting => fitting.pomno === selectedMaterialPomno.value
+  );
+});
+
+const materialGroupOptions = computed(() => [
+  { id: 1, name: '主管組' },
+  { id: 2, name: '支管組' },
+  { id: 3, name: '穿孔管組' },
+  { id: 4, name: '滴水管組' },
+  { id: 5, name: '豎管組' },
+  { id: 6, name: '固定設施組' },
+  { id: 7, name: '消耗性材料' },
+  { id: 8, name: '末端設施' }
+]);
+
+const canAddMaterial = computed(() => {
+  return !!(selectedMaterialPomno.value && selectedGroup.value && materialQuantity.value > 0);
+});
+
 const calculateWidth = () => {
   const length = localFormData.fieldLength || 0;
   const area = localFormData.facilityArea || 0;
@@ -2871,6 +3109,42 @@ const addEndFacility = () => {
 
     updateFormData();
   }
+};
+
+// 更新管路數量
+const updatePipeQuantity = (groupNo: number, pipeIndex: number, newQuantity: number) => {
+  // 確保數量不為負數
+  if (newQuantity < 0) {
+    newQuantity = 0;
+  }
+
+  // 找到對應的管路項目
+  const group = groupedPipes.value.find(g => g.groupNo === groupNo);
+  if (!group || !group.items[pipeIndex]) return;
+
+  const pipe = group.items[pipeIndex];
+
+  // 更新數量
+  pipe.matamount = newQuantity;
+
+  // 重新計算總價
+  pipe.totalPrice = Math.round(pipe.matprice * newQuantity);
+
+  // 在原始數組中找到對應項目並更新
+  const originalIndex = localFormData.pipes.findIndex(p =>
+    p.pomno === pipe.pomno &&
+    p.groupId === pipe.groupId &&
+    p.matname === pipe.matname &&
+    p.description === pipe.description
+  );
+
+  if (originalIndex !== -1) {
+    localFormData.pipes[originalIndex].matamount = newQuantity;
+    localFormData.pipes[originalIndex].totalPrice = pipe.totalPrice;
+  }
+
+  // 更新父組件數據
+  updateFormData();
 };
 
 // 移除管路
@@ -5306,6 +5580,76 @@ watch(pipeMaterialOptions, (newOptions) => {
     console.warn('No pipe material options found, using defaults');
   }
 });
+
+// 手動新增材料相關方法
+const openManualAddDialog = () => {
+  showManualAddDialog.value = true;
+  // 重置表單
+  selectedMaterialPomno.value = null;
+  selectedGroup.value = null;
+  materialQuantity.value = 1;
+  materialSearchQuery.value = '';
+};
+
+const closeManualAddDialog = () => {
+  showManualAddDialog.value = false;
+};
+
+const onMaterialSearch = (query: string) => {
+  materialSearchQuery.value = query;
+};
+
+const addMaterialToList = async () => {
+  if (!canAddMaterial.value || !selectedMaterial.value || !selectedGroup.value) return;
+
+  isAddingMaterial.value = true;
+
+  try {
+    // 計算該群組內的下一個順序號碼
+    const existingItemsInGroup = localFormData.pipes.filter(p => p.groupId === selectedGroup.value);
+    const nextOrderInGroup = existingItemsInGroup.length > 0
+      ? Math.max(...existingItemsInGroup.map(p => p.order || 0)) + 1
+      : 1;
+
+    // 創建新的材料項目
+    const newMaterial = {
+      pomno: selectedMaterial.value.pomno,
+      groupId: selectedGroup.value,
+      groupName: materialGroupOptions.value.find(g => g.id === selectedGroup.value)?.name || '',
+      module: selectedMaterial.value.module?.name || '',
+      matname: selectedMaterial.value.name,
+      mattype: selectedMaterial.value.material?.name || '',
+      specification: `${selectedMaterial.value.diameter1?.name || ''} ${selectedMaterial.value.diameter2?.name || ''} ${selectedMaterial.value.diameter3?.name || ''}`.trim(),
+      spec1: selectedMaterial.value.diameter1?.name || '',
+      spec2: selectedMaterial.value.diameter2?.name || '',
+      spec3: selectedMaterial.value.diameter3?.name || '',
+      itemunit: selectedMaterial.value.unit || '個',
+      description: selectedMaterial.value.description || '',
+      matprice: selectedMaterial.value.current_price || 0,
+      matamount: materialQuantity.value,
+      totalPrice: (selectedMaterial.value.current_price || 0) * materialQuantity.value,
+      order: nextOrderInGroup,
+      moduleType: selectedMaterial.value.module?.name || ''
+    };
+
+    // 添加到管路列表
+    localFormData.pipes.push(newMaterial);
+
+    // 重新計算補助金額
+    await calculateSubsidy();
+
+    // 關閉對話框
+    closeManualAddDialog();
+
+    // 更新表單數據
+    updateFormData();
+
+  } catch (error) {
+    console.error('新增材料時發生錯誤:', error);
+  } finally {
+    isAddingMaterial.value = false;
+  }
+};
 </script>
 
 <style scoped>

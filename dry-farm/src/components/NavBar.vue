@@ -20,7 +20,8 @@
     <!-- Application title -->
     <component
       :is="name === 'xs' ? 'h4' : 'h1'"
-      class="me-4 font-weight-black app-title"
+      class="me-4 font-black app-title"
+      style="font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;"
     >
       推廣管路灌溉設施管理資料庫
     </component>
@@ -421,6 +422,14 @@
   font-weight: 900 !important;
   letter-spacing: -0.5px;
   text-shadow: 1px 0 0 currentColor;
+}
+
+h1.app-title {
+  font-size: 1.8rem !important;
+}
+
+h4.app-title {
+  font-size: 1.2rem !important;
 }
 
 /* 下拉選單樣式 */
