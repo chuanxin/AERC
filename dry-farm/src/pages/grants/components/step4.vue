@@ -2659,6 +2659,21 @@ const canAddMaterial = computed(() => {
   return !!(selectedMaterialPomno.value && selectedGroup.value && materialQuantity.value > 0);
 });
 
+// 確保主管材質有預設值的輔助函數
+const ensureDefaultMaterials = () => {
+  // 確保主管1材質預設為 PVC (ID=1)
+  if (!localFormData.mainPipeMaterialId || localFormData.mainPipeMaterialId === 0) {
+    localFormData.mainPipeMaterialId = 1;
+    console.log('🔧 Setting default material for mainPipe1: 1 (PVC)');
+  }
+  
+  // 確保主管2材質預設為 PVC (ID=1)，但只在啟用時檢查
+  if (localFormData.mainPipe2Enabled && (!localFormData.mainPipe2MaterialId || localFormData.mainPipe2MaterialId === 0)) {
+    localFormData.mainPipe2MaterialId = 1;
+    console.log('🔧 Setting default material for mainPipe2: 1 (PVC)');
+  }
+};
+
 const calculateWidth = () => {
   const length = localFormData.fieldLength || 0;
   const area = localFormData.facilityArea || 0;
@@ -2744,11 +2759,18 @@ const calculateMainPipe2Quantity = async () => {
 
 const toggleMainPipe2 = () => {
   if (!localFormData.mainPipe2Enabled) {
+    // 禁用主管2時，清空所有相關欄位
     localFormData.mainPipe2Length = null;
     localFormData.mainPipe2DiameterId = null;
     localFormData.mainPipe2MaterialId = 1; // 默認材質為 PVC
     localFormData.mainPipe2UnitPrice = null;
     localFormData.mainPipe2Quantity = null;
+  } else {
+    // 啟用主管2時，確保材質有預設值
+    if (!localFormData.mainPipe2MaterialId || localFormData.mainPipe2MaterialId === 0) {
+      localFormData.mainPipe2MaterialId = 1; // 預設為 PVC
+      console.log('🔧 Setting default material for mainPipe2: 1 (PVC)');
+    }
   }
   updateFormData();
 };
@@ -5548,7 +5570,15 @@ const loadDataFromProps = (propsData: any) => {
   Object.keys(localFormData).forEach(key => {
     if (propsData[key] !== undefined) {
       const oldValue = localFormData[key];
-      const newValue = propsData[key];
+      let newValue = propsData[key];
+
+      // 特殊處理：主管材質未設定時預設為 1 (PVC)
+      if (key === 'mainPipeMaterialId' || key === 'mainPipe2MaterialId') {
+        if (newValue === null || newValue === undefined || newValue === 0 || newValue === '') {
+          newValue = 1; // 預設為 PVC
+          console.log(`🔧 Setting default material for ${key}: ${oldValue} → ${newValue} (PVC)`);
+        }
+      }
 
       // 只有當值真的不同時才更新（包括 null 到具體值的轉換）
       if (oldValue !== newValue) {
@@ -5560,6 +5590,9 @@ const loadDataFromProps = (propsData: any) => {
   });
 
   console.log(`✅ Loaded ${loadedCount} fields from props`);
+
+  // 確保主管材質有預設值
+  ensureDefaultMaterials();
 
   // 只有當實際載入了資料時才重新計算 width
   if (loadedCount > 0) {
@@ -5580,7 +5613,16 @@ onMounted(async () => {
     Object.keys(localFormData).forEach(key => {
       if (props.formData[key] !== undefined && props.formData[key] !== localFormData[key]) {
         const oldValue = localFormData[key];
-        const newValue = props.formData[key];
+        let newValue = props.formData[key];
+        
+        // 特殊處理：主管材質未設定時預設為 1 (PVC)
+        if (key === 'mainPipeMaterialId' || key === 'mainPipe2MaterialId') {
+          if (newValue === null || newValue === undefined || newValue === 0 || newValue === '') {
+            newValue = 1; // 預設為 PVC
+            console.log(`🔧 Setting default material for ${key}: ${oldValue} → ${newValue} (PVC)`);
+          }
+        }
+        
         localFormData[key] = newValue;
         console.log(`Loading ${key}: ${oldValue} → ${newValue}`);
       }
@@ -5603,7 +5645,10 @@ onMounted(async () => {
 
   calculateWidth();
 
-  // 4. 如果有灌溉型式，載入末端設施選項
+  // 4. 確保主管材質有預設值
+  ensureDefaultMaterials();
+
+  // 5. 如果有灌溉型式，載入末端設施選項
   if (localFormData.irrigationTypeId) {
     console.log('🔄 Loading end facility options in onMounted');
     await loadEndFacilityOptions();
