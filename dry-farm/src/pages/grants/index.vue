@@ -448,7 +448,7 @@ const statusMapping = {
   5: '完成田間管路',
   6: '完成現場勘查',
   7: '完成補助申請資料',
-  8: '完成變更設計及結案申報',
+  8: '完成結案申報',
 }
 
 // Card status options (random assignment for demo)

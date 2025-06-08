@@ -1935,7 +1935,7 @@ const localFormData = reactive({
   // 主管
   mainPipeLength: null as number | null,
   mainPipeDiameterId: null as number | null, // 管徑ID
-  mainPipeMaterialId: null as number | null, // 材質ID
+  mainPipeMaterialId: 1, // 主管主要材質ID，默認為 PVC
   mainPipeUnitPrice: null as number | null,
   mainPipeQuantity: null as number | null,
   mainPipeStandardLength: 4, // 主管1的標準長度，應動態獲取
@@ -1944,7 +1944,7 @@ const localFormData = reactive({
   mainPipe2Enabled: false,
   mainPipe2Length: null as number | null,
   mainPipe2DiameterId: null as number | null,
-  mainPipe2MaterialId: null as number | null,
+  mainPipe2MaterialId: 1, // 主管2主要材質ID，默認為 PVC
   mainPipe2UnitPrice: null as number | null,
   mainPipe2Quantity: null as number | null,
   mainPipe2StandardLength: 4, // 主管2的標準長度，應動態獲取
@@ -2076,7 +2076,7 @@ const loadDropdownOptions = async () => {
 
   // 模擬設施型式和水源選項
   facilityTypeOptions.value = [ {id: 1, name: '埋設固定式'}, {id: 2, name: '地表定置式'}, {id: 3, name: '附掛棚架式'}];
-  waterSourceOptions.value = [ {id:1, name: '灌溉渠道'}, {id:2, name: '野溪'} /* ... */];
+  waterSourceOptions.value = [ {id:1, name: '灌溉渠道'}, {id:2, name: '山溪溝'}, {id:3, name: '埤(池)塘'}, {id:4, name: '地下水'}, {id:5, name: '其他'} /* ... */];
 };
 
 const pipeDiameterOptions = computed(() => {
@@ -2732,7 +2732,7 @@ const toggleMainPipe2 = () => {
   if (!localFormData.mainPipe2Enabled) {
     localFormData.mainPipe2Length = null;
     localFormData.mainPipe2DiameterId = null;
-    localFormData.mainPipe2MaterialId = null;
+    localFormData.mainPipe2MaterialId = 1; // 默認材質為 PVC
     localFormData.mainPipe2UnitPrice = null;
     localFormData.mainPipe2Quantity = null;
   }
