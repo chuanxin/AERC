@@ -1195,7 +1195,21 @@
                       <td>{{ pipe.itemunit }}</td>
                       <td>{{ pipe.description }}</td>
                       <td class="text-center">
-                        {{ pipe.matprice?.toLocaleString() }}
+                        <v-text-field
+                          v-model.number="pipe.matprice"
+                          type="number"
+                          min="0"
+                          step="1"
+                          density="compact"
+                          variant="outlined"
+                          hide-details="auto"
+                          class="ma-1"
+                          style="width: 120px"
+                          :rules="[
+                            v => v >= 0 || '單價不能為負數'
+                          ]"
+                          @update:model-value="(value) => updatePipePrice(group.groupNo, pipeIndex, Number(value) || 0)"
+                        />
                       </td>
                       <td class="text-center">
                         <v-text-field
@@ -3147,6 +3161,53 @@ const updatePipeQuantity = (groupNo: number, pipeIndex: number, newQuantity: num
   updateFormData();
 };
 
+// 更新管路單價
+const updatePipePrice = (groupNo: number, pipeIndex: number, newPrice: number) => {
+  // 確保單價不為負數
+  if (newPrice < 0) {
+    newPrice = 0;
+  }
+
+  // 找到對應的管路項目
+  const group = groupedPipes.value.find(g => g.groupNo === groupNo);
+  if (!group || !group.items[pipeIndex]) return;
+
+  const pipe = group.items[pipeIndex];
+
+  // 更新單價
+  pipe.matprice = newPrice;
+
+  // 重新計算總價
+  pipe.totalPrice = Math.round(pipe.matprice * pipe.matamount);
+
+  // 在原始數組中找到對應項目並更新
+  const originalIndex = localFormData.pipes.findIndex(p =>
+    p.pomno === pipe.pomno &&
+    p.groupId === pipe.groupId &&
+    p.matname === pipe.matname &&
+    p.description === pipe.description
+  );
+
+  if (originalIndex !== -1) {
+    localFormData.pipes[originalIndex].matprice = newPrice;
+    localFormData.pipes[originalIndex].totalPrice = pipe.totalPrice;
+  }
+
+  // 如果是主管材料，同步更新田間主管配置的單價
+  if (pipe.isMainPipeMaterial) {
+    if (pipe.groupId === 1) { // 主管組
+      if (pipe.matname.includes('主管 1') || pipe.matname.includes('L1')) {
+        localFormData.mainPipeUnitPrice = newPrice;
+      } else if (pipe.matname.includes('主管 2') || pipe.matname.includes('L2')) {
+        localFormData.mainPipe2UnitPrice = newPrice;
+      }
+    }
+  }
+
+  // 更新父組件數據
+  updateFormData();
+};
+
 // 移除管路
 const removePipe = (groupNo: number, pipeIndexInGroup: number) => {
   const group = groupedPipes.value.find(g => g.groupNo === groupNo);
@@ -4517,14 +4578,46 @@ const generateMaterialsByFormula = (formulaNumber: number, data: MaterialData): 
   return materialGroups.filter(group => group.List.length > 0);
 };
 
+// 添加主管材料的專用函數，使用自定義單價
+const addMainPipeMaterial = (
+  materials: any[],
+  materialConfig: any,
+  customPrice: number
+) => {
+  // 嘗試比對材料
+  const match = matchMaterialFromStore(
+    materialConfig.module_id,
+    materialConfig.spec1,
+    materialConfig.spec2 || '',
+    materialConfig.spec3 || '',
+    materialConfig.mattype,
+    ''
+  );
+
+  // 使用自定義單價，但保留比對到的 pomno 和名稱
+  materials.push({
+    ...materialConfig,
+    pomno: match.pomno,
+    matprice: customPrice, // 使用田間主管配置的自定義單價
+    matname: match.matchedData?.name || materialConfig.matname,
+    mattype: match.matchedData?.material?.name || materialConfig.mattype,
+    debugMatchData: match.matchedData,
+    isMainPipeMaterial: true, // 標記為主管材料
+    customPrice: customPrice // 保存自定義價格
+  });
+
+  console.log(`[addMainPipeMaterial] 使用自定義單價: ${materialConfig.matname} -> ${customPrice}元`);
+  return true;
+};
+
 // 生成主管1材料 (L1MainPipeLine)
 const generateL1MainPipeLine = (data: any) => {
   const materials = [];
   const L1MaterialName = pipeMaterialOptions.value.find(m => m.id === data.L1Material)?.name;
   const L1SpecName = pipeDiameterOptions.value.find(d => d.id === data.L1Spec)?.name;
 
-  // 主管材料
-  addMaterial(materials, 1, L1SpecName, L1MaterialName, '', {
+  // 主管材料 - 使用田間主管配置的單價
+  addMainPipeMaterial(materials, {
     module: '主管',
     matname: `${L1MaterialName} ${L1SpecName}`,
     module_id: 1,
@@ -4537,7 +4630,7 @@ const generateL1MainPipeLine = (data: any) => {
     description: '主管管材(L1)',
     order: 1,
     group: 1
-  });
+  }, data.L1Price || 0);
 
   // 彎頭 (2025/06/06 更新：不需要顯示彎頭管材的計算結果)
   // addMaterial(materials, 2, L1SpecName, '', '彎頭', {
@@ -4624,8 +4717,8 @@ const generateL2MainPipeLine = (data: any) => {
   const L2MaterialName = pipeMaterialOptions.value.find(m => m.id === data.L2Material)?.name || 'PVC管';
   const L2SpecName = pipeDiameterOptions.value.find(d => d.id === data.L2Spec)?.name || '1"';
 
-  // 主管2材料
-  addMaterial(materials, 1, L2SpecName, L2MaterialName, '', {
+  // 主管2材料 - 使用田間主管配置的單價
+  addMainPipeMaterial(materials, {
     module: '主管',
     matname: `${L2MaterialName} ${L2SpecName}`,
     module_id: 1,
@@ -4638,7 +4731,7 @@ const generateL2MainPipeLine = (data: any) => {
     description: '主管管材(L2)',
     order: 3,
     group: 1
-  });
+  }, data.L2Price || 0);
 
 
   // 主管2彎頭
