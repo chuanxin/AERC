@@ -5301,20 +5301,20 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
   });
 
   // 制水閥
-  addMaterial(materials, 10, branchSpecName, '', '制水閥', {
-    module: '滴灌配件',
-    matname: '制水閥',
-    module_id: 10,
-    mattype: 'PVC',
-    spec1: branchSpecName,
-    spec2: '',
-    spec3: '',
-    itemunit: '個',
-    matamount: Math.floor(data.BranchAmt),
-    description: '滴灌管制水閥',
-    order: 3,
-    group: 4
-  });
+  // addMaterial(materials, 10, branchSpecName, '', '制水閥', {
+  //   module: '滴灌配件',
+  //   matname: '制水閥',
+  //   module_id: 10,
+  //   mattype: 'PVC',
+  //   spec1: branchSpecName,
+  //   spec2: '',
+  //   spec3: '',
+  //   itemunit: '個',
+  //   matamount: Math.floor(data.BranchAmt),
+  //   description: '滴灌管制水閥',
+  //   order: 3,
+  //   group: 4
+  // });
 
   // 管首接頭
   addMaterial(materials, 2, branchSpecName, '', '管首接頭', {
@@ -5328,7 +5328,7 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
     itemunit: '個',
     matamount: Math.floor(data.BranchAmt * 2),
     description: '滴灌管首端接頭',
-    order: 4,
+    order: 3,
     group: 4
   });
 
@@ -5344,7 +5344,7 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
     itemunit: '個',
     matamount: Math.floor(data.BranchAmt),
     description: '滴灌管末端束扣',
-    order: 5,
+    order: 4,
     group: 4
   });
 
@@ -5426,20 +5426,20 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
   });
 
   // 制水閥 - 配件用無條件捨去
-  addMaterial(materials, 10, branchSpecName, '', '制水閥', {
-    module: '滴水帶配件',
-    matname: '制水閥',
-    module_id: 10,
-    mattype: 'PVC',
-    spec1: branchSpecName,
-    spec2: '',
-    spec3: '',
-    itemunit: '個',
-    matamount: Math.floor(data.BranchAmt),
-    description: '滴水帶制水閥',
-    order: 3,
-    group: 4
-  });
+  // addMaterial(materials, 10, branchSpecName, '', '制水閥', {
+  //   module: '滴水帶配件',
+  //   matname: '制水閥',
+  //   module_id: 10,
+  //   mattype: 'PVC',
+  //   spec1: branchSpecName,
+  //   spec2: '',
+  //   spec3: '',
+  //   itemunit: '個',
+  //   matamount: Math.floor(data.BranchAmt),
+  //   description: '滴水帶制水閥',
+  //   order: 3,
+  //   group: 4
+  // });
 
   // 管首接頭 - 配件用無條件捨去
   addMaterial(materials, 2, branchSpecName, '', '管首接頭', {
@@ -5453,7 +5453,7 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
     itemunit: '個',
     matamount: Math.floor(data.BranchAmt * 2),
     description: '滴水帶首端接頭',
-    order: 4,
+    order: 3,
     group: 4
   });
 
@@ -5469,7 +5469,7 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
     itemunit: '個',
     matamount: Math.floor(data.BranchAmt),
     description: '滴水帶末端束扣',
-    order: 5,
+    order: 4,
     group: 4
   });
 
