@@ -522,15 +522,15 @@ onMounted(() => {
 
   // Set example data for demo
   if (!localFormData.inspector) {
-    localFormData.inspector = '張工程師';
+    // localFormData.inspector = '張工程師';
   }
 
   if (!localFormData.inspectionResult) {
-    localFormData.inspectionResult = 'comply';
+    // localFormData.inspectionResult = 'comply';
   }
 
   if (!localFormData.remarks) {
-    localFormData.remarks = '設施符合規定，農地平整，排水良好。';
+    // localFormData.remarks = '設施符合規定，農地平整，排水良好。';
   }
 
   // Set example photo previews if none exist

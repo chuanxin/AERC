@@ -1960,57 +1960,13 @@ onMounted(() => {
     });
   }
 
-  // Set sample data if empty
-  if (!localFormData.landNumber) {
-    localFormData.landNumber = '996-1';
-    localFormData.landNumberMain = '996';
-    localFormData.landNumberSub = '1';
-  }
-
-  if (!localFormData.longitude) {
-    localFormData.longitude = '120.5734';
-  }
-
-  if (!localFormData.latitude) {
-    localFormData.latitude = '23.5155';
-  }
-
-  if (!localFormData.landArea) {
-    localFormData.landArea = '9999';
-    localFormData.landAreaHa = '0.9999';
-  }
-
-  if (!localFormData.facilityArea) {
-    localFormData.facilityArea = '8455';
-    localFormData.facilityAreaHa = '0.8455';
-  }
-
   // Ensure arrays exist
   if (!Array.isArray(localFormData.crops)) {
     localFormData.crops = [];
   }
 
-  // Set a sample crop if empty
-  if (localFormData.crops.length === 0) {
-    localFormData.crops.push({
-      category: '果樹作物',
-      name: '橘'
-    });
-  }
-
   if (!Array.isArray(localFormData.owners)) {
     localFormData.owners = [];
-  }
-
-  // Set a sample owner if empty
-  if (localFormData.owners.length === 0) {
-    localFormData.owners.push({
-      name: '王三三',
-      id: 'A123456789',
-      address: 'XX',
-      share: '1/2',
-      area: '4227.5'
-    });
   }
 
   // Initial update to parent

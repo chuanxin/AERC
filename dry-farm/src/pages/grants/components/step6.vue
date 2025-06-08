@@ -56,7 +56,7 @@
                   <td class="text-center" />
                   <td class="text-center" />
                   <td class="text-center">
-                    {{ localFormData.pipeLineSubsidy }}
+                    {{ localFormData.pipeLineTotal }}
                   </td>
                   <td />
                 </tr>
@@ -474,12 +474,43 @@
 </template>
 
 <script setup lang="ts">
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useGrantsStore } from '@/stores/grants';
+import type { PropType } from 'vue';
+
+// Define types for better TypeScript support
+interface MainPipe {
+  name: string;
+  quantity: string | number;
+  unitPrice: string | number;
+  totalPrice: string;
+  unit: string;
+  remark: string;
+}
+
+interface IrrigationSystemItem {
+  name: string;
+  quantity: string | number;
+  unitPrice: string | number;
+  totalPrice: string;
+  unit: string;
+  remark: any;
+}
+
+interface ControlFacility {
+  name: string;
+  specification: string;
+  quantity: string | number;
+  unitPrice: string | number;
+  totalPrice: string;
+  unit: string;
+  remark: string;
+}
 
 // Props definition
 const props = defineProps({
   formData: {
-    type: Object,
+    type: Object as PropType<Record<string, any>>,
     required: true,
     default: () => ({})
   },
@@ -496,11 +527,11 @@ const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 const grantsStore = useGrantsStore();
 
 // Form ref and validation state
-const form = ref(null);
+const form = ref<any>(null);
 const localValid = ref(true);
 
 // 本地表單數據
-const localFormData = reactive({
+const localFormData = reactive<Record<string, any>>({
   applicationYear: '',  // 申請年度
   caseNumber: '',       // 案號
   applicantName: '',    // 農戶姓名
@@ -510,10 +541,11 @@ const localFormData = reactive({
   facilityArea: '',     // 設施面積
   facilityType: '',     // 設施型式
 
-  pipeLineSubsidy: '8,704',
-  facilitySubsidy: '4,500',
-  designFee: '174',
-  totalBudget: '13,378',
+  pipeLineTotal: '',    // 管路總價
+  pipeLineSubsidy: '',
+  facilitySubsidy: '',
+  designFee: '',
+  totalBudget: '',
   farmerContribution: '', // 農戶配合款
 
   isAboriginalArea: false,
@@ -524,14 +556,14 @@ const localFormData = reactive({
 
 // 設施資料
 // 主管
-const mainPipes = ref([
-  { name: '田間主管1', remark: '164公尺', quantity: 41, unitPrice: 103, totalPrice: '4,223', unit: '支' },
+const mainPipes = ref<MainPipe[]>([
+  { name: '田間主管1', remark: '-', quantity: '-', unitPrice: '-', totalPrice: '-', unit: '-' },
   { name: '田間主管2', remark: '-', quantity: '-', unitPrice: '-', totalPrice: '-', unit: '-' }
 ]);
 
 // 灌溉系統
-const irrigationSystem = ref([
-  { name: '灌溉系統', quantity: 1, unitPrice: '-', totalPrice: '4,481', unit: '套', remark: {
+const irrigationSystem = ref<IrrigationSystemItem[]>([
+  { name: '灌溉系統', quantity: '-', unitPrice: '-', totalPrice: '-', unit: '-', remark: {
     mainGroup: [
       { id: '1-1', name: '塞口', specification: '1/2"', quantity: '*1' }
     ],
@@ -547,8 +579,8 @@ const irrigationSystem = ref([
 ]);
 
 // 灌溉調控設施
-const controlFacilities = ref([
-  { name: '動力設施', specification: '', quantity: 1, unitPrice: '4500', totalPrice: '4,500', unit: '台', remark: '馬達+抽水機*1' },
+const controlFacilities = ref<ControlFacility[]>([
+  { name: '動力設施', specification: '', quantity: '', unitPrice: '', totalPrice: '', unit: '台', remark: '' },
   { name: '調蓄設施', specification: '', quantity: '', unitPrice: '', totalPrice: '', unit: '座', remark: '' },
   { name: '調節控制設施', specification: '', quantity: '', unitPrice: '', totalPrice: '', unit: '台', remark: '' }
 ]);
@@ -732,45 +764,171 @@ onMounted(() => {
   // Try to calculate subsidy amounts from previous steps
   try {
     let pipelineTotal = 0;
+    let irrigationTotal = 0;
     let facilityTotal = 0;
 
-    // Calculate from pipes in step 4
-    if (grantsStore.formData[4]?.pipes) {
-      const pipes = grantsStore.formData[4].pipes;
-      pipelineTotal = pipes.reduce((sum, pipe) => {
-        return sum + (typeof pipe.totalPrice === 'number'
-                      ? pipe.totalPrice
-                      : parseInt(pipe.totalPrice || '0'));
-      }, 0);
+    // Calculate from pipes in step 4 using the synchronized field names
+    const step4Data = grantsStore.formData[4];
+    if (step4Data) {
+      // Calculate total from both main pipes
+      let mainPipe1Total = 0;
+      let mainPipe2Total = 0;
 
-      // Update main pipes data
-      const mainPipeData = pipes.filter(p => p.type === 'main').map(p => ({
-        name: p.name || '田間主管',
-        quantity: p.quantity,
-        unitPrice: p.unitPrice,
-        totalPrice: typeof p.totalPrice === 'number'
-                    ? p.totalPrice.toLocaleString()
-                    : p.totalPrice,
-        unit: '支',
-        remark: `${p.specification || ''}`
-      }));
+      // Main pipe 1 calculation
+      if (step4Data.mainPipeQuantity && step4Data.mainPipeUnitPrice) {
+        mainPipe1Total = parseInt(step4Data.mainPipeQuantity || '0') *
+                        parseFloat(step4Data.mainPipeUnitPrice || '0');
+      }
+
+      // Main pipe 2 calculation (if enabled)
+      if (step4Data.mainPipe2Enabled && step4Data.mainPipe2Quantity && step4Data.mainPipe2UnitPrice) {
+        mainPipe2Total = parseInt(step4Data.mainPipe2Quantity || '0') *
+                        parseFloat(step4Data.mainPipe2UnitPrice || '0');
+      }
+
+      pipelineTotal = mainPipe1Total + mainPipe2Total;
+
+      // Update main pipes data with synchronized field names
+      const mainPipeData = [];
+
+      // Main pipe 1 data
+      if (step4Data.mainPipeQuantity && parseInt(step4Data.mainPipeQuantity) > 0) {
+        mainPipeData.push({
+          name: '田間主管1',
+          quantity: step4Data.mainPipeQuantity,
+          unitPrice: step4Data.mainPipeUnitPrice ? parseFloat(step4Data.mainPipeUnitPrice).toLocaleString() : '-',
+          totalPrice: mainPipe1Total > 0 ? mainPipe1Total.toLocaleString() : '-',
+          unit: '支',
+          remark: step4Data.mainPipeMaterialId ? `管材長度: ${step4Data.mainPipeLength} 公尺` : '-'
+        });
+      }
+
+      // Main pipe 2 data (if enabled)
+      if (step4Data.mainPipe2Enabled && step4Data.mainPipe2Quantity && parseInt(step4Data.mainPipe2Quantity) > 0) {
+        mainPipeData.push({
+          name: '田間主管2',
+          quantity: step4Data.mainPipe2Quantity,
+          unitPrice: step4Data.mainPipe2UnitPrice ? parseFloat(step4Data.mainPipe2UnitPrice).toLocaleString() : '-',
+          totalPrice: mainPipe2Total > 0 ? mainPipe2Total.toLocaleString() : '-',
+          unit: '支',
+          remark: step4Data.mainPipe2MaterialId ? `管材長度: ${step4Data.mainPipe2Length} 公尺` : '-'
+        });
+      }
 
       if (mainPipeData.length > 0) {
         mainPipes.value = mainPipeData;
       }
+
+      // Synchronize irrigation system from pipes array
+      if (step4Data.pipes && step4Data.pipes.length > 0) {
+        const pipes = step4Data.pipes;
+
+        // Calculate legacy pipeline total for fallback
+        const legacyPipelineTotal = pipes.reduce((sum: number, pipe: any) => {
+          return sum + (typeof pipe.totalPrice === 'number'
+                        ? pipe.totalPrice
+                        : parseInt(pipe.totalPrice || '0'));
+        }, 0);
+
+        // Use legacy total if current calculation is 0
+        if (pipelineTotal === 0) {
+          pipelineTotal = legacyPipelineTotal;
+        }
+
+        // Update main pipes data from legacy format if current data is empty
+        if (mainPipes.value.length === 0) {
+          const legacyMainPipeData = pipes.filter((p: any) => p.type === 'main').map((p: any) => ({
+            name: p.name || '田間主管',
+            quantity: p.quantity,
+            unitPrice: p.unitPrice,
+            totalPrice: typeof p.totalPrice === 'number'
+                        ? p.totalPrice.toLocaleString()
+                        : p.totalPrice,
+            unit: '支',
+            remark: `${p.specification || ''}`
+          }));
+
+          if (legacyMainPipeData.length > 0) {
+            mainPipes.value = legacyMainPipeData;
+          }
+        }
+
+        // Build irrigation system from pipes array
+        const irrigationComponents = {
+          mainGroup: [] as Array<{id: string, name: string, specification: string, quantity: string}>,
+          branchGroup: [] as Array<{id: string, name: string, specification: string, quantity: string}>,
+          endDevices: [] as Array<{id: string, name: string, specification: string, quantity: string}>
+        };
+
+        // Group components by groupId
+        // Group 1: 主管組 -> mainGroup
+        // Group 2: 支管組 -> branchGroup
+        // Group 3,4,5,6,7,8: Various end devices and terminal components -> endDevices
+        pipes.forEach((pipe: any, index: number) => {
+          const component = {
+            id: `${pipe.groupId}-${index}`,
+            name: pipe.matname || pipe.name || '未知組件',
+            specification: pipe.specification || `${pipe.spec1 || ''} ${pipe.spec2 || ''} ${pipe.spec3 || ''}`.trim() || '-',
+            quantity: `*${pipe.matamount || pipe.quantity || 0}`
+          };
+
+          if (pipe.groupId === 1) {
+            // 主管組 - but exclude main pipes that are already shown separately
+            if (!pipe.matname?.includes('主管') || pipe.description?.includes('配件')) {
+              irrigationComponents.mainGroup.push(component);
+            }
+          } else if (pipe.groupId === 2) {
+            // 支管組
+            irrigationComponents.branchGroup.push(component);
+          } else if ([3, 4, 5, 6, 7, 8].includes(pipe.groupId)) {
+            // 穿孔管組(3), 滴水管組(4), 豎管組(5), 固定設施組(6), 消耗性材料(7), 末端設施(8)
+            irrigationComponents.endDevices.push(component);
+          }
+        });
+
+        // Calculate irrigation system total
+        irrigationTotal = pipes
+          .filter((p: any) => [2, 3, 4, 5, 6, 7, 8].includes(p.groupId)) // Exclude main pipe group
+          .reduce((sum: number, pipe: any) => {
+            return sum + (typeof pipe.totalPrice === 'number'
+                          ? pipe.totalPrice
+                          : parseInt(pipe.totalPrice || '0'));
+          }, 0);
+
+        // Update irrigation system if we have components
+        if (irrigationComponents.mainGroup.length > 0 ||
+            irrigationComponents.branchGroup.length > 0 ||
+            irrigationComponents.endDevices.length > 0) {
+
+          irrigationSystem.value = [{
+            name: '灌溉系統',
+            quantity: '全',
+            unitPrice: '-',
+            totalPrice: irrigationTotal > 0 ? irrigationTotal.toLocaleString() : '-',
+            unit: '式',
+            remark: irrigationComponents
+          }];
+        }
+      }
+
+      // Calculate and set pipeLineTotal (mainPipes + irrigationSystem)
+      // This calculation should ALWAYS happen, regardless of pipes array existence
+      const totalPipelineAmount = pipelineTotal + irrigationTotal;
+      localFormData.pipeLineTotal = totalPipelineAmount.toLocaleString();
+      // localFormData.totalPipelineAmount = totalPipelineAmount.toLocaleString();
     }
 
     // Calculate from facilities in step 3
     if (grantsStore.formData[3]?.facilities) {
       const facilities = grantsStore.formData[3].facilities;
-      facilityTotal = facilities.reduce((sum, facility) => {
+      facilityTotal = facilities.reduce((sum: number, facility: any) => {
         return sum + (typeof facility.totalPrice === 'number'
                      ? facility.totalPrice
                      : parseInt(facility.totalPrice || '0'));
       }, 0);
 
       // Update control facilities data
-      const controlData = facilities.map(f => ({
+      const controlData = facilities.map((f: any) => ({
         name: f.typeLabel || f.name,
         specification: '',
         quantity: f.quantity,
@@ -790,8 +948,9 @@ onMounted(() => {
     }
 
     // Update subsidy amounts if we calculated valid values
-    if (pipelineTotal > 0) {
-      localFormData.pipeLineSubsidy = pipelineTotal.toLocaleString();
+    const totalPipelineSubsidy = pipelineTotal + irrigationTotal;
+    if (totalPipelineSubsidy > 0) {
+      localFormData.pipeLineSubsidy = totalPipelineSubsidy.toLocaleString();
     }
 
     if (facilityTotal > 0) {

@@ -14,7 +14,7 @@
           @submit.prevent
         >
           <!-- 變更設計部分 -->
-          <v-card
+          <!-- <v-card
             class="mb-4"
             variant="outlined"
           >
@@ -104,7 +104,7 @@
                 </div>
               </v-sheet>
             </v-card-text>
-          </v-card>
+          </v-card> -->
 
           <!-- 結案申報基本資訊區域 -->
           <v-card
@@ -1101,15 +1101,15 @@ onMounted(() => {
 
   // Set default values for new forms
   if (!localFormData.completionStatus) {
-    localFormData.completionStatus = 'completed';
+    // localFormData.completionStatus = 'completed';
   }
 
   if (!localFormData.tester) {
-    localFormData.tester = '王工程師';
+    // localFormData.tester = '王工程師';
   }
 
   if (!localFormData.testResult) {
-    localFormData.testResult = 'original';
+    // localFormData.testResult = 'original';
   }
 
   // Set default payment info
@@ -1117,7 +1117,7 @@ onMounted(() => {
     if (grantsStore.formData[6]?.totalBudget) {
       localFormData.originalPayment = grantsStore.formData[6].totalBudget;
     } else {
-      localFormData.originalPayment = '13,378';
+      // localFormData.originalPayment = '13,378';
     }
 
     localFormData.actualPayment = localFormData.originalPayment;
@@ -1125,7 +1125,7 @@ onMounted(() => {
 
   // Set sample description if needed
   if (!localFormData.testResultDescription && localFormData.testResult === 'original') {
-    localFormData.testResultDescription = '工程完工符合規範，依核定補助款發放。';
+    // localFormData.testResultDescription = '工程完工符合規範，依核定補助款發放。';
   }
 
   // Set sample photo previews if none exist
@@ -1158,7 +1158,7 @@ watch(() => localFormData.testResult, (newValue) => {
 
     // Add a default description
     if (!localFormData.testResultDescription) {
-      localFormData.testResultDescription = '工程完工符合規範，依核定補助款發放。';
+      // localFormData.testResultDescription = '工程完工符合規範，依核定補助款發放。';
     }
   } else if (newValue === 'adjusted') {
     // 如果是 "依核定補助款增減列"，則重置金額欄位
@@ -1175,7 +1175,7 @@ watch(() => localFormData.testResult, (newValue) => {
 
     // Add a default description
     if (!localFormData.testResultDescription) {
-      localFormData.testResultDescription = '因部分材料規格變更，調整補助金額。';
+      // localFormData.testResultDescription = '因部分材料規格變更，調整補助金額。';
     }
 
     // 實際發放金額會通過增減列計算
@@ -1192,7 +1192,7 @@ watch(() => localFormData.testResult, (newValue) => {
   } else if (newValue === 'improvement') {
     // Add a default description for improvement needed
     if (!localFormData.testResultDescription) {
-      localFormData.testResultDescription = '末端噴頭設置不符合設計規範，需重新安裝調整。';
+      // localFormData.testResultDescription = '末端噴頭設置不符合設計規範，需重新安裝調整。';
     }
 
     // 其他情況，清空金額欄位
@@ -1202,7 +1202,7 @@ watch(() => localFormData.testResult, (newValue) => {
   } else {
     // Add a default description for cancelation
     if (!localFormData.testResultDescription) {
-      localFormData.testResultDescription = '經限期改善後，仍未符合設計規範，取消本次補助資格。';
+      // localFormData.testResultDescription = '經限期改善後，仍未符合設計規範，取消本次補助資格。';
     }
 
     // 其他情況，清空金額欄位

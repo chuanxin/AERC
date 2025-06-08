@@ -381,18 +381,10 @@
                         @update:model-value="updateFacilityTotal(index)"
                       />
                     </td>
-                    <td class="text-center">
-                      <v-text-field
-                        v-model="facility.totalPrice"
-                        type="number"
-                        prefix="$"
-                        readonly
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        class="ma-1"
-                        style="width: 100px"
-                      />
+                    <td
+                      class="text-center"
+                    >
+                      {{ facility.totalPrice }}
                     </td>
                     <td>{{ facility.remark }}</td>
                     <td>{{ facility.source }}</td>
@@ -721,32 +713,6 @@ onMounted(() => {
     if (Array.isArray(props.formData.facilities)) {
       localFormData.facilities = [...props.formData.facilities];
     }
-  }
-
-  // If facilities list is empty, add sample facility data
-  if (!localFormData.facilities || localFormData.facilities.length === 0) {
-    localFormData.facilities = [
-      {
-        type: 'power',
-        typeLabel: '動力設備',
-        name: '馬達+抽水機',
-        quantity: 1,
-        unitPrice: 4500,
-        totalPrice: 4500,
-        remark: '',
-        source: '農田水利署'
-      },
-      {
-        type: 'storage',
-        typeLabel: '調蓄設施',
-        name: '鋁合金-20噸',
-        quantity: 1,
-        unitPrice: 20000,
-        totalPrice: 20000,
-        remark: '示範用',
-        source: '農田水利署'
-      }
-    ];
   }
 
   // Initial update to parent
