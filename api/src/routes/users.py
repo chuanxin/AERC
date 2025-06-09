@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 import src.crud.users as crud
 from src.auth.users import validate_user
 from src.schemas.token import Status
-from src.schemas.users import UserInSchema, UserOutSchema
+from src.schemas.users import UserInSchema, UserOutSchema, UserInfoSchema
 
 from src.auth.jwthandler import (
     create_access_token,
@@ -69,9 +69,9 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
 
 
 @router.get(
-    "/users/whoami", response_model=UserOutSchema, dependencies=[Depends(get_current_user)]
+    "/users/whoami", response_model=UserInfoSchema, dependencies=[Depends(get_current_user)]
 )
-async def read_users_me(current_user: UserOutSchema = Depends(get_current_user)):
+async def read_users_me(current_user: UserInfoSchema = Depends(get_current_user)):
     return current_user
 
 

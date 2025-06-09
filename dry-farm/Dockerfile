@@ -1,11 +1,11 @@
-FROM oven/bun:debian
+FROM node:lts-alpine
 
 WORKDIR /app
 
 ENV PATH="/app/node_modules/.bin:${PATH}"
 
 COPY package.json .
-COPY bun.lock .
-RUN bun install
+COPY package-lock.json .
+RUN npm install
 
-CMD ["bun", "run", "dev"]
+CMD ["npm", "run", "dev"]

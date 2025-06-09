@@ -426,8 +426,8 @@ class PFAnnualPrices(models.Model):
     price = fields.FloatField(description="價格")
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
     modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
-    created_by = fields.ForeignKeyField("models.Users", related_name="created_pf_annual_price", description="建立人帳號", null=True, on_delete=fields.CASCADE)
-    modified_by = fields.ForeignKeyField("models.Users", related_name="modified_pf_annual_price", description="修改人帳號", null=True, on_delete=fields.SET_NULL)
+    created_by = fields.ForeignKeyField("models.Users", related_name="pf_annual_prices_created", description="建立人帳號", null=True, on_delete=fields.CASCADE)
+    modified_by = fields.ForeignKeyField("models.Users", related_name="pf_annual_prices_modified", description="修改人帳號", null=True, on_delete=fields.SET_NULL)
     
     class Meta:
         table = "pf_annual_prices"

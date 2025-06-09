@@ -1405,6 +1405,13 @@ const saveItem = async () => {
     saveData.name = saveData.materialName;
     delete saveData.materialName;
 
+    // 處理 length 欄位，允許空值或零值
+    if (saveData.length === '' || saveData.length === null || saveData.length === undefined) {
+      saveData.length = null; // 或者設為 0，取決於你的後端需求
+    } else {
+      saveData.length = parseFloat(saveData.length) || null;
+    }
+
     if (typeof saveData.material === 'string') {
       const material = pfMaterialsStore.materials.find(m => m.name === saveData.material);
       if (material) {

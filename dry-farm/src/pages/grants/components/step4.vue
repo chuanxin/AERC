@@ -1120,38 +1120,72 @@
             </v-card-text>
 
             <v-card-text class="pa-4">
-              <v-table class="rounded border">
+              <v-table class="rounded border" density="compact">
                 <thead class="bg-grey-lighten-3">
                   <tr>
                     <th
-                      class="text-center"
-                      style="width: 80px"
+                      class="text-center px-2"
+                      style="width: 100px; min-width: 40px;"
                     >
                       項目
                     </th>
-                    <th>名稱</th>
-                    <th>類別</th>
-                    <th>規格</th>
-                    <th>單位</th>
-                    <th>說明</th>
-                    <th class="text-center">
+                    <th
+                      class="px-2"
+                      style="width: auto; min-width: 70px;"
+                    >
+                      名稱
+                    </th>
+                    <th
+                      class="text-center px-2"
+                      style="width: 80px; min-width: 70px;"
+                    >
+                      類別
+                    </th>
+                    <th
+                      class="text-center px-2"
+                      style="width: 80px; min-width: 70px;"
+                    >
+                      規格
+                    </th>
+                    <th
+                      class="text-center px-2"
+                      style="width: 80px; min-width: 30px;"
+                    >
+                      單位
+                    </th>
+                    <th
+                      class="px-2"
+                      style="width: auto; min-width: 120px;"
+                    >
+                      說明
+                    </th>
+                    <th
+                      class="text-center px-2"
+                      style="width: 100px; min-width: 80px;"
+                    >
                       單價
                     </th>
-                    <th class="text-center">
+                    <th
+                      class="text-center px-2"
+                      style="width: 100px; min-width: 100px;"
+                    >
                       數量
                     </th>
-                    <th class="text-center">
+                    <th
+                      class="text-center px-2"
+                      style="width: 120px; min-width: 100px;"
+                    >
                       總價
                     </th>
                     <th
-                      class="text-center"
-                      style="width: 50px"
+                      class="text-center px-2"
+                      style="width: 80px; min-width: 30px;"
                     >
                       排序
                     </th>
                     <th
-                      class="text-center"
-                      style="width: 80px"
+                      class="text-center px-2"
+                      style="width: 80px; min-width: 30px;"
                     >
                       刪除
                     </th>
@@ -1165,7 +1199,7 @@
                     <tr class="bg-grey-lighten-5">
                       <td
                         colspan="11"
-                        class="py-2 px-4 font-weight-bold"
+                        class="py-2 px-3 font-weight-bold text-body-2"
                       >
                         {{ groupIndex + 1 }}. {{ group.groupName }}
                       </td>
@@ -1174,27 +1208,37 @@
                       v-for="(pipe, pipeIndex) in group.items"
                       :key="`pipe-${group.groupNo}-${pipe.pomno}-${pipeIndex}`"
                     >
-                      <td class="text-center">
+                      <td class="text-center px-2">
                         <div class="d-flex align-center justify-center">
-                          <span>{{ groupIndex + 1 }}-{{ pipe.order }}</span>
-                          <!-- <v-btn
-                            icon
-                            size="x-small"
-                            variant="text"
-                            color="info"
-                            class="ml-1"
-                            @click="showDebugInfo(pipe)"
-                          >
-                            <v-icon size="x-small">mdi-information</v-icon>
-                          </v-btn> -->
+                          <span class="text-body-2">{{ groupIndex + 1 }}-{{ pipe.order }}</span>
                         </div>
                       </td>
-                      <td>{{ pipe.matname }}</td>
-                      <td>{{ pipe.module }}</td>
-                      <td>{{ pipe.specification }}</td>
-                      <td>{{ pipe.itemunit }}</td>
-                      <td>{{ pipe.description }}</td>
-                      <td class="text-center">
+                      <td class="px-2">
+                        <div class="text-body-2" style="word-break: break-word;">
+                          {{ pipe.matname }}
+                        </div>
+                      </td>
+                      <td class="text-center px-2">
+                        <div class="text-body-2">
+                          {{ pipe.module }}
+                        </div>
+                      </td>
+                      <td class="text-center px-2">
+                        <div class="text-body-2">
+                          {{ pipe.specification }}
+                        </div>
+                      </td>
+                      <td class="text-center px-2">
+                        <div class="text-body-2">
+                          {{ pipe.itemunit }}
+                        </div>
+                      </td>
+                      <td class="px-2">
+                        <div class="text-body-2" style="word-break: break-word;">
+                          {{ pipe.description }}
+                        </div>
+                      </td>
+                      <td class="text-center px-1">
                         <v-text-field
                           v-model.number="pipe.matprice"
                           type="number"
@@ -1203,15 +1247,15 @@
                           density="compact"
                           variant="outlined"
                           hide-details="auto"
-                          class="ma-1"
-                          style="width: 120px"
+                          class="material-input"
+                          style="min-width: 80px;"
                           :rules="[
                             v => v >= 0 || '單價不能為負數'
                           ]"
                           @update:model-value="(value) => updatePipePrice(group.groupNo, pipeIndex, Number(value) || 0)"
                         />
                       </td>
-                      <td class="text-center">
+                      <td class="text-center px-1">
                         <v-text-field
                           v-model.number="pipe.matamount"
                           type="number"
@@ -1219,19 +1263,21 @@
                           density="compact"
                           variant="outlined"
                           hide-details="auto"
-                          class="ma-1"
-                          style="width: 100px"
+                          class="material-input"
+                          style="min-width: 80px;"
                           :rules="[
                             v => v >= 0 || '數量不能為負數'
                           ]"
                           @update:model-value="(value) => updatePipeQuantity(group.groupNo, pipeIndex, Number(value) || 0)"
                         />
                       </td>
-                      <td class="text-center">
-                        {{ pipe.totalPrice?.toLocaleString() }}
+                      <td class="text-center px-2">
+                        <div class="text-body-2 font-weight-medium">
+                          {{ pipe.totalPrice?.toLocaleString() }}
+                        </div>
                       </td>
-                      <td class="text-center">
-                        <div class="d-flex flex-column align-center">
+                      <td class="text-center px-1">
+                        <div class="d-flex flex-column align-center ga-1">
                           <v-btn
                             icon
                             size="x-small"
@@ -1258,7 +1304,7 @@
                           </v-btn>
                         </div>
                       </td>
-                      <td class="text-center">
+                      <td class="text-center px-1">
                         <v-btn
                           icon
                           size="x-small"
@@ -1266,7 +1312,7 @@
                           variant="text"
                           @click="removePipe(group.groupNo, pipeIndex)"
                         >
-                          <v-icon>mdi-close</v-icon>
+                          <v-icon size="small">mdi-close</v-icon>
                         </v-btn>
                       </td>
                     </tr>
@@ -1275,20 +1321,22 @@
                   <tr v-if="localFormData.pipes.length === 0">
                     <td
                       colspan="11"
-                      class="text-center py-3 text-grey"
+                      class="text-center py-4 text-grey"
                     >
                       點擊「自動帶入材料」或手動新增管路設施
                     </td>
                   </tr>
-                  <tr class="text-muted text-caption bg-grey-lighten-4">
+                  <tr class="bg-grey-lighten-4">
                     <td
                       colspan="8"
-                      class="text-right font-weight-bold"
+                      class="text-right font-weight-bold px-2 py-2"
                     >
                       合計
                     </td>
-                    <td class="text-center font-weight-bold">
-                      {{ totalPipesPrice }}
+                    <td class="text-center font-weight-bold px-2 py-2">
+                      <div class="text-body-1 font-weight-bold text-primary">
+                        {{ totalPipesPrice }}
+                      </div>
                     </td>
                     <td colspan="2" />
                   </tr>
@@ -2666,7 +2714,7 @@ const ensureDefaultMaterials = () => {
     localFormData.mainPipeMaterialId = 1;
     console.log('🔧 Setting default material for mainPipe1: 1 (PVC)');
   }
-  
+
   // 確保主管2材質預設為 PVC (ID=1)，但只在啟用時檢查
   if (localFormData.mainPipe2Enabled && (!localFormData.mainPipe2MaterialId || localFormData.mainPipe2MaterialId === 0)) {
     localFormData.mainPipe2MaterialId = 1;
@@ -2987,165 +3035,165 @@ const fetchPipePrice = async (pipeNumber: 1 | 2) => {
 
 
 // 獲取支管價格
-const fetchBranchPipePrice = async () => {
-  if (!localFormData.branchPipeMaterial || !localFormData.branchPipeDiameter) return;
+// const fetchBranchPipePrice = async () => {
+//   if (!localFormData.branchPipeMaterial || !localFormData.branchPipeDiameter) return;
 
-  try {
-    // 模擬API調用獲取價格
-    // console.log('Fetching branch pipe price for:', localFormData.branchPipeMaterial, localFormData.branchPipeDiameter);
+//   try {
+//     // 模擬API調用獲取價格
+//     // console.log('Fetching branch pipe price for:', localFormData.branchPipeMaterial, localFormData.branchPipeDiameter);
 
-    // 模擬延遲
-    await new Promise(resolve => setTimeout(resolve, 300));
+//     // 模擬延遲
+//     await new Promise(resolve => setTimeout(resolve, 300));
 
-    // 模擬價格
-    const price = Math.floor(Math.random() * 80) + 40;
-    localFormData.branchPipeUnitPrice = price.toString();
+//     // 模擬價格
+//     const price = Math.floor(Math.random() * 80) + 40;
+//     localFormData.branchPipeUnitPrice = price.toString();
 
-    updateFormData();
-  } catch (error) {
-    console.error('Error fetching branch pipe price:', error);
-  }
-};
+//     updateFormData();
+//   } catch (error) {
+//     console.error('Error fetching branch pipe price:', error);
+//   }
+// };
 
 // 獲取末端設施價格
-const fetchEndFacilityPrice = async () => {
-  if (!localFormData.endFacilityType || !localFormData.endFacilityDiameter) return;
+// const fetchEndFacilityPrice = async () => {
+//   if (!localFormData.endFacilityType || !localFormData.endFacilityDiameter) return;
 
-  try {
-    // 模擬API調用獲取價格
-    // console.log('Fetching end facility price for:', localFormData.endFacilityType, localFormData.endFacilityDiameter);
+//   try {
+//     // 模擬API調用獲取價格
+//     // console.log('Fetching end facility price for:', localFormData.endFacilityType, localFormData.endFacilityDiameter);
 
-    // 模擬延遲
-    await new Promise(resolve => setTimeout(resolve, 300));
+//     // 模擬延遲
+//     await new Promise(resolve => setTimeout(resolve, 300));
 
-    // 模擬價格
-    const price = Math.floor(Math.random() * 60) + 30;
-    localFormData.endFacilityUnitPrice = price.toString();
+//     // 模擬價格
+//     const price = Math.floor(Math.random() * 60) + 30;
+//     localFormData.endFacilityUnitPrice = price.toString();
 
-    updateFormData();
-  } catch (error) {
-    console.error('Error fetching end facility price:', error);
-  }
-};
+//     updateFormData();
+//   } catch (error) {
+//     console.error('Error fetching end facility price:', error);
+//   }
+// };
 
 // 添加主管
-const addMainPipe = () => {
-  if (canAddMainPipe.value) {
-    const length = parseFloat(localFormData.mainPipeLength);
-    const unitPrice = parseFloat(localFormData.mainPipeUnitPrice);
-    const quantity = parseFloat(localFormData.mainPipeQuantity);
+// const addMainPipe = () => {
+//   if (canAddMainPipe.value) {
+//     const length = parseFloat(localFormData.mainPipeLength);
+//     const unitPrice = parseFloat(localFormData.mainPipeUnitPrice);
+//     const quantity = parseFloat(localFormData.mainPipeQuantity);
 
-    localFormData.pipes.push({
-      groupId: 1, // 主管配件組
-      moduleType: '主管',
-      name: `${localFormData.mainPipeMaterial} ${localFormData.mainPipeDiameter}`,
-      specification: `${localFormData.mainPipeDiameter}`,
-      unit: '支',
-      description: `主管管線(${localFormData.mainPipeMaterial})`,
-      unitPrice: unitPrice,
-      quantity: quantity,
-      totalPrice: Math.round(unitPrice * quantity)
-    });
+//     localFormData.pipes.push({
+//       groupId: 1, // 主管配件組
+//       moduleType: '主管',
+//       name: `${localFormData.mainPipeMaterial} ${localFormData.mainPipeDiameter}`,
+//       specification: `${localFormData.mainPipeDiameter}`,
+//       unit: '支',
+//       description: `主管管線(${localFormData.mainPipeMaterial})`,
+//       unitPrice: unitPrice,
+//       quantity: quantity,
+//       totalPrice: Math.round(unitPrice * quantity)
+//     });
 
-    // 保留補助來源，清空其他欄位
-    const fundingSource = localFormData.fundingSource;
-    localFormData.mainPipeLength = '';
-    localFormData.mainPipeDiameter = '';
-    localFormData.mainPipeMaterial = '';
-    localFormData.mainPipeUnitPrice = '';
-    localFormData.mainPipeQuantity = '';
-    localFormData.fundingSource = fundingSource;
+//     // 保留補助來源，清空其他欄位
+//     const fundingSource = localFormData.fundingSource;
+//     localFormData.mainPipeLength = '';
+//     localFormData.mainPipeDiameter = '';
+//     localFormData.mainPipeMaterial = '';
+//     localFormData.mainPipeUnitPrice = '';
+//     localFormData.mainPipeQuantity = '';
+//     localFormData.fundingSource = fundingSource;
 
-    updateFormData();
-  }
-};
+//     updateFormData();
+//   }
+// };
 
-// 添加支管
-const addBranchPipe = () => {
-  if (canAddBranchPipe.value) {
-    const length = parseFloat(localFormData.branchPipeLength);
-    const unitPrice = parseFloat(localFormData.branchPipeUnitPrice);
-    const quantity = parseFloat(localFormData.branchPipeQuantity);
+// // 添加支管
+// const addBranchPipe = () => {
+//   if (canAddBranchPipe.value) {
+//     const length = parseFloat(localFormData.branchPipeLength);
+//     const unitPrice = parseFloat(localFormData.branchPipeUnitPrice);
+//     const quantity = parseFloat(localFormData.branchPipeQuantity);
 
-    localFormData.pipes.push({
-      groupId: 2, // 支管配件組
-      moduleType: '支管',
-      name: `${localFormData.branchPipeMaterial} ${localFormData.branchPipeDiameter}`,
-      specification: `${localFormData.branchPipeDiameter}`,
-      unit: '支',
-      description: `支管管線(${localFormData.branchPipeMaterial})`,
-      unitPrice: unitPrice,
-      quantity: quantity,
-      totalPrice: Math.round(unitPrice * quantity)
-    });
+//     localFormData.pipes.push({
+//       groupId: 2, // 支管配件組
+//       moduleType: '支管',
+//       name: `${localFormData.branchPipeMaterial} ${localFormData.branchPipeDiameter}`,
+//       specification: `${localFormData.branchPipeDiameter}`,
+//       unit: '支',
+//       description: `支管管線(${localFormData.branchPipeMaterial})`,
+//       unitPrice: unitPrice,
+//       quantity: quantity,
+//       totalPrice: Math.round(unitPrice * quantity)
+//     });
 
-    // 保留部分欄位，清空其他欄位
-    const fundingSource = localFormData.fundingSource;
-    const branchPipeSpacing = localFormData.branchPipeSpacing;
-    const sprinklerSpacing = localFormData.sprinklerSpacing;
-    const riserHeight = localFormData.riserHeight;
-    const variantType = localFormData.variantType;
+//     // 保留部分欄位，清空其他欄位
+//     const fundingSource = localFormData.fundingSource;
+//     const branchPipeSpacing = localFormData.branchPipeSpacing;
+//     const sprinklerSpacing = localFormData.sprinklerSpacing;
+//     const riserHeight = localFormData.riserHeight;
+//     const variantType = localFormData.variantType;
 
-    localFormData.branchPipeLength = '';
-    localFormData.branchPipeDiameter = '';
-    localFormData.branchPipeMaterial = '';
-    localFormData.branchPipeUnitPrice = '';
-    localFormData.branchPipeQuantity = '';
+//     localFormData.branchPipeLength = '';
+//     localFormData.branchPipeDiameter = '';
+//     localFormData.branchPipeMaterial = '';
+//     localFormData.branchPipeUnitPrice = '';
+//     localFormData.branchPipeQuantity = '';
 
-    localFormData.fundingSource = fundingSource;
-    localFormData.branchPipeSpacing = branchPipeSpacing;
-    localFormData.sprinklerSpacing = sprinklerSpacing;
-    localFormData.riserHeight = riserHeight;
-    localFormData.variantType = variantType;
+//     localFormData.fundingSource = fundingSource;
+//     localFormData.branchPipeSpacing = branchPipeSpacing;
+//     localFormData.sprinklerSpacing = sprinklerSpacing;
+//     localFormData.riserHeight = riserHeight;
+//     localFormData.variantType = variantType;
 
-    updateFormData();
-  }
-};
+//     updateFormData();
+//   }
+// };
 
-// 添加末端設施
-const addEndFacility = () => {
-  if (canAddEndFacility.value) {
-    const unitPrice = parseFloat(localFormData.endFacilityUnitPrice);
-    const quantity = parseFloat(localFormData.endFacilityQuantity);
+// // 添加末端設施
+// const addEndFacility = () => {
+//   if (canAddEndFacility.value) {
+//     const unitPrice = parseFloat(localFormData.endFacilityUnitPrice);
+//     const quantity = parseFloat(localFormData.endFacilityQuantity);
 
-    localFormData.pipes.push({
-      groupId: 3, // 末端設施組
-      moduleType: '末端設施',
-      name: localFormData.endFacilityType,
-      specification: `${localFormData.endFacilityDiameter}`,
-      unit: '個',
-      description: `${localFormData.endFacilityType}(${localFormData.endFacilityMaterial})`,
-      unitPrice: unitPrice,
-      quantity: quantity,
-      totalPrice: Math.round(unitPrice * quantity)
-    });
+//     localFormData.pipes.push({
+//       groupId: 3, // 末端設施組
+//       moduleType: '末端設施',
+//       name: localFormData.endFacilityType,
+//       specification: `${localFormData.endFacilityDiameter}`,
+//       unit: '個',
+//       description: `${localFormData.endFacilityType}(${localFormData.endFacilityMaterial})`,
+//       unitPrice: unitPrice,
+//       quantity: quantity,
+//       totalPrice: Math.round(unitPrice * quantity)
+//     });
 
-    // 保留部分欄位，清空其他欄位
-    const fundingSource = localFormData.fundingSource;
-    const irrigationType = localFormData.irrigationType;
-    const installationType = localFormData.installationType;
-    const waterSource = localFormData.waterSource;
-    const perforatedPipeType = localFormData.perforatedPipeType;
-    const sprinklerType = localFormData.sprinklerType;
-    const dripperType = localFormData.dripperType;
+//     // 保留部分欄位，清空其他欄位
+//     const fundingSource = localFormData.fundingSource;
+//     const irrigationType = localFormData.irrigationType;
+//     const installationType = localFormData.installationType;
+//     const waterSource = localFormData.waterSource;
+//     const perforatedPipeType = localFormData.perforatedPipeType;
+//     const sprinklerType = localFormData.sprinklerType;
+//     const dripperType = localFormData.dripperType;
 
-    localFormData.endFacilityType = '';
-    localFormData.endFacilityDiameter = '';
-    localFormData.endFacilityMaterial = '';
-    localFormData.endFacilityUnitPrice = '';
-    localFormData.endFacilityQuantity = '';
+//     localFormData.endFacilityType = '';
+//     localFormData.endFacilityDiameter = '';
+//     localFormData.endFacilityMaterial = '';
+//     localFormData.endFacilityUnitPrice = '';
+//     localFormData.endFacilityQuantity = '';
 
-    localFormData.fundingSource = fundingSource;
-    localFormData.irrigationType = irrigationType;
-    localFormData.installationType = installationType;
-    localFormData.waterSource = waterSource;
-    localFormData.perforatedPipeType = perforatedPipeType;
-    localFormData.sprinklerType = sprinklerType;
-    localFormData.dripperType = dripperType;
+//     localFormData.fundingSource = fundingSource;
+//     localFormData.irrigationType = irrigationType;
+//     localFormData.installationType = installationType;
+//     localFormData.waterSource = waterSource;
+//     localFormData.perforatedPipeType = perforatedPipeType;
+//     localFormData.sprinklerType = sprinklerType;
+//     localFormData.dripperType = dripperType;
 
-    updateFormData();
-  }
-};
+//     updateFormData();
+//   }
+// };
 
 // 更新管路數量
 const updatePipeQuantity = (groupNo: number, pipeIndex: number, newQuantity: number) => {
@@ -5614,7 +5662,7 @@ onMounted(async () => {
       if (props.formData[key] !== undefined && props.formData[key] !== localFormData[key]) {
         const oldValue = localFormData[key];
         let newValue = props.formData[key];
-        
+
         // 特殊處理：主管材質未設定時預設為 1 (PVC)
         if (key === 'mainPipeMaterialId' || key === 'mainPipe2MaterialId') {
           if (newValue === null || newValue === undefined || newValue === 0 || newValue === '') {
@@ -5622,7 +5670,7 @@ onMounted(async () => {
             console.log(`🔧 Setting default material for ${key}: ${oldValue} → ${newValue} (PVC)`);
           }
         }
-        
+
         localFormData[key] = newValue;
         console.log(`Loading ${key}: ${oldValue} → ${newValue}`);
       }
@@ -5816,16 +5864,49 @@ const addMaterialToList = async () => {
 
 .v-table {
   background-color: white;
+  table-layout: fixed;
+  width: 100%;
 }
 
 .v-table th {
   font-weight: 600;
   color: rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  padding: 8px !important;
+}
+
+.v-table td {
+  padding: 4px !important;
+  vertical-align: middle;
+}
+
+.material-input {
+  font-size: 0.875rem;
+}
+
+.material-input .v-field {
+  font-size: 0.875rem;
+}
+
+.material-input .v-field__input {
+  min-height: 32px;
+  padding: 4px 8px;
 }
 
 .irrigation-type-config {
   background-color: rgba(0, 0, 0, 0.02);
   padding: 15px;
   border-radius: 8px;
+}
+
+/* 確保表格在小螢幕上也能正常顯示 */
+@media (max-width: 1200px) {
+  .v-table {
+    font-size: 0.875rem;
+  }
+
+  .material-input {
+    font-size: 0.8rem;
+  }
 }
 </style>
