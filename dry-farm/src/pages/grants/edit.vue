@@ -429,7 +429,7 @@
 </template>
 
 <script setup lang="ts">
-import { useDisplay } from 'vuetify'
+import { useDisplay, useGoTo } from 'vuetify'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useGrantsStore } from '@/stores/grants'
 import { debounce } from 'lodash'
@@ -509,9 +509,60 @@ const goToNextStep = () => {
   }
 }
 
-// Helper function to scroll to top
+// Helper function to scroll to top using multiple strategies
+const goTo = useGoTo()
 const scrollToTop = () => {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  // Strategy 1: Force scroll on v-main with more specific targeting
+  const mainElement = document.querySelector('main.v-main')
+  if (mainElement) {
+    try {
+      mainElement.scrollTop = 0  // Direct property assignment
+      mainElement.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch {
+      // Silent fallback
+    }
+  }
+
+  // Strategy 2: Try v-main__wrap if it exists
+  const wrapElement = document.querySelector('.v-main__wrap')
+  if (wrapElement) {
+    wrapElement.scrollTop = 0
+    wrapElement.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Strategy 3: Try the application wrapper
+  const appWrap = document.querySelector('.v-application__wrap')
+  if (appWrap) {
+    appWrap.scrollTop = 0
+    appWrap.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Strategy 4: Try all potentially scrollable elements
+  const allScrollableElements = document.querySelectorAll('*')
+  for (const element of allScrollableElements) {
+    if (element.scrollHeight > element.clientHeight && element.scrollTop > 0) {
+      element.scrollTop = 0
+      element.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  // Strategy 5: Force document and window scroll
+  document.documentElement.scrollTop = 0
+  document.body.scrollTop = 0
+  window.scrollTo(0, 0)
+
+  // Strategy 6: Try Vuetify's useGoTo with specific container
+  try {
+    // Try to find the main scroll container
+    const scrollContainer = document.querySelector('main.v-main') || document.querySelector('.v-main__wrap')
+    if (scrollContainer && scrollContainer instanceof HTMLElement) {
+      goTo(0, { container: scrollContainer })
+    } else {
+      goTo(0)
+    }
+  } catch {
+    // Silent fallback
+  }
 }
 
 // Step validation handling with improved flow control

@@ -641,10 +641,10 @@ watch(() => route.query, (newQuery) => {
 }
 
 /* 針對不同螢幕尺寸調整 NavBar 高度 */
-@media (max-width: 960px) {
+/* @media (max-width: 960px) {
   .container-full-height {
-    height: calc(100vh - 103px); /* 手機版 NavBar 通常較矮 */
-  }
+    height: calc(100vh - 103px);
+  } */
 }
 
 /* 自定義地圖控制按鈕樣式 */
