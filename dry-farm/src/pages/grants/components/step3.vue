@@ -73,8 +73,10 @@
               >
                 <div class="d-flex align-center flex-wrap">
                   <v-select
-                    v-model="localFormData.fundingSource"
+                    v-model="localFormData.fundingSourceId"
                     :items="fundingSourceOptions"
+                    item-title="name"
+                    item-value="id"
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
@@ -461,6 +463,7 @@
 
 <script setup lang="ts">
 import { useGrantsStore } from '@/stores/grants';
+import { useOfficesStore } from '@/stores/offices'
 
 // Props definition
 const props = defineProps({
@@ -479,7 +482,8 @@ const props = defineProps({
 const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 
 // Access grants store
-const grantsStore = useGrantsStore();
+// const grantsStore = useGrantsStore();
+const officesStore = useOfficesStore();
 
 // Form ref and validation state
 const form = ref(null);
@@ -487,7 +491,7 @@ const localValid = ref(true);
 
 // 本地表單數據
 const localFormData = reactive({
-  fundingSource: 0,
+  fundingSourceId: 0,
   // 動力設備
   powerEquipment: '',
 
@@ -513,7 +517,7 @@ const localFormData = reactive({
     unitPrice: number;
     totalPrice: number;
     remark: string;
-    source: string;
+    fundingSourceId: string | number;
   }>,
 
   // Always valid for seamless navigation
@@ -566,17 +570,24 @@ const controlTypeOptions = [
   '流量表'
 ];
 
-const fundingSourceOptions = [
-  '農田水利署',
-  '七星管理處作業基金',
-  '瑠公管理處作業基金'
-];
-
 // 計算屬性
 const controlTotalPrice = computed(() => {
   const quantity = parseFloat(localFormData.controlQuantity as any) || 0;
   const unitPrice = parseFloat(localFormData.controlUnitPrice as any) || 0;
   return (quantity * unitPrice).toString();
+});
+
+const fundingSourceOptions = computed(() => {
+  const filtered = officesStore.offices
+    .filter(office => {
+      return office.is_funding_source === true
+    })
+    .map(office => ({
+      id: office.id,
+      name: office.name
+    }))
+
+  return filtered
 });
 
 // 驗證條件
@@ -627,7 +638,7 @@ const addPowerEquipment = () => {
       unitPrice: 4500, // 假設這是預設價格，實際上可能需要根據選擇動態獲取
       totalPrice: 4500,
       remark: '',
-      source: localFormData.fundingSource || '未選擇補助來源'
+      fundingSourceId: localFormData.fundingSourceId || '未選擇補助來源'
     });
 
     // 清空選擇
@@ -652,7 +663,7 @@ const addStorageFacility = () => {
       unitPrice: unitPrice,
       totalPrice: unitPrice,
       remark: localFormData.storageRemark || '',
-      source: localFormData.fundingSource || '未選擇補助來源'
+      fundingSourceId: localFormData.fundingSourceId || '未選擇補助來源'
     });
 
     // 清空選擇
@@ -678,7 +689,7 @@ const addControlFacility = () => {
       unitPrice: unitPrice,
       totalPrice: quantity * unitPrice,
       remark: '',
-      source: localFormData.fundingSource || '未選擇補助來源'
+      fundingSourceId: localFormData.fundingSourceId || '未選擇補助來源'
     });
 
     // 清空選擇，但保留數量
