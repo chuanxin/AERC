@@ -62,7 +62,6 @@
               >
                 <v-text-field
                   v-model="localFormData.name"
-                  label="申請人姓名"
                   variant="outlined"
                   density="comfortable"
                   color="#3ea0a3"
@@ -70,7 +69,11 @@
                   bg-color="white"
                   required
                   @update:model-value="updateFormData"
-                />
+                >
+                  <template #label>
+                    申請人姓名<span class="required-asterisk">*(必填)</span>
+                  </template>
+                </v-text-field>
               </v-col>
 
               <v-col
@@ -79,7 +82,6 @@
               >
                 <v-text-field
                   v-model="localFormData.id"
-                  label="身分證字號"
                   variant="outlined"
                   density="comfortable"
                   color="#3ea0a3"
@@ -89,14 +91,17 @@
                   hint="例：A123456789"
                   persistent-hint
                   @update:model-value="updateFormData"
-                />
+                >
+                  <template #label>
+                    身分證字號<span class="required-asterisk">*(必填)</span>
+                  </template>
+                </v-text-field>
               </v-col>
             </v-row>
             <v-row dense>
               <v-col cols="12">
                 <v-text-field
                   v-model="localFormData.phone"
-                  label="聯絡電話"
                   variant="outlined"
                   density="comfortable"
                   color="#3ea0a3"
@@ -104,7 +109,11 @@
                   required
                   :rules="phoneRules"
                   @update:model-value="updateFormData"
-                />
+                >
+                  <template #label>
+                    聯絡電話<span class="required-asterisk">*(必填)</span>
+                  </template>
+                </v-text-field>
               </v-col>
             </v-row>
           </v-card>
@@ -142,7 +151,6 @@
               >
                 <v-select
                   v-model="selectedCountyId"
-                  label="縣市"
                   :items="countyItems"
                   item-title="title"
                   item-value="value"
@@ -153,7 +161,11 @@
                   :loading="domicileStore.isLoading"
                   return-object
                   @update:model-value="handleCountyChange"
-                />
+                >
+                  <template #label>
+                    縣市<span class="required-asterisk">*(必填)</span>
+                  </template>
+                </v-select>
               </v-col>
 
               <v-col
@@ -162,7 +174,6 @@
               >
                 <v-select
                   v-model="selectedTownId"
-                  label="鄉鎮市區"
                   :items="townItems"
                   item-title="title"
                   item-value="value"
@@ -174,7 +185,11 @@
                   :disabled="!selectedCountyId"
                   return-object
                   @update:model-value="handleTownChange"
-                />
+                >
+                  <template #label>
+                    鄉鎮市區<span class="required-asterisk">*(必填)</span>
+                  </template>
+                </v-select>
               </v-col>
 
               <v-col
@@ -183,7 +198,6 @@
               >
                 <v-select
                   v-model="selectedVillageId"
-                  label="村里"
                   :items="villageItems"
                   item-title="title"
                   item-value="value"
@@ -195,13 +209,16 @@
                   :disabled="!selectedTownId"
                   return-object
                   @update:model-value="handleVillageChange"
-                />
+                >
+                  <template #label>
+                    村里<span class="required-asterisk">*(必填)</span>
+                  </template>
+                </v-select>
               </v-col>
 
               <v-col cols="12">
                 <v-text-field
                   v-model="localFormData.address"
-                  label="詳細地址"
                   variant="outlined"
                   density="comfortable"
                   color="#3ea0a3"
@@ -209,7 +226,11 @@
                   placeholder="例：中正路100號"
                   :rules="[v => !!v || '請輸入詳細地址']"
                   @update:model-value="updateFormData"
-                />
+                >
+                  <template #label>
+                    詳細地址<span class="required-asterisk">*(必填)</span>
+                  </template>
+                </v-text-field>
               </v-col>
             </v-row>
           </v-card>
@@ -236,12 +257,15 @@
           >
             <v-text-field
               v-model="localFormData.undertracker"
-              label="承辦人姓名"
               variant="outlined"
               density="comfortable"
               bg-color="rgba(255, 255, 255, 1)"
               @update:model-value="updateFormData"
-            />
+            >
+              <template #label>
+                承辦人姓名<span class="required-asterisk">*(必填)</span>
+              </template>
+            </v-text-field>
           </v-col>
 
           <!-- <v-col cols="12" sm="6">
@@ -581,7 +605,7 @@ onMounted(async () => {
   await domicileStore.initializeStore()
 
   // Set default values from user
-  localFormData.undertracker = userStore.userFullName
+  // localFormData.undertracker = userStore.userFullName
 
   // Restore previous selections if available
   if (props.formData) {
@@ -690,5 +714,12 @@ const updateFormData = () => {
 /* 唯讀輸入框樣式 */
 :deep(.v-field--disabled .v-field__input) {
   color: rgba(0, 0, 0, 1) !important;
+}
+
+/* 必填欄位紅色星號樣式 */
+.required-asterisk {
+  color: #ff0000 !important;
+  font-weight: bold;
+  margin-left: 2px;
 }
 </style>

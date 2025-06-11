@@ -61,7 +61,7 @@
           </v-container>
         </v-sheet>
         <v-divider class="ma-0" />
-        <div class="pa-4">
+        <div class="px-4">
           <!-- Form content -->
           <v-window
             v-model="activeForm"
@@ -249,7 +249,7 @@
 
         <v-divider />
 
-        <div class="pa-0">
+        <div class="pa-0 ma-0">
           <v-btn
             v-if="currentStep === 1 && activeForm === 'register'"
             variant="text"
@@ -553,7 +553,7 @@
 
   .login-content-col {
     margin-bottom: 120px !important; /* 固定底部間距 */
-    padding-bottom: 20px; /* 額外內部間距 */
+    padding-bottom: 60px; /* 額外內部間距 */
   }
   /* Disable all possible stepper transitions */
   :deep(.v-stepper) {

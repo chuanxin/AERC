@@ -56,14 +56,17 @@
                   <v-select
                     v-model="localFormData.addressCounty"
                     :items="counties"
-                    label="縣市"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
                     :rules="[v => !!v || '請選擇縣市']"
                     @update:model-value="onCountyChange"
-                  />
+                  >
+                    <template #label>
+                      縣市<span class="required-asterisk">*(必填)</span>
+                    </template>
+                  </v-select>
                 </v-col>
                 <v-col
                   cols="12"
@@ -72,7 +75,6 @@
                   <v-select
                     v-model="localFormData.addressTown"
                     :items="towns"
-                    label="鄉鎮市區"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
@@ -80,7 +82,11 @@
                     :rules="[v => !!v || '請選擇鄉鎮市區']"
                     :disabled="!localFormData.addressCounty"
                     @update:model-value="onTownChange"
-                  />
+                  >
+                    <template #label>
+                      鄉鎮市區<span class="required-asterisk">*(必填)</span>
+                    </template>
+                  </v-select>
                 </v-col>
                 <v-col
                   cols="12"
@@ -89,14 +95,17 @@
                   <v-select
                     v-model="localFormData.addressVillage"
                     :items="villages"
-                    label="地段"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
                     :rules="[v => !!v || '請選擇村里']"
                     :disabled="!localFormData.addressTown"
-                  />
+                  >
+                    <template #label>
+                      地段<span class="required-asterisk">*(必填)</span>
+                    </template>
+                  </v-select>
                 </v-col>
               </v-row>
             </v-sheet>
@@ -111,7 +120,7 @@
                   size="small"
                   class="me-2"
                 >
-                  mdi-numeric
+                  mdi-land-plots-marker
                 </v-icon>
                 <span class="text-body-2 font-weight-medium">地號資訊</span>
               </div>
@@ -123,7 +132,6 @@
                 >
                   <v-text-field
                     v-model="formattedLandNumberMain"
-                    label="母地號"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
@@ -134,7 +142,11 @@
                     :rules="[v => !!v || '請輸入主地號']"
                     @focus="landNumberMainFocused = true"
                     @blur="landNumberMainFocused = false"
-                  />
+                  >
+                    <template #label>
+                      母地號<span class="required-asterisk">*(必填)</span>
+                    </template>
+                  </v-text-field>
 
                   <v-text-field
                     v-model="formattedLandNumberSub"
@@ -233,7 +245,7 @@
               </v-row>
             </v-sheet>
 
-            <!-- 座標資訊 -->
+            <!-- 坐標資訊 -->
             <v-sheet
               class="mb-3 pa-3 rounded"
               color="white"
@@ -245,8 +257,29 @@
                 >
                   mdi-map-marker
                 </v-icon>
-                <span class="text-body-2 font-weight-medium">座標資訊</span>
+                <span class="text-body-2 font-weight-medium">坐標資訊</span>
               </div>
+
+              <!-- 坐標說明提示 -->
+              <v-alert
+                type="info"
+                variant="tonal"
+                density="compact"
+                class="mb-3"
+                color="blue-grey"
+              >
+                <template #prepend>
+                  <v-icon size="small">mdi-information-outline</v-icon>
+                </template>
+                <div class="text-caption">
+                  <strong>坐標輸入說明：</strong><br>
+                  <!-- • 請輸入 TWD97 坐標系統（EPSG:3826）的坐標值<br> -->
+                  • 經度範圍：約 119.0° ~ 122.5°（東經）<br>
+                  • 緯度範圍：約 21.8° ~ 25.4°（北緯）<br>
+                  <!-- • 可使用 Google Maps 或內政部地政司網站取得坐標 -->
+                </div>
+              </v-alert>
+
               <v-row>
                 <v-col
                   cols="12"
@@ -254,14 +287,24 @@
                 >
                   <v-text-field
                     v-model="localFormData.longitude"
-                    label="經度"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
-                    :rules="[v => !!v || '請輸入經度']"
+                    placeholder="例：120.573425"
+                    hint="東經坐標，小數點後建議6位數"
+                    persistent-hint
+                    :rules="[
+                      v => !!v || '請輸入經度',
+                      v => !isNaN(parseFloat(v)) || '請輸入有效的數值',
+                      v => (parseFloat(v) >= 119.0 && parseFloat(v) <= 122.5) || '經度範圍應在 119.0° ~ 122.5° 之間'
+                    ]"
                     @update:model-value="updateFormData"
-                  />
+                  >
+                    <template #label>
+                      經度（°E）<span class="required-asterisk">*(必填)</span>
+                    </template>
+                  </v-text-field>
                 </v-col>
                 <v-col
                   cols="12"
@@ -269,16 +312,74 @@
                 >
                   <v-text-field
                     v-model="localFormData.latitude"
-                    label="緯度"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
-                    :rules="[v => !!v || '請輸入緯度']"
+                    placeholder="例：23.515552"
+                    hint="北緯坐標，小數點後建議6位數"
+                    persistent-hint
+                    :rules="[
+                      v => !!v || '請輸入緯度',
+                      v => !isNaN(parseFloat(v)) || '請輸入有效的數值',
+                      v => (parseFloat(v) >= 21.8 && parseFloat(v) <= 25.4) || '緯度範圍應在 21.8° ~ 25.4° 之間'
+                    ]"
                     @update:model-value="updateFormData"
-                  />
+                  >
+                    <template #label>
+                      緯度（°N）<span class="required-asterisk">*(必填)</span>
+                    </template>
+                  </v-text-field>
                 </v-col>
               </v-row>
+
+              <!-- 坐標取得方式說明 -->
+              <!-- <v-expansion-panels
+                variant="accordion"
+                class="mt-3"
+              >
+                <v-expansion-panel
+                  title="如何取得坐標？"
+                  collapse-icon="mdi-chevron-up"
+                  expand-icon="mdi-chevron-down"
+                >
+                  <v-expansion-panel-text>
+                    <div class="text-body-2">
+                      <p class="font-weight-medium mb-2">推薦取得坐標的方式：</p>
+
+                      <div class="mb-3">
+                        <p class="font-weight-medium text-primary">方法一：使用 Google Maps</p>
+                        <ol class="pl-4">
+                          <li>開啟 Google Maps (maps.google.com)</li>
+                          <li>搜尋或點選您的土地位置</li>
+                          <li>在地圖上右鍵點擊該位置</li>
+                          <li>複製彈出的坐標數值（格式：緯度, 經度）</li>
+                        </ol>
+                      </div>
+
+                      <div class="mb-3">
+                        <p class="font-weight-medium text-primary">方法二：內政部地政司網站</p>
+                        <ol class="pl-4">
+                          <li>前往內政部地政司網站</li>
+                          <li>使用「地籍圖資網路便民服務系統」</li>
+                          <li>查詢您的地號並取得坐標</li>
+                        </ol>
+                      </div>
+
+                      <v-alert
+                        type="warning"
+                        variant="tonal"
+                        density="compact"
+                        class="mt-2"
+                      >
+                        <div class="text-caption">
+                          <strong>注意：</strong>請確保坐標準確性，錯誤的坐標可能影響補助審核。
+                        </div>
+                      </v-alert>
+                    </div>
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels> -->
             </v-sheet>
 
             <!-- 面積資訊 -->
@@ -302,7 +403,7 @@
                   md="6"
                 >
                   <div class="d-flex align-center">
-                    <span class="text-body-1 font-weight-medium me-2">農地面積</span>
+                    <span class="text-body-1 font-weight-medium me-2">農地地籍面積<span class="required-asterisk">*(必填)</span></span>
                     <v-text-field
                       v-model="localFormData.landArea"
                       variant="outlined"
@@ -336,7 +437,7 @@
                   md="6"
                 >
                   <div class="d-flex align-center">
-                    <span class="text-body-1 font-weight-medium me-2">施作面積</span>
+                    <span class="text-body-1 font-weight-medium me-2">施作面積<span class="required-asterisk">*(必填)</span></span>
                     <v-text-field
                       v-model="localFormData.facilityArea"
                       variant="outlined"
@@ -347,7 +448,7 @@
                       style="width: 120px"
                       :rules="[
                         v => !!v || '請輸入施作面積',
-                        v => !v || parseFloat(v) <= parseFloat(localFormData.landArea) || '施作面積不能大於農地面積'
+                        v => !v || parseFloat(v) <= parseFloat(localFormData.landArea) || '施作面積不能大於農地地籍面積'
                       ]"
                       @update:model-value="updateFormData"
                     />
@@ -1367,14 +1468,14 @@ watch(() => localFormData.landArea, (newVal) => {
   if (newVal) {
     const area = parseFloat(newVal);
     if (!isNaN(area)) {
-      // 更新農地面積公頃值
+      // 更新農地地籍面積公頃值
       const calculatedHa = (area / 10000).toFixed(4)
       localFormData.landAreaHa = calculatedHa
 
-      // 檢查設施面積是否超出農地面積
+      // 檢查設施面積是否超出農地地籍面積
       const facilityArea = parseFloat(localFormData.facilityArea || '0');
       if (!isNaN(facilityArea) && facilityArea > area) {
-        // 如果設施面積超出農地面積，將設施面積調整為等於農地面積
+        // 如果設施面積超出農地地籍面積，將設施面積調整為等於農地地籍面積
         localFormData.facilityArea = newVal;
         localFormData.facilityAreaHa = calculatedHa;
       }
@@ -1392,9 +1493,9 @@ watch(() => localFormData.facilityArea, (newVal) => {
     const landArea = parseFloat(localFormData.landArea || '0');
 
     if (!isNaN(facilityArea)) {
-      // 如果設施面積超過農地面積
+      // 如果設施面積超過農地地籍面積
       if (!isNaN(landArea) && facilityArea > landArea) {
-        // 調整為等於農地面積
+        // 調整為等於農地地籍面積
         localFormData.facilityArea = localFormData.landArea;
         localFormData.facilityAreaHa = localFormData.landAreaHa;
       } else {
@@ -2095,5 +2196,12 @@ onUnmounted(() => {
 /* 唯讀輸入框樣式 */
 :deep(.v-field--disabled .v-field__input) {
   color: rgba(0, 0, 0, 1) !important;
+}
+
+/* 必填欄位紅色星號樣式 */
+.required-asterisk {
+  color: #ff0000 !important;
+  font-weight: bold;
+  margin-left: 2px;
 }
 </style>

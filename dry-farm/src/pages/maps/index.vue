@@ -1,10 +1,7 @@
 <template>
-  <v-container
-    :fluid="isFluid"
-    class="pt-0 container-full-height"
-  >
-    <v-card class="pa-0 mb-6 map-card">
-      <v-card-title class="d-flex align-center pe-2">
+  <div class="fill-height d-flex flex-column">
+    <v-card class="flex-grow-1 d-flex flex-column">
+      <!-- <v-card-title class="d-flex align-center pe-2">
         <v-icon icon="mdi-map-marker-path" />
         &nbsp; GIS 圖台
         <v-spacer />
@@ -25,58 +22,172 @@
         >
           <v-icon>{{ isFluid ? 'mdi-arrow-collapse-horizontal' : 'mdi-arrow-expand-horizontal' }}</v-icon>
         </v-btn>
-      </v-card-title>
+      </v-card-title> -->
       <v-divider />
       <div
         id="map"
         ref="mapContainer"
         class="map-container"
+        style="min-height: 0;"
       >
         <!-- 地圖容器 -->
         <div class="map-controls">
           <v-card
             class="map-control-panel"
             elevation="3"
-            rounded="xs"
+            rounded="lg"
           >
+            <!-- 圖層按鈕 -->
+            <v-row class="ma-0">
+              <v-col class="pa-0 text-center">
+                <v-btn
+                  :title="'圖層管理'"
+                  class="control-btn-vertical"
+                  size="large"
+                  variant="text"
+                  rounded="lg"
+                  @click="toggleLayers"
+                >
+                  <template #default>
+                    <div class="d-flex flex-column align-center">
+                      <v-icon size="40" class="mb-0">mdi-layers</v-icon>
+                      <span class="btn-text">圖層</span>
+                    </div>
+                  </template>
+                </v-btn>
+              </v-col>
+            </v-row>
+            <v-divider />
+
+            <!-- 定位按鈕 -->
+            <v-row class="ma-0">
+              <v-col class="pa-0 text-center">
+                <v-btn
+                  :title="'我的位置'"
+                  class="control-btn-vertical"
+                  size="large"
+                  variant="text"
+                  rounded="lg"
+                  @click="getCurrentLocation"
+                >
+                  <template #default>
+                    <div class="d-flex flex-column align-center">
+                      <v-icon size="40" class="mb-0">mdi-crosshairs-gps</v-icon>
+                      <span class="btn-text">定位</span>
+                    </div>
+                  </template>
+                </v-btn>
+              </v-col>
+            </v-row>
+            <v-divider />
+
+            <!-- 展繪按鈕 -->
+            <v-row class="ma-0">
+              <v-col class="pa-0 text-center">
+                <v-btn
+                  :title="'繪圖工具'"
+                  class="control-btn-vertical"
+                  size="large"
+                  variant="text"
+                  rounded="lg"
+                  :color="isDrawing ? 'primary' : ''"
+                  @click="toggleDraw"
+                >
+                  <template #default>
+                    <div class="d-flex flex-column align-center">
+                      <v-icon size="40" class="mb-0">mdi-draw</v-icon>
+                      <span class="btn-text">展繪</span>
+                    </div>
+                  </template>
+                </v-btn>
+              </v-col>
+            </v-row>
+            <v-divider />
+
+            <!-- 量測按鈕 -->
+            <v-row class="ma-0">
+              <v-col class="pa-0 text-center">
+                <v-btn
+                  :title="'測量工具'"
+                  class="control-btn-vertical"
+                  size="large"
+                  variant="text"
+                  rounded="lg"
+                  :color="isMeasuring ? 'primary' : ''"
+                  @click="toggleMeasure"
+                >
+                  <template #default>
+                    <div class="d-flex flex-column align-center">
+                      <v-icon size="40" class="mb-0">mdi-ruler</v-icon>
+                      <span class="btn-text">量測</span>
+                    </div>
+                  </template>
+                </v-btn>
+              </v-col>
+            </v-row>
+            <v-divider />
+
             <!-- 放大按鈕 -->
             <v-row class="ma-0">
-              <v-col class="pa-0">
+              <v-col class="pa-0 text-center">
                 <v-btn
-                  icon
+                  :title="'放大'"
+                  class="control-btn-vertical"
+                  size="large"
                   variant="text"
-                  density="comfortable"
+                  rounded="lg"
                   @click="zoomIn"
                 >
-                  <v-icon>mdi-plus</v-icon>
+                  <template #default>
+                    <div class="d-flex flex-column align-center">
+                      <v-icon size="40" class="mb-0">mdi-plus</v-icon>
+                      <span class="btn-text">放大</span>
+                    </div>
+                  </template>
                 </v-btn>
               </v-col>
             </v-row>
             <v-divider />
+
             <!-- 縮小按鈕 -->
             <v-row class="ma-0">
-              <v-col class="pa-0">
+              <v-col class="pa-0 text-center">
                 <v-btn
-                  icon
+                  :title="'縮小'"
+                  class="control-btn-vertical"
+                  size="large"
                   variant="text"
-                  density="comfortable"
+                  rounded="lg"
                   @click="zoomOut"
                 >
-                  <v-icon>mdi-minus</v-icon>
+                  <template #default>
+                    <div class="d-flex flex-column align-center">
+                      <v-icon size="40" class="mb-0">mdi-minus</v-icon>
+                      <span class="btn-text">縮小</span>
+                    </div>
+                  </template>
                 </v-btn>
               </v-col>
             </v-row>
-            <!-- 首頁按鈕 -->
             <v-divider />
+
+            <!-- 首頁按鈕 -->
             <v-row class="ma-0">
-              <v-col class="pa-0">
+              <v-col class="pa-0 text-center">
                 <v-btn
-                  icon
+                  :title="'回到原始視圖'"
+                  class="control-btn-vertical"
+                  size="large"
                   variant="text"
-                  density="comfortable"
+                  rounded="lg"
                   @click="resetView"
                 >
-                  <v-icon>mdi-home</v-icon>
+                  <template #default>
+                    <div class="d-flex flex-column align-center">
+                      <v-icon size="40" class="mb-0">mdi-home</v-icon>
+                      <span class="btn-text">重置</span>
+                    </div>
+                  </template>
                 </v-btn>
               </v-col>
             </v-row>
@@ -92,10 +203,10 @@
     >
       {{ snackbarMessage }}
     </v-snackbar>
-  </v-container>
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router';
 import 'ol/ol.css';
 import Map from 'ol/Map';
@@ -103,6 +214,8 @@ import View from 'ol/View';
 import {defaults as defaultControls} from 'ol/control/defaults.js';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
+import StadiaMaps from 'ol/source/StadiaMaps';
+import TileWMS from 'ol/source/TileWMS';  // 添加 WMS 導入
 import { fromLonLat, toLonLat } from 'ol/proj';
 
 const router = useRouter();
@@ -113,6 +226,9 @@ const isFluid = ref(false);
 const mapContainer = ref(null);
 const showSnackbar = ref(false);
 const snackbarMessage = ref('');
+const isDrawing = ref(false);
+const isMeasuring = ref(false);
+const showLayersPanel = ref(false);
 
 // 用於追蹤地圖是否已完全初始化
 const mapInitialized = ref(false);
@@ -131,6 +247,77 @@ const toggleFluid = () => {
       }
     }, 100);
   });
+};
+
+const toggleLayers = () => {
+  showLayersPanel.value = !showLayersPanel.value;
+  console.log('圖層管理');
+  // TODO: 實作圖層管理面板
+};
+
+// 定位功能
+const getCurrentLocation = () => {
+  if (!navigator.geolocation) {
+    snackbarMessage.value = '您的瀏覽器不支援定位功能';
+    showSnackbar.value = true;
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      if (!map) return;
+
+      const { longitude, latitude } = position.coords;
+      const center = fromLonLat([longitude, latitude]);
+
+      map.getView().animate({
+        center: center,
+        zoom: 16,
+        duration: 1000
+      });
+
+      snackbarMessage.value = '已定位到您的位置';
+      showSnackbar.value = true;
+    },
+    (error) => {
+      console.error('定位失敗:', error);
+      snackbarMessage.value = '定位失敗，請檢查位置權限設定';
+      showSnackbar.value = true;
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000
+    }
+  );
+};
+
+// 展繪功能
+const toggleDraw = () => {
+  isDrawing.value = !isDrawing.value;
+  if (isMeasuring.value) {
+    isMeasuring.value = false;
+  }
+
+  console.log('展繪工具:', isDrawing.value ? '啟用' : '停用');
+  snackbarMessage.value = isDrawing.value ? '展繪工具已啟用' : '展繪工具已停用';
+  showSnackbar.value = true;
+
+  // TODO: 實作繪圖功能
+};
+
+// 量測功能
+const toggleMeasure = () => {
+  isMeasuring.value = !isMeasuring.value;
+  if (isDrawing.value) {
+    isDrawing.value = false;
+  }
+
+  console.log('量測工具:', isMeasuring.value ? '啟用' : '停用');
+  snackbarMessage.value = isMeasuring.value ? '量測工具已啟用' : '量測工具已停用';
+  showSnackbar.value = true;
+
+  // TODO: 實作測量功能
 };
 
 const zoomIn = () => {
@@ -300,16 +487,42 @@ function initMap() {
     // 從 URL 獲取初始地圖參數
     const mapParams = readMapParamsFromUrl();
 
-    // 創建基本的 OSM 圖層
-    const osmLayer = new TileLayer({
-      source: new OSM(),
-      visible: true
-    });
+    const layers = [
+      new TileLayer({
+        source: new OSM(),
+        visible: false
+      }),
+      new TileLayer({
+        source: new StadiaMaps({
+          // layer: 'stamen_terrain',
+          // layer: 'stamen_toner',
+          layer: 'stamen_watercolor',
+          retina: false,
+        }),
+        visible: false,
+      }),
+      // 臺灣通用電子地圖透明 WMS 圖層
+      new TileLayer({
+        source: new TileWMS({
+          url: 'https://wms.nlsc.gov.tw/wms',
+          params: {
+            'LAYERS': 'EMAP5',
+            'VERSION': '1.1.1',
+            'FORMAT': 'image/png',
+            'TRANSPARENT': true,
+            'SRS': 'EPSG:3857'
+          },
+          serverType: 'geoserver',
+        }),
+        visible: true,
+        opacity: 0.8  // 設定透明度
+      })
+    ];
 
     // 創建地圖
     map = new Map({
       target: mapContainer.value,
-      layers: [osmLayer],
+      layers: layers,
       view: new View({
         center: mapParams.center,
         zoom: mapParams.zoom,
@@ -385,10 +598,15 @@ watch(() => route.query, (newQuery) => {
   background-color: rgba(40, 40, 40, 1) !important;
 }
 
+.fill-height {
+  height: 100vh;
+}
+
 #map {
   position: relative;
   overflow: hidden;
   height: 100%;
+  width: 100%;
 }
 
 #map:focus {
@@ -398,24 +616,34 @@ watch(() => route.query, (newQuery) => {
 .container-full-height {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 150px);
+  height: calc(100vh - 151px); /* 扣除 NavBar 高度，通常是 64px */
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden;
 }
 
 .map-card {
   display: flex;
   flex-direction: column;
   flex-grow: 1;
+  height: 100%;
+  border-radius: 0 !important;
+  overflow: hidden;
 }
 
 .map-container {
-  min-height: 500px;
   flex-grow: 1;
   width: 100%;
+  height: 0; /* 讓 flex-grow 控制高度 */
+  min-height: 0; /* 移除 min-height: 100vh */
+  overflow: hidden;
 }
 
-@media (min-height: 700px) {
-  .map-container {
-    height: 60vh;
+/* 針對不同螢幕尺寸調整 NavBar 高度 */
+@media (max-width: 960px) {
+  .container-full-height {
+    height: calc(100vh - 103px); /* 手機版 NavBar 通常較矮 */
   }
 }
 
@@ -429,6 +657,40 @@ watch(() => route.query, (newQuery) => {
 
 .map-control-panel {
   background-color: rgba(255, 255, 255, 0.9) !important;
+  min-width: 70px; /* 增加寬度以容納文字 */
+}
+
+.control-btn-vertical {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 60px !important;
+  padding: 8px 4px !important;
+}
+
+.control-btn-vertical .v-btn__content {
+  flex-direction: column !important;
+  height: auto !important;
+}
+
+.btn-text {
+  font-size: 14px;
+  color: inherit;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 當按鈕處於 active 狀態時，文字也會繼承顏色 */
+.v-btn--active .btn-text {
+  color: inherit;
+}
+
+.btn-label {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.6);
+  line-height: 1;
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 .control-btn {

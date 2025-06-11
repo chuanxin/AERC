@@ -8,6 +8,34 @@
       flat
     >
       <v-card-text class="pb-0 pt-0">
+        <!-- 文件上傳說明提示 -->
+        <v-alert
+          type="info"
+          variant="tonal"
+          class="mb-4"
+          prominent
+          border="start"
+        >
+          <template #prepend>
+            <v-icon size="large">mdi-upload-multiple</v-icon>
+          </template>
+          <div class="text-h6 mb-2">文件上傳說明</div>
+          <div class="text-body-1">
+            <p class="mb-2">
+              <strong>請注意：</strong>案件需要上傳以下所有類別的文件才能完成申請程序。
+            </p>
+            <ul class="ml-4">
+              <li>申請資料：申請檔案</li>
+              <li>土地資料：土地登記謄本、地籍圖謄本、租賃同意書、土地施設同意書</li>
+              <li>其他資料：現勘紀錄表、委託規劃書、接受補助切結書、竣工報驗書、驗收報告書、領款收據、設計圖</li>
+            </ul>
+            <p class="mt-2 mb-0">
+              <v-icon size="small" class="me-1">mdi-information</v-icon>
+              支援格式：PDF、JPG、PNG（設計圖另支援 DWG、DXF）
+            </p>
+          </div>
+        </v-alert>
+
         <v-form
           ref="form"
           v-model="localValid"
@@ -649,6 +677,124 @@
               </v-sheet>
             </v-card-text>
           </v-card>
+
+          <!-- 上傳進度總覽
+          <v-card
+            variant="outlined"
+            class="mt-4"
+          >
+            <v-card-title class="bg-grey-lighten-4 d-flex align-center py-2 px-4">
+              <v-icon
+                class="me-2"
+                size="small"
+              >
+                mdi-progress-check
+              </v-icon>
+              <span class="text-subtitle-1 font-weight-medium">上傳進度總覽</span>
+            </v-card-title>
+
+            <v-card-text class="pa-4">
+              <v-row>
+                <v-col
+                  cols="12"
+                  md="4"
+                >
+                  <v-card
+                    :color="uploadedFilesCount === 0 ? 'grey-lighten-3' : 'blue-lighten-5'"
+                    class="pa-3 text-center"
+                    variant="tonal"
+                  >
+                    <div class="text-h4 font-weight-bold mb-1">
+                      {{ uploadedFilesCount }}
+                    </div>
+                    <div class="text-body-2 text-medium-emphasis">
+                      已上傳檔案
+                    </div>
+                  </v-card>
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="4"
+                >
+                  <v-card
+                    :color="totalRequiredFiles === uploadedFilesCount ? 'green-lighten-5' : 'orange-lighten-5'"
+                    class="pa-3 text-center"
+                    variant="tonal"
+                  >
+                    <div class="text-h4 font-weight-bold mb-1">
+                      {{ totalRequiredFiles }}
+                    </div>
+                    <div class="text-body-2 text-medium-emphasis">
+                      需要檔案總數
+                    </div>
+                  </v-card>
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="4"
+                >
+                  <v-card
+                    :color="isAllFilesUploaded ? 'green-lighten-5' : 'red-lighten-5'"
+                    class="pa-3 text-center"
+                    variant="tonal"
+                  >
+                    <v-icon
+                      :color="isAllFilesUploaded ? 'success' : 'error'"
+                      size="large"
+                      class="mb-1"
+                    >
+                      {{ isAllFilesUploaded ? 'mdi-check-circle' : 'mdi-alert-circle' }}
+                    </v-icon>
+                    <div class="text-body-2 text-medium-emphasis">
+                      {{ isAllFilesUploaded ? '上傳完成' : '未完成' }}
+                    </div>
+                  </v-card>
+                </v-col>
+              </v-row>
+
+              <v-progress-linear
+                :model-value="uploadProgress"
+                :color="isAllFilesUploaded ? 'success' : 'primary'"
+                height="8"
+                rounded
+                class="mt-4 mb-3"
+              />
+
+              <div class="text-center">
+                <div class="text-body-1 mb-2">
+                  上傳進度：{{ uploadProgress.toFixed(0) }}%
+                  ({{ uploadedFilesCount }}/{{ totalRequiredFiles }})
+                </div>
+
+                <v-alert
+                  v-if="!isAllFilesUploaded"
+                  type="warning"
+                  variant="tonal"
+                  density="compact"
+                  class="text-start"
+                >
+                  <template #prepend>
+                    <v-icon>mdi-alert</v-icon>
+                  </template>
+                  <strong>注意：</strong>您還需要上傳 {{ totalRequiredFiles - uploadedFilesCount }} 個檔案才能完成申請。
+                  請確保所有必要文件都已上傳後再進行下一步。
+                </v-alert>
+
+                <v-alert
+                  v-else
+                  type="success"
+                  variant="tonal"
+                  density="compact"
+                  class="text-start"
+                >
+                  <template #prepend>
+                    <v-icon>mdi-check-circle</v-icon>
+                  </template>
+                  <strong>恭喜！</strong>所有必要文件已上傳完成，您現在可以進行下一步操作。
+                </v-alert>
+              </div>
+            </v-card-text>
+          </v-card> -->
         </v-form>
       </v-card-text>
     </v-card>
@@ -786,6 +932,27 @@ const localFormData = reactive<FormData>({
   valid: true
 });
 
+// 計算屬性：已上傳檔案數量
+const uploadedFilesCount = computed(() => {
+  return Object.values(localFormData.uploadStatus).filter(status => status).length;
+});
+
+// 計算屬性：總檔案數量
+const totalRequiredFiles = computed(() => {
+  return Object.keys(localFormData.uploadStatus).length;
+});
+
+// 計算屬性：是否所有檔案都已上傳
+const isAllFilesUploaded = computed(() => {
+  return uploadedFilesCount.value === totalRequiredFiles.value;
+});
+
+// 計算屬性：上傳進度百分比
+const uploadProgress = computed(() => {
+  if (totalRequiredFiles.value === 0) return 0;
+  return (uploadedFilesCount.value / totalRequiredFiles.value) * 100;
+});
+
 // 判斷檔案是否為圖片類型
 const isImageFile = (file: File | string | null): boolean => {
   if (!file) return false;
@@ -848,6 +1015,8 @@ const handleFileChange = (type: keyof UploadStatus) => {
       break;
   }
 
+  // 觸發驗證更新
+  localValid.value = isAllFilesUploaded.value;
   updateFormData();
 };
 
@@ -874,7 +1043,7 @@ const updateFormData = () => {
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
-    valid: true // Always true for seamless navigation
+    valid: isAllFilesUploaded.value // 根據檔案上傳完成狀態設定有效性
   });
 };
 
@@ -982,6 +1151,12 @@ watch(localValid, (newVal) => {
     updateFormData();
   }
 });
+
+// 監聽上傳狀態變化，自動更新表單有效性
+watch(isAllFilesUploaded, (newVal) => {
+  localValid.value = newVal;
+  localFormData.valid = newVal;
+}, { immediate: true });
 
 // Clean up on component unmount
 onUnmounted(() => {

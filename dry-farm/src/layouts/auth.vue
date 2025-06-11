@@ -2,7 +2,7 @@
   <v-main>
     <router-view />
   </v-main>
-  <ReportBugButton />
+  <!-- <ReportBugButton /> -->
   <!-- <AppFooter /> -->
 </template>
 

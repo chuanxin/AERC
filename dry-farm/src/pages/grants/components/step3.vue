@@ -8,6 +8,44 @@
       flat
     >
       <v-card-text class="pb-0 pt-0">
+        <!-- 填寫說明提示 -->
+        <v-alert
+          type="info"
+          variant="tonal"
+          class="mb-4"
+          prominent
+          border="start"
+        >
+          <template #prepend>
+            <v-icon size="large">
+              mdi-information-outline
+            </v-icon>
+          </template>
+          <div class="text-h6 mb-2">
+            填寫說明
+          </div>
+          <div class="text-body-1">
+            <p class="mb-2">
+              <strong>注意：</strong>本階段項目皆為<strong>選填項目</strong>，請依據農戶實際申請需求進行填寫。
+            </p>
+            <ul class="ml-4 mb-2">
+              <li><strong>補助來源：</strong>若您需要申請任何設施補助，請先選擇補助來源</li>
+              <li><strong>動力設備：</strong>僅在需要申請動力設備補助時填寫</li>
+              <li><strong>調蓄設施：</strong>僅在需要申請調蓄設施補助時填寫</li>
+              <li><strong>調節控制設施：</strong>僅在需要申請調節控制設施補助時填寫</li>
+            </ul>
+            <p class="mb-0">
+              <v-icon
+                size="small"
+                class="me-1"
+              >
+                mdi-check-circle
+              </v-icon>
+              若不需要申請任何設施補助，可以直接進行下一步驟。
+            </p>
+          </div>
+        </v-alert>
+
         <v-form
           ref="form"
           v-model="localValid"
@@ -37,15 +75,18 @@
                   <v-select
                     v-model="localFormData.fundingSource"
                     :items="fundingSourceOptions"
-                    label="補助單位"
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
                     style="min-width: 250px"
                     @update:model-value="updateFormData"
-                  />
+                  >
+                    <template #label>
+                      補助來源<span class="required-asterisk" />
+                    </template>
+                  </v-select>
                   <span class="text-body-2 text-grey ms-2">
-                    選擇補助來源將自動套用至下方新增的所有設施
+                    選擇的補助來源將自動套用至下方新增的所有設施
                   </span>
                 </div>
               </v-sheet>
@@ -446,7 +487,7 @@ const localValid = ref(true);
 
 // 本地表單數據
 const localFormData = reactive({
-  fundingSource: '',
+  fundingSource: 0,
   // 動力設備
   powerEquipment: '',
 
@@ -540,20 +581,18 @@ const controlTotalPrice = computed(() => {
 
 // 驗證條件
 const canAddPowerEquipment = computed(() => {
-  return !!localFormData.powerEquipment && !!localFormData.fundingSource;
+  return !!localFormData.powerEquipment;
 });
 
 const canAddStorageFacility = computed(() => {
-  return !!localFormData.storageType && !!localFormData.storageTonnage && !!localFormData.fundingSource
-  ;
+  return !!localFormData.storageType && !!localFormData.storageTonnage;
 });
 
 const canAddControlFacility = computed(() => {
   return !!localFormData.controlType &&
          !!localFormData.controlName &&
          !!localFormData.controlQuantity &&
-         !!localFormData.controlUnitPrice &&
-         !!localFormData.fundingSource
+         !!localFormData.controlUnitPrice;
 });
 
 const formattedPrice = computed({
@@ -588,7 +627,7 @@ const addPowerEquipment = () => {
       unitPrice: 4500, // 假設這是預設價格，實際上可能需要根據選擇動態獲取
       totalPrice: 4500,
       remark: '',
-      source: localFormData.fundingSource
+      source: localFormData.fundingSource || '未選擇補助來源'
     });
 
     // 清空選擇
@@ -613,13 +652,12 @@ const addStorageFacility = () => {
       unitPrice: unitPrice,
       totalPrice: unitPrice,
       remark: localFormData.storageRemark || '',
-      source: localFormData.fundingSource
+      source: localFormData.fundingSource || '未選擇補助來源'
     });
 
     // 清空選擇
     localFormData.storageType = '';
     localFormData.storageTonnage = '';
-    // localFormData.storageSource = '';
     localFormData.storageRemark = '';
 
     updateFormData();
@@ -640,13 +678,12 @@ const addControlFacility = () => {
       unitPrice: unitPrice,
       totalPrice: quantity * unitPrice,
       remark: '',
-      source: localFormData.fundingSource
+      source: localFormData.fundingSource || '未選擇補助來源'
     });
 
     // 清空選擇，但保留數量
     localFormData.controlType = '';
     localFormData.controlName = '';
-    // localFormData.controlUnitPrice = '';
     localFormData.controlSource = '';
 
     updateFormData();
@@ -795,5 +832,12 @@ watch(localValid, (newVal) => {
 .v-text-field.v-input--density-compact .v-field {
   background-color: rgba(0, 0, 0, 0.02);
   border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* 必填欄位紅色星號樣式 */
+.required-asterisk {
+  color: #ff0000 !important;
+  font-weight: bold;
+  margin-left: 2px;
 }
 </style>

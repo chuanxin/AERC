@@ -484,7 +484,7 @@
                   <v-col cols="12">
                     <v-text-field
                       v-model="localFormData.increasedDecreasedAmount"
-                      label="增減列"
+                      label="減列"
                       variant="outlined"
                       density="comfortable"
                       :rules="localFormData.testResult === 'adjusted' ? [v => !!v || '請填寫增減列金額'] : []"
@@ -549,7 +549,7 @@
                     md="6"
                   >
                     <label class="text-body-2 font-weight-medium mb-2 d-block">
-                      <span class="text-red">*</span> 施工前照片
+                      施工前照片<span class="required-asterisk">*(必填)</span>
                     </label>
                     <v-file-input
                       v-model="localFormData.beforeConstructionPhoto"
@@ -580,7 +580,7 @@
                     md="6"
                   >
                     <label class="text-body-2 font-weight-medium mb-2 d-block">
-                      <span class="text-red">*</span> 竣工照片
+                      竣工照片<span class="required-asterisk">*(必填)</span>
                     </label>
                     <v-file-input
                       v-model="localFormData.afterConstructionPhoto"
@@ -1363,5 +1363,12 @@ onUnmounted(() => {
 .design-change-table th {
   background-color: rgba(0, 0, 0, 0.05);
   font-weight: 600;
+}
+
+/* 必填欄位紅色星號樣式 */
+.required-asterisk {
+  color: #ff0000 !important;
+  font-weight: bold;
+  margin-left: 2px;
 }
 </style>

@@ -282,13 +282,13 @@ class GrantLandInSchema(BaseSchema):
     is_irrigation_area: bool = Field(False, description="是否位於灌區內")
     is_reapplied: bool = Field(False, description="是否再次申請")
     
-    # 座標
+    # 坐標
     longitude: float = Field(..., description="經度")
     latitude: float = Field(..., description="緯度")
     
     # 面積
-    land_area: float = Field(..., description="農地面積(平方公尺)")
-    land_area_ha: float = Field(..., description="農地面積(公頃)")
+    land_area: float = Field(..., description="農地地籍面積(平方公尺)")
+    land_area_ha: float = Field(..., description="農地地籍面積(公頃)")
     facility_area: float = Field(..., description="施設面積(平方公尺)")
     facility_area_ha: float = Field(..., description="施設面積(公頃)")
     

@@ -322,6 +322,14 @@
                         @validated="handleStepValidated"
                         @go-back="handleGoBack"
                       />
+                      <step9
+                        v-if="currentStep === 9"
+                        :form-data="grantsStore.formData[9]"
+                        :current-step="currentStep"
+                        @update:form-data="handleFormDataUpdate(9, $event)"
+                        @validated="handleStepValidated"
+                        @go-back="handleGoBack"
+                      />
                     </v-card>
                   </v-card-text>
 
@@ -463,8 +471,9 @@ const steps = [
   { title: '田間管路', value: 4, subtitle: '請填寫田間管路' },
   { title: '現場勘查', value: 5, subtitle: '請填寫現場勘查' },
   { title: '文件列印及完成申報', value: 6, subtitle: '請填寫補助申請資料' },
-  { title: '功能測試', value: 7, subtitle: '請填寫結案申報' },
-  { title: '佐證及相關文件上傳', value: 8, subtitle: '請上傳佐證及相關文件' }
+  { title: '功能測試(驗收)', value: 7, subtitle: '請填寫結案申報' },
+  { title: '佐證及相關文件上傳', value: 8, subtitle: '請上傳佐證及相關文件' },
+  { title: '變更設計', value: 9, subtitle: '變更設計' }
 ]
 
 // Step icon and color logic

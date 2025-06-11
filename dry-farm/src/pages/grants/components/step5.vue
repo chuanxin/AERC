@@ -45,14 +45,17 @@
                 >
                   <v-text-field
                     v-model="localFormData.inspector"
-                    label="勘查人員"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
                     :rules="[v => !!v || '請填寫勘查人員']"
                     @update:model-value="updateFormData"
-                  />
+                  >
+                    <template #label>
+                      勘查人員<span class="required-asterisk">*(必填)</span>
+                    </template>
+                  </v-text-field>
                 </v-col>
 
                 <v-col
@@ -62,7 +65,6 @@
                   <!-- 使用簡單的日期輸入 -->
                   <v-text-field
                     v-model="formattedInspectionDate"
-                    label="勘查日期"
                     prepend-icon="mdi-calendar"
                     variant="outlined"
                     density="comfortable"
@@ -71,7 +73,11 @@
                     readonly
                     :rules="[v => !!v || '請選擇勘查日期']"
                     @click="openDateDialog"
-                  />
+                  >
+                    <template #label>
+                      勘查日期<span class="required-asterisk">*(必填)</span>
+                    </template>
+                  </v-text-field>
 
                   <!-- 自定義日期選擇對話框 -->
                   <v-dialog
@@ -142,7 +148,7 @@
 
               <v-row>
                 <v-col cols="12">
-                  <label class="text-body-2 font-weight-medium mb-2 d-block">勘查結果</label>
+                  <label class="text-body-2 font-weight-medium mb-2 d-block">勘查結果<span class="required-asterisk">*(必填)</span></label>
                   <div class="d-flex align-center">
                     <v-radio-group
                       v-model="localFormData.inspectionResult"
@@ -234,7 +240,7 @@
                   md="6"
                 >
                   <label class="text-body-2 font-weight-medium mb-2 d-block">
-                    <span class="text-red">*</span> 施工前照片
+                    施工前照片<span class="required-asterisk">*(必填)</span>
                   </label>
                   <v-file-input
                     v-model="localFormData.beforeConstructionPhoto"
@@ -267,7 +273,7 @@
                   md="6"
                 >
                   <label class="text-body-2 font-weight-medium mb-2 d-block">
-                    <span class="text-red">*</span> 竣工照片
+                    竣工照片<span class="required-asterisk">*(必填)</span>
                   </label>
                   <v-file-input
                     v-model="localFormData.afterConstructionPhoto"
@@ -629,5 +635,12 @@ onUnmounted(() => {
 /* 唯讀輸入框樣式 */
 :deep(.v-field--disabled .v-field__input) {
   color: rgba(0, 0, 0, 1) !important;
+}
+
+/* 必填欄位紅色星號樣式 */
+.required-asterisk {
+  color: #ff0000 !important;
+  font-weight: bold;
+  margin-left: 2px;
 }
 </style>

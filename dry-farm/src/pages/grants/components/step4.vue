@@ -38,13 +38,16 @@
                   :items="fundingSourceOptions"
                   item-title="name"
                   item-value="id"
-                  label="補助單位"
                   variant="outlined"
                   density="comfortable"
                   style="max-width: 400px"
                   :rules="[v => (v !== null && v !== undefined) || '請選擇補助單位']"
                   @update:model-value="updateFormData"
-                />
+                >
+                  <template #label>
+                    補助單位<span class="required-asterisk" />
+                  </template>
+                </v-select>
               </v-sheet>
             </v-card-text>
           </v-card>
@@ -5909,4 +5912,12 @@ const addMaterialToList = async () => {
     font-size: 0.8rem;
   }
 }
+
+/* 必填欄位紅色星號樣式 */
+.required-asterisk {
+  color: #ff0000 !important;
+  font-weight: bold;
+  margin-left: 2px;
+}
+
 </style>
