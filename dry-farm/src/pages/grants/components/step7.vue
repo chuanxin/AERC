@@ -163,7 +163,7 @@
                         農戶住址
                       </td>
                       <td>
-                        {{ localFormData.address }}
+                        {{ localFormData.applicantAddress }}
                       </td>
                     </tr>
                     <tr>
@@ -205,14 +205,24 @@
             class="mb-4"
             variant="outlined"
           >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-check-decagram
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">功能測試(驗收)</span>
+            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center justify-space-between py-2 px-4">
+              <div class="d-flex align-center">
+                <v-icon
+                  class="me-2"
+                  size="small"
+                >
+                  mdi-check-decagram
+                </v-icon>
+                <span class="text-subtitle-1 font-weight-medium">功能測試(驗收)</span>
+              </div>
+              <v-checkbox
+                v-model="localFormData.isReinspection"
+                label="複驗"
+                color="#3ea0a3"
+                density="compact"
+                hide-details
+                @update:model-value="updateFormData"
+              />
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -227,7 +237,6 @@
                   >
                     <v-text-field
                       v-model="formattedCompletionDate"
-                      label="申報結案日期"
                       variant="outlined"
                       density="comfortable"
                       readonly
@@ -235,7 +244,11 @@
                       :rules="[v => !!localFormData.completionDate || '請選擇申報結案日期']"
                       @click="openDateDialog('completion')"
                       @update:model-value="updateFormData"
-                    />
+                    >
+                      <template #label>
+                        申報結案日期<span class="required-asterisk">*(必填)</span>
+                      </template>
+                    </v-text-field>
 
                     <!-- 自定義日期選擇對話框 -->
                     <v-dialog
@@ -307,35 +320,66 @@
                     cols="12"
                     md="6"
                   >
-                    <label class="text-body-2 font-weight-medium mb-2 d-block">實際工程辦理情形</label>
-                    <div class="d-flex align-center">
-                      <v-radio-group
-                        v-model="localFormData.completionStatus"
-                        inline
-                        :rules="[v => !!v || '請選擇實際工程辦理情形']"
-                        @update:model-value="updateFormData"
+                    <div class="d-flex flex-row gap-3">
+                      <v-sheet
+                        class="py-0 pl-5 rounded flex-1"
+                        color="grey-lighten-5"
                       >
-                        <v-radio
-                          value="completed"
-                          label="完工"
-                        />
-                        <v-radio
-                          value="incomplete"
-                          label="未完工"
-                        />
-                      </v-radio-group>
+                        <label class="text-body-2 font-weight-medium mb-0 d-block">與設計圖說規劃型式<span class="required-asterisk">*(必填)</span></label>
+                        <v-radio-group
+                          v-model="localFormData.designCompliance"
+                          color="#3ea0a3"
+                          density="comfortable"
+                          hide-details
+                          inline
+                          @update:model-value="updateFormData"
+                        >
+                          <v-radio
+                            label="相符"
+                            value="compliant"
+                          />
+                          <v-radio
+                            label="不符"
+                            value="non-compliant"
+                          />
+                        </v-radio-group>
+                      </v-sheet>
+                      <v-spacer />
+                      <v-sheet
+                        class="py-0 pr-5 rounded flex-1"
+                        color="grey-lighten-5"
+                      >
+                        <label class="text-body-2 font-weight-medium mb-0 d-block">經現場運轉功能<span class="required-asterisk">*(必填)</span></label>
+                        <v-radio-group
+                          v-model="localFormData.operationCompliance"
+                          color="#3ea0a3"
+                          density="comfortable"
+                          hide-details
+                          inline
+                          @update:model-value="updateFormData"
+                        >
+                          <v-radio
+                            label="相符"
+                            value="compliant"
+                          />
+                          <v-radio
+                            label="不符"
+                            value="non-compliant"
+                          />
+                        </v-radio-group>
+                      </v-sheet>
                     </div>
                   </v-col>
                 </v-row>
 
-                <v-row>
+                <!-- 非複驗狀態下顯示原測試日期和人員 -->
+                <v-row v-if="!localFormData.isReinspection">
                   <v-col
                     cols="12"
                     md="6"
                   >
                     <v-text-field
                       v-model="formattedTestDate"
-                      label="功能測試日期"
                       variant="outlined"
                       density="comfortable"
                       readonly
@@ -343,7 +387,11 @@
                       :rules="[v => !!localFormData.testDate || '請選擇功能測試日期']"
                       @click="openDateDialog('test')"
                       @update:model-value="updateFormData"
-                    />
+                    >
+                      <template #label>
+                        功能測試日期<span class="required-asterisk">*(必填)</span>
+                      </template>
+                    </v-text-field>
 
                     <!-- 自定義日期選擇對話框 -->
                     <v-dialog
@@ -417,28 +465,160 @@
                   >
                     <v-text-field
                       v-model="localFormData.tester"
-                      label="測試人員"
                       variant="outlined"
                       density="comfortable"
                       :rules="[v => !!v || '請填寫測試人員']"
                       prepend-icon="mdi-account"
                       @update:model-value="updateFormData"
-                    />
+                    >
+                      <template #label>
+                        測試人員<span class="required-asterisk">*(必填)</span>
+                      </template>
+                    </v-text-field>
                   </v-col>
                 </v-row>
 
-                <v-row>
+                <!-- 複驗相關欄位 -->
+                <v-row v-if="localFormData.isReinspection">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
+                    <v-text-field
+                      v-model="formattedReinspectionDate"
+                      variant="outlined"
+                      density="comfortable"
+                      readonly
+                      prepend-icon="mdi-calendar"
+                      :rules="localFormData.isReinspection ? [v => !!localFormData.reinspectionDate || '請選擇功能複驗日期'] : []"
+                      @click="openDateDialog('reinspection')"
+                      @update:model-value="updateFormData"
+                    >
+                      <template #label>
+                        功能複驗日期<span class="required-asterisk">*(必填)</span>
+                      </template>
+                    </v-text-field>
+
+                    <!-- 複驗日期選擇對話框 -->
+                    <v-dialog
+                      v-model="datePickerDialog3"
+                      width="600"
+                    >
+                      <v-card>
+                        <v-card-title
+                          class="text-h6 font-weight-bold"
+                          style="color: #2d8c8f"
+                        >
+                          選擇功能複驗日期
+                        </v-card-title>
+                        <v-card-text>
+                          <v-row>
+                            <v-col cols="4">
+                              <v-select
+                                v-model="reinspectionDateComponents.year"
+                                :items="yearOptions"
+                                label="年"
+                                variant="outlined"
+                                density="comfortable"
+                                color="#3ea0a3"
+                              />
+                            </v-col>
+                            <v-col cols="4">
+                              <v-select
+                                v-model="reinspectionDateComponents.month"
+                                :items="monthOptions"
+                                label="月"
+                                variant="outlined"
+                                density="comfortable"
+                                color="#3ea0a3"
+                              />
+                            </v-col>
+                            <v-col cols="4">
+                              <v-select
+                                v-model="reinspectionDateComponents.day"
+                                :items="dayOptions('reinspection')"
+                                label="日"
+                                variant="outlined"
+                                density="comfortable"
+                                color="#3ea0a3"
+                              />
+                            </v-col>
+                          </v-row>
+                        </v-card-text>
+                        <v-card-actions>
+                          <v-spacer />
+                          <v-btn
+                            variant="text"
+                            @click="datePickerDialog3 = false"
+                          >
+                            取消
+                          </v-btn>
+                          <v-btn
+                            color="#3ea0a3"
+                            variant="text"
+                            @click="confirmDateSelection('reinspection')"
+                          >
+                            確定
+                          </v-btn>
+                        </v-card-actions>
+                      </v-card>
+                    </v-dialog>
+                  </v-col>
+
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
+                    <v-text-field
+                      v-model="localFormData.reinspectionTester"
+                      variant="outlined"
+                      density="comfortable"
+                      :rules="localFormData.isReinspection ? [v => !!v || '請填寫複驗人員'] : []"
+                      prepend-icon="mdi-account"
+                      @update:model-value="updateFormData"
+                    >
+                      <template #label>
+                        複驗人員<span class="required-asterisk">*(必填)</span>
+                      </template>
+                    </v-text-field>
+                  </v-col>
+                </v-row>
+
+                <!-- 測試結果 - 非複驗狀態顯示 -->
+                <v-row v-if="!localFormData.isReinspection">
                   <v-col cols="12">
                     <v-select
                       v-model="localFormData.testResult"
-                      :items="testResultOptions"
-                      label="測試結果"
+                      :items="testResultOptions.filter(option => ['original', 'adjusted', 'improvement'].includes(option.value))"
                       variant="outlined"
                       density="comfortable"
                       :rules="[v => !!v || '請選擇測試結果']"
                       prepend-icon="mdi-clipboard-check"
                       @update:model-value="updateFormData"
-                    />
+                    >
+                      <template #label>
+                        測試結果<span class="required-asterisk">*(必填)</span>
+                      </template>
+                    </v-select>
+                  </v-col>
+                </v-row>
+
+                <!-- 複驗結果 - 複驗狀態顯示 -->
+                <v-row v-if="localFormData.isReinspection">
+                  <v-col cols="12">
+                    <v-select
+                      v-model="localFormData.reinspectionResult"
+                      :items="testResultOptions.filter(option => ['original', 'adjusted', 'cancel'].includes(option.value))"
+                      variant="outlined"
+                      density="comfortable"
+                      :rules="localFormData.isReinspection ? [v => !!v || '請選擇複驗結果'] : []"
+                      prepend-icon="mdi-clipboard-check"
+                      @update:model-value="updateFormData"
+                    >
+                      <template #label>
+                        複驗結果<span class="required-asterisk">*(必填)</span>
+                      </template>
+                    </v-select>
                   </v-col>
                 </v-row>
               </v-sheet>
@@ -447,7 +627,7 @@
 
           <!-- 功能測試(驗收)結果區域 -->
           <v-card
-            v-if="localFormData.testResult"
+            v-if="localFormData.testResult || localFormData.reinspectionResult"
             class="mb-4"
             variant="outlined"
           >
@@ -466,7 +646,7 @@
                 class="pa-3 rounded"
                 color="bg-amber-lighten-5 border border-amber"
               >
-                <v-row v-if="localFormData.testResult === 'original'">
+                <v-row v-if="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'original'">
                   <v-col cols="12">
                     <v-text-field
                       v-model="localFormData.originalPayment"
@@ -480,21 +660,21 @@
                   </v-col>
                 </v-row>
 
-                <v-row v-if="localFormData.testResult === 'adjusted'">
+                <v-row v-if="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'adjusted'">
                   <v-col cols="12">
                     <v-text-field
                       v-model="localFormData.increasedDecreasedAmount"
                       label="減列"
                       variant="outlined"
                       density="comfortable"
-                      :rules="localFormData.testResult === 'adjusted' ? [v => !!v || '請填寫增減列金額'] : []"
+                      :rules="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'adjusted' ? [v => !!v || '請填寫增減列金額'] : []"
                       bg-color="yellow-lighten-3"
                       @update:model-value="updateFormData"
                     />
                   </v-col>
                 </v-row>
 
-                <v-row v-if="localFormData.testResult === 'adjusted' || localFormData.testResult === 'original'">
+                <v-row v-if="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'adjusted' || (localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'original'">
                   <v-col cols="12">
                     <v-text-field
                       v-model="localFormData.actualPayment"
@@ -517,9 +697,13 @@
                       density="comfortable"
                       rows="3"
                       auto-grow
-                      :rules="[v => localFormData.testResult !== 'improvement' || !!v || '請填寫結果說明']"
+                      :rules="[v => (localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) !== 'improvement' || !!v || '請填寫結果說明']"
                       @update:model-value="updateFormData"
-                    />
+                    >
+                      <template #label>
+                        結果說明<span class="required-asterisk">*(必填)</span>
+                      </template>
+                    </v-textarea>
                   </v-col>
                 </v-row>
               </v-sheet>
@@ -674,15 +858,31 @@ const form = ref(null);
 const localValid = ref(true);
 const datePickerDialog1 = ref(false);
 const datePickerDialog2 = ref(false);
+const datePickerDialog3 = ref(false); // 複驗日期對話框
 const isDesignChangeVisible = ref(false);
 
 // 測試結果選項
 const testResultOptions = [
   { title: '測試合格，依核定補助款發放', value: 'original' },
-  { title: '測試合格，依核定補助款增減列', value: 'adjusted' },
-  { title: '測試不合格，改善後另行複查', value: 'improvement' },
-  { title: '限期改善後，測試不合格，取消補助資格', value: 'cancel' }
+  { title: '測試合格，依核定補助款減列金額', value: 'adjusted' },
+  { title: '測試不合格，限期改善複查（請註明完成改善期限）', value: 'improvement' },
+  { title: '測試不合格，取消補助資格', value: 'cancel' }
 ];
+
+// 動態測試結果選項 - 根據複驗狀態顯示不同選項
+const dynamicTestResultOptions = computed(() => {
+  if (localFormData.isReinspection) {
+    // 複驗狀態：顯示 original, adjusted, cancel
+    return testResultOptions.filter(option =>
+      ['original', 'adjusted', 'cancel'].includes(option.value)
+    );
+  } else {
+    // 非複驗狀態：顯示 original, adjusted, improvement
+    return testResultOptions.filter(option =>
+      ['original', 'adjusted', 'improvement'].includes(option.value)
+    );
+  }
+});
 
 // 本地表單數據
 const localFormData = reactive({
@@ -698,10 +898,17 @@ const localFormData = reactive({
 
   // 竣工資訊
   completionDate: '',      // 申報結案日期
-  completionStatus: '',    // 實際工程辦理情形
+  designCompliance: '',    // 與設計圖說規劃型式相符 ('compliant' | 'non-compliant')
+  operationCompliance: '', // 經現場運轉功能相符 ('compliant' | 'non-compliant')
   testDate: '',            // 功能測試日期
   tester: '',              // 測試人員
   testResult: '',          // 測試結果
+
+  // 複驗相關欄位
+  isReinspection: false,   // 是否為複驗
+  reinspectionDate: '',    // 功能複驗日期
+  reinspectionTester: '',  // 複驗人員
+  reinspectionResult: '',  // 複驗結果
 
   // 功能測試(驗收)結果
   originalPayment: '',          // 原應發放
@@ -712,8 +919,8 @@ const localFormData = reactive({
   // 照片
   beforeConstructionPhoto: null,
   afterConstructionPhoto: null,
-  beforePhotoPreview: null,
-  afterPhotoPreview: null,
+  beforePhotoPreview: null as string | null,
+  afterPhotoPreview: null as string | null,
 
   // 設置默認值，確保與edit.vue中的顯示邏輯保持一致
   valid: true
@@ -749,6 +956,12 @@ const testDateComponents = reactive({
   day: new Date().getDate()
 });
 
+const reinspectionDateComponents = reactive({
+  year: new Date().getFullYear(),
+  month: new Date().getMonth() + 1,
+  day: new Date().getDate()
+});
+
 // 產生年份選項 (民國年)
 const yearOptions = computed(() => {
   const currentYear = new Date().getFullYear();
@@ -775,6 +988,8 @@ const monthOptions = computed(() => {
 const dayOptions = (type) => {
   const components = type === 'completion'
     ? completionDateComponents
+    : type === 'reinspection'
+    ? reinspectionDateComponents
     : testDateComponents;
 
   const year = components.year;
@@ -828,19 +1043,44 @@ const formattedTestDate = computed(() => {
   }
 });
 
+const formattedReinspectionDate = computed(() => {
+  if (!localFormData.reinspectionDate) return '';
+
+  try {
+    const date = new Date(localFormData.reinspectionDate);
+    if (isNaN(date.getTime())) return '';
+
+    // 計算民國年
+    const twYear = date.getFullYear() - 1911;
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `民國 ${twYear} 年 ${month} 月 ${day} 日`;
+  } catch (error) {
+    console.error('日期格式化錯誤:', error);
+    return '';
+  }
+});
+
 // 開啟日期選擇對話框
 const openDateDialog = (type) => {
   // 選擇要操作的組件和對話框
   const components = type === 'completion'
     ? completionDateComponents
+    : type === 'reinspection'
+    ? reinspectionDateComponents
     : testDateComponents;
 
   const dateValue = type === 'completion'
     ? localFormData.completionDate
+    : type === 'reinspection'
+    ? localFormData.reinspectionDate
     : localFormData.testDate;
 
   const dialog = type === 'completion'
     ? datePickerDialog1
+    : type === 'reinspection'
+    ? datePickerDialog3
     : datePickerDialog2;
 
   // 如果已有日期，解析它
@@ -865,6 +1105,8 @@ const openDateDialog = (type) => {
   // 打開對話框
   if (type === 'completion') {
     datePickerDialog1.value = true;
+  } else if (type === 'reinspection') {
+    datePickerDialog3.value = true;
   } else {
     datePickerDialog2.value = true;
   }
@@ -875,6 +1117,8 @@ const confirmDateSelection = (type) => {
   // 選擇要操作的組件和對話框
   const components = type === 'completion'
     ? completionDateComponents
+    : type === 'reinspection'
+    ? reinspectionDateComponents
     : testDateComponents;
 
   // 用選擇的年、月、日構建日期字串
@@ -887,6 +1131,9 @@ const confirmDateSelection = (type) => {
   if (type === 'completion') {
     localFormData.completionDate = dateString;
     datePickerDialog1.value = false;
+  } else if (type === 'reinspection') {
+    localFormData.reinspectionDate = dateString;
+    datePickerDialog3.value = false;
   } else {
     localFormData.testDate = dateString;
     datePickerDialog2.value = false;
@@ -1100,8 +1347,12 @@ onMounted(() => {
   }
 
   // Set default values for new forms
-  if (!localFormData.completionStatus) {
-    // localFormData.completionStatus = 'completed';
+  if (!localFormData.designCompliance) {
+    // localFormData.designCompliance = true;
+  }
+
+  if (!localFormData.operationCompliance) {
+    // localFormData.operationCompliance = true;
   }
 
   if (!localFormData.tester) {
@@ -1142,7 +1393,7 @@ onMounted(() => {
 });
 
 // 監聽測試結果變化
-watch(() => localFormData.testResult, (newValue) => {
+watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult, (newValue) => {
   if (newValue === 'original') {
     // 如果是 "依核定補助款發放"，則自動設置相關金額
     if (!localFormData.originalPayment) {
