@@ -31,6 +31,103 @@
         style="min-height: 0;"
       >
         <!-- 地圖容器 -->
+
+        <!-- 圖層管理面板 -->
+        <div
+          v-if="showLayersPanel"
+          class="layers-panel"
+          :style="{
+            left: panelPosition.x + 'px',
+            top: panelPosition.y + 'px'
+          }"
+        >
+          <v-card
+            class="layer-control-panel"
+            :class="{ 'dragging': isDragging }"
+            elevation="8"
+            rounded="lg"
+          >
+            <v-card-title
+              class="d-flex align-center justify-space-between pa-0 draggable-header"
+              @mousedown="startDrag"
+            >
+              <div class="d-flex align-center">
+                <v-icon
+                  size="small"
+                  class="me-2 drag-handle"
+                >
+                  mdi-drag
+                </v-icon>
+                <span class="text-h6">圖層管理</span>
+              </div>
+              <v-btn
+                icon
+                variant="text"
+                size="small"
+                @click="toggleLayers"
+              >
+                <v-icon>mdi-close</v-icon>
+              </v-btn>
+            </v-card-title>
+            <v-divider />
+            <v-card-text class="pa-0">
+              <v-list density="compact">
+                <div
+                  v-for="(layer, index) in mapLayers"
+                  :key="index"
+                >
+                  <v-list-item class="px-3 py-2">
+                    <template #prepend>
+                      <v-switch
+                        v-model="layer.visible"
+                        color="primary"
+                        class="pr-5"
+                        density="compact"
+                        hide-details
+                        @update:model-value="toggleLayerVisibility(layer)"
+                      />
+                    </template>
+
+                    <v-list-item-title class="text-body-2 font-weight-medium">
+                      {{ layer.name }}
+                    </v-list-item-title>
+                  </v-list-item>
+
+                  <!-- 透明度控制滑桿 - 放在圖層名稱下方 -->
+                  <div
+                    v-if="layer.visible"
+                    class="opacity-control-section px-3 pb-2"
+                  >
+                    <div class="d-flex align-center">
+                      <span class="opacity-label me-2">透明度:</span>
+                      <v-slider
+                        v-model="layer.opacity"
+                        :min="0"
+                        :max="1"
+                        :step="0.01"
+                        thumb-label
+                        density="compact"
+                        hide-details
+                        class="opacity-slider flex-grow-1"
+                        @update:model-value="updateLayerOpacity(layer)"
+                      >
+                        <template #thumb-label="{ modelValue }">
+                          {{ Math.round(modelValue * 100) }}%
+                        </template>
+                      </v-slider>
+                    </div>
+                  </div>
+
+                  <!-- 分隔線 -->
+                  <v-divider
+                    v-if="index < mapLayers.length - 1"
+                  />
+                </div>
+              </v-list>
+            </v-card-text>
+          </v-card>
+        </div>
+
         <div class="map-controls">
           <v-card
             class="map-control-panel"
@@ -207,6 +304,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import 'ol/ol.css';
 import Map from 'ol/Map';
@@ -215,13 +313,23 @@ import {defaults as defaultControls} from 'ol/control/defaults.js';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import StadiaMaps from 'ol/source/StadiaMaps';
-import TileWMS from 'ol/source/TileWMS';  // 添加 WMS 導入
+import TileWMS from 'ol/source/TileWMS';
 import { fromLonLat, toLonLat } from 'ol/proj';
+import type { LocationQueryValue } from 'vue-router';
+
+// 定義圖層介面
+interface MapLayer {
+  name: string;
+  visible: boolean;
+  opacity: number;
+  layer: any | null; // 使用 any 以避免複雜的 OpenLayers 類型問題
+}
 
 const router = useRouter();
 const route = useRoute();
 
-let map = null;
+// 定義地圖變數，使用具體的 Map 型別
+let map: Map | null = null;
 const isFluid = ref(false);
 const mapContainer = ref(null);
 const showSnackbar = ref(false);
@@ -229,6 +337,54 @@ const snackbarMessage = ref('');
 const isDrawing = ref(false);
 const isMeasuring = ref(false);
 const showLayersPanel = ref(false);
+
+// 圖層面板拖拽相關
+const isDragging = ref(false);
+const dragOffset = ref({ x: 0, y: 0 });
+
+// 從 localStorage 讀取保存的面板位置，如果沒有則使用默認位置
+const getSavedPanelPosition = () => {
+  const saved = localStorage.getItem('layersPanelPosition');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (error) {
+      console.warn('無法解析保存的面板位置:', error);
+    }
+  }
+  // 默認位置：右上方，工具列左邊
+  // 使用 rightOffset 來計算右邊距離，確保在工具列左邊
+  const rightOffset = 90;  // 工具列寬度 + 間距
+  const topOffset = 10;    // 頂部間距
+  return {
+    x: Math.max(10, (window.innerWidth || 1200) - 300 - rightOffset),
+    y: topOffset
+  };
+};
+
+const panelPosition = ref(getSavedPanelPosition());
+
+// 圖層管理相關
+const mapLayers = ref<MapLayer[]>([
+  {
+    name: '臺灣通用電子地圖',
+    visible: true,
+    opacity: 1,
+    layer: null
+  },
+  {
+    name: 'OpenStreetMap',
+    visible: false,
+    opacity: 1,
+    layer: null
+  },
+  {
+    name: 'Stamen Watercolor',
+    visible: false,
+    opacity: 1,
+    layer: null
+  },
+]);
 
 // 用於追蹤地圖是否已完全初始化
 const mapInitialized = ref(false);
@@ -251,8 +407,71 @@ const toggleFluid = () => {
 
 const toggleLayers = () => {
   showLayersPanel.value = !showLayersPanel.value;
-  console.log('圖層管理');
-  // TODO: 實作圖層管理面板
+};
+
+// 圖層面板拖拽功能
+const startDrag = (event: MouseEvent) => {
+  isDragging.value = true;
+
+  // 計算滑鼠相對於面板當前位置的偏移量
+  dragOffset.value = {
+    x: event.clientX - panelPosition.value.x,
+    y: event.clientY - panelPosition.value.y
+  };
+
+  // 添加全局監聽器
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', stopDrag);
+
+  // 防止文字選擇
+  event.preventDefault();
+};
+
+const onDrag = (event: MouseEvent) => {
+  if (!isDragging.value) return;
+
+  // 計算新位置
+  const newX = event.clientX - dragOffset.value.x;
+  const newY = event.clientY - dragOffset.value.y;
+
+  // 獲取視窗邊界
+  const maxX = window.innerWidth - 300; // 面板寬度約300px
+  const maxY = window.innerHeight - 400; // 面板高度約400px
+
+  // 限制在視窗範圍內
+  panelPosition.value = {
+    x: Math.max(0, Math.min(newX, maxX)),
+    y: Math.max(0, Math.min(newY, maxY))
+  };
+};
+
+const stopDrag = () => {
+  isDragging.value = false;
+
+  // 保存面板位置到 localStorage
+  localStorage.setItem('layersPanelPosition', JSON.stringify(panelPosition.value));
+
+  // 移除全局監聽器
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', stopDrag);
+};
+
+// 圖層可見性切換
+const toggleLayerVisibility = (layer: MapLayer) => {
+  console.log('切換圖層:', layer.name, '可見性:', layer.visible);
+  if (layer.layer) {
+    layer.layer.setVisible(layer.visible);
+    console.log('圖層', layer.name, '已設置為:', layer.visible ? '可見' : '隱藏');
+  } else {
+    console.error('圖層對象不存在:', layer.name);
+  }
+};
+
+// 更新圖層透明度
+const updateLayerOpacity = (layer: MapLayer) => {
+  if (layer.layer) {
+    layer.layer.setOpacity(layer.opacity);
+  }
 };
 
 // 定位功能
@@ -325,10 +544,12 @@ const zoomIn = () => {
 
   const view = map.getView();
   const currentZoom = view.getZoom();
-  view.animate({
-    zoom: currentZoom + 1,
-    duration: 250
-  });
+  if (currentZoom !== undefined) {
+    view.animate({
+      zoom: currentZoom + 1,
+      duration: 250
+    });
+  }
 };
 
 const zoomOut = () => {
@@ -336,10 +557,12 @@ const zoomOut = () => {
 
   const view = map.getView();
   const currentZoom = view.getZoom();
-  view.animate({
-    zoom: currentZoom - 1,
-    duration: 250
-  });
+  if (currentZoom !== undefined) {
+    view.animate({
+      zoom: currentZoom - 1,
+      duration: 250
+    });
+  }
 };
 
 const resetView = () => {
@@ -360,7 +583,7 @@ const copyMapLink = () => {
   const center = view.getCenter();
   const zoom = view.getZoom();
 
-  if (!center) return;
+  if (!center || zoom === undefined) return;
 
   // 將坐標從 EPSG:3857 轉換為經緯度 (EPSG:4326)
   const lonLat = toLonLat(center);
@@ -387,6 +610,21 @@ const handleResize = () => {
   if (map) {
     map.updateSize();
   }
+
+  // 檢查面板位置是否需要調整（避免面板超出視窗）
+  if (showLayersPanel.value) {
+    const maxX = window.innerWidth - 300; // 面板寬度約300px
+    const maxY = window.innerHeight - 400; // 面板高度約400px
+
+    if (panelPosition.value.x > maxX || panelPosition.value.y > maxY) {
+      panelPosition.value = {
+        x: Math.max(0, Math.min(panelPosition.value.x, maxX)),
+        y: Math.max(0, Math.min(panelPosition.value.y, maxY))
+      };
+      // 保存調整後的位置
+      localStorage.setItem('layersPanelPosition', JSON.stringify(panelPosition.value));
+    }
+  }
 };
 
 // 監聽地圖移動事件，更新URL
@@ -397,7 +635,7 @@ const updateUrlFromMap = () => {
   const center = view.getCenter();
   const zoom = view.getZoom();
 
-  if (!center) return;
+  if (!center || zoom === undefined) return;
 
   // 將坐標從 EPSG:3857 轉換為經緯度 (EPSG:4326)
   const lonLat = toLonLat(center);
@@ -410,17 +648,26 @@ const updateUrlFromMap = () => {
     z: zoom.toFixed(2)
   };
 
-  router.replace({ query }, { replace: true });
+  router.replace({ query });
+};
+
+// 輔助函數：安全地將 LocationQueryValue 轉換為字符串
+const queryValueToString = (value: any): string | null => {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value) && value.length > 0) return value[0];
+  return null;
 };
 
 // 從URL讀取地圖參數
 const readMapParamsFromUrl = () => {
-  const { lon, lat, z } = route.query;
+  const lonStr = queryValueToString(route.query.lon);
+  const latStr = queryValueToString(route.query.lat);
+  const zStr = queryValueToString(route.query.z);
 
-  if (lon && lat && z) {
+  if (lonStr && latStr && zStr) {
     return {
-      center: fromLonLat([parseFloat(lon), parseFloat(lat)]),
-      zoom: parseFloat(z)
+      center: fromLonLat([parseFloat(lonStr), parseFloat(latStr)]),
+      zoom: parseFloat(zStr)
     };
   }
 
@@ -436,6 +683,19 @@ onMounted(() => {
   if (preferFluid !== null) {
     isFluid.value = preferFluid === 'true';
   }
+
+  // 確保面板位置在視窗尺寸確定後正確設置
+  nextTick(() => {
+    if (!localStorage.getItem('layersPanelPosition')) {
+      // 如果沒有保存的位置，重新計算默認位置
+      const rightOffset = 90;
+      const topOffset = 10;
+      panelPosition.value = {
+        x: Math.max(10, window.innerWidth - 300 - rightOffset),
+        y: topOffset
+      };
+    }
+  });
 
   // 確保 CSS 已正確載入
   const link = document.createElement('link');
@@ -474,6 +734,10 @@ onUnmounted(() => {
 
   // 移除事件監聽器
   window.removeEventListener('resize', handleResize);
+
+  // 清理拖拽事件監聽器
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', stopDrag);
 });
 
 function initMap() {
@@ -487,37 +751,51 @@ function initMap() {
     // 從 URL 獲取初始地圖參數
     const mapParams = readMapParamsFromUrl();
 
-    const layers = [
-      new TileLayer({
-        source: new OSM(),
-        visible: false
+    // 創建圖層並關聯到 mapLayers
+    const nlscLayer = new TileLayer({
+      source: new TileWMS({
+        url: 'https://wms.nlsc.gov.tw/wms',
+        params: {
+          'LAYERS': 'EMAP5',
+          'VERSION': '1.1.1',
+          'FORMAT': 'image/png',
+          'TRANSPARENT': true,
+          'SRS': 'EPSG:3857'
+        },
+        serverType: 'geoserver',
       }),
-      new TileLayer({
-        source: new StadiaMaps({
-          // layer: 'stamen_terrain',
-          // layer: 'stamen_toner',
-          layer: 'stamen_watercolor',
-          retina: false,
-        }),
-        visible: false,
+      visible: mapLayers.value[0].visible,
+      opacity: mapLayers.value[0].opacity
+    });
+
+    const osmLayer = new TileLayer({
+      source: new OSM(),
+      visible: mapLayers.value[1].visible
+    });
+
+    const stamenLayer = new TileLayer({
+      source: new StadiaMaps({
+        layer: 'stamen_watercolor',
+        retina: false,
       }),
-      // 臺灣通用電子地圖透明 WMS 圖層
-      new TileLayer({
-        source: new TileWMS({
-          url: 'https://wms.nlsc.gov.tw/wms',
-          params: {
-            'LAYERS': 'EMAP5',
-            'VERSION': '1.1.1',
-            'FORMAT': 'image/png',
-            'TRANSPARENT': true,
-            'SRS': 'EPSG:3857'
-          },
-          serverType: 'geoserver',
-        }),
-        visible: true,
-        opacity: 0.8  // 設定透明度
-      })
-    ];
+      visible: mapLayers.value[2].visible,
+    });
+
+    const layers = [nlscLayer, osmLayer, stamenLayer];
+
+    // 關聯圖層到 mapLayers 數據結構
+    mapLayers.value[0].layer = nlscLayer;
+    mapLayers.value[1].layer = osmLayer;
+    mapLayers.value[2].layer = stamenLayer;
+
+    // 設置初始可見性和透明度
+    mapLayers.value.forEach((layerInfo) => {
+      if (layerInfo.layer) {
+        layerInfo.layer.setVisible(layerInfo.visible);
+        layerInfo.layer.setOpacity(layerInfo.opacity);
+        console.log(`圖層 ${layerInfo.name} 初始化: 可見=${layerInfo.visible}, 透明度=${layerInfo.opacity}`);
+      }
+    });
 
     // 創建地圖
     map = new Map({
@@ -570,15 +848,17 @@ watch(isFluid, () => {
 watch(() => route.query, (newQuery) => {
   if (!map || !mapInitialized.value) return;
 
-  const { lon, lat, z } = newQuery;
+  const lonStr = queryValueToString(newQuery.lon);
+  const latStr = queryValueToString(newQuery.lat);
+  const zStr = queryValueToString(newQuery.z);
 
-  if (lon && lat && z) {
+  if (lonStr && latStr && zStr) {
     const view = map.getView();
-    const center = fromLonLat([parseFloat(lon), parseFloat(lat)]);
+    const center = fromLonLat([parseFloat(lonStr), parseFloat(latStr)]);
 
     view.animate({
       center: center,
-      zoom: parseFloat(z),
+      zoom: parseFloat(zStr),
       duration: 500
     });
   }
@@ -653,6 +933,64 @@ watch(() => route.query, (newQuery) => {
   top: 10px;
   right: 10px;
   z-index: 1000;
+}
+
+/* 圖層管理面板樣式 */
+.layers-panel {
+  position: absolute;
+  z-index: 1001;
+  max-width: 300px;
+  min-width: 250px;
+  transition: none; /* 取消過渡動畫，以便拖拽更流暢 */
+}
+
+.layer-control-panel {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  max-height: 400px;
+  overflow-y: auto;
+  user-select: none; /* 防止拖拽時選中文字 */
+}
+
+.draggable-header {
+  cursor: move;
+  user-select: none;
+}
+
+.draggable-header:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.layer-control-panel.dragging {
+  opacity: 0.8;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+  cursor: move;
+}
+
+.drag-handle {
+  opacity: 0.6;
+  color: #666;
+}
+
+.opacity-control-section {
+  background-color: rgba(248, 248, 248, 0.8);
+  margin: 0 8px;
+  border-radius: 4px;
+}
+
+.opacity-label {
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+  min-width: 50px;
+}
+
+.opacity-control {
+  width: 120px;
+  margin-left: 12px;
+}
+
+.opacity-slider {
+  margin: 0;
 }
 
 .map-control-panel {
