@@ -148,6 +148,7 @@ export const DOMICILE = {
   COUNTIES_LIST: `${BASE}/domicile`,
   TOWNS_LIST: `${BASE}/domicile/towns`,
   VILLAGES_LIST: `${BASE}/domicile/villages`,
+  SECTIONS_LIST: `${BASE}/domicile/sections`,
 }
 
 export const IRRIGATION_TYPES = {

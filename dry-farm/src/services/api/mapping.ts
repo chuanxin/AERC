@@ -31,6 +31,7 @@ export const BACKEND_PATHS = {
     TOWNS_LIST: '/towns',
     // TOWNS_LIST: (countyId: number) => `/towns?county_id=${countyId}`,
     VILLAGES_LIST: '/villages',
+    SECTIONS_LIST: '/sections',
   },
   GRANTS: {
     CREATE: '/grants',

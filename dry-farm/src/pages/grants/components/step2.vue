@@ -44,9 +44,9 @@
                   size="small"
                   class="me-2"
                 >
-                  mdi-map
+                  mdi-land-plots
                 </v-icon>
-                <span class="text-body-2 font-weight-medium">行政區域</span>
+                <span class="text-body-2 font-weight-medium">設施地段</span>
               </div>
               <v-row>
                 <v-col
@@ -54,7 +54,7 @@
                   md="4"
                 >
                   <v-select
-                    v-model="localFormData.addressCounty"
+                    v-model="localFormData.landCounty"
                     :items="counties"
                     variant="outlined"
                     density="comfortable"
@@ -73,14 +73,14 @@
                   md="4"
                 >
                   <v-select
-                    v-model="localFormData.addressTown"
+                    v-model="localFormData.landTown"
                     :items="towns"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
                     :rules="[v => !!v || '請選擇鄉鎮市區']"
-                    :disabled="!localFormData.addressCounty"
+                    :disabled="!localFormData.landCounty"
                     @update:model-value="onTownChange"
                   >
                     <template #label>
@@ -93,14 +93,14 @@
                   md="4"
                 >
                   <v-select
-                    v-model="localFormData.addressVillage"
+                    v-model="localFormData.landSec"
                     :items="villages"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
-                    :rules="[v => !!v || '請選擇村里']"
-                    :disabled="!localFormData.addressTown"
+                    :rules="[v => !!v || '請選擇地段']"
+                    :disabled="!localFormData.landTown"
                   >
                     <template #label>
                       地段<span class="required-asterisk">*(必填)</span>
@@ -640,7 +640,6 @@
                 <v-select
                   v-model="localFormData.cropCategory"
                   :items="cropCategories"
-                  label="作物類別"
                   variant="outlined"
                   density="comfortable"
                   color="#3ea0a3"
@@ -648,11 +647,15 @@
                   class="me-2"
                   style="width: 200px"
                   @update:model-value="onCropCategoryChange"
-                />
+                >
+                  <template #label>
+                    作物類別<span class="required-asterisk">*(必填)</span>
+                  </template>
+                </v-select>
+
                 <v-select
                   v-model="localFormData.cropName"
                   :items="crops"
-                  label="作物名稱"
                   variant="outlined"
                   density="comfortable"
                   color="#3ea0a3"
@@ -660,7 +663,11 @@
                   class="me-2"
                   style="width: 200px"
                   :disabled="!localFormData.cropCategory"
-                />
+                >
+                  <template #label>
+                    作物名稱<span class="required-asterisk">*(必填)</span>
+                  </template>
+                </v-select>
                 <v-btn
                   variant="outlined"
                   color="#3ea0a3"
@@ -757,19 +764,44 @@
               <span>所有權人資料</span>
             </v-card-title>
 
-            <!-- 所有權人基本資料 -->
+            <!-- 基本所有權人資料 (簡化版本，假設單一持分) -->
             <v-sheet
               class="mb-3 pa-3 rounded"
               color="white"
             >
-              <div class="d-flex align-center mb-2">
-                <v-icon
+              <div class="d-flex align-center justify-space-between mb-2">
+                <div class="d-flex align-center">
+                  <v-icon
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-account-details
+                  </v-icon>
+                  <span class="text-body-2 font-weight-medium">所有權人基本資料</span>
+                  <v-chip
+                    size="x-small"
+                    color="success"
+                    variant="tonal"
+                    class="ms-2"
+                  >
+                    單一持分
+                  </v-chip>
+                </div>
+                <v-btn
+                  v-if="!showCoOwnerSettings"
+                  variant="text"
+                  color="#3ea0a3"
                   size="small"
-                  class="me-2"
+                  @click="showCoOwnerSettings = true"
                 >
-                  mdi-account-details
-                </v-icon>
-                <span class="text-body-2 font-weight-medium">所有權人基本資料</span>
+                  <v-icon
+                    size="small"
+                    class="me-1"
+                  >
+                    mdi-account-plus
+                  </v-icon>
+                  新增共同持分人
+                </v-btn>
               </div>
               <v-row>
                 <v-col
@@ -778,13 +810,16 @@
                 >
                   <v-text-field
                     v-model="localFormData.ownerName"
-                    label="持分人姓名"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
                     @update:model-value="updateFormData"
-                  />
+                  >
+                    <template #label>
+                      所有權人姓名<span class="required-asterisk">*(必填)</span>
+                    </template>
+                  </v-text-field>
                 </v-col>
                 <v-col
                   cols="12"
@@ -792,234 +827,274 @@
                 >
                   <v-text-field
                     v-model="localFormData.ownerId"
-                    label="持分人身分證字號"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
                     @update:model-value="updateFormData"
-                  />
+                  >
+                    <template #label>
+                      所有權人身分證字號<span class="required-asterisk">*(必填)</span>
+                    </template>
+                  </v-text-field>
                 </v-col>
               </v-row>
             </v-sheet>
 
-            <!-- 所有權人地址 -->
-            <v-sheet
-              class="mb-3 pa-3 rounded"
-              color="white"
-            >
-              <div class="d-flex align-center mb-2">
-                <v-icon
-                  size="small"
-                  class="me-2"
+            <!-- 展開的共同持分人設定區域 -->
+            <v-expand-transition>
+              <div v-if="showCoOwnerSettings">
+                <!-- 共同持分人說明 -->
+                <v-alert
+                  type="info"
+                  variant="tonal"
+                  class="mb-3"
+                  density="compact"
                 >
-                  mdi-home
-                </v-icon>
-                <span class="text-body-2 font-weight-medium">持分人地址</span>
-              </div>
-              <v-row>
-                <v-col cols="12">
-                  <div class="d-flex align-center flex-wrap">
-                    <v-select
-                      v-model="localFormData.ownerCounty"
-                      :items="counties"
-                      label="縣市"
-                      variant="outlined"
-                      density="comfortable"
-                      color="#3ea0a3"
-                      bg-color="white"
-                      class="me-2 mb-2"
-                      style="width: 150px"
-                      @update:model-value="onOwnerCountyChange"
-                    />
-                    <v-select
-                      v-model="localFormData.ownerTown"
-                      :items="ownerTowns"
-                      label="鄉鎮市區"
-                      variant="outlined"
-                      density="comfortable"
-                      color="#3ea0a3"
-                      bg-color="white"
-                      class="me-2 mb-2"
-                      style="width: 150px"
-                      :disabled="!localFormData.ownerCounty"
-                      @update:model-value="onOwnerTownChange"
-                    />
-                    <v-select
-                      v-model="localFormData.ownerVillage"
-                      :items="ownerVillages"
-                      label="村里"
-                      variant="outlined"
-                      density="comfortable"
-                      color="#3ea0a3"
-                      bg-color="white"
-                      class="mb-2"
-                      style="width: 150px"
-                      :disabled="!localFormData.ownerTown"
-                    />
-                  </div>
-                </v-col>
-              </v-row>
-            </v-sheet>
+                  您已切換至共同持分模式，請填寫各持分人的詳細資料及持分比例
+                </v-alert>
 
-            <!-- 持分資訊 -->
-            <v-sheet
-              class="mb-3 pa-3 rounded"
-              color="rgba(255, 248, 225, 0.6)"
-            >
-              <div class="d-flex align-center mb-2">
-                <v-icon
-                  size="small"
-                  class="me-2"
-                  color="#3ea0a3"
+                <!-- 持分人地址 -->
+                <v-sheet
+                  class="mb-3 pa-3 rounded"
+                  color="white"
                 >
-                  mdi-percent
-                </v-icon>
-                <span class="text-body-2 font-weight-medium">持分資訊</span>
-              </div>
-              <v-row align="center">
-                <v-col
-                  cols="12"
-                  md="6"
-                >
-                  <div class="d-flex align-center">
-                    <span class="text-body-2 font-weight-medium me-2">持分比例</span>
-                    <v-text-field
-                      v-model="localFormData.ownerShare1"
-                      variant="outlined"
-                      density="compact"
-                      color="#3ea0a3"
-                      bg-color="white"
-                      class="me-1"
-                      style="width: 80px"
-                      type="number"
-                      @update:model-value="updateFormData"
-                    />
-                    <div class="mx-1">
-                      分子
-                    </div>
-                    <div class="mx-1">
-                      /
-                    </div>
-                    <v-text-field
-                      v-model="localFormData.ownerShare2"
-                      variant="outlined"
-                      density="compact"
-                      color="#3ea0a3"
-                      bg-color="white"
-                      class="me-1"
-                      style="width: 80px"
-                      type="number"
-                      @update:model-value="updateFormData"
-                    />
-                    <div class="ms-1">
-                      分母
-                    </div>
-                  </div>
-                </v-col>
-                <v-col
-                  cols="12"
-                  md="6"
-                >
-                  <div class="d-flex align-center">
-                    <span class="text-body-2 font-weight-medium me-2">持分面積</span>
-                    <v-text-field
-                      v-model="ownerAreaComputed"
-                      variant="outlined"
-                      density="compact"
-                      color="#3ea0a3"
-                      bg-color="white"
-                      class="me-2"
-                      style="width: 120px"
-                      readonly
-                    />
-                    <div class="me-2">
-                      ㎡
-                    </div>
-                    <v-btn
-                      variant="outlined"
-                      color="#3ea0a3"
-                      rounded="lg"
+                  <div class="d-flex align-center mb-2">
+                    <v-icon
                       size="small"
-                      :disabled="!canAddOwner"
-                      @click="addOwner"
+                      class="me-2"
+                    >
+                      mdi-home
+                    </v-icon>
+                    <span class="text-body-2 font-weight-medium">持分人地址</span>
+                  </div>
+                  <v-row>
+                    <v-col cols="12">
+                      <div class="d-flex align-center flex-wrap">
+                        <v-select
+                          v-model="localFormData.ownerCounty"
+                          :items="counties"
+                          item-title="title"
+                          item-value="value"
+                          variant="outlined"
+                          density="comfortable"
+                          color="#3ea0a3"
+                          bg-color="white"
+                          class="me-2 mb-2"
+                          style="width: 150px"
+                          @update:model-value="onOwnerCountyChange"
+                        >
+                          <template #label>
+                            縣市<span class="required-asterisk">*(必填)</span>
+                          </template>
+                        </v-select>
+                        <v-select
+                          v-model="localFormData.ownerTown"
+                          :items="ownerTowns"
+                          label="鄉鎮市區"
+                          variant="outlined"
+                          density="comfortable"
+                          color="#3ea0a3"
+                          bg-color="white"
+                          class="me-2 mb-2"
+                          style="width: 150px"
+                          :disabled="!localFormData.ownerCounty"
+                          @update:model-value="onOwnerTownChange"
+                        />
+                        <v-select
+                          v-model="localFormData.ownerVillage"
+                          :items="ownerVillages"
+                          label="村里"
+                          variant="outlined"
+                          density="comfortable"
+                          color="#3ea0a3"
+                          bg-color="white"
+                          class="mb-2"
+                          style="width: 150px"
+                          :disabled="!localFormData.ownerTown"
+                        />
+                      </div>
+                    </v-col>
+                  </v-row>
+                </v-sheet>
+
+                <!-- 持分資訊 -->
+                <v-sheet
+                  class="mb-3 pa-3 rounded"
+                  color="rgba(255, 248, 225, 0.6)"
+                >
+                  <div class="d-flex align-center mb-2">
+                    <v-icon
+                      size="small"
+                      class="me-2"
+                      color="#3ea0a3"
+                    >
+                      mdi-percent
+                    </v-icon>
+                    <span class="text-body-2 font-weight-medium">持分資訊</span>
+                  </div>
+                  <v-row align="center">
+                    <v-col
+                      cols="12"
+                      md="6"
+                    >
+                      <div class="d-flex align-center">
+                        <span class="text-body-2 font-weight-medium me-2">持分比例</span>
+                        <v-text-field
+                          v-model="localFormData.ownerShare1"
+                          variant="outlined"
+                          density="compact"
+                          color="#3ea0a3"
+                          bg-color="white"
+                          class="me-1"
+                          style="width: 80px"
+                          type="number"
+                          @update:model-value="updateFormData"
+                        />
+                        <div class="mx-1">
+                          分子
+                        </div>
+                        <div class="mx-1">
+                          /
+                        </div>
+                        <v-text-field
+                          v-model="localFormData.ownerShare2"
+                          variant="outlined"
+                          density="compact"
+                          color="#3ea0a3"
+                          bg-color="white"
+                          class="me-1"
+                          style="width: 80px"
+                          type="number"
+                          @update:model-value="updateFormData"
+                        />
+                        <div class="ms-1">
+                          分母
+                        </div>
+                      </div>
+                    </v-col>
+                    <v-col
+                      cols="12"
+                      md="6"
+                    >
+                      <div class="d-flex align-center">
+                        <span class="text-body-2 font-weight-medium me-2">持分面積</span>
+                        <v-text-field
+                          v-model="ownerAreaComputed"
+                          variant="outlined"
+                          density="compact"
+                          color="#3ea0a3"
+                          bg-color="white"
+                          class="me-2"
+                          style="width: 120px"
+                          readonly
+                        />
+                        <div class="me-2">
+                          ㎡
+                        </div>
+                        <v-btn
+                          variant="outlined"
+                          color="#3ea0a3"
+                          rounded="lg"
+                          size="small"
+                          :disabled="!canAddOwner"
+                          @click="addOwner"
+                        >
+                          <v-icon
+                            size="small"
+                            class="me-1"
+                          >
+                            mdi-plus
+                          </v-icon>
+                          加入
+                        </v-btn>
+                      </div>
+                    </v-col>
+                  </v-row>
+                </v-sheet>
+
+                <!-- 所有權人列表 -->
+                <v-sheet class="pa-0">
+                  <div class="d-flex align-center justify-space-between mb-2">
+                    <span class="text-body-2 font-weight-medium">共同持分人清單</span>
+                    <v-btn
+                      variant="text"
+                      color="grey"
+                      size="small"
+                      @click="collapseCoOwnerSettings"
                     >
                       <v-icon
                         size="small"
                         class="me-1"
                       >
-                        mdi-plus
+                        mdi-chevron-up
                       </v-icon>
-                      加入
+                      收合
                     </v-btn>
                   </div>
-                </v-col>
-              </v-row>
-            </v-sheet>
-
-            <!-- 所有權人列表 -->
-            <v-sheet class="pa-0">
-              <v-table
-                density="comfortable"
-                class="rounded border"
-              >
-                <thead class="bg-grey-lighten-3">
-                  <tr>
-                    <th
-                      class="text-center"
-                      style="width: 50px"
-                    >
-                      NO.
-                    </th>
-                    <th>姓名</th>
-                    <th>身分證字號</th>
-                    <th>地址</th>
-                    <th>持分比例</th>
-                    <th>持分面積㎡</th>
-                    <th
-                      class="text-center"
-                      style="width: 80px"
-                    >
-                      刪除
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="(owner, index) in localFormData.owners"
-                    :key="index"
+                  <v-table
+                    density="comfortable"
+                    class="rounded border"
                   >
-                    <td class="text-center">
-                      {{ index + 1 }}
-                    </td>
-                    <td>{{ owner.name }}</td>
-                    <td>{{ owner.id }}</td>
-                    <td>{{ owner.address }}</td>
-                    <td>{{ owner.share }}</td>
-                    <td>{{ owner.area }}</td>
-                    <td class="text-center">
-                      <v-btn
-                        icon
-                        size="x-small"
-                        color="error"
-                        variant="text"
-                        @click="removeOwner(index)"
+                    <thead class="bg-grey-lighten-3">
+                      <tr>
+                        <th
+                          class="text-center"
+                          style="width: 50px"
+                        >
+                          NO.
+                        </th>
+                        <th>姓名</th>
+                        <th>身分證字號</th>
+                        <th>地址</th>
+                        <th>持分比例</th>
+                        <th>持分面積㎡</th>
+                        <th
+                          class="text-center"
+                          style="width: 80px"
+                        >
+                          刪除
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="(owner, index) in localFormData.owners"
+                        :key="index"
                       >
-                        <v-icon>mdi-close</v-icon>
-                      </v-btn>
-                    </td>
-                  </tr>
-                  <tr v-if="!localFormData.owners || localFormData.owners.length === 0">
-                    <td
-                      colspan="7"
-                      class="text-center py-3 text-grey"
-                    >
-                      尚未新增任何所有權人，請使用上方加入按鈕新增
-                    </td>
-                  </tr>
-                </tbody>
-              </v-table>
-            </v-sheet>
+                        <td class="text-center">
+                          {{ index + 1 }}
+                        </td>
+                        <td>{{ owner.name }}</td>
+                        <td>{{ owner.id }}</td>
+                        <td>{{ owner.address }}</td>
+                        <td>{{ owner.share }}</td>
+                        <td>{{ owner.area }}</td>
+                        <td class="text-center">
+                          <v-btn
+                            icon
+                            size="x-small"
+                            color="error"
+                            variant="text"
+                            @click="removeOwner(index)"
+                          >
+                            <v-icon>mdi-close</v-icon>
+                          </v-btn>
+                        </td>
+                      </tr>
+                      <tr v-if="!localFormData.owners || localFormData.owners.length === 0">
+                        <td
+                          colspan="7"
+                          class="text-center py-3 text-grey"
+                        >
+                          尚未新增任何共同持分人，請使用上方加入按鈕新增
+                        </td>
+                      </tr>
+                    </tbody>
+                  </v-table>
+                </v-sheet>
+              </div>
+            </v-expand-transition>
           </v-card>
         </v-form>
       </v-card-text>
@@ -1264,6 +1339,7 @@ import { getArea } from 'ol/sphere';
 
 // Import store
 import { useGrantsStore } from '@/stores/grants';
+import { useDomicileStore } from '@/stores/domicile';
 
 // Reference to map element and map instance
 const mapElement = ref(null);
@@ -1272,6 +1348,9 @@ let map: any = null;
 // Form validation references
 const form = ref(null);
 const localValid = ref(true);
+
+// Co-owner settings visibility control
+const showCoOwnerSettings = ref(false);
 
 // Props and emitters
 const props = defineProps({
@@ -1290,13 +1369,14 @@ const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 
 // Access the grants store
 const grantsStore = useGrantsStore();
+const domicileStore = useDomicileStore();
 
 // Local form data
 const localFormData = reactive({
   // Facility address section
-  addressCounty: '',
-  addressTown: '',
-  addressVillage: '',
+  landCounty: '',
+  landTown: '',
+  landSec: '',
   landNumber: '',
   landNumberMain: '',
   landNumberSub: '',
@@ -1366,30 +1446,25 @@ let selectedFeatureKey = null;
 let modifyFeatureKey = null;
 
 // Address data
-const counties = [
-  '嘉義縣', '臺北市', '新北市', '桃園市', '臺中市', '臺南市', '高雄市', '新竹縣', '新竹市', '苗栗縣',
-  '彰化縣', '南投縣', '雲林縣', '嘉義市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣'
-];
-
-const townsMap = reactive<Record<string, string[]>>({
-  '嘉義縣': ['竹崎鄉', '太保市', '朴子市', '布袋鎮', '大林鎮', '民雄鄉'],
-  '臺北市': ['中正區', '大同區', '中山區', '松山區', '大安區', '萬華區'],
-  '新北市': ['板橋區', '三重區', '中和區', '永和區', '新莊區', '新店區'],
-  // Other cities and towns can be added as needed
+const counties = computed(() => {
+  return domicileStore.countyOptions.map(county => ({
+    title: county.title,
+    value: county.value
+  }));
 });
 
-const villagesMap = reactive<Record<string, Record<string, string[]>>>({
-  '嘉義縣': {
-    '竹崎鄉': ['內埔子段'],
-    '太保市': ['太保村', '麻寮村'],
-    '朴子市': ['朴子村', '佳禾村']
-  },
-  '臺北市': {
-    '中正區': ['文北里', '文祥里', '龍福里'],
-    '大同區': ['建功里', '建明里', '星明里']
+// Load towns and villages for a county when it's selected
+const loadTownsForCounty = async (countyValue: number | string) => {
+  if (typeof countyValue === 'number') {
+    await domicileStore.loadTownsByCountyId(countyValue);
+  } else if (typeof countyValue === 'string' && !isNaN(parseInt(countyValue))) {
+    await domicileStore.loadTownsByCountyId(parseInt(countyValue));
   }
-  // Other regions can be added as needed
-});
+};
+
+const loadVillagesForTown = async (townValue: number) => {
+  await domicileStore.loadLandSectionsByTownId(townValue);
+};
 
 // Crop data
 const cropCategoriesData = {
@@ -1405,21 +1480,35 @@ const cropCategories = Object.keys(cropCategoriesData);
 
 // Computed properties for reactive filtering
 const towns = computed(() => {
-  return localFormData.addressCounty ? (townsMap[localFormData.addressCounty] || []) : [];
+  if (!localFormData.landCounty) return [];
+  const countyId = typeof localFormData.landCounty === 'number'
+    ? localFormData.landCounty
+    : parseInt(localFormData.landCounty);
+  return domicileStore.getTownsForCountyId(countyId);
 });
 
 const villages = computed(() => {
-  if (!localFormData.addressCounty || !localFormData.addressTown) return [];
-  return (villagesMap[localFormData.addressCounty]?.[localFormData.addressTown]) || [];
+  if (!localFormData.landTown) return [];
+  const townId = typeof localFormData.landTown === 'number'
+    ? localFormData.landTown
+    : parseInt(localFormData.landTown);
+  return domicileStore.getLandSectionsForTownId(townId);
 });
 
 const ownerTowns = computed(() => {
-  return localFormData.ownerCounty ? (townsMap[localFormData.ownerCounty] || []) : [];
+  if (!localFormData.ownerCounty) return [];
+  const countyId = typeof localFormData.ownerCounty === 'number'
+    ? localFormData.ownerCounty
+    : parseInt(localFormData.ownerCounty);
+  return domicileStore.getTownsForCountyId(countyId);
 });
 
 const ownerVillages = computed(() => {
-  if (!localFormData.ownerCounty || !localFormData.ownerTown) return [];
-  return (villagesMap[localFormData.ownerCounty]?.[localFormData.ownerTown]) || [];
+  if (!localFormData.ownerTown) return [];
+  const townId = typeof localFormData.ownerTown === 'number'
+    ? localFormData.ownerTown
+    : parseInt(localFormData.ownerTown);
+  return domicileStore.getVillagesForTownId(townId);
 });
 
 const crops = computed(() => {
@@ -1615,13 +1704,13 @@ const updateLandNumber = () => {
 };
 
 const onCountyChange = () => {
-  localFormData.addressTown = '';
-  localFormData.addressVillage = '';
+  localFormData.landTown = '';
+  localFormData.landSec = '';
   updateFormData();
 };
 
 const onTownChange = () => {
-  localFormData.addressVillage = '';
+  localFormData.landSec = '';
   updateFormData();
 };
 
@@ -1744,6 +1833,20 @@ const removeOwner = (index: number) => {
   updateFormData();
 };
 
+// Collapse co-owner settings
+const collapseCoOwnerSettings = () => {
+  showCoOwnerSettings.value = false;
+  // Clear input fields when collapsing
+  localFormData.ownerName = '';
+  localFormData.ownerId = '';
+  localFormData.ownerCounty = '';
+  localFormData.ownerTown = '';
+  localFormData.ownerVillage = '';
+  localFormData.ownerShare1 = '';
+  localFormData.ownerShare2 = '';
+  localFormData.ownerArea = '';
+};
+
 // Update parent form data
 const updateFormData = () => {
   emit('update:formData', {
@@ -1849,12 +1952,12 @@ const showLandInfoDialog = () => {
       : localFormData.landNumberMain;
   }
 
-  if (localFormData.addressCounty) {
-    landInfo.county = localFormData.addressCounty;
+  if (localFormData.landCounty) {
+    landInfo.county = localFormData.landCounty;
   }
 
-  if (localFormData.addressVillage) {
-    landInfo.section = localFormData.addressVillage;
+  if (localFormData.landSec) {
+    landInfo.section = localFormData.landSec;
   }
 
   landInfoDialog.value = true;
@@ -1878,13 +1981,17 @@ const useLandInfo = () => {
   localFormData.landNumberSub = parts.length > 1 ? parts[1] : '';
 
   // Set county if not set
-  if (!localFormData.addressCounty) {
-    localFormData.addressCounty = landInfo.county;
+  if (!localFormData.landCounty) {
+    localFormData.landCounty = landInfo.county;
   }
 
-  // Set village if applicable
-  if (landInfo.section && villages.value.includes(landInfo.section)) {
-    localFormData.addressVillage = landInfo.section;
+  // Set land section if applicable
+  if (landInfo.section) {
+    // Find the section by name in the available sections
+    const matchingSection = villages.value.find(section => section.title === landInfo.section);
+    if (matchingSection) {
+      localFormData.landSec = matchingSection.value.toString();
+    }
   }
 
   // Update aboriginal area status
@@ -2222,9 +2329,19 @@ const loadGeoJSONFile = () => {
         feature.set('id', `parcel-${index + 1}`);
       }
       if (!feature.get('section')) {
-        feature.set('section', localFormData.addressVillage || '瓦厝埔段');
+        // Convert landSec ID to section name for map display
+        let sectionName = '瓦厝埔段'; // default
+        if (localFormData.landSec) {
+          const sectionId = parseInt(localFormData.landSec);
+          const section = villages.value.find(s => s.value === sectionId);
+          if (section) {
+            sectionName = section.title;
+          }
+        }
+        feature.set('section', sectionName);
       }
       if (!feature.get('Land_no')) {
+
         // Create a random land number for demo
         const mainNum = Math.floor(900 + Math.random() * 100);
         const subNum = Math.floor(1 + Math.random() * 9);
@@ -2363,8 +2480,11 @@ const cleanupMap = () => {
 };
 
 // Initialize data
-onMounted(() => {
+onMounted(async () => {
   console.log("Step 2 mounted, formData:", props.formData);
+
+  // Initialize domicile store
+  await domicileStore.loadCounties();
 
   // Set form data from props
   if (props.formData) {
@@ -2441,6 +2561,53 @@ watch([() => localFormData.longitude, () => localFormData.latitude], () => {
         }
       }
     }
+  }
+});
+
+// Auto-detect indigenous area based on town selection
+const checkAndUpdateIndigenousArea = (townId: number) => {
+  const town = domicileStore.getTownById(townId);
+  if (town) {
+    // Set isAboriginalArea to true if the town is indigenous (indigenous_type = 1)
+    const isIndigenous = town.is_indigenous || town.indigenous_type === '1';
+    if (localFormData.isAboriginalArea !== isIndigenous) {
+      localFormData.isAboriginalArea = isIndigenous;
+      updateFormData();
+    }
+  }
+};
+
+// Watchers for automatic town/village loading and indigenous area detection
+watch(() => localFormData.landCounty, async (newCounty) => {
+  if (newCounty) {
+    localFormData.landTown = '';
+    localFormData.landSec = '';
+    await loadTownsForCounty(newCounty);
+  }
+});
+
+watch(() => localFormData.landTown, async (newTown) => {
+  if (newTown) {
+    localFormData.landSec = '';
+    const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
+    await loadVillagesForTown(townId);
+    checkAndUpdateIndigenousArea(townId);
+  }
+});
+
+watch(() => localFormData.ownerCounty, async (newCounty) => {
+  if (newCounty) {
+    localFormData.ownerTown = '';
+    localFormData.ownerVillage = '';
+    await loadTownsForCounty(newCounty);
+  }
+});
+
+watch(() => localFormData.ownerTown, async (newTown) => {
+  if (newTown) {
+    localFormData.ownerVillage = '';
+    const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
+    await domicileStore.loadVillagesByTownId(townId);
   }
 });
 

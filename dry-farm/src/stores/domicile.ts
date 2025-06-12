@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { fetchAllCounties, fetchTownsByCounty, fetchVillagesByTown, type County, type Town, type Village } from '@/services/domicileService'
+import { fetchLandSectionsByTown, type LandSection } from '@/services/landSectionService'
 import { ApplicationError, wrapAsync } from '@/utils/asyncHelpers'
 
 
@@ -8,6 +9,7 @@ export const useDomicileStore = defineStore('domicile', () => {
   const counties = ref<County[]>([])
   const towns = ref<Town[]>([])
   const villages = ref<Village[]>([])
+  const landSections = ref<LandSection[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
@@ -54,6 +56,17 @@ export const useDomicileStore = defineStore('domicile', () => {
         map.set(village.town_id, [])
       }
       map.get(village.town_id)?.push(village)
+    })
+    return map
+  })
+
+  const landSectionsByTownId = computed(() => {
+    const map = new Map<number, LandSection[]>()
+    landSections.value.forEach(section => {
+      if (!map.has(section.town_id)) {
+        map.set(section.town_id, [])
+      }
+      map.get(section.town_id)?.push(section)
     })
     return map
   })
@@ -164,6 +177,27 @@ export const useDomicileStore = defineStore('domicile', () => {
     }
   })
 
+  const loadLandSectionsByTownId = wrapAsync(async (townId: number) => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const newLandSections = await fetchLandSectionsByTown(townId)
+
+      // Append instead of replace to build up the cache
+      landSections.value = [...landSections.value.filter(s => s.town_id !== townId), ...newLandSections]
+    } catch (err: unknown) {
+      if (err instanceof ApplicationError) {
+        error.value = err.message || `Failed to load land sections for town ${townId}`
+      } else {
+        error.value = `Failed to load land sections for town ${townId}`
+      }
+      console.error(`Error loading land sections for town ${townId}:`, err)
+    } finally {
+      isLoading.value = false
+    }
+  })
+
   // Get towns for a specific county ID (more efficient)
   const getTownsForCounty = (countyId: number) => {
     return (townsByCountyId.value.get(countyId) || []).map(town => ({
@@ -182,6 +216,16 @@ export const useDomicileStore = defineStore('domicile', () => {
       value: village.id,
       code: village.code,
       townId: village.town_id
+    }))
+  }
+
+  // Get land sections for a specific town ID (more efficient)
+  const getLandSectionsForTown = (townId: number) => {
+    return (landSectionsByTownId.value.get(townId) || []).map(section => ({
+      title: section.name,
+      value: section.id,
+      code: section.code,
+      townId: section.town_id
     }))
   }
 
@@ -228,6 +272,7 @@ export const useDomicileStore = defineStore('domicile', () => {
     counties,
     towns,
     villages,
+    landSections,
     isLoading,
     error,
 
@@ -239,6 +284,7 @@ export const useDomicileStore = defineStore('domicile', () => {
     townsById,
     townsByCountyId,
     villagesByTownId,
+    landSectionsByTownId,
 
     // Actions
     loadCounties,
@@ -246,12 +292,14 @@ export const useDomicileStore = defineStore('domicile', () => {
     loadTownsByCountyName,
     loadVillagesByTownId,
     loadVillagesByTownName,
+    loadLandSectionsByTownId,
     initializeStore,
 
     // Add the helper methods
     getCountyById: (id: number) => counties.value.find(c => c.id === id),
     getTownById: (id: number) => townsById.value.get(id),
     getTownsForCountyId: (countyId: number) => getTownsForCounty(countyId),
-    getVillagesForTownId: (townId: number) => getVillagesForTown(townId)
+    getVillagesForTownId: (townId: number) => getVillagesForTown(townId),
+    getLandSectionsForTownId: (townId: number) => getLandSectionsForTown(townId)
   }
 })

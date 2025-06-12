@@ -644,8 +644,8 @@ watch(() => route.query, (newQuery) => {
 /* @media (max-width: 960px) {
   .container-full-height {
     height: calc(100vh - 103px);
-  } */
-}
+  }
+} */
 
 /* 自定義地圖控制按鈕樣式 */
 .map-controls {
