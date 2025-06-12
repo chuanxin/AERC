@@ -373,7 +373,7 @@ const mapLayers = ref<MapLayer[]>([
     layer: null
   },
   {
-    name: 'OpenStreetMap',
+    name: 'Open Street Map',
     visible: false,
     opacity: 1,
     layer: null
@@ -770,15 +770,18 @@ function initMap() {
 
     const osmLayer = new TileLayer({
       source: new OSM(),
-      visible: mapLayers.value[1].visible
+      visible: mapLayers.value[1].visible,
+      opacity: mapLayers.value[1].opacity
     });
 
     const stamenLayer = new TileLayer({
       source: new StadiaMaps({
         layer: 'stamen_watercolor',
         retina: false,
+        apiKey: 'fb83ebeb-aba3-4c37-ba97-3107a384e553',
       }),
       visible: mapLayers.value[2].visible,
+      opacity: mapLayers.value[2].opacity
     });
 
     const layers = [nlscLayer, osmLayer, stamenLayer];
