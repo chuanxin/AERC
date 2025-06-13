@@ -534,7 +534,7 @@ const formCategories = [
 // 動態報表格式選項 - 根據 formCategory 的值變化
 const getExportFormats = computed(() => {
   switch (formCategory.value) {
-    case 0: // 公告資訊 / 執行進度一覽
+    default: // 公告資訊 / 執行進度一覽
       return [
         { title: '年度管理處辦理情形(本年度執行進度表)', value: 'yearly-management-progress' },
         { title: '各受理單位經費統計表 (113年)', value: 'unit-budget-stats-113' },
@@ -560,12 +560,6 @@ const getExportFormats = computed(() => {
         { title: '年度原民鄉鎮區域補助情形', value: 'indigenous-township-subsidy-status' },
         { title: '年度原民區域補助管理處辦理情形', value: 'indigenous-management-subsidy-status' },
         { title: '原民區域統計', value: 'indigenous-area-statistics' }
-      ];
-    default:
-      return [
-        { title: 'Excel', value: 'excel' },
-        { title: 'PDF', value: 'pdf' },
-        { title: 'CSV', value: 'csv' }
       ];
   }
 });

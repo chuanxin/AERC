@@ -52,7 +52,7 @@
               >
                 mdi-account
               </v-icon>
-              申請人基本資料
+              <span class="required-asterisk">*</span>申請人基本資料
             </v-card-title>
 
             <v-row dense>
@@ -71,7 +71,7 @@
                   @update:model-value="updateFormData"
                 >
                   <template #label>
-                    申請人姓名<span class="required-asterisk">*(必填)</span>
+                    申請人姓名
                   </template>
                 </v-text-field>
               </v-col>
@@ -93,7 +93,7 @@
                   @update:model-value="updateFormData"
                 >
                   <template #label>
-                    身分證字號<span class="required-asterisk">*(必填)</span>
+                    身分證字號
                   </template>
                 </v-text-field>
               </v-col>
@@ -111,7 +111,7 @@
                   @update:model-value="updateFormData"
                 >
                   <template #label>
-                    聯絡電話<span class="required-asterisk">*(必填)</span>
+                    聯絡電話
                   </template>
                 </v-text-field>
               </v-col>
@@ -141,7 +141,7 @@
               >
                 mdi-map-marker
               </v-icon>
-              申請人通訊地址
+              <span class="required-asterisk">*</span>申請人通訊地址
             </v-card-title>
 
             <v-row dense>
@@ -163,7 +163,7 @@
                   @update:model-value="handleCountyChange"
                 >
                   <template #label>
-                    縣市<span class="required-asterisk">*(必填)</span>
+                    縣市
                   </template>
                 </v-select>
               </v-col>
@@ -187,7 +187,7 @@
                   @update:model-value="handleTownChange"
                 >
                   <template #label>
-                    鄉鎮市區<span class="required-asterisk">*(必填)</span>
+                    鄉鎮市區
                   </template>
                 </v-select>
               </v-col>
@@ -211,7 +211,7 @@
                   @update:model-value="handleVillageChange"
                 >
                   <template #label>
-                    村里<span class="required-asterisk">*(必填)</span>
+                    村里
                   </template>
                 </v-select>
               </v-col>
@@ -228,7 +228,7 @@
                   @update:model-value="updateFormData"
                 >
                   <template #label>
-                    詳細地址<span class="required-asterisk">*(必填)</span>
+                    詳細地址
                   </template>
                 </v-text-field>
               </v-col>

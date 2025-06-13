@@ -31,7 +31,7 @@
               >
                 mdi-home-map-marker
               </v-icon>
-              <span>設施地址</span>
+              <span><span class="required-asterisk">*</span>設施地址</span>
             </v-card-title>
 
             <!-- 地址選擇區域 -->
@@ -64,7 +64,7 @@
                     @update:model-value="onCountyChange"
                   >
                     <template #label>
-                      縣市<span class="required-asterisk">*(必填)</span>
+                      縣市
                     </template>
                   </v-select>
                 </v-col>
@@ -84,7 +84,7 @@
                     @update:model-value="onTownChange"
                   >
                     <template #label>
-                      鄉鎮市區<span class="required-asterisk">*(必填)</span>
+                      鄉鎮市區
                     </template>
                   </v-select>
                 </v-col>
@@ -103,7 +103,7 @@
                     :disabled="!localFormData.landTown"
                   >
                     <template #label>
-                      地段<span class="required-asterisk">*(必填)</span>
+                      地段
                     </template>
                   </v-select>
                 </v-col>
@@ -155,7 +155,7 @@
                             <!-- 母地號輸入 -->
                             <div class="me-1">
                               <div class="text-caption text-grey-darken-1 mb-1 ps-1">
-                                母地號<span class="text-red required-asterisk">*(必填)</span>
+                                母地號
                               </div>
                               <v-text-field
                                 v-model="formattedLandNumberMain"
@@ -380,16 +380,24 @@
               <!-- 地號資訊說明提示 -->
               <v-alert
                 type="info"
-                variant="tonal"
+                variant="outlined"
                 density="compact"
                 class="my-0"
-                color="amber"
+                color="deep-orange-darken-1"
               >
                 <template #prepend>
-                  <v-icon size="small">mdi-information-outline</v-icon>
+                  <v-icon
+                    size="small"
+                    color="deep-orange-darken-1"
+                  >
+                    mdi-information-outline
+                  </v-icon>
                 </template>
-                <div class="text-caption">
-                  <strong>提醒：</strong>各選項資訊是由原地號資料判別，有土地重測或是分割情形，請再次確認
+                <div
+                  class="text-caption font-weight-medium"
+                  style="color: #424242;"
+                >
+                  <strong style="color: #d84315;">提醒：</strong>各選項資訊是由原地號資料判別，有土地重測或是分割情形，請再次確認
                 </div>
               </v-alert>
             </v-sheet>
@@ -441,7 +449,7 @@
                     color="#3ea0a3"
                     bg-color="white"
                     placeholder="例：120.573425"
-                    hint="東經坐標，小數點後建議6位數"
+                    hint="東經坐標，小數點後建議4位數"
                     persistent-hint
                     :rules="[
                       v => !!v || '請輸入經度',
@@ -451,7 +459,7 @@
                     @update:model-value="updateFormData"
                   >
                     <template #label>
-                      經度（°E）<span class="required-asterisk">*(必填)</span>
+                      經度（°E）
                     </template>
                   </v-text-field>
                 </v-col>
@@ -466,7 +474,7 @@
                     color="#3ea0a3"
                     bg-color="white"
                     placeholder="例：23.515552"
-                    hint="北緯坐標，小數點後建議6位數"
+                    hint="北緯坐標，小數點後建議4位數"
                     persistent-hint
                     :rules="[
                       v => !!v || '請輸入緯度',
@@ -476,7 +484,7 @@
                     @update:model-value="updateFormData"
                   >
                     <template #label>
-                      緯度（°N）<span class="required-asterisk">*(必填)</span>
+                      緯度（°N）
                     </template>
                   </v-text-field>
                 </v-col>
@@ -552,7 +560,7 @@
                   md="6"
                 >
                   <div class="d-flex align-center">
-                    <span class="text-body-1 font-weight-medium me-2">農地地籍面積<span class="required-asterisk">*(必填)</span></span>
+                    <span class="text-body-1 font-weight-medium me-2">農地地籍面積</span>
                     <v-text-field
                       v-model="localFormData.landArea"
                       variant="outlined"
@@ -586,7 +594,7 @@
                   md="6"
                 >
                   <div class="d-flex align-center">
-                    <span class="text-body-1 font-weight-medium me-2">施作面積<span class="required-asterisk">*(必填)</span></span>
+                    <span class="text-body-1 font-weight-medium me-2">施作面積</span>
                     <v-text-field
                       v-model="localFormData.facilityArea"
                       variant="outlined"
@@ -649,7 +657,7 @@
                   @update:model-value="onCropCategoryChange"
                 >
                   <template #label>
-                    作物類別<span class="required-asterisk">*(必填)</span>
+                    作物類別
                   </template>
                 </v-select>
 
@@ -665,7 +673,7 @@
                   :disabled="!localFormData.cropCategory"
                 >
                   <template #label>
-                    作物名稱<span class="required-asterisk">*(必填)</span>
+                    作物名稱
                   </template>
                 </v-select>
                 <v-btn
@@ -761,7 +769,7 @@
               >
                 mdi-account-multiple
               </v-icon>
-              <span>所有權人資料</span>
+              <span><span class="required-asterisk">*</span>所有權人資料</span>
             </v-card-title>
 
             <!-- 基本所有權人資料 (簡化版本，假設單一持分) -->
@@ -817,7 +825,7 @@
                     @update:model-value="updateFormData"
                   >
                     <template #label>
-                      所有權人姓名<span class="required-asterisk">*(必填)</span>
+                      所有權人姓名
                     </template>
                   </v-text-field>
                 </v-col>
@@ -834,7 +842,7 @@
                     @update:model-value="updateFormData"
                   >
                     <template #label>
-                      所有權人身分證字號<span class="required-asterisk">*(必填)</span>
+                      所有權人身分證字號
                     </template>
                   </v-text-field>
                 </v-col>

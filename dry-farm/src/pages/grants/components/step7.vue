@@ -213,7 +213,7 @@
                 >
                   mdi-check-decagram
                 </v-icon>
-                <span class="text-subtitle-1 font-weight-medium">功能測試(驗收)</span>
+                <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>功能測試(驗收)</span>
               </div>
               <v-checkbox
                 v-model="localFormData.isReinspection"
@@ -246,7 +246,7 @@
                       @update:model-value="updateFormData"
                     >
                       <template #label>
-                        申報結案日期<span class="required-asterisk">*(必填)</span>
+                        申報結案日期
                       </template>
                     </v-text-field>
 
@@ -325,7 +325,7 @@
                         class="py-0 pl-5 rounded flex-1"
                         color="grey-lighten-5"
                       >
-                        <label class="text-body-2 font-weight-medium mb-0 d-block">與設計圖說規劃型式<span class="required-asterisk">*(必填)</span></label>
+                        <label class="text-body-2 font-weight-medium mb-0 d-block">與設計圖說規劃型式</label>
                         <v-radio-group
                           v-model="localFormData.designCompliance"
                           color="#3ea0a3"
@@ -349,7 +349,7 @@
                         class="py-0 pr-5 rounded flex-1"
                         color="grey-lighten-5"
                       >
-                        <label class="text-body-2 font-weight-medium mb-0 d-block">經現場運轉功能<span class="required-asterisk">*(必填)</span></label>
+                        <label class="text-body-2 font-weight-medium mb-0 d-block">經現場運轉功能</label>
                         <v-radio-group
                           v-model="localFormData.operationCompliance"
                           color="#3ea0a3"
@@ -389,7 +389,7 @@
                       @update:model-value="updateFormData"
                     >
                       <template #label>
-                        功能測試日期<span class="required-asterisk">*(必填)</span>
+                        功能測試日期
                       </template>
                     </v-text-field>
 
@@ -472,7 +472,7 @@
                       @update:model-value="updateFormData"
                     >
                       <template #label>
-                        測試人員<span class="required-asterisk">*(必填)</span>
+                        測試人員
                       </template>
                     </v-text-field>
                   </v-col>
@@ -495,7 +495,7 @@
                       @update:model-value="updateFormData"
                     >
                       <template #label>
-                        功能複驗日期<span class="required-asterisk">*(必填)</span>
+                        功能複驗日期
                       </template>
                     </v-text-field>
 
@@ -578,7 +578,7 @@
                       @update:model-value="updateFormData"
                     >
                       <template #label>
-                        複驗人員<span class="required-asterisk">*(必填)</span>
+                        複驗人員
                       </template>
                     </v-text-field>
                   </v-col>
@@ -589,7 +589,7 @@
                   <v-col cols="12">
                     <v-select
                       v-model="localFormData.testResult"
-                      :items="testResultOptions.filter(option => ['original', 'adjusted', 'improvement'].includes(option.value))"
+                      :items="testResultOptions.filter((option: any) => ['original', 'adjusted', 'improvement'].includes(option.value))"
                       variant="outlined"
                       density="comfortable"
                       :rules="[v => !!v || '請選擇測試結果']"
@@ -597,7 +597,7 @@
                       @update:model-value="updateFormData"
                     >
                       <template #label>
-                        測試結果<span class="required-asterisk">*(必填)</span>
+                        測試結果
                       </template>
                     </v-select>
                   </v-col>
@@ -608,7 +608,7 @@
                   <v-col cols="12">
                     <v-select
                       v-model="localFormData.reinspectionResult"
-                      :items="testResultOptions.filter(option => ['original', 'adjusted', 'cancel'].includes(option.value))"
+                      :items="testResultOptions.filter((option: any) => ['original', 'adjusted', 'cancel'].includes(option.value))"
                       variant="outlined"
                       density="comfortable"
                       :rules="localFormData.isReinspection ? [v => !!v || '請選擇複驗結果'] : []"
@@ -616,7 +616,7 @@
                       @update:model-value="updateFormData"
                     >
                       <template #label>
-                        複驗結果<span class="required-asterisk">*(必填)</span>
+                        複驗結果
                       </template>
                     </v-select>
                   </v-col>
@@ -638,7 +638,7 @@
               >
                 mdi-check-circle
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">功能測試(驗收)結果</span>
+              <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>功能測試(驗收)結果</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -698,10 +698,10 @@
                       rows="3"
                       auto-grow
                       :rules="[v => (localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) !== 'improvement' || !!v || '請填寫結果說明']"
-                      @update:model-value="updateFormData"
+                      @update:model-value="onTestResultDescriptionChange"
                     >
                       <template #label>
-                        結果說明<span class="required-asterisk">*(必填)</span>
+                        結果說明
                       </template>
                     </v-textarea>
                   </v-col>
@@ -719,7 +719,7 @@
               >
                 mdi-camera
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">施工照片</span>
+              <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>施工照片</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -733,7 +733,7 @@
                     md="6"
                   >
                     <label class="text-body-2 font-weight-medium mb-2 d-block">
-                      施工前照片<span class="required-asterisk">*(必填)</span>
+                      施工前照片
                     </label>
                     <v-file-input
                       v-model="localFormData.beforeConstructionPhoto"
@@ -764,7 +764,7 @@
                     md="6"
                   >
                     <label class="text-body-2 font-weight-medium mb-2 d-block">
-                      竣工照片<span class="required-asterisk">*(必填)</span>
+                      竣工照片
                     </label>
                     <v-file-input
                       v-model="localFormData.afterConstructionPhoto"
@@ -861,28 +861,44 @@ const datePickerDialog2 = ref(false);
 const datePickerDialog3 = ref(false); // 複驗日期對話框
 const isDesignChangeVisible = ref(false);
 
-// 測試結果選項
-const testResultOptions = [
-  { title: '測試合格，依核定補助款發放', value: 'original' },
-  { title: '測試合格，依核定補助款減列金額', value: 'adjusted' },
-  { title: '測試不合格，限期改善複查（請註明完成改善期限）', value: 'improvement' },
-  { title: '測試不合格，取消補助資格', value: 'cancel' }
-];
+// 測試結果選項 - 動態計算，包含對應的發放金額
+const testResultOptions = computed(() => {
+  // original 選項顯示原補助款金額
+  const originalPaymentText = localFormData.originalPayment ? ` ${localFormData.originalPayment} 元` : '';
+  
+  // adjusted 選項顯示實際發放金額
+  const actualPaymentText = localFormData.actualPayment ? ` ${localFormData.actualPayment} 元` : '';
+
+  const spacing = '\u3000\u3000\u3000\u3000';
+
+  return [
+    { title: `合格，依核定補助款發放${originalPaymentText}`, value: 'original' },
+    { title: `合格，依核定補助款減列金額，發放${actualPaymentText}（請說明原因）`, value: 'adjusted' },
+    { title: `不合格，限期改善複查（請註明${spacing}年${spacing}月${spacing}日完成改善）`, value: 'improvement' },
+    { title: '不合格，取消補助資格', value: 'cancel' }
+  ];
+});
 
 // 動態測試結果選項 - 根據複驗狀態顯示不同選項
 const dynamicTestResultOptions = computed(() => {
   if (localFormData.isReinspection) {
     // 複驗狀態：顯示 original, adjusted, cancel
-    return testResultOptions.filter(option =>
+    return testResultOptions.value.filter((option: any) =>
       ['original', 'adjusted', 'cancel'].includes(option.value)
     );
   } else {
     // 非複驗狀態：顯示 original, adjusted, improvement
-    return testResultOptions.filter(option =>
+    return testResultOptions.value.filter((option: any) =>
       ['original', 'adjusted', 'improvement'].includes(option.value)
     );
   }
 });
+
+// 追蹤用戶是否手動修改過結果說明
+const isManuallyEditedDescription = ref(false);
+
+// 追蹤是否正在自動同步結果說明（避免誤判為手動編輯）
+const isAutoSyncingDescription = ref(false);
 
 // 本地表單數據
 const localFormData = reactive({
@@ -1393,40 +1409,40 @@ onMounted(() => {
 });
 
 // 監聽測試結果變化
-watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult, (newValue) => {
+watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult, (newValue, oldValue) => {
+  // 只有當測試結果真正變化時才重置手動編輯標記
+  if (newValue !== oldValue) {
+    isManuallyEditedDescription.value = false;
+  }
+
+  console.log('測試結果變化:', newValue);
+  
   if (newValue === 'original') {
     // 如果是 "依核定補助款發放"，則自動設置相關金額
-    if (!localFormData.originalPayment) {
-      // 可以從父組件中獲取預設的補助款金額
-      if (grantsStore.formData[6]?.totalBudget) {
-        localFormData.originalPayment = grantsStore.formData[6].totalBudget;
-      } else {
-        localFormData.originalPayment = '13,378';
-      }
+    // 確保每次都重新設置原補助款金額
+    if (grantsStore.formData[6]?.totalBudget) {
+      localFormData.originalPayment = grantsStore.formData[6].totalBudget;
+    } else if (!localFormData.originalPayment) {
+      // 如果沒有總預算，設置一個預設值
+      localFormData.originalPayment = '0';
     }
+    // 原補助款發放，實際發放等於原補助款
     localFormData.actualPayment = localFormData.originalPayment;
     localFormData.increasedDecreasedAmount = '';
-
-    // Add a default description
-    if (!localFormData.testResultDescription) {
-      // localFormData.testResultDescription = '工程完工符合規範，依核定補助款發放。';
-    }
+    console.log('設置 original 金額:', {
+      originalPayment: localFormData.originalPayment,
+      actualPayment: localFormData.actualPayment
+    });
   } else if (newValue === 'adjusted') {
-    // 如果是 "依核定補助款增減列"，則重置金額欄位
-    if (!localFormData.originalPayment) {
-      if (grantsStore.formData[6]?.totalBudget) {
-        localFormData.originalPayment = grantsStore.formData[6].totalBudget;
-      } else {
-        localFormData.originalPayment = '13,378';
-      }
+    // 如果是 "依核定補助款增減列"，則設置金額欄位
+    if (grantsStore.formData[6]?.totalBudget) {
+      localFormData.originalPayment = grantsStore.formData[6].totalBudget;
+    } else if (!localFormData.originalPayment) {
+      localFormData.originalPayment = '0';
     }
+    
     if (!localFormData.increasedDecreasedAmount) {
       localFormData.increasedDecreasedAmount = '-1,000';
-    }
-
-    // Add a default description
-    if (!localFormData.testResultDescription) {
-      // localFormData.testResultDescription = '因部分材料規格變更，調整補助金額。';
     }
 
     // 實際發放金額會通過增減列計算
@@ -1440,47 +1456,92 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
     } catch (e) {
       console.error('計算實際發放金額時出錯', e);
     }
+    console.log('設置 adjusted 金額:', {
+      originalPayment: localFormData.originalPayment,
+      increasedDecreasedAmount: localFormData.increasedDecreasedAmount,
+      actualPayment: localFormData.actualPayment
+    });
   } else if (newValue === 'improvement') {
-    // Add a default description for improvement needed
-    if (!localFormData.testResultDescription) {
-      // localFormData.testResultDescription = '末端噴頭設置不符合設計規範，需重新安裝調整。';
-    }
-
-    // 其他情況，清空金額欄位
+    // 限期改善，清空金額欄位
     localFormData.originalPayment = '';
     localFormData.increasedDecreasedAmount = '';
     localFormData.actualPayment = '';
+    console.log('設置 improvement，清空金額');
   } else {
-    // Add a default description for cancelation
-    if (!localFormData.testResultDescription) {
-      // localFormData.testResultDescription = '經限期改善後，仍未符合設計規範，取消本次補助資格。';
-    }
-
     // 其他情況，清空金額欄位
     localFormData.originalPayment = '';
     localFormData.increasedDecreasedAmount = '';
     localFormData.actualPayment = '';
+    console.log('其他情況，清空金額');
   }
 
-  updateFormData();
+  // 只有在用戶沒有手動編輯過結果說明時，才自動更新結果說明
+  if (!isManuallyEditedDescription.value) {
+    nextTick(() => {
+      isAutoSyncingDescription.value = true;
+      
+      // 找到對應的測試結果選項
+      const selectedOption = testResultOptions.value.find(option => option.value === newValue);
+      if (selectedOption) {
+        console.log('自動帶入測試結果說明:', selectedOption.title);
+        localFormData.testResultDescription = selectedOption.title;
+        
+        // 延遲更新父組件資料，確保本地資料先更新完成
+        nextTick(() => {
+          updateFormData();
+          nextTick(() => {
+            isAutoSyncingDescription.value = false;
+          });
+        });
+      } else {
+        isAutoSyncingDescription.value = false;
+      }
+    });
+  } else {
+    // 即使手動編輯過，也要更新其他欄位
+    updateFormData();
+  }
 });
 
-// 監聽原金額與增減列變化
+// 監聽原金額與增減列變化，重新計算實際發放金額
 watch([() => localFormData.originalPayment, () => localFormData.increasedDecreasedAmount], () => {
-  if (localFormData.testResult === 'adjusted' && localFormData.originalPayment && localFormData.increasedDecreasedAmount) {
+  const currentResult = localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult;
+  
+  console.log('金額變化 watch 觸發:', {
+    currentResult,
+    originalPayment: localFormData.originalPayment,
+    increasedDecreasedAmount: localFormData.increasedDecreasedAmount
+  });
+
+  if (currentResult === 'adjusted' && localFormData.originalPayment && localFormData.increasedDecreasedAmount) {
     try {
       const original = parseFloat(localFormData.originalPayment.replace(/,/g, ''));
       const adjustment = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
       if (!isNaN(original) && !isNaN(adjustment)) {
         const actual = original + adjustment;
         localFormData.actualPayment = actual.toLocaleString();
+        console.log('重新計算 adjusted 實際發放金額:', localFormData.actualPayment);
       }
     } catch (e) {
       console.error('計算實際發放金額時出錯', e);
     }
+  } else if (currentResult === 'original' && localFormData.originalPayment) {
+    // 如果是 original 狀態，實際發放金額等於原補助款
+    localFormData.actualPayment = localFormData.originalPayment;
+    console.log('設置 original 實際發放金額:', localFormData.actualPayment);
   }
+
   updateFormData();
 });
+
+// 處理結果說明手動編輯
+const onTestResultDescriptionChange = () => {
+  // 如果不是在自動同步過程中，標記為手動編輯
+  if (!isAutoSyncingDescription.value) {
+    isManuallyEditedDescription.value = true;
+  }
+  updateFormData();
+};
 
 // 監聽父組件數據變化
 watch(() => props.formData, (newVal) => {
@@ -1489,6 +1550,14 @@ watch(() => props.formData, (newVal) => {
     Object.keys(localFormData).forEach(key => {
       if (newVal[key] !== undefined &&
           JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
+        // 如果正在自動同步結果說明，跳過 testResultDescription 的更新
+        if (key === 'testResultDescription' && isAutoSyncingDescription.value) {
+          return;
+        }
+        // 如果用戶已經手動編輯過結果說明，也跳過自動覆蓋
+        if (key === 'testResultDescription' && isManuallyEditedDescription.value) {
+          return;
+        }
         localFormData[key] = newVal[key];
       }
     });

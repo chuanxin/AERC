@@ -21,10 +21,11 @@
           </v-card-title>
 
           <v-card-text class="pa-4">
-            <v-table
-              class="facility-table border"
-              density="compact"
-            >
+            <div class="facility-table-container">
+              <v-table
+                class="facility-table border"
+                density="compact"
+              >
               <thead class="bg-grey-lighten-3">
                 <tr>
                   <th>設施項目</th>
@@ -164,10 +165,13 @@
                   <td class="text-center font-weight-bold">
                     {{ localFormData.totalBudget }}
                   </td>
-                  <td>新臺幣 {{ amountInWords }}元整 {{ isAboriginalAreaText }}</td>
+                  <td class="amount-in-words">
+                    <span class="nowrap-text">新臺幣 {{ amountInWords }}元整 {{ isAboriginalAreaText }}</span>
+                  </td>
                 </tr>
               </tbody>
             </v-table>
+            </div>
           </v-card-text>
         </v-card>
       </v-card-text>
@@ -1132,5 +1136,55 @@ watch(localValid, (newVal) => {
 
 .facility-table td {
   padding: 8px;
+}
+
+/* 確保國字大寫金額在一行顯示 */
+.amount-in-words {
+  white-space: nowrap !important;
+  overflow: visible; /* 允許內容溢出而不是隱藏 */
+  min-width: 250px; /* 增加最小寬度 */
+  width: auto; /* 允許自動調整寬度 */
+  max-width: none; /* 移除最大寬度限制 */
+}
+
+.nowrap-text {
+  white-space: nowrap !important;
+  display: inline-block;
+  font-size: 0.875rem; /* 稍微縮小字體以適應更長的文字 */
+  font-weight: 500;
+  letter-spacing: -0.01em; /* 稍微縮小字間距 */
+}
+
+/* 表格容器允許水平滾動 */
+.facility-table-container {
+  overflow-x: auto;
+  width: 100%;
+}
+
+/* 確保表格最小寬度足夠容納所有內容 */
+.facility-table {
+  min-width: 800px; /* 設定表格最小寬度 */
+}
+
+/* 在小螢幕上調整字體大小但保持不換行 */
+@media (max-width: 768px) {
+  .facility-table {
+    font-size: 0.8rem;
+    min-width: 800px; /* 在小螢幕上稍微縮小但仍保持足夠寬度 */
+  }
+
+  .nowrap-text {
+    font-size: 0.75rem;
+    letter-spacing: -0.02em; /* 進一步縮小字間距 */
+  }
+
+  .amount-in-words {
+    min-width: 200px;
+  }
+}
+
+/* 確保表格在小螢幕上可以水平滾動 */
+.v-table {
+  overflow-x: auto;
 }
 </style>

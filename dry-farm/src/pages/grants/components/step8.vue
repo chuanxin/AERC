@@ -53,7 +53,7 @@
               >
                 mdi-file-document
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">申請資料</span>
+              <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>申請資料</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -126,7 +126,7 @@
               >
                 mdi-map
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">土地資料</span>
+              <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>土地資料</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -336,7 +336,7 @@
               >
                 mdi-file-multiple
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">其他資料</span>
+              <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>其他資料</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -1182,5 +1182,12 @@ onUnmounted(() => {
 
 .text-red {
   color: red;
+}
+
+/* 必填欄位紅色星號樣式 */
+.required-asterisk {
+  color: #ff0000 !important;
+  font-weight: bold;
+  margin-left: 2px;
 }
 </style>

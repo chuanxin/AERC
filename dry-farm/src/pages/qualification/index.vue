@@ -1,5 +1,9 @@
 <template>
-  <v-container class="pt-0">
+  <v-container
+    fluid
+    class="pt-0"
+    style="background-color: white"
+  >
     <v-row>
       <v-col
         cols="12"

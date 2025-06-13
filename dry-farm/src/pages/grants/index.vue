@@ -689,7 +689,7 @@ watch(() => grantsStore.currentGrant?.current_step, (newStep) => {
 
 /* 表格樣式 */
 .grants-table :deep(thead th) {
-  background-color: #62b7bb30 !important;
+  background-color: #e3f4f4 !important;
   color: #333 !important;
   font-weight: 900 !important;
 }
