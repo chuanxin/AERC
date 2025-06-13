@@ -589,7 +589,7 @@
                   <v-col cols="12">
                     <v-select
                       v-model="localFormData.testResult"
-                      :items="testResultOptions.filter((option: any) => ['original', 'adjusted', 'improvement'].includes(option.value))"
+                      :items="dynamicTestResultOptions"
                       variant="outlined"
                       density="comfortable"
                       :rules="[v => !!v || '請選擇測試結果']"
@@ -608,7 +608,7 @@
                   <v-col cols="12">
                     <v-select
                       v-model="localFormData.reinspectionResult"
-                      :items="testResultOptions.filter((option: any) => ['original', 'adjusted', 'cancel'].includes(option.value))"
+                      :items="dynamicTestResultOptions"
                       variant="outlined"
                       density="comfortable"
                       :rules="localFormData.isReinspection ? [v => !!v || '請選擇複驗結果'] : []"
@@ -879,15 +879,42 @@ const testResultOptions = computed(() => {
   ];
 });
 
-// 動態測試結果選項 - 根據複驗狀態顯示不同選項
+// 動態測試結果選項 - 根據複驗狀態和合規性顯示不同選項
 const dynamicTestResultOptions = computed(() => {
-  if (localFormData.isReinspection) {
-    // 複驗狀態：顯示 original, adjusted, cancel
+  console.log('計算動態測試結果選項:', {
+    designCompliance: localFormData.designCompliance,
+    operationCompliance: localFormData.operationCompliance,
+    isReinspection: localFormData.isReinspection
+  });
+
+  // 檢查是否有任一合規性為不符（non-compliant）
+  const hasNonCompliant = localFormData.designCompliance === 'non-compliant' || 
+                         localFormData.operationCompliance === 'non-compliant';
+
+  if (hasNonCompliant) {
+    // 有不符合項目時，根據複驗狀態顯示不同選項
+    if (localFormData.isReinspection) {
+      // 複驗狀態且有不符合項目：只顯示取消補助資格
+      console.log('複驗狀態且有不符合項目，只顯示 cancel 選項');
+      return testResultOptions.value.filter((option: any) =>
+        option.value === 'cancel'
+      );
+    } else {
+      // 非複驗狀態且有不符合項目：只顯示限期改善
+      console.log('非複驗狀態且有不符合項目，只顯示 improvement 選項');
+      return testResultOptions.value.filter((option: any) =>
+        option.value === 'improvement'
+      );
+    }
+  } else if (localFormData.isReinspection) {
+    // 複驗狀態且無不符合項目：顯示 original, adjusted, cancel
+    console.log('複驗狀態且無不符合項目，顯示 original, adjusted, cancel 選項');
     return testResultOptions.value.filter((option: any) =>
       ['original', 'adjusted', 'cancel'].includes(option.value)
     );
   } else {
-    // 非複驗狀態：顯示 original, adjusted, improvement
+    // 非複驗狀態且無不符合項目：顯示 original, adjusted, improvement
+    console.log('非複驗狀態且無不符合項目，顯示 original, adjusted, improvement 選項');
     return testResultOptions.value.filter((option: any) =>
       ['original', 'adjusted', 'improvement'].includes(option.value)
     );
@@ -1526,6 +1553,52 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
         isAutoSyncingDescription.value = false;
       }
     });
+  }
+});
+
+// 監聽合規性狀態變化，自動調整測試結果選項
+watch([() => localFormData.designCompliance, () => localFormData.operationCompliance], ([newDesign, newOperation]) => {
+  console.log('合規性狀態變化:', {
+    designCompliance: newDesign,
+    operationCompliance: newOperation,
+    isReinspection: localFormData.isReinspection
+  });
+
+  const hasNonCompliant = newDesign === 'non-compliant' || newOperation === 'non-compliant';
+  const currentResult = localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult;
+
+  if (hasNonCompliant) {
+    // 有不符合項目時，根據複驗狀態設置不同的測試結果
+    if (localFormData.isReinspection) {
+      // 複驗狀態：設置為取消補助資格
+      if (currentResult !== 'cancel') {
+        console.log('複驗狀態且有不符合項目，自動設置測試結果為 cancel');
+        localFormData.reinspectionResult = 'cancel';
+        
+        // 清空金額欄位（取消補助資格不需要金額）
+        localFormData.originalPayment = '';
+        localFormData.increasedDecreasedAmount = '';
+        localFormData.actualPayment = '';
+        
+        updateFormData();
+      }
+    } else {
+      // 非複驗狀態：設置為限期改善
+      if (currentResult !== 'improvement') {
+        console.log('非複驗狀態且有不符合項目，自動設置測試結果為 improvement');
+        localFormData.testResult = 'improvement';
+        
+        // 清空金額欄位（限期改善不需要金額）
+        localFormData.originalPayment = '';
+        localFormData.increasedDecreasedAmount = '';
+        localFormData.actualPayment = '';
+        
+        updateFormData();
+      }
+    }
+  } else if (!hasNonCompliant && (currentResult === 'cancel' || currentResult === 'improvement')) {
+    // 如果沒有不符合項目但當前選擇是 cancel 或 improvement，可以考慮重置為空讓用戶重新選擇
+    console.log('不符合項目已修正，可重新選擇測試結果');
   }
 });
 
