@@ -900,6 +900,9 @@ const isManuallyEditedDescription = ref(false);
 // 追蹤是否正在自動同步結果說明（避免誤判為手動編輯）
 const isAutoSyncingDescription = ref(false);
 
+// 追蹤是否正在自動計算金額，避免循環觸發
+const isAutoCalculatingAmount = ref(false);
+
 // 本地表單數據
 const localFormData = reactive({
   // 基本資訊
@@ -1417,21 +1420,38 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
 
   console.log('測試結果變化:', newValue);
   
+  console.log('測試結果變化 - 詳細除錯:', {
+    newValue,
+    currentOriginalPayment: localFormData.originalPayment,
+    currentActualPayment: localFormData.actualPayment,
+    totalBudget: grantsStore.formData[6]?.totalBudget
+  });
+
+  // 設置自動計算標記，避免與金額變化watch衝突
+  isAutoCalculatingAmount.value = true;
+  
   if (newValue === 'original') {
     // 如果是 "依核定補助款發放"，則自動設置相關金額
     // 確保每次都重新設置原補助款金額
     if (grantsStore.formData[6]?.totalBudget) {
       localFormData.originalPayment = grantsStore.formData[6].totalBudget;
+      console.log('從 grantsStore 設置 originalPayment:', localFormData.originalPayment);
     } else if (!localFormData.originalPayment) {
       // 如果沒有總預算，設置一個預設值
-      localFormData.originalPayment = '0';
+      localFormData.originalPayment = '13,000'; // 設置一個測試值
+      console.log('設置預設 originalPayment:', localFormData.originalPayment);
     }
+    
+    // 清空減列金額
+    localFormData.increasedDecreasedAmount = '';
+    
     // 原補助款發放，實際發放等於原補助款
     localFormData.actualPayment = localFormData.originalPayment;
-    localFormData.increasedDecreasedAmount = '';
-    console.log('設置 original 金額:', {
+    
+    console.log('設置 original 金額完成:', {
       originalPayment: localFormData.originalPayment,
-      actualPayment: localFormData.actualPayment
+      actualPayment: localFormData.actualPayment,
+      increasedDecreasedAmount: localFormData.increasedDecreasedAmount
     });
   } else if (newValue === 'adjusted') {
     // 如果是 "依核定補助款增減列"，則設置金額欄位
@@ -1475,6 +1495,15 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
     console.log('其他情況，清空金額');
   }
 
+  // 立即更新父組件資料，確保金額變化能立即反映
+  updateFormData();
+
+  // 重置自動計算標記
+  nextTick(() => {
+    isAutoCalculatingAmount.value = false;
+    console.log('測試結果變化: 重置自動計算標記');
+  });
+
   // 只有在用戶沒有手動編輯過結果說明時，才自動更新結果說明
   if (!isManuallyEditedDescription.value) {
     nextTick(() => {
@@ -1497,21 +1526,35 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
         isAutoSyncingDescription.value = false;
       }
     });
-  } else {
-    // 即使手動編輯過，也要更新其他欄位
-    updateFormData();
   }
 });
 
-// 監聽原金額與增減列變化，重新計算實際發放金額
-watch([() => localFormData.originalPayment, () => localFormData.increasedDecreasedAmount], () => {
+// 監聽原金額與增減列變化，以及實際發放金額變化
+watch([() => localFormData.originalPayment, () => localFormData.increasedDecreasedAmount, () => localFormData.actualPayment], () => {
+  // 如果正在自動計算金額，跳過這次監聽
+  if (isAutoCalculatingAmount.value) {
+    console.log('金額變化 watch: 跳過，正在自動計算中');
+    return;
+  }
+
   const currentResult = localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult;
   
   console.log('金額變化 watch 觸發:', {
     currentResult,
     originalPayment: localFormData.originalPayment,
-    increasedDecreasedAmount: localFormData.increasedDecreasedAmount
+    increasedDecreasedAmount: localFormData.increasedDecreasedAmount,
+    actualPayment: localFormData.actualPayment,
+    isAutoCalculatingAmount: isAutoCalculatingAmount.value
   });
+
+  // 如果沒有測試結果，不進行任何計算
+  if (!currentResult) {
+    console.log('沒有測試結果，跳過金額計算');
+    return;
+  }
+
+  // 設置自動計算標記，避免循環觸發
+  isAutoCalculatingAmount.value = true;
 
   if (currentResult === 'adjusted' && localFormData.originalPayment && localFormData.increasedDecreasedAmount) {
     try {
@@ -1519,17 +1562,30 @@ watch([() => localFormData.originalPayment, () => localFormData.increasedDecreas
       const adjustment = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
       if (!isNaN(original) && !isNaN(adjustment)) {
         const actual = original + adjustment;
-        localFormData.actualPayment = actual.toLocaleString();
-        console.log('重新計算 adjusted 實際發放金額:', localFormData.actualPayment);
+        const newActualPayment = actual.toLocaleString();
+        
+        // 只有當計算結果與當前值不同時才更新
+        if (localFormData.actualPayment !== newActualPayment) {
+          localFormData.actualPayment = newActualPayment;
+          console.log('金額變化 watch: 重新計算 adjusted 實際發放金額:', localFormData.actualPayment);
+        }
       }
     } catch (e) {
       console.error('計算實際發放金額時出錯', e);
     }
   } else if (currentResult === 'original' && localFormData.originalPayment) {
     // 如果是 original 狀態，實際發放金額等於原補助款
-    localFormData.actualPayment = localFormData.originalPayment;
-    console.log('設置 original 實際發放金額:', localFormData.actualPayment);
+    if (localFormData.actualPayment !== localFormData.originalPayment) {
+      localFormData.actualPayment = localFormData.originalPayment;
+      console.log('金額變化 watch: 同步 original 實際發放金額:', localFormData.actualPayment);
+    }
   }
+
+  // 重置自動計算標記
+  nextTick(() => {
+    isAutoCalculatingAmount.value = false;
+    console.log('金額變化 watch: 重置自動計算標記');
+  });
 
   updateFormData();
 });
