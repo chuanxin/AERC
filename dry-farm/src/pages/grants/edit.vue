@@ -308,11 +308,15 @@
                       />
                       <step7
                         v-if="currentStep === 7"
+                        ref="step7Ref"
                         :form-data="grantsStore.formData[7]"
                         :current-step="currentStep"
                         @update:form-data="handleFormDataUpdate(7, $event)"
                         @validated="handleStepValidated"
                         @go-back="handleGoBack"
+                        @button-state-changed="handleStep7ButtonStateChanged"
+                        @save-for-improvement="handleSaveForImprovement"
+                        @proceed-to-next-step="goToNextStep"
                       />
                       <step8
                         v-if="currentStep === 8"
@@ -360,21 +364,21 @@
 
                     <v-btn
                       :disabled="isNavigating"
-                      color="#3ea0a3"
+                      :color="currentStep === 7 && step7ButtonState.shouldShowSaveButton ? 'orange-darken-2' : '#3ea0a3'"
                       class="mr-6 pl-6 next-btn"
                       size="x-large"
                       variant="outlined"
                       density="compact"
                       rounded="lg"
                       :ripple="false"
-                      @click="goToNextStep"
+                      @click="handleMainButtonClick"
                     >
                       <!-- 替換為更詳細的邏輯顯示不同的按鈕文字 -->
                       <template v-if="currentStep === 8">
                         完成
                       </template>
                       <template v-else-if="currentStep === 7">
-                        結案
+                        {{ step7ButtonState.buttonText }}
                       </template>
                       <template v-else-if="currentStep === 6">
                         完成申報
@@ -384,16 +388,22 @@
                       </template>
 
                       <v-icon
-                        v-if="currentStep < 8"
+                        v-if="currentStep === 8"
                         end
                       >
-                        mdi-arrow-right
+                        mdi-check
+                      </v-icon>
+                      <v-icon
+                        v-else-if="currentStep === 7 && step7ButtonState.shouldShowSaveButton"
+                        end
+                      >
+                        mdi-content-save
                       </v-icon>
                       <v-icon
                         v-else
                         end
                       >
-                        mdi-check
+                        mdi-arrow-right
                       </v-icon>
                     </v-btn>
                   </v-card-actions>
@@ -458,6 +468,16 @@ const isDataLoaded = ref(false)
 const isNavigating = ref(false)
 const autoSaveTimer = ref<number | null>(null)
 
+// Step7 按鈕狀態
+const step7ButtonState = ref({
+  shouldShowSaveButton: false,
+  buttonText: '結案',
+  buttonHandler: 'proceed'
+})
+
+// Step7 組件引用
+const step7Ref = ref(null)
+
 // Navigation drawer state
 const drawerOpen = ref(true)
 const isRailMode = ref(false) // Default to expanded
@@ -506,6 +526,55 @@ const updateStepInURL = (step: number) => {
 const goToNextStep = () => {
   if (currentStep.value < steps.length) {
     handleStepValidated({ valid: true, step: currentStep.value })
+  }
+}
+
+// 處理 Step7 按鈕狀態變化
+const handleStep7ButtonStateChanged = (buttonState: any) => {
+  console.log('Step7 按鈕狀態變化:', buttonState)
+  step7ButtonState.value = buttonState
+}
+
+// 處理存檔功能（限期改善）
+const handleSaveForImprovement = async () => {
+  console.log('處理存檔功能：現場勘查未通過驗收，將於改善後複驗')
+  
+  try {
+    submitting.value = true
+    
+    // 保存當前數據
+    await saveAllChanges()
+    
+    // 顯示成功訊息
+    // 這裡可以添加 snackbar 或其他提示
+    console.log('存檔成功，待改善後複驗')
+    
+    // 不進入下一步，停留在當前步驟
+  } catch (error) {
+    console.error('存檔失敗:', error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+// 修改按鈕點擊邏輯
+const handleMainButtonClick = () => {
+  console.log('主按鈕點擊:', {
+    currentStep: currentStep.value,
+    shouldShowSaveButton: step7ButtonState.value.shouldShowSaveButton
+  })
+  
+  if (currentStep.value === 7 && step7ButtonState.value.shouldShowSaveButton) {
+    // 調用 step7 組件的存檔方法
+    console.log('調用 step7 存檔方法')
+    if (step7Ref.value && step7Ref.value.handleSave) {
+      step7Ref.value.handleSave()
+    } else {
+      console.error('step7Ref 或 handleSave 方法不存在')
+    }
+  } else {
+    // 其他步驟的正常邏輯
+    goToNextStep()
   }
 }
 

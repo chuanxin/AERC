@@ -828,6 +828,45 @@
         </v-form>
       </v-card-text>
     </v-card>
+
+    <!-- 存檔確認對話框 -->
+    <v-dialog
+      v-model="saveConfirmDialog"
+      max-width="500"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h6 font-weight-bold bg-orange-lighten-4 pa-4">
+          <v-icon class="me-2" color="orange-darken-2">mdi-alert-circle</v-icon>
+          存檔確認
+        </v-card-title>
+        <v-card-text class="pa-6">
+          <p class="mb-4 text-body-1">
+            目前現場勘查後未通過驗收，將於改善後複驗。
+          </p>
+          <p class="mb-0 text-body-2 text-grey-darken-1">
+            請確認是否要存檔此狀態？存檔後可在改善完成後進行複驗作業。
+          </p>
+        </v-card-text>
+        <v-card-actions class="pa-4">
+          <v-spacer></v-spacer>
+          <v-btn
+            color="grey"
+            variant="outlined"
+            @click="saveConfirmDialog = false"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            color="orange-darken-2"
+            variant="flat"
+            @click="confirmSave"
+          >
+            確認存檔
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -848,7 +887,7 @@ const props = defineProps({
 });
 
 // Event emitters
-const emit = defineEmits(['update:formData', 'validated', 'go-back']);
+const emit = defineEmits(['update:formData', 'validated', 'go-back', 'save-for-improvement', 'proceed-to-next-step', 'button-state-changed']);
 
 // Access the grants store
 const grantsStore = useGrantsStore();
@@ -929,6 +968,20 @@ const isAutoSyncingDescription = ref(false);
 
 // 追蹤是否正在自動計算金額，避免循環觸發
 const isAutoCalculatingAmount = ref(false);
+
+// 計算按鈕狀態 - 判斷是否應該顯示「存檔」按鈕
+const shouldShowSaveButton = computed(() => {
+  // 非複驗狀態 且 選擇不合格（improvement）時，顯示「存檔」按鈕
+  return !localFormData.isReinspection && localFormData.testResult === 'improvement';
+});
+
+// 計算按鈕文字
+const buttonText = computed(() => {
+  return shouldShowSaveButton.value ? '存檔' : '結案';
+});
+
+// 提示訊息對話框狀態
+const saveConfirmDialog = ref(false);
 
 // 本地表單數據
 const localFormData = reactive({
@@ -1250,6 +1303,44 @@ const cleanupPreviews = () => {
   if (localFormData.afterPhotoPreview && typeof localFormData.afterPhotoPreview === 'string' &&
       localFormData.afterPhotoPreview.startsWith('blob:')) {
     URL.revokeObjectURL(localFormData.afterPhotoPreview);
+  }
+};
+
+// 處理存檔功能
+const handleSave = () => {
+  console.log('step7 handleSave 被調用');
+  console.log('saveConfirmDialog 當前值:', saveConfirmDialog.value);
+  // 顯示確認對話框
+  saveConfirmDialog.value = true;
+  console.log('saveConfirmDialog 設置後的值:', saveConfirmDialog.value);
+};
+
+// 確認存檔
+const confirmSave = () => {
+  console.log('確認存檔，現場勘查未通過驗收，將於改善後複驗');
+  // 關閉對話框
+  saveConfirmDialog.value = false;
+  // 更新表單數據
+  updateFormData();
+  // 發送存檔事件給父組件
+  emit('save-for-improvement');
+};
+
+// 處理結案功能
+const handleFinish = () => {
+  console.log('處理結案功能');
+  // 更新表單數據
+  updateFormData();
+  // 發送結案事件給父組件（原本的行為）
+  emit('proceed-to-next-step');
+};
+
+// 處理按鈕點擊
+const handleButtonClick = () => {
+  if (shouldShowSaveButton.value) {
+    handleSave();
+  } else {
+    handleFinish();
   }
 };
 
@@ -1602,6 +1693,23 @@ watch([() => localFormData.designCompliance, () => localFormData.operationCompli
   }
 });
 
+// 監聽按鈕狀態變化，通知父組件
+watch([shouldShowSaveButton, buttonText], ([showSave, text]) => {
+  console.log('按鈕狀態變化:', {
+    shouldShowSaveButton: showSave,
+    buttonText: text,
+    isReinspection: localFormData.isReinspection,
+    testResult: localFormData.testResult
+  });
+
+  // 通知父組件按鈕狀態變化
+  emit('button-state-changed', {
+    shouldShowSaveButton: showSave,
+    buttonText: text,
+    buttonHandler: showSave ? 'save' : 'proceed'
+  });
+}, { immediate: true });
+
 // 監聽原金額與增減列變化，以及實際發放金額變化
 watch([() => localFormData.originalPayment, () => localFormData.increasedDecreasedAmount, () => localFormData.actualPayment], () => {
   // 如果正在自動計算金額，跳過這次監聽
@@ -1717,6 +1825,13 @@ watch(localValid, (newVal) => {
 // 組件卸載時清理資源
 onUnmounted(() => {
   cleanupPreviews();
+});
+
+// 暴露方法給父組件調用
+defineExpose({
+  handleSave,
+  handleFinish,
+  handleButtonClick
 });
 </script>
 
