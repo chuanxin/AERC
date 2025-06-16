@@ -314,7 +314,7 @@
                         @update:form-data="handleFormDataUpdate(7, $event)"
                         @validated="handleStepValidated"
                         @go-back="handleGoBack"
-                        @button-state-changed="handleStep7ButtonStateChanged"
+                        @button-config-changed="handleStep7ButtonConfigChanged"
                         @save-for-improvement="handleSaveForImprovement"
                         @proceed-to-next-step="goToNextStep"
                       />
@@ -364,7 +364,7 @@
 
                     <v-btn
                       :disabled="isNavigating"
-                      :color="currentStep === 7 && step7ButtonState.shouldShowSaveButton ? 'orange-darken-2' : '#3ea0a3'"
+                      :color="currentStep === 7 ? step7ButtonConfig.color : '#3ea0a3'"
                       class="mr-6 pl-6 next-btn"
                       size="x-large"
                       variant="outlined"
@@ -378,7 +378,7 @@
                         完成
                       </template>
                       <template v-else-if="currentStep === 7">
-                        {{ step7ButtonState.buttonText }}
+                        {{ step7ButtonConfig.text }}
                       </template>
                       <template v-else-if="currentStep === 6">
                         完成申報
@@ -394,10 +394,10 @@
                         mdi-check
                       </v-icon>
                       <v-icon
-                        v-else-if="currentStep === 7 && step7ButtonState.shouldShowSaveButton"
+                        v-else-if="currentStep === 7"
                         end
                       >
-                        mdi-content-save
+                        {{ step7ButtonConfig.icon }}
                       </v-icon>
                       <v-icon
                         v-else
@@ -468,11 +468,12 @@ const isDataLoaded = ref(false)
 const isNavigating = ref(false)
 const autoSaveTimer = ref<number | null>(null)
 
-// Step7 按鈕狀態
-const step7ButtonState = ref({
-  shouldShowSaveButton: false,
-  buttonText: '結案',
-  buttonHandler: 'proceed'
+// Step7 按鈕配置
+const step7ButtonConfig = ref({
+  text: '結案',
+  color: '#3ea0a3',
+  icon: 'mdi-arrow-right',
+  action: 'proceed'
 })
 
 // Step7 組件引用
@@ -529,10 +530,10 @@ const goToNextStep = () => {
   }
 }
 
-// 處理 Step7 按鈕狀態變化
-const handleStep7ButtonStateChanged = (buttonState: any) => {
-  console.log('Step7 按鈕狀態變化:', buttonState)
-  step7ButtonState.value = buttonState
+// 處理 Step7 按鈕配置變化
+const handleStep7ButtonConfigChanged = (buttonConfig: any) => {
+  console.log('Step7 按鈕配置變化:', buttonConfig)
+  step7ButtonConfig.value = buttonConfig
 }
 
 // 處理存檔功能（限期改善）
@@ -561,16 +562,16 @@ const handleSaveForImprovement = async () => {
 const handleMainButtonClick = () => {
   console.log('主按鈕點擊:', {
     currentStep: currentStep.value,
-    shouldShowSaveButton: step7ButtonState.value.shouldShowSaveButton
+    buttonConfig: step7ButtonConfig.value
   })
   
-  if (currentStep.value === 7 && step7ButtonState.value.shouldShowSaveButton) {
-    // 調用 step7 組件的存檔方法
-    console.log('調用 step7 存檔方法')
-    if (step7Ref.value && step7Ref.value.handleSave) {
-      step7Ref.value.handleSave()
+  if (currentStep.value === 7) {
+    // 委派給 step7 組件處理對應的動作
+    console.log('委派給 step7 組件處理動作:', step7ButtonConfig.value.action)
+    if (step7Ref.value && step7Ref.value.handleActionRequest) {
+      step7Ref.value.handleActionRequest(step7ButtonConfig.value.action)
     } else {
-      console.error('step7Ref 或 handleSave 方法不存在')
+      console.error('step7Ref 或 handleActionRequest 方法不存在')
     }
   } else {
     // 其他步驟的正常邏輯

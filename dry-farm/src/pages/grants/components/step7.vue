@@ -887,7 +887,7 @@ const props = defineProps({
 });
 
 // Event emitters
-const emit = defineEmits(['update:formData', 'validated', 'go-back', 'save-for-improvement', 'proceed-to-next-step', 'button-state-changed']);
+const emit = defineEmits(['update:formData', 'validated', 'go-back', 'save-for-improvement', 'proceed-to-next-step', 'button-config-changed']);
 
 // Access the grants store
 const grantsStore = useGrantsStore();
@@ -969,15 +969,16 @@ const isAutoSyncingDescription = ref(false);
 // 追蹤是否正在自動計算金額，避免循環觸發
 const isAutoCalculatingAmount = ref(false);
 
-// 計算按鈕狀態 - 判斷是否應該顯示「存檔」按鈕
-const shouldShowSaveButton = computed(() => {
-  // 非複驗狀態 且 選擇不合格（improvement）時，顯示「存檔」按鈕
-  return !localFormData.isReinspection && localFormData.testResult === 'improvement';
-});
-
-// 計算按鈕文字
-const buttonText = computed(() => {
-  return shouldShowSaveButton.value ? '存檔' : '結案';
+// 計算按鈕配置 - 完整的按鈕配置信息
+const buttonConfig = computed(() => {
+  const shouldSave = !localFormData.isReinspection && localFormData.testResult === 'improvement';
+  
+  return {
+    text: shouldSave ? '存檔' : '結案',
+    color: shouldSave ? 'orange-darken-2' : '#3ea0a3',
+    icon: shouldSave ? 'mdi-content-save' : 'mdi-arrow-right',
+    action: shouldSave ? 'save' : 'proceed'
+  };
 });
 
 // 提示訊息對話框狀態
@@ -1306,15 +1307,6 @@ const cleanupPreviews = () => {
   }
 };
 
-// 處理存檔功能
-const handleSave = () => {
-  console.log('step7 handleSave 被調用');
-  console.log('saveConfirmDialog 當前值:', saveConfirmDialog.value);
-  // 顯示確認對話框
-  saveConfirmDialog.value = true;
-  console.log('saveConfirmDialog 設置後的值:', saveConfirmDialog.value);
-};
-
 // 確認存檔
 const confirmSave = () => {
   console.log('確認存檔，現場勘查未通過驗收，將於改善後複驗');
@@ -1324,24 +1316,6 @@ const confirmSave = () => {
   updateFormData();
   // 發送存檔事件給父組件
   emit('save-for-improvement');
-};
-
-// 處理結案功能
-const handleFinish = () => {
-  console.log('處理結案功能');
-  // 更新表單數據
-  updateFormData();
-  // 發送結案事件給父組件（原本的行為）
-  emit('proceed-to-next-step');
-};
-
-// 處理按鈕點擊
-const handleButtonClick = () => {
-  if (shouldShowSaveButton.value) {
-    handleSave();
-  } else {
-    handleFinish();
-  }
 };
 
 // 初始化數據
@@ -1693,21 +1667,11 @@ watch([() => localFormData.designCompliance, () => localFormData.operationCompli
   }
 });
 
-// 監聽按鈕狀態變化，通知父組件
-watch([shouldShowSaveButton, buttonText], ([showSave, text]) => {
-  console.log('按鈕狀態變化:', {
-    shouldShowSaveButton: showSave,
-    buttonText: text,
-    isReinspection: localFormData.isReinspection,
-    testResult: localFormData.testResult
-  });
-
-  // 通知父組件按鈕狀態變化
-  emit('button-state-changed', {
-    shouldShowSaveButton: showSave,
-    buttonText: text,
-    buttonHandler: showSave ? 'save' : 'proceed'
-  });
+// 監聽按鈕配置變化，通知父組件
+watch(buttonConfig, (newConfig) => {
+  console.log('按鈕配置變化:', newConfig);
+  // 通知父組件按鈕配置變化
+  emit('button-config-changed', newConfig);
 }, { immediate: true });
 
 // 監聽原金額與增減列變化，以及實際發放金額變化
@@ -1827,11 +1791,33 @@ onUnmounted(() => {
   cleanupPreviews();
 });
 
-// 暴露方法給父組件調用
+// 處理存檔請求
+const handleSaveRequest = () => {
+  console.log('處理存檔請求');
+  saveConfirmDialog.value = true;
+};
+
+// 處理結案請求
+const handleProceedRequest = () => {
+  console.log('處理結案請求');
+  updateFormData();
+  emit('proceed-to-next-step');
+};
+
+// 統一的動作請求處理器
+const handleActionRequest = (action) => {
+  console.log('接收到動作請求:', action);
+  
+  if (action === 'save') {
+    handleSaveRequest();
+  } else if (action === 'proceed') {
+    handleProceedRequest();
+  }
+};
+
+// 只暴露動作請求處理器
 defineExpose({
-  handleSave,
-  handleFinish,
-  handleButtonClick
+  handleActionRequest
 });
 </script>
 
