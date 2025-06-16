@@ -1,5 +1,23 @@
 import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES } from './endpoints';
 
+// 取得當前的 API 版本前綴
+const API_BASE_URL = import.meta.env.FAST_API_BASE_URL || '';
+const API_VERSION = import.meta.env.FAST_API_VERSION || '';
+const API_PREFIX = `${API_BASE_URL}/${API_VERSION}`;
+
+/**
+ * 移除 API 前綴，取得純淨的路徑
+ * @param path 包含前綴的完整路徑
+ * @returns 移除前綴後的路徑
+ */
+function removeApiPrefix(path: string): string {
+  // 動態移除當前配置的 API 前綴
+  if (path.startsWith(API_PREFIX)) {
+    return path.substring(API_PREFIX.length);
+  }
+  return path;
+}
+
 // 後端實際路徑定義
 export const BACKEND_PATHS = {
   // 用戶認證相關
@@ -41,6 +59,7 @@ export const BACKEND_PATHS = {
     BY_CASE_NUMBER: (caseNumber: string) => `/grants/case/${caseNumber}`,
     // STEP: (step: number) => `/grants/step/${step}`
     STEP: (caseNumber: string, step: number) => `/grants/case/${caseNumber}/step/${step}`,
+    UPDATE_CURRENT_STEP: (caseNumber: string) => `/grants/case/${caseNumber}/current-step`,
   },
   PIPE_FITTINGS: { // Added PIPE_FITTINGS backend paths
     LIST: '/pipe_fittings/', // For GET all and POST create
@@ -84,10 +103,6 @@ export const API_MAPPING: Record<string, string> = {
   [DOMICILE.TOWNS_LIST]: BACKEND_PATHS.DOMICILE.TOWNS_LIST,
   [DOMICILE.VILLAGES_LIST]: BACKEND_PATHS.DOMICILE.VILLAGES_LIST,
   [GRANTS.CREATE]: BACKEND_PATHS.GRANTS.CREATE,
-  // [GRANTS.BY_CASE_NUMBER]: BACKEND_PATHS.GRANTS.BY_CASE_NUMBER,
-  // [GRANTS.DETAIL]: BACKEND_PATHS.GRANTS.DETAIL,
-  // [GRANTS.BY_CASE_NUMBER]: BACKEND_PATHS.GRANTS.BY_CASE_NUMBER,
-  // [GRANTS.STEP]: BACKEND_PATHS.GRANTS.STEP,
   [PIPE_FITTINGS.LIST]: BACKEND_PATHS.PIPE_FITTINGS.LIST,
   [PIPE_FITTINGS.CREATE]: BACKEND_PATHS.PIPE_FITTINGS.LIST, // Assuming POST to the same base path
   [PF_ANNUAL_PRICES.LIST]: BACKEND_PATHS.PF_ANNUAL_PRICES.LIST,
@@ -102,38 +117,114 @@ export const API_MAPPING: Record<string, string> = {
 // 動態參數路徑匹配規則
 export const DYNAMIC_PATH_PATTERNS = [
   {
-    // 匹配用戶詳情路徑 /api/v1/users/123
-    pattern: new RegExp(`^${USERS.BASE}/([\\d]+)$`),
+    // 匹配用戶詳情路徑 {API_PREFIX}/users/123
+    pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/([\\d]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USERS.DETAIL(matches[1])
   },
   {
-    // Assuming PIPE_FITTINGS.BASE is /api/v1/pipe_fittings from endpoints.ts
-    pattern: new RegExp(`^${PIPE_FITTINGS.BASE}/office/([^/]+)$`),
+    // 匹配管道配件相關路徑
+    pattern: new RegExp(`^${PIPE_FITTINGS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/office/([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PIPE_FITTINGS.BY_OFFICE_ID(matches[1])
   },
-  // Pattern for /pipe_fittings/{pomno}
   {
-    // (?!office/) is a negative lookahead to prevent matching "/office/" as a pomno
-    pattern: new RegExp(`^${PIPE_FITTINGS.BASE}/(?!office/)([^/]+)$`),
+    // 匹配管道配件詳情路徑
+    pattern: new RegExp(`^${PIPE_FITTINGS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(?!office/)([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PIPE_FITTINGS.DETAIL(matches[1])
   },
   {
-    pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE}/pipe_fitting/([^/]+)$`),
+    pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/pipe_fitting/([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PF_ANNUAL_PRICES.BY_PIPE_FITTING(matches[1])
   },
   {
-    pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE}/pipe_fitting/([^/]+)/current$`),
+    pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/pipe_fitting/([^/]+)/current$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PF_ANNUAL_PRICES.CURRENT_PRICE(matches[1])
   },
   {
-    pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE}/([^/]+)$`),
+    pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PF_ANNUAL_PRICES.DETAIL(matches[1])
-  },
-  // {
-  //   pattern: new RegExp(`^${PF_MODULES.LIST}/([^/]+)$`),
-  //   transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PF_MODULES.DETAIL(matches[1])
-  // },
+  }
 ];
+
+/**
+ * 將前端 API 路徑映射為後端實際路徑
+ * @param frontendPath 前端 API 路徑 (e.g., /api/v1/grants/case/114020001/current-step)
+ * @returns 對應的後端實際路徑 (e.g., /grants/case/114020001/current-step)
+ */
+export function mapApiPath(frontendPath: string): string {
+  console.log('[mapApiPath] Input path:', frontendPath);
+  const [basePathFromFrontend, queryString] = frontendPath.split('?');
+
+  let mappedBasePath: string | undefined;
+
+  // 1. Try static mapping first
+  mappedBasePath = API_MAPPING[basePathFromFrontend];
+  if (mappedBasePath) {
+    console.debug(`[mapApiPath] Static mapping found for ${basePathFromFrontend}: ${mappedBasePath}`);
+    if (queryString) {
+      return `${mappedBasePath}?${queryString}`;
+    }
+    return mappedBasePath;
+  }
+
+  // 2. 移除 API 前綴，取得純淨的路徑進行動態匹配
+  const cleanPath = removeApiPrefix(basePathFromFrontend);
+  console.debug(`[mapApiPath] Cleaned path (removed prefix): ${cleanPath}`);
+
+  // 3. 使用純淨路徑進行 grants 相關的動態匹配
+  // 3.1 匹配 grants case number 路徑
+  const caseNumberMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)$/);
+  if (caseNumberMatch) {
+    const caseNumber = caseNumberMatch[1];
+    mappedBasePath = BACKEND_PATHS.GRANTS.BY_CASE_NUMBER(caseNumber);
+    console.debug(`[mapApiPath] Grant case number dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+  } else {
+    // 3.2 匹配 grants step 路徑
+    const stepMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/step\/(\d+)$/);
+    if (stepMatch) {
+      const caseNumber = stepMatch[1];
+      const step = parseInt(stepMatch[2], 10);
+      mappedBasePath = BACKEND_PATHS.GRANTS.STEP(caseNumber, step);
+      console.debug(`[mapApiPath] Grant step dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+    } else {
+      // 3.3 匹配 grants current-step 路徑
+      const currentStepMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/current-step$/);
+      if (currentStepMatch) {
+        const caseNumber = currentStepMatch[1];
+        mappedBasePath = BACKEND_PATHS.GRANTS.UPDATE_CURRENT_STEP(caseNumber);
+        console.debug(`[mapApiPath] Grant current-step dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+      } else {
+        // 4. 回退到通用動態模式匹配 (使用原始路徑)
+        for (const { pattern, transform } of DYNAMIC_PATH_PATTERNS) {
+          if (!pattern) continue;
+
+          const matches = basePathFromFrontend.match(pattern);
+          if (matches && transform) {
+            const transformedPath = transform(matches);
+            if (transformedPath) {
+              mappedBasePath = transformedPath;
+              console.debug(`[mapApiPath] Generic dynamic mapping for ${basePathFromFrontend} using pattern ${pattern}: ${mappedBasePath}`);
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 5. 處理沒有找到映射的情況
+  if (!mappedBasePath) {
+    console.warn(`[mapApiPath] No mapping found for ${basePathFromFrontend}. Using original path.`);
+    mappedBasePath = basePathFromFrontend;
+  }
+
+  // 6. 重新附加查詢參數
+  if (queryString) {
+    mappedBasePath = `${mappedBasePath}?${queryString}`;
+  }
+
+  console.debug(`[mapApiPath] Final mapped output for ${frontendPath}: ${mappedBasePath}`);
+  return mappedBasePath;
+}
 
 // /**
 //  * 將前端 API 路徑映射為後端實際路徑
@@ -202,76 +293,3 @@ export const DYNAMIC_PATH_PATTERNS = [
 
 //   return mappedPath;
 // }
-
-/**
- * 將前端 API 路徑映射為後端實際路徑
- * @param frontendPath 前端 API 路徑 (e.g., /v1/pipe_fittings)
- * @returns 對應的後端實際路徑 (e.g., /pipe_fittings)
- */
-export function mapApiPath(frontendPath: string): string {
-  console.log('[mapApiPath] Input path:', frontendPath);
-  const [basePathFromFrontend, queryString] = frontendPath.split('?');
-
-  let mappedBasePath: string | undefined;
-
-  // 1. Try static mapping first
-  mappedBasePath = API_MAPPING[basePathFromFrontend];
-  if (mappedBasePath) {
-    console.debug(`[mapApiPath] Static mapping found for ${basePathFromFrontend}: ${mappedBasePath}`);
-    if (queryString) {
-      return `${mappedBasePath}?${queryString}`;
-    }
-    return mappedBasePath;
-  }
-
-  // 2. No static mapping, try dynamic patterns
-  //    (Your existing grant-specific logic can be here or integrated into DYNAMIC_PATH_PATTERNS)
-
-  // 2.1 First try specific grant patterns (as in your existing code)
-  const caseNumberMatch = basePathFromFrontend.match(/\/grants\/case\/([^\/]+)$/);
-  if (caseNumberMatch) {
-    const caseNumber = caseNumberMatch[1];
-    mappedBasePath = BACKEND_PATHS.GRANTS.BY_CASE_NUMBER(caseNumber);
-    console.debug(`[mapApiPath] Grant case number dynamic mapping for ${basePathFromFrontend}: ${mappedBasePath}`);
-  } else {
-    const stepMatch = basePathFromFrontend.match(/\/grants\/case\/([^\/]+)\/step\/(\d+)$/);
-    if (stepMatch) {
-      const caseNumber = stepMatch[1];
-      const step = parseInt(stepMatch[2], 10);
-      mappedBasePath = BACKEND_PATHS.GRANTS.STEP(caseNumber, step);
-      console.debug(`[mapApiPath] Grant step dynamic mapping for ${basePathFromFrontend}: ${mappedBasePath}`);
-    } else {
-      // 2.2 Fall back to generic dynamic pattern rules from DYNAMIC_PATH_PATTERNS
-      for (const { pattern, transform } of DYNAMIC_PATH_PATTERNS) {
-        if (!pattern) continue; // Skip if pattern is somehow undefined
-
-        const matches = basePathFromFrontend.match(pattern);
-        if (matches && transform) {
-          const transformedPath = transform(matches);
-          if (transformedPath) { // Ensure transform actually returned a path
-            mappedBasePath = transformedPath;
-            console.debug(`[mapApiPath] Generic dynamic mapping for ${basePathFromFrontend} using pattern ${pattern}: ${mappedBasePath}`);
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  // 3. Handle cases where no mapping was found
-  if (!mappedBasePath) {
-    // If no mapping rule applied, this is a problem.
-    // It means the frontend is requesting a path that the mapping logic doesn't know how to handle.
-    // This will likely lead to incorrect URLs if the apiClient.baseURL also contains a prefix like /v1.
-    console.warn(`[mapApiPath] No mapping found for ${basePathFromFrontend}. Using original path. This might lead to URL issues if prefixes are duplicated.`);
-    mappedBasePath = basePathFromFrontend; // Fallback, but be aware of potential prefix duplication
-  }
-
-  // 4. Reattach query parameters if they exist
-  if (queryString) {
-    mappedBasePath = `${mappedBasePath}?${queryString}`;
-  }
-
-  console.debug(`[mapApiPath] Final mapped output for ${frontendPath}: ${mappedBasePath}`);
-  return mappedBasePath;
-}

@@ -130,16 +130,15 @@
                   :loading="loading"
                   :height="500"
                   density="comfortable"
-                  item-value="name"
+                  item-value="id"
                   show-select
                   :item-selectable="item => item.iron !== '0'"
                   class="grants-table rounded-lg"
                 >
-                  <!-- 選取欄位標題 -->
-                  <template #['header.data-table-select']>
-                    <span class="ml-2 font-weight-medium">選取</span>
+                  <!-- 自定義表頭：選取欄 -->
+                  <template #[`header.data-table-select`]>
+                    <span class="ml-2 text-subtitle-2 font-weight-medium">選取</span>
                   </template>
-
                   <!-- 案件狀態欄位 -->
                   <template #[`item.status`]="{ item }">
                     <v-chip
@@ -227,19 +226,33 @@
 
 <script lang="ts" setup>
 import { useGrantsStore } from '@/stores/grants'
-import { useDisplay } from 'vuetify'
-import { GrantStorage } from '@/utils/grant-storage' // Import GrantStorage utility
+import { GrantStorage, type GrantData } from '@/utils/grant-storage'
 
-const allItems = ref<any[]>([])
+// 擴展 GrantData 類型以包含 current_step
+interface ExtendedGrantData extends GrantData {
+  current_step?: number
+}
+
+interface GrantItem {
+  name: string
+  calories: string
+  fat: number
+  status: string
+  card: string
+  protein: number
+  iron: string
+  year: number
+  id: string
+  office: string
+  value: string
+}
+
+const allItems = ref<GrantItem[]>([])
 const loading = ref(true)
 const search = ref('')
 const selected = ref<string[]>([])
 const router = useRouter()
 const grantsStore = useGrantsStore()
-
-// 分頁
-const page = ref(1)
-const itemsPerPage = ref(10)
 
 // 篩選選項
 const selectedYear = ref(null)
@@ -267,19 +280,16 @@ const officeOptions = [
 ]
 
 const headers = ref([
-  { title: '申請年度', key: 'year', align: 'start' },
-  { title: '案號', key: 'id', align: 'start' },
-  { title: '申請人姓名', key: 'name', align: 'start' },
-  { title: '管理處', key: 'office', align: 'start' },
-  { title: '末端形式', key: 'calories', align: 'end' },
-  { title: '施作面積 (m²)', key: 'fat', align: 'end' },
-  { title: '案件狀態', key: 'status', align: 'end' },
-  // { title: '公告狀態（農民卡）', key: 'card', align: 'end' },
-  { title: '操作', key: 'protein', align: 'end' },
+  { title: '申請年度', key: 'year', align: 'start' as const },
+  { title: '案號', key: 'id', align: 'start' as const },
+  { title: '申請人姓名', key: 'name', align: 'start' as const },
+  { title: '管理處', key: 'office', align: 'start' as const },
+  { title: '末端形式', key: 'calories', align: 'end' as const },
+  { title: '施作面積 (m²)', key: 'fat', align: 'end' as const },
+  { title: '案件狀態', key: 'status', align: 'end' as const },
+  // { title: '公告狀態（農民卡）', key: 'card', align: 'end' as const },
+  { title: '操作', key: 'protein', align: 'end' as const },
 ])
-
-const { name } = useDisplay()
-const isSmallScreen = computed(() => name.value === 'xs' || name.value === 'sm')
 
 // 根據案件狀態返回對應的顏色
 const getStatusColor = (status: string) => {
@@ -314,130 +324,6 @@ const getCardStatusColor = (status: string) => {
       return 'grey';
   }
 }
-
-// Sample data
-const apply = [
-  {
-    name: '許大利',
-    calories: '滴灌',  // 更新末端類型
-    fat: 1900,        // 施作面積
-    status: '完成申請人資料', // 案件狀態
-    card: '已受理',    // 農民卡狀態
-    protein: 4,
-    iron: '1',
-    year: 113,        // 申請年度
-    id: '11301001',   // 案號
-    office: '瑠公管理處', // 新增管理處
-  },
-  {
-    name: '陳大明',
-    calories: '穿孔管',
-    fat: 4000,
-    status: '完成灌溉調控設施',
-    card: '審查中',
-    protein: 4,
-    iron: '1',
-    year: 113,
-    id: '11301002',
-    office: '七星管理處',
-  },
-  {
-    name: '劉台北',
-    calories: '其他',  // 更新末端類型
-    fat: 2800,
-    status: '完成田間管路',
-    card: '審查中',
-    protein: 4,
-    iron: '1',
-    year: 113,
-    id: '11301003',
-    office: '北基管理處',
-  },
-  {
-    name: '彭大吉',
-    calories: '噴灌',  // 更新末端類型
-    fat: 4000,
-    status: '完成現場勘查',
-    card: '審查通過',  // 隨機分配
-    protein: 4,
-    iron: '1',
-    year: 113,
-    id: '11301004',
-    office: '瑠公管理處',
-  },
-  {
-    name: '林正雄',
-    calories: '滴灌',
-    fat: 3500,
-    status: '完成申請人資料',
-    card: '已受理',
-    protein: 4,
-    iron: '1',
-    year: 112,
-    id: '11201042',
-    office: '臺中管理處',
-  },
-  {
-    name: '王美蓮',
-    calories: '噴灌',  // 更新末端類型
-    fat: 2600,
-    status: '完成土地資料',
-    card: '審查中',
-    protein: 4,
-    iron: '1',
-    year: 112,
-    id: '11201085',
-    office: '嘉南管理處',
-  },
-  {
-    name: '張水源',
-    calories: '微噴',
-    fat: 3200,
-    status: '完成現場勘查',
-    card: '結案流程',  // 隨機分配
-    protein: 4,
-    iron: '2',
-    year: 111,
-    id: '11101126',
-    office: '高雄管理處',
-  },
-  {
-    name: '李農田',
-    calories: '其他',
-    fat: 1800,
-    status: '完成現場勘查',
-    card: '撥款作業',  // 隨機分配
-    protein: 4,
-    iron: '0',
-    year: 111,
-    id: '11101152',
-    office: '屏東管理處',
-  },
-  {
-    name: '黃水利',
-    calories: '滴灌',
-    fat: 5200,
-    status: '完成田間管路',
-    card: '審查中',
-    protein: 4,
-    iron: '1',
-    year: 111,
-    id: '11101023',
-    office: '花蓮管理處',
-  },
-  {
-    name: '吳田野',
-    calories: '微噴',  // 更新末端類型，原先為霧化器
-    fat: 4800,
-    status: '完成田間管路',
-    card: '審查中',
-    protein: 4,
-    iron: '1',
-    year: 110,
-    id: '11001078',
-    office: '台東管理處',
-  }
-]
 
 // Status mapping based on current step
 const statusMapping = {
@@ -491,14 +377,14 @@ const loadAllItems = () => {
   const grants = GrantStorage.getAllGrants()
 
   // Transform grant data to table format
-  const transformedData = Object.entries(grants).map(([caseNumber, grantData]) => {
+  const transformedData = Object.entries(grants).map(([caseNumber, grantData]: [string, ExtendedGrantData]) => {
     // Extract applicant name from step 1
     const step1Data = grantData.steps?.[1] || {}
     // console.log(`[loadAllItems] Processing case: ${caseNumber}`, grantData)
     const name = step1Data.name || grantData.applicant_name || '未填寫'
 
     // Extract year from case number (first 3 digits)
-    const year = parseInt(caseNumber.substring(0, 3)) || 113
+    const year = parseInt(caseNumber.substring(0, 3))
 
     // Extract land area from step 2
     const step2Data = grantData.steps?.[2] || {}
@@ -511,7 +397,7 @@ const loadAllItems = () => {
 
     if (step4Data.irrigationType) {
       // Map from irrigation type to display name
-      const typeMap = {
+      const typeMap: Record<string, string> = {
         '穿孔管系統': '穿孔管',
         '噴頭式系統': '噴灌',
         '微噴系統': '微噴',
@@ -524,17 +410,9 @@ const loadAllItems = () => {
     // Extract office from store data or default
     const office = step1Data.department || grantData.office_name
 
-    // Determine current step and status
-    // 如果這是當前編輯的案件，從 grantsStore 獲取最新步驟
+    // Determine current step and status - safely access current_step
     const currentStep = grantData.current_step
-    // if (grantsStore.currentGrant && grantsStore.currentGrant.case_number === caseNumber) {
-    //   currentStep = grantsStore.currentGrant.current_step
-    // } else {
-      // 否則使用本地存儲的步驟
-      // currentStep = grantData.current_step || 1
-    // }
-    // const currentStep = grantData.current_step || 1
-    const status = statusMapping[currentStep] || '處理中'
+    const status = statusMapping[currentStep as keyof typeof statusMapping]
 
     // Generate random card status for demo
     const cardStatusIndex = Math.floor(Math.random() * cardStatusOptions.length)
@@ -555,28 +433,21 @@ const loadAllItems = () => {
     }
   })
 
-  // If no data in localStorage, use sample data
-  if (transformedData.length === 0) {
-    allItems.value = apply
-  } else {
-    // Combine sample data with transformed data for demo purposes
-    allItems.value = [...transformedData, ...apply]
-  }
+  // 只使用 localStorage 中的實際申請案件資料
+  allItems.value = transformedData
 
   loading.value = false
 }
 
 const editItem = (itemId: string) => {
-  const grantData = GrantStorage.getGrant(itemId);
+  const grantData = GrantStorage.getGrant(itemId) as ExtendedGrantData | null;
   if (grantData) {
-    // 確保 grantsStore 中有正確的 current_step 值
+    // 取得案件的 current_step，如果沒有則預設為 1
     const currentStep = grantData.current_step || 1;
 
-    // 將 current_step 保存到 store 中
-    grantsStore.updateCurrentStep(currentStep);
-    console.log(`[editItem] Setting current_step to ${currentStep} for grant ${itemId}`);
+    console.log(`[editItem] Navigating to edit grant ${itemId} at step ${currentStep}`);
 
-    // 導航到編輯頁面
+    // 直接導航到編輯頁面，讓 edit.vue 自己處理案件載入和步驟設置
     router.push(`/grants/edit?id=${itemId}&step=${currentStep}`);
   } else {
     // 如果找不到數據，只帶 ID 參數導航
@@ -589,7 +460,7 @@ const deleteItem = (itemId: string) => {
   if (confirm(`確定要刪除案號 ${itemId} 的申請案件嗎？`)) {
     try {
       // Remove from localStorage
-      GrantStorage.removeGrant(itemId)
+      GrantStorage.deleteGrant(itemId)
       // Also remove from UI
       allItems.value = allItems.value.filter(item => item.id !== itemId)
     } catch (error) {
@@ -603,13 +474,14 @@ onMounted(() => {
   loadAllItems()
 })
 
-watch(() => grantsStore.currentGrant?.current_step, (newStep) => {
+// Watch for changes in grantsStore currentStep to update status
+watch(() => grantsStore.currentStep, (newStep) => {
   if (newStep && grantsStore.currentGrant) {
     // 更新對應案件的狀態
     const caseNumber = grantsStore.currentGrant.case_number
     const item = allItems.value.find(item => item.id === caseNumber)
     if (item) {
-      item.status = statusMapping[newStep] || '處理中'
+      item.status = statusMapping[newStep as keyof typeof statusMapping]
     }
   }
 })

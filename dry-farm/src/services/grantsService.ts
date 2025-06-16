@@ -37,7 +37,7 @@ export interface GrantStepData {
   case_number: string;
   current_step: number;
   status: string;
-  [key: string]: any; // Allow for step-specific fields
+  [key: string]: unknown; // Allow for step-specific fields
 }
 
 export interface Step1Data {
@@ -59,7 +59,7 @@ export interface Step1Data {
 export const createGrant = async (data: GrantCreateRequest): Promise<GrantCreateResponse> => {
   try {
     console.log('發送建立專案請求，資料:', data)
-    const response = await apiService.post<GrantCreateResponse>(GRANTS.CREATE, data)
+    const response = await apiService.post<GrantCreateResponse>(GRANTS.CREATE, data as unknown as Record<string, unknown>)
     return response
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -116,32 +116,41 @@ export const createGrant = async (data: GrantCreateRequest): Promise<GrantCreate
   }
 }
 
-export const getGrantByCaseNumber = async (caseNumber: string): Promise<any> => {
+export const getGrantByCaseNumber = async (caseNumber: string): Promise<GrantCreateResponse> => {
   try {
     // const url = mapApiPath(GRANTS.BY_CASE_NUMBER(caseNumber));
     // const response = await apiService.get(url);
     const response = await apiService.get(GRANTS.BY_CASE_NUMBER(caseNumber))
-    return response
+    return response as GrantCreateResponse
   } catch (error: unknown) {
-    handleApiError(error, 'grantsService.getGrantByCaseNumber')
+    return handleApiError(error, 'grantsService.getGrantByCaseNumber')
   }
 }
 
 export const getGrantStepData = async (caseNumber: string, step: number): Promise<GrantStepData> => {
   try {
     const response = await apiService.get(GRANTS.STEP(caseNumber, step))
-    return response
+    return response as GrantStepData
   } catch (error: unknown) {
     return handleApiError(error, 'grantsService.getGrantStepData')
   }
 }
 
-export const updateGrantStepData = async (caseNumber: string, step: number, data: any): Promise<GrantStepData> => {
+export const updateGrantStepData = async (caseNumber: string, step: number, data: Record<string, unknown>): Promise<GrantStepData> => {
   try {
     const response = await apiService.put(GRANTS.STEP(caseNumber, step), data)
-    return response
+    return response as GrantStepData
   } catch (error: unknown) {
     return handleApiError(error, 'grantsService.updateGrantStepData')
+  }
+}
+
+export const updateCurrentStep = async (caseNumber: string, currentStep: number): Promise<{ success: boolean }> => {
+  try {
+    const response = await apiService.put(GRANTS.UPDATE_CURRENT_STEP(caseNumber), { current_step: currentStep })
+    return response as { success: boolean }
+  } catch (error: unknown) {
+    return handleApiError(error, 'grantsService.updateCurrentStep')
   }
 }
 

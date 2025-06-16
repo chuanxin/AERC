@@ -928,3 +928,46 @@ async def update_grant_step_data(case_number: str, step: int, data: Dict[str, An
 #                 )
             
 #             # 記錄審核日誌
+async def update_grant_current_step(case_number: str, current_step: int, current_user: UserOutSchema) -> Dict[str, Any]:
+    """更新補助申請案件的當前步驟"""
+    async with in_transaction():
+        try:
+            # 檢查案件是否存在
+            try:
+                grant = await Grants.get(case_number=case_number)
+            except DoesNotExist:
+                raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+            
+            # 驗證步驟範圍
+            if current_step < 1 or current_step > 9:
+                raise HTTPException(status_code=400, detail=f"步驟值必須在1-9之間，收到：{current_step}")
+            
+            # 更新當前步驟
+            await Grants.filter(id=grant.id).update(current_step=current_step)
+            
+            # 建立歷史紀錄
+            await GrantHistory.create(
+                grant=grant,
+                status=grant.status,
+                changed_by_id=current_user.id,
+                notes=f"更新當前步驟為 {current_step}"
+            )
+            
+            logger.info(f"成功更新案件 {case_number} 的當前步驟為 {current_step}")
+            
+            return {
+                "success": True,
+                "case_number": case_number,
+                "current_step": current_step,
+                "message": f"成功更新當前步驟為 {current_step}"
+            }
+            
+        except HTTPException:
+            # 重新拋出 HTTPException
+            raise
+        except Exception as e:
+            logger.error(f"更新案件 {case_number} 當前步驟時發生錯誤: {str(e)}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"更新當前步驟失敗: {str(e)}"
+            )

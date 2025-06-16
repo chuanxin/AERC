@@ -344,14 +344,6 @@ const dragOffset = ref({ x: 0, y: 0 });
 
 // 從 localStorage 讀取保存的面板位置，如果沒有則使用默認位置
 const getSavedPanelPosition = () => {
-  const saved = localStorage.getItem('layersPanelPosition');
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch (error) {
-      console.warn('無法解析保存的面板位置:', error);
-    }
-  }
   // 默認位置：右上方，工具列左邊
   // 使用 rightOffset 來計算右邊距離，確保在工具列左邊
   const rightOffset = 90;  // 工具列寬度 + 間距
@@ -447,9 +439,6 @@ const onDrag = (event: MouseEvent) => {
 
 const stopDrag = () => {
   isDragging.value = false;
-
-  // 保存面板位置到 localStorage
-  localStorage.setItem('layersPanelPosition', JSON.stringify(panelPosition.value));
 
   // 移除全局監聽器
   document.removeEventListener('mousemove', onDrag);
@@ -621,8 +610,6 @@ const handleResize = () => {
         x: Math.max(0, Math.min(panelPosition.value.x, maxX)),
         y: Math.max(0, Math.min(panelPosition.value.y, maxY))
       };
-      // 保存調整後的位置
-      localStorage.setItem('layersPanelPosition', JSON.stringify(panelPosition.value));
     }
   }
 };
@@ -686,15 +673,12 @@ onMounted(() => {
 
   // 確保面板位置在視窗尺寸確定後正確設置
   nextTick(() => {
-    if (!localStorage.getItem('layersPanelPosition')) {
-      // 如果沒有保存的位置，重新計算默認位置
-      const rightOffset = 90;
-      const topOffset = 10;
-      panelPosition.value = {
-        x: Math.max(10, window.innerWidth - 300 - rightOffset),
-        y: topOffset
-      };
-    }
+    const rightOffset = 90;
+    const topOffset = 10;
+    panelPosition.value = {
+      x: Math.max(10, window.innerWidth - 300 - rightOffset),
+      y: topOffset
+    };
   });
 
   // 確保 CSS 已正確載入

@@ -4,12 +4,12 @@ import {
   getGrantByCaseNumber,
   getGrantStepData,
   updateGrantStepData,
+  updateCurrentStep as updateCurrentStepAPI,
   type GrantCreateRequest,
-  type GrantCreateResponse,
-  type GrantStepData
+  type GrantCreateResponse
 } from '@/services/grantsService'
 import { ApplicationError } from '@/utils/asyncHelpers'
-import { GrantStorage } from '@/utils/grant-storage'
+import { GrantStorage, type GrantStepData } from '@/utils/grant-storage'
 
 /**
  * Grants Store - Centralized state management for grant applications
@@ -27,7 +27,7 @@ export const useGrantsStore = defineStore('grants', () => {
   const lastSavedAt = ref<Date | null>(null)
 
   // Form data for all steps
-  const formData = reactive<Record<number, any>>({
+  const formData = reactive<Record<number, Record<string, unknown>>>({
     1: {}, // Step 1 form data (API)
     2: {}, // Step 2 form data (localStorage)
     3: {}, // Step 3 form data (localStorage)
@@ -39,7 +39,7 @@ export const useGrantsStore = defineStore('grants', () => {
   })
 
   // Request cache to prevent duplicate API calls
-  const requestCache = reactive<Record<string, any>>({})
+  const requestCache = reactive<Record<string, { data: GrantCreateResponse; timestamp: number }>>({})
 
   // Getters
   const isGrantLoaded = computed(() => !!currentGrant.value)
@@ -113,6 +113,19 @@ export const useGrantsStore = defineStore('grants', () => {
         const data = await getGrantByCaseNumber(caseNumber)
         currentGrant.value = data
 
+        // 從 localStorage 取得 current_step，如果 API 資料中沒有的話
+        const localData = GrantStorage.getGrant(caseNumber);
+        if (localData && localData.current_step) {
+          currentStep.value = localData.current_step;
+          (data as GrantCreateResponse & { current_step: number }).current_step = localData.current_step;
+          console.log(`[grantsStore.loadGrant] Using current_step ${localData.current_step} from localStorage for API-loaded grant ${caseNumber}`);
+        } else {
+          // 預設為步驟 1
+          currentStep.value = 1;
+          (data as GrantCreateResponse & { current_step: number }).current_step = 1;
+          console.log(`[grantsStore.loadGrant] No current_step found, defaulting to 1 for API-loaded grant ${caseNumber}`);
+        }
+
         // Cache the result
         requestCache[cacheKey] = {
           data,
@@ -133,6 +146,18 @@ export const useGrantsStore = defineStore('grants', () => {
             created_at: localData.createdAt || new Date().toISOString(),
             updated_at: localData.updatedAt || new Date().toISOString()
           } as GrantCreateResponse
+
+          // 同時設定當前步驟
+          if (localData.current_step) {
+            currentStep.value = localData.current_step;
+            (localGrantResponse as GrantCreateResponse & { current_step: number }).current_step = localData.current_step;
+            console.log(`[grantsStore.loadGrant] Loaded current_step ${localData.current_step} from localStorage for grant ${caseNumber}`);
+          } else {
+            // 如果沒有 current_step，預設為 1
+            currentStep.value = 1;
+            (localGrantResponse as GrantCreateResponse & { current_step: number }).current_step = 1;
+            console.log(`[grantsStore.loadGrant] No current_step found, defaulting to 1 for grant ${caseNumber}`);
+          }
 
           currentGrant.value = localGrantResponse
           return localGrantResponse
@@ -164,7 +189,7 @@ export const useGrantsStore = defineStore('grants', () => {
     currentStep.value = step
 
     try {
-      let data: any = null
+      let data: Record<string, unknown> | null = null
 
       // Step 1 loads from API, others from localStorage
       if (step === 1) {
@@ -203,10 +228,10 @@ export const useGrantsStore = defineStore('grants', () => {
   /**
    * Save data for a specific step
    * @param {number} step - The step number
-   * @param {any} data - The step data to save
-   * @returns {Promise<any>} The saved data
+   * @param {Record<string, unknown>} data - The step data to save
+   * @returns {Promise<Record<string, unknown>>} The saved data
    */
-  const saveStepData = async (step: number, data: any) => {
+  const saveStepData = async (step: number, data: Record<string, unknown>) => {
     if (!currentGrant.value?.case_number) {
       error.value = '無法儲存：尚未載入案件'
       return null
@@ -217,7 +242,7 @@ export const useGrantsStore = defineStore('grants', () => {
     const caseNumber = currentGrant.value.case_number
 
     try {
-      let savedData: any = null
+      let savedData: Record<string, unknown> | null = null
 
       // Step 1 saves to API, others to localStorage
       if (step === 1) {
@@ -260,9 +285,9 @@ export const useGrantsStore = defineStore('grants', () => {
   /**
    * Update form data for a specific step
    * @param {number} step - The step number
-   * @param {any} data - The form data to update
+   * @param {Record<string, unknown>} data - The form data to update
    */
-  const updateFormData = (step: number, data: any) => {
+  const updateFormData = (step: number, data: Record<string, unknown>) => {
     // console.log(`🔄 grantsStore.updateFormData called for step ${step}`);
     // console.log('📥 Received data keys:', Object.keys(data));
     // console.log('📥 Current formData[' + step + '] before update:', JSON.stringify(formData[step], null, 2));
@@ -383,7 +408,6 @@ export const useGrantsStore = defineStore('grants', () => {
     if (!currentGrant.value?.case_number) return '';
 
     try {
-      const caseNumber = currentGrant.value.case_number;
       return GrantStorage.createBackup();
     } catch (error) {
       console.error('Failed to export grant backup:', error);
@@ -405,26 +429,46 @@ export const useGrantsStore = defineStore('grants', () => {
     }
   }
 
-  const updateCurrentStep = (step: number) => {
+  const updateCurrentStep = async (step: number) => {
+    // 驗證步驟數值有效性
+    if (typeof step !== 'number' || isNaN(step) || step < 1 || step > 9) {
+      console.warn(`[grantsStore.updateCurrentStep] Invalid step value: ${step}, defaulting to 1`);
+      step = 1;
+    }
+
     // 更新 store 中的 currentStep
     currentStep.value = step;
 
     // 如果有 currentGrant，更新其 current_step 屬性
     if (currentGrant.value) {
       // 確保 currentGrant 有 current_step 屬性（TypeScript 可能需要轉型）
-      (currentGrant.value as any).current_step = step;
+      (currentGrant.value as GrantCreateResponse & { current_step: number }).current_step = step;
 
-      // 保存到 localStorage
+      // 保存到 localStorage - 只更新當前案件的 current_step
       if (currentGrant.value.case_number) {
         const grantData = GrantStorage.getGrant(currentGrant.value.case_number);
         if (grantData) {
-          // 更新 current_step
+          // 只更新 current_step，不影響其他數據
           grantData.current_step = step;
+          grantData.updatedAt = new Date().toISOString();
           // 保存回 localStorage
           GrantStorage.saveGrantData(currentGrant.value.case_number, grantData);
           console.log(`[grantsStore] Updated current_step to ${step} for grant ${currentGrant.value.case_number}`);
+
+          // 同步到資料庫
+          try {
+            await updateCurrentStepAPI(currentGrant.value.case_number, step);
+            console.log(`[grantsStore] Successfully synced current_step ${step} to database for grant ${currentGrant.value.case_number}`);
+          } catch (error) {
+            console.warn(`[grantsStore] Failed to sync current_step to database for grant ${currentGrant.value.case_number}:`, error);
+            // 即使同步到資料庫失敗，localStorage 的更新依然有效，讓用戶能繼續操作
+          }
+        } else {
+          console.warn(`[grantsStore] Grant data not found for case number: ${currentGrant.value.case_number}`);
         }
       }
+    } else {
+      console.warn(`[grantsStore.updateCurrentStep] No currentGrant loaded, step ${step} not saved to localStorage`);
     }
 
     return step;

@@ -442,6 +442,7 @@
 import { useDisplay, useGoTo } from 'vuetify'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useGrantsStore } from '@/stores/grants'
+import { GrantStorage } from '@/utils/grant-storage'
 import { debounce } from 'lodash'
 
 // Import step components
@@ -477,7 +478,7 @@ const step7ButtonConfig = ref({
 })
 
 // Step7 組件引用
-const step7Ref = ref(null)
+const step7Ref = ref<{ handleActionRequest: (action: string) => void } | null>(null)
 
 // Navigation drawer state
 const drawerOpen = ref(true)
@@ -531,7 +532,7 @@ const goToNextStep = () => {
 }
 
 // 處理 Step7 按鈕配置變化
-const handleStep7ButtonConfigChanged = (buttonConfig: any) => {
+const handleStep7ButtonConfigChanged = (buttonConfig: { text: string; color: string; icon: string; action: string }) => {
   console.log('Step7 按鈕配置變化:', buttonConfig)
   step7ButtonConfig.value = buttonConfig
 }
@@ -539,17 +540,17 @@ const handleStep7ButtonConfigChanged = (buttonConfig: any) => {
 // 處理存檔功能（限期改善）
 const handleSaveForImprovement = async () => {
   console.log('處理存檔功能：現場勘查未通過驗收，將於改善後複驗')
-  
+
   try {
     submitting.value = true
-    
+
     // 保存當前數據
     await saveAllChanges()
-    
+
     // 顯示成功訊息
     // 這裡可以添加 snackbar 或其他提示
     console.log('存檔成功，待改善後複驗')
-    
+
     // 不進入下一步，停留在當前步驟
   } catch (error) {
     console.error('存檔失敗:', error)
@@ -564,7 +565,7 @@ const handleMainButtonClick = () => {
     currentStep: currentStep.value,
     buttonConfig: step7ButtonConfig.value
   })
-  
+
   if (currentStep.value === 7) {
     // 委派給 step7 組件處理對應的動作
     console.log('委派給 step7 組件處理動作:', step7ButtonConfig.value.action)
@@ -680,7 +681,7 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
 }
 
 // Handle form data updates from step components
-const handleFormDataUpdate = (step: number, data: any) => {
+const handleFormDataUpdate = (step: number, data: Record<string, unknown>) => {
   console.log(`🔄 edit.vue handleFormDataUpdate called for step ${step}`);
   console.log('📤 Received data keys:', Object.keys(data));
   console.log('📤 Received data sample:', {
@@ -690,12 +691,8 @@ const handleFormDataUpdate = (step: number, data: any) => {
     fundingSourceId: data.fundingSourceId
   });
 
-  // 🔧 修復：確保 grantsStore.currentStep 與實際步驟一致
-  if (grantsStore.currentStep !== step) {
-    console.log(`🔧 Fixing currentStep: ${grantsStore.currentStep} → ${step}`);
-    grantsStore.updateCurrentStep(step);
-    currentStep.value = step;
-  }
+  // 移除有問題的 currentStep 修復邏輯
+  // 步驟同步應該在載入案件時就正確設置，而不是在表單更新時修復
 
   grantsStore.updateFormData(step, data)
 
@@ -842,27 +839,37 @@ onMounted(async () => {
     await grantsStore.loadGrant(caseNumberFromRoute);
     console.log('[edit.vue onMounted] grantsStore.loadGrant successful. Current grant:', JSON.stringify(grantsStore.currentGrant, null, 2));
 
+    // 檢查 localStorage 中是否有已保存的 current_step
+    const grantData = GrantStorage.getGrant(caseNumberFromRoute);
+    const savedCurrentStep = grantData?.current_step;
+
     let startStep = 1;
     if (stepParam) {
+      // URL 中有指定步驟，使用 URL 中的步驟
       const stepValue = parseInt(stepParam as string, 10);
       if (!isNaN(stepValue) && stepValue >= 1 && stepValue <= steps.length) {
         startStep = stepValue;
         console.log(`[edit.vue onMounted] startStep determined from route.query.step: ${startStep}`);
       } else {
-        console.warn(`[edit.vue onMounted] Invalid stepParam in route: ${stepParam}. Defaulting to step 1.`);
-        startStep = 1; // Default to 1 if stepParam is invalid
+        console.warn(`[edit.vue onMounted] Invalid stepParam in route: ${stepParam}. Using saved step: ${savedCurrentStep} or defaulting to 1.`);
+        startStep = savedCurrentStep || 1;
       }
     } else {
-      // No stepParam in URL, typically means fresh navigation after creation or direct entry
-      console.log('[edit.vue onMounted] No stepParam in route. Defaulting to step 1 for initial load.');
-      startStep = 1;
+      // URL 中沒有步驟參數，優先使用 localStorage 中保存的步驟
+      if (savedCurrentStep && savedCurrentStep >= 1 && savedCurrentStep <= steps.length) {
+        startStep = savedCurrentStep;
+        console.log(`[edit.vue onMounted] Using saved current_step from localStorage: ${startStep}`);
+      } else {
+        console.log('[edit.vue onMounted] No valid saved step found, defaulting to step 1.');
+        startStep = 1;
+      }
     }
 
-    // Ensure grantsStore.currentStep is aligned before loading data, especially for initial load.
-    grantsStore.currentStep = startStep;
+    // 使用 updateCurrentStep 來確保步驟同步到 localStorage
+    grantsStore.updateCurrentStep(startStep);
     currentStep.value = startStep; // Update local currentStep ref
 
-    console.log(`[edit.vue onMounted] Final startStep: ${startStep}. grantsStore.currentStep set to: ${grantsStore.currentStep}`);
+    console.log(`[edit.vue onMounted] Final startStep: ${startStep}. grantsStore.current_step updated to: ${grantsStore.currentStep}`);
 
     if (!stepParam) {
       updateStepInURL(startStep); // Update URL if it was not set

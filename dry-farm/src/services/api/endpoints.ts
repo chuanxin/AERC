@@ -73,7 +73,7 @@ export const GRANTS = {
   BY_CASE_NUMBER: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}`,
   // STEP: (id: number | string, step: number) => `${BASE}/grants/${id}/step/${step}`,
   STEP: (caseNumber: string, step: number) => `${BASE}/grants/case/${caseNumber}/step/${step}`,
-
+  UPDATE_CURRENT_STEP: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/current-step`,
 }
 
 // Pipe Fittings related endpoints

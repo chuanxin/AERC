@@ -13,7 +13,7 @@ let grantsCache: Record<string, GrantData> | null = null;
 
 // Generic step data interface
 export interface GrantStepData {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Main grant data structure
@@ -22,6 +22,7 @@ export interface GrantData {
   applicant_name?: string;
   office_name?: string;
   status?: string;
+  current_step?: number;
   createdAt?: string;
   updatedAt?: string;
   steps: {
@@ -67,11 +68,11 @@ export const GrantStorage = {
     try {
       const storedData = localStorage.getItem(STORAGE_KEY);
       grantsCache = storedData ? JSON.parse(storedData) : {};
-      return grantsCache;
+      return grantsCache!;
     } catch (error) {
       console.error('Failed to refresh grants cache:', error);
       grantsCache = {};
-      return grantsCache;
+      return grantsCache!;
     }
   },
 
@@ -84,7 +85,7 @@ export const GrantStorage = {
     if (forceRefresh || !grantsCache) {
       return this.refreshCache();
     }
-    return grantsCache;
+    return grantsCache!;
   },
 
   /**
@@ -131,8 +132,8 @@ export const GrantStorage = {
       if (!grantsCache) this.refreshCache();
 
       // Initialize if not exists
-      if (!grantsCache[caseNumber]) {
-        grantsCache[caseNumber] = {
+      if (!grantsCache![caseNumber]) {
+        grantsCache![caseNumber] = {
           caseNumber,
           createdAt: new Date().toISOString(),
           steps: {}
@@ -140,8 +141,8 @@ export const GrantStorage = {
       }
 
       // Update step data and timestamp
-      grantsCache[caseNumber].steps[step] = data;
-      grantsCache[caseNumber].updatedAt = new Date().toISOString();
+      grantsCache![caseNumber].steps[step] = data;
+      grantsCache![caseNumber].updatedAt = new Date().toISOString();
 
       // Save back to localStorage
       this.persistToStorage();
@@ -171,7 +172,7 @@ export const GrantStorage = {
       saveData.updatedAt = new Date().toISOString();
 
       // Save to cache
-      grantsCache[caseNumber] = saveData;
+      grantsCache![caseNumber] = saveData;
 
       // Persist to storage
       this.persistToStorage();
@@ -190,8 +191,8 @@ export const GrantStorage = {
     try {
       if (!grantsCache) this.refreshCache();
 
-      if (grantsCache[caseNumber]) {
-        delete grantsCache[caseNumber];
+      if (grantsCache![caseNumber]) {
+        delete grantsCache![caseNumber];
         this.persistToStorage();
         return true;
       }
@@ -218,7 +219,8 @@ export const GrantStorage = {
       grant.status = status;
       grant.updatedAt = new Date().toISOString();
 
-      grantsCache[caseNumber] = grant;
+      if (!grantsCache) this.refreshCache();
+      grantsCache![caseNumber] = grant;
       this.persistToStorage();
     } catch (error) {
       console.error(`Failed to update status for grant ${caseNumber}:`, error);
