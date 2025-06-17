@@ -130,9 +130,9 @@
                   :loading="loading"
                   :height="500"
                   density="comfortable"
-                  item-value="id"
+                  item-value="caseNumber"
                   show-select
-                  :item-selectable="item => item.iron !== '0'"
+                  :item-selectable="item => item.selectable"
                   class="grants-table rounded-lg"
                 >
                   <!-- 自定義表頭：選取欄 -->
@@ -140,15 +140,15 @@
                     <span class="ml-2 text-subtitle-2 font-weight-medium">選取</span>
                   </template>
                   <!-- 案件狀態欄位 -->
-                  <template #[`item.status`]="{ item }">
+                  <template #[`item.stepName`]="{ item }">
                     <v-chip
-                      :color="getStatusColor(item.status)"
+                      :color="getStatusColor(item.stepName)"
                       variant="flat"
                       size="small"
                       label
                       class="font-weight-medium"
                     >
-                      {{ item.status }}
+                      {{ item.stepName }}
                     </v-chip>
                   </template>
 
@@ -166,21 +166,21 @@
                   </template>
 
                   <!-- 操作按鈕 -->
-                  <template #[`item.protein`]="{ item }">
+                  <template #[`item.actions`]="{ item }">
                     <div class="ma-0 pa-0 d-flex gap-2 justify-end">
                       <v-btn
                         icon="mdi-pencil"
                         size="small"
                         color="#3ea0a3"
                         variant="text"
-                        @click="editItem(item.value)"
+                        @click="editItem(item.caseNumber)"
                       />
                       <v-btn
                         icon="mdi-delete"
                         size="small"
                         color="error"
                         variant="text"
-                        @click="deleteItem(item.value)"
+                        @click="deleteItem(item.caseNumber)"
                       />
                     </div>
                   </template>
@@ -228,23 +228,33 @@
 import { useGrantsStore } from '@/stores/grants'
 import { GrantStorage, type GrantData } from '@/utils/grant-storage'
 
-// 擴展 GrantData 類型以包含 current_step
+interface Step2Data {
+  facilityAreaHa?: string
+  landAreaHa?: string
+  [key: string]: unknown
+}
+
+interface Step4Data {
+  irrigationType?: string
+  [key: string]: unknown
+}
+
+// 擴展 GrantData 類型以包含 currentStep
 interface ExtendedGrantData extends GrantData {
-  current_step?: number
+  currentStep?: number
 }
 
 interface GrantItem {
-  name: string
-  calories: string
-  fat: number
-  status: string
+  applicantName: string
+  irrigationName: string
+  facilityArea: number
+  stepName: string
   card: string
-  protein: number
-  iron: string
-  year: number
-  id: string
-  office: string
-  value: string
+  actions: number
+  selectable: boolean
+  caseYear: number
+  caseNumber: string
+  officeName: string
 }
 
 const allItems = ref<GrantItem[]>([])
@@ -280,15 +290,15 @@ const officeOptions = [
 ]
 
 const headers = ref([
-  { title: '申請年度', key: 'year', align: 'start' as const },
-  { title: '案號', key: 'id', align: 'start' as const },
-  { title: '申請人姓名', key: 'name', align: 'start' as const },
-  { title: '管理處', key: 'office', align: 'start' as const },
-  { title: '末端形式', key: 'calories', align: 'end' as const },
-  { title: '施作面積 (m²)', key: 'fat', align: 'end' as const },
-  { title: '案件狀態', key: 'status', align: 'end' as const },
+  { title: '申請年度', key: 'caseYear', align: 'start' as const, width: '110px' },
+  { title: '案號', key: 'caseNumber', align: 'start' as const },
+  { title: '申請人姓名', key: 'applicantName', align: 'start' as const },
+  { title: '管理處', key: 'officeName', align: 'start' as const },
+  { title: '末端形式', key: 'irrigationName', align: 'end' as const },
+  { title: '施作面積 (m²)', key: 'facilityArea', align: 'end' as const },
+  { title: '案件狀態', key: 'stepName', align: 'end' as const },
   // { title: '公告狀態（農民卡）', key: 'card', align: 'end' as const },
-  { title: '操作', key: 'protein', align: 'end' as const },
+  { title: '操作', key: 'actions', align: 'end' as const },
 ])
 
 // 根據案件狀態返回對應的顏色
@@ -346,12 +356,12 @@ const filteredItems = computed(() => {
 
   // 過濾年度
   if (selectedYear.value) {
-    result = result.filter(item => item.year === selectedYear.value)
+    result = result.filter(item => item.caseYear === selectedYear.value)
   }
 
   // 過濾管理處
   if (selectedOffice.value) {
-    result = result.filter(item => item.office === selectedOffice.value)
+    result = result.filter(item => item.officeName === selectedOffice.value)
   }
 
   // 搜尋過濾
@@ -359,9 +369,12 @@ const filteredItems = computed(() => {
     const searchTerm = search.value.toLowerCase()
     result = result.filter(item => {
       return (
-        (item.name && item.name.toLowerCase().includes(searchTerm)) ||
-        (item.id && item.id.toLowerCase().includes(searchTerm)) ||
-        (String(item.year) && String(item.year).includes(searchTerm))
+        (item.applicantName && item.applicantName.toLowerCase().includes(searchTerm)) ||
+        (item.caseNumber && item.caseNumber.toLowerCase().includes(searchTerm)) ||
+        (String(item.caseYear) && String(item.caseYear).includes(searchTerm)) ||
+        (item.officeName && item.officeName.toLowerCase().includes(searchTerm)) ||
+        (item.irrigationName && item.irrigationName.toLowerCase().includes(searchTerm)) ||
+        (item.stepName && item.stepName.toLowerCase().includes(searchTerm))
       )
     })
   }
@@ -379,20 +392,20 @@ const loadAllItems = () => {
   // Transform grant data to table format
   const transformedData = Object.entries(grants).map(([caseNumber, grantData]: [string, ExtendedGrantData]) => {
     // Extract applicant name from step 1
-    const step1Data = grantData.steps?.[1] || {}
+    // const step1Data = grantData.stepsData?.[1] as Step1Data || {}
     // console.log(`[loadAllItems] Processing case: ${caseNumber}`, grantData)
-    const name = step1Data.name || grantData.applicant_name || '未填寫'
+    const name = grantData.applicantName || '未填寫'
 
     // Extract year from case number (first 3 digits)
     const year = parseInt(caseNumber.substring(0, 3))
 
     // Extract land area from step 2
-    const step2Data = grantData.steps?.[2] || {}
+    const step2Data = grantData.stepsData?.[2] as Step2Data || {}
     const areaHa = parseFloat(step2Data.facilityAreaHa || step2Data.landAreaHa || '0')
     const areaM2 = Math.round(areaHa * 10000) // Convert hectares to square meters
 
     // Extract irrigation type from step 4
-    const step4Data = grantData.steps?.[4] || {}
+    const step4Data = grantData.stepsData?.[4] as Step4Data || {}
     let irrigationType = '未設定'
 
     if (step4Data.irrigationType) {
@@ -408,28 +421,27 @@ const loadAllItems = () => {
     }
 
     // Extract office from store data or default
-    const office = step1Data.department || grantData.office_name
+    const office = grantData.officeName || '未設定'
 
-    // Determine current step and status - safely access current_step
-    const currentStep = grantData.current_step
-    const status = statusMapping[currentStep as keyof typeof statusMapping]
+    // Determine current step and status - safely access currentStep
+    const currentStep = grantData.currentStep
+    const status = statusMapping[currentStep as keyof typeof statusMapping] || '處理中'
 
     // Generate random card status for demo
     const cardStatusIndex = Math.floor(Math.random() * cardStatusOptions.length)
     const cardStatus = cardStatusOptions[cardStatusIndex]
 
     return {
-      name: name,
-      calories: irrigationType,
-      fat: areaM2,
-      status: status,
+      applicantName: name,
+      irrigationName: irrigationType,
+      facilityArea: areaM2,
+      stepName: status,
       card: cardStatus,
-      protein: 4, // For action buttons
-      iron: '1',  // For selection
-      year: Number(year),
-      id: caseNumber,
-      office: office,
-      value: caseNumber // Needed for editItem and deleteItem functions
+      actions: 4, // For action buttons
+      selectable: true,  // All items are selectable
+      caseYear: Number(year),
+      caseNumber: caseNumber,
+      officeName: office
     }
   })
 
@@ -442,8 +454,8 @@ const loadAllItems = () => {
 const editItem = (itemId: string) => {
   const grantData = GrantStorage.getGrant(itemId) as ExtendedGrantData | null;
   if (grantData) {
-    // 取得案件的 current_step，如果沒有則預設為 1
-    const currentStep = grantData.current_step || 1;
+    // 取得案件的 currentStep，如果沒有則預設為 1
+    const currentStep = grantData.currentStep || 0;
 
     console.log(`[editItem] Navigating to edit grant ${itemId} at step ${currentStep}`);
 
@@ -462,7 +474,7 @@ const deleteItem = (itemId: string) => {
       // Remove from localStorage
       GrantStorage.deleteGrant(itemId)
       // Also remove from UI
-      allItems.value = allItems.value.filter(item => item.id !== itemId)
+      allItems.value = allItems.value.filter(item => item.caseNumber !== itemId)
     } catch (error) {
       console.error('Failed to delete grant:', error)
     }
@@ -479,9 +491,9 @@ watch(() => grantsStore.currentStep, (newStep) => {
   if (newStep && grantsStore.currentGrant) {
     // 更新對應案件的狀態
     const caseNumber = grantsStore.currentGrant.case_number
-    const item = allItems.value.find(item => item.id === caseNumber)
+    const item = allItems.value.find(item => item.caseNumber === caseNumber)
     if (item) {
-      item.status = statusMapping[newStep as keyof typeof statusMapping]
+      item.stepName = statusMapping[newStep as keyof typeof statusMapping]
     }
   }
 })

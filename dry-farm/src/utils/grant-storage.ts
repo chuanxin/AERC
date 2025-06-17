@@ -16,8 +16,22 @@ export interface GrantStepData {
   [key: string]: unknown;
 }
 
-// Main grant data structure
+// Main grant data structure (new camelCase naming)
 export interface GrantData {
+  caseNumber: string;
+  applicantName?: string;
+  officeName?: string;
+  stepName?: string;
+  currentStep?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  stepsData: {
+    [stepNumber: number]: GrantStepData;
+  };
+}
+
+// Legacy interface for backward compatibility
+export interface LegacyGrantData {
   caseNumber: string;
   applicant_name?: string;
   office_name?: string;
@@ -28,6 +42,42 @@ export interface GrantData {
   steps: {
     [stepNumber: number]: GrantStepData;
   };
+}
+
+// Type to handle both legacy and new formats
+type GrantDataUnion = GrantData | LegacyGrantData;
+
+/**
+ * Check if grant data is in legacy format
+ */
+function isLegacyGrantData(data: GrantDataUnion): data is LegacyGrantData {
+  return 'steps' in data || 'applicant_name' in data || 'office_name' in data || 'status' in data || 'current_step' in data;
+}
+
+/**
+ * Migrate legacy grant data to new camelCase format
+ */
+function migrateLegacyGrantData(legacyData: LegacyGrantData): GrantData {
+  return {
+    caseNumber: legacyData.caseNumber,
+    applicantName: legacyData.applicant_name,
+    officeName: legacyData.office_name,
+    stepName: legacyData.status,
+    currentStep: legacyData.current_step,
+    createdAt: legacyData.createdAt,
+    updatedAt: legacyData.updatedAt,
+    stepsData: legacyData.steps || {}
+  };
+}
+
+/**
+ * Ensure grant data is in new format, migrating if necessary
+ */
+function ensureNewFormat(data: GrantDataUnion): GrantData {
+  if (isLegacyGrantData(data)) {
+    return migrateLegacyGrantData(data);
+  }
+  return data;
 }
 
 // Error type for storage operations
@@ -67,12 +117,27 @@ export const GrantStorage = {
   refreshCache(): Record<string, GrantData> {
     try {
       const storedData = localStorage.getItem(STORAGE_KEY);
-      grantsCache = storedData ? JSON.parse(storedData) : {};
-      return grantsCache!;
+      const rawCache: Record<string, GrantDataUnion> = storedData ? JSON.parse(storedData) : {};
+
+      // Migrate all data to new format
+      const migratedCache: Record<string, GrantData> = {};
+      Object.entries(rawCache).forEach(([caseNumber, grantData]) => {
+        migratedCache[caseNumber] = ensureNewFormat(grantData);
+      });
+
+      grantsCache = migratedCache;
+
+      // If we migrated any legacy data, persist the new format
+      if (storedData && Object.values(rawCache).some(data => isLegacyGrantData(data))) {
+        console.log('Migrating legacy grant data to new camelCase format...');
+        this.persistToStorage();
+      }
+
+      return grantsCache;
     } catch (error) {
       console.error('Failed to refresh grants cache:', error);
       grantsCache = {};
-      return grantsCache!;
+      return grantsCache;
     }
   },
 
@@ -112,8 +177,8 @@ export const GrantStorage = {
   getStepData(caseNumber: string, step: number): GrantStepData | null {
     try {
       const grant = this.getGrant(caseNumber);
-      if (!grant || !grant.steps[step]) return null;
-      return grant.steps[step];
+      if (!grant || !grant.stepsData[step]) return null;
+      return grant.stepsData[step];
     } catch (error) {
       console.error(`Failed to get step ${step} data for grant ${caseNumber}:`, error);
       throw new StorageError(`Failed to retrieve step ${step} data for grant ${caseNumber}`, error);
@@ -136,12 +201,12 @@ export const GrantStorage = {
         grantsCache![caseNumber] = {
           caseNumber,
           createdAt: new Date().toISOString(),
-          steps: {}
+          stepsData: {}
         };
       }
 
       // Update step data and timestamp
-      grantsCache![caseNumber].steps[step] = data;
+      grantsCache![caseNumber].stepsData[step] = data;
       grantsCache![caseNumber].updatedAt = new Date().toISOString();
 
       // Save back to localStorage
@@ -216,7 +281,7 @@ export const GrantStorage = {
         throw new Error(`Grant ${caseNumber} not found`);
       }
 
-      grant.status = status;
+      grant.stepName = status;
       grant.updatedAt = new Date().toISOString();
 
       if (!grantsCache) this.refreshCache();

@@ -284,8 +284,6 @@
                         v-if="currentStep === 4"
                         :form-data="grantsStore.formData[4]"
                         :current-step="currentStep"
-                        :map-no="parseInt(route.query.id as string)"
-                        :operating-unit-id="grantsStore.currentGrant?.office_id"
                         @update:form-data="handleFormDataUpdate(4, $event)"
                         @validated="handleStepValidated"
                         @go-back="handleGoBack"
@@ -691,13 +689,23 @@ const handleFormDataUpdate = (step: number, data: Record<string, unknown>) => {
     fundingSourceId: data.fundingSourceId
   });
 
-  // 移除有問題的 currentStep 修復邏輯
-  // 步驟同步應該在載入案件時就正確設置，而不是在表單更新時修復
+  // 🔧 關鍵修復：確保 grantsStore.currentStep 與接收到的 step 一致
+  if (grantsStore.currentStep !== step) {
+    console.log(`🔧 edit.vue: Correcting grantsStore.currentStep from ${grantsStore.currentStep} to ${step}`);
+    grantsStore.updateCurrentStep(step);
+  }
+
+  // 🔧 關鍵修復：同時更新本地的 currentStep ref
+  if (currentStep.value !== step) {
+    console.log(`🔧 edit.vue: Correcting local currentStep from ${currentStep.value} to ${step}`);
+    currentStep.value = step;
+  }
 
   grantsStore.updateFormData(step, data)
 
   console.log('📊 After updateFormData - grantsStore.hasUnsavedChanges:', grantsStore.hasUnsavedChanges);
   console.log('📊 grantsStore.currentStep:', grantsStore.currentStep);
+  console.log('📊 local currentStep.value:', currentStep.value);
   console.log('📊 grantsStore.formData[' + step + '] sample:', {
     fieldLength: grantsStore.formData[step]?.fieldLength,
     fieldWidth: grantsStore.formData[step]?.fieldWidth,
@@ -799,10 +807,19 @@ const handleGoBack = async () => {
   }
 }
 
+const ensureCorrectStep = (expectedStep: number) => {
+  if (grantsStore.currentStep !== expectedStep) {
+    console.warn(`Step mismatch detected. Expected: ${expectedStep}, Actual: ${grantsStore.currentStep}`)
+    grantsStore.updateCurrentStep(expectedStep)
+  }
+}
+
 // Improved data loading with race condition prevention
 let isLoadingData = false
 const loadStepData = async (step: number) => {
   if (!route.query.id || isLoadingData) return;
+
+  ensureCorrectStep(step)
 
   isLoadingData = true;
   const caseNum = route.query.id as string;
@@ -839,9 +856,9 @@ onMounted(async () => {
     await grantsStore.loadGrant(caseNumberFromRoute);
     console.log('[edit.vue onMounted] grantsStore.loadGrant successful. Current grant:', JSON.stringify(grantsStore.currentGrant, null, 2));
 
-    // 檢查 localStorage 中是否有已保存的 current_step
+    // 檢查 localStorage 中是否有已保存的 currentStep
     const grantData = GrantStorage.getGrant(caseNumberFromRoute);
-    const savedCurrentStep = grantData?.current_step;
+    const savedCurrentStep = grantData?.currentStep;
 
     let startStep = 1;
     if (stepParam) {

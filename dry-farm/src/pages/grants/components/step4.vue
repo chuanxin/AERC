@@ -1938,16 +1938,16 @@ const props = defineProps({
     type: Number,
     required: true
   },
-  mapNo: { // 對應舊 MapNo
-    type: Number,
-    required: false,
-    default: 0
-  },
-  operatingUnitId: { // 對應舊 OperatingUnitId
-    type: Number,
-    required: false,
-    default: 1
-  }
+  // mapNo: { // 對應舊 MapNo
+  //   type: Number,
+  //   required: false,
+  //   default: 0
+  // },
+  // operatingUnitId: { // 對應舊 OperatingUnitId
+  //   type: Number,
+  //   required: false,
+  //   default: 1
+  // }
 });
 
 const emit = defineEmits(['update:formData', 'validated', 'go-back', 'show-snackbar']);
@@ -2856,6 +2856,20 @@ const calculateSprinklerQuantity = () => {
 
 // 灌溉類型變更
 const onIrrigationTypeChange = async () => {
+  // 根據選取的 irrigationTypeId 對應 irrigationTypeOptions 中的 id，將 description 值同步更新至 localFormData.irrigationType
+  if (localFormData.irrigationTypeId) {
+    const selectedOption = irrigationTypeOptions.value.find(option => option.id === localFormData.irrigationTypeId);
+    if (selectedOption) {
+      localFormData.irrigationType = selectedOption.description;
+      console.log(`🔄 Updated irrigationType to: ${localFormData.irrigationType} (ID: ${localFormData.irrigationTypeId})`);
+    } else {
+      console.warn(`⚠️ Could not find irrigation type option for ID: ${localFormData.irrigationTypeId}`);
+      localFormData.irrigationType = '';
+    }
+  } else {
+    localFormData.irrigationType = '';
+  }
+
   localFormData.sprinklerSubtypeId = null;
   localFormData.perforatedPipeDirection = 1; // Default for perforated
   localFormData.endFacilityPomno = null;
@@ -3825,9 +3839,9 @@ const calculateSubsidy = async () => {
     } else if (irrigationTypeId === 2) { // 噴頭式系統
       subsidyPerHectare = isAboriginalArea ? 132000 : 120000;
     } else if (irrigationTypeId === 3) { // 微噴系統
-      subsidyPerHectare = isAboriginalArea ? 19800 : 180000;
+      subsidyPerHectare = isAboriginalArea ? 198000 : 180000;
     } else if (irrigationTypeId === 4) { // 滴灌系統
-      subsidyPerHectare = isAboriginalArea ? 22000 : 200000;
+      subsidyPerHectare = isAboriginalArea ? 220000 : 200000;
     }
 
     // 計算政府補助金額上限
@@ -5654,6 +5668,12 @@ const loadDataFromProps = (propsData: any) => {
 onMounted(async () => {
   isUpdating.value = true;
 
+  if (grantsStore.currentStep !== 4) {
+    console.warn(`⚠️ Step4 component mounted but currentStep is ${grantsStore.currentStep}, not 4`)
+    // 可以發出事件通知父組件，但不直接修改
+    // emit('step-mismatch', { expected: 4, actual: grantsStore.currentStep })
+  }
+
   await loadDropdownOptions();
 
   console.log('🔄 step4.vue onMounted - props.formData:', props.formData);
@@ -5675,7 +5695,7 @@ onMounted(async () => {
         }
 
         localFormData[key] = newValue;
-        console.log(`Loading ${key}: ${oldValue} → ${newValue}`);
+        // console.log(`Loading ${key}: ${oldValue} → ${newValue}`);
       }
     });
   }
@@ -5701,7 +5721,7 @@ onMounted(async () => {
 
   // 5. 如果有灌溉型式，載入末端設施選項
   if (localFormData.irrigationTypeId) {
-    console.log('🔄 Loading end facility options in onMounted');
+    // console.log('🔄 Loading end facility options in onMounted');
     await loadEndFacilityOptions();
   }
 
@@ -5718,7 +5738,7 @@ onMounted(async () => {
 
 // 監聽父組件數據變化
 watch(() => props.formData, (newVal, oldVal) => {
-  console.log("🔄 Step 4 props.formData changed:", newVal);
+  // console.log("🔄 Step 4 props.formData changed:", newVal);
 
   // 防止在更新過程中觸發新的 watch
   if (isUpdating.value) {
