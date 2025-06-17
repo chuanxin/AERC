@@ -180,11 +180,43 @@ class GrantComments(models.Model):
         table_description = "補助案件評論資料表"
 
 
+class GrantActionType(str, Enum):
+    """操作類型枚舉"""
+    STATUS_CHANGE = "status_change"           # 狀態變更
+    STEP_CHANGE = "step_change"               # 步驟切換
+    DATA_UPDATE = "data_update"               # 資料更新
+    STEP_DATA_UPDATE = "step_data_update"     # 步驟資料更新
+    CURRENT_STEP_UPDATE = "current_step_update"  # 當前步驟更新
+    FILE_UPLOAD = "file_upload"               # 檔案上傳
+    FILE_DELETE = "file_delete"               # 檔案刪除
+    COMMENT_ADD = "comment_add"               # 新增評論
+    MANUAL_SAVE = "manual_save"               # 手動保存
+    AUTO_SAVE = "auto_save"                   # 自動保存
+    FORM_VALIDATION = "form_validation"       # 表單驗證
+    CASE_CREATE = "case_create"               # 案件建立
+    CASE_SUBMIT = "case_submit"             # 案件提交
+
+
 class GrantHistory(models.Model):
     """補助案件歷史紀錄資料表"""
     id = fields.IntField(pk=True)
     grant = fields.ForeignKeyField("models.Grants", related_name="history", description="所屬案件")
-    status = fields.CharEnumField(GrantStatus, description="案件狀態")
+    
+    # 核心欄位
+    action_type = fields.CharEnumField(GrantActionType, description="操作類型")
+    grant_status = fields.CharEnumField(GrantStatus, null=True, description="案件狀態")
+    step_number = fields.IntField(null=True, description="相關步驟編號")
+    changed_fields = fields.JSONField(null=True, description="變更的欄位列表")
+
+    # 審計欄位
+    old_value = fields.JSONField(null=True, description="變更前的值")
+    new_value = fields.JSONField(null=True, description="變更後的值")
+    
+    # 安全欄位 - 建議
+    session_id = fields.CharField(max_length=100, null=True, description="會話ID")
+    ip_address = fields.CharField(max_length=45, null=True, description="IP地址")
+    
+    # status = fields.CharEnumField(GrantStatus, description="案件狀態")
     changed_by = fields.ForeignKeyField(
         "models.Users", related_name="grant_history_changes", description="修改人員"
     )
@@ -194,6 +226,7 @@ class GrantHistory(models.Model):
     class Meta:
         table = "grant_history"
         table_description = "補助案件歷史紀錄資料表"
+
 
 class CropCategories(models.Model):
     """作物類別資料表"""

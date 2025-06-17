@@ -136,12 +136,36 @@ export const getGrantStepData = async (caseNumber: string, step: number): Promis
   }
 }
 
+// Enhanced interface for step data updates with tracking metadata
+export interface GrantStepDataUpdateRequest extends Record<string, unknown> {
+  data: Record<string, unknown>;
+  action_type?: string;
+  changed_fields?: string[];
+  old_value?: Record<string, unknown>;
+  session_id?: string;
+  notes?: string;
+}
+
 export const updateGrantStepData = async (caseNumber: string, step: number, data: Record<string, unknown>): Promise<GrantStepData> => {
   try {
     const response = await apiService.put(GRANTS.STEP(caseNumber, step), data)
     return response as GrantStepData
   } catch (error: unknown) {
     return handleApiError(error, 'grantsService.updateGrantStepData')
+  }
+}
+
+// Enhanced version with detailed tracking support
+export const updateGrantStepDataWithTracking = async (
+  caseNumber: string, 
+  step: number, 
+  updateRequest: GrantStepDataUpdateRequest
+): Promise<GrantStepData> => {
+  try {
+    const response = await apiService.put(GRANTS.STEP(caseNumber, step), updateRequest as Record<string, unknown>)
+    return response as GrantStepData
+  } catch (error: unknown) {
+    return handleApiError(error, 'grantsService.updateGrantStepDataWithTracking')
   }
 }
 

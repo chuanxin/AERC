@@ -7,7 +7,7 @@ from tortoise.exceptions import DoesNotExist, IntegrityError
 from tortoise.transactions import in_transaction
 from tortoise.expressions import Q
 
-from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus)
+from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus, GrantActionType)
 from src.schemas.users import UserOutSchema
 from src.schemas.grants import (
     GrantInSchema, GrantUpdateSchema, GrantStepSchema, 
@@ -248,7 +248,7 @@ def parse_tw_date(date_str: str) -> Optional[date]:
         return None
     
 
-async def create_grant(data: GrantInSchema, current_user: UserOutSchema) -> Dict[str, Any]:
+async def create_grant(data, current_user):
     """建立新的補助申請案件"""
     async with in_transaction():
         try:
@@ -284,7 +284,8 @@ async def create_grant(data: GrantInSchema, current_user: UserOutSchema) -> Dict
             # 建立歷史紀錄
             await GrantHistory.create(
                 grant=grant,
-                status=GrantStatus.DRAFT,
+                grant_status=GrantStatus.DRAFT,
+                action_type=GrantActionType.CASE_CREATE,
                 changed_by_id=current_user.id,
                 notes="初始案件建立"
             )
@@ -359,7 +360,7 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
             "history": [
                 {
                     "id": history.id,
-                    "status": history.status,
+                    "status": history.grant_status,
                     "notes": history.notes,
                     # "created_at": history.created_at,
                     "changed_by": {
@@ -440,34 +441,57 @@ async def get_grant_step_data(case_number: str, step: int) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"補助案件編號 {case_number} 不存在")
 
 
-async def update_grant_step_data(case_number: str, step: int, data: Dict[str, Any], current_user: UserOutSchema) -> Dict[str, Any]:
+async def update_grant_step_data(case_number: str, step: int, data, current_user):
     """更新補助申請案件特定步驟資料"""
     async with in_transaction():
         try:
             # Get the grant by case number
             grant = await Grants.get(case_number=case_number)
             
+            # 提取追蹤資訊（如果有的話）
+            tracking_info = {}
+            actual_data = data
+            
+            # 檢查是否包含追蹤資訊
+            if isinstance(data, dict) and 'data' in data:
+                actual_data = data.get('data', {})
+                tracking_info = {
+                    'action_type': data.get('action_type', 'data_update'),
+                    'changed_fields': data.get('changed_fields', []),
+                    'old_value': data.get('old_value', {}),
+                    'session_id': data.get('session_id'),
+                    'notes': data.get('notes', f"更新步驟 {step} 資料")
+                }
+            else:
+                tracking_info = {
+                    'action_type': 'data_update',
+                    'changed_fields': [],
+                    'old_value': {},
+                    'session_id': None,
+                    'notes': f"更新步驟 {step} 資料"
+                }
+            
             # Update step-specific data
             if step == 1:  # Basic applicant information step
                 # Update the applicant information
                 update_data = {}
                 
-                if "name" in data:
-                    update_data["applicant_name"] = data["name"]
-                if "id" in data:
-                    update_data["applicant_id"] = data["id"]
-                if "phone" in data:
-                    update_data["applicant_phone"] = data["phone"]
-                if "county" in data:
-                    update_data["county"] = data["county"]
-                if "town" in data:
-                    update_data["town"] = data["town"]
-                if "village" in data:
-                    update_data["village"] = data["village"]
-                if "address" in data:
-                    update_data["address"] = data["address"]
-                if "undertracker" in data:
-                    update_data["undertracker"] = data["undertracker"]
+                if "name" in actual_data:
+                    update_data["applicant_name"] = actual_data["name"]
+                if "id" in actual_data:
+                    update_data["applicant_id"] = actual_data["id"]
+                if "phone" in actual_data:
+                    update_data["applicant_phone"] = actual_data["phone"]
+                if "county" in actual_data:
+                    update_data["county"] = actual_data["county"]
+                if "town" in actual_data:
+                    update_data["town"] = actual_data["town"]
+                if "village" in actual_data:
+                    update_data["village"] = actual_data["village"]
+                if "address" in actual_data:
+                    update_data["address"] = actual_data["address"]
+                if "undertracker" in actual_data:
+                    update_data["undertracker"] = actual_data["undertracker"]
                 
                 # Apply updates
                 await Grants.filter(id=grant.id).update(**update_data)
@@ -476,13 +500,19 @@ async def update_grant_step_data(case_number: str, step: int, data: Dict[str, An
                 if grant.current_step < step:
                     await Grants.filter(id=grant.id).update(current_step=step)
                 
-                # Create history record
-                if update_data:
+                # Create enhanced history record
+                if update_data or tracking_info.get('changed_fields'):
                     await GrantHistory.create(
                         grant=grant,
-                        status=grant.status,
+                        action_type=tracking_info.get('action_type', 'data_update'),
+                        grant_status=grant.status,
+                        step_number=step,
+                        changed_fields=tracking_info.get('changed_fields'),
+                        old_value=tracking_info.get('old_value'),
+                        new_value=actual_data,
+                        session_id=tracking_info.get('session_id'),
                         changed_by_id=current_user.id,
-                        notes=f"更新步驟 {step} 資料"
+                        notes=tracking_info.get('notes')
                     )
                 
             elif step == 2:  # Land information step
@@ -928,7 +958,7 @@ async def update_grant_step_data(case_number: str, step: int, data: Dict[str, An
 #                 )
             
 #             # 記錄審核日誌
-async def update_grant_current_step(case_number: str, current_step: int, current_user: UserOutSchema) -> Dict[str, Any]:
+async def update_grant_current_step(case_number: str, current_step: int, current_user):
     """更新補助申請案件的當前步驟"""
     async with in_transaction():
         try:
@@ -948,8 +978,13 @@ async def update_grant_current_step(case_number: str, current_step: int, current
             # 建立歷史紀錄
             await GrantHistory.create(
                 grant=grant,
-                status=grant.status,
-                changed_by_id=current_user.id,
+                action_type=GrantActionType.CURRENT_STEP_UPDATE,  # 添加必需的 action_type
+                grant_status=grant.status,
+                step_number=current_step,
+                changed_fields=['current_step'],
+                old_value={'current_step': grant.current_step},
+                new_value={'current_step': current_step},
+                changed_by_id=current_user.id,  # 使用 changed_by_id
                 notes=f"更新當前步驟為 {current_step}"
             )
             

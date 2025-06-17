@@ -4,12 +4,14 @@ import {
   getGrantByCaseNumber,
   getGrantStepData,
   updateGrantStepData,
+  updateGrantStepDataWithTracking,
   updateCurrentStep as updateCurrentStepAPI,
   type GrantCreateRequest,
-  type GrantCreateResponse
+  type GrantCreateResponse,
+  type GrantStepDataUpdateRequest
 } from '@/services/grantsService'
 import { ApplicationError } from '@/utils/asyncHelpers'
-import { GrantStorage, type GrantStepData } from '@/utils/grant-storage'
+import { GrantStorage } from '@/utils/grant-storage'
 
 /**
  * Grants Store - Centralized state management for grant applications
@@ -49,6 +51,38 @@ export const useGrantsStore = defineStore('grants', () => {
 
   // Form status
   const hasUnsavedChanges = ref(false)
+
+  // 追蹤變更的詳細資訊
+  const previousFormData = ref<Record<number, Record<string, unknown>>>({})
+  const changedFields = ref<Record<number, string[]>>({})
+
+  // 生成會話 ID
+  const generateSessionId = (): string => {
+    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  }
+
+  // 追蹤欄位變更
+  const trackFieldChanges = (step: number, newData: Record<string, unknown>) => {
+    const oldData = previousFormData.value[step] || {}
+    const changed: string[] = []
+
+    // 檢查新增或修改的欄位
+    Object.keys(newData).forEach(key => {
+      if (key !== 'valid' && JSON.stringify(oldData[key]) !== JSON.stringify(newData[key])) {
+        changed.push(key)
+      }
+    })
+
+    // 檢查刪除的欄位
+    Object.keys(oldData).forEach(key => {
+      if (key !== 'valid' && !(key in newData)) {
+        changed.push(key)
+      }
+    })
+
+    changedFields.value[step] = changed
+    return changed
+  }
 
   /**
    * Create a new grant application
@@ -209,6 +243,12 @@ export const useGrantsStore = defineStore('grants', () => {
       // Initialize form data with loaded data
       formData[step] = { ...data, valid: true }
 
+      // 初始化 previousFormData 以便追蹤變更
+      previousFormData.value[step] = { ...data, valid: true }
+
+      // 清除變更追蹤
+      changedFields.value[step] = []
+
       // Reset unsaved changes flag
       hasUnsavedChanges.value = false
 
@@ -226,7 +266,7 @@ export const useGrantsStore = defineStore('grants', () => {
   }
 
   /**
-   * Save data for a specific step
+   * Save data for a specific step with enhanced tracking
    * @param {number} step - The step number
    * @param {Record<string, unknown>} data - The step data to save
    * @returns {Promise<Record<string, unknown>>} The saved data
@@ -242,12 +282,31 @@ export const useGrantsStore = defineStore('grants', () => {
     const caseNumber = currentGrant.value.case_number
 
     try {
+      // 準備追蹤資訊
+      const sessionId = generateSessionId()
+      const changed = changedFields.value[step] || trackFieldChanges(step, data)
+      const oldData = previousFormData.value[step] || {}
+
       let savedData: Record<string, unknown> | null = null
 
       // Step 1 saves to API, others to localStorage
       if (step === 1) {
         try {
-          savedData = await updateGrantStepData(caseNumber, step, data)
+          if (changed.length > 0) {
+            // 使用擴展的追蹤版本
+            const updateRequest: GrantStepDataUpdateRequest = {
+              data: data,
+              action_type: 'manual_save',
+              changed_fields: changed,
+              old_value: oldData,
+              session_id: sessionId,
+              notes: `手動保存步驟 ${step} 資料，變更欄位: ${changed.join(', ')}`
+            }
+
+            savedData = await updateGrantStepDataWithTracking(caseNumber, step, updateRequest)
+          } else {
+            savedData = await updateGrantStepData(caseNumber, step, data)
+          }
         } catch (apiError) {
           console.warn(`API error saving step ${step}, falling back to localStorage:`, apiError)
 
@@ -266,6 +325,12 @@ export const useGrantsStore = defineStore('grants', () => {
       // Update form data
       formData[step] = { ...data, valid: true }
       // console.log(`📊 Updated formData[${step}] after save:`, JSON.stringify(formData[step], null, 2));
+
+      // 更新 previousFormData 以便下次追蹤變更
+      previousFormData.value[step] = { ...formData[step] }
+
+      // 清除變更追蹤
+      changedFields.value[step] = []
 
       // Update last saved timestamp
       lastSavedAt.value = new Date()
@@ -292,9 +357,17 @@ export const useGrantsStore = defineStore('grants', () => {
     // console.log('📥 Received data keys:', Object.keys(data));
     // console.log('📥 Current formData[' + step + '] before update:', JSON.stringify(formData[step], null, 2));
 
+    // 保存當前數據作為 previousFormData 以便追蹤變更
+    if (!previousFormData.value[step]) {
+      previousFormData.value[step] = { ...formData[step] }
+    }
+
     // Mark that we have unsaved changes
     hasUnsavedChanges.value = true
     // console.log('✅ hasUnsavedChanges set to true');
+
+    // 追蹤變更的欄位
+    trackFieldChanges(step, data)
 
     // Update the form data
     formData[step] = { ...formData[step], ...data }
@@ -341,12 +414,21 @@ export const useGrantsStore = defineStore('grants', () => {
     Object.keys(formData).forEach(key => {
       formData[Number(key)] = {}
     })
+
+    // 清理追蹤相關的狀態
+    Object.keys(previousFormData.value).forEach(key => {
+      previousFormData.value[Number(key)] = {}
+    })
+    Object.keys(changedFields.value).forEach(key => {
+      changedFields.value[Number(key)] = []
+    })
+
     hasUnsavedChanges.value = false
     lastSavedAt.value = null
   }
 
   /**
-   * Save all unsaved changes
+   * Save all unsaved changes with enhanced tracking
    * @returns {Promise<boolean>} Whether the save was successful
    */
   const saveAllChanges = async (): Promise<boolean> => {
@@ -364,9 +446,60 @@ export const useGrantsStore = defineStore('grants', () => {
       isSaving.value = true
       // console.log('💾 Starting to save step data...');
 
-      // Save the current step data
-      await saveStepData(currentStep.value, formData[currentStep.value])
-      // console.log('✅ saveStepData completed');
+      const step = currentStep.value
+      const stepData = formData[step]
+      const caseNumber = currentGrant.value.case_number
+
+      // 準備追蹤資訊
+      const sessionId = generateSessionId()
+      const changed = changedFields.value[step] || []
+      const oldData = previousFormData.value[step] || {}
+
+      // 根據步驟使用不同的保存方式
+      if (step === 1) {
+        // Step 1 使用 API 並支援詳細追蹤
+        try {
+          if (changed.length > 0) {
+            // 使用擴展的追蹤版本
+            const updateRequest: GrantStepDataUpdateRequest = {
+              data: stepData,
+              action_type: 'step_data_update',
+              changed_fields: changed,
+              old_value: oldData,
+              session_id: sessionId,
+              notes: `自動保存步驟 ${step} 資料，變更欄位: ${changed.join(', ')}`
+            }
+
+            await updateGrantStepDataWithTracking(caseNumber, step, updateRequest)
+          } else {
+            // 沒有變更，使用一般保存
+            await updateGrantStepData(caseNumber, step, stepData)
+          }
+        } catch (apiError) {
+          console.warn(`API error saving step ${step}, falling back to localStorage:`, apiError)
+
+          // Fallback to localStorage
+          GrantStorage.saveStepData(caseNumber, step, stepData)
+        }
+      } else {
+        // Steps 2-8 保存到 localStorage
+        // console.log(`💾 Saving step ${step} to localStorage with data:`, JSON.stringify(stepData, null, 2));
+        GrantStorage.saveStepData(caseNumber, step, stepData)
+        // console.log('✅ GrantStorage.saveStepData completed');
+      }
+
+      // Update form data
+      formData[step] = { ...stepData, valid: true }
+      // console.log(`📊 Updated formData[${step}] after save:`, JSON.stringify(formData[step], null, 2));
+
+      // 更新 previousFormData 以便下次追蹤變更
+      previousFormData.value[step] = { ...formData[step] }
+
+      // 清除變更追蹤
+      changedFields.value[step] = []
+
+      // Update last saved timestamp
+      lastSavedAt.value = new Date()
 
       // Reset unsaved changes flag
       hasUnsavedChanges.value = false
@@ -436,6 +569,10 @@ export const useGrantsStore = defineStore('grants', () => {
       step = 1;
     }
 
+    // 記錄步驟變更前的狀態以便追蹤
+    const previousStep = currentStep.value;
+    const sessionId = generateSessionId();
+
     // 更新 store 中的 currentStep
     currentStep.value = step;
 
@@ -455,9 +592,26 @@ export const useGrantsStore = defineStore('grants', () => {
           GrantStorage.saveGrantData(currentGrant.value.case_number, grantData);
           console.log(`[grantsStore] Updated current_step to ${step} for grant ${currentGrant.value.case_number}`);
 
-          // 同步到資料庫
+          // 同步到資料庫 - 如果有步驟變更，記錄追蹤資訊
           try {
-            await updateCurrentStepAPI(currentGrant.value.case_number, step);
+            if (previousStep !== step) {
+              // 有步驟變更，使用追蹤版本的 API
+              const stepChangeData: GrantStepDataUpdateRequest = {
+                data: { current_step: step },
+                action_type: 'step_change',
+                changed_fields: ['current_step'],
+                old_value: { current_step: previousStep },
+                session_id: sessionId,
+                notes: `使用者從步驟 ${previousStep} 導航至步驟 ${step}`
+              };
+
+              // 這裡我們復用 updateGrantStepDataWithTracking，但只是更新 current_step
+              await updateGrantStepDataWithTracking(currentGrant.value.case_number, step, stepChangeData);
+              console.log(`[grantsStore] Successfully tracked step change from ${previousStep} to ${step}`);
+            } else {
+              // 沒有實際變更，使用一般 API
+              await updateCurrentStepAPI(currentGrant.value.case_number, step);
+            }
             console.log(`[grantsStore] Successfully synced current_step ${step} to database for grant ${currentGrant.value.case_number}`);
           } catch (error) {
             console.warn(`[grantsStore] Failed to sync current_step to database for grant ${currentGrant.value.case_number}:`, error);
@@ -473,6 +627,70 @@ export const useGrantsStore = defineStore('grants', () => {
 
     return step;
   }
+
+  /**
+   * Track form validation events
+   * @param step - Current step being validated
+   * @param validationResult - Result of validation (success/failure)
+   * @param errors - Array of validation errors if any
+   */
+  const trackFormValidation = async (step: number, validationResult: 'success' | 'failure', errors: string[] = []) => {
+    if (!currentGrant.value?.case_number) return;
+
+    try {
+      const sessionId = generateSessionId();
+      const validationData: GrantStepDataUpdateRequest = {
+        data: {
+          validation_result: validationResult,
+          validation_errors: errors,
+          validated_at: new Date().toISOString()
+        },
+        action_type: 'form_validation',
+        changed_fields: ['validation_status'],
+        old_value: {},
+        session_id: sessionId,
+        notes: `表單驗證${validationResult === 'success' ? '成功' : '失敗'} - 步驟 ${step}${errors.length > 0 ? `，錯誤: ${errors.join(', ')}` : ''}`
+      };
+
+      await updateGrantStepDataWithTracking(currentGrant.value.case_number, step, validationData);
+      console.log(`[grantsStore] Successfully tracked form validation for step ${step}: ${validationResult}`);
+    } catch (error) {
+      console.warn(`[grantsStore] Failed to track form validation for step ${step}:`, error);
+    }
+  };
+
+  /**
+   * Track file upload/delete operations
+   * @param step - Current step
+   * @param operation - Type of file operation
+   * @param fileName - Name of the file
+   * @param fileType - Type/category of the file
+   */
+  const trackFileOperation = async (step: number, operation: 'upload' | 'delete', fileName: string, fileType?: string) => {
+    if (!currentGrant.value?.case_number) return;
+
+    try {
+      const sessionId = generateSessionId();
+      const fileData: GrantStepDataUpdateRequest = {
+        data: {
+          file_operation: operation,
+          file_name: fileName,
+          file_type: fileType,
+          operation_time: new Date().toISOString()
+        },
+        action_type: 'file_operation',
+        changed_fields: ['attachments'],
+        old_value: {},
+        session_id: sessionId,
+        notes: `檔案${operation === 'upload' ? '上傳' : '刪除'} - 步驟 ${step}，檔案: ${fileName}${fileType ? `，類型: ${fileType}` : ''}`
+      };
+
+      await updateGrantStepDataWithTracking(currentGrant.value.case_number, step, fileData);
+      console.log(`[grantsStore] Successfully tracked file ${operation} for step ${step}: ${fileName}`);
+    } catch (error) {
+      console.warn(`[grantsStore] Failed to track file ${operation} for step ${step}:`, error);
+    }
+  };
 
   return {
     // State
@@ -503,6 +721,10 @@ export const useGrantsStore = defineStore('grants', () => {
     saveAllChanges,
     exportGrantBackup,
     importGrantBackup,
-    updateCurrentStep
+    updateCurrentStep,
+
+    // Tracking functions
+    trackFormValidation,
+    trackFileOperation
   }
 })
