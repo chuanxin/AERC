@@ -31,11 +31,9 @@
                 elevation="0"
               >
                 <step0
-                  :case-number="caseNumber"
                   :form-data="formData"
-                  @update-data="updateFormData"
-                  @create-case="handleCreateCase"
-                  @cancel="cancelForm"
+                  @update:form-data="updateFormData"
+                  @project-created="handleCreateCase"
                 />
               </v-card>
             </v-card-text>
@@ -47,15 +45,12 @@
 </template>
 
 <script lang="ts" setup>
-import { useDisplay } from 'vuetify'
 import step0 from './components/step0.vue'
+import type { GrantCreateRequest } from '@/types/grantForms'
 
 const appRouter = useRouter()
 const route = useRoute()
-const { name } = useDisplay()
-const isSmallScreen = computed(() => name.value === 'xs' || name.value === 'sm')
 
-const caseNumber = ref('');
 const currentStep = ref(1);
 const displayStep = ref(1);
 const submitting = ref(false);
@@ -65,43 +60,44 @@ const steps = [
   { title: '申請人資料', value: 1, subtitle: '請填寫申請人資料完成立案' },
 ];
 
-// 表單數據
-const formData = reactive({
-  applicantName: '',
-  identityNumber: '',
-  contactPhone: '',
-  city: '',
-  district: '',
-  addressDetail: '',
+// 初始表單數據函數
+const createInitialFormData = (): GrantCreateRequest => ({
+  name: '',
+  id: '',
+  phone: '',
+  county: '',
+  countyId: null,
+  town: '',
+  townId: null,
+  village: '',
+  villageId: null,
+  address: '',
   undertracker: '',
-  managementOffice: '',
+  office: '',
+  officeId: null,
   valid: false
 });
 
+const formData = reactive<GrantCreateRequest>(createInitialFormData());
+
 // 處理表單數據更新
-const updateFormData = (data) => {
+const updateFormData = (data: GrantCreateRequest) => {
   Object.assign(formData, data);
 };
 
-// 處理表單取消
-const cancelForm = () => {
-  appRouter.push('/grants');
-};
-
 // 處理建立案件
-const handleCreateCase = async (data) => {
+const handleCreateCase = async (data: { caseNumber: string }) => {
   submitting.value = true;
   try {
     // 實際應用中應該調用 API 建立案件
     await new Promise(resolve => setTimeout(resolve, 1500)); // 模擬 API 請求
-    // 'data' here is the eventData from step0.vue: { projectId: result.case_number, data: { ...localFormData } }
     console.log('[new.vue handleCreateCase] Received event data:', JSON.stringify(data, null, 2));
-    console.log('[new.vue handleCreateCase] Navigating with projectId (case_number):', data.projectId);
-    
+    console.log('[new.vue handleCreateCase] Navigating with caseNumber:', data.caseNumber);
+
     // 導航到編輯頁面
     appRouter.push({
       path: '/grants/edit',
-      query: { id: data.projectId } // Ensure data.projectId is used here
+      query: { id: data.caseNumber }
     });
   } catch (error) {
     console.error('創建失敗:', error);

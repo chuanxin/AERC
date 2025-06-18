@@ -1,25 +1,9 @@
 import { apiService } from './api/http'
 import { ApplicationError } from '@/utils/asyncHelpers'
 import { GRANTS } from './api/endpoints'
+import type { GrantCreateRequest } from '@/types/grantForms'
 
 // Types
-export interface GrantCreateRequest {
-  name: string
-  id: string
-  phone: string
-  county: string
-  countyId: number
-  town: string
-  townId: number
-  village?: string
-  villageId?: number
-  address: string
-  undertracker: string
-  department: string
-  departmentId: number,
-  office: string
-}
-
 export interface GrantCreateResponse {
   id: number;
   case_number: string;
@@ -157,8 +141,8 @@ export const updateGrantStepData = async (caseNumber: string, step: number, data
 
 // Enhanced version with detailed tracking support
 export const updateGrantStepDataWithTracking = async (
-  caseNumber: string, 
-  step: number, 
+  caseNumber: string,
+  step: number,
   updateRequest: GrantStepDataUpdateRequest
 ): Promise<GrantStepData> => {
   try {

@@ -203,7 +203,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 
 // 補助項目列表
 const subsidyItems = [

@@ -323,56 +323,49 @@
 
 <script setup lang="ts">
 import { useUserStore } from '@/stores/users'
-// import { useOfficesStore } from '@/stores/offices'
 import { useDomicileStore } from '@/stores/domicile'
 import { useGrantsStore } from '@/stores/grants'
+import type { GrantCreateRequest } from '@/types/grantForms'
+import type { VForm } from 'vuetify/components'
 
 
 const userStore = useUserStore()
-// const officesStore = useOfficesStore()
 const domicileStore = useDomicileStore()
 const grantsStore = useGrantsStore()
 
 const router = useRouter();
 const props = defineProps<{
-  formData: {
-    name?: string;
-    id?: string;
-    phone?: string;
-    county?: string;
-    town?: string;
-    village?: string;
-    address?: string;
-    undertracker?: string;
-    department?: string | null;
-    valid?: boolean;
-    countyId?: string | null; // Add countyId to the type definition
-    townId?: string | null;   // Add townId to the type definition
-    villageId?: string | null; // Add villageId to the type definition
-  };  // 接收父組件數據，如果有的話
+  formData?: GrantCreateRequest;
 }>();
 
-const emit = defineEmits(['update:formData', 'projectCreated']);
+const emit = defineEmits<{
+  'update:formData': [data: GrantCreateRequest]
+  'projectCreated': [data: { caseNumber: string }]
+}>();
 const localValid = ref(false);
-const form = ref(null);
+const form = ref<VForm | null>(null);
 const isProcessing = ref(false);
 
-// Form data - now includes both text values and IDs
-const localFormData = reactive({
-  name: '',
-  id: '',
-  phone: '',
-  county: '',       // Text value for display
-  countyId: null,   // ID value for relationships
-  town: '',         // Text value for display
-  townId: null,     // ID value for relationships
-  village: '',      // Text value for display
-  villageId: null,  // ID value for relationships
-  address: '',
-  undertracker: '',
-  department: computed(() => userStore.currentUser?.office?.name || null),
-  departmentId: computed(() => userStore.currentUser?.office?.id || null)
-})
+const createInitialFormData = (): GrantCreateRequest => {
+  return {
+    name: '',
+    id: '',
+    phone: '',
+    county: '',       // Text value for display
+    countyId: null,   // ID value for relationships
+    town: '',         // Text value for display
+    townId: null,     // ID value for relationships
+    village: '',      // Text value for display
+    villageId: null,  // ID value for relationships
+    address: '',
+    undertracker: userStore.userFullName || '',
+    office: userStore.currentUser?.office?.name || '',
+    officeId: userStore.currentUser?.office?.id || null,
+    valid: false
+  }
+}
+
+const localFormData = reactive<GrantCreateRequest>(createInitialFormData());
 
 // For the v-select components
 const selectedCountyId = ref<{ title: string; value: number } | null>(null)
@@ -422,7 +415,7 @@ const villageItems = computed(() => {
 })
 
 
-const handleCountyChange = async (county: County | null): Promise<void> => {
+const handleCountyChange = async (county: { title: string; value: number }): Promise<void> => {
   if (!county) return
 
   // Reset dependent fields
@@ -443,7 +436,7 @@ const handleCountyChange = async (county: County | null): Promise<void> => {
 }
 
 // Handle town selection change
-const handleTownChange = async (town) => {
+const handleTownChange = async (town: { title: string; value: number }) => {
   if (!town) return
 
   // Reset dependent fields
@@ -461,7 +454,7 @@ const handleTownChange = async (town) => {
 }
 
 // Handle village selection change
-const handleVillageChange = (village) => {
+const handleVillageChange = (village: { title: string; value: number }) => {
   if (!village) return
 
   // Update form data with selected village
@@ -486,6 +479,7 @@ const isValid = computed(() => {
 
 // 表單驗證
 const validate = async () => {
+  if (!form.value) return false;
   const { valid } = await form.value.validate();
   if (valid) {
     updateFormData();
@@ -513,8 +507,8 @@ const createProject = async () => {
       village_id: localFormData.villageId ? Number(localFormData.villageId) : undefined,
       address: localFormData.address,
       undertracker: localFormData.undertracker,
-      office: localFormData.department || '',
-      office_id: Number(localFormData.departmentId)
+      office: localFormData.office,
+      office_id: Number(localFormData.officeId)
     }
 
     console.log('[step0.createProject] Data being sent to grantsStore.createProject:', JSON.stringify(projectData, null, 2));
@@ -526,8 +520,7 @@ const createProject = async () => {
 
     // Emit event for parent components
     emit('projectCreated', {
-      projectId: result.case_number,
-      data: { ...localFormData }
+      caseNumber: result.case_number
     })
 
     // Navigate to the edit page
@@ -609,6 +602,9 @@ onMounted(async () => {
 
   // Restore previous selections if available
   if (props.formData) {
+    // 載入父組件傳遞的表單資料
+    Object.assign(localFormData, props.formData)
+
     if (props.formData.countyId) {
       const county = domicileStore.getCountyById(Number(props.formData.countyId))
       if (county) {
@@ -625,9 +621,9 @@ onMounted(async () => {
       }
     }
 
-    if (props.formData.villageId) {
+    if (props.formData.villageId && props.formData.townId) {
       const villages = domicileStore.getVillagesForTownId(Number(props.formData.townId))
-      const village = villages.find(v => v.value === Number(props.formData.villageId))
+      const village = villages.find(v => v.value === Number(props.formData?.villageId))
       if (village) {
         selectedVillageId.value = { title: village.title, value: village.value }
       }
@@ -674,11 +670,11 @@ watchEffect(() => {
 
 // Update parent form data
 const updateFormData = () => {
-  emit('update:formData', {
-    ...props.formData,
+  const formDataToEmit: GrantCreateRequest = {
     ...localFormData,
     valid: localValid.value
-  })
+  }
+  emit('update:formData', formDataToEmit)
 }
 </script>
 
