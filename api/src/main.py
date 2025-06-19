@@ -5,6 +5,11 @@ from tortoise import Tortoise
 from src.database.register import register_tortoise
 from src.database.config import TORTOISE_ORM
 
+import os
+import pytz
+
+os.environ['TZ'] = 'Asia/Taipei'
+
 # enable schemas to read relationship between models
 Tortoise.init_models(["src.database.models"], "models")
 
@@ -39,7 +44,3 @@ app.include_router(irrigation_types.router)
 
 
 register_tortoise(app, config=TORTOISE_ORM, generate_schemas=False)
-
-@app.get("/")
-async def home():
-    return "Hello, World!"

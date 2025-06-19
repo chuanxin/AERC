@@ -1,8 +1,6 @@
 from tortoise import fields, models
 from enum import Enum
 
-
-
 class Users(models.Model):
     """系統使用者資料表"""
     id = fields.IntField(pk=True)

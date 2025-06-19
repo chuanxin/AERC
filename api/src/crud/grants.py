@@ -1,5 +1,4 @@
 from typing import List, Optional, Dict, Any, Union
-import logging
 from datetime import datetime, date
 
 from fastapi import HTTPException
@@ -16,7 +15,30 @@ from src.schemas.grants import (
 from src.schemas.token import Status
 
 from datetime import datetime, date
+
+import logging
 import pytz
+
+TAIWAN_TZ = pytz.timezone('Asia/Taipei')
+
+def get_taiwan_now():
+    """獲取台灣時區的當前時間"""
+    return datetime.now(TAIWAN_TZ)
+
+def get_taiwan_time_naive():
+    """獲取台灣時區的當前時間（無時區資訊，適用於 TimeField）"""
+    # 先獲取台灣時間，然後完全移除任何時區資訊
+    taiwan_datetime = datetime.now(TAIWAN_TZ)
+    # 創建一個全新的 time 對象，確保沒有任何時區資訊
+    return taiwan_datetime.replace(tzinfo=None).time()
+
+def get_taiwan_date():
+    """獲取台灣時區的當前日期"""
+    return datetime.now(TAIWAN_TZ).date()
+
+def get_taiwan_datetime():
+    """獲取台灣時區的當前日期時間（用於 DatetimeField）"""
+    return datetime.now(TAIWAN_TZ)
 
 
 logger = logging.getLogger(__name__)
@@ -328,9 +350,6 @@ async def create_grant(data, current_user):
             
             # 準備目前年度(民國年)
             current_year = datetime.now().year - 1911
-
-            tw_timezone = pytz.timezone('Asia/Taipei')
-            tw_now = datetime.now(tw_timezone)
             
             # 建立 Grant 物件但不儲存，讓我們可以生成 case_number
             grant = Grants(
@@ -346,8 +365,8 @@ async def create_grant(data, current_user):
                 office_id=data.office_id if hasattr(data, 'office_id') else None,
                 undertracker=data.undertracker,
                 created_by_id=current_user.id,
-                received_date=tw_now.date(),
-                received_time=tw_now.time(),
+                received_date=get_taiwan_date(),
+                received_time=get_taiwan_time_naive(),
                 status=GrantStatus.DRAFT,
                 current_step=1
             )
