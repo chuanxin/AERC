@@ -41,6 +41,10 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - TZ=Asia/Taipei
       - PGTZ=Asia/Taipei
+    command: >
+      postgres
+      -c timezone='Asia/Taipei'
+      -c log_timezone='Asia/Taipei'
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     ports:
