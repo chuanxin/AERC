@@ -24,22 +24,6 @@ export interface GrantStepData {
   [key: string]: unknown; // Allow for step-specific fields
 }
 
-export interface Step1Data {
-  name: string;
-  id: string;
-  phone: string;
-  county: string;
-  town: string;
-  village?: string;
-  address: string;
-  manager: string;
-  department: string;
-  departmentId: number;
-  caseNumber: string;
-  receivedDate: string;
-  receivedTime: string;
-}
-
 export const createGrant = async (data: GrantCreateRequest): Promise<GrantCreateResponse> => {
   try {
     console.log('發送建立專案請求，資料:', data)

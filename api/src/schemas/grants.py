@@ -9,6 +9,72 @@ class BaseSchema(BaseModel):
         from_attributes = True
         arbitrary_types_allowed = True
 
+# Frontend request schema - matches GrantCreateRequest from frontend
+class GrantCreateRequestSchema(BaseSchema):
+    """前端申請表單資料模型 - 對應 frontend GrantCreateRequest interface"""
+    name: str = Field(..., description="申請人姓名", min_length=1, max_length=50)
+    id: str = Field(..., description="申請人身分證字號", min_length=10, max_length=10) 
+    phone: str = Field(..., description="申請人電話", min_length=9)
+    county: str = Field(..., description="縣市名稱", min_length=1, max_length=30)
+    countyId: Optional[int] = Field(None, description="縣市ID")
+    town: str = Field(..., description="鄉鎮市區名稱", min_length=1, max_length=30)
+    townId: Optional[int] = Field(None, description="鄉鎮市區ID")
+    village: Optional[str] = Field(None, description="村里名稱", max_length=30)
+    villageId: Optional[int] = Field(None, description="村里ID")
+    address: str = Field(..., description="詳細地址", min_length=1, max_length=255)
+    undertracker: str = Field(..., description="承辦人姓名", min_length=1, max_length=50)
+    office: str = Field(..., description="管理處名稱", min_length=1, max_length=50)
+    officeId: Optional[int] = Field(None, description="管理處ID")
+    valid: Optional[bool] = Field(default=False, description="前端驗證狀態")
+    
+    @field_validator('valid')
+    def validate_valid_field(cls, v):
+        """處理 valid 欄位，null 值轉換為 False"""
+        if v is None:
+            return False
+        return v
+    
+    @field_validator('id')
+    def validate_id_number(cls, v):
+        """驗證身分證字號格式"""
+        if not v or len(v) != 10:
+            raise ValueError('身分證字號必須為10碼')
+        
+        # 基本格式檢查: 第一碼為英文字母，第二碼為1或2，後面8碼為數字
+        if not (v[0].isalpha() and v[1] in ['1', '2'] and v[2:].isdigit()):
+            raise ValueError('身分證字號格式不正確')
+        
+        return v.upper()  # 確保英文字母為大寫
+    
+    @field_validator('phone')
+    def validate_phone(cls, v):
+        """驗證電話號碼格式"""
+        if not v:
+            raise ValueError('電話號碼不能為空')
+        
+        # 去除空格和特殊符號，保留數字
+        cleaned = ''.join(filter(lambda x: x.isdigit(), v))
+        
+        # 檢查長度，台灣電話號碼通常為9-10碼
+        if len(cleaned) not in [9, 10]:
+            raise ValueError('電話號碼長度不正確，應為9-10碼')
+        
+        return cleaned
+    
+    @field_validator('name', 'undertracker')
+    def validate_name_fields(cls, v):
+        """驗證姓名欄位不能為空白或只有空格"""
+        if not v or not v.strip():
+            raise ValueError('姓名欄位不能為空')
+        return v.strip()
+    
+    @field_validator('county', 'town', 'office', 'address')
+    def validate_text_fields(cls, v):
+        """驗證文字欄位不能為空白或只有空格"""
+        if not v or not v.strip():
+            raise ValueError('此欄位不能為空')
+        return v.strip()
+
 # 補助申請案件模型
 class GrantInSchema(BaseSchema):
     """建立補助申請案件時使用的資料模型"""
@@ -68,7 +134,7 @@ class GrantUpdateSchema(BaseSchema):
     address: Optional[str] = Field(None, description="詳細地址")
     
     office_id: Optional[int] = Field(None, description="管理處ID")
-    manager: Optional[str] = Field(None, description="承辦人姓名")
+    undertracker: Optional[str] = Field(None, description="承辦人姓名")
     
     status: Optional[str] = Field(None, description="案件狀態")
     status_detail: Optional[str] = Field(None, description="狀態詳情")

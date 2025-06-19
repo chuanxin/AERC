@@ -10,7 +10,8 @@ from src.schemas.users import UserOutSchema
 from src.schemas.grants import (
     GrantInSchema, GrantOutSchema, GrantListSchema, 
     GrantUpdateSchema, GrantCreateResponseSchema, 
-    GrantStepSchema, GrantLandInSchema, GrantSearchSchema
+    GrantStepSchema, GrantLandInSchema, GrantSearchSchema,
+    GrantCreateRequestSchema
 )
 # import src.crud.offices as crud
 import src.crud.grants as crud
@@ -136,10 +137,13 @@ async def read_grant_by_case_number(case_number: str = Path(..., description="�
     dependencies=[Depends(get_current_user)],
 )
 async def create_grant_api(
-    grant_data: GrantInSchema,
+    grant_data: GrantCreateRequestSchema,
     current_user: UserOutSchema = Depends(get_current_user)
 ):
-    """建立新的補助申請案件 (Step 0 - 申請人資料)"""
+    """建立新的補助申請案件 (Step 0 - 申請人資料)
+    
+    接受前端 GrantCreateRequest 格式的資料，自動映射到後端格式
+    """
     try:
         return await crud.create_grant(grant_data, current_user)
     except Exception as e:

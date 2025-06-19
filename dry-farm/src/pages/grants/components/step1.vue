@@ -292,7 +292,7 @@
                 md="6"
               >
                 <v-text-field
-                  v-model="localFormData.manager"
+                  v-model="localFormData.undertracker"
                   variant="outlined"
                   density="comfortable"
                   :rules="[v => !!v || '請輸入承辦人']"
@@ -310,7 +310,7 @@
                 md="6"
               >
                 <v-text-field
-                  v-model="localFormData.department"
+                  v-model="localFormData.office"
                   label="管理處"
                   variant="outlined"
                   density="comfortable"
@@ -398,6 +398,7 @@
 <script setup lang="ts">
 import { useUserStore } from '@/stores/users';
 import { useDomicileStore } from '@/stores/domicile';
+import type { Step1Data } from '@/types/grantForms'
 
 const props = defineProps({
   formData: {
@@ -413,7 +414,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 const localValid = ref(true);
-const form = ref(null);
+const form = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null);
 
 const userStore = useUserStore();
 const domicileStore = useDomicileStore();
@@ -423,26 +424,29 @@ const selectedCountyId = ref<{ title: string; value: number } | null>(null);
 const selectedTownId = ref<{ title: string; value: number } | null>(null);
 const selectedVillageId = ref<{ title: string; value: number } | null>(null);
 
-// Define local form data with reactive to track changes
-const localFormData = reactive({
-  name: '',
-  id: '',
-  phone: '',
-  county: '',
-  countyId: null,
-  town: '',
-  townId: null,
-  village: '',
-  villageId: null,
-  address: '',
-  manager: '',
-  department: '',
-  departmentId: null,
-  caseNumber: '',
-  receivedDate: '',
-  receivedTime: '',
-  valid: true // Default to true to integrate with updated validation flow
-});
+const createInitialFormData = (): Step1Data => {
+  return {
+    name: '',
+    id: '',
+    phone: '',
+    county: '',
+    countyId: null,
+    town: '',
+    townId: null,
+    village: '',
+    villageId: null,
+    address: '',
+    undertracker: '',
+    office: '',
+    officeId: null,
+    caseNumber: '',
+    receivedDate: '',
+    receivedTime: '',
+    valid: true // Default to true to integrate with updated validation flow
+  }
+}
+
+const localFormData = reactive<Step1Data>(createInitialFormData());
 
 // 驗證規則
 const nameRules = [
@@ -518,7 +522,7 @@ const villageItems = computed(() => {
 });
 
 // Handle county selection change
-const handleCountyChange = async (county) => {
+const handleCountyChange = async (county: { title: string; value: number }) => {
   if (!county) return;
 
   // Reset dependent fields
@@ -539,7 +543,7 @@ const handleCountyChange = async (county) => {
 };
 
 // Handle town selection change
-const handleTownChange = async (town) => {
+const handleTownChange = async (town: { title: string; value: number }) => {
   if (!town) return;
 
   // Reset dependent fields
@@ -557,7 +561,7 @@ const handleTownChange = async (town) => {
 };
 
 // Handle village selection change
-const handleVillageChange = (village) => {
+const handleVillageChange = (village: { title: string; value: number }) => {
   if (!village) return;
 
   // Update form data with selected village
@@ -566,36 +570,33 @@ const handleVillageChange = (village) => {
   updateFormData();
 };
 
-// 更新父組件數據 - Updated to work with new grants store approach
+// 更新父組件數據 - 簡化實現避免無限迴圈
 const updateFormData = () => {
-  // Create data object to send to parent
-  // const updatedData = {
-  //   ...props.formData,
-  //   ...localFormData,
-  //   valid: localValid.value
-  // }
-  // console.log('Updated form data:', updatedData)
-  // Emit to parent to update grants store
-  // emit('update:formData', updatedData)
+  if (isUpdatingFromProps.value) {
+    console.log('🚫 step1.vue: Skipping updateFormData (updating from props)');
+    return;
+  }
+
+  console.log('📤 step1.vue: Emitting updated form data to parent');
   emit('update:formData', {
     ...props.formData,
     ...localFormData,
     valid: localValid.value
-  })
+  });
 };
 
 // Validate and emit validated event
-const validate = async () => {
-  if (!form.value) return { valid: false };
+// const validate = async () => {
+//   if (!form.value) return { valid: false };
 
-  const { valid } = await form.value.validate();
+//   const { valid } = await form.value.validate();
 
-  if (valid) {
-    updateFormData();
-  }
+//   if (valid) {
+//     updateFormData();
+//   }
 
-  return { valid };
-};
+//   return { valid };
+// };
 
 // Initialize address dropdowns based on string values from the store
 const initializeAddressDropdowns = async () => {
@@ -603,63 +604,69 @@ const initializeAddressDropdowns = async () => {
     // First ensure counties are loaded
     if (domicileStore.counties.length === 0) {
       await domicileStore.loadCounties();
-    }
-
-    // Ensure countyOptions exists before using find()
-    if (!domicileStore.countyOptions || !Array.isArray(domicileStore.countyOptions)) {
-      console.warn('County options not available yet, using direct county string');
-      // Fallback: Create a temporary county option
-      if (localFormData.county) {
-        selectedCountyId.value = {
-          title: localFormData.county,
-          value: localFormData.countyId || 0
-        };
-        return; // Exit early since we can't proceed with cascading data
-      }
-      return;
-    }
-
-    // Find county by name
-    const county = domicileStore.countyOptions.find(c => c.title === localFormData.county);
-    if (county) {
-      selectedCountyId.value = county;
-      localFormData.countyId = county.value;
-
-      // Load towns for this county
-      await domicileStore.loadTownsByCountyId(county.value);
-
-      // Ensure townOptions exists
-      if (!domicileStore.townOptions || !Array.isArray(domicileStore.townOptions)) {
-        console.warn('Town options not available yet');
+    }      // Ensure countyOptions exists before using find()
+      if (!domicileStore.countyOptions || !Array.isArray(domicileStore.countyOptions)) {
+        console.warn('County options not available yet, using direct county string');
+        // Fallback: Create a temporary county option
+        if (localFormData.county) {
+          selectedCountyId.value = {
+            title: localFormData.county,
+            value: localFormData.countyId || 0
+          };
+          return; // Exit early since we can't proceed with cascading data
+        }
         return;
       }
 
-      // Find town by name
-      const town = domicileStore.townOptions.find(t => t.title === localFormData.town);
-      if (town) {
-        selectedTownId.value = town;
-        localFormData.townId = town.value;
+      // Find county by name
+      const county = domicileStore.countyOptions.find(c => c.title === localFormData.county);
+      if (county) {
+        selectedCountyId.value = county;
+        localFormData.countyId = county.value;
 
-        // Load villages for this town
-        await domicileStore.loadVillagesByTownId(town.value);
+        // Load towns for this county
+        await domicileStore.loadTownsByCountyId(county.value);
 
-        // Ensure villageOptions exists
-        if (!domicileStore.villageOptions || !Array.isArray(domicileStore.villageOptions)) {
-          console.warn('Village options not available yet');
+        // Get towns for this county from the map
+        const countyTowns = domicileStore.townsByCountyId.get(county.value) || [];
+        if (countyTowns.length === 0) {
+          console.warn('Towns not available yet for county:', county.title);
           return;
         }
 
-        // Find village by name
-        const village = domicileStore.villageOptions.find(v => v.title === localFormData.village);
-        if (village) {
-          selectedVillageId.value = village;
-          localFormData.villageId = village.value;
+        // Find town by name
+        const town = countyTowns.find(t => t.name === localFormData.town);
+        if (town) {
+          selectedTownId.value = {
+            title: town.name,
+            value: town.id
+          };
+          localFormData.townId = town.id;
+
+          // Load villages for this town
+          await domicileStore.loadVillagesByTownId(town.id);
+
+          // Get villages for this town from the map
+          const townVillages = domicileStore.villagesByTownId.get(town.id) || [];
+          if (townVillages.length === 0) {
+            console.warn('Villages not available yet for town:', town.name);
+            return;
+          }
+
+          // Find village by name
+          const village = townVillages.find(v => v.name === localFormData.village);
+          if (village) {
+            selectedVillageId.value = {
+              title: village.name,
+              value: village.id
+            };
+            localFormData.villageId = village.id;
+          }
         }
       }
+    } catch (error) {
+      console.error('Error initializing address dropdowns:', error);
     }
-  } catch (error) {
-    console.error('Error initializing address dropdowns:', error);
-  }
 };
 
 // Initialize data
@@ -668,60 +675,50 @@ onMounted(async () => {
     // Initialize the domicile store
     await domicileStore.initializeStore();
 
-    // Set form data from props safely
-    if (props.formData) {
-      Object.keys(localFormData).forEach(key => {
-        if (props.formData[key] !== undefined) {
-          // Force reactivity with direct assignment
-          localFormData[key] = props.formData[key];
-        }
-      });
+    // Only try to set dropdown selections if we have the necessary data
+    if (localFormData.countyId && domicileStore.counties.length > 0) {
+      // Set county dropdown
+      const countyObj = domicileStore.counties.find(c => c.id === localFormData.countyId);
+      if (countyObj) {
+        selectedCountyId.value = {
+          title: countyObj.name,
+          value: countyObj.id
+        };
 
-      // Only try to set dropdown selections if we have the necessary data
-      if (localFormData.countyId && domicileStore.counties.length > 0) {
-        // Set county dropdown
-        const countyObj = domicileStore.counties.find(c => c.id === localFormData.countyId);
-        if (countyObj) {
-          selectedCountyId.value = {
-            title: countyObj.name,
-            value: countyObj.id
-          };
+        // Continue with town and village setup
+        await domicileStore.loadTownsByCountyId(countyObj.id);
 
-          // Continue with town and village setup
-          await domicileStore.loadTownsByCountyId(countyObj.id);
+        if (localFormData.townId) {
+          const townObj = domicileStore.towns.find(t => t.id === localFormData.townId);
+          if (townObj) {
+            selectedTownId.value = {
+              title: townObj.name,
+              value: townObj.id
+            };
 
-          if (localFormData.townId) {
-            const townObj = domicileStore.towns.find(t => t.id === localFormData.townId);
-            if (townObj) {
-              selectedTownId.value = {
-                title: townObj.name,
-                value: townObj.id
-              };
+            await domicileStore.loadVillagesByTownId(townObj.id);
 
-              await domicileStore.loadVillagesByTownId(townObj.id);
-
-              if (localFormData.villageId) {
-                const villageObj = domicileStore.villages.find(v => v.id === localFormData.villageId);
-                if (villageObj) {
-                  selectedVillageId.value = {
-                    title: villageObj.name,
-                    value: villageObj.id
-                  };
-                }
+            if (localFormData.villageId) {
+              const villageObj = domicileStore.villages.find(v => v.id === localFormData.villageId);
+              if (villageObj) {
+                selectedVillageId.value = {
+                  title: villageObj.name,
+                  value: villageObj.id
+                };
               }
             }
           }
         }
       }
-      // If we have county string but no countyId or selections
-      else if (localFormData.county && !selectedCountyId.value) {
-        await initializeAddressDropdowns();
-      }
+    }
+    // If we have county string but no countyId or selections
+    else if (localFormData.county && !selectedCountyId.value) {
+      await initializeAddressDropdowns();
     }
 
-    // Set default department if not set
-    if (!localFormData.department) {
-      localFormData.department = userStore.currentUser?.office?.name;
+    // Set default office if not set
+    if (!localFormData.office) {
+      localFormData.office = userStore.currentUser?.office?.name ?? '';
     }
 
     // Initial update to parent
@@ -731,15 +728,23 @@ onMounted(async () => {
   }
 });
 
+// 使用 ref 來防止無限迴圈 - 必須在 watchers 之前宣告
+const isUpdatingFromProps = ref(false);
+
 // Watch for props changes
 watch(() => props.formData, async (newData) => {
   if (!newData) return;
 
   try {
-    // Update local form data
-    Object.keys(localFormData).forEach(key => {
-      if (newData[key] !== undefined && newData[key] !== localFormData[key]) {
-        localFormData[key] = newData[key];
+    // 暫停 localFormData 的監聽以避免無限迴圈
+    isUpdatingFromProps.value = true;
+    let hasChanges = false;    // 使用最簡潔且類型安全的寫法
+    Object.entries(localFormData).forEach(([key, currentValue]) => {
+      const newValue = newData[key as keyof Step1Data];
+      if (newValue !== undefined && newValue !== currentValue) {
+        // 直接使用 Object.assign 避免類型問題
+        Object.assign(localFormData, { [key]: newValue });
+        hasChanges = true;
       }
     });
 
@@ -747,19 +752,39 @@ watch(() => props.formData, async (newData) => {
     if (newData.county && !selectedCountyId.value && domicileStore.counties.length > 0) {
       await initializeAddressDropdowns();
     }
+
+    // 只在有實際變化時才記錄
+    if (hasChanges) {
+      console.log('📥 step1.vue: Props updated, synced to localFormData');
+    }
+
+    // 恢復監聽
+    await nextTick();
+    isUpdatingFromProps.value = false;
   } catch (error) {
     console.error('Error in formData watcher:', error);
+    isUpdatingFromProps.value = false;
   }
 }, { deep: true });
 
 // Watch for changes in local form data
 watch(localFormData, () => {
+  // 如果正在從 props 更新，就不要觸發 updateFormData
+  if (isUpdatingFromProps.value) {
+    console.log('🚫 step1.vue: Skipping updateFormData (updating from props)');
+    return;
+  }
+
+  console.log('📤 step1.vue: localFormData changed, calling updateFormData');
   updateFormData();
 }, { deep: true });
 
 // Watch for validation status changes
 watch(localValid, (newVal) => {
+  if (isUpdatingFromProps.value) return;
+
   if (props.formData?.valid !== newVal) {
+    console.log('📋 step1.vue: Validation status changed:', newVal);
     updateFormData();
   }
 });

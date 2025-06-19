@@ -6,12 +6,12 @@ import {
   updateGrantStepData,
   updateGrantStepDataWithTracking,
   updateCurrentStep as updateCurrentStepAPI,
-  type GrantCreateRequest,
   type GrantCreateResponse,
   type GrantStepDataUpdateRequest
 } from '@/services/grantsService'
 import { ApplicationError } from '@/utils/asyncHelpers'
 import { GrantStorage } from '@/utils/grant-storage'
+import type { GrantCreateRequest } from '@/types/grantForms'
 
 /**
  * Grants Store - Centralized state management for grant applications

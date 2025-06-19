@@ -3,26 +3,6 @@
     flat
     class="form-container pa-6 pb-2"
   >
-    <!-- 處理中對話框 -->
-    <v-dialog
-      v-model="isProcessing"
-      persistent
-      width="300"
-    >
-      <v-card>
-        <v-card-text class="text-center pa-5">
-          <v-progress-circular
-            indeterminate
-            color="primary"
-            size="64"
-            class="mb-3"
-          />
-          <div class="text-body-1">
-            建立專案中，請稍候...
-          </div>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
     <v-form
       ref="form"
       v-model="localValid"
@@ -68,7 +48,6 @@
                   :rules="nameRules"
                   bg-color="white"
                   required
-                  @update:model-value="updateFormData"
                 >
                   <template #label>
                     申請人姓名
@@ -90,7 +69,6 @@
                   required
                   hint="例：A123456789"
                   persistent-hint
-                  @update:model-value="updateFormData"
                 >
                   <template #label>
                     身分證字號
@@ -108,7 +86,6 @@
                   bg-color="white"
                   required
                   :rules="phoneRules"
-                  @update:model-value="updateFormData"
                 >
                   <template #label>
                     聯絡電話
@@ -225,7 +202,6 @@
                   bg-color="white"
                   placeholder="例：中正路100號"
                   :rules="[v => !!v || '請輸入詳細地址']"
-                  @update:model-value="updateFormData"
                 >
                   <template #label>
                     詳細地址
@@ -244,12 +220,6 @@
         class="mt-0 mb-0 pa-4 pb-0"
         rounded="lg"
       >
-        <!-- <v-card flat class="mb-0 mb-4 pa-4 pb-0" rounded="lg" variant="outlined" color="amber-lighten-4"> -->
-        <!-- <v-card-title class="text-subtitle-1 font-weight-bold pa-0 pb-6" style="color: #FB8C00">
-          <v-icon color="#FB8C00" class="me-2" size="small">mdi-account-tie</v-icon>
-          承辦資訊
-        </v-card-title> -->
-
         <v-row>
           <v-col
             cols="12"
@@ -260,7 +230,6 @@
               variant="outlined"
               density="comfortable"
               bg-color="rgba(255, 255, 255, 1)"
-              @update:model-value="updateFormData"
             >
               <template #label>
                 承辦人姓名<span class="required-asterisk">*(必填)</span>
@@ -268,19 +237,6 @@
             </v-text-field>
           </v-col>
 
-          <!-- <v-col cols="12" sm="6">
-            <v-select
-              v-model="localFormData.department"
-              label="承辦單位"
-              :items="departments"
-              variant="outlined"
-              density="comfortable"
-              color="#3ea0a3"
-              disabled
-              bg-color="white"
-              @update:model-value="updateFormData"
-            />
-          </v-col> -->
           <v-col
             cols="12"
             sm="9"
@@ -324,48 +280,34 @@
 <script setup lang="ts">
 import { useUserStore } from '@/stores/users'
 import { useDomicileStore } from '@/stores/domicile'
-import { useGrantsStore } from '@/stores/grants'
 import type { GrantCreateRequest } from '@/types/grantForms'
 import type { VForm } from 'vuetify/components'
 
-
 const userStore = useUserStore()
 const domicileStore = useDomicileStore()
-const grantsStore = useGrantsStore()
-
-const router = useRouter();
-const props = defineProps<{
-  formData?: GrantCreateRequest;
-}>();
 
 const emit = defineEmits<{
-  'update:formData': [data: GrantCreateRequest]
-  'projectCreated': [data: { caseNumber: string }]
+  'create:case': [data: GrantCreateRequest]
 }>();
 const localValid = ref(false);
 const form = ref<VForm | null>(null);
-const isProcessing = ref(false);
 
-const createInitialFormData = (): GrantCreateRequest => {
-  return {
-    name: '',
-    id: '',
-    phone: '',
-    county: '',       // Text value for display
-    countyId: null,   // ID value for relationships
-    town: '',         // Text value for display
-    townId: null,     // ID value for relationships
-    village: '',      // Text value for display
-    villageId: null,  // ID value for relationships
-    address: '',
-    undertracker: userStore.userFullName || '',
-    office: userStore.currentUser?.office?.name || '',
-    officeId: userStore.currentUser?.office?.id || null,
-    valid: false
-  }
-}
-
-const localFormData = reactive<GrantCreateRequest>(createInitialFormData());
+const localFormData = reactive<GrantCreateRequest>({
+  name: '',
+  id: '',
+  phone: '',
+  county: '',
+  countyId: null,
+  town: '',
+  townId: null,
+  village: '',
+  villageId: null,
+  address: '',
+  undertracker: '',
+  office: userStore.currentUser?.office?.name || '',
+  officeId: userStore.currentUser?.office?.id || null,
+  valid: false
+});
 
 // For the v-select components
 const selectedCountyId = ref<{ title: string; value: number } | null>(null)
@@ -432,7 +374,6 @@ const handleCountyChange = async (county: { title: string; value: number }): Pro
 
   // Load towns for this county
   await domicileStore.loadTownsByCountyId(county.value)
-  updateFormData()
 }
 
 // Handle town selection change
@@ -450,7 +391,6 @@ const handleTownChange = async (town: { title: string; value: number }) => {
 
   // Load villages for this town
   await domicileStore.loadVillagesByTownId(town.value)
-  updateFormData()
 }
 
 // Handle village selection change
@@ -460,30 +400,16 @@ const handleVillageChange = (village: { title: string; value: number }) => {
   // Update form data with selected village
   localFormData.village = village.title
   localFormData.villageId = village.value
-  updateFormData()
 }
-
-// 管理處列表
-// const departments = computed(() => officesStore.items)
-
-// With this filtered version:
-// const departments = computed(() =>
-//   officesStore.items.filter(item => item.raw?.classification === 1 || item.classification === 1)
-// )
-
 
 const isValid = computed(() => {
   return localValid.value;
 });
 
-
 // 表單驗證
 const validate = async () => {
   if (!form.value) return false;
   const { valid } = await form.value.validate();
-  if (valid) {
-    updateFormData();
-  }
   return valid;
 };
 
@@ -492,190 +418,44 @@ const createProject = async () => {
   const valid = await validate()
   if (!valid) return
 
-  isProcessing.value = true
-
   try {
-    const projectData = {
-      applicant_name: localFormData.name,
-      applicant_id: localFormData.id,
-      applicant_phone: localFormData.phone,
-      county: localFormData.county,
-      county_id: Number(localFormData.countyId),
-      town: localFormData.town,
-      townId: Number(localFormData.townId),
-      village: localFormData.village,
-      village_id: localFormData.villageId ? Number(localFormData.villageId) : undefined,
-      address: localFormData.address,
-      undertracker: localFormData.undertracker,
-      office: localFormData.office,
-      office_id: Number(localFormData.officeId)
-    }
-
-    console.log('[step0.createProject] Data being sent to grantsStore.createProject:', JSON.stringify(projectData, null, 2));
-    // Also log the types of ID fields to ensure they are numbers
-    console.log('[step0.createProject] ID types: county_id:', typeof projectData.county_id, 'townId:', typeof projectData.townId, 'village_id:', typeof projectData.village_id, 'office_id:', typeof projectData.office_id);
-
-    // Call the store action to create the project
-    const result = await grantsStore.createProject(projectData)
-
-    // Emit event for parent components
-    emit('projectCreated', {
-      caseNumber: result.case_number
+    // 發送事件給父組件 - 直接傳遞完整資料
+    emit('create:case', {
+      ...localFormData,
+      valid: Boolean(localValid.value)
     })
 
-    // Navigate to the edit page
-    router.push({
-      path: '/grants/edit',
-      query: { id: result.case_number }
+    console.log('📋 [step0.createProject] 開始建立案件，資料:', {
+      name: localFormData.name,
+      id: localFormData.id,
+      county: localFormData.county,
+      town: localFormData.town,
+      office: localFormData.office
     });
+
   } catch (error) {
-    console.error('創建專案失敗', error);
-    // You could add a toast/notification here
-  } finally {
-    isProcessing.value = false;
+    console.error('❌ [step0.createProject] 建立案件失敗:', error);
+    // 可以在這裡添加錯誤提示
+    // 例如使用 Vuetify 的 snackbar 或其他通知組件
   }
-
-    // 這裡應該調用後端 API 建立專案
-    // 例如: const response = await axios.post('/api/projects/create', localFormData);
-
-    // 模擬 API 呼叫延遲
-    // await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // 假設後端返回了一個專案 ID
-    // const projectId = '113010001'; // 這個值應該從後端 API 響應中獲取
-
-    // 觸發專案創建成功事件
-    // emit('projectCreated', {
-      // projectId,
-      // data: { ...localFormData }
-    // });
-
-    // 導航到專案編輯頁面
-    // router.push({
-      // name: 'grant-edit',
-      // params: { id: projectId }
-    // });
-  // } catch (error) {
-    // console.error('創建專案失敗', error);
-    // 處理錯誤情況，例如顯示錯誤提示
-  // } finally {
-    // isProcessing.value = false;
-  // }
 };
 
-// 初始化數據
-// onMounted(async () => {
-//   await domicileStore.initializeStore()
-
-//   localFormData.undertracker = userStore.userFullName
-//   // 從父組件接收數據（如果有的話）
-//   // if (props.formData) {
-//   //   Object.keys(localFormData).forEach(key => {
-//   //     if (props.formData[key] !== undefined) {
-//   //       localFormData[key] = props.formData[key];
-//   //     }
-//   //   });
-//   // }
-
-//   // Handle any existing parent data
-//   // if (props.formData) {
-//   //   Object.keys(localFormData).forEach(key => {
-//   //     if (props.formData[key] !== undefined) {
-//   //       localFormData[key] = props.formData[key];
-//   //     }
-//   //   });
-//   // }
-
-//   // Ensure office data is loaded
-//   // if (!officesStore.isOfficesLoaded) {
-//   //   officesStore.fetchOffices()
-//   // }
-// });
-
-// Initialize form data
+// Initialize form data from user context
 onMounted(async () => {
   // Initialize the domicile store
   await domicileStore.initializeStore()
 
-  // Set default values from user
-  // localFormData.undertracker = userStore.userFullName
-
-  // Restore previous selections if available
-  if (props.formData) {
-    // 載入父組件傳遞的表單資料
-    Object.assign(localFormData, props.formData)
-
-    if (props.formData.countyId) {
-      const county = domicileStore.getCountyById(Number(props.formData.countyId))
-      if (county) {
-        selectedCountyId.value = { title: county.name, value: county.id }
-        await domicileStore.loadTownsByCountyId(county.id)
-      }
-    }
-
-    if (props.formData.townId) {
-      const town = domicileStore.getTownById(Number(props.formData.townId))
-      if (town) {
-        selectedTownId.value = { title: town.name, value: town.id }
-        await domicileStore.loadVillagesByTownId(town.id)
-      }
-    }
-
-    if (props.formData.villageId && props.formData.townId) {
-      const villages = domicileStore.getVillagesForTownId(Number(props.formData.townId))
-      const village = villages.find(v => v.value === Number(props.formData?.villageId))
-      if (village) {
-        selectedVillageId.value = { title: village.title, value: village.value }
-      }
-    }
-  }
-})
-
-// 監聽父組件數據變化
-// watch(() => props.formData, (newVal) => {
-//   if (newVal) {
-//     Object.keys(localFormData).forEach(key => {
-//       if (newVal[key] !== undefined && newVal[key] !== localFormData[key]) {
-//         localFormData[key] = newVal[key];
-//       }
-//     });
-//   }
-// }, { deep: true });
-
-// 監聽本地數據變化，更新父組件
-watch(localFormData, () => {
-  console.log('localFormData changed:', localFormData)
-  updateFormData();
-}, { deep: true });
-
-// 監聽本地表單驗證狀態
-watch(localValid, (newVal) => {
-  if (props.formData?.valid !== newVal) {
-    updateFormData();
-  }
-});
-watchEffect(() => {
-  // This will automatically run whenever user data changes
-  // and update the field immediately
-  if (userStore.userFullName) {
-    // localFormData.undertracker = userStore.userFullName;
-  }
-
-  // Update department when office data is available
-  // if (userStore.currentUser?.office?.id) {
-  //   const officeId = userStore.currentUser.office.id;
-  //   localFormData.department = officeId;
+  // Set default values from user store
+  // if (userStore.currentUser?.office) {
+  //   localFormData.office = userStore.currentUser.office.name || ''
+  //   localFormData.officeId = userStore.currentUser.office.id || null
   // }
 })
 
-// Update parent form data
-const updateFormData = () => {
-  const formDataToEmit: GrantCreateRequest = {
-    ...localFormData,
-    valid: localValid.value
-  }
-  emit('update:formData', formDataToEmit)
-}
+// 僅監聽表單驗證狀態
+watch(localValid, (newVal) => {
+  localFormData.valid = Boolean(newVal)
+})
 </script>
 
 <style scoped>
@@ -698,13 +478,19 @@ const updateFormData = () => {
   font-weight: 500;
   margin: 8px 0 12px 0;
   transition: all 0.2s ease;
+  min-width: 120px;
 }
 
-.action-btn:hover {
-  /* transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); */
+.action-btn:hover:not(:disabled) {
   background-color: #3ea0a3 !important;
   color: white !important;
+  box-shadow: 0 2px 8px rgba(62, 160, 163, 0.3);
+  transform: translateY(-1px);
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* 唯讀輸入框樣式 */

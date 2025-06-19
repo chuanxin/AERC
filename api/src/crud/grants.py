@@ -11,7 +11,7 @@ from src.database.models import (Offices, Counties, Towns, Villages, Grants, Gra
 from src.schemas.users import UserOutSchema
 from src.schemas.grants import (
     GrantInSchema, GrantUpdateSchema, GrantStepSchema, 
-    GrantSearchSchema, GrantLandInSchema
+    GrantSearchSchema, GrantLandInSchema, GrantCreateRequestSchema
 )
 from src.schemas.token import Status
 
@@ -248,10 +248,84 @@ def parse_tw_date(date_str: str) -> Optional[date]:
         return None
     
 
+def map_frontend_to_backend(frontend_data: Union[Dict[str, Any], GrantCreateRequestSchema]) -> Dict[str, Any]:
+    """
+    Map frontend GrantCreateRequest data to backend grant creation format.
+    
+    Frontend (GrantCreateRequest) -> Backend (Grants model) field mapping:
+    - name -> applicant_name
+    - id -> applicant_id  
+    - phone -> applicant_phone
+    - county -> county
+    - countyId -> (not used directly, county name used instead)
+    - town -> town
+    - townId -> (not used directly, town name used instead)
+    - village -> village
+    - villageId -> (not used directly, village name used instead)
+    - address -> address
+    - undertracker -> undertracker
+    - office -> office
+    - officeId -> office_id
+    - valid -> (frontend validation flag, not stored in backend)
+    
+    Args:
+        frontend_data: Dict or GrantCreateRequestSchema containing frontend fields
+        
+    Returns:
+        Dict with backend-compatible field names and values
+        
+    Raises:
+        ValueError: If required fields are missing or invalid
+    """
+    # Convert schema object to dict if needed
+    if isinstance(frontend_data, GrantCreateRequestSchema):
+        data_dict = frontend_data.model_dump()
+    else:
+        # Validate using schema if it's a raw dict
+        validated_data = GrantCreateRequestSchema(**frontend_data)
+        data_dict = validated_data.model_dump()
+    
+    # Map frontend fields to backend fields
+    backend_data = {
+        'applicant_name': data_dict['name'],
+        'applicant_id': data_dict['id'],
+        'applicant_phone': data_dict['phone'],
+        'county': data_dict['county'],
+        'town': data_dict['town'],
+        'village': data_dict.get('village'),  # Optional field
+        'address': data_dict['address'],
+        'undertracker': data_dict['undertracker'],
+        'office': data_dict['office'],
+        'office_id': data_dict.get('officeId'),  # May be None if not provided
+    }
+    
+    # Clean up None/empty values for optional fields
+    if not backend_data['village']:
+        backend_data['village'] = None
+    
+    # Validate office_id is provided when office is specified
+    if backend_data['office'] and not backend_data['office_id']:
+        logger.warning(f"Office '{backend_data['office']}' provided without office_id")
+    
+    logger.info(f"Mapped frontend data to backend format for applicant: {backend_data['applicant_name']}")
+    return backend_data
+
+
 async def create_grant(data, current_user):
     """建立新的補助申請案件"""
     async with in_transaction():
         try:
+            # If data is a GrantCreateRequestSchema or dictionary (from frontend), map it to backend format
+            if isinstance(data, (dict, GrantCreateRequestSchema)):
+                mapped_data = map_frontend_to_backend(data)
+                # Create a simple object with the mapped data for backward compatibility
+                class MappedData:
+                    def __init__(self, **kwargs):
+                        for key, value in kwargs.items():
+                            setattr(self, key, value)
+                
+                data = MappedData(**mapped_data)
+            
             # 準備目前年度(民國年)
             current_year = datetime.now().year - 1911
 
@@ -266,10 +340,10 @@ async def create_grant(data, current_user):
                 applicant_phone=data.applicant_phone if hasattr(data, 'applicant_phone') else '',
                 county=data.county,
                 town=data.town,
-                village=data.village if data.village else None,
+                village=data.village if hasattr(data, 'village') and data.village else None,
                 address=data.address,
                 office=data.office,
-                office_id=data.office_id,
+                office_id=data.office_id if hasattr(data, 'office_id') else None,
                 undertracker=data.undertracker,
                 created_by_id=current_user.id,
                 received_date=tw_now.date(),
@@ -301,6 +375,9 @@ async def create_grant(data, current_user):
                 "received_time": grant.received_time.strftime("%H:%M")
             }
         
+        except ValueError as e:
+            logger.error(f"資料映射錯誤: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"資料格式錯誤: {str(e)}")
         except IntegrityError as e:
             logger.error(f"建立補助申請案件失敗: {str(e)}")
             raise HTTPException(status_code=400, detail=f"建立補助申請案件失敗: {str(e)}")
@@ -421,9 +498,9 @@ async def get_grant_step_data(case_number: str, step: int) -> Dict[str, Any]:
                 "town": grant.town, 
                 "village": grant.village,
                 "address": grant.address,
-                "manager": grant.undertracker,
-                "department": grant.office,
-                "departmentId": grant.office_id,
+                "undertracker": grant.undertracker,  # 使用新字段名
+                "office": grant.office,              # 使用新字段名
+                "officeId": grant.office_id,
                 "caseNumber": grant.case_number,
                 "receivedDate": format_tw_date(grant.received_date) if grant.received_date else None,
                 "receivedTime": grant.received_time.strftime("%H:%M") if grant.received_time else None
