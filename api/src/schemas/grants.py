@@ -26,6 +26,8 @@ class GrantCreateRequestSchema(BaseSchema):
     office: str = Field(..., description="管理處名稱", min_length=1, max_length=50)
     officeId: Optional[int] = Field(None, description="管理處ID")
     valid: Optional[bool] = Field(default=False, description="前端驗證狀態")
+    isDisasterCase: bool = Field(default=False, description="是否為災害案件")
+    disasterCaseDescription: str = Field(default="", description="災害案件說明")
     
     @field_validator('valid')
     def validate_valid_field(cls, v):
@@ -74,6 +76,22 @@ class GrantCreateRequestSchema(BaseSchema):
         if not v or not v.strip():
             raise ValueError('此欄位不能為空')
         return v.strip()
+    
+    @field_validator('disasterCaseDescription')
+    def validate_disaster_description(cls, v, values):
+        """驗證災害案件說明"""
+        # 從已驗證的值中獲取 isDisasterCase
+        is_disaster = values.data.get('isDisasterCase', False) if hasattr(values, 'data') else False
+        
+        if is_disaster:
+            if not v or not v.strip():
+                raise ValueError('災害案件必須填寫說明內容')
+            if len(v.strip()) < 10:
+                raise ValueError('災害案件說明至少需要10個字')
+            if len(v.strip()) > 500:
+                raise ValueError('災害案件說明不可超過500個字')
+        
+        return v.strip() if v else ""
 
 # 補助申請案件模型
 class GrantInSchema(BaseSchema):

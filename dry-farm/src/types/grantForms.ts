@@ -17,6 +17,8 @@ export interface BaseGrantData {
 
 export interface GrantCreateRequest extends BaseGrantData {
   undertracker: string; // 只定義新增的欄位
+  isDisasterCase: boolean; // 是否為災害案件
+  disasterCaseDescription: string; // 災害案件說明
 }
 
 export interface Step1Data extends GrantCreateRequest {

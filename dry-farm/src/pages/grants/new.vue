@@ -152,31 +152,6 @@ const submitting = ref(false);
 const isProcessing = ref(false); // 進度對話框狀態
 const currentCaseNumber = ref(''); // 當前建立的案件編號
 
-// 步驟定義
-// const steps = [
-//   { title: '申請人資料', value: 1, subtitle: '請填寫申請人資料完成立案' },
-// ];
-
-// 初始表單數據函數
-// const createInitialFormData = (): GrantCreateRequest => ({
-//   name: '',
-//   id: '',
-//   phone: '',
-//   county: '',
-//   countyId: null,
-//   town: '',
-//   townId: null,
-//   village: '',
-//   villageId: null,
-//   address: '',
-//   undertracker: '',
-//   office: userStore.currentUser?.office?.name || '',
-//   officeId: userStore.currentUser?.office?.id || null,
-//   valid: false
-// });
-
-// const formData = reactive<GrantCreateRequest>(createInitialFormData());
-
 const createCase = async (data: GrantCreateRequest) => {
   try {
     console.log('🚀 [new.vue] 開始建立案件流程');
@@ -253,17 +228,6 @@ const handleCreateCase = async (data: { caseNumber: string }) => {
     submitting.value = false;
   }
 };
-
-// 重置到步驟1並更新 URL
-// const resetToStep1 = () => {
-//   currentStep.value = 1;
-//   displayStep.value = 1;
-
-//   // 更新 URL 添加 step=1 參數
-//   appRouter.replace({
-//     query: { ...route.query, step: '1' }
-//   });
-// };
 
 onMounted(() => {
   // const stepParam = route.query.step;

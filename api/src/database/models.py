@@ -83,6 +83,10 @@ class Grants(models.Model):
     office_id = fields.IntField(null=True, description="管理處ID", index=False)
     undertracker = fields.CharField(max_length=50, description="承辦人姓名")
     
+    # 災害案件相關欄位
+    is_disaster_case = fields.BooleanField(default=False, description="是否為災害案件")
+    disaster_case_description = fields.TextField(null=True, description="災害案件說明")
+    
     # 申請、收件日期
     received_date = fields.DateField(description="收件日期")
     received_time = fields.TimeField(description="收件時間")

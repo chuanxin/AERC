@@ -7,6 +7,7 @@ from tortoise.transactions import in_transaction
 from tortoise.expressions import Q
 
 from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus, GrantActionType)
+from src.config.field_mappings import FieldMappingConfig, validate_step_fields
 from src.schemas.users import UserOutSchema
 from src.schemas.grants import (
     GrantInSchema, GrantUpdateSchema, GrantStepSchema, 
@@ -319,6 +320,8 @@ def map_frontend_to_backend(frontend_data: Union[Dict[str, Any], GrantCreateRequ
         'undertracker': data_dict['undertracker'],
         'office': data_dict['office'],
         'office_id': data_dict.get('officeId'),  # May be None if not provided
+        'is_disaster_case': data_dict.get('isDisasterCase', False),  # Disaster case flag
+        'disaster_case_description': data_dict.get('disasterCaseDescription', ''),  # Disaster case description
     }
     
     # Clean up None/empty values for optional fields
@@ -364,6 +367,8 @@ async def create_grant(data, current_user):
                 office=data.office,
                 office_id=data.office_id if hasattr(data, 'office_id') else None,
                 undertracker=data.undertracker,
+                is_disaster_case=data.is_disaster_case if hasattr(data, 'is_disaster_case') else False,
+                disaster_case_description=data.disaster_case_description if hasattr(data, 'disaster_case_description') else '',
                 created_by_id=current_user.id,
                 received_date=get_taiwan_date(),
                 received_time=get_taiwan_time_naive(),
@@ -493,6 +498,7 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"案件不存在: {str(e)}")
 
 
+@validate_step_fields(step=1)
 async def get_grant_step_data(case_number: str, step: int) -> Dict[str, Any]:
     """取得補助申請案件特定步驟資料"""
     try:
@@ -507,34 +513,47 @@ async def get_grant_step_data(case_number: str, step: int) -> Dict[str, Any]:
             "status": grant.status
         }
         
-        # Add step-specific data
+        # Add step-specific data using field mapping configuration
         if step == 1:  # Basic applicant information step
-            result.update({
-                "name": grant.applicant_name,
-                "id": grant.applicant_id,
-                "phone": grant.applicant_phone,
-                "county": grant.county,
-                "town": grant.town, 
-                "village": grant.village,
-                "address": grant.address,
-                "undertracker": grant.undertracker,  # 使用新字段名
-                "office": grant.office,              # 使用新字段名
-                "officeId": grant.office_id,
-                "caseNumber": grant.case_number,
-                "receivedDate": format_tw_date(grant.received_date) if grant.received_date else None,
-                "receivedTime": grant.received_time.strftime("%H:%M") if grant.received_time else None
-            })
+            # 使用配置映射自動生成響應字段
+            step_data = build_step_response_data(grant, step)
+            result.update(step_data)
+            
         elif step == 2:  # Land information step
-            # Fetch land-related data for step 2
-            # This would include fetching from related tables if you have them
-            result.update({
-                "land_data": {}  # Placeholder - replace with actual land data structure
-            })
+            # 未來可以用相同的方式處理 step 2
+            step_data = build_step_response_data(grant, step)
+            result.update(step_data)
+            
         # Add cases for other steps as needed
         
         return result
     except DoesNotExist:
         raise HTTPException(status_code=404, detail=f"補助案件編號 {case_number} 不存在")
+
+
+def build_step_response_data(grant: Grants, step: int) -> Dict[str, Any]:
+    """根據字段映射配置構建步驟響應數據"""
+    db_to_api_mapping = FieldMappingConfig.get_db_to_api_mapping(step)
+    step_data = {}
+    
+    for db_field, api_field in db_to_api_mapping.items():
+        try:
+            # 獲取數據庫字段值
+            db_value = getattr(grant, db_field, None)
+            
+            # 特殊處理某些字段格式
+            if api_field == "receivedDate" and db_value:
+                step_data[api_field] = format_tw_date(db_value)
+            elif api_field == "receivedTime" and db_value:
+                step_data[api_field] = db_value.strftime("%H:%M") if hasattr(db_value, 'strftime') else str(db_value)
+            else:
+                step_data[api_field] = db_value
+                
+        except AttributeError:
+            logger.warning(f"字段 {db_field} 在 Grant 模型中不存在")
+            step_data[api_field] = None
+    
+    return step_data
 
 
 async def update_grant_step_data(case_number: str, step: int, data, current_user):

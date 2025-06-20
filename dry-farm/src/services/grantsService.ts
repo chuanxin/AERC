@@ -2,6 +2,7 @@ import { apiService } from './api/http'
 import { ApplicationError } from '@/utils/asyncHelpers'
 import { GRANTS } from './api/endpoints'
 import type { GrantCreateRequest } from '@/types/grantForms'
+import { fieldMappingMiddleware, FieldMappingValidator, type DataRecord } from '@/types/fieldMappings'
 
 // Types
 export interface GrantCreateResponse {
@@ -97,8 +98,18 @@ export const getGrantByCaseNumber = async (caseNumber: string): Promise<GrantCre
 
 export const getGrantStepData = async (caseNumber: string, step: number): Promise<GrantStepData> => {
   try {
-    const response = await apiService.get(GRANTS.STEP(caseNumber, step))
-    return response as GrantStepData
+    const endpoint = GRANTS.STEP(caseNumber, step)
+    const response = await apiService.get(endpoint)
+
+    // 使用字段映射中间件转换后端数据为前端格式
+    const transformedData = fieldMappingMiddleware.afterResponse(step, response as DataRecord, endpoint)
+
+    // 在开发模式下验证数据完整性
+    if (import.meta.env.DEV) {
+      FieldMappingValidator.validateApiResponse(step, response as DataRecord, endpoint)
+    }
+
+    return transformedData as GrantStepData
   } catch (error: unknown) {
     return handleApiError(error, 'grantsService.getGrantStepData')
   }
@@ -116,8 +127,17 @@ export interface GrantStepDataUpdateRequest extends Record<string, unknown> {
 
 export const updateGrantStepData = async (caseNumber: string, step: number, data: Record<string, unknown>): Promise<GrantStepData> => {
   try {
-    const response = await apiService.put(GRANTS.STEP(caseNumber, step), data)
-    return response as GrantStepData
+    const endpoint = GRANTS.STEP(caseNumber, step)
+
+    // 使用字段映射中间件转换前端数据为后端格式
+    const transformedData = fieldMappingMiddleware.beforeRequest(step, data as DataRecord, endpoint)
+
+    const response = await apiService.put(endpoint, transformedData)
+
+    // 使用字段映射中间件转换后端响应为前端格式
+    const transformedResponse = fieldMappingMiddleware.afterResponse(step, response as DataRecord, endpoint)
+
+    return transformedResponse as GrantStepData
   } catch (error: unknown) {
     return handleApiError(error, 'grantsService.updateGrantStepData')
   }

@@ -258,11 +258,12 @@
                       <!-- Step components -->
                       <step1
                         v-if="currentStep === 1"
-                        :form-data="grantsStore.formData[1]"
+                        ref="step1Ref"
                         :current-step="currentStep"
-                        @update:form-data="handleFormDataUpdate(1, $event)"
-                        @validated="handleStepValidated"
-                        @go-back="handleGoBack"
+                        @step-data-changed="handleStep1DataChanged"
+                        @validation-changed="handleStep1ValidationChanged"
+                        @ready-to-proceed="handleStep1ReadyToProceed"
+                        @go-back-requested="handleGoBack"
                       />
                       <step2
                         v-if="currentStep === 2"
@@ -478,6 +479,9 @@ const step7ButtonConfig = ref({
 // Step7 組件引用
 const step7Ref = ref<{ handleActionRequest: (action: string) => void } | null>(null)
 
+// Step1 組件引用 - 事件驅動架構
+const step1Ref = ref<{ handleProceedToNext: () => void; handleGoBack: () => void } | null>(null)
+
 // Navigation drawer state
 const drawerOpen = ref(true)
 const isRailMode = ref(false) // Default to expanded
@@ -525,7 +529,14 @@ const updateStepInURL = (step: number) => {
 // Helper function to trigger next step
 const goToNextStep = () => {
   if (currentStep.value < steps.length) {
-    handleStepValidated({ valid: true, step: currentStep.value })
+    // 🆕 事件驅動：針對 step1 使用子組件的方法
+    if (currentStep.value === 1 && step1Ref.value) {
+      console.log('🎯 edit.vue: Calling step1Ref.handleProceedToNext()');
+      step1Ref.value.handleProceedToNext();
+    } else {
+      // 其他步驟保持原有邏輯
+      handleStepValidated({ valid: true, step: currentStep.value });
+    }
   }
 }
 
@@ -727,6 +738,42 @@ const handleFormDataUpdate = (step: number, data: Record<string, unknown>) => {
   }
 }
 
+// 🆕 事件驅動：處理 Step1 資料變更事件
+const handleStep1DataChanged = ({ step, data, valid }: { step: number, data: Record<string, unknown>, valid: boolean }) => {
+  console.log('📥 edit.vue: Received step-data-changed event from step1');
+  console.log(`📊 Step: ${step}, Valid: ${valid}, Data keys:`, Object.keys(data));
+  
+  // 使用現有的 handleFormDataUpdate 邏輯處理資料
+  handleFormDataUpdate(step, { ...data, valid });
+};
+
+// 🆕 事件驅動：處理 Step1 驗證狀態變更事件
+const handleStep1ValidationChanged = ({ step, valid }: { step: number, valid: boolean }) => {
+  console.log(`📋 edit.vue: Received validation-changed event from step1 - Step: ${step}, Valid: ${valid}`);
+  
+  // 確保步驟狀態同步
+  if (grantsStore.currentStep !== step) {
+    grantsStore.updateCurrentStep(step);
+  }
+  
+  // 更新驗證狀態到 grantsStore
+  if (grantsStore.formData[step]) {
+    grantsStore.formData[step].valid = valid;
+  }
+};
+
+// 🆕 事件驅動：處理 Step1 準備進入下一步事件
+const handleStep1ReadyToProceed = async ({ step, data }: { step: number, data: Record<string, unknown> }) => {
+  console.log('✅ edit.vue: Received ready-to-proceed event from step1');
+  console.log(`📊 Step: ${step}, Data keys:`, Object.keys(data));
+  
+  // 先更新最新的資料
+  handleFormDataUpdate(step, { ...data, valid: true });
+  
+  // 觸發步驟驗證邏輯（進入下一步）
+  await handleStepValidated({ valid: true, step });
+};
+
 // Save all unsaved changes
 const saveAllChanges = async () => {
   if (autoSaveTimer.value) {
@@ -820,6 +867,15 @@ const loadStepData = async (step: number) => {
   if (!route.query.id || isLoadingData) return;
 
   ensureCorrectStep(step)
+
+  // 🆕 架構重構：step1.vue 採用自主載入模式
+  // step1.vue 會在自己的 onMounted 中直接載入資料，不需要父組件控制
+  // 這解決了從 index 導航時的 watch 時序問題
+  if (step === 1) {
+    console.log(`[edit.vue loadStepData] Skipping step 1 - autonomous loading`);
+    isDataLoaded.value = true;
+    return;
+  }
 
   isLoadingData = true;
   const caseNum = route.query.id as string;

@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build --force",
-    "lint": "eslint . --fix"
+    "lint": "eslint . --fix",
+    "validate-fields": "node ../scripts/validate-fields.js",
+    "validate-fields-py": "python ../scripts/validate-field-mappings.py",
+    "pre-commit": "npm run validate-fields && npm run type-check && npm run lint"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
