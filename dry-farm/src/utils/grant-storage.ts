@@ -19,12 +19,14 @@ export interface GrantStepData {
 // Main grant data structure (new camelCase naming)
 export interface GrantData {
   caseNumber: string;
-  applicantName?: string;
-  officeName?: string;
-  stepName?: string;
+  applicantName: string;
+  officeName: string;
+  stepName: string;
   currentStep?: number;
   createdAt?: string;
   updatedAt?: string;
+  isDisasterCase: boolean;
+  disasterCaseDescription?: string;
   stepsData: {
     [stepNumber: number]: GrantStepData;
   };
@@ -53,6 +55,10 @@ type GrantDataUnion = GrantData | LegacyGrantData;
 function isLegacyGrantData(data: GrantDataUnion): data is LegacyGrantData {
   return 'steps' in data || 'applicant_name' in data || 'office_name' in data || 'status' in data || 'current_step' in data;
 }
+
+// 💡 現在使用現有類型系統，不需要額外的工具類
+// GrantData 接口與現有的 GrantCreateResponse、GrantCreateRequest 配合使用
+// 通過 TypeScript 的 satisfies 操作符確保類型安全
 
 /**
  * Migrate legacy grant data to new camelCase format

@@ -46,9 +46,9 @@ class FieldMappingConfig:
     # 已棄用的字段名映射（向後兼容）
     DEPRECATED_FIELD_MAPPINGS = {
         1: {
-            "manager": "undertracker",      # 舊字段名 -> 新字段名
-            "department": "office",         # 舊字段名 -> 新字段名
-            "departmentId": "officeId",     # 舊字段名 -> 新字段名
+            # "manager": "undertracker",      # 舊字段名 -> 新字段名
+            # "department": "office",         # 舊字段名 -> 新字段名
+            # "departmentId": "officeId",     # 舊字段名 -> 新字段名
         }
     }
     

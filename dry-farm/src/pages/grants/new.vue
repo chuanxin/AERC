@@ -135,7 +135,6 @@
 
 <script lang="ts" setup>
 import step0 from './components/step0.vue'
-// import { useUserStore } from '@/stores/users'
 import { useGrantsStore } from '@/stores/grants'
 import { useRouter, useRoute } from 'vue-router'
 import type { GrantCreateRequest } from '@/types/grantForms'
@@ -229,38 +228,7 @@ const handleCreateCase = async (data: { caseNumber: string }) => {
   }
 };
 
-onMounted(() => {
-  // const stepParam = route.query.step;
-
-  // if (stepParam) {
-  //   // 嘗試從 URL 參數獲取步驟值
-  //   const stepValue = parseInt(stepParam as string, 10);
-  //   // 確保步驟值有效
-  //   if (!isNaN(stepValue) && stepValue >= 1 && stepValue <= steps.length) {
-  //     currentStep.value = stepValue;
-  //     displayStep.value = stepValue;
-  //   } else {
-  //     // 如果步驟值無效，重置為第一步
-  //     resetToStep1();
-  //   }
-  // } else {
-  //   // 如果 URL 中沒有步驟參數，則重置為第一步
-  //   resetToStep1();
-  // }
-
-  // 嘗試從 localStorage 恢復表單數據
-  // const savedForms = localStorage.getItem('grantForms');
-  // if (savedForms) {
-  //   try {
-  //     const parsedForms = JSON.parse(savedForms);
-  //     if (parsedForms.step1) {
-  //       Object.assign(formData, parsedForms.step1);
-  //     }
-  //   } catch (e) {
-  //     console.error('無法解析已保存的表單數據', e);
-  //   }
-  // }
-});
+onMounted(() => {});
 
 watch(currentStep, (newStep) => {
   displayStep.value = newStep;

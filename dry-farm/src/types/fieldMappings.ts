@@ -66,9 +66,9 @@ export const FIELD_MAPPING_CONFIG: FieldMappingConfig = {
       'disaster_case_description': 'disasterCaseDescription' // 新增災害
     },
     deprecatedFields: {
-      'manager': 'undertracker',         // 舊字段名 -> 新字段名
-      'department': 'office',            // 舊字段名 -> 新字段名
-      'departmentId': 'officeId'         // 舊字段名 -> 新字段名
+      // 'manager': 'undertracker',         // 舊字段名 -> 新字段名
+      // 'department': 'office',            // 舊字段名 -> 新字段名
+      // 'departmentId': 'officeId'         // 舊字段名 -> 新字段名
     }
   },
   2: { // Step 2: 土地資訊

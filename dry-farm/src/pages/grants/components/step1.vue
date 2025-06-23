@@ -420,7 +420,9 @@
                         v-if="!localFormData.isDisasterCase"
                         class="text-center text-grey-darken-1 mt-2"
                       >
-                        <div class="text-caption">此案件非災害相關案件</div>
+                        <div class="text-caption">
+                          此案件非災害相關案件
+                        </div>
                       </div>
                     </div>
                   </div>

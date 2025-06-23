@@ -14,6 +14,8 @@ export interface GrantCreateResponse {
   received_date: string;
   received_time: string;
   office_id?: number;
+  is_disaster_case: boolean;
+  disaster_case_description?: string;
 }
 
 // Add these interfaces

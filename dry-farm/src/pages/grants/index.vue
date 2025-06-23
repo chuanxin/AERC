@@ -454,7 +454,7 @@ const loadAllItems = () => {
 const editItem = (itemId: string) => {
   const grantData = GrantStorage.getGrant(itemId) as ExtendedGrantData | null;
   if (grantData) {
-    // 取得案件的 currentStep，如果沒有則預設為 1
+    // 取得案件的 currentStep，如果沒有則預設為 0
     const currentStep = grantData.currentStep || 0;
 
     console.log(`[editItem] Navigating to edit grant ${itemId} at step ${currentStep}`);

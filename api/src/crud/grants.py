@@ -6,13 +6,14 @@ from tortoise.exceptions import DoesNotExist, IntegrityError
 from tortoise.transactions import in_transaction
 from tortoise.expressions import Q
 
-from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus, GrantActionType)
+from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus, GrantActionType, GrantVersions)
 from src.config.field_mappings import FieldMappingConfig, validate_step_fields
 from src.schemas.users import UserOutSchema
 from src.schemas.grants import (
     GrantInSchema, GrantUpdateSchema, GrantStepSchema, 
     GrantSearchSchema, GrantLandInSchema, GrantCreateRequestSchema
 )
+from src.crud.grant_versions import calculate_data_hash
 from src.schemas.token import Status
 
 from datetime import datetime, date
@@ -385,8 +386,62 @@ async def create_grant(data, current_user):
                 grant_status=GrantStatus.DRAFT,
                 action_type=GrantActionType.CASE_CREATE,
                 changed_by_id=current_user.id,
-                notes="初始案件建立"
+                notes="案件初次建立"
             )
+
+            # 準備初始版本資料 - step0的資料 + 其他步驟空值
+            initial_version_data = {
+                "steps": {
+                    "0": {
+                        "applicant_name": grant.applicant_name,
+                        "applicant_id": grant.applicant_id,
+                        "applicant_phone": grant.applicant_phone,
+                        "county": grant.county,
+                        "town": grant.town,
+                        "village": grant.village,
+                        "address": grant.address,
+                        "office": grant.office,
+                        "office_id": grant.office_id,
+                        "undertracker": grant.undertracker,
+                        "is_disaster_case": grant.is_disaster_case,
+                        "disaster_case_description": grant.disaster_case_description,
+                        "received_date": grant.received_date.isoformat() if grant.received_date else None,
+                        "received_time": grant.received_time.strftime("%H:%M") if grant.received_time else None
+                    },
+                    "1": {},
+                    "2": {},
+                    "3": {},
+                    "4": {},
+                    "5": {},
+                    "6": {},
+                    "7": {},
+                    "8": {}
+                },
+                "metadata": {
+                    "created_at": grant.created_at.isoformat() if grant.created_at else None,
+                    "case_number": grant.case_number,
+                    "current_step": grant.current_step,
+                    "status": grant.status
+                }
+            }
+            
+            # 計算初始版本的雜湊值
+            data_hash = calculate_data_hash(initial_version_data)
+            
+            # 建立第一個版本記錄
+            initial_version = await GrantVersions.create(
+                grant_id=grant.id,
+                version=1,
+                all_steps_data=initial_version_data,
+                all_steps_data_hash=data_hash,
+                comment="初始版本 - 案件建立",
+                created_by_id=current_user.id
+            )
+            
+            # 注意：active_version_id 可以稍後設置，或通過查詢最新版本來獲取
+            # 暫時不設置，避免 Tortoise ORM 的外鍵關係複雜性
+            
+            logger.info(f"成功建立案件 {grant.case_number} 和初始版本 (Version ID: {initial_version.id})")
 
             # 返回案件資訊
             return {
@@ -396,7 +451,12 @@ async def create_grant(data, current_user):
                 "applicant_name": grant.applicant_name,
                 "status": grant.status,
                 "received_date": grant.received_date,
-                "received_time": grant.received_time.strftime("%H:%M")
+                "received_time": grant.received_time.strftime("%H:%M"),
+                "initial_version_id": initial_version.id,
+                "initial_version": 1,
+                "is_disaster_case": grant.is_disaster_case,
+                "disaster_case_description": grant.disaster_case_description,
+                "office_id": grant.office_id,
             }
         
         except ValueError as e:
@@ -607,6 +667,10 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                     update_data["address"] = actual_data["address"]
                 if "undertracker" in actual_data:
                     update_data["undertracker"] = actual_data["undertracker"]
+                if "isDisasterCase" in actual_data:
+                    update_data["is_disaster_case"] = actual_data["isDisasterCase"]
+                if "disasterCaseDescription" in actual_data:
+                    update_data["disaster_case_description"] = actual_data["disasterCaseDescription"]
                 
                 # Apply updates
                 await Grants.filter(id=grant.id).update(**update_data)

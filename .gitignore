@@ -82,3 +82,9 @@ backups/
 # Test cases
 test_cases/
 tests/
+
+# Documentation
+docs/
+
+# Deployment files
+dev/

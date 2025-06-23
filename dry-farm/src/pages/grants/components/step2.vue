@@ -149,7 +149,10 @@
                         <span class="text-body-2 font-weight-medium text-grey-darken-2">地號輸入</span>
                       </div> -->
 
-                      <v-row align="center" no-gutters>
+                      <v-row
+                        align="center"
+                        no-gutters
+                      >
                         <v-col cols="auto">
                           <div class="d-flex align-center">
                             <!-- 母地號輸入 -->
@@ -186,7 +189,9 @@
 
                             <!-- 子地號輸入 -->
                             <div class="me-3">
-                              <div class="text-caption text-grey-darken-1 mb-1 ps-1">子地號</div>
+                              <div class="text-caption text-grey-darken-1 mb-1 ps-1">
+                                子地號
+                              </div>
                               <v-text-field
                                 v-model="formattedLandNumberSub"
                                 variant="outlined"
@@ -248,7 +253,12 @@
                   md="5"
                 >
                   <div class="d-flex align-center ma-0">
-                    <span class="text-body-2 font-weight-medium me-3" style="min-width: 80px;">原民區域</span>
+                    <span
+                      class="text-body-2 font-weight-medium me-3"
+                      style="min-width: 80px;"
+                    >
+                      原民區域
+                    </span>
                     <v-radio-group
                       v-model="localFormData.isAboriginalArea"
                       :false-value="false"
@@ -273,7 +283,12 @@
                   </div>
 
                   <div class="d-flex align-center ma-0">
-                    <span class="text-body-2 font-weight-medium me-3" style="min-width: 80px;">再次申請</span>
+                    <span
+                      class="text-body-2 font-weight-medium me-3"
+                      style="min-width: 80px;"
+                    >
+                      再次申請
+                    </span>
                     <v-radio-group
                       v-model="localFormData.isReapplied"
                       :false-value="false"
@@ -298,7 +313,12 @@
                   </div>
 
                   <div class="d-flex align-center mb-2">
-                    <span class="text-body-2 font-weight-medium me-3" style="min-width: 80px;">位於灌區內</span>
+                    <span
+                      class="text-body-2 font-weight-medium me-3"
+                      style="min-width: 80px;"
+                    >
+                      位於灌區內
+                    </span>
                     <v-radio-group
                       v-model="localFormData.isIrrigationArea"
                       :false-value="false"
@@ -326,7 +346,12 @@
                   <v-divider class="my-3" />
 
                   <div class="d-flex align-center mb-0 pb-0">
-                    <span class="text-body-2 font-weight-medium me-3" style="min-width: 80px;">土地作農業使用證明書</span>
+                    <span
+                      class="text-body-2 font-weight-medium me-3"
+                      style="min-width: 80px;"
+                    >
+                      土地作農業使用證明書
+                    </span>
                     <v-radio-group
                       v-model="localFormData.hasAgriculturalCertificate"
                       :false-value="false"
@@ -356,7 +381,12 @@
                     class="mb-0 pb-0"
                   >
                     <div class="d-flex align-center">
-                      <span class="text-body-2 font-weight-medium me-3" style="min-width: 80px;">核發日期</span>
+                      <span
+                        class="text-body-2 font-weight-medium me-3"
+                        style="min-width: 80px;"
+                      >
+                        核發日期
+                      </span>
                       <div
                         class="date-display-text"
                         @click="showDatePicker = true"
@@ -426,7 +456,9 @@
                 color="blue-grey"
               >
                 <template #prepend>
-                  <v-icon size="small">mdi-information-outline</v-icon>
+                  <v-icon size="small">
+                    mdi-information-outline
+                  </v-icon>
                 </template>
                 <div class="text-caption">
                   <strong>坐標輸入說明：</strong><br>
@@ -1695,10 +1727,10 @@ const ownerAreaComputed = computed({
 });
 
 // Helper function to format land numbers for display elsewhere
-const formatLandNumber = (value) => {
-  if (!value) return '0000';
-  return value.toString().padStart(4, '0');
-};
+// const formatLandNumber = (value) => {
+//   if (!value) return '0000';
+//   return value.toString().padStart(4, '0');
+// };
 
 const updateLandNumber = () => {
   if (localFormData.landNumberMain) {
@@ -1979,44 +2011,44 @@ const showLandInfoDialog = () => {
   });
 };
 
-const useLandInfo = () => {
-  // Update form with data from the dialog
-  localFormData.landNumber = landInfo.number;
+// const useLandInfo = () => {
+//   // Update form with data from the dialog
+//   localFormData.landNumber = landInfo.number;
 
-  // Parse main and sub number
-  const parts = landInfo.number.split('-');
-  localFormData.landNumberMain = parts[0];
-  localFormData.landNumberSub = parts.length > 1 ? parts[1] : '';
+//   // Parse main and sub number
+//   const parts = landInfo.number.split('-');
+//   localFormData.landNumberMain = parts[0];
+//   localFormData.landNumberSub = parts.length > 1 ? parts[1] : '';
 
-  // Set county if not set
-  if (!localFormData.landCounty) {
-    localFormData.landCounty = landInfo.county;
-  }
+//   // Set county if not set
+//   if (!localFormData.landCounty) {
+//     localFormData.landCounty = landInfo.county;
+//   }
 
-  // Set land section if applicable
-  if (landInfo.section) {
-    // Find the section by name in the available sections
-    const matchingSection = villages.value.find(section => section.title === landInfo.section);
-    if (matchingSection) {
-      localFormData.landSec = matchingSection.value.toString();
-    }
-  }
+//   // Set land section if applicable
+//   if (landInfo.section) {
+//     // Find the section by name in the available sections
+//     const matchingSection = villages.value.find(section => section.title === landInfo.section);
+//     if (matchingSection) {
+//       localFormData.landSec = matchingSection.value.toString();
+//     }
+//   }
 
-  // Update aboriginal area status
-  localFormData.isAboriginalArea = landInfo.specialLand;
+//   // Update aboriginal area status
+//   localFormData.isAboriginalArea = landInfo.specialLand;
 
-  // Clean up map resources
-  if (map) {
-    map.setTarget(null);
-    map = null;
-  }
+//   // Clean up map resources
+//   if (map) {
+//     map.setTarget(null);
+//     map = null;
+//   }
 
-  // Close the dialog
-  landInfoDialog.value = false;
+//   // Close the dialog
+//   landInfoDialog.value = false;
 
-  // Update parent form data
-  updateFormData();
-};
+//   // Update parent form data
+//   updateFormData();
+// };
 
 // OpenLayers map initialization
 const initMap = () => {
@@ -2047,36 +2079,36 @@ const initMap = () => {
   loadGeoJSONFile();
 };
 
-const addMarker = (lon, lat) => {
-  if (!map) return;
+// const addMarker = (lon, lat) => {
+//   if (!map) return;
 
-  // Create marker feature
-  const markerFeature = new Feature({
-    geometry: new Point(fromLonLat([lon, lat])),
-    name: '所選位置',
-    type: 'marker'
-  });
+//   // Create marker feature
+//   const markerFeature = new Feature({
+//     geometry: new Point(fromLonLat([lon, lat])),
+//     name: '所選位置',
+//     type: 'marker'
+//   });
 
-  markerFeature.setStyle(
-    new Style({
-      image: new Icon({
-        scale: 0.7,
-        src: '/assets/images/marker.png'
-      })
-    })
-  );
+//   markerFeature.setStyle(
+//     new Style({
+//       image: new Icon({
+//         scale: 0.7,
+//         src: '/assets/images/marker.png'
+//       })
+//     })
+//   );
 
-  const markerSource = new VectorSource({
-    features: [markerFeature]
-  });
+//   const markerSource = new VectorSource({
+//     features: [markerFeature]
+//   });
 
-  const markerLayer = new VectorLayer({
-    source: markerSource,
-    zIndex: 10  // Set a higher zIndex to keep marker on top
-  });
+//   const markerLayer = new VectorLayer({
+//     source: markerSource,
+//     zIndex: 10  // Set a higher zIndex to keep marker on top
+//   });
 
-  map.addLayer(markerLayer);
-};
+//   map.addLayer(markerLayer);
+// };
 
 const addSelectInteraction = () => {
   if (!map) return;
@@ -2239,11 +2271,11 @@ const handleFeatureSelect = (e) => {
 };
 
 // Show feature info popup
-const showFeatureInfo = (feature) => {
-  const properties = feature.getProperties();
-  selectedFeatureInfo.value = properties;
-  featureInfoVisible.value = true;
-};
+// const showFeatureInfo = (feature) => {
+//   const properties = feature.getProperties();
+//   selectedFeatureInfo.value = properties;
+//   featureInfoVisible.value = true;
+// };
 
 // Hide feature info popup
 const hideFeatureInfo = () => {

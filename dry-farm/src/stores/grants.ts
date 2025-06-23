@@ -101,15 +101,31 @@ export const useGrantsStore = defineStore('grants', () => {
       currentGrant.value = result;
 
       console.log(`[grantsStore.createProject] Attempting to save grant data to GrantStorage for case number: ${result.case_number}`); // Log 4
-      GrantStorage.saveGrantData(result.case_number, {
+
+      // 💡 使用現有類型 + satisfies 操作符的優雅解決方案
+      // 直接從 GrantCreateResponse 和 GrantCreateRequest 映射到 GrantData
+      // 確保類型安全，同時保持 IntelliSense 和編譯時檢查
+      const grantData = {
+        // 從 GrantCreateResponse 映射
         caseNumber: result.case_number,
         applicantName: result.applicant_name,
-        officeName: projectData.office,
         stepName: result.status,
+        isDisasterCase: result.is_disaster_case ?? false,
+        disasterCaseDescription: result.disaster_case_description ?? '',
+
+        // 從 GrantCreateRequest 映射
+        officeName: projectData.office,
+
+        // 新案件的默認值
+        // currentStep: 1,
         createdAt: new Date().toISOString(),
-        stepsData: {} // Initialize with empty steps
-      });
-      console.log(`[grantsStore.createProject] GrantStorage.saveGrantData successful for case number: ${result.case_number}`); // Log 5
+        // updatedAt: new Date().toISOString(),
+        stepsData: {}
+      } satisfies import('@/utils/grant-storage').GrantData; // 確保類型符合 grant-storage 的 GrantData 接口
+
+      GrantStorage.saveGrantData(result.case_number, grantData);
+      console.log(`[grantsStore.createProject] GrantStorage.saveGrantData successful with complete data for case number: ${result.case_number}`); // Log 5
+      console.log(`[grantsStore.createProject] Mapped fields from existing types:`, Object.keys(grantData));
 
       return result;
     } catch (err: unknown) {
