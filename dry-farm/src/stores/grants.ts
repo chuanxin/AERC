@@ -215,13 +215,14 @@ export const useGrantsStore = defineStore('grants', () => {
         // Try to load from localStorage if API fails
         const localData = GrantStorage.getGrant(caseNumber)
         if (localData) {
-          // Create a simplified grant response object
+          // TODOCreate a simplified grant response object
           const localGrantResponse = {
             case_number: localData.caseNumber,
             status: localData.stepName || 'draft',
             created_at: localData.createdAt || new Date().toISOString(),
-            updated_at: localData.updatedAt || new Date().toISOString()
-          } as GrantCreateResponse
+            updated_at: localData.updatedAt || new Date().toISOString(),
+            current_step: localData.currentStep,
+          } as Partial<GrantCreateResponse>
 
           // 同時設定當前步驟
           if (localData.currentStep) {
@@ -235,7 +236,7 @@ export const useGrantsStore = defineStore('grants', () => {
             console.log(`[grantsStore.loadGrant] No currentStep found, defaulting to 1 for grant ${caseNumber}`);
           }
 
-          currentGrant.value = localGrantResponse
+          currentGrant.value = localGrantResponse as GrantCreateResponse
           return localGrantResponse
         }
 

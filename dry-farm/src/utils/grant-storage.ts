@@ -64,16 +64,20 @@ function isLegacyGrantData(data: GrantDataUnion): data is LegacyGrantData {
 /**
  * Migrate legacy grant data to new camelCase format
  */
+// TODO
 function migrateLegacyGrantData(legacyData: LegacyGrantData): GrantData {
   return {
     caseNumber: legacyData.caseNumber,
-    applicantName: legacyData.applicant_name,
-    officeName: legacyData.office_name,
-    stepName: legacyData.status,
+    applicantName: legacyData.applicant_name ?? '',
+    officeName: legacyData.office_name ?? '',
+    stepName: legacyData.status ?? '',
     currentStep: legacyData.current_step,
     createdAt: legacyData.createdAt,
     updatedAt: legacyData.updatedAt,
-    stepsData: legacyData.steps || {}
+    stepsData: legacyData.steps || {},
+    isDisasterCase: false, // Default value, adjust as needed
+    disasterCaseDescription: undefined,
+    undertracker: undefined
   };
 }
 
@@ -203,11 +207,19 @@ export const GrantStorage = {
     try {
       if (!grantsCache) this.refreshCache();
 
-      // Initialize if not exists
+      // TODO初始化邏輯錯誤待修復
       if (!grantsCache![caseNumber]) {
         grantsCache![caseNumber] = {
           caseNumber,
+          applicantName: '',
+          officeName: '',
+          stepName: '',
+          isDisasterCase: false,
+          disasterCaseDescription: undefined,
+          currentStep: 0,
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          undertracker: undefined,
           stepsData: {}
         };
       }
