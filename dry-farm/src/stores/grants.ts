@@ -13,6 +13,31 @@ import { ApplicationError } from '@/utils/asyncHelpers'
 import { GrantStorage } from '@/utils/grant-storage'
 import type { GrantCreateRequest } from '@/types/grantForms'
 
+// 🔧 同步特定字段到 localStorage 的工具函數
+function syncFieldsToLocalStorage(caseNumber: string, stepData: Record<string, unknown>, functionName: string): void {
+  const fieldsToSync = ['name', 'isDisasterCase', 'disasterCaseDescription', 'undertracker']
+  const hasFieldsToSync = fieldsToSync.some(field => field in stepData)
+
+  if (hasFieldsToSync) {
+    const grantData = GrantStorage.getGrant(caseNumber)
+    if (grantData) {
+      // 更新對應的字段 (注意字段映射)
+      if ('name' in stepData) grantData.applicantName = String(stepData.name || '')
+      if ('isDisasterCase' in stepData) grantData.isDisasterCase = Boolean(stepData.isDisasterCase)
+      if ('disasterCaseDescription' in stepData) grantData.disasterCaseDescription = String(stepData.disasterCaseDescription || '')
+      if ('undertracker' in stepData) grantData.undertracker = String(stepData.undertracker || '')
+
+      // 更新時間戳
+      grantData.updatedAt = new Date().toISOString()
+
+      // 保存回 localStorage
+      GrantStorage.saveGrantData(caseNumber, grantData)
+      console.log(`[grantsStore.${functionName}] Synced step1 fields to localStorage:`,
+        fieldsToSync.filter(field => field in stepData))
+    }
+  }
+}
+
 /**
  * Grants Store - Centralized state management for grant applications
  *
@@ -324,6 +349,9 @@ export const useGrantsStore = defineStore('grants', () => {
           } else {
             savedData = await updateGrantStepData(caseNumber, step, data)
           }
+
+          // 🔧 同步特定字段到 localStorage
+          syncFieldsToLocalStorage(caseNumber, data, 'saveStepData')
         } catch (apiError) {
           console.warn(`API error saving step ${step}, falling back to localStorage:`, apiError)
 
@@ -492,6 +520,9 @@ export const useGrantsStore = defineStore('grants', () => {
             // 沒有變更，使用一般保存
             await updateGrantStepData(caseNumber, step, stepData)
           }
+
+          // 🔧 同步特定字段到 localStorage
+          syncFieldsToLocalStorage(caseNumber, stepData, 'saveAllChanges')
         } catch (apiError) {
           console.warn(`API error saving step ${step}, falling back to localStorage:`, apiError)
 
