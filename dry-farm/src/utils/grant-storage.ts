@@ -27,6 +27,7 @@ export interface GrantData {
   updatedAt?: string;
   isDisasterCase: boolean;
   disasterCaseDescription?: string;
+  undertracker?: string;
   stepsData: {
     [stepNumber: number]: GrantStepData;
   };

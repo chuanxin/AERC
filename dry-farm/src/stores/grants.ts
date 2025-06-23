@@ -112,6 +112,7 @@ export const useGrantsStore = defineStore('grants', () => {
         stepName: result.status,
         isDisasterCase: result.is_disaster_case ?? false,
         disasterCaseDescription: result.disaster_case_description ?? '',
+        undertracker: result.undertracker ?? '',
 
         // 從 GrantCreateRequest 映射
         officeName: projectData.office,

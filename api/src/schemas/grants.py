@@ -313,6 +313,13 @@ class GrantCreateResponseSchema(BaseSchema):
     received_date: date = Field(..., description="收件日期")
     received_time: str = Field(..., description="收件時間")
     status: str = Field(..., description="案件狀態")
+    is_disaster_case: bool = Field(..., description="是否為災害案件")
+    disaster_case_description: Optional[str] = Field(None, description="災害案件說明")
+    office_id: int = Field(..., description="管理處ID")
+    undertracker: str = Field(..., description="收件人姓名")
+    
+    initial_version_id: Optional[int] = Field(None, description="初始版本ID")
+    initial_version: Optional[int] = Field(None, description="初始版本號")
 
 
 class GrantSearchSchema(BaseSchema):

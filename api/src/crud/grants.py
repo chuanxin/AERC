@@ -11,7 +11,7 @@ from src.config.field_mappings import FieldMappingConfig, validate_step_fields
 from src.schemas.users import UserOutSchema
 from src.schemas.grants import (
     GrantInSchema, GrantUpdateSchema, GrantStepSchema, 
-    GrantSearchSchema, GrantLandInSchema, GrantCreateRequestSchema
+    GrantSearchSchema, GrantLandInSchema, GrantCreateRequestSchema, GrantCreateResponseSchema
 )
 from src.crud.grant_versions import calculate_data_hash
 from src.schemas.token import Status
@@ -443,8 +443,8 @@ async def create_grant(data, current_user):
             
             logger.info(f"成功建立案件 {grant.case_number} 和初始版本 (Version ID: {initial_version.id})")
 
-            # 返回案件資訊
-            return {
+            # 返回案件資訊 GrantCreateResponseSchema
+            response_data = {
                 "id": grant.id,
                 "case_number": grant.case_number,
                 "year": grant.year,
@@ -457,7 +457,13 @@ async def create_grant(data, current_user):
                 "is_disaster_case": grant.is_disaster_case,
                 "disaster_case_description": grant.disaster_case_description,
                 "office_id": grant.office_id,
+                "undertracker": grant.undertracker,
             }
+
+            validated_response = GrantCreateResponseSchema(**response_data)
+            logger.info(f"[create_grant] 驗證後的回應: {validated_response.model_dump()}")
+        
+            return validated_response.model_dump()
         
         except ValueError as e:
             logger.error(f"資料映射錯誤: {str(e)}")
