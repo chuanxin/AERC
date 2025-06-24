@@ -1447,9 +1447,9 @@ interface CascadeSelectManager {
 
 // 統一的保護函數工廠
 interface ProtectedFunctionFactory {
-  createProtectedHandler: <T extends (...args: any[]) => any>(fn: T) => T
-  createProtectedWatch: <T extends (...args: any[]) => any>(fn: T) => T
-  createCascadeHandler: <T extends (...args: any[]) => any>(fn: T) => T
+  createProtectedHandler: <T extends (...args: unknown[]) => unknown>(fn: T) => T
+  createProtectedWatch: <T extends (...args: unknown[]) => unknown>(fn: T) => T
+  createCascadeHandler: <T extends (...args: unknown[]) => unknown>(fn: T) => T
 }
 
 // 統一的步驟管理器
@@ -1472,8 +1472,8 @@ const createProtectedFunctionFactory = (
   eventEmitter: StepEventEmitter
 ): ProtectedFunctionFactory => ({
   // 創建受保護的事件處理函數
-  createProtectedHandler: <T extends (...args: any[]) => any>(fn: T): T => {
-    return ((...args: Parameters<T>) => {
+  createProtectedHandler: <T extends (...args: unknown[]) => unknown>(fn: T): T => {
+    return ((...args: unknown[]) => {
       const result = fn(...args)
       // 在初始化期間不觸發事件
       if (!guard.isInitializing && guard.isInitialized) {
@@ -1486,8 +1486,8 @@ const createProtectedFunctionFactory = (
   },
 
   // 創建受保護的 Watch 函數
-  createProtectedWatch: <T extends (...args: any[]) => any>(fn: T): T => {
-    return ((...args: Parameters<T>) => {
+  createProtectedWatch: <T extends (...args: unknown[]) => unknown>(fn: T): T => {
+    return ((...args: unknown[]) => {
       if (guard.isInitializing) {
         console.log(`⏸️ step2.vue: Skipping watch execution during initialization (${fn.name})`)
         return
@@ -1497,8 +1497,8 @@ const createProtectedFunctionFactory = (
   },
 
   // 創建受保護的級聯選擇處理函數
-  createCascadeHandler: <T extends (...args: any[]) => any>(fn: T): T => {
-    return ((...args: Parameters<T>) => {
+  createCascadeHandler: <T extends (...args: unknown[]) => unknown>(fn: T): T => {
+    return ((...args: unknown[]) => {
       const result = fn(...args)
       if (!guard.isInitializing && guard.isInitialized) {
         eventEmitter.emitDataChanged()
@@ -1511,8 +1511,10 @@ const createProtectedFunctionFactory = (
 // 統一的事件發送器
 const createEventEmitter = (
   stepNumber: number,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  emit: any,
+  emit: ((evt: "step-data-changed", eventData: { step: number; data: Record<string, unknown>; valid: boolean; }) => void) &
+        ((evt: "validation-changed", eventData: { step: number; valid: boolean; }) => void) &
+        ((evt: "ready-to-proceed", eventData: { step: number; data: Record<string, unknown>; }) => void) &
+        ((evt: "go-back-requested", eventData: { step: number; }) => void),
   formData: Record<string, unknown>,
   validationState: Ref<boolean>,
   guard: StepInitializationGuard
@@ -1560,11 +1562,28 @@ const createEventEmitter = (
   }
 }
 
+// 定義 DomicileStore 類型
+interface DomicileStoreType {
+  countyOptions: Array<{ title: string; value: number }>
+  loadCounties: () => Promise<void | null>
+  loadTownsByCountyId: (countyId: number) => Promise<void | null>
+  getTownsForCountyId: (countyId: number) => Array<{ title: string; value: number }>
+  loadLandSectionsByTownId: (townId: number) => Promise<void | null>
+  getLandSectionsForTownId: (townId: number) => Array<{ title: string; value: number }>
+  loadVillagesByTownId: (townId: number) => Promise<void | null>
+  getVillagesForTownId: (townId: number) => Array<{ title: string; value: number }>
+  getTownById: (townId: number) => {
+    is_indigenous?: boolean
+    indigenous_type?: string
+    title?: string
+    value?: number
+  } | undefined
+}
+
 // 創建統一的級聯選擇管理器
 const createCascadeSelectManager = (
   formData: Record<string, unknown>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  domicileStore: any,
+  domicileStore: DomicileStoreType,
   guard: StepInitializationGuard
 ): CascadeSelectManager => ({
   loadCascadeData: async () => {
@@ -1619,13 +1638,14 @@ const createCascadeSelectManager = (
 // 創建統一的步驟管理器
 const createUnifiedStepManager = (
   stepNumber: number,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  emit: any,
+  emit: ((evt: "step-data-changed", eventData: { step: number; data: Record<string, unknown>; valid: boolean; }) => void) &
+        ((evt: "validation-changed", eventData: { step: number; valid: boolean; }) => void) &
+        ((evt: "ready-to-proceed", eventData: { step: number; data: Record<string, unknown>; }) => void) &
+        ((evt: "go-back-requested", eventData: { step: number; }) => void),
   formData: Record<string, unknown>,
   validationState: Ref<boolean>,
-  form: Ref<any>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  domicileStore: any
+  form: Ref<{ validate: () => Promise<{ valid: boolean }> } | null>,
+  domicileStore: DomicileStoreType
 ): UnifiedStepManager => {
   const guard = createInitializationGuard()
   const eventEmitter = createEventEmitter(stepNumber, emit, formData, validationState, guard)
@@ -2067,7 +2087,8 @@ const addCrop = stepManager.createProtectedHandler(() => {
   }
 });
 
-const removeCrop = stepManager.createProtectedHandler((index: number) => {
+const removeCrop = stepManager.createProtectedHandler((...args: unknown[]) => {
+  const index = args[0] as number;
   localFormData.crops.splice(index, 1);
 });
 
@@ -2133,7 +2154,8 @@ const addOwner = stepManager.createProtectedHandler(() => {
   }
 });
 
-const removeOwner = stepManager.createProtectedHandler((index: number) => {
+const removeOwner = stepManager.createProtectedHandler((...args: unknown[]) => {
+  const index = args[0] as number;
   localFormData.owners.splice(index, 1);
 });
 
@@ -2183,7 +2205,8 @@ defineExpose({
 });
 
 // Area calculations
-watch(() => localFormData.landArea, stepManager.createProtectedWatch((newVal: string) => {
+watch(() => localFormData.landArea, stepManager.createProtectedWatch((...args: unknown[]) => {
+  const newVal = args[0] as string;
   if (newVal && localFormData.owners && localFormData.owners.length > 0) {
     const landArea = parseFloat(newVal);
 
@@ -2230,7 +2253,8 @@ watch(() => localFormData.landArea, stepManager.createProtectedWatch((newVal: st
   eventEmitter.emitDataChanged();
 }));
 
-watch(() => localFormData.facilityArea as string, stepManager.createProtectedWatch((newVal: string) => {
+watch(() => localFormData.facilityArea as string, stepManager.createProtectedWatch((...args: unknown[]) => {
+  const newVal = args[0] as string;
   if (newVal) {
     const facilityArea = parseFloat(newVal);
     const landArea = parseFloat(localFormData.landArea || '0');
@@ -2953,7 +2977,8 @@ watch([() => localFormData.longitude, () => localFormData.latitude], () => {
 });
 
 // Auto-detect indigenous area based on town selection - 使用保護函數工廠
-const checkAndUpdateIndigenousArea = stepManager.createProtectedHandler((townId: number) => {
+const checkAndUpdateIndigenousArea = stepManager.createProtectedHandler((...args: unknown[]) => {
+  const townId = args[0] as number;
   const town = domicileStore.getTownById(townId);
   if (town) {
     // Set isAboriginalArea to true if the town is indigenous (indigenous_type = 1)
@@ -2965,7 +2990,8 @@ const checkAndUpdateIndigenousArea = stepManager.createProtectedHandler((townId:
 });
 
 // Watchers for automatic town/village loading and indigenous area detection - 使用保護 Watch 工廠
-watch(() => localFormData.landCounty as string | number, stepManager.createProtectedWatch(async (newCounty: string | number) => {
+watch(() => localFormData.landCounty as string | number, stepManager.createProtectedWatch(async (...args: unknown[]) => {
+  const newCounty = args[0] as string | number;
   if (newCounty) {
     localFormData.landTown = '';
     localFormData.landSec = '';
@@ -2973,7 +2999,8 @@ watch(() => localFormData.landCounty as string | number, stepManager.createProte
   }
 }));
 
-watch(() => localFormData.landTown, stepManager.createProtectedWatch(async (newTown: string | number) => {
+watch(() => localFormData.landTown, stepManager.createProtectedWatch(async (...args: unknown[]) => {
+  const newTown = args[0] as string | number;
   if (newTown) {
     localFormData.landSec = '';
     const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
@@ -2982,7 +3009,8 @@ watch(() => localFormData.landTown, stepManager.createProtectedWatch(async (newT
   }
 }));
 
-watch(() => localFormData.ownerCounty, stepManager.createProtectedWatch(async (newCounty: string | number) => {
+watch(() => localFormData.ownerCounty, stepManager.createProtectedWatch(async (...args: unknown[]) => {
+  const newCounty = args[0] as string | number;
   if (newCounty) {
     localFormData.ownerTown = '';
     localFormData.ownerVillage = '';
@@ -2990,7 +3018,8 @@ watch(() => localFormData.ownerCounty, stepManager.createProtectedWatch(async (n
   }
 }));
 
-watch(() => localFormData.ownerTown, stepManager.createProtectedWatch(async (newTown: number | string) => {
+watch(() => localFormData.ownerTown, stepManager.createProtectedWatch(async (...args: unknown[]) => {
+  const newTown = args[0] as number | string;
   if (newTown) {
     localFormData.ownerVillage = '';
     const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
