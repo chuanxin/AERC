@@ -129,7 +129,7 @@
               <v-row class="mb-0 pb-0">
                 <v-col
                   cols="12"
-                  md="7"
+                  md="8"
                 >
                   <v-card
                     variant="outlined"
@@ -209,12 +209,12 @@
                             </div>
 
                             <!-- 查詢按鈕 -->
-                            <div class="mt-4">
+                            <div class="mt-4 d-flex gap-3">
                               <v-btn
                                 color="#3ea0a3"
                                 variant="outlined"
                                 rounded="lg"
-                                class="px-4"
+                                class="px-2"
                                 @click="showLandInfoDialog"
                               >
                                 <v-icon
@@ -224,6 +224,21 @@
                                   mdi-magnify
                                 </v-icon>
                                 查詢地號
+                              </v-btn>
+                              <v-btn
+                                color="#3ea0a3"
+                                variant="outlined"
+                                rounded="lg"
+                                class="px-2 ml-2"
+                                @click="showEligibilityDialog"
+                              >
+                                <v-icon
+                                  size="18"
+                                  class="me-2"
+                                >
+                                  mdi-account-check
+                                </v-icon>
+                                申請資格查詢
                               </v-btn>
                             </div>
                           </div>
@@ -241,7 +256,7 @@
                         <!-- <v-icon size="18">mdi-information-outline</v-icon> -->
                       </template>
                       <div class="text-caption">
-                        <strong>查詢說明：</strong>請輸入完整地號後點擊查詢按鈕。若查無地號資料，請洽中心。
+                        <strong>查詢說明：</strong>請輸入完整地號後點擊查詢按鈕。若查無地號資料，請洽請洽中心技術團隊。
                       </div>
                     </v-alert>
                   </v-card>
@@ -250,7 +265,7 @@
                 <!-- 土地特性選項區域 -->
                 <v-col
                   cols="12"
-                  md="5"
+                  md="4"
                 >
                   <div class="d-flex align-center ma-0">
                     <span
@@ -261,6 +276,7 @@
                     </span>
                     <v-radio-group
                       v-model="localFormData.isAboriginalArea"
+                      disabled
                       :false-value="false"
                       :true-value="true"
                       inline
@@ -287,10 +303,11 @@
                       class="text-body-2 font-weight-medium me-3"
                       style="min-width: 80px;"
                     >
-                      再次申請
+                      位於灌區內
                     </span>
                     <v-radio-group
-                      v-model="localFormData.isReapplied"
+                      v-model="localFormData.isIrrigationArea"
+                      disabled
                       :false-value="false"
                       :true-value="true"
                       inline
@@ -317,10 +334,10 @@
                       class="text-body-2 font-weight-medium me-3"
                       style="min-width: 80px;"
                     >
-                      位於灌區內
+                      再次申請
                     </span>
                     <v-radio-group
-                      v-model="localFormData.isIrrigationArea"
+                      v-model="localFormData.isReapplied"
                       :false-value="false"
                       :true-value="true"
                       inline
@@ -463,38 +480,13 @@
                 <div class="text-caption">
                   <strong>坐標輸入說明：</strong><br>
                   <!-- • 請輸入 TWD97 坐標系統（EPSG:3826）的坐標值<br> -->
-                  • 經度範圍：約 119.0° ~ 122.5°（東經）<br>
                   • 緯度範圍：約 21.8° ~ 25.4°（北緯）<br>
+                  • 經度範圍：約 119.0° ~ 122.5°（東經）<br>
                   <!-- • 可使用 Google Maps 或內政部地政司網站取得坐標 -->
                 </div>
               </v-alert>
 
               <v-row>
-                <v-col
-                  cols="12"
-                  md="6"
-                >
-                  <v-text-field
-                    v-model="localFormData.longitude"
-                    variant="outlined"
-                    density="comfortable"
-                    color="#3ea0a3"
-                    bg-color="white"
-                    placeholder="例：120.573425"
-                    hint="東經坐標，小數點後建議4位數"
-                    persistent-hint
-                    :rules="[
-                      v => !!v || '請輸入經度',
-                      v => !isNaN(parseFloat(v)) || '請輸入有效的數值',
-                      v => (parseFloat(v) >= 119.0 && parseFloat(v) <= 122.5) || '經度範圍應在 119.0° ~ 122.5° 之間'
-                    ]"
-                    @update:model-value="updateFormData"
-                  >
-                    <template #label>
-                      經度（°E）
-                    </template>
-                  </v-text-field>
-                </v-col>
                 <v-col
                   cols="12"
                   md="6"
@@ -517,6 +509,31 @@
                   >
                     <template #label>
                       緯度（°N）
+                    </template>
+                  </v-text-field>
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="6"
+                >
+                  <v-text-field
+                    v-model="localFormData.longitude"
+                    variant="outlined"
+                    density="comfortable"
+                    color="#3ea0a3"
+                    bg-color="white"
+                    placeholder="例：120.573425"
+                    hint="東經坐標，小數點後建議4位數"
+                    persistent-hint
+                    :rules="[
+                      v => !!v || '請輸入經度',
+                      v => !isNaN(parseFloat(v)) || '請輸入有效的數值',
+                      v => (parseFloat(v) >= 119.0 && parseFloat(v) <= 122.5) || '經度範圍應在 119.0° ~ 122.5° 之間'
+                    ]"
+                    @update:model-value="updateFormData"
+                  >
+                    <template #label>
+                      經度（°E）
                     </template>
                   </v-text-field>
                 </v-col>
@@ -783,8 +800,9 @@
             </v-sheet>
           </v-card>
 
-          <!-- 所有權人資料區域 -->
+          <!-- 所有權人資料區域 (已隱藏) -->
           <v-card
+            v-if="false"
             flat
             class="mb-4 pa-4"
             color="#e3f4f4"
