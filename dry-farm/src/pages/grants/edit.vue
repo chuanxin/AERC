@@ -205,7 +205,20 @@
                           variant="flat"
                           rounded="sm"
                         >
-                          案號: {{ grantsStore.currentGrant?.case_number }}
+                          <span>案號: {{ grantsStore.currentGrant?.case_number }}</span>
+                          <v-divider
+                            v-if="grantsStore.currentGrant?.active_version?.version"
+                            vertical
+                            class="mx-2"
+                            style="opacity: 0.5;"
+                          />
+                          <span
+                            v-if="grantsStore.currentGrant?.active_version?.version"
+                            class="text-caption"
+                            style="opacity: 0.7; font-weight: 500;"
+                          >
+                            版本 {{ grantsStore.currentGrant.active_version.version }}
+                          </span>
                         </v-chip>
                       </span>
                     </v-card-title>

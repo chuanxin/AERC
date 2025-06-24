@@ -17,6 +17,12 @@ export interface GrantCreateResponse {
   is_disaster_case: boolean;
   disaster_case_description?: string;
   undertracker?: string;
+  active_version?: {
+    id: number;
+    version: string;
+    comment?: string;
+    created_at?: string;
+  };
 }
 
 // Add these interfaces

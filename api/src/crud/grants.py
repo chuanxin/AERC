@@ -457,7 +457,7 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
     """依案件編號取得單一補助申請案件詳細資料"""
     try:
         grant = await Grants.get(case_number=case_number).prefetch_related(
-            'created_by', 'attachments', 'comments__user', 'history__changed_by'
+            'created_by', 'attachments', 'comments__user', 'history__changed_by', 'active_version'
         )
         
         # Format the grant data
@@ -486,6 +486,14 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
                 "username": grant.created_by.username,
                 "full_name": grant.created_by.full_name
             } if hasattr(grant, "created_by") and grant.created_by else None,
+            
+            # Add active version information
+            "active_version": {
+                "id": grant.active_version.id,
+                "version": grant.active_version.version,
+                "comment": grant.active_version.comment,
+                "created_at": grant.active_version.created_at
+            } if hasattr(grant, "active_version") and grant.active_version else None,
             
             "comments": [
                 {
