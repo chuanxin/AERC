@@ -102,7 +102,11 @@ export const getGrantByCaseNumber = async (caseNumber: string): Promise<GrantCre
 export const getGrantStepData = async (caseNumber: string, step: number): Promise<GrantStepData> => {
   try {
     const endpoint = GRANTS.STEP(caseNumber, step)
+    console.log(`📡 [getGrantStepData] Calling API endpoint: ${endpoint}`)
+    console.log(`📡 [getGrantStepData] Parameters: caseNumber=${caseNumber}, step=${step}`)
+
     const response = await apiService.get(endpoint)
+    console.log(`📡 [getGrantStepData] API response:`, response)
 
     // 使用字段映射中间件转换后端数据为前端格式
     const transformedData = fieldMappingMiddleware.afterResponse(step, response as DataRecord, endpoint)
@@ -114,6 +118,7 @@ export const getGrantStepData = async (caseNumber: string, step: number): Promis
 
     return transformedData as GrantStepData
   } catch (error: unknown) {
+    console.error(`❌ [getGrantStepData] API error for step ${step}:`, error)
     return handleApiError(error, 'grantsService.getGrantStepData')
   }
 }

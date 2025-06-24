@@ -1376,10 +1376,30 @@ import { Select, Modify } from 'ol/interaction';
 import { click } from 'ol/events/condition';
 import { unByKey } from 'ol/Observable';
 import { getArea } from 'ol/sphere';
+import { debounce } from 'lodash';
 
 // Import store
 import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
+import { useRoute } from 'vue-router';
+
+// 🆕 事件驅動架構：定義事件類型
+interface Step2Events {
+  'step-data-changed': { step: number; data: Record<string, unknown>; valid: boolean };
+  'validation-changed': { step: number; valid: boolean };
+  'ready-to-proceed': { step: number; data: Record<string, unknown> };
+  'go-back-requested': { step: number };
+}
+
+// 🆕 事件驅動架構：定義 emits
+const emit = defineEmits<Step2Events>();
+
+// 🆕 事件驅動架構：移除 props 依賴，但保留 currentStep
+const props = defineProps<{
+  currentStep: number;
+}>();
+
+const route = useRoute();
 
 // Reference to map element and map instance
 const mapElement = ref(null);
@@ -1392,27 +1412,12 @@ const localValid = ref(true);
 // Co-owner settings visibility control
 const showCoOwnerSettings = ref(false);
 
-// Props and emitters
-const props = defineProps({
-  formData: {
-    type: Object,
-    required: true,
-    default: () => ({})
-  },
-  currentStep: {
-    type: Number,
-    required: true
-  }
-});
-
-const emit = defineEmits(['update:formData', 'validated', 'go-back']);
-
 // Access the grants store
 const grantsStore = useGrantsStore();
 const domicileStore = useDomicileStore();
 
-// Local form data
-const localFormData = reactive({
+// 🆕 事件驅動架構：創建初始表單資料函數
+const createInitialFormData = () => ({
   // Facility address section
   landCounty: '',
   landTown: '',
@@ -1461,6 +1466,16 @@ const localFormData = reactive({
   // Always valid for seamless navigation
   valid: true
 });
+
+// 🆕 事件驅動架構：本地表單資料管理
+const localFormData = reactive(createInitialFormData());
+
+// 🆕 事件驅動架構：初始化狀態追蹤
+const isInitialized = ref(false);
+const isInitializing = ref(false);
+
+// 🆕 事件驅動架構：資料載入狀態
+const isDataLoading = ref(false);
 
 // Dialog state
 const landInfoDialog = ref(false);
@@ -1740,34 +1755,52 @@ const updateLandNumber = () => {
   } else {
     localFormData.landNumber = '';
   }
-  updateFormData();
+  // 🔥 修復問題2：在初始化期間不觸發事件
+  if (!isInitializing.value) {
+    emitDataChanged();
+  }
 };
 
 const onCountyChange = () => {
   localFormData.landTown = '';
   localFormData.landSec = '';
-  updateFormData();
+  // 在初始化期間不觸發事件
+  if (!isInitializing.value) {
+    emitDataChanged();
+  }
 };
 
 const onTownChange = () => {
   localFormData.landSec = '';
-  updateFormData();
+  // 在初始化期間不觸發事件
+  if (!isInitializing.value) {
+    emitDataChanged();
+  }
 };
 
 const onOwnerCountyChange = () => {
   localFormData.ownerTown = '';
   localFormData.ownerVillage = '';
-  updateFormData();
+  // 在初始化期間不觸發事件
+  if (!isInitializing.value) {
+    emitDataChanged();
+  }
 };
 
 const onOwnerTownChange = () => {
   localFormData.ownerVillage = '';
-  updateFormData();
+  // 在初始化期間不觸發事件
+  if (!isInitializing.value) {
+    emitDataChanged();
+  }
 };
 
 const onCropCategoryChange = () => {
   localFormData.cropName = '';
-  updateFormData();
+  // 在初始化期間不觸發事件
+  if (!isInitializing.value) {
+    emitDataChanged();
+  }
 };
 
 // Add and remove crops
@@ -1794,19 +1827,28 @@ const addCrop = () => {
       localFormData.cropName = '';
     }
 
-    updateFormData();
+    // 🔥 修復問題2：在初始化期間不觸發事件
+    if (!isInitializing.value) {
+      emitDataChanged();
+    }
   }
 };
 
 const removeCrop = (index: number) => {
   localFormData.crops.splice(index, 1);
-  updateFormData();
+  // 🔥 修復問題2：在初始化期間不觸發事件
+  if (!isInitializing.value) {
+    emitDataChanged();
+  }
 };
 
 // Date picker methods
 const confirmDate = () => {
   showDatePicker.value = false;
-  updateFormData();
+  // 🔥 修復問題2：在初始化期間不觸發事件
+  if (!isInitializing.value) {
+    emitDataChanged();
+  }
 };
 
 const calculateTotalShare = () => {
@@ -1864,13 +1906,19 @@ const addOwner = () => {
     localFormData.ownerShare2 = '';
     localFormData.ownerArea = '';
 
-    updateFormData();
+    // 🔥 修復問題2：在初始化期間不觸發事件
+    if (!isInitializing.value) {
+      emitDataChanged();
+    }
   }
 };
 
 const removeOwner = (index: number) => {
   localFormData.owners.splice(index, 1);
-  updateFormData();
+  // 🔥 修復問題2：在初始化期間不觸發事件
+  if (!isInitializing.value) {
+    emitDataChanged();
+  }
 };
 
 // Collapse co-owner settings
@@ -1887,17 +1935,97 @@ const collapseCoOwnerSettings = () => {
   localFormData.ownerArea = '';
 };
 
-// Update parent form data
-const updateFormData = () => {
-  emit('update:formData', {
-    ...props.formData,
-    ...localFormData,
-    valid: true // Always true for seamless navigation
+// 🆕 事件驅動架構：防抖的資料變更事件發送
+const debouncedEmitDataChanged = debounce(() => {
+  if (!isInitialized.value) return;
+
+  console.log('🚀 step2.vue: Emitting step-data-changed event');
+  emit('step-data-changed', {
+    step: 2,
+    data: { ...localFormData },
+    valid: localValid.value
   });
+}, 300);
+
+// 🆕 事件驅動架構：統一的資料變更處理
+const emitDataChanged = () => {
+  // 🔥 修復問題2：在初始化期間不發送事件，避免重置資料庫資料
+  if (!isInitialized.value || isInitializing.value) {
+    console.log('⏸️ step2.vue: Skipping event emission during initialization');
+    return;
+  }
+  debouncedEmitDataChanged();
 };
+
+// 🆕 事件驅動架構:表單驗證
+const validateForm = async (): Promise<boolean> => {
+  if (form.value) {
+    const { valid } = await form.value.validate();
+    localValid.value = valid;
+
+    // 🔥 修復問題2：在初始化期間不發送驗證事件，避免觸發不當的儲存
+    if (!isInitializing.value && isInitialized.value) {
+      emit('validation-changed', { step: 2, valid });
+    } else {
+      console.log('⏸️ step2.vue: Skipping validation event emission during initialization');
+    }
+
+    return valid;
+  }
+  return true;
+};
+
+// 🆕 事件驅動架構:統一的資料更新處理
+const updateFormData = () => {
+  // 🔥 修復問題2：在初始化期間不執行更新，避免重置資料庫資料
+  if (!isInitialized.value || isInitializing.value) {
+    console.log('⏸️ step2.vue: Skipping updateFormData during initialization');
+    return;
+  }
+
+  // 驗證表單
+  validateForm();
+
+  // 發送資料變更事件
+  emitDataChanged();
+};
+
+// 🆕 事件驅動架構:處理下一步請求
+const handleProceedToNext = async () => {
+  console.log('🎯 step2.vue: handleProceedToNext called');
+
+  const isValid = await validateForm();
+  if (isValid) {
+    console.log('✅ step2.vue: Form is valid, emitting ready-to-proceed');
+    emit('ready-to-proceed', {
+      step: 2,
+      data: { ...localFormData }
+    });
+  } else {
+    console.log('❌ step2.vue: Form validation failed');
+  }
+};
+
+// 🆕 事件驅動架構:處理返回請求
+const handleGoBack = () => {
+  console.log('🔙 step2.vue: handleGoBack called');
+  emit('go-back-requested', { step: 2 });
+};
+
+// 🆕 事件驅動架構:暴露方法給父組件
+defineExpose({
+  handleProceedToNext,
+  handleGoBack
+});
 
 // Area calculations
 watch(() => localFormData.landArea, (newVal) => {
+  // 🔥 修復問題2：在初始化期間不執行面積計算，避免觸發事件
+  if (isInitializing.value) {
+    console.log('⏸️ step2.vue: Skipping landArea calculation during initialization');
+    return;
+  }
+
   if (newVal && localFormData.owners && localFormData.owners.length > 0) {
     const landArea = parseFloat(newVal);
 
@@ -1941,10 +2069,16 @@ watch(() => localFormData.landArea, (newVal) => {
     localFormData.landAreaHa = '';
   }
 
-  updateFormData();
+  emitDataChanged();
 });
 
 watch(() => localFormData.facilityArea, (newVal) => {
+  // 🔥 修復問題2：在初始化期間不執行面積計算，避免觸發事件
+  if (isInitializing.value) {
+    console.log('⏸️ step2.vue: Skipping facilityArea calculation during initialization');
+    return;
+  }
+
   if (newVal) {
     const facilityArea = parseFloat(newVal);
     const landArea = parseFloat(localFormData.landArea || '0');
@@ -1965,7 +2099,7 @@ watch(() => localFormData.facilityArea, (newVal) => {
   }
 
   // 更新父組件資料
-  updateFormData();
+  emitDataChanged();
 });
 
 // Calculate owner area
@@ -2204,7 +2338,10 @@ const handleFeatureModify = (event) => {
           localFormData.facilityAreaHa = (roundedArea / 10000).toFixed(4);
         }
 
-        updateFormData();
+        // 🔥 修復問題2：在初始化期間不觸發事件
+        if (!isInitializing.value) {
+          emitDataChanged();
+        }
       }
 
       console.log(`Feature modified. New area: ${roundedArea} m²`);
@@ -2340,8 +2477,10 @@ const useSelectedFeature = () => {
     hideFeatureInfo();
     // Close the dialog
     landInfoDialog.value = false;
-    // Make sure to update parent form data
-    updateFormData();
+    // 🔥 修復問題2：在初始化期間不觸發事件
+    if (!isInitializing.value) {
+      emitDataChanged();
+    }
   }
 };
 
@@ -2519,51 +2658,143 @@ const cleanupMap = () => {
   }
 };
 
-// Initialize data
-onMounted(async () => {
-  console.log("Step 2 mounted, formData:", props.formData);
+// 🆕 事件驅動架構:自主載入資料
+const loadStepData = async () => {
+  if (isDataLoading.value || isInitializing.value) return;
 
-  // Initialize domicile store
+  const caseNumber = route.query.id as string;
+  if (!caseNumber) {
+    console.warn('❌ step2.vue: No case number in route');
+    return;
+  }
+
+  try {
+    isDataLoading.value = true;
+    isInitializing.value = true;
+
+    console.log('📥 step2.vue: Loading step data for case:', caseNumber);
+
+    // 🔥 修復：調用 grantsStore.loadStepData 從 API 載入資料
+    console.log('🎯 step2.vue: Calling grantsStore.loadStepData(2) to load from API...');
+    await grantsStore.loadStepData(caseNumber, 2);
+    console.log('✅ step2.vue: grantsStore.loadStepData completed');
+
+    // 從 grantsStore 取得已載入的 step 2 資料
+    if (grantsStore.formData[2]) {
+      const savedData = grantsStore.formData[2];
+      console.log('📦 step2.vue: Found loaded data from grantsStore:', Object.keys(savedData));
+
+      // 🔥 修復問題2：暫時禁用 watch，避免觸發不當的更新
+      isInitializing.value = true;
+
+      // 更新本地表單資料，排除 valid 欄位
+      Object.keys(savedData).forEach(key => {
+        if (key !== 'valid' && savedData[key] !== undefined && key in localFormData) {
+          localFormData[key] = savedData[key];
+        }
+      });
+
+      // 🔥 修復問題1：載入級聯選擇資料
+      await loadCascadeData();
+
+    } else {
+      console.log('📝 step2.vue: No data found in grantsStore.formData[2], using default values');
+    }
+
+    // 確保陣列存在
+    if (!Array.isArray(localFormData.crops)) {
+      localFormData.crops = [];
+    }
+
+    if (!Array.isArray(localFormData.owners)) {
+      localFormData.owners = [];
+    }
+
+    console.log('✅ step2.vue: Data loaded successfully');
+    console.log('📊 step2.vue: Final localFormData keys:', Object.keys(localFormData));
+
+  } catch (error) {
+    console.error('❌ step2.vue: Failed to load step data:', error);
+
+    // 即使 API 載入失敗，也要確保陣列欄位存在
+    if (!Array.isArray(localFormData.crops)) {
+      localFormData.crops = [];
+    }
+
+    if (!Array.isArray(localFormData.owners)) {
+      localFormData.owners = [];
+    }
+  } finally {
+    isDataLoading.value = false;
+
+    // 🔥 延遲設定初始化完成，確保所有副作用完成後才允許事件發送
+    nextTick(() => {
+      // 增加額外延遲，確保所有計算屬性和 watch 都已穩定
+      setTimeout(() => {
+        isInitialized.value = true;
+        isInitializing.value = false;
+
+        // 初始驗證（現在有保護機制）
+        validateForm();
+
+        console.log('🎉 step2.vue: Initialization completed, events now enabled');
+      }, 100); // 100ms 延遲確保所有副作用完成
+    });
+  }
+};
+
+// 🆕 載入級聯選擇資料的輔助函數
+const loadCascadeData = async () => {
+  console.log('🔗 step2.vue: Loading cascade data for address fields...');
+
+  try {
+    // 載入設施地址的級聯資料
+    if (localFormData.landCounty) {
+      console.log('📍 Loading towns for landCounty:', localFormData.landCounty);
+      await loadTownsForCounty(localFormData.landCounty);
+
+      if (localFormData.landTown) {
+        console.log('📍 Loading villages for landTown:', localFormData.landTown);
+        const townId = typeof localFormData.landTown === 'number' ? localFormData.landTown : parseInt(localFormData.landTown);
+        await loadVillagesForTown(townId);
+      }
+    }
+
+    // 載入所有權人地址的級聯資料
+    if (localFormData.ownerCounty) {
+      console.log('📍 Loading towns for ownerCounty:', localFormData.ownerCounty);
+      await loadTownsForCounty(localFormData.ownerCounty);
+
+      if (localFormData.ownerTown) {
+        console.log('📍 Loading villages for ownerTown:', localFormData.ownerTown);
+        const townId = typeof localFormData.ownerTown === 'number' ? localFormData.ownerTown : parseInt(localFormData.ownerTown);
+        await domicileStore.loadVillagesByTownId(townId);
+      }
+    }
+
+    console.log('✅ step2.vue: Cascade data loaded successfully');
+  } catch (error) {
+    console.error('❌ step2.vue: Failed to load cascade data:', error);
+  }
+};
+
+// 🆕 事件驅動架構:組件掛載時自主載入資料
+onMounted(async () => {
+  console.log('🔧 step2.vue: Component mounted, starting initialization');
+
+  // 初始化 domicile store
   await domicileStore.loadCounties();
 
-  // Set form data from props
-  if (props.formData) {
-    Object.keys(localFormData).forEach(key => {
-      if (props.formData[key] !== undefined) {
-        localFormData[key] = props.formData[key];
-      }
-    });
-  }
-
-  // Ensure arrays exist
-  if (!Array.isArray(localFormData.crops)) {
-    localFormData.crops = [];
-  }
-
-  if (!Array.isArray(localFormData.owners)) {
-    localFormData.owners = [];
-  }
-
-  // Initial update to parent
-  updateFormData();
+  // 自主載入步驟資料
+  await loadStepData();
 });
 
-// Watch for props changes
-watch(() => props.formData, (newData) => {
-  if (newData) {
-    Object.keys(localFormData).forEach(key => {
-      // Only update if the field has a different value
-      if (newData[key] !== undefined &&
-          JSON.stringify(newData[key]) !== JSON.stringify(localFormData[key])) {
-        localFormData[key] = newData[key];
-      }
-    });
-  }
-}, { deep: true })
-
-// Watch local form data and update parent
+// 🆕 事件驅動架構:監聽本地表單資料變更
 watch(localFormData, () => {
-  updateFormData();
+  // 🔥 修復問題2：在初始化期間不觸發更新，避免重置資料庫資料
+  if (!isInitializing.value && isInitialized.value) {
+    updateFormData();
+  }
 }, { deep: true });
 
 // Watch for dialog open/close to initialize/cleanup map
@@ -2612,14 +2843,17 @@ const checkAndUpdateIndigenousArea = (townId: number) => {
     const isIndigenous = town.is_indigenous || town.indigenous_type === '1';
     if (localFormData.isAboriginalArea !== isIndigenous) {
       localFormData.isAboriginalArea = isIndigenous;
-      updateFormData();
+      // 在初始化期間不觸發事件
+      if (!isInitializing.value) {
+        emitDataChanged();
+      }
     }
   }
 };
 
 // Watchers for automatic town/village loading and indigenous area detection
 watch(() => localFormData.landCounty, async (newCounty) => {
-  if (newCounty) {
+  if (newCounty && !isInitializing.value) {
     localFormData.landTown = '';
     localFormData.landSec = '';
     await loadTownsForCounty(newCounty);
@@ -2627,7 +2861,7 @@ watch(() => localFormData.landCounty, async (newCounty) => {
 });
 
 watch(() => localFormData.landTown, async (newTown) => {
-  if (newTown) {
+  if (newTown && !isInitializing.value) {
     localFormData.landSec = '';
     const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
     await loadVillagesForTown(townId);
@@ -2636,7 +2870,7 @@ watch(() => localFormData.landTown, async (newTown) => {
 });
 
 watch(() => localFormData.ownerCounty, async (newCounty) => {
-  if (newCounty) {
+  if (newCounty && !isInitializing.value) {
     localFormData.ownerTown = '';
     localFormData.ownerVillage = '';
     await loadTownsForCounty(newCounty);
@@ -2644,7 +2878,7 @@ watch(() => localFormData.ownerCounty, async (newCounty) => {
 });
 
 watch(() => localFormData.ownerTown, async (newTown) => {
-  if (newTown) {
+  if (newTown && !isInitializing.value) {
     localFormData.ownerVillage = '';
     const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
     await domicileStore.loadVillagesByTownId(townId);

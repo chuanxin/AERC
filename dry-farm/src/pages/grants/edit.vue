@@ -267,11 +267,12 @@
                       />
                       <step2
                         v-if="currentStep === 2"
-                        :form-data="grantsStore.formData[2]"
+                        ref="step2Ref"
                         :current-step="currentStep"
-                        @update:form-data="handleFormDataUpdate(2, $event)"
-                        @validated="handleStepValidated"
-                        @go-back="handleGoBack"
+                        @step-data-changed="handleStep2DataChanged"
+                        @validation-changed="handleStep2ValidationChanged"
+                        @ready-to-proceed="handleStep2ReadyToProceed"
+                        @go-back-requested="handleGoBack"
                       />
                       <step3
                         v-if="currentStep === 3"
@@ -482,6 +483,9 @@ const step7Ref = ref<{ handleActionRequest: (action: string) => void } | null>(n
 // Step1 組件引用 - 事件驅動架構
 const step1Ref = ref<{ handleProceedToNext: () => void; handleGoBack: () => void } | null>(null)
 
+// Step2 組件引用 - 事件驅動架構
+const step2Ref = ref<{ handleProceedToNext: () => void; handleGoBack: () => void } | null>(null)
+
 // Navigation drawer state
 const drawerOpen = ref(true)
 const isRailMode = ref(false) // Default to expanded
@@ -529,10 +533,13 @@ const updateStepInURL = (step: number) => {
 // Helper function to trigger next step
 const goToNextStep = () => {
   if (currentStep.value < steps.length) {
-    // 🆕 事件驅動：針對 step1 使用子組件的方法
+    // 🆕 事件驅動：針對 step1 和 step2 使用子組件的方法
     if (currentStep.value === 1 && step1Ref.value) {
       console.log('🎯 edit.vue: Calling step1Ref.handleProceedToNext()');
       step1Ref.value.handleProceedToNext();
+    } else if (currentStep.value === 2 && step2Ref.value) {
+      console.log('🎯 edit.vue: Calling step2Ref.handleProceedToNext()');
+      step2Ref.value.handleProceedToNext();
     } else {
       // 其他步驟保持原有邏輯
       handleStepValidated({ valid: true, step: currentStep.value });
@@ -700,13 +707,13 @@ const handleFormDataUpdate = (step: number, data: Record<string, unknown>) => {
     fundingSourceId: data.fundingSourceId
   });
 
-  // 🔧 關鍵修復：確保 grantsStore.currentStep 與接收到的 step 一致
+  // 確保 grantsStore.currentStep 與接收到的 step 一致
   if (grantsStore.currentStep !== step) {
     console.log(`🔧 edit.vue: Correcting grantsStore.currentStep from ${grantsStore.currentStep} to ${step}`);
     grantsStore.updateCurrentStep(step);
   }
 
-  // 🔧 關鍵修復：同時更新本地的 currentStep ref
+  // 同時更新本地的 currentStep ref
   if (currentStep.value !== step) {
     console.log(`🔧 edit.vue: Correcting local currentStep from ${currentStep.value} to ${step}`);
     currentStep.value = step;
@@ -742,7 +749,7 @@ const handleFormDataUpdate = (step: number, data: Record<string, unknown>) => {
 const handleStep1DataChanged = ({ step, data, valid }: { step: number, data: Record<string, unknown>, valid: boolean }) => {
   console.log('📥 edit.vue: Received step-data-changed event from step1');
   console.log(`📊 Step: ${step}, Valid: ${valid}, Data keys:`, Object.keys(data));
-  
+
   // 使用現有的 handleFormDataUpdate 邏輯處理資料
   handleFormDataUpdate(step, { ...data, valid });
 };
@@ -750,12 +757,12 @@ const handleStep1DataChanged = ({ step, data, valid }: { step: number, data: Rec
 // 🆕 事件驅動：處理 Step1 驗證狀態變更事件
 const handleStep1ValidationChanged = ({ step, valid }: { step: number, valid: boolean }) => {
   console.log(`📋 edit.vue: Received validation-changed event from step1 - Step: ${step}, Valid: ${valid}`);
-  
+
   // 確保步驟狀態同步
   if (grantsStore.currentStep !== step) {
     grantsStore.updateCurrentStep(step);
   }
-  
+
   // 更新驗證狀態到 grantsStore
   if (grantsStore.formData[step]) {
     grantsStore.formData[step].valid = valid;
@@ -766,10 +773,46 @@ const handleStep1ValidationChanged = ({ step, valid }: { step: number, valid: bo
 const handleStep1ReadyToProceed = async ({ step, data }: { step: number, data: Record<string, unknown> }) => {
   console.log('✅ edit.vue: Received ready-to-proceed event from step1');
   console.log(`📊 Step: ${step}, Data keys:`, Object.keys(data));
-  
+
   // 先更新最新的資料
   handleFormDataUpdate(step, { ...data, valid: true });
-  
+
+  // 觸發步驟驗證邏輯（進入下一步）
+  await handleStepValidated({ valid: true, step });
+};
+
+// 🆕 事件驅動：處理 Step2 資料變更事件
+const handleStep2DataChanged = ({ step, data, valid }: { step: number, data: Record<string, unknown>, valid: boolean }) => {
+  console.log('📥 edit.vue: Received step-data-changed event from step2');
+  console.log(`📊 Step: ${step}, Valid: ${valid}, Data keys:`, Object.keys(data));
+
+  // 使用現有的 handleFormDataUpdate 邏輯處理資料
+  handleFormDataUpdate(step, { ...data, valid });
+};
+
+// 🆕 事件驅動：處理 Step2 驗證狀態變更事件
+const handleStep2ValidationChanged = ({ step, valid }: { step: number, valid: boolean }) => {
+  console.log(`📋 edit.vue: Received validation-changed event from step2 - Step: ${step}, Valid: ${valid}`);
+
+  // 確保步驟狀態同步
+  if (grantsStore.currentStep !== step) {
+    grantsStore.updateCurrentStep(step);
+  }
+
+  // 更新驗證狀態到 grantsStore
+  if (grantsStore.formData[step]) {
+    grantsStore.formData[step].valid = valid;
+  }
+};
+
+// 🆕 事件驅動：處理 Step2 準備進入下一步事件
+const handleStep2ReadyToProceed = async ({ step, data }: { step: number, data: Record<string, unknown> }) => {
+  console.log('✅ edit.vue: Received ready-to-proceed event from step2');
+  console.log(`📊 Step: ${step}, Data keys:`, Object.keys(data));
+
+  // 先更新最新的資料
+  handleFormDataUpdate(step, { ...data, valid: true });
+
   // 觸發步驟驗證邏輯（進入下一步）
   await handleStepValidated({ valid: true, step });
 };
@@ -868,11 +911,11 @@ const loadStepData = async (step: number) => {
 
   ensureCorrectStep(step)
 
-  // 🆕 架構重構：step1.vue 採用自主載入模式
-  // step1.vue 會在自己的 onMounted 中直接載入資料，不需要父組件控制
+  // 🆕 架構重構：step1.vue 和 step2.vue 採用自主載入模式
+  // step1.vue 和 step2.vue 會在自己的 onMounted 中直接載入資料，不需要父組件控制
   // 這解決了從 index 導航時的 watch 時序問題
-  if (step === 1) {
-    console.log(`[edit.vue loadStepData] Skipping step 1 - autonomous loading`);
+  if (step === 1 || step === 2) {
+    console.log(`[edit.vue loadStepData] Skipping step ${step} - autonomous loading`);
     isDataLoaded.value = true;
     return;
   }

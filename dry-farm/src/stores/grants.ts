@@ -7,7 +7,7 @@ import {
   updateGrantStepDataWithTracking,
   updateCurrentStep as updateCurrentStepAPI,
   type GrantCreateResponse,
-  type GrantStepDataUpdateRequest
+  type GrantStepDataUpdateRequest,
 } from '@/services/grantsService'
 import { ApplicationError } from '@/utils/asyncHelpers'
 import { GrantStorage } from '@/utils/grant-storage'
@@ -268,7 +268,7 @@ export const useGrantsStore = defineStore('grants', () => {
     try {
       let data: Record<string, unknown> | null = null
 
-      // Step 1 loads from API, others from localStorage
+      // 🆕 Step 1 從 API 讀取，Steps 2-8 優先從 API (grant_versions) 讀取，失敗時回退到 localStorage
       if (step === 1) {
         try {
           data = await getGrantStepData(caseNumber, step)
@@ -278,9 +278,23 @@ export const useGrantsStore = defineStore('grants', () => {
           // Try localStorage as fallback
           data = GrantStorage.getStepData(caseNumber, step) || {}
         }
+      } else if (step >= 2 && step <= 8) {
+        // 🆕 Steps 2-8 優先從 API (grant_versions.all_steps_data.steps[step]) 讀取
+        try {
+          console.log(`🎯 Loading step ${step} from grant_versions API...`)
+          data = await getGrantStepData(caseNumber, step)
+          console.log(`✅ Successfully loaded step ${step} from API:`, Object.keys(data || {}))
+        } catch (apiError) {
+          console.warn(`❌ API error loading step ${step}, falling back to localStorage:`, apiError)
+
+          // Try localStorage as fallback
+          data = GrantStorage.getStepData(caseNumber, step) || {}
+          console.log(`💾 Using localStorage data for step ${step}:`, Object.keys(data || {}))
+        }
       } else {
-        // Steps 2-8 load from localStorage
-        data = GrantStorage.getStepData(caseNumber, step) || {}
+        // Invalid step number
+        console.warn(`Invalid step number: ${step}`)
+        data = {}
       }
 
       // Initialize form data with loaded data
@@ -360,12 +374,45 @@ export const useGrantsStore = defineStore('grants', () => {
           GrantStorage.saveStepData(caseNumber, step, data)
           savedData = data
         }
+      } else if (step >= 2 && step <= 8) {
+        // 🆕 Steps 2-8 使用現有 API 儲存到 grant_versions.all_steps_data.steps[step]
+        console.log(`🎯 Step ${step} detected: Using existing API to save to grant_versions`);
+
+        try {
+          if (changed.length > 0) {
+            // 使用擴展的追蹤版本
+            const updateRequest: GrantStepDataUpdateRequest = {
+              data: data,
+              action_type: 'manual_save',
+              changed_fields: changed,
+              old_value: oldData,
+              session_id: sessionId,
+              notes: `手動保存步驟 ${step} 資料，變更欄位: ${changed.join(', ')}`
+            }
+
+            savedData = await updateGrantStepDataWithTracking(caseNumber, step, updateRequest)
+          } else {
+            savedData = await updateGrantStepData(caseNumber, step, data)
+          }
+
+          console.log(`✅ Step ${step} data saved to grant_versions via existing API`);
+
+          // 同時更新 localStorage 作為本地備份
+          GrantStorage.saveStepData(caseNumber, step, data);
+          console.log(`✅ localStorage backup saved for step ${step}`);
+
+        } catch (apiError) {
+          console.warn(`❌ API error saving step ${step}, falling back to localStorage:`, apiError);
+
+          // API 失敗時回退到僅 localStorage 儲存
+          GrantStorage.saveStepData(caseNumber, step, data);
+          savedData = data;
+        }
       } else {
-        // Steps 2-8 save to localStorage
-        // console.log(`💾 Saving step ${step} to localStorage with data:`, JSON.stringify(data, null, 2));
-        GrantStorage.saveStepData(caseNumber, step, data)
-        // console.log('✅ GrantStorage.saveStepData completed');
-        savedData = data
+        // Invalid step number
+        console.warn(`Invalid step number: ${step}`);
+        GrantStorage.saveStepData(caseNumber, step, data);
+        savedData = data;
       }
 
       // Update form data
@@ -474,7 +521,7 @@ export const useGrantsStore = defineStore('grants', () => {
   }
 
   /**
-   * Save all unsaved changes with enhanced tracking
+   * Save all unsaved changes with enhanced tracking and grant_versions support
    * @returns {Promise<boolean>} Whether the save was successful
    */
   const saveAllChanges = async (): Promise<boolean> => {
@@ -501,9 +548,9 @@ export const useGrantsStore = defineStore('grants', () => {
       const changed = changedFields.value[step] || []
       const oldData = previousFormData.value[step] || {}
 
-      // 根據步驟使用不同的保存方式
+      // 🆕 根據步驟使用不同的保存方式，step2 優先使用 grant_versions API
       if (step === 1) {
-        // Step 1 使用 API 並支援詳細追蹤
+        // Step 1 使用原有的 API 並支援詳細追蹤
         try {
           if (changed.length > 0) {
             // 使用擴展的追蹤版本
@@ -522,7 +569,8 @@ export const useGrantsStore = defineStore('grants', () => {
             await updateGrantStepData(caseNumber, step, stepData)
           }
 
-          // 🔧 同步特定字段到 localStorage
+          // 同步特定字段到 localStorage (step1 案件基本資料的特有處理方式)
+          // TODO:個資相關資料不存放於 localStorage 需要特別處理遮罩問題
           syncFieldsToLocalStorage(caseNumber, stepData, 'saveAllChanges')
         } catch (apiError) {
           console.warn(`API error saving step ${step}, falling back to localStorage:`, apiError)
@@ -530,11 +578,46 @@ export const useGrantsStore = defineStore('grants', () => {
           // Fallback to localStorage
           GrantStorage.saveStepData(caseNumber, step, stepData)
         }
+      } else if (step >= 2 && step <= 8) {
+        // 🆕 Steps 2-8 使用現有的 API 儲存到 grant_versions.all_steps_data.steps[step]
+        console.log(`🎯 Step ${step} detected: Using existing API to save to grant_versions`);
+        console.log(`📦 Step ${step} data to save:`, JSON.stringify(stepData, null, 2));
+
+        try {
+          // 🆕 使用現有的 updateGrantStepDataWithTracking API 儲存到 grant_versions
+          if (changed.length > 0) {
+            // 使用擴展的追蹤版本
+            const updateRequest: GrantStepDataUpdateRequest = {
+              data: stepData,
+              action_type: 'step_data_update',
+              changed_fields: changed,
+              old_value: oldData,
+              session_id: sessionId,
+              notes: `Step ${step} 資料更新: 變更欄位 ${changed.join(', ')}`
+            }
+
+            await updateGrantStepDataWithTracking(caseNumber, step, updateRequest)
+          } else {
+            // 沒有變更，使用一般保存
+            await updateGrantStepData(caseNumber, step, stepData)
+          }
+
+          console.log(`✅ Step ${step} data saved to grant_versions via existing API`);
+
+          // 後端儲存成功後，同時更新 localStorage 作為本地備份
+          GrantStorage.saveStepData(caseNumber, step, stepData);
+          console.log(`✅ localStorage backup saved for step ${step}`);
+
+        } catch (apiError) {
+          console.warn(`❌ API error for step ${step}, falling back to localStorage only:`, apiError);
+
+          // API 失敗時回退到僅 localStorage 儲存
+          GrantStorage.saveStepData(caseNumber, step, stepData);
+        }
       } else {
-        // Steps 2-8 保存到 localStorage
-        // console.log(`💾 Saving step ${step} to localStorage with data:`, JSON.stringify(stepData, null, 2));
-        GrantStorage.saveStepData(caseNumber, step, stepData)
-        // console.log('✅ GrantStorage.saveStepData completed');
+        // Invalid step number
+        console.warn(`Invalid step number: ${step}`);
+        GrantStorage.saveStepData(caseNumber, step, stepData);
       }
 
       // Update form data
@@ -641,27 +724,16 @@ export const useGrantsStore = defineStore('grants', () => {
           GrantStorage.saveGrantData(currentGrant.value.case_number, grantData);
           console.log(`[grantsStore] Updated current_step to ${step} for grant ${currentGrant.value.case_number}`);
 
-          // 同步到資料庫 - 如果有步驟變更，記錄追蹤資訊
+          // 🔥 修復：只使用專門的 updateCurrentStepAPI，不要用 updateGrantStepDataWithTracking
+          // updateGrantStepDataWithTracking 會覆蓋目標步驟的資料，導致資料丟失
           try {
-            if (previousStep !== step) {
-              // 有步驟變更，使用追蹤版本的 API
-              const stepChangeData: GrantStepDataUpdateRequest = {
-                data: { current_step: step },
-                action_type: 'step_change',
-                changed_fields: ['current_step'],
-                old_value: { current_step: previousStep },
-                session_id: sessionId,
-                notes: `使用者從步驟 ${previousStep} 導航至步驟 ${step}`
-              };
-
-              // 這裡我們復用 updateGrantStepDataWithTracking，但只是更新 current_step
-              await updateGrantStepDataWithTracking(currentGrant.value.case_number, step, stepChangeData);
-              console.log(`[grantsStore] Successfully tracked step change from ${previousStep} to ${step}`);
-            } else {
-              // 沒有實際變更，使用一般 API
-              await updateCurrentStepAPI(currentGrant.value.case_number, step);
-            }
+            await updateCurrentStepAPI(currentGrant.value.case_number, step);
             console.log(`[grantsStore] Successfully synced current_step ${step} to database for grant ${currentGrant.value.case_number}`);
+            
+            // 🆕 如果需要追蹤步驟變更，可以使用單獨的追蹤邏輯，不影響步驟資料
+            if (previousStep !== step) {
+              console.log(`[grantsStore] Step change tracked: ${previousStep} → ${step} (sessionId: ${sessionId})`);
+            }
           } catch (error) {
             console.warn(`[grantsStore] Failed to sync current_step to database for grant ${currentGrant.value.case_number}:`, error);
             // 即使同步到資料庫失敗，localStorage 的更新依然有效，讓用戶能繼續操作
@@ -774,6 +846,6 @@ export const useGrantsStore = defineStore('grants', () => {
 
     // Tracking functions
     trackFormValidation,
-    trackFileOperation
+    trackFileOperation,
   }
 })

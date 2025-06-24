@@ -18,6 +18,9 @@ import src.crud.grants as crud
 from src.schemas.token import Status
 from src.crud.grants import get_grant_by_case_number  # Import the missing function
 
+import logging
+
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/grants", tags=["grants"])
 
 @router.get(
@@ -30,9 +33,13 @@ async def read_grant_step(
     step: int = Path(..., description="步驟編號", ge=1, le=8)
 ):
     """取得特定補助申請案件的特定步驟資料"""
+    logger.info(f"📡 [read_grant_step] API 被調用: case_number={case_number}, step={step}")
     try:
-        return await crud.get_grant_step_data(case_number, step)
+        result = await crud.get_grant_step_data(case_number, step)
+        logger.info(f"📡 [read_grant_step] 成功返回資料，欄位數量: {len(result) if result else 0}")
+        return result
     except Exception as e:
+        logger.error(f"📡 [read_grant_step] 錯誤: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"取得步驟資料失敗: {str(e)}",

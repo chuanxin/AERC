@@ -392,23 +392,6 @@ async def create_grant(data, current_user):
             # 準備初始版本資料 - step0的資料 + 其他步驟空值
             initial_version_data = {
                 "steps": {
-                    "0": {
-                        "applicant_name": grant.applicant_name,
-                        "applicant_id": grant.applicant_id,
-                        "applicant_phone": grant.applicant_phone,
-                        "county": grant.county,
-                        "town": grant.town,
-                        "village": grant.village,
-                        "address": grant.address,
-                        "office": grant.office,
-                        "office_id": grant.office_id,
-                        "undertracker": grant.undertracker,
-                        "is_disaster_case": grant.is_disaster_case,
-                        "disaster_case_description": grant.disaster_case_description,
-                        "received_date": grant.received_date.isoformat() if grant.received_date else None,
-                        "received_time": grant.received_time.strftime("%H:%M") if grant.received_time else None
-                    },
-                    "1": {},
                     "2": {},
                     "3": {},
                     "4": {},
@@ -416,12 +399,6 @@ async def create_grant(data, current_user):
                     "6": {},
                     "7": {},
                     "8": {}
-                },
-                "metadata": {
-                    "created_at": grant.created_at.isoformat() if grant.created_at else None,
-                    "case_number": grant.case_number,
-                    "current_step": grant.current_step,
-                    "status": grant.status
                 }
             }
             
@@ -438,10 +415,10 @@ async def create_grant(data, current_user):
                 created_by_id=current_user.id
             )
             
-            # 注意：active_version_id 可以稍後設置，或通過查詢最新版本來獲取
-            # 暫時不設置，避免 Tortoise ORM 的外鍵關係複雜性
+            # 🆕 設定案件的 active_version 為剛創建的初始版本
+            await Grants.filter(id=grant.id).update(active_version_id=initial_version.id)
             
-            logger.info(f"成功建立案件 {grant.case_number} 和初始版本 (Version ID: {initial_version.id})")
+            logger.info(f"成功建立案件 {grant.case_number} 和初始版本 (Version ID: {initial_version.id})，已設定為啟用版本")
 
             # 返回案件資訊 GrantCreateResponseSchema
             response_data = {
@@ -580,18 +557,53 @@ async def get_grant_step_data(case_number: str, step: int) -> Dict[str, Any]:
         }
         
         # Add step-specific data using field mapping configuration
-        if step == 1:  # Basic applicant information step
+        if step == 1:  # Basic applicant information step - 從 grants 表讀取
             # 使用配置映射自動生成響應字段
             step_data = build_step_response_data(grant, step)
             result.update(step_data)
             
-        elif step == 2:  # Land information step
-            # 未來可以用相同的方式處理 step 2
-            step_data = build_step_response_data(grant, step)
-            result.update(step_data)
+        elif step >= 2 and step <= 8:  # Steps 2-8 - 從 grant_versions.all_steps_data.steps[step] 讀取
+            try:
+                # 🆕 從 grant_versions 表讀取步驟資料 - 優先使用 active_version
+                logger.info(f"開始讀取 step {step} 資料，案件: {case_number}, grant.active_version_id: {grant.active_version_id}")
+                
+                current_version = None
+                if grant.active_version_id:
+                    current_version = await GrantVersions.get(id=grant.active_version_id)
+                    logger.info(f"使用案件指定的啟用版本 {current_version.version} 讀取 step {step} 資料，案件: {case_number}")
+                else:
+                    # 如果沒有設定 active_version，則查找最新版本
+                    current_version = await GrantVersions.filter(
+                        grant_id=grant.id
+                    ).order_by('-version').first()
+                    
+                    if current_version:
+                        logger.info(f"使用最新版本 {current_version.version} 讀取 step {step} 資料，案件: {case_number}")
+                    else:
+                        logger.warning(f"未找到任何版本記錄，案件: {case_number}")
+                
+                if current_version and current_version.all_steps_data:
+                    logger.info(f"版本 {current_version.version} 的 all_steps_data 結構: {current_version.all_steps_data}")
+                    steps_data = current_version.all_steps_data.get("steps", {})
+                    logger.info(f"steps_data 包含的步驟: {list(steps_data.keys())}")
+                    step_data = steps_data.get(str(step), {})
+                    logger.info(f"Step {step} 的原始資料: {step_data}")
+                    
+                    if step_data:
+                        result.update(step_data)
+                        logger.info(f"成功從版本 {current_version.version} 讀取 step {step} 資料，案件: {case_number}")
+                    else:
+                        logger.info(f"Step {step} 資料為空，案件: {case_number}")
+                else:
+                    logger.warning(f"未找到版本資料或版本資料為空，案件: {case_number}, current_version: {current_version}")
+                    if current_version:
+                        logger.warning(f"版本 {current_version.version} 的 all_steps_data: {current_version.all_steps_data}")
+                    
+            except Exception as version_error:
+                logger.error(f"從版本讀取 step {step} 資料失敗，案件: {case_number}, 錯誤: {str(version_error)}")
+                # 如果版本讀取失敗，返回空資料但不報錯
+                pass
             
-        # Add cases for other steps as needed
-        
         return result
     except DoesNotExist:
         raise HTTPException(status_code=404, detail=f"補助案件編號 {case_number} 不存在")
@@ -637,7 +649,7 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
             if isinstance(data, dict) and 'data' in data:
                 actual_data = data.get('data', {})
                 tracking_info = {
-                    'action_type': data.get('action_type', 'data_update'),
+                    'action_type': data.get('action_type', GrantActionType.STEP_DATA_UPDATE.value),
                     'changed_fields': data.get('changed_fields', []),
                     'old_value': data.get('old_value', {}),
                     'session_id': data.get('session_id'),
@@ -645,7 +657,7 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                 }
             else:
                 tracking_info = {
-                    'action_type': 'data_update',
+                    'action_type': GrantActionType.STEP_DATA_UPDATE.value,
                     'changed_fields': [],
                     'old_value': {},
                     'session_id': None,
@@ -689,7 +701,7 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                 if update_data or tracking_info.get('changed_fields'):
                     await GrantHistory.create(
                         grant=grant,
-                        action_type=tracking_info.get('action_type', 'data_update'),
+                        action_type=tracking_info.get('action_type', GrantActionType.DATA_UPDATE.value),
                         grant_status=grant.status,
                         step_number=step,
                         changed_fields=tracking_info.get('changed_fields'),
@@ -700,9 +712,185 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                         notes=tracking_info.get('notes')
                     )
                 
-            elif step == 2:  # Land information step
-                # Implement updates for land-related data
-                pass
+            elif step == 2:  # Land information step - 儲存到 grant_versions.all_steps_data.steps["2"]
+                try:
+                    # 🆕 Step 2 資料儲存到案件的 active_version 指向的版本
+                    logger.info(f"開始處理 step 2 資料更新，案件: {case_number}")
+                    
+                    # 優先使用案件的 active_version，如果沒有則使用最新版本
+                    current_version = None
+                    if grant.active_version_id:
+                        current_version = await GrantVersions.get(id=grant.active_version_id)
+                        logger.info(f"使用案件指定的啟用版本 {current_version.version}，案件: {case_number}")
+                    else:
+                        # 如果沒有設定 active_version，則查找最新版本
+                        current_version = await GrantVersions.filter(
+                            grant_id=grant.id
+                        ).order_by('-version').first()
+                        
+                        if current_version:
+                            # 設定為 active_version
+                            await Grants.filter(id=grant.id).update(active_version_id=current_version.id)
+                            logger.info(f"自動設定最新版本 {current_version.version} 為啟用版本，案件: {case_number}")
+                    
+                    if not current_version:
+                        # 如果沒有任何版本，創建初始版本
+                        initial_version_data = {
+                            "steps": {
+                                "2": {},
+                                "3": {},
+                                "4": {},
+                                "5": {},
+                                "6": {},
+                                "7": {},
+                                "8": {}
+                            }
+                        }
+                        
+                        data_hash = calculate_data_hash(initial_version_data)
+                        
+                        current_version = await GrantVersions.create(
+                            grant_id=grant.id,
+                            version=1,
+                            all_steps_data=initial_version_data,
+                            all_steps_data_hash=data_hash,
+                            comment="系統自動建立初始版本",
+                            created_by_id=current_user.id
+                        )
+                        
+                        # 設定為 active_version
+                        await Grants.filter(id=grant.id).update(active_version_id=current_version.id)
+                        logger.info(f"為案件 {case_number} 創建並設定初始版本 1 為啟用版本")
+                    
+                    # 取得目前的 all_steps_data
+                    current_all_steps_data = current_version.all_steps_data or {"steps": {}}
+                    if "steps" not in current_all_steps_data:
+                        current_all_steps_data["steps"] = {}
+                    
+                    # 更新 step 2 的資料
+                    current_all_steps_data["steps"]["2"] = actual_data
+                    
+                    # 計算新的雜湊值
+                    new_data_hash = calculate_data_hash(current_all_steps_data)
+                    
+                    # 更新版本資料
+                    await GrantVersions.filter(id=current_version.id).update(
+                        all_steps_data=current_all_steps_data,
+                        all_steps_data_hash=new_data_hash,
+                        modified_at=get_taiwan_datetime()
+                    )
+                    
+                    logger.info(f"成功更新 step 2 資料到版本 {current_version.version}，案件: {case_number}")
+                    
+                    # 更新案件的當前步驟（如果需要）
+                    if grant.current_step < step:
+                        await Grants.filter(id=grant.id).update(current_step=step)
+                    
+                    # 建立歷史紀錄
+                    await GrantHistory.create(
+                        grant=grant,
+                        action_type=tracking_info.get('action_type', GrantActionType.VERSION_UPDATE.value),
+                        grant_status=grant.status,
+                        step_number=step,
+                        changed_fields=tracking_info.get('changed_fields', []),
+                        old_value=tracking_info.get('old_value', {}),
+                        new_value=actual_data,
+                        session_id=tracking_info.get('session_id'),
+                        changed_by_id=current_user.id,
+                        notes=f"Step 2 資料更新到版本 {current_version.version} - {tracking_info.get('notes', '')}"
+                    )
+                    
+                    logger.info(f"Step 2 資料處理完成，案件: {case_number}, 版本: {current_version.version}")
+                    
+                except Exception as step2_error:
+                    logger.error(f"Step 2 資料更新失敗，案件: {case_number}, 錯誤: {str(step2_error)}")
+                    raise HTTPException(status_code=500, detail=f"Step 2 資料更新失敗: {str(step2_error)}")
+                    
+            elif step >= 3 and step <= 8:  # Steps 3-8 也儲存到 grant_versions
+                try:
+                    # 🆕 Steps 3-8 也儲存到案件的 active_version 指向的版本
+                    logger.info(f"開始處理 step {step} 資料更新，案件: {case_number}")
+                    
+                    # 優先使用案件的 active_version，如果沒有則使用最新版本
+                    current_version = None
+                    if grant.active_version_id:
+                        current_version = await GrantVersions.get(id=grant.active_version_id)
+                        logger.info(f"使用案件指定的啟用版本 {current_version.version}，案件: {case_number}")
+                    else:
+                        # 如果沒有設定 active_version，則查找最新版本
+                        current_version = await GrantVersions.filter(
+                            grant_id=grant.id
+                        ).order_by('-version').first()
+                        
+                        if current_version:
+                            # 設定為 active_version
+                            await Grants.filter(id=grant.id).update(active_version_id=current_version.id)
+                            logger.info(f"自動設定最新版本 {current_version.version} 為啟用版本，案件: {case_number}")
+                    
+                    if not current_version:
+                        # 如果沒有任何版本，創建初始版本
+                        initial_version_data = {
+                            "steps": {str(i): {} for i in range(2, 9)}
+                        }
+                        
+                        data_hash = calculate_data_hash(initial_version_data)
+                        
+                        current_version = await GrantVersions.create(
+                            grant_id=grant.id,
+                            version=1,
+                            all_steps_data=initial_version_data,
+                            all_steps_data_hash=data_hash,
+                            comment="系統自動建立初始版本",
+                            created_by_id=current_user.id
+                        )
+                        
+                        # 設定為 active_version
+                        await Grants.filter(id=grant.id).update(active_version_id=current_version.id)
+                        logger.info(f"為案件 {case_number} 創建並設定初始版本 1 為啟用版本")
+                    
+                    # 取得目前的 all_steps_data
+                    current_all_steps_data = current_version.all_steps_data or {"steps": {}}
+                    if "steps" not in current_all_steps_data:
+                        current_all_steps_data["steps"] = {}
+                    
+                    # 更新對應步驟的資料
+                    current_all_steps_data["steps"][str(step)] = actual_data
+                    
+                    # 計算新的雜湊值
+                    new_data_hash = calculate_data_hash(current_all_steps_data)
+                    
+                    # 更新版本資料
+                    await GrantVersions.filter(id=current_version.id).update(
+                        all_steps_data=current_all_steps_data,
+                        all_steps_data_hash=new_data_hash,
+                        modified_at=get_taiwan_datetime()
+                    )
+                    
+                    logger.info(f"成功更新 step {step} 資料到版本 {current_version.version}，案件: {case_number}")
+                    
+                    # 更新案件的當前步驟（如果需要）
+                    if grant.current_step < step:
+                        await Grants.filter(id=grant.id).update(current_step=step)
+                    
+                    # 建立歷史紀錄
+                    await GrantHistory.create(
+                        grant=grant,
+                        action_type=tracking_info.get('action_type', GrantActionType.VERSION_UPDATE.value),
+                        grant_status=grant.status,
+                        step_number=step,
+                        changed_fields=tracking_info.get('changed_fields', []),
+                        old_value=tracking_info.get('old_value', {}),
+                        new_value=actual_data,
+                        session_id=tracking_info.get('session_id'),
+                        changed_by_id=current_user.id,
+                        notes=f"Step {step} 資料更新到版本 {current_version.version} - {tracking_info.get('notes', '')}"
+                    )
+                    
+                    logger.info(f"Step {step} 資料處理完成，案件: {case_number}, 版本: {current_version.version}")
+                    
+                except Exception as step_error:
+                    logger.error(f"Step {step} 資料更新失敗，案件: {case_number}, 錯誤: {str(step_error)}")
+                    raise HTTPException(status_code=500, detail=f"Step {step} 資料更新失敗: {str(step_error)}")
             # Add cases for other steps as needed
             
             # Fetch and return the updated grant data

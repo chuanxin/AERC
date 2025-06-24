@@ -64,7 +64,7 @@ class Grants(models.Model):
     sn = fields.IntField(description="流水號，每年每管理處內唯一")
     case_number = fields.CharField(max_length=20, description="案件編號")
     year = fields.IntField(description="申請年度")
-    active_version_id = fields.ForeignKeyField("models.GrantVersions", related_name="active_grant", null=True, description="目前現行的版本ID")
+    active_version = fields.ForeignKeyField("models.GrantVersions", related_name="active_grant", null=True, description="目前現行的版本ID")
     
     # 申請人資訊
     applicant_name = fields.CharField(max_length=50, description="申請人姓名")
@@ -196,7 +196,8 @@ class GrantActionType(str, Enum):
     AUTO_SAVE = "auto_save"                   # 自動保存
     FORM_VALIDATION = "form_validation"       # 表單驗證
     CASE_CREATE = "case_create"               # 案件建立
-    CASE_SUBMIT = "case_submit"             # 案件提交
+    CASE_SUBMIT = "case_submit"               # 案件提交
+    VERSION_UPDATE = "version_update"         # 版本更新
 
 
 class GrantHistory(models.Model):
