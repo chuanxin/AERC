@@ -531,7 +531,14 @@ import type { Step1Data } from '@/types/grantForms'
 //   }
 // });
 
-const emit = defineEmits(['step-data-changed', 'validation-changed', 'ready-to-proceed', 'go-back-requested']);
+interface Step1Events {
+  'step-data-changed': [eventData: { step: number; data: Record<string, unknown>; valid: boolean }];
+  'validation-changed': [eventData: { step: number; valid: boolean }];
+  'ready-to-proceed': [eventData: { step: number; data: Record<string, unknown> }];
+  'go-back-requested': [eventData: { step: number }];
+}
+
+const emit = defineEmits<Step1Events>();
 const localValid = ref(true);
 const form = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null);
 
@@ -1192,7 +1199,7 @@ const handleProceedToNext = async () => {
 // 提供給父組件調用的方法：返回上一步
 const handleGoBack = () => {
   console.log('🔄 step1.vue: handleGoBack called');
-  emit('go-back-requested');
+  emit('go-back-requested', { step: 1 });
 };
 
 // 暴露方法給父組件使用

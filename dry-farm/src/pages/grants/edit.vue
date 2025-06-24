@@ -260,18 +260,18 @@
                         v-if="currentStep === 1"
                         ref="step1Ref"
                         :current-step="currentStep"
-                        @step-data-changed="handleStep1DataChanged"
-                        @validation-changed="handleStep1ValidationChanged"
-                        @ready-to-proceed="handleStep1ReadyToProceed"
+                        @step-data-changed="handleStepDataChanged"
+                        @validation-changed="handleStepValidationChanged"
+                        @ready-to-proceed="handleStepReadyToProceed"
                         @go-back-requested="handleGoBack"
                       />
                       <step2
                         v-if="currentStep === 2"
                         ref="step2Ref"
                         :current-step="currentStep"
-                        @step-data-changed="handleStep2DataChanged"
-                        @validation-changed="handleStep2ValidationChanged"
-                        @ready-to-proceed="handleStep2ReadyToProceed"
+                        @step-data-changed="handleStepDataChanged"
+                        @validation-changed="handleStepValidationChanged"
+                        @ready-to-proceed="handleStepReadyToProceed"
                         @go-back-requested="handleGoBack"
                       />
                       <step3
@@ -480,11 +480,27 @@ const step7ButtonConfig = ref({
 // Step7 組件引用
 const step7Ref = ref<{ handleActionRequest: (action: string) => void } | null>(null)
 
-// Step1 組件引用 - 事件驅動架構
-const step1Ref = ref<{ handleProceedToNext: () => void; handleGoBack: () => void } | null>(null)
+// 🆕 統一事件驅動架構：組件引用接口定義
+interface StepComponent {
+  handleProceedToNext: () => void;
+  handleGoBack: () => void;
+}
 
-// Step2 組件引用 - 事件驅動架構
-const step2Ref = ref<{ handleProceedToNext: () => void; handleGoBack: () => void } | null>(null)
+// 🆕 統一事件驅動架構：步驟組件引用映射
+const stepRefs = reactive<Record<number, StepComponent | null>>({
+  1: null,
+  2: null,
+  3: null,
+  4: null,
+  5: null,
+  6: null,
+  7: null,
+  8: null
+})
+
+// 保持現有引用以便向後兼容
+const step1Ref = ref<StepComponent | null>(null)
+const step2Ref = ref<StepComponent | null>(null)
 
 // Navigation drawer state
 const drawerOpen = ref(true)
@@ -533,16 +549,15 @@ const updateStepInURL = (step: number) => {
 // Helper function to trigger next step
 const goToNextStep = () => {
   if (currentStep.value < steps.length) {
-    // 🆕 事件驅動：針對 step1 和 step2 使用子組件的方法
-    if (currentStep.value === 1 && step1Ref.value) {
-      console.log('🎯 edit.vue: Calling step1Ref.handleProceedToNext()');
-      step1Ref.value.handleProceedToNext();
-    } else if (currentStep.value === 2 && step2Ref.value) {
-      console.log('🎯 edit.vue: Calling step2Ref.handleProceedToNext()');
-      step2Ref.value.handleProceedToNext();
+    // 🆕 統一事件驅動：使用映射表統一處理所有步驟
+    const stepComponent = stepRefs[currentStep.value]
+    if (stepComponent) {
+      console.log(`🎯 edit.vue: Calling step${currentStep.value}Ref.handleProceedToNext()`)
+      stepComponent.handleProceedToNext()
     } else {
-      // 其他步驟保持原有邏輯
-      handleStepValidated({ valid: true, step: currentStep.value });
+      // 對於沒有引用的步驟，使用傳統驗證方式
+      console.log(`🎯 edit.vue: Step ${currentStep.value} has no ref, using traditional validation`)
+      handleStepValidated({ valid: true, step: currentStep.value })
     }
   }
 }
@@ -745,77 +760,51 @@ const handleFormDataUpdate = (step: number, data: Record<string, unknown>) => {
   }
 }
 
-// 🆕 事件驅動：處理 Step1 資料變更事件
-const handleStep1DataChanged = ({ step, data, valid }: { step: number, data: Record<string, unknown>, valid: boolean }) => {
-  console.log('📥 edit.vue: Received step-data-changed event from step1');
-  console.log(`📊 Step: ${step}, Valid: ${valid}, Data keys:`, Object.keys(data));
+// 🆕 統一事件驅動架構：通用步驟事件處理器
+interface StepEventData {
+  step: number
+  data: Record<string, unknown>
+  valid: boolean
+}
+
+// 🆕 統一資料變更事件處理
+const handleStepDataChanged = (eventData: StepEventData) => {
+  const { step, data, valid } = eventData
+  console.log(`📥 edit.vue: Received step-data-changed event from step${step}`)
+  console.log(`📊 Step: ${step}, Valid: ${valid}, Data keys:`, Object.keys(data))
 
   // 使用現有的 handleFormDataUpdate 邏輯處理資料
-  handleFormDataUpdate(step, { ...data, valid });
-};
+  handleFormDataUpdate(step, { ...data, valid })
+}
 
-// 🆕 事件驅動：處理 Step1 驗證狀態變更事件
-const handleStep1ValidationChanged = ({ step, valid }: { step: number, valid: boolean }) => {
-  console.log(`📋 edit.vue: Received validation-changed event from step1 - Step: ${step}, Valid: ${valid}`);
+// 🆕 統一驗證狀態變更事件處理
+const handleStepValidationChanged = (eventData: { step: number, valid: boolean }) => {
+  const { step, valid } = eventData
+  console.log(`📋 edit.vue: Received validation-changed event from step${step} - Step: ${step}, Valid: ${valid}`)
 
   // 確保步驟狀態同步
   if (grantsStore.currentStep !== step) {
-    grantsStore.updateCurrentStep(step);
+    grantsStore.updateCurrentStep(step)
   }
 
   // 更新驗證狀態到 grantsStore
   if (grantsStore.formData[step]) {
-    grantsStore.formData[step].valid = valid;
+    grantsStore.formData[step].valid = valid
   }
-};
+}
 
-// 🆕 事件驅動：處理 Step1 準備進入下一步事件
-const handleStep1ReadyToProceed = async ({ step, data }: { step: number, data: Record<string, unknown> }) => {
-  console.log('✅ edit.vue: Received ready-to-proceed event from step1');
-  console.log(`📊 Step: ${step}, Data keys:`, Object.keys(data));
+// 🆕 統一準備進入下一步事件處理
+const handleStepReadyToProceed = async (eventData: { step: number, data: Record<string, unknown> }) => {
+  const { step, data } = eventData
+  console.log(`✅ edit.vue: Received ready-to-proceed event from step${step}`)
+  console.log(`📊 Step: ${step}, Data keys:`, Object.keys(data))
 
   // 先更新最新的資料
-  handleFormDataUpdate(step, { ...data, valid: true });
+  handleFormDataUpdate(step, { ...data, valid: true })
 
   // 觸發步驟驗證邏輯（進入下一步）
-  await handleStepValidated({ valid: true, step });
-};
-
-// 🆕 事件驅動：處理 Step2 資料變更事件
-const handleStep2DataChanged = ({ step, data, valid }: { step: number, data: Record<string, unknown>, valid: boolean }) => {
-  console.log('📥 edit.vue: Received step-data-changed event from step2');
-  console.log(`📊 Step: ${step}, Valid: ${valid}, Data keys:`, Object.keys(data));
-
-  // 使用現有的 handleFormDataUpdate 邏輯處理資料
-  handleFormDataUpdate(step, { ...data, valid });
-};
-
-// 🆕 事件驅動：處理 Step2 驗證狀態變更事件
-const handleStep2ValidationChanged = ({ step, valid }: { step: number, valid: boolean }) => {
-  console.log(`📋 edit.vue: Received validation-changed event from step2 - Step: ${step}, Valid: ${valid}`);
-
-  // 確保步驟狀態同步
-  if (grantsStore.currentStep !== step) {
-    grantsStore.updateCurrentStep(step);
-  }
-
-  // 更新驗證狀態到 grantsStore
-  if (grantsStore.formData[step]) {
-    grantsStore.formData[step].valid = valid;
-  }
-};
-
-// 🆕 事件驅動：處理 Step2 準備進入下一步事件
-const handleStep2ReadyToProceed = async ({ step, data }: { step: number, data: Record<string, unknown> }) => {
-  console.log('✅ edit.vue: Received ready-to-proceed event from step2');
-  console.log(`📊 Step: ${step}, Data keys:`, Object.keys(data));
-
-  // 先更新最新的資料
-  handleFormDataUpdate(step, { ...data, valid: true });
-
-  // 觸發步驟驗證邏輯（進入下一步）
-  await handleStepValidated({ valid: true, step });
-};
+  await handleStepValidated({ valid: true, step })
+}
 
 // Save all unsaved changes
 const saveAllChanges = async () => {

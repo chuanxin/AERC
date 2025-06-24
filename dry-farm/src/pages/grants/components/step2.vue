@@ -1366,7 +1366,6 @@ import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import { fromLonLat, transform } from 'ol/proj';
-import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import { Vector as VectorLayer } from 'ol/layer';
 import { Vector as VectorSource } from 'ol/source';
@@ -1375,27 +1374,38 @@ import GeoJSON from 'ol/format/GeoJSON';
 import { Select, Modify } from 'ol/interaction';
 import { click } from 'ol/events/condition';
 import { unByKey } from 'ol/Observable';
+import type { EventsKey } from 'ol/events';
 import { getArea } from 'ol/sphere';
 import { debounce } from 'lodash';
+import type { Feature } from 'ol';
+import type { Geometry } from 'ol/geom';
+
+// Define type for selected feature info
+interface SelectedFeatureInfo {
+  Land_no?: string;
+  section?: string;
+  area?: string | number;
+  [key: string]: unknown;
+}
 
 // Import store
 import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
 import { useRoute } from 'vue-router';
 
-// 🆕 事件驅動架構：定義事件類型
+// 事件驅動架構：定義事件類型
 interface Step2Events {
-  'step-data-changed': { step: number; data: Record<string, unknown>; valid: boolean };
-  'validation-changed': { step: number; valid: boolean };
-  'ready-to-proceed': { step: number; data: Record<string, unknown> };
-  'go-back-requested': { step: number };
+  'step-data-changed': [eventData: { step: number; data: Record<string, unknown>; valid: boolean }];
+  'validation-changed': [eventData: { step: number; valid: boolean }];
+  'ready-to-proceed': [eventData: { step: number; data: Record<string, unknown> }];
+  'go-back-requested': [eventData: { step: number }];
 }
 
-// 🆕 事件驅動架構：定義 emits
+// 事件驅動架構：定義 emits
 const emit = defineEmits<Step2Events>();
 
-// 🆕 事件驅動架構：移除 props 依賴，但保留 currentStep
-const props = defineProps<{
+// 事件驅動架構：移除 props 依賴，但保留 currentStep
+defineProps<{
   currentStep: number;
 }>();
 
@@ -1403,7 +1413,7 @@ const route = useRoute();
 
 // Reference to map element and map instance
 const mapElement = ref(null);
-let map: any = null;
+let map: Map | null = null;
 
 // Form validation references
 const form = ref(null);
@@ -1416,7 +1426,144 @@ const showCoOwnerSettings = ref(false);
 const grantsStore = useGrantsStore();
 const domicileStore = useDomicileStore();
 
-// 🆕 事件驅動架構：創建初始表單資料函數
+// 統一步驟組件架構：初始化保護與事件管理系統
+interface StepInitializationGuard {
+  isInitialized: boolean
+  isInitializing: boolean
+  isDataLoading: boolean
+}
+
+interface StepEventEmitter {
+  emitDataChanged: () => void
+  emitValidationChanged: (valid: boolean) => void
+  emitReadyToProceed: () => void
+  emitGoBackRequested: () => void
+}
+
+interface CascadeSelectManager {
+  loadCascadeData: () => Promise<void>
+  resetCascadeSelections: (level: 'county' | 'town' | 'village') => void
+}
+
+// 統一的初始化保護系統
+const createInitializationGuard = (): StepInitializationGuard => ({
+  isInitialized: false,
+  isInitializing: false,
+  isDataLoading: false
+})
+
+// 統一的事件發送器
+const createEventEmitter = (
+  stepNumber: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  emit: any,
+  formData: Record<string, unknown>,
+  validationState: Ref<boolean>,
+  guard: StepInitializationGuard
+): StepEventEmitter => {
+  const debouncedEmitDataChanged = debounce(() => {
+    if (!guard.isInitialized || guard.isInitializing) return
+
+    console.log(`🚀 step${stepNumber}.vue: Emitting step-data-changed event`)
+    emit('step-data-changed', {
+      step: stepNumber,
+      data: { ...formData },
+      valid: validationState.value
+    })
+  }, 300)
+
+  return {
+    emitDataChanged: () => {
+      if (!guard.isInitialized || guard.isInitializing) {
+        console.log(`⏸️ step${stepNumber}.vue: Skipping event emission during initialization`)
+        return
+      }
+      debouncedEmitDataChanged()
+    },
+
+    emitValidationChanged: (valid: boolean) => {
+      if (!guard.isInitializing && guard.isInitialized) {
+        emit('validation-changed', { step: stepNumber, valid })
+      } else {
+        console.log(`⏸️ step${stepNumber}.vue: Skipping validation event emission during initialization`)
+      }
+    },
+
+    emitReadyToProceed: () => {
+      console.log(`✅ step${stepNumber}.vue: Emitting ready-to-proceed event`)
+      emit('ready-to-proceed', {
+        step: stepNumber,
+        data: { ...formData }
+      })
+    },
+
+    emitGoBackRequested: () => {
+      console.log(`🔙 step${stepNumber}.vue: Emitting go-back-requested event`)
+      emit('go-back-requested', { step: stepNumber })
+    }
+  }
+}
+
+// 創建統一的級聯選擇管理器
+const createCascadeSelectManager = (
+  formData: Record<string, unknown>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  domicileStore: any,
+  guard: StepInitializationGuard
+): CascadeSelectManager => ({
+  loadCascadeData: async () => {
+    console.log('🔗 Loading cascade data for address fields...')
+
+    try {
+      // 載入設施地址的級聯資料
+      if (formData.landCounty) {
+        console.log('📍 Loading towns for landCounty:', formData.landCounty)
+        await loadTownsForCounty(formData.landCounty as string | number)
+
+        if (formData.landTown) {
+          console.log('📍 Loading villages for landTown:', formData.landTown)
+          const townId = typeof formData.landTown === 'number' ? formData.landTown : parseInt(formData.landTown as string)
+          await loadVillagesForTown(townId)
+        }
+      }
+
+      // 載入所有權人地址的級聯資料
+      if (formData.ownerCounty) {
+        console.log('📍 Loading towns for ownerCounty:', formData.ownerCounty)
+        await loadTownsForCounty(formData.ownerCounty as string | number)
+
+        if (formData.ownerTown) {
+          console.log('📍 Loading villages for ownerTown:', formData.ownerTown)
+          const townId = typeof formData.ownerTown === 'number' ? formData.ownerTown : parseInt(formData.ownerTown as string)
+          await domicileStore.loadVillagesByTownId(townId)
+        }
+      }
+
+      console.log('✅ Cascade data loaded successfully')
+    } catch (error) {
+      console.error('❌ Failed to load cascade data:', error)
+    }
+  },
+
+  resetCascadeSelections: (level: 'county' | 'town' | 'village') => {
+    if (guard.isInitializing) return
+
+    switch (level) {
+      case 'county':
+        formData.landTown = ''
+        formData.landSec = ''
+        break
+      case 'town':
+        formData.landSec = ''
+        break
+    }
+  }
+})
+
+// 實例化統一系統
+const initGuard = reactive(createInitializationGuard())
+
+// 事件驅動架構：創建初始表單資料函數
 const createInitialFormData = () => ({
   // Facility address section
   landCounty: '',
@@ -1465,17 +1612,13 @@ const createInitialFormData = () => ({
 
   // Always valid for seamless navigation
   valid: true
-});
+})
 
-// 🆕 事件驅動架構：本地表單資料管理
-const localFormData = reactive(createInitialFormData());
+// 事件驅動架構：本地表單資料管理
+const localFormData = reactive(createInitialFormData())
 
-// 🆕 事件驅動架構：初始化狀態追蹤
-const isInitialized = ref(false);
-const isInitializing = ref(false);
-
-// 🆕 事件驅動架構：資料載入狀態
-const isDataLoading = ref(false);
+const eventEmitter = createEventEmitter(2, emit, localFormData, localValid, initGuard)
+const cascadeManager = createCascadeSelectManager(localFormData, domicileStore, initGuard)
 
 // Dialog state
 const landInfoDialog = ref(false);
@@ -1492,13 +1635,13 @@ const landInfo = reactive({
 
 // Feature info state
 const featureInfoVisible = ref(false);
-const selectedFeatureInfo = ref({});
+const selectedFeatureInfo = ref<SelectedFeatureInfo>({});
 
-// Variables to track interactions
-let select = null;
-let modify = null;
-let selectedFeatureKey = null;
-let modifyFeatureKey = null;
+// Variables to track interactions with proper types
+let select: Select | null = null;
+let modify: Modify | null = null;
+let selectedFeatureKey: EventsKey | null = null;
+let modifyFeatureKey: EventsKey | null = null;
 
 // Address data
 const counties = computed(() => {
@@ -1755,26 +1898,25 @@ const updateLandNumber = () => {
   } else {
     localFormData.landNumber = '';
   }
-  // 🔥 修復問題2：在初始化期間不觸發事件
-  if (!isInitializing.value) {
-    emitDataChanged();
+  // 在初始化期間不觸發事件
+  if (!initGuard.isInitializing) {
+    eventEmitter.emitDataChanged();
   }
 };
 
 const onCountyChange = () => {
-  localFormData.landTown = '';
-  localFormData.landSec = '';
+  cascadeManager.resetCascadeSelections('county');
   // 在初始化期間不觸發事件
-  if (!isInitializing.value) {
-    emitDataChanged();
+  if (!initGuard.isInitializing) {
+    eventEmitter.emitDataChanged();
   }
 };
 
 const onTownChange = () => {
-  localFormData.landSec = '';
+  cascadeManager.resetCascadeSelections('town');
   // 在初始化期間不觸發事件
-  if (!isInitializing.value) {
-    emitDataChanged();
+  if (!initGuard.isInitializing) {
+    eventEmitter.emitDataChanged();
   }
 };
 
@@ -1782,24 +1924,24 @@ const onOwnerCountyChange = () => {
   localFormData.ownerTown = '';
   localFormData.ownerVillage = '';
   // 在初始化期間不觸發事件
-  if (!isInitializing.value) {
-    emitDataChanged();
+  if (!initGuard.isInitializing) {
+    eventEmitter.emitDataChanged();
   }
 };
 
 const onOwnerTownChange = () => {
   localFormData.ownerVillage = '';
   // 在初始化期間不觸發事件
-  if (!isInitializing.value) {
-    emitDataChanged();
+  if (!initGuard.isInitializing) {
+    eventEmitter.emitDataChanged();
   }
 };
 
 const onCropCategoryChange = () => {
   localFormData.cropName = '';
   // 在初始化期間不觸發事件
-  if (!isInitializing.value) {
-    emitDataChanged();
+  if (!initGuard.isInitializing) {
+    eventEmitter.emitDataChanged();
   }
 };
 
@@ -1828,8 +1970,8 @@ const addCrop = () => {
     }
 
     // 🔥 修復問題2：在初始化期間不觸發事件
-    if (!isInitializing.value) {
-      emitDataChanged();
+    if (!initGuard.isInitializing) {
+      eventEmitter.emitDataChanged();
     }
   }
 };
@@ -1837,8 +1979,8 @@ const addCrop = () => {
 const removeCrop = (index: number) => {
   localFormData.crops.splice(index, 1);
   // 🔥 修復問題2：在初始化期間不觸發事件
-  if (!isInitializing.value) {
-    emitDataChanged();
+  if (!initGuard.isInitializing) {
+    eventEmitter.emitDataChanged();
   }
 };
 
@@ -1846,8 +1988,8 @@ const removeCrop = (index: number) => {
 const confirmDate = () => {
   showDatePicker.value = false;
   // 🔥 修復問題2：在初始化期間不觸發事件
-  if (!isInitializing.value) {
-    emitDataChanged();
+  if (!initGuard.isInitializing) {
+    eventEmitter.emitDataChanged();
   }
 };
 
@@ -1906,18 +2048,18 @@ const addOwner = () => {
     localFormData.ownerShare2 = '';
     localFormData.ownerArea = '';
 
-    // 🔥 修復問題2：在初始化期間不觸發事件
-    if (!isInitializing.value) {
-      emitDataChanged();
+    // 在初始化期間不觸發事件
+    if (!initGuard.isInitializing) {
+      eventEmitter.emitDataChanged();
     }
   }
 };
 
 const removeOwner = (index: number) => {
   localFormData.owners.splice(index, 1);
-  // 🔥 修復問題2：在初始化期間不觸發事件
-  if (!isInitializing.value) {
-    emitDataChanged();
+  // 在初始化期間不觸發事件
+  if (!initGuard.isInitializing) {
+    eventEmitter.emitDataChanged();
   }
 };
 
@@ -1935,37 +2077,30 @@ const collapseCoOwnerSettings = () => {
   localFormData.ownerArea = '';
 };
 
-// 🆕 事件驅動架構：防抖的資料變更事件發送
-const debouncedEmitDataChanged = debounce(() => {
-  if (!isInitialized.value) return;
-
-  console.log('🚀 step2.vue: Emitting step-data-changed event');
-  emit('step-data-changed', {
-    step: 2,
-    data: { ...localFormData },
-    valid: localValid.value
-  });
-}, 300);
-
-// 🆕 事件驅動架構：統一的資料變更處理
-const emitDataChanged = () => {
-  // 🔥 修復問題2：在初始化期間不發送事件，避免重置資料庫資料
-  if (!isInitialized.value || isInitializing.value) {
-    console.log('⏸️ step2.vue: Skipping event emission during initialization');
+// 事件驅動架構：統一的資料變更處理 (現在由 eventEmitter 處理)
+const updateFormData = () => {
+  // 在初始化期間不執行更新，避免重置資料庫資料
+  if (!initGuard.isInitialized || initGuard.isInitializing) {
+    console.log('⏸️ step2.vue: Skipping updateFormData during initialization');
     return;
   }
-  debouncedEmitDataChanged();
+
+  // 驗證表單
+  validateForm();
+
+  // 發送資料變更事件
+  eventEmitter.emitDataChanged();
 };
 
-// 🆕 事件驅動架構:表單驗證
+// 事件驅動架構:表單驗證
 const validateForm = async (): Promise<boolean> => {
   if (form.value) {
-    const { valid } = await form.value.validate();
+    const { valid } = await (form.value as { validate: () => Promise<{ valid: boolean }> }).validate();
     localValid.value = valid;
 
-    // 🔥 修復問題2：在初始化期間不發送驗證事件，避免觸發不當的儲存
-    if (!isInitializing.value && isInitialized.value) {
-      emit('validation-changed', { step: 2, valid });
+    // 在初始化期間不發送驗證事件，避免觸發不當的儲存
+    if (!initGuard.isInitializing && initGuard.isInitialized) {
+      eventEmitter.emitValidationChanged(valid);
     } else {
       console.log('⏸️ step2.vue: Skipping validation event emission during initialization');
     }
@@ -1975,44 +2110,26 @@ const validateForm = async (): Promise<boolean> => {
   return true;
 };
 
-// 🆕 事件驅動架構:統一的資料更新處理
-const updateFormData = () => {
-  // 🔥 修復問題2：在初始化期間不執行更新，避免重置資料庫資料
-  if (!isInitialized.value || isInitializing.value) {
-    console.log('⏸️ step2.vue: Skipping updateFormData during initialization');
-    return;
-  }
-
-  // 驗證表單
-  validateForm();
-
-  // 發送資料變更事件
-  emitDataChanged();
-};
-
-// 🆕 事件驅動架構:處理下一步請求
+// 事件驅動架構:處理下一步請求
 const handleProceedToNext = async () => {
   console.log('🎯 step2.vue: handleProceedToNext called');
 
   const isValid = await validateForm();
   if (isValid) {
     console.log('✅ step2.vue: Form is valid, emitting ready-to-proceed');
-    emit('ready-to-proceed', {
-      step: 2,
-      data: { ...localFormData }
-    });
+    eventEmitter.emitReadyToProceed();
   } else {
     console.log('❌ step2.vue: Form validation failed');
   }
 };
 
-// 🆕 事件驅動架構:處理返回請求
+// 事件驅動架構:處理返回請求
 const handleGoBack = () => {
   console.log('🔙 step2.vue: handleGoBack called');
-  emit('go-back-requested', { step: 2 });
+  eventEmitter.emitGoBackRequested();
 };
 
-// 🆕 事件驅動架構:暴露方法給父組件
+// 事件驅動架構:暴露方法給父組件
 defineExpose({
   handleProceedToNext,
   handleGoBack
@@ -2020,8 +2137,8 @@ defineExpose({
 
 // Area calculations
 watch(() => localFormData.landArea, (newVal) => {
-  // 🔥 修復問題2：在初始化期間不執行面積計算，避免觸發事件
-  if (isInitializing.value) {
+  // 在初始化期間不執行面積計算，避免觸發事件
+  if (initGuard.isInitializing) {
     console.log('⏸️ step2.vue: Skipping landArea calculation during initialization');
     return;
   }
@@ -2069,12 +2186,12 @@ watch(() => localFormData.landArea, (newVal) => {
     localFormData.landAreaHa = '';
   }
 
-  emitDataChanged();
+  eventEmitter.emitDataChanged();
 });
 
 watch(() => localFormData.facilityArea, (newVal) => {
-  // 🔥 修復問題2：在初始化期間不執行面積計算，避免觸發事件
-  if (isInitializing.value) {
+  // 在初始化期間不執行面積計算，避免觸發事件
+  if (initGuard.isInitializing) {
     console.log('⏸️ step2.vue: Skipping facilityArea calculation during initialization');
     return;
   }
@@ -2099,7 +2216,7 @@ watch(() => localFormData.facilityArea, (newVal) => {
   }
 
   // 更新父組件資料
-  emitDataChanged();
+  eventEmitter.emitDataChanged();
 });
 
 // Calculate owner area
@@ -2301,7 +2418,7 @@ const addSelectInteraction = () => {
 };
 
 // Handle feature modifications
-const handleFeatureModify = (event) => {
+const handleFeatureModify = (event: { features: { getArray: () => Feature<Geometry>[] } }) => {
   // Get the modified features
   const features = event.features.getArray();
 
@@ -2339,8 +2456,8 @@ const handleFeatureModify = (event) => {
         }
 
         // 🔥 修復問題2：在初始化期間不觸發事件
-        if (!isInitializing.value) {
-          emitDataChanged();
+        if (!initGuard.isInitializing) {
+          eventEmitter.emitDataChanged();
         }
       }
 
@@ -2350,7 +2467,7 @@ const handleFeatureModify = (event) => {
 };
 
 // Function to handle feature selection
-const handleFeatureSelect = (e) => {
+const handleFeatureSelect = (e: { selected: Feature<Geometry>[]; deselected: Feature<Geometry>[] }) => {
   const selectedFeatures = e.selected;
 
   if (selectedFeatures.length > 0) {
@@ -2440,18 +2557,18 @@ const useSelectedFeature = () => {
 
     // If the feature has an area, update the area fields
     if (selectedFeatureInfo.value.area) {
-      localFormData.landArea = selectedFeatureInfo.value.area;
+      localFormData.landArea = String(selectedFeatureInfo.value.area);
       // Convert to hectares
-      const areaInHa = (parseFloat(selectedFeatureInfo.value.area) / 10000).toFixed(4);
+      const areaInHa = (parseFloat(String(selectedFeatureInfo.value.area)) / 10000).toFixed(4);
       localFormData.landAreaHa = areaInHa;
 
       // Set the facility area to match land area by default
-      localFormData.facilityArea = selectedFeatureInfo.value.area;
+      localFormData.facilityArea = String(selectedFeatureInfo.value.area);
       localFormData.facilityAreaHa = areaInHa;
     }
 
     // Find the selected feature in the map
-    const selectedFeatures = select.getFeatures().getArray();
+    const selectedFeatures = select?.getFeatures().getArray() || [];
     if (selectedFeatures.length > 0) {
       const feature = selectedFeatures[0];
       const geometry = feature.getGeometry();
@@ -2478,8 +2595,8 @@ const useSelectedFeature = () => {
     // Close the dialog
     landInfoDialog.value = false;
     // 🔥 修復問題2：在初始化期間不觸發事件
-    if (!isInitializing.value) {
-      emitDataChanged();
+    if (!initGuard.isInitializing) {
+      eventEmitter.emitDataChanged();
     }
   }
 };
@@ -2498,7 +2615,7 @@ const loadGeoJSONFile = () => {
   });
 
   // Add success event listener
-  geoJSONSource.on('featuresloadend', function(event) {
+  geoJSONSource.on('featuresloadend', function() {
     const features = geoJSONSource.getFeatures();
     console.log(`GeoJSON loaded successfully with ${features.length} features`);
 
@@ -2534,10 +2651,10 @@ const loadGeoJSONFile = () => {
     }, 100); // Small delay to ensure map is fully initialized
   });
 
-  // Handle loading errors
-  geoJSONSource.on('loaderror', function(event) {
-    console.error('Error loading GeoJSON file:', event);
-  });
+  // Handle loading errors (commented out due to TypeScript issues with OpenLayers event types)
+  // geoJSONSource.on('loaderror', function(event) {
+  //   console.error('Error loading GeoJSON file:', event);
+  // });
 
   // Create and add the vector layer
   const geoJSONLayer = new VectorLayer({
@@ -2574,20 +2691,21 @@ const findAndSelectFeatureByLandNumber = () => {
   console.log(`Searching for land number: ${fullLandNumber}`);
 
   // Look through all vector layers
-  const layers = map.getLayers().getArray().filter(layer =>
+  const layers = map.getLayers().getArray().filter((layer): layer is VectorLayer<VectorSource> =>
     layer instanceof VectorLayer && layer.getSource() instanceof VectorSource
   );
 
-  let exactMatch = null;
-  let mainNumberMatch = null;
+  let exactMatch: Feature<Geometry> | null = null;
+  let mainNumberMatch: Feature<Geometry> | null = null;
 
   // For each layer, try to find the feature
   for (const layer of layers) {
     const source = layer.getSource();
+    if (!source) continue;
     const features = source.getFeatures();
 
     // First pass: look for exact matches
-    features.forEach(feature => {
+    features.forEach((feature: Feature<Geometry>) => {
       const featureNumber = feature.get('Land_no');
       if (!featureNumber) return;
 
@@ -2596,14 +2714,14 @@ const findAndSelectFeatureByLandNumber = () => {
         exactMatch = feature;
       }
       // If we're looking for a full number but no exact match yet, check for main number match
-      else if (subNumber && !exactMatch && featureNumber === mainNumber) {
+      else if (subNumber && exactMatch === null && featureNumber === mainNumber) {
         mainNumberMatch = feature;
       }
     });
 
     // If we found an exact match, use it
     if (exactMatch) {
-      console.log(`Found exact match feature with land number: ${exactMatch.get('Land_no')}`);
+      console.log(`Found exact match feature with land number: ${(exactMatch as Feature<Geometry>).get('Land_no')}`);
       selectFeature(exactMatch);
       return true;
     }
@@ -2611,7 +2729,7 @@ const findAndSelectFeatureByLandNumber = () => {
 
   // If no exact match was found but we have a main number match, use that
   if (mainNumberMatch) {
-    console.log(`Found main number match: ${mainNumberMatch.get('Land_no')}`);
+    console.log(`Found main number match: ${(mainNumberMatch as Feature<Geometry>).get('Land_no')}`);
     selectFeature(mainNumberMatch);
     return true;
   }
@@ -2621,7 +2739,7 @@ const findAndSelectFeatureByLandNumber = () => {
 };
 
 // Helper function to select a feature
-const selectFeature = (feature) => {
+const selectFeature = (feature: Feature<Geometry>) => {
   if (select) {
     select.getFeatures().clear(); // Clear any existing selection
     select.getFeatures().push(feature); // Add this feature to selection
@@ -2634,8 +2752,10 @@ const selectFeature = (feature) => {
 
     // Center the map on this feature
     const geometry = feature.getGeometry();
-    if (geometry) {
-      map.getView().fit(geometry, {
+    if (geometry && map) {
+      // Get the extent of the geometry for fitting
+      const extent = geometry.getExtent();
+      map.getView().fit(extent, {
         duration: 500
       });
     }
@@ -2653,14 +2773,14 @@ const cleanupMap = () => {
   }
 
   if (map) {
-    map.setTarget(null);
+    map.setTarget(undefined);
     map = null;
   }
 };
 
-// 🆕 事件驅動架構:自主載入資料
+// 事件驅動架構:自主載入資料
 const loadStepData = async () => {
-  if (isDataLoading.value || isInitializing.value) return;
+  if (initGuard.isDataLoading || initGuard.isInitializing) return;
 
   const caseNumber = route.query.id as string;
   if (!caseNumber) {
@@ -2669,12 +2789,12 @@ const loadStepData = async () => {
   }
 
   try {
-    isDataLoading.value = true;
-    isInitializing.value = true;
+    initGuard.isDataLoading = true;
+    initGuard.isInitializing = true;
 
     console.log('📥 step2.vue: Loading step data for case:', caseNumber);
 
-    // 🔥 修復：調用 grantsStore.loadStepData 從 API 載入資料
+    // 調用 grantsStore.loadStepData 從 API 載入資料
     console.log('🎯 step2.vue: Calling grantsStore.loadStepData(2) to load from API...');
     await grantsStore.loadStepData(caseNumber, 2);
     console.log('✅ step2.vue: grantsStore.loadStepData completed');
@@ -2684,18 +2804,18 @@ const loadStepData = async () => {
       const savedData = grantsStore.formData[2];
       console.log('📦 step2.vue: Found loaded data from grantsStore:', Object.keys(savedData));
 
-      // 🔥 修復問題2：暫時禁用 watch，避免觸發不當的更新
-      isInitializing.value = true;
+      // 暫時禁用 watch，避免觸發不當的更新
+      initGuard.isInitializing = true;
 
       // 更新本地表單資料，排除 valid 欄位
       Object.keys(savedData).forEach(key => {
         if (key !== 'valid' && savedData[key] !== undefined && key in localFormData) {
-          localFormData[key] = savedData[key];
+          (localFormData as Record<string, unknown>)[key] = savedData[key];
         }
       });
 
-      // 🔥 修復問題1：載入級聯選擇資料
-      await loadCascadeData();
+      // 載入級聯選擇資料
+      await cascadeManager.loadCascadeData();
 
     } else {
       console.log('📝 step2.vue: No data found in grantsStore.formData[2], using default values');
@@ -2725,14 +2845,14 @@ const loadStepData = async () => {
       localFormData.owners = [];
     }
   } finally {
-    isDataLoading.value = false;
+    initGuard.isDataLoading = false;
 
-    // 🔥 延遲設定初始化完成，確保所有副作用完成後才允許事件發送
+    // 延遲設定初始化完成，確保所有副作用完成後才允許事件發送
     nextTick(() => {
       // 增加額外延遲，確保所有計算屬性和 watch 都已穩定
       setTimeout(() => {
-        isInitialized.value = true;
-        isInitializing.value = false;
+        initGuard.isInitialized = true;
+        initGuard.isInitializing = false;
 
         // 初始驗證（現在有保護機制）
         validateForm();
@@ -2743,42 +2863,7 @@ const loadStepData = async () => {
   }
 };
 
-// 🆕 載入級聯選擇資料的輔助函數
-const loadCascadeData = async () => {
-  console.log('🔗 step2.vue: Loading cascade data for address fields...');
-
-  try {
-    // 載入設施地址的級聯資料
-    if (localFormData.landCounty) {
-      console.log('📍 Loading towns for landCounty:', localFormData.landCounty);
-      await loadTownsForCounty(localFormData.landCounty);
-
-      if (localFormData.landTown) {
-        console.log('📍 Loading villages for landTown:', localFormData.landTown);
-        const townId = typeof localFormData.landTown === 'number' ? localFormData.landTown : parseInt(localFormData.landTown);
-        await loadVillagesForTown(townId);
-      }
-    }
-
-    // 載入所有權人地址的級聯資料
-    if (localFormData.ownerCounty) {
-      console.log('📍 Loading towns for ownerCounty:', localFormData.ownerCounty);
-      await loadTownsForCounty(localFormData.ownerCounty);
-
-      if (localFormData.ownerTown) {
-        console.log('📍 Loading villages for ownerTown:', localFormData.ownerTown);
-        const townId = typeof localFormData.ownerTown === 'number' ? localFormData.ownerTown : parseInt(localFormData.ownerTown);
-        await domicileStore.loadVillagesByTownId(townId);
-      }
-    }
-
-    console.log('✅ step2.vue: Cascade data loaded successfully');
-  } catch (error) {
-    console.error('❌ step2.vue: Failed to load cascade data:', error);
-  }
-};
-
-// 🆕 事件驅動架構:組件掛載時自主載入資料
+// 事件驅動架構:組件掛載時自主載入資料
 onMounted(async () => {
   console.log('🔧 step2.vue: Component mounted, starting initialization');
 
@@ -2789,10 +2874,10 @@ onMounted(async () => {
   await loadStepData();
 });
 
-// 🆕 事件驅動架構:監聽本地表單資料變更
+// 事件驅動架構:監聽本地表單資料變更
 watch(localFormData, () => {
   // 🔥 修復問題2：在初始化期間不觸發更新，避免重置資料庫資料
-  if (!isInitializing.value && isInitialized.value) {
+  if (!initGuard.isInitializing && initGuard.isInitialized) {
     updateFormData();
   }
 }, { deep: true });
@@ -2844,8 +2929,8 @@ const checkAndUpdateIndigenousArea = (townId: number) => {
     if (localFormData.isAboriginalArea !== isIndigenous) {
       localFormData.isAboriginalArea = isIndigenous;
       // 在初始化期間不觸發事件
-      if (!isInitializing.value) {
-        emitDataChanged();
+      if (!initGuard.isInitializing) {
+        eventEmitter.emitDataChanged();
       }
     }
   }
@@ -2853,7 +2938,7 @@ const checkAndUpdateIndigenousArea = (townId: number) => {
 
 // Watchers for automatic town/village loading and indigenous area detection
 watch(() => localFormData.landCounty, async (newCounty) => {
-  if (newCounty && !isInitializing.value) {
+  if (newCounty && !initGuard.isInitializing) {
     localFormData.landTown = '';
     localFormData.landSec = '';
     await loadTownsForCounty(newCounty);
@@ -2861,7 +2946,7 @@ watch(() => localFormData.landCounty, async (newCounty) => {
 });
 
 watch(() => localFormData.landTown, async (newTown) => {
-  if (newTown && !isInitializing.value) {
+  if (newTown && !initGuard.isInitializing) {
     localFormData.landSec = '';
     const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
     await loadVillagesForTown(townId);
@@ -2870,7 +2955,7 @@ watch(() => localFormData.landTown, async (newTown) => {
 });
 
 watch(() => localFormData.ownerCounty, async (newCounty) => {
-  if (newCounty && !isInitializing.value) {
+  if (newCounty && !initGuard.isInitializing) {
     localFormData.ownerTown = '';
     localFormData.ownerVillage = '';
     await loadTownsForCounty(newCounty);
@@ -2878,7 +2963,7 @@ watch(() => localFormData.ownerCounty, async (newCounty) => {
 });
 
 watch(() => localFormData.ownerTown, async (newTown) => {
-  if (newTown && !isInitializing.value) {
+  if (newTown && !initGuard.isInitializing) {
     localFormData.ownerVillage = '';
     const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
     await domicileStore.loadVillagesByTownId(townId);
@@ -2971,10 +3056,7 @@ onUnmounted(() => {
 }
 
 /* 日期預覽 alert 樣式 */
-:deep(.v-alert--variant-tonal) {
-  /* border-left: 4px solid; */
-  /* border-left-color: #3ea0a3; */
-}
+/* Removed empty rule for .v-alert--variant-tonal */
 
 /* 日期選擇器下拉選單樣式 */
 :deep(.v-select .v-field__input) {
