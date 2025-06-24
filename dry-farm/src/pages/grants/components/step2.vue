@@ -1445,11 +1445,67 @@ interface CascadeSelectManager {
   resetCascadeSelections: (level: 'county' | 'town' | 'village') => void
 }
 
+// 統一的保護函數工廠
+interface ProtectedFunctionFactory {
+  createProtectedHandler: <T extends (...args: any[]) => any>(fn: T) => T
+  createProtectedWatch: <T extends (...args: any[]) => any>(fn: T) => T
+  createCascadeHandler: <T extends (...args: any[]) => any>(fn: T) => T
+}
+
+// 統一的步驟管理器
+interface UnifiedStepManager extends StepEventEmitter, CascadeSelectManager, ProtectedFunctionFactory {
+  guard: StepInitializationGuard
+  validateForm: () => Promise<boolean>
+  updateFormData: () => void
+}
+
 // 統一的初始化保護系統
 const createInitializationGuard = (): StepInitializationGuard => ({
   isInitialized: false,
   isInitializing: false,
   isDataLoading: false
+})
+
+// 創建保護函數工廠
+const createProtectedFunctionFactory = (
+  guard: StepInitializationGuard,
+  eventEmitter: StepEventEmitter
+): ProtectedFunctionFactory => ({
+  // 創建受保護的事件處理函數
+  createProtectedHandler: <T extends (...args: any[]) => any>(fn: T): T => {
+    return ((...args: Parameters<T>) => {
+      const result = fn(...args)
+      // 在初始化期間不觸發事件
+      if (!guard.isInitializing && guard.isInitialized) {
+        eventEmitter.emitDataChanged()
+      } else {
+        console.log(`⏸️ step2.vue: Skipping event emission during initialization (${fn.name})`)
+      }
+      return result
+    }) as T
+  },
+
+  // 創建受保護的 Watch 函數
+  createProtectedWatch: <T extends (...args: any[]) => any>(fn: T): T => {
+    return ((...args: Parameters<T>) => {
+      if (guard.isInitializing) {
+        console.log(`⏸️ step2.vue: Skipping watch execution during initialization (${fn.name})`)
+        return
+      }
+      return fn(...args)
+    }) as T
+  },
+
+  // 創建受保護的級聯選擇處理函數
+  createCascadeHandler: <T extends (...args: any[]) => any>(fn: T): T => {
+    return ((...args: Parameters<T>) => {
+      const result = fn(...args)
+      if (!guard.isInitializing && guard.isInitialized) {
+        eventEmitter.emitDataChanged()
+      }
+      return result
+    }) as T
+  }
 })
 
 // 統一的事件發送器
@@ -1560,8 +1616,66 @@ const createCascadeSelectManager = (
   }
 })
 
-// 實例化統一系統
-const initGuard = reactive(createInitializationGuard())
+// 創建統一的步驟管理器
+const createUnifiedStepManager = (
+  stepNumber: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  emit: any,
+  formData: Record<string, unknown>,
+  validationState: Ref<boolean>,
+  form: Ref<any>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  domicileStore: any
+): UnifiedStepManager => {
+  const guard = createInitializationGuard()
+  const eventEmitter = createEventEmitter(stepNumber, emit, formData, validationState, guard)
+  const cascadeManager = createCascadeSelectManager(formData, domicileStore, guard)
+  const protectedFactory = createProtectedFunctionFactory(guard, eventEmitter)
+
+  return {
+    // 基本狀態
+    guard,
+
+    // 事件發送器方法
+    ...eventEmitter,
+
+    // 級聯選擇管理器方法
+    ...cascadeManager,
+
+    // 保護函數工廠方法
+    ...protectedFactory,
+
+    // 統一的表單驗證
+    validateForm: async (): Promise<boolean> => {
+      if (form.value) {
+        const { valid } = await (form.value as { validate: () => Promise<{ valid: boolean }> }).validate()
+        validationState.value = valid
+
+        // 在初始化期間不發送驗證事件,避免觸發不當的儲存
+        if (!guard.isInitializing && guard.isInitialized) {
+          eventEmitter.emitValidationChanged(valid)
+        } else {
+          console.log('⏸️ step2.vue: Skipping validation event emission during initialization')
+        }
+
+        return valid
+      }
+      return true
+    },
+
+    // 統一的資料更新
+    updateFormData: () => {
+      // 在初始化期間不執行更新,避免重置資料庫資料
+      if (!guard.isInitialized || guard.isInitializing) {
+        console.log('⏸️ step2.vue: Skipping updateFormData during initialization')
+        return
+      }
+
+      // 發送資料變更事件 (驗證會在validateForm方法中處理)
+      eventEmitter.emitDataChanged()
+    }
+  }
+}
 
 // 事件驅動架構：創建初始表單資料函數
 const createInitialFormData = () => ({
@@ -1617,8 +1731,13 @@ const createInitialFormData = () => ({
 // 事件驅動架構：本地表單資料管理
 const localFormData = reactive(createInitialFormData())
 
-const eventEmitter = createEventEmitter(2, emit, localFormData, localValid, initGuard)
-const cascadeManager = createCascadeSelectManager(localFormData, domicileStore, initGuard)
+// 實例化統一的步驟管理器
+const stepManager = createUnifiedStepManager(2, emit, localFormData, localValid, form, domicileStore)
+
+// 為了向後相容，保留原有的引用
+const initGuard = stepManager.guard
+const eventEmitter = stepManager
+const cascadeManager = stepManager
 
 // Dialog state
 const landInfoDialog = ref(false);
@@ -1890,7 +2009,8 @@ const ownerAreaComputed = computed({
 //   return value.toString().padStart(4, '0');
 // };
 
-const updateLandNumber = () => {
+// 使用統一的保護函數工廠重構事件處理函數
+const updateLandNumber = stepManager.createProtectedHandler(() => {
   if (localFormData.landNumberMain) {
     localFormData.landNumber = localFormData.landNumberSub
       ? `${localFormData.landNumberMain}-${localFormData.landNumberSub}`
@@ -1898,55 +2018,31 @@ const updateLandNumber = () => {
   } else {
     localFormData.landNumber = '';
   }
-  // 在初始化期間不觸發事件
-  if (!initGuard.isInitializing) {
-    eventEmitter.emitDataChanged();
-  }
-};
+});
 
-const onCountyChange = () => {
+const onCountyChange = stepManager.createCascadeHandler(() => {
   cascadeManager.resetCascadeSelections('county');
-  // 在初始化期間不觸發事件
-  if (!initGuard.isInitializing) {
-    eventEmitter.emitDataChanged();
-  }
-};
+});
 
-const onTownChange = () => {
+const onTownChange = stepManager.createCascadeHandler(() => {
   cascadeManager.resetCascadeSelections('town');
-  // 在初始化期間不觸發事件
-  if (!initGuard.isInitializing) {
-    eventEmitter.emitDataChanged();
-  }
-};
+});
 
-const onOwnerCountyChange = () => {
+const onOwnerCountyChange = stepManager.createProtectedHandler(() => {
   localFormData.ownerTown = '';
   localFormData.ownerVillage = '';
-  // 在初始化期間不觸發事件
-  if (!initGuard.isInitializing) {
-    eventEmitter.emitDataChanged();
-  }
-};
+});
 
-const onOwnerTownChange = () => {
+const onOwnerTownChange = stepManager.createProtectedHandler(() => {
   localFormData.ownerVillage = '';
-  // 在初始化期間不觸發事件
-  if (!initGuard.isInitializing) {
-    eventEmitter.emitDataChanged();
-  }
-};
+});
 
-const onCropCategoryChange = () => {
+const onCropCategoryChange = stepManager.createProtectedHandler(() => {
   localFormData.cropName = '';
-  // 在初始化期間不觸發事件
-  if (!initGuard.isInitializing) {
-    eventEmitter.emitDataChanged();
-  }
-};
+});
 
 // Add and remove crops
-const addCrop = () => {
+const addCrop = stepManager.createProtectedHandler(() => {
   if (localFormData.cropCategory && localFormData.cropName) {
     const crop = {
       category: localFormData.cropCategory,
@@ -1968,30 +2064,17 @@ const addCrop = () => {
       // Clear selection
       localFormData.cropName = '';
     }
-
-    // 🔥 修復問題2：在初始化期間不觸發事件
-    if (!initGuard.isInitializing) {
-      eventEmitter.emitDataChanged();
-    }
   }
-};
+});
 
-const removeCrop = (index: number) => {
+const removeCrop = stepManager.createProtectedHandler((index: number) => {
   localFormData.crops.splice(index, 1);
-  // 🔥 修復問題2：在初始化期間不觸發事件
-  if (!initGuard.isInitializing) {
-    eventEmitter.emitDataChanged();
-  }
-};
+});
 
 // Date picker methods
-const confirmDate = () => {
+const confirmDate = stepManager.createProtectedHandler(() => {
   showDatePicker.value = false;
-  // 🔥 修復問題2：在初始化期間不觸發事件
-  if (!initGuard.isInitializing) {
-    eventEmitter.emitDataChanged();
-  }
-};
+});
 
 const calculateTotalShare = () => {
   let totalShare = 0;
@@ -2013,8 +2096,8 @@ const calculateTotalShare = () => {
   return totalShare;
 };
 
-// Add and remove owners
-const addOwner = () => {
+// Add and remove owners - 使用保護函數工廠
+const addOwner = stepManager.createProtectedHandler(() => {
   if (localFormData.ownerName && localFormData.ownerId &&
       localFormData.ownerShare1 && localFormData.ownerShare2) {
 
@@ -2047,21 +2130,12 @@ const addOwner = () => {
     localFormData.ownerShare1 = '';
     localFormData.ownerShare2 = '';
     localFormData.ownerArea = '';
-
-    // 在初始化期間不觸發事件
-    if (!initGuard.isInitializing) {
-      eventEmitter.emitDataChanged();
-    }
   }
-};
+});
 
-const removeOwner = (index: number) => {
+const removeOwner = stepManager.createProtectedHandler((index: number) => {
   localFormData.owners.splice(index, 1);
-  // 在初始化期間不觸發事件
-  if (!initGuard.isInitializing) {
-    eventEmitter.emitDataChanged();
-  }
-};
+});
 
 // Collapse co-owner settings
 const collapseCoOwnerSettings = () => {
@@ -2077,38 +2151,11 @@ const collapseCoOwnerSettings = () => {
   localFormData.ownerArea = '';
 };
 
-// 事件驅動架構：統一的資料變更處理 (現在由 eventEmitter 處理)
-const updateFormData = () => {
-  // 在初始化期間不執行更新，避免重置資料庫資料
-  if (!initGuard.isInitialized || initGuard.isInitializing) {
-    console.log('⏸️ step2.vue: Skipping updateFormData during initialization');
-    return;
-  }
+// 事件驅動架構：統一的資料變更處理 (使用統一管理器)
+const updateFormData = stepManager.updateFormData;
 
-  // 驗證表單
-  validateForm();
-
-  // 發送資料變更事件
-  eventEmitter.emitDataChanged();
-};
-
-// 事件驅動架構:表單驗證
-const validateForm = async (): Promise<boolean> => {
-  if (form.value) {
-    const { valid } = await (form.value as { validate: () => Promise<{ valid: boolean }> }).validate();
-    localValid.value = valid;
-
-    // 在初始化期間不發送驗證事件，避免觸發不當的儲存
-    if (!initGuard.isInitializing && initGuard.isInitialized) {
-      eventEmitter.emitValidationChanged(valid);
-    } else {
-      console.log('⏸️ step2.vue: Skipping validation event emission during initialization');
-    }
-
-    return valid;
-  }
-  return true;
-};
+// 事件驅動架構:表單驗證 (使用統一管理器)
+const validateForm = stepManager.validateForm;
 
 // 事件驅動架構:處理下一步請求
 const handleProceedToNext = async () => {
@@ -2136,13 +2183,7 @@ defineExpose({
 });
 
 // Area calculations
-watch(() => localFormData.landArea, (newVal) => {
-  // 在初始化期間不執行面積計算，避免觸發事件
-  if (initGuard.isInitializing) {
-    console.log('⏸️ step2.vue: Skipping landArea calculation during initialization');
-    return;
-  }
-
+watch(() => localFormData.landArea, stepManager.createProtectedWatch((newVal: string) => {
   if (newVal && localFormData.owners && localFormData.owners.length > 0) {
     const landArea = parseFloat(newVal);
 
@@ -2187,15 +2228,9 @@ watch(() => localFormData.landArea, (newVal) => {
   }
 
   eventEmitter.emitDataChanged();
-});
+}));
 
-watch(() => localFormData.facilityArea, (newVal) => {
-  // 在初始化期間不執行面積計算，避免觸發事件
-  if (initGuard.isInitializing) {
-    console.log('⏸️ step2.vue: Skipping facilityArea calculation during initialization');
-    return;
-  }
-
+watch(() => localFormData.facilityArea as string, stepManager.createProtectedWatch((newVal: string) => {
   if (newVal) {
     const facilityArea = parseFloat(newVal);
     const landArea = parseFloat(localFormData.landArea || '0');
@@ -2217,7 +2252,7 @@ watch(() => localFormData.facilityArea, (newVal) => {
 
   // 更新父組件資料
   eventEmitter.emitDataChanged();
-});
+}));
 
 // Calculate owner area
 // watch([() => localFormData.landArea, () => localFormData.ownerShare1, () => localFormData.ownerShare2], () => {
@@ -2455,8 +2490,8 @@ const handleFeatureModify = (event: { features: { getArray: () => Feature<Geomet
           localFormData.facilityAreaHa = (roundedArea / 10000).toFixed(4);
         }
 
-        // 🔥 修復問題2：在初始化期間不觸發事件
-        if (!initGuard.isInitializing) {
+        // 使用統一的事件保護
+        if (!initGuard.isInitializing && initGuard.isInitialized) {
           eventEmitter.emitDataChanged();
         }
       }
@@ -2594,8 +2629,8 @@ const useSelectedFeature = () => {
     hideFeatureInfo();
     // Close the dialog
     landInfoDialog.value = false;
-    // 🔥 修復問題2：在初始化期間不觸發事件
-    if (!initGuard.isInitializing) {
+    // 使用統一的事件保護
+    if (!initGuard.isInitializing && initGuard.isInitialized) {
       eventEmitter.emitDataChanged();
     }
   }
@@ -2874,13 +2909,10 @@ onMounted(async () => {
   await loadStepData();
 });
 
-// 事件驅動架構:監聽本地表單資料變更
-watch(localFormData, () => {
-  // 🔥 修復問題2：在初始化期間不觸發更新，避免重置資料庫資料
-  if (!initGuard.isInitializing && initGuard.isInitialized) {
-    updateFormData();
-  }
-}, { deep: true });
+// 事件驅動架構:監聽本地表單資料變更 - 使用統一的保護機制
+watch(localFormData, stepManager.createProtectedWatch(() => {
+  updateFormData();
+}), { deep: true });
 
 // Watch for dialog open/close to initialize/cleanup map
 watch(landInfoDialog, (isOpen) => {
@@ -2920,55 +2952,51 @@ watch([() => localFormData.longitude, () => localFormData.latitude], () => {
   }
 });
 
-// Auto-detect indigenous area based on town selection
-const checkAndUpdateIndigenousArea = (townId: number) => {
+// Auto-detect indigenous area based on town selection - 使用保護函數工廠
+const checkAndUpdateIndigenousArea = stepManager.createProtectedHandler((townId: number) => {
   const town = domicileStore.getTownById(townId);
   if (town) {
     // Set isAboriginalArea to true if the town is indigenous (indigenous_type = 1)
     const isIndigenous = town.is_indigenous || town.indigenous_type === '1';
     if (localFormData.isAboriginalArea !== isIndigenous) {
       localFormData.isAboriginalArea = isIndigenous;
-      // 在初始化期間不觸發事件
-      if (!initGuard.isInitializing) {
-        eventEmitter.emitDataChanged();
-      }
     }
   }
-};
+});
 
-// Watchers for automatic town/village loading and indigenous area detection
-watch(() => localFormData.landCounty, async (newCounty) => {
-  if (newCounty && !initGuard.isInitializing) {
+// Watchers for automatic town/village loading and indigenous area detection - 使用保護 Watch 工廠
+watch(() => localFormData.landCounty as string | number, stepManager.createProtectedWatch(async (newCounty: string | number) => {
+  if (newCounty) {
     localFormData.landTown = '';
     localFormData.landSec = '';
     await loadTownsForCounty(newCounty);
   }
-});
+}));
 
-watch(() => localFormData.landTown, async (newTown) => {
-  if (newTown && !initGuard.isInitializing) {
+watch(() => localFormData.landTown, stepManager.createProtectedWatch(async (newTown: string | number) => {
+  if (newTown) {
     localFormData.landSec = '';
     const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
     await loadVillagesForTown(townId);
     checkAndUpdateIndigenousArea(townId);
   }
-});
+}));
 
-watch(() => localFormData.ownerCounty, async (newCounty) => {
-  if (newCounty && !initGuard.isInitializing) {
+watch(() => localFormData.ownerCounty, stepManager.createProtectedWatch(async (newCounty: string | number) => {
+  if (newCounty) {
     localFormData.ownerTown = '';
     localFormData.ownerVillage = '';
     await loadTownsForCounty(newCounty);
   }
-});
+}));
 
-watch(() => localFormData.ownerTown, async (newTown) => {
-  if (newTown && !initGuard.isInitializing) {
+watch(() => localFormData.ownerTown, stepManager.createProtectedWatch(async (newTown: number | string) => {
+  if (newTown) {
     localFormData.ownerVillage = '';
     const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
     await domicileStore.loadVillagesByTownId(townId);
   }
-});
+}));
 
 // Clean up resources when component is unmounted
 onUnmounted(() => {
