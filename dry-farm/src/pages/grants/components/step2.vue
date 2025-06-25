@@ -13,15 +13,219 @@
           v-model="localValid"
           @submit.prevent
         >
-          <!-- 設施地址區域 -->
+          <!-- 多筆土地資料管理區域 -->
           <v-card
+            flat
+            class="mb-4 pa-4"
+            color="#f8f9fa"
+            rounded="lg"
+          >
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-4"
+              style="color: #2d8c8f"
+            >
+              <v-icon
+                color="#3ea0a3"
+                class="me-2 pb-1"
+                size="small"
+              >
+                mdi-map-legend
+              </v-icon>
+              <span>土地資料管理</span>
+              <v-spacer />
+              <v-btn
+                color="#3ea0a3"
+                variant="flat"
+                rounded="lg"
+                size="small"
+                @click="addNewLand"
+              >
+                <v-icon
+                  size="small"
+                  class="me-1"
+                >
+                  mdi-plus
+                </v-icon>
+                新增土地
+              </v-btn>
+            </v-card-title>
+
+            <!-- 總面積統計 -->
+            <v-sheet
+              v-if="landManagement.lands.length > 0"
+              class="mb-3 pa-3 rounded"
+              color="rgba(76, 175, 80, 0.1)"
+            >
+              <div class="d-flex align-center">
+                <v-icon
+                  size="small"
+                  class="me-2"
+                  color="success"
+                >
+                  mdi-calculator
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">總施作面積：</span>
+                <span class="text-h6 font-weight-bold ms-2 text-success">
+                  {{ totalFacilityArea.toLocaleString() }} m²
+                </span>
+                <span class="text-body-2 ms-2 text-grey-darken-1">
+                  ({{ totalFacilityAreaHa.toFixed(4) }} 公頃)
+                </span>
+              </div>
+            </v-sheet>
+
+            <!-- 土地卡片列表 -->
+            <div v-if="landManagement.lands.length > 0">
+              <v-row>
+                <v-col
+                  v-for="(land, index) in landManagement.lands"
+                  :key="land.id"
+                  cols="12"
+                  md="6"
+                  lg="4"
+                >
+                  <v-card
+                    class="land-card cursor-pointer"
+                    variant="outlined"
+                    :color="landManagement.currentEditingLandId === land.id ? '#e3f4f4' : 'white'"
+                    @click="editLand(land.id)"
+                  >
+                    <v-card-text class="pa-3">
+                      <div class="d-flex justify-space-between align-start mb-2">
+                        <v-chip
+                          size="small"
+                          color="primary"
+                          variant="tonal"
+                        >
+                          土地 {{ index + 1 }}
+                        </v-chip>
+                        <v-btn
+                          icon
+                          size="x-small"
+                          color="error"
+                          variant="text"
+                          @click.stop="deleteLand(land.id)"
+                        >
+                          <v-icon size="small">
+                            mdi-close
+                          </v-icon>
+                        </v-btn>
+                      </div>
+                      
+                      <div class="land-summary">
+                        <div class="text-body-2 mb-1">
+                          <v-icon
+                            size="small"
+                            class="me-1"
+                          >
+                            mdi-map-marker
+                          </v-icon>
+                          {{ getLandLocationText(land) }}
+                        </div>
+                        
+                        <div class="text-body-2 mb-1">
+                          <v-icon
+                            size="small"
+                            class="me-1"
+                          >
+                            mdi-land-plots
+                          </v-icon>
+                          地號：{{ land.landNumber || '未設定' }}
+                        </div>
+                        
+                        <div class="text-body-2 mb-1">
+                          <v-icon
+                            size="small"
+                            class="me-1"
+                          >
+                            mdi-ruler-square
+                          </v-icon>
+                          施作面積：{{ land.facilityArea || '0' }} m²
+                        </div>
+                        
+                        <div
+                          v-if="land.crops.length > 0"
+                          class="text-body-2"
+                        >
+                          <v-icon
+                            size="small"
+                            class="me-1"
+                          >
+                            mdi-sprout
+                          </v-icon>
+                          作物：{{ land.crops.map(c => c.name).join(', ') }}
+                        </div>
+                      </div>
+                    </v-card-text>
+                    
+                    <v-card-actions class="pt-0 pb-3 px-3">
+                      <v-btn
+                        variant="outlined"
+                        color="#3ea0a3"
+                        size="small"
+                        block
+                        @click.stop="editLand(land.id)"
+                      >
+                        <v-icon
+                          size="small"
+                          class="me-1"
+                        >
+                          mdi-pencil
+                        </v-icon>
+                        編輯
+                      </v-btn>
+                    </v-card-actions>
+                  </v-card>
+                </v-col>
+              </v-row>
+            </div>
+
+            <!-- 空狀態提示 -->
+            <v-sheet
+              v-else
+              class="pa-6 text-center rounded"
+              color="rgba(158, 158, 158, 0.1)"
+            >
+              <v-icon
+                size="48"
+                color="grey"
+                class="mb-3"
+              >
+                mdi-map-plus
+              </v-icon>
+              <div class="text-h6 text-grey-darken-1 mb-2">
+                尚未新增任何土地資料
+              </div>
+              <div class="text-body-2 text-grey mb-4">
+                請點擊上方「新增土地」按鈕開始建立您的第一筆土地資料
+              </div>
+              <v-btn
+                color="#3ea0a3"
+                variant="flat"
+                rounded="lg"
+                @click="addNewLand"
+              >
+                <v-icon
+                  size="small"
+                  class="me-1"
+                >
+                  mdi-plus
+                </v-icon>
+                新增土地
+              </v-btn>
+            </v-sheet>
+          </v-card>
+
+          <!-- 設施地址區域 (編輯模式時顯示) -->
+          <v-card
+            v-show="landManagement.isEditingMode"
             flat
             class="mb-4 pa-4"
             color="#e3f4f4"
             rounded="lg"
           >
             <v-card-title
-              class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+              class="text-subtitle-1 font-weight-bold pa-0 pb-4"
               style="color: #2d8c8f"
             >
               <v-icon
@@ -31,8 +235,58 @@
               >
                 mdi-home-map-marker
               </v-icon>
-              <span><span class="required-asterisk">*</span>設施地址</span>
+              <span>
+                <span class="required-asterisk">*</span>
+                {{ landManagement.currentEditingLandId ? '編輯土地資料' : '新增土地資料' }}
+              </span>
+              <v-spacer />
+              <v-btn
+                variant="text"
+                color="grey"
+                size="small"
+                @click="cancelLandEdit"
+              >
+                <v-icon
+                  size="small"
+                  class="me-1"
+                >
+                  mdi-close
+                </v-icon>
+                取消編輯
+              </v-btn>
             </v-card-title>
+            
+            <!-- 編輯操作按鈕 -->
+            <div class="d-flex gap-3 mb-4">
+              <v-btn
+                color="success"
+                variant="flat"
+                rounded="lg"
+                @click="saveLandEdit"
+              >
+                <v-icon
+                  size="small"
+                  class="me-1"
+                >
+                  mdi-content-save
+                </v-icon>
+                {{ landManagement.currentEditingLandId ? '更新土地' : '儲存土地' }}
+              </v-btn>
+              <v-btn
+                variant="outlined"
+                color="grey"
+                rounded="lg"
+                @click="cancelLandEdit"
+              >
+                <v-icon
+                  size="small"
+                  class="me-1"
+                >
+                  mdi-cancel
+                </v-icon>
+                取消
+              </v-btn>
+            </div>
 
             <!-- 地址選擇區域 -->
             <v-sheet
@@ -1406,6 +1660,69 @@ interface SelectedFeatureInfo {
   [key: string]: unknown;
 }
 
+// 定義單筆土地資料結構
+interface LandData {
+  id: string; // 唯一識別碼
+  // 設施地段
+  landCounty: string | number;
+  landTown: string | number;
+  landSec: string | number;
+  
+  // 地號資訊
+  landNumber: string;
+  landNumberMain: string;
+  landNumberSub: string;
+  
+  // 土地特性
+  isAboriginalArea: boolean;
+  isIrrigationArea: boolean;
+  isReapplied: boolean;
+  hasAgriculturalCertificate: boolean;
+  certificateYear: string;
+  certificateMonth: string;
+  certificateDay: string;
+  
+  // 坐標資訊
+  longitude: string;
+  latitude: string;
+  
+  // 面積資訊
+  landArea: string;
+  landAreaHa: string;
+  facilityArea: string;
+  facilityAreaHa: string;
+  
+  // 農地種植作物
+  cropCategory: string;
+  cropName: string;
+  crops: Array<{category: string, name: string}>;
+  
+  // 所有權人資料
+  ownerName: string;
+  ownerId: string;
+  ownerCounty: string | number;
+  ownerTown: string | number;
+  ownerVillage: string | number;
+  ownerShare1: string;
+  ownerShare2: string;
+  ownerArea: string;
+  owners: Array<{
+    name: string;
+    id: string;
+    address: string;
+    share: string;
+    area: string;
+  }>;
+}
+
+// 土地管理狀態
+interface LandManagementState {
+  currentEditingLandId: string | null; // 當前編輯的土地ID
+  isEditingMode: boolean; // 是否在編輯模式
+  showLandEditDialog: boolean; // 是否顯示編輯對話框
+  lands: LandData[]; // 所有土地資料
+}
+
 // Import store
 import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
@@ -1715,8 +2032,67 @@ const createUnifiedStepManager = (
   }
 }
 
-// 事件驅動架構：創建初始表單資料函數
+// 創建單筆土地初始資料
+const createInitialLandData = (id?: string): LandData => ({
+  id: id || `land_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  // 設施地段
+  landCounty: '',
+  landTown: '',
+  landSec: '',
+  
+  // 地號資訊
+  landNumber: '',
+  landNumberMain: '',
+  landNumberSub: '',
+  
+  // 土地特性
+  isAboriginalArea: false,
+  isIrrigationArea: false,
+  isReapplied: false,
+  hasAgriculturalCertificate: false,
+  certificateYear: '',
+  certificateMonth: '',
+  certificateDay: '',
+  
+  // 坐標資訊
+  longitude: '',
+  latitude: '',
+  
+  // 面積資訊
+  landArea: '',
+  landAreaHa: '',
+  facilityArea: '',
+  facilityAreaHa: '',
+  
+  // 農地種植作物
+  cropCategory: '',
+  cropName: '',
+  crops: [] as Array<{category: string, name: string}>,
+  
+  // 所有權人資料
+  ownerName: '',
+  ownerId: '',
+  ownerCounty: '',
+  ownerTown: '',
+  ownerVillage: '',
+  ownerShare1: '',
+  ownerShare2: '',
+  ownerArea: '',
+  owners: [] as Array<{
+    name: string;
+    id: string;
+    address: string;
+    share: string;
+    area: string;
+  }>
+})
+
+// 事件驅動架構：創建初始表單資料函數 (向後相容 + 多筆土地支援)
 const createInitialFormData = () => ({
+  // 多筆土地資料陣列
+  lands: [] as LandData[],
+  
+  // 向後相容：保留原有的單筆土地資料結構
   // Facility address section
   landCounty: '',
   landTown: '',
@@ -1768,6 +2144,111 @@ const createInitialFormData = () => ({
 
 // 事件驅動架構：本地表單資料管理
 const localFormData = reactive(createInitialFormData())
+
+// 土地管理狀態
+const landManagement = reactive<LandManagementState>({
+  currentEditingLandId: null,
+  isEditingMode: false,
+  showLandEditDialog: false,
+  lands: []
+})
+
+// 土地管理工具函數
+const landUtils = {
+  // 生成唯一ID
+  generateLandId: (): string => `land_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  
+  // 從當前表單資料創建土地資料
+  createLandFromCurrentForm: (): LandData => ({
+    id: landUtils.generateLandId(),
+    landCounty: localFormData.landCounty,
+    landTown: localFormData.landTown,
+    landSec: localFormData.landSec,
+    landNumber: localFormData.landNumber,
+    landNumberMain: localFormData.landNumberMain,
+    landNumberSub: localFormData.landNumberSub,
+    isAboriginalArea: localFormData.isAboriginalArea,
+    isIrrigationArea: localFormData.isIrrigationArea,
+    isReapplied: localFormData.isReapplied,
+    hasAgriculturalCertificate: localFormData.hasAgriculturalCertificate,
+    certificateYear: localFormData.certificateYear,
+    certificateMonth: localFormData.certificateMonth,
+    certificateDay: localFormData.certificateDay,
+    longitude: localFormData.longitude,
+    latitude: localFormData.latitude,
+    landArea: localFormData.landArea,
+    landAreaHa: localFormData.landAreaHa,
+    facilityArea: localFormData.facilityArea,
+    facilityAreaHa: localFormData.facilityAreaHa,
+    cropCategory: localFormData.cropCategory,
+    cropName: localFormData.cropName,
+    crops: [...localFormData.crops],
+    ownerName: localFormData.ownerName,
+    ownerId: localFormData.ownerId,
+    ownerCounty: localFormData.ownerCounty,
+    ownerTown: localFormData.ownerTown,
+    ownerVillage: localFormData.ownerVillage,
+    ownerShare1: localFormData.ownerShare1,
+    ownerShare2: localFormData.ownerShare2,
+    ownerArea: localFormData.ownerArea,
+    owners: [...localFormData.owners]
+  }),
+  
+  // 將土地資料載入到當前表單
+  loadLandToCurrentForm: (land: LandData): void => {
+    Object.assign(localFormData, {
+      landCounty: land.landCounty,
+      landTown: land.landTown,
+      landSec: land.landSec,
+      landNumber: land.landNumber,
+      landNumberMain: land.landNumberMain,
+      landNumberSub: land.landNumberSub,
+      isAboriginalArea: land.isAboriginalArea,
+      isIrrigationArea: land.isIrrigationArea,
+      isReapplied: land.isReapplied,
+      hasAgriculturalCertificate: land.hasAgriculturalCertificate,
+      certificateYear: land.certificateYear,
+      certificateMonth: land.certificateMonth,
+      certificateDay: land.certificateDay,
+      longitude: land.longitude,
+      latitude: land.latitude,
+      landArea: land.landArea,
+      landAreaHa: land.landAreaHa,
+      facilityArea: land.facilityArea,
+      facilityAreaHa: land.facilityAreaHa,
+      cropCategory: land.cropCategory,
+      cropName: land.cropName,
+      crops: [...land.crops],
+      ownerName: land.ownerName,
+      ownerId: land.ownerId,
+      ownerCounty: land.ownerCounty,
+      ownerTown: land.ownerTown,
+      ownerVillage: land.ownerVillage,
+      ownerShare1: land.ownerShare1,
+      ownerShare2: land.ownerShare2,
+      ownerArea: land.ownerArea,
+      owners: [...land.owners]
+    })
+  },
+  
+  // 清空當前表單
+  clearCurrentForm: (): void => {
+    const initialData = createInitialLandData()
+    Object.keys(initialData).forEach(key => {
+      if (key !== 'id' && key in localFormData) {
+        (localFormData as any)[key] = (initialData as any)[key]
+      }
+    })
+  },
+  
+  // 獲取土地摘要資訊
+  getLandSummary: (land: LandData): string => {
+    const location = [land.landCounty, land.landTown, land.landSec].filter(Boolean).join('')
+    const landNumber = land.landNumber || '未設定'
+    const area = land.facilityArea ? `${land.facilityArea}m²` : '未設定'
+    return `${location} ${landNumber} (${area})`
+  }
+}
 
 // 實例化統一的步驟管理器
 const stepManager = createUnifiedStepManager(2, emit, localFormData, localValid, form, domicileStore)
@@ -2041,6 +2522,57 @@ const ownerAreaComputed = computed({
   }
 });
 
+// 多筆土地計算屬性
+const totalFacilityArea = computed(() => {
+  return landManagement.lands.reduce((total, land) => {
+    const area = parseFloat(land.facilityArea || '0')
+    return total + (isNaN(area) ? 0 : area)
+  }, 0)
+})
+
+const totalFacilityAreaHa = computed(() => {
+  return totalFacilityArea.value / 10000
+})
+
+// 土地資料展示工具函數
+const getLandLocationText = (land: LandData): string => {
+  const parts = []
+  
+  // 縣市
+  if (land.landCounty) {
+    if (typeof land.landCounty === 'number') {
+      const county = counties.value.find(c => c.value === land.landCounty)
+      if (county) parts.push(county.title)
+    } else {
+      parts.push(land.landCounty)
+    }
+  }
+  
+  // 鄉鎮
+  if (land.landTown) {
+    if (typeof land.landTown === 'number') {
+      const town = domicileStore.getTownsForCountyId(land.landCounty as number)
+        .find(t => t.value === land.landTown)
+      if (town) parts.push(town.title)
+    } else {
+      parts.push(land.landTown)
+    }
+  }
+  
+  // 地段
+  if (land.landSec) {
+    if (typeof land.landSec === 'number') {
+      const section = domicileStore.getLandSectionsForTownId(land.landTown as number)
+        .find(s => s.value === land.landSec)
+      if (section) parts.push(section.title)
+    } else {
+      parts.push(land.landSec)
+    }
+  }
+  
+  return parts.length > 0 ? parts.join('') : '未設定位置'
+}
+
 // Helper function to format land numbers for display elsewhere
 // const formatLandNumber = (value) => {
 //   if (!value) return '0000';
@@ -2215,6 +2747,126 @@ const handleGoBack = () => {
   console.log('🔙 step2.vue: handleGoBack called');
   eventEmitter.emitGoBackRequested();
 };
+
+// 多筆土地管理功能
+const addNewLand = () => {
+  console.log('🏞️ step2.vue: Adding new land')
+  
+  // 清空當前表單
+  landUtils.clearCurrentForm()
+  
+  // 設置為新增模式
+  landManagement.currentEditingLandId = null
+  landManagement.isEditingMode = true
+  
+  console.log('✅ step2.vue: Ready for new land input')
+}
+
+const editLand = (landId: string) => {
+  console.log('✏️ step2.vue: Editing land:', landId)
+  
+  const land = landManagement.lands.find(l => l.id === landId)
+  if (!land) {
+    console.error('❌ step2.vue: Land not found:', landId)
+    return
+  }
+  
+  // 載入土地資料到當前表單
+  landUtils.loadLandToCurrentForm(land)
+  
+  // 設置為編輯模式
+  landManagement.currentEditingLandId = landId
+  landManagement.isEditingMode = true
+  
+  console.log('✅ step2.vue: Land loaded for editing')
+}
+
+const saveLandEdit = () => {
+  console.log('💾 step2.vue: Saving land edit')
+  
+  // 創建土地資料
+  const landData = landUtils.createLandFromCurrentForm()
+  
+  if (landManagement.currentEditingLandId) {
+    // 更新現有土地
+    const index = landManagement.lands.findIndex(l => l.id === landManagement.currentEditingLandId)
+    if (index !== -1) {
+      landData.id = landManagement.currentEditingLandId
+      landManagement.lands[index] = landData
+      console.log('✅ step2.vue: Land updated successfully')
+    }
+  } else {
+    // 新增土地
+    landManagement.lands.push(landData)
+    console.log('✅ step2.vue: New land added successfully')
+  }
+  
+  // 退出編輯模式
+  cancelLandEdit()
+  
+  // 同步到 localFormData.lands 以便儲存
+  localFormData.lands = [...landManagement.lands]
+  
+  // 觸發資料更新
+  if (!initGuard.isInitializing && initGuard.isInitialized) {
+    eventEmitter.emitDataChanged()
+  }
+}
+
+const cancelLandEdit = () => {
+  console.log('❌ step2.vue: Cancelling land edit')
+  
+  // 清空當前表單
+  landUtils.clearCurrentForm()
+  
+  // 退出編輯模式
+  landManagement.currentEditingLandId = null
+  landManagement.isEditingMode = false
+  
+  console.log('✅ step2.vue: Edit cancelled')
+}
+
+const deleteLand = (landId: string) => {
+  console.log('🗑️ step2.vue: Deleting land:', landId)
+  
+  const index = landManagement.lands.findIndex(l => l.id === landId)
+  if (index !== -1) {
+    landManagement.lands.splice(index, 1)
+    
+    // 同步到 localFormData.lands
+    localFormData.lands = [...landManagement.lands]
+    
+    // 如果正在編輯被刪除的土地，退出編輯模式
+    if (landManagement.currentEditingLandId === landId) {
+      cancelLandEdit()
+    }
+    
+    // 觸發資料更新
+    if (!initGuard.isInitializing && initGuard.isInitialized) {
+      eventEmitter.emitDataChanged()
+    }
+    
+    console.log('✅ step2.vue: Land deleted successfully')
+  }
+}
+
+// 向後相容性處理：從舊版單筆土地資料轉換為多筆土地格式
+const convertLegacyDataToMultipleLands = () => {
+  // 檢查是否有舊版資料但沒有新版 lands 陣列
+  if (localFormData.landCounty && (!localFormData.lands || localFormData.lands.length === 0)) {
+    console.log('🔄 step2.vue: Converting legacy single land data to multiple lands format')
+    
+    // 創建土地資料
+    const legacyLandData = landUtils.createLandFromCurrentForm()
+    legacyLandData.id = 'legacy_land_1'
+    
+    // 加入到土地陣列
+    landManagement.lands = [legacyLandData]
+    localFormData.lands = [...landManagement.lands]
+    
+    console.log('✅ step2.vue: Legacy data converted successfully')
+  }
+}
 
 // 事件驅動架構:暴露方法給父組件
 defineExpose({
@@ -2894,8 +3546,22 @@ const loadStepData = async () => {
       // 載入級聯選擇資料
       await cascadeManager.loadCascadeData();
 
+      // 多筆土地資料處理
+      if (savedData.lands && Array.isArray(savedData.lands)) {
+        console.log('🏞️ step2.vue: Loading multiple lands data:', savedData.lands.length, 'lands found')
+        landManagement.lands = [...savedData.lands]
+        localFormData.lands = [...savedData.lands]
+      } else {
+        console.log('🔄 step2.vue: No multiple lands data found, checking for legacy conversion')
+        // 檢查向後相容性
+        convertLegacyDataToMultipleLands()
+      }
+
     } else {
       console.log('📝 step2.vue: No data found in grantsStore.formData[2], using default values');
+      
+      // 檢查是否有舊版本資料需要轉換
+      convertLegacyDataToMultipleLands()
     }
 
     // 確保陣列存在
@@ -2907,8 +3573,13 @@ const loadStepData = async () => {
       localFormData.owners = [];
     }
 
+    if (!Array.isArray(localFormData.lands)) {
+      localFormData.lands = [];
+    }
+
     console.log('✅ step2.vue: Data loaded successfully');
     console.log('📊 step2.vue: Final localFormData keys:', Object.keys(localFormData));
+    console.log('🏞️ step2.vue: Loaded lands count:', landManagement.lands.length);
 
   } catch (error) {
     console.error('❌ step2.vue: Failed to load step data:', error);
@@ -3118,6 +3789,104 @@ onUnmounted(() => {
   color: #ff0000 !important;
   font-weight: bold;
   margin-left: 2px;
+}
+
+/* 多筆土地管理樣式 */
+.land-card {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.land-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.land-card.selected {
+  border-color: #3ea0a3 !important;
+  background-color: rgba(62, 160, 163, 0.04);
+}
+
+.land-summary {
+  min-height: 80px;
+}
+
+.land-summary .text-body-2 {
+  color: rgba(0, 0, 0, 0.7);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* 總面積統計樣式 */
+.text-success {
+  color: #4caf50 !important;
+}
+
+/* 土地卡片編號樣式 */
+.land-card .v-chip {
+  font-weight: 600;
+}
+
+/* 土地卡片圖標樣式 */
+.land-summary .v-icon {
+  color: rgba(62, 160, 163, 0.8);
+  margin-right: 4px;
+}
+
+/* 編輯按鈕樣式 */
+.land-card .v-card-actions .v-btn {
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.land-card .v-card-actions .v-btn:hover {
+  background-color: #3ea0a3 !important;
+  color: white !important;
+  transform: scale(1.02);
+}
+
+/* 刪除按鈕樣式 */
+.land-card .v-btn--icon {
+  transition: all 0.2s ease;
+}
+
+.land-card .v-btn--icon:hover {
+  background-color: rgba(244, 67, 54, 0.1) !important;
+  transform: scale(1.1);
+}
+
+/* 空狀態樣式 */
+.empty-state {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .land-card {
+    margin-bottom: 1rem;
+  }
+  
+  .land-summary {
+    min-height: 60px;
+  }
+  
+  .land-summary .text-body-2 {
+    font-size: 0.8125rem;
+  }
+}
+
+/* 編輯模式樣式 */
+.editing-mode {
+  border: 2px solid #3ea0a3;
+  background-color: rgba(62, 160, 163, 0.02);
 }
 
 /* 日期選擇器對話框樣式 */
