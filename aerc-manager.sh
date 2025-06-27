@@ -202,6 +202,301 @@ check_status() {
     $COMPOSE_CMD -f $COMPOSE_FILE ps
 }
 
+# Check PostGIS status
+check_postgis() {
+    echo -e "${BLUE}Checking PostGIS status...${NC}"
+    
+    # Check if database container is running
+    if ! $COMPOSE_CMD -f $COMPOSE_FILE ps | grep -q "aerc-db.*Up"; then
+        echo -e "${RED}Error: Database container is not running. Please start services first.${NC}"
+        return 1
+    fi
+    
+    # Check PostGIS extensions
+    echo -e "${BLUE}Checking PostGIS extensions...${NC}"
+    DB_CHECK_RESULT=$($COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "
+    SELECT extname, extversion FROM pg_extension WHERE extname LIKE '%postgis%' OR extname LIKE '%geos%' OR extname LIKE '%fuzzystrmatch%';
+    " 2>/dev/null || echo "ERROR")
+    
+    if [[ "$DB_CHECK_RESULT" == *"ERROR"* ]] || [[ -z "$DB_CHECK_RESULT" ]]; then
+        echo -e "${RED}❌ PostGIS extensions are not installed${NC}"
+        echo -e "${YELLOW}Use './aerc-manager.sh init-postgis' to initialize PostGIS${NC}"
+        return 1
+    else
+        echo -e "${GREEN}✅ PostGIS extensions found:${NC}"
+        echo "$DB_CHECK_RESULT"
+    fi
+    
+    # Test PostGIS functionality
+    echo -e "${BLUE}Testing PostGIS functionality...${NC}"
+    POSTGIS_TEST_OUTPUT=$($COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "SELECT PostGIS_version() as postgis_version;" 2>&1)
+    POSTGIS_TEST_EXIT_CODE=$?
+    
+    if [ $POSTGIS_TEST_EXIT_CODE -eq 0 ]; then
+        echo -e "${GREEN}✅ PostGIS core functionality test passed${NC}"
+        echo "$POSTGIS_TEST_OUTPUT"
+    else
+        echo -e "${RED}❌ PostGIS functionality test failed${NC}"
+        echo -e "${YELLOW}Error details:${NC}"
+        echo "$POSTGIS_TEST_OUTPUT"
+        return 1
+    fi
+    
+    # Test GEOS/PROJ support (integrated in PostGIS 3.5+)
+    echo -e "${BLUE}Checking GEOS/PROJ integration...${NC}"
+    if [[ "$POSTGIS_TEST_OUTPUT" == *"USE_GEOS=1"* ]]; then
+        echo -e "${GREEN}✅ GEOS support: Enabled${NC}"
+    else
+        echo -e "${YELLOW}⚠️ GEOS support: Unknown status${NC}"
+    fi
+    
+    if [[ "$POSTGIS_TEST_OUTPUT" == *"USE_PROJ=1"* ]]; then
+        echo -e "${GREEN}✅ PROJ support: Enabled${NC}"
+    else
+        echo -e "${YELLOW}⚠️ PROJ support: Unknown status${NC}"
+    fi
+    
+    # Note for PostGIS 3.4+ users
+    if [[ "$POSTGIS_TEST_OUTPUT" == *"3.4"* ]] || [[ "$POSTGIS_TEST_OUTPUT" == *"3.5"* ]]; then
+        echo -e "${BLUE}ℹ️ PostGIS 3.4+ Note: GEOS_version() and PROJ_version() functions have been removed for security reasons${NC}"
+        echo -e "${BLUE}   GEOS/PROJ integration status is shown in PostGIS_version() output${NC}"
+    fi
+    
+    # Test spatial operations
+    echo -e "${BLUE}Testing spatial operations...${NC}"
+    SPATIAL_TEST_OUTPUT=$($COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "SELECT ST_AsText(ST_Point(121.5, 25.0)) as taipei_point;" 2>&1)
+    SPATIAL_TEST_EXIT_CODE=$?
+    
+    if [ $SPATIAL_TEST_EXIT_CODE -eq 0 ]; then
+        echo -e "${GREEN}✅ Spatial operations test passed${NC}"
+        echo "$SPATIAL_TEST_OUTPUT"
+    else
+        echo -e "${RED}❌ Spatial operations test failed${NC}"
+        echo -e "${YELLOW}Error details:${NC}"
+        echo "$SPATIAL_TEST_OUTPUT"
+        return 1
+    fi
+    
+    echo -e "${GREEN}🎉 PostGIS is fully functional!${NC}"
+}
+
+# Performance test for PostgreSQL with/without PostGIS
+performance_test() {
+    echo -e "${BLUE}Running PostgreSQL + PostGIS performance test...${NC}"
+    
+    # Check if database container is running
+    if ! $COMPOSE_CMD -f $COMPOSE_FILE ps | grep -q "aerc-db.*Up"; then
+        echo -e "${RED}Error: Database container is not running. Please start services first.${NC}"
+        return 1
+    fi
+    
+    echo -e "\n${BLUE}=== Performance Test Results ===${NC}"
+    
+    # Test 1: Basic database operations
+    echo -e "\n${BLUE}1. Testing basic database operations...${NC}"
+    START_TIME=$(date +%s%N)
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "
+    DROP TABLE IF EXISTS perf_test;
+    CREATE TABLE perf_test (id SERIAL PRIMARY KEY, name VARCHAR(100), value NUMERIC);
+    INSERT INTO perf_test (name, value) 
+    SELECT 'test_' || generate_series, random() * 1000 
+    FROM generate_series(1, 10000);
+    " > /dev/null 2>&1
+    END_TIME=$(date +%s%N)
+    BASIC_TIME=$((($END_TIME - $START_TIME) / 1000000))
+    echo -e "${GREEN}   Basic operations (10K inserts): ${BASIC_TIME}ms${NC}"
+    
+    # Test 2: Query performance
+    echo -e "\n${BLUE}2. Testing query performance...${NC}"
+    START_TIME=$(date +%s%N)
+    RESULT=$($COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "
+    SELECT COUNT(*) FROM perf_test WHERE value > 500;
+    " 2>/dev/null)
+    END_TIME=$(date +%s%N)
+    QUERY_TIME=$((($END_TIME - $START_TIME) / 1000000))
+    echo -e "${GREEN}   Query performance (10K records): ${QUERY_TIME}ms${NC}"
+    
+    # Test 3: Spatial operations (if PostGIS available)
+    echo -e "\n${BLUE}3. Testing spatial operations...${NC}"
+    START_TIME=$(date +%s%N)
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "
+    DROP TABLE IF EXISTS spatial_perf_test;
+    CREATE TABLE spatial_perf_test (
+        id SERIAL PRIMARY KEY, 
+        name VARCHAR(100), 
+        location GEOMETRY(POINT, 4326)
+    );
+    INSERT INTO spatial_perf_test (name, location)
+    SELECT 
+        'point_' || generate_series,
+        ST_Point(120 + random() * 2, 24 + random() * 2)
+    FROM generate_series(1, 1000);
+    CREATE INDEX idx_spatial_perf_location ON spatial_perf_test USING GIST (location);
+    " > /dev/null 2>&1
+    END_TIME=$(date +%s%N)
+    SPATIAL_TIME=$((($END_TIME - $START_TIME) / 1000000))
+    echo -e "${GREEN}   Spatial operations (1K points + index): ${SPATIAL_TIME}ms${NC}"
+    
+    # Test 4: Spatial query performance
+    echo -e "\n${BLUE}4. Testing spatial query performance...${NC}"
+    START_TIME=$(date +%s%N)
+    SPATIAL_RESULT=$($COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "
+    SELECT COUNT(*) FROM spatial_perf_test 
+    WHERE ST_DWithin(location, ST_Point(121.5, 25.0), 0.5);
+    " 2>/dev/null)
+    END_TIME=$(date +%s%N)
+    SPATIAL_QUERY_TIME=$((($END_TIME - $START_TIME) / 1000000))
+    echo -e "${GREEN}   Spatial query (distance search): ${SPATIAL_QUERY_TIME}ms${NC}"
+    
+    # Memory usage
+    echo -e "\n${BLUE}5. Checking memory usage...${NC}"
+    MEMORY_INFO=$($COMPOSE_CMD -f $COMPOSE_FILE exec -T db ps aux | grep postgres | head -1 | awk '{print $4 "% RAM, " $6/1024 "MB"}' 2>/dev/null)
+    echo -e "${GREEN}   PostgreSQL memory usage: ${MEMORY_INFO}${NC}"
+    
+    # Database size
+    echo -e "\n${BLUE}6. Checking database size...${NC}"
+    DB_SIZE=$($COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "
+    SELECT pg_size_pretty(pg_database_size('${POSTGRES_DB:-hello_fastapi_dev}'));
+    " 2>/dev/null | grep -v "pg_size_pretty" | grep -v "row" | tr -d ' ')
+    echo -e "${GREEN}   Database size: ${DB_SIZE}${NC}"
+    
+    # Summary
+    echo -e "\n${YELLOW}=== Performance Summary ===${NC}"
+    echo -e "Basic operations:    ${BASIC_TIME}ms"
+    echo -e "Query performance:   ${QUERY_TIME}ms"
+    echo -e "Spatial operations:  ${SPATIAL_TIME}ms"
+    echo -e "Spatial queries:     ${SPATIAL_QUERY_TIME}ms"
+    echo -e "Memory usage:        ${MEMORY_INFO}"
+    echo -e "Database size:       ${DB_SIZE}"
+    
+    # Cleanup
+    echo -e "\n${BLUE}Cleaning up test data...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "
+    DROP TABLE IF EXISTS perf_test;
+    DROP TABLE IF EXISTS spatial_perf_test;
+    " > /dev/null 2>&1
+    
+    echo -e "${GREEN}✅ Performance test completed${NC}"
+}
+
+# Debug PostGIS functions individually
+debug_postgis_functions() {
+    echo -e "${BLUE}Debugging PostGIS functions individually...${NC}"
+    
+    # Check if database container is running
+    if ! $COMPOSE_CMD -f $COMPOSE_FILE ps | grep -q "aerc-db.*Up"; then
+        echo -e "${RED}Error: Database container is not running. Please start services first.${NC}"
+        return 1
+    fi
+    
+    echo -e "\n${BLUE}=== Testing Individual PostGIS Functions ===${NC}"
+    
+    # Test 1: PostGIS_version()
+    echo -e "\n${BLUE}1. Testing PostGIS_version()...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "SELECT PostGIS_version();" || echo -e "${RED}PostGIS_version() failed${NC}"
+    
+    # Test 2: GEOS_version()
+    echo -e "\n${BLUE}2. Testing GEOS_version()...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "SELECT GEOS_version();" || echo -e "${RED}GEOS_version() failed${NC}"
+    
+    # Test 3: PROJ_version()
+    echo -e "\n${BLUE}3. Testing PROJ_version()...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "SELECT PROJ_version();" || echo -e "${RED}PROJ_version() failed${NC}"
+    
+    # Test 4: Simple spatial function
+    echo -e "\n${BLUE}4. Testing ST_Point()...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "SELECT ST_Point(121.5, 25.0);" || echo -e "${RED}ST_Point() failed${NC}"
+    
+    # Test 5: ST_AsText with ST_Point
+    echo -e "\n${BLUE}5. Testing ST_AsText(ST_Point())...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "SELECT ST_AsText(ST_Point(121.5, 25.0));" || echo -e "${RED}ST_AsText(ST_Point()) failed${NC}"
+    
+    # Test 6: Check function permissions
+    echo -e "\n${BLUE}6. Checking function permissions...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "SELECT has_function_privilege('${POSTGRES_USER:-hello_fastapi}', 'postgis_version()', 'execute');" || echo -e "${RED}Permission check failed${NC}"
+    
+    # Test 7: List all PostGIS functions
+    echo -e "\n${BLUE}7. Available PostGIS functions (first 10):${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "SELECT proname FROM pg_proc WHERE proname LIKE 'st_%' OR proname LIKE 'postgis%' LIMIT 10;" || echo -e "${RED}Function listing failed${NC}"
+}
+
+# Diagnose PostGIS installation issues
+diagnose_postgis() {
+    echo -e "${BLUE}Diagnosing PostGIS installation...${NC}"
+    
+    # Check if database container is running
+    if ! $COMPOSE_CMD -f $COMPOSE_FILE ps | grep -q "aerc-db.*Up"; then
+        echo -e "${RED}Error: Database container is not running. Please start services first.${NC}"
+        return 1
+    fi
+    
+    echo -e "${BLUE}1. Checking installed packages in container...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db dpkg -l | grep -i postgis || echo -e "${RED}No PostGIS packages found${NC}"
+    
+    echo -e "\n${BLUE}2. Looking for PostGIS control files...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db find /usr -name 'postgis.control' 2>/dev/null || echo -e "${RED}PostGIS control files not found${NC}"
+    
+    echo -e "\n${BLUE}3. Checking PostgreSQL extension directory...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db ls -la /usr/local/share/postgresql/extension/ | grep postgis || echo -e "${RED}No PostGIS extensions found${NC}"
+    
+    echo -e "\n${BLUE}4. Checking available extensions in PostgreSQL...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -c "SELECT name FROM pg_available_extensions WHERE name LIKE '%postgis%';" 2>/dev/null || echo -e "${RED}Cannot query available extensions${NC}"
+    
+    echo -e "\n${BLUE}5. Database logs (last 20 lines):${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE logs --tail=20 db
+    
+    echo -e "\n${YELLOW}===== Recommendations =====${NC}"
+    echo -e "If PostGIS packages are missing, try:"
+    echo -e "1. ${BLUE}./aerc-manager.sh stop${NC}"
+    echo -e "2. ${BLUE}docker-compose build --no-cache db${NC}"
+    echo -e "3. ${BLUE}./aerc-manager.sh start${NC}"
+    echo -e "\nFor debugging package installation:"
+    echo -e "4. ${BLUE}docker-compose exec db apt list --installed | grep postgis${NC}"
+    echo -e "\nAlternatively, switch to official PostGIS image:"
+    echo -e "5. ${BLUE}cp db/Dockerfile.official db/Dockerfile${NC}"
+    echo -e "6. Rebuild and restart"
+}
+
+# Initialize PostGIS manually
+init_postgis() {
+    echo -e "${BLUE}Initializing PostGIS extensions...${NC}"
+    
+    # Check if database container is running
+    if ! $COMPOSE_CMD -f $COMPOSE_FILE ps | grep -q "aerc-db.*Up"; then
+        echo -e "${RED}Error: Database container is not running. Please start services first.${NC}"
+        return 1
+    fi
+    
+    # Check if initialization script exists in container
+    echo -e "${BLUE}Checking if PostGIS initialization script exists in container...${NC}"
+    SCRIPT_EXISTS=$($COMPOSE_CMD -f $COMPOSE_FILE exec -T db test -f /docker-entrypoint-initdb.d/init-postgis.sql && echo "EXISTS" || echo "MISSING")
+    
+    if [ "$SCRIPT_EXISTS" = "MISSING" ]; then
+        echo -e "${RED}❌ PostGIS initialization script not found in container${NC}"
+        echo -e "${YELLOW}The script should be automatically copied during docker build.${NC}"
+        echo -e "${YELLOW}Try rebuilding the database container:${NC}"
+        echo -e "   ${BLUE}./aerc-manager.sh stop${NC}"
+        echo -e "   ${BLUE}docker-compose build db${NC}"
+        echo -e "   ${BLUE}./aerc-manager.sh start${NC}"
+        return 1
+    fi
+    
+    # Execute PostGIS initialization script from within container
+    echo -e "${BLUE}Executing PostGIS initialization script from container...${NC}"
+    $COMPOSE_CMD -f $COMPOSE_FILE exec -T db psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -f /docker-entrypoint-initdb.d/init-postgis.sql
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ PostGIS initialization completed successfully${NC}"
+        echo -e "${BLUE}Running PostGIS verification...${NC}"
+        check_postgis
+    else
+        echo -e "${RED}❌ PostGIS initialization failed${NC}"
+        echo -e "${YELLOW}You can manually initialize PostGIS by running:${NC}"
+        echo -e "   ${BLUE}docker exec aerc-db-1 psql -U ${POSTGRES_USER:-hello_fastapi} -d ${POSTGRES_DB:-hello_fastapi_dev} -f /docker-entrypoint-initdb.d/init-postgis.sql${NC}"
+        return 1
+    fi
+}
+
 # View logs
 view_logs() {
     local lines=$1
@@ -328,6 +623,18 @@ build_aerc() {
         echo -e "   ${BLUE}docker-compose exec api aerich upgrade${NC}"
     fi
     
+    # Check PostGIS after initial setup
+    echo -e "\n${BLUE}===== PostGIS Status Check =====${NC}"
+    sleep 2  # Wait a bit more for database to be fully ready
+    check_postgis
+    
+    if [ $? -ne 0 ]; then
+        echo -e "\n${YELLOW}===== PostGIS Initialization Required =====${NC}"
+        echo -e "PostGIS extensions are not installed. This is normal for first-time setup."
+        echo -e "Run the following command to initialize PostGIS:"
+        echo -e "   ${BLUE}./aerc-manager.sh init-postgis${NC}"
+    fi
+    
     echo -e "\n${GREEN}✅ Setup complete. The application should now be running.${NC}"
 }
 
@@ -337,17 +644,22 @@ show_help() {
     echo -e "${YELLOW}Usage:${NC} ./${SCRIPT_NAME} [command] [parameters]"
     echo
     echo -e "${YELLOW}Available commands:${NC}"
-    echo -e "  ${GREEN}setup${NC}    - Set up the environment"
-    echo -e "  ${GREEN}start${NC}    - Start services"
-    echo -e "  ${GREEN}stop${NC}     - Stop services"
-    echo -e "  ${GREEN}restart${NC}  - Restart services"
-    echo -e "  ${GREEN}status${NC}   - Check service status"
-    echo -e "  ${GREEN}logs [n]${NC} - View logs (optional: show last n lines, default 100)"
-    echo -e "  ${GREEN}backup${NC}   - Backup data"
-    echo -e "  ${GREEN}update${NC}   - Update services"
-    echo -e "  ${GREEN}env${NC}      - Edit environment variables"
-    echo -e "  ${GREEN}build${NC}    - Build and start services (similar to original build-env.sh)"
-    echo -e "  ${GREEN}help${NC}     - Display this help information"
+    echo -e "  ${GREEN}setup${NC}           - Set up the environment"
+    echo -e "  ${GREEN}start${NC}           - Start services"
+    echo -e "  ${GREEN}stop${NC}            - Stop services"
+    echo -e "  ${GREEN}restart${NC}         - Restart services"
+    echo -e "  ${GREEN}status${NC}          - Check service status"
+    echo -e "  ${GREEN}logs [n]${NC}        - View logs (optional: show last n lines, default 100)"
+    echo -e "  ${GREEN}backup${NC}          - Backup data"
+    echo -e "  ${GREEN}update${NC}          - Update services"
+    echo -e "  ${GREEN}env${NC}             - Edit environment variables"
+    echo -e "  ${GREEN}build${NC}           - Build and start services (similar to original build-env.sh)"
+    echo -e "  ${GREEN}check-postgis${NC}    - Check PostGIS installation and functionality"
+    echo -e "  ${GREEN}init-postgis${NC}     - Initialize PostGIS extensions manually"
+    echo -e "  ${GREEN}diagnose-postgis${NC}  - Diagnose PostGIS installation issues"
+    echo -e "  ${GREEN}debug-postgis${NC}     - Debug PostGIS functions individually"
+    echo -e "  ${GREEN}performance-test${NC}  - Run PostgreSQL + PostGIS performance test"
+    echo -e "  ${GREEN}help${NC}            - Display this help information"
     echo
     echo -e "${YELLOW}Examples:${NC}"
     echo -e "  ./${SCRIPT_NAME} start        # Start AERC services"
@@ -407,6 +719,26 @@ main() {
             ;;
         build)
             build_aerc
+            ;;
+        check-postgis)
+            check_compose_file
+            check_postgis
+            ;;
+        init-postgis)
+            check_compose_file
+            init_postgis
+            ;;
+        diagnose-postgis)
+            check_compose_file
+            diagnose_postgis
+            ;;
+        debug-postgis)
+            check_compose_file
+            debug_postgis_functions
+            ;;
+        performance-test)
+            check_compose_file
+            performance_test
             ;;
         help)
             show_help

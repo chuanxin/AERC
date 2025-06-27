@@ -32,9 +32,9 @@ services:
       - 3001:3000
     depends_on:
       -  api
-  
+
   db:
-    image: postgres:15-alpine
+    build: ./db
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -46,11 +46,10 @@ services:
       -c timezone='Asia/Taipei'
       -c log_timezone='Asia/Taipei'
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - pg17_data:/var/lib/postgresql/data
     ports:
       - 5433:5432
 
-
 volumes:
-  postgres_data:
+  pg17_data:
   
