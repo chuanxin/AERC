@@ -904,7 +904,7 @@ const isDesignChangeVisible = ref(false);
 const testResultOptions = computed(() => {
   // original 選項顯示原補助款金額
   const originalPaymentText = localFormData.originalPayment ? ` ${localFormData.originalPayment} 元` : '';
-  
+
   // adjusted 選項顯示實際發放金額
   const actualPaymentText = localFormData.actualPayment ? ` ${localFormData.actualPayment} 元` : '';
 
@@ -927,7 +927,7 @@ const dynamicTestResultOptions = computed(() => {
   });
 
   // 檢查是否有任一合規性為不符（non-compliant）
-  const hasNonCompliant = localFormData.designCompliance === 'non-compliant' || 
+  const hasNonCompliant = localFormData.designCompliance === 'non-compliant' ||
                          localFormData.operationCompliance === 'non-compliant';
 
   if (hasNonCompliant) {
@@ -972,7 +972,7 @@ const isAutoCalculatingAmount = ref(false);
 // 計算按鈕配置 - 完整的按鈕配置信息
 const buttonConfig = computed(() => {
   const shouldSave = !localFormData.isReinspection && localFormData.testResult === 'improvement';
-  
+
   return {
     text: shouldSave ? '存檔' : '結案',
     color: shouldSave ? 'orange-darken-2' : '#3ea0a3',
@@ -1418,8 +1418,8 @@ onMounted(() => {
   if (!localFormData.facilityAreaHa) {
     if (grantsStore.formData[6]?.facilityAreaHa) {
       localFormData.facilityAreaHa = grantsStore.formData[6].facilityAreaHa;
-    } else if (grantsStore.formData[2]?.landAreaHa) {
-      localFormData.facilityAreaHa = grantsStore.formData[2].facilityAreaHa;
+    } else if (grantsStore.formData[2]?.totalLandAreaHa) {
+      localFormData.facilityAreaHa = grantsStore.formData[2].totalFacilityAreaHa;
     }
   }
 
@@ -1511,7 +1511,7 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
   }
 
   console.log('測試結果變化:', newValue);
-  
+
   console.log('測試結果變化 - 詳細除錯:', {
     newValue,
     currentOriginalPayment: localFormData.originalPayment,
@@ -1521,7 +1521,7 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
 
   // 設置自動計算標記，避免與金額變化watch衝突
   isAutoCalculatingAmount.value = true;
-  
+
   if (newValue === 'original') {
     // 如果是 "依核定補助款發放"，則自動設置相關金額
     // 確保每次都重新設置原補助款金額
@@ -1533,13 +1533,13 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
       localFormData.originalPayment = '13,000'; // 設置一個測試值
       console.log('設置預設 originalPayment:', localFormData.originalPayment);
     }
-    
+
     // 清空減列金額
     localFormData.increasedDecreasedAmount = '';
-    
+
     // 原補助款發放，實際發放等於原補助款
     localFormData.actualPayment = localFormData.originalPayment;
-    
+
     console.log('設置 original 金額完成:', {
       originalPayment: localFormData.originalPayment,
       actualPayment: localFormData.actualPayment,
@@ -1552,7 +1552,7 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
     } else if (!localFormData.originalPayment) {
       localFormData.originalPayment = '0';
     }
-    
+
     if (!localFormData.increasedDecreasedAmount) {
       localFormData.increasedDecreasedAmount = '-1,000';
     }
@@ -1600,13 +1600,13 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
   if (!isManuallyEditedDescription.value) {
     nextTick(() => {
       isAutoSyncingDescription.value = true;
-      
+
       // 找到對應的測試結果選項
       const selectedOption = testResultOptions.value.find(option => option.value === newValue);
       if (selectedOption) {
         console.log('自動帶入測試結果說明:', selectedOption.title);
         localFormData.testResultDescription = selectedOption.title;
-        
+
         // 延遲更新父組件資料，確保本地資料先更新完成
         nextTick(() => {
           updateFormData();
@@ -1639,12 +1639,12 @@ watch([() => localFormData.designCompliance, () => localFormData.operationCompli
       if (currentResult !== 'cancel') {
         console.log('複驗狀態且有不符合項目，自動設置測試結果為 cancel');
         localFormData.reinspectionResult = 'cancel';
-        
+
         // 清空金額欄位（取消補助資格不需要金額）
         localFormData.originalPayment = '';
         localFormData.increasedDecreasedAmount = '';
         localFormData.actualPayment = '';
-        
+
         updateFormData();
       }
     } else {
@@ -1652,12 +1652,12 @@ watch([() => localFormData.designCompliance, () => localFormData.operationCompli
       if (currentResult !== 'improvement') {
         console.log('非複驗狀態且有不符合項目，自動設置測試結果為 improvement');
         localFormData.testResult = 'improvement';
-        
+
         // 清空金額欄位（限期改善不需要金額）
         localFormData.originalPayment = '';
         localFormData.increasedDecreasedAmount = '';
         localFormData.actualPayment = '';
-        
+
         updateFormData();
       }
     }
@@ -1683,7 +1683,7 @@ watch([() => localFormData.originalPayment, () => localFormData.increasedDecreas
   }
 
   const currentResult = localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult;
-  
+
   console.log('金額變化 watch 觸發:', {
     currentResult,
     originalPayment: localFormData.originalPayment,
@@ -1708,7 +1708,7 @@ watch([() => localFormData.originalPayment, () => localFormData.increasedDecreas
       if (!isNaN(original) && !isNaN(adjustment)) {
         const actual = original + adjustment;
         const newActualPayment = actual.toLocaleString();
-        
+
         // 只有當計算結果與當前值不同時才更新
         if (localFormData.actualPayment !== newActualPayment) {
           localFormData.actualPayment = newActualPayment;
@@ -1807,7 +1807,7 @@ const handleProceedRequest = () => {
 // 統一的動作請求處理器
 const handleActionRequest = (action) => {
   console.log('接收到動作請求:', action);
-  
+
   if (action === 'save') {
     handleSaveRequest();
   } else if (action === 'proceed') {

@@ -5701,13 +5701,13 @@ onMounted(async () => {
   }
 
   // 2. 確保 step2 數據載入
-  if (!grantsStore.formData[2]?.facilityArea && grantsStore.currentGrant?.case_number) {
+  if (!grantsStore.formData[2]?.totalFacilityArea && grantsStore.currentGrant?.case_number) {
     await grantsStore.loadStepData(grantsStore.currentGrant.case_number, 2);
   }
 
-  // 3. 只有在沒有從 props 載入到 facilityArea 時，才從 step2 載入
+  // 3. 只有在沒有從 props 載入到 totalFacilityArea 時，才從 step2 載入
   // if (!localFormData.facilityArea || localFormData.facilityArea === 0 || localFormData.facilityArea === '0') {
-    const step2FacilityArea = grantsStore.formData[2]?.facilityArea;
+    const step2FacilityArea = grantsStore.formData[2]?.totalFacilityArea;
     if (step2FacilityArea !== undefined) {
       localFormData.facilityArea = parseFloat(step2FacilityArea) || 0;
       console.log("✅ Using facilityArea from Step 2:", localFormData.facilityArea);

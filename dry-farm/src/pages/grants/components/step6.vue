@@ -710,8 +710,8 @@ onMounted(() => {
   }
 
   // Try to set facility area (施作面積) from step 2
-  if (!localFormData.facilityArea && grantsStore.formData[2]?.facilityAreaHa) { // Changed from landAreaHa
-    localFormData.facilityArea = grantsStore.formData[2].facilityAreaHa;
+  if (!localFormData.facilityArea && grantsStore.formData[2]?.totalFacilityAreaHa) { // Changed from landAreaHa
+    localFormData.facilityArea = grantsStore.formData[2].totalFacilityAreaHa;
   }
 
   // Try to set aboriginal area flag from step 2
