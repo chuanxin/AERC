@@ -808,6 +808,10 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                         notes=f"Step 2 資料更新到版本 {current_version.version} - {tracking_info.get('notes', '')}"
                     )
                     
+                    # Import and call the synchronization function
+                    from src.crud.grant_locations import sync_grant_locations
+                    await sync_grant_locations(grant.id, actual_data)
+
                     logger.info(f"Step 2 資料處理完成，案件: {case_number}, 版本: {current_version.version}")
                     
                 except Exception as step2_error:
