@@ -10,6 +10,7 @@ class GrantLocations(Model):
     land_section = fields.CharField(max_length=255, null=True, description="地段")
     land_number = fields.CharField(max_length=255, null=True, description="地號")
     land_type = fields.CharField(max_length=50, null=True, description="地目代碼: 1:田, 2:旱, 3:林, 4:原, 5:雜, 6:其他, 7:未登記, 8:空白")
+    case_number = fields.CharField(max_length=100, null=True, description="案件編號")
     case_status = fields.CharField(max_length=50, null=True, description="案件狀態")
     comment = fields.TextField(null=True, description="土地資料備註")
     meta_data = fields.JSONField(null=True, description="即時顯示的彈出資訊")

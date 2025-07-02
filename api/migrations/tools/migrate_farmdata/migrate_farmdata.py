@@ -297,6 +297,7 @@ def validate_row_data(row: Dict[str, str], row_number: int, reporter: MigrationR
     validation_result['processed_data']['land_section'] = str(row.get('Section', '')).strip()
     validation_result['processed_data']['land_number'] = str(row.get('LandNo', '')).strip()
     validation_result['processed_data']['land_type'] = str(row.get('LandType', '')).strip()
+    validation_result['processed_data']['case_number'] = str(row.get('IANum', '')).strip()
     validation_result['processed_data']['application_status'] = str(row.get('ApplicationStatus', '')).strip()
     
     return validation_result['is_valid'], validation_result
@@ -401,6 +402,7 @@ def migrate_farm_data(conn, reporter: MigrationReporter):
                     processed_data['land_section'],
                     processed_data['land_number'],
                     processed_data['land_type'],
+                    processed_data['case_number'],
                     'legacy_imported',
                     processed_data['application_status'],
                     Json(processed_data['meta_data'])
@@ -451,8 +453,8 @@ def migrate_farm_data(conn, reporter: MigrationReporter):
                     """
                     INSERT INTO grant_locations (
                         source_system, source_id, geom, apply_year, applicant_name, 
-                        land_section, land_number, land_type, case_status, comment, meta_data
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        land_section, land_number, land_type, case_number, case_status, comment, meta_data
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (source_system, source_id, land_section, land_number) DO NOTHING
                     """,
                     item['insert_data']
