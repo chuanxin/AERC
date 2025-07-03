@@ -125,7 +125,7 @@ export interface YearRange {
 }
 
 // 顯示模式類型
-export type DisplayMode = 'points' | 'heatmap';
+export type DisplayMode = 'points' | 'grid';
 
 // GIS Store 狀態接口
 export interface GisState {

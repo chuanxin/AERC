@@ -378,9 +378,9 @@
                 selected-class="text-primary"
                 class="mb-3"
               >
-                <v-chip value="heatmap" size="small">
-                  <v-icon left size="small">mdi-blur</v-icon>
-                  熱區圖
+                <v-chip value="grid" size="small">
+                  <v-icon left size="small">mdi-grid</v-icon>
+                  格網統計圖
                 </v-chip>
                 <v-chip value="points" size="small">
                   <v-icon left size="small">mdi-circle</v-icon>
@@ -443,7 +443,7 @@
                   class="mb-2"
                 >
                   <v-icon left size="small">mdi-eye-settings</v-icon>
-                  {{ displayMode === 'heatmap' ? '熱區模式' : '點位模式' }}
+                  {{ displayMode === 'grid' ? '格網統計模式' : '點位模式' }}
                 </v-chip>
               </div>
             </v-card-text>
@@ -795,7 +795,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch, onUnmounted, computed } from 'vue';
+import { ref, onMounted, nextTick, watch, onUnmounted, computed, toRaw } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useGisStore } from '@/stores/gis';
 import { storeToRefs } from 'pinia';
@@ -807,7 +807,8 @@ import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
-import { Heatmap as HeatmapLayer } from 'ol/layer';
+// import { Heatmap as HeatmapLayer } from 'ol/layer'; // 註解熱區圖
+import { Polygon } from 'ol/geom';
 import OSM from 'ol/source/OSM';
 import StadiaMaps from 'ol/source/StadiaMaps';
 import TileWMS from 'ol/source/TileWMS';
@@ -953,7 +954,7 @@ const mapLayers = ref<MapLayer[]>([
     layer: null
   },
   {
-    name: '補助案件熱區圖',
+    name: '補助案件格網統計圖',
     visible: true,
     opacity: 0.8,
     category: 'overlay',
@@ -971,7 +972,8 @@ const mapLayers = ref<MapLayer[]>([
 // GIS 補助案件相關
 const showSearchPanel = ref(false);
 const grantPointsLayer = ref<VectorLayer | null>(null);
-const grantHeatmapLayer = ref<HeatmapLayer | null>(null);
+// const grantHeatmapLayer = ref<HeatmapLayer | null>(null); // 註解熱區圖
+const grantGridLayer = ref<VectorLayer | null>(null); // 新增格網圖層
 
 // 搜尋面板位置
 const searchPanelPosition = ref({ x: 10, y: 10 });
@@ -1151,17 +1153,17 @@ const toggleLayerVisibility = (layer: MapLayer) => {
   // 只處理疊加圖層，底圖圖層有專門的函數處理
   if (layer.category === 'overlay') {
     // 處理補助案件圖層的特殊邏輯
-    if (layer.name === '補助案件熱區圖') {
-      // 切換到熱區模式
+    if (layer.name === '補助案件格網統計圖') {
+      // 切換到格網統計模式
       if (layer.visible) {
-        displayMode.value = 'heatmap';
+        displayMode.value = 'grid';
         mapLayers.value[4].visible = false; // 關閉點位圖層
       }
     } else if (layer.name === '補助案件點位') {
       // 切換到點位模式
       if (layer.visible) {
         displayMode.value = 'points';
-        mapLayers.value[3].visible = false; // 關閉熱區圖層
+        mapLayers.value[3].visible = false; // 關閉格網圖層
       }
     }
 
@@ -1326,14 +1328,22 @@ watch(displayMode, async (newMode) => {
 
 // 更新圖層可見性
 const updateLayerVisibility = () => {
-  if (grantPointsLayer.value && grantHeatmapLayer.value) {
-    if (displayMode.value === 'heatmap') {
-      grantHeatmapLayer.value.setVisible(mapLayers.value[3].visible);
+  if (grantPointsLayer.value && grantGridLayer.value) {
+    if (displayMode.value === 'grid') {
+      grantGridLayer.value.setVisible(mapLayers.value[3].visible);
       grantPointsLayer.value.setVisible(false);
-      mapLayers.value[3].name = '補助案件熱區圖';
+      mapLayers.value[3].name = '補助案件格網統計圖';
       mapLayers.value[4].visible = false;
+
+      // 確保格網圖層有資料
+      const gridSource = grantGridLayer.value.getSource();
+      if (gridSource && gridSource.getFeatures().length === 0) {
+        console.log('[格網圖層] 切換到格網模式，觸發資料載入');
+        // 觸發載入
+        gridSource.refresh();
+      }
     } else {
-      grantHeatmapLayer.value.setVisible(false);
+      grantGridLayer.value.setVisible(false);
       grantPointsLayer.value.setVisible(mapLayers.value[4].visible);
       mapLayers.value[4].name = '補助案件點位';
       mapLayers.value[3].visible = false;
@@ -1575,29 +1585,9 @@ const updateLayersWithFilteredData = () => {
   console.log(`更新圖層顯示，篩選後特徵數量: ${filteredFeatures.value.length}`);
 
   // 根據顯示模式更新對應的圖層
-  if (displayMode.value === 'heatmap') {
-    // 更新熱區圖層
-    const heatmapSource = grantHeatmapLayer.value.getSource();
-    if (heatmapSource) {
-      heatmapSource.clear();
-
-      // 轉換為熱區圖層需要的點位
-      const features = filteredFeatures.value.map((feature: GeoJsonFeature) => {
-        if (feature.geometry?.type === 'Point') {
-          const coords = feature.geometry.coordinates as [number, number];
-          const point = new Point(fromLonLat(coords));
-          return new Feature({
-            geometry: point,
-            weight: 1,
-            ...feature.properties
-          });
-        }
-        return null;
-      }).filter((f): f is Feature<Point> => f !== null);
-
-      heatmapSource.addFeatures(features);
-      console.log(`熱區圖層已更新，載入 ${features.length} 個點位`);
-    }
+  if (displayMode.value === 'grid') {
+    // 更新格網統計圖層
+    updateGridLayer(filteredFeatures.value);
   } else {
     // 更新點位圖層
     const clusterSource = grantPointsLayer.value.getSource() as Cluster;
@@ -1707,30 +1697,182 @@ const loadGeoJsonToGrantLayer = (geoJsonData: GeoJsonFeatureCollection) => {
   }
 }
 
-// 載入 GeoJSON 到熱區圖層（簡化版）
+// 載入 GeoJSON 到格網統計圖層（簡化版）
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const loadGeoJsonToHeatmapLayer = (geoJsonData: GeoJsonFeatureCollection) => {
-  if (!grantHeatmapLayer.value) return
+const loadGeoJsonToGridLayer = (geoJsonData: GeoJsonFeatureCollection) => {
+  if (!grantGridLayer.value) return
 
-  const vectorSource = grantHeatmapLayer.value.getSource()
-  vectorSource?.clear()
+  updateGridLayer(geoJsonData.features || []);
+  console.log(`載入了格網統計圖資料，包含 ${geoJsonData.features?.length || 0} 個點位`)
+}
 
-  // 轉換為熱區圖層需要的點位
-  const features = geoJsonData.features?.map((feature: GeoJsonFeature) => {
+// 更新格網統計圖層
+const updateGridLayer = (features: GeoJsonFeature[]) => {
+  console.log(`[updateGridLayer] 開始處理 ${features.length} 個特徵`);
+
+  if (!grantGridLayer.value || !map) {
+    console.log('[updateGridLayer] 缺少格網圖層或地圖實例');
+    return;
+  }
+
+  const gridSource = grantGridLayer.value.getSource();
+  if (!gridSource) {
+    console.log('[updateGridLayer] 格網圖層沒有資料源');
+    return;
+  }
+
+  // 清除現有格網
+  gridSource.clear();
+
+  if (features.length === 0) {
+    console.log('[updateGridLayer] 沒有資料，清空格網');
+    return;
+  }
+
+  // 取得當前地圖的範圍
+  const extent = map.getView().calculateExtent(map.getSize());
+  console.log('[updateGridLayer] 當前地圖範圍:', extent);
+
+  // 計算格網大小（可以根據縮放等級調整）
+  const zoom = map.getView().getZoom() || 7;
+  let gridSize: number;
+
+  if (zoom < 8) {
+    gridSize = 20000; // 大格網
+  } else if (zoom < 12) {
+    gridSize = 10000; // 中等格網
+  } else {
+    gridSize = 5000;  // 小格網
+  }
+
+  console.log(`[updateGridLayer] 使用格網大小: ${gridSize}, 縮放等級: ${zoom}`);
+
+  // 建立格網統計 - 使用普通對象避免響應式代理問題
+  const gridStats: Record<string, { count: number; bounds: number[] }> = {};
+
+  // 統計每個格網內的點位數量 - 使用 toRaw 避免響應式代理問題
+  let validPointCount = 0;
+  const rawFeatures = toRaw(features);
+  for (let i = 0; i < rawFeatures.length; i++) {
+    const feature = rawFeatures[i];
     if (feature.geometry?.type === 'Point') {
-      const coords = feature.geometry.coordinates as [number, number]
-      const point = new Point(fromLonLat(coords))
-      return new Feature({
-        geometry: point,
-        weight: 1,
-        ...feature.properties
-      })
-    }
-    return null;
-  }).filter(Boolean) || [];
+      validPointCount++;
+      const coords = feature.geometry.coordinates as [number, number];
+      const projectedCoords = fromLonLat(coords);
 
-  vectorSource?.addFeatures(features.filter((f): f is Feature<Point> => f !== null))
-  console.log(`載入了 ${features.length} 個熱區圖資料點`)
+      // 計算格網索引
+      const gridX = Math.floor(projectedCoords[0] / gridSize) * gridSize;
+      const gridY = Math.floor(projectedCoords[1] / gridSize) * gridSize;
+      const gridKey = `${gridX},${gridY}`;
+
+      if (!gridStats[gridKey]) {
+        gridStats[gridKey] = {
+          count: 0,
+          bounds: [gridX, gridY, gridX + gridSize, gridY + gridSize]
+        };
+      }
+
+      gridStats[gridKey].count++;
+    }
+  }
+
+  console.log(`[updateGridLayer] 處理了 ${validPointCount} 個有效點位，建立了 ${Object.keys(gridStats).length} 個格網`);
+
+  // 建立格網特徵
+  const gridFeatures: Feature[] = [];
+  const allCounts = Object.values(gridStats).map(s => s.count);
+  const maxCount = Math.max(...allCounts);
+  console.log(`[updateGridLayer] 格網最大案件數: ${maxCount}`);
+
+  Object.entries(gridStats).forEach(([gridKey, stat]) => {
+    if (stat.count > 0) {
+      // 建立格網矩形
+      const [minX, minY, maxX, maxY] = stat.bounds;
+      const polygon = new Polygon([[
+        [minX, minY],
+        [maxX, minY],
+        [maxX, maxY],
+        [minX, maxY],
+        [minX, minY]
+      ]]);
+
+      // 計算顏色強度（0-1）
+      const intensity = stat.count / maxCount;
+      const opacity = Math.max(0.2, intensity * 0.8);
+
+      // 根據數量設定顏色
+      let fillColor: string;
+      if (stat.count >= maxCount * 0.8) {
+        fillColor = `rgba(255, 0, 0, ${opacity})`; // 紅色
+      } else if (stat.count >= maxCount * 0.6) {
+        fillColor = `rgba(255, 165, 0, ${opacity})`; // 橙色
+      } else if (stat.count >= maxCount * 0.4) {
+        fillColor = `rgba(255, 255, 0, ${opacity})`; // 黃色
+      } else if (stat.count >= maxCount * 0.2) {
+        fillColor = `rgba(173, 255, 47, ${opacity})`; // 黃綠色
+      } else {
+        fillColor = `rgba(0, 255, 0, ${opacity})`; // 綠色
+      }
+
+      const gridFeature = new Feature({
+        geometry: polygon,
+        count: stat.count,
+        gridKey: gridKey,
+        maxCount: maxCount
+      });
+
+      // 設定格網樣式
+      gridFeature.setStyle(new Style({
+        fill: new Fill({
+          color: fillColor
+        }),
+        stroke: new Stroke({
+          color: 'rgba(255, 255, 255, 0.8)',
+          width: 1
+        }),
+        text: new Text({
+          text: stat.count.toString(),
+          fill: new Fill({
+            color: '#000000'
+          }),
+          stroke: new Stroke({
+            color: '#ffffff',
+            width: 2
+          }),
+          font: 'bold 14px Arial',
+          textAlign: 'center',
+          textBaseline: 'middle'
+        })
+      }));
+
+      gridFeatures.push(gridFeature);
+    }
+  });
+
+  // 將格網特徵加入圖層
+  gridSource.addFeatures(gridFeatures);
+  console.log(`[updateGridLayer] 建立了 ${gridFeatures.length} 個格網，總計 ${features.length} 個點位`);
+  console.log(`[updateGridLayer] 格網圖層現在有 ${gridSource.getFeatures().length} 個特徵`);
+
+  // 強制重新渲染
+  map.render();
+  console.log(`[updateGridLayer] 已觸發地圖重新渲染`);
+};
+
+// 顯示格網統計資訊彈出視窗
+const showGridPopup = (coordinate: number[], properties: Record<string, unknown>) => {
+  const count = Number(properties.count) || 0;
+  const maxCount = Number(properties.maxCount) || 1;
+  const percentage = Math.round((count / maxCount) * 100);
+
+  const info = `📊 格網統計資訊
+📍 此格網內案件數: ${count} 筆
+📈 佔最大值比例: ${percentage}%
+🏆 全區最大值: ${maxCount} 筆
+
+💡 此格網包含了 ${count} 個補助申請案件`
+
+  alert(info)
 }
 
 // 顯示案件詳細資訊彈出視窗（簡化版）
@@ -2076,16 +2218,15 @@ async function initMap() {
       opacity: mapLayers.value[2].opacity
     });
 
-    // 建立補助案件熱區圖層 - 使用原始點位資料
-    const heatmapVectorSource = new VectorSource({
-      format: new GeoJSON(),
+    // 建立補助案件格網統計圖層 - 替代熱區圖
+    const gridVectorSource = new VectorSource({
       loader: async (extent, resolution, projection) => {
         try {
-          console.log('[HeatmapLayer] OpenLayers 自動觸發資料載入')
-          await loadRawDataForLayer('heatmap', extent, resolution, projection, heatmapVectorSource)
+          console.log('[GridLayer] OpenLayers 自動觸發資料載入')
+          await loadRawDataForLayer('grid', extent, resolution, projection, gridVectorSource)
         } catch (error) {
-          console.error('[HeatmapLayer] 載入失敗:', error)
-          showError('熱區圖層載入失敗')
+          console.error('[GridLayer] 載入失敗:', error)
+          showError('格網圖層載入失敗')
         }
       },
       strategy: (extent) => {
@@ -2102,16 +2243,47 @@ async function initMap() {
       }
     });
 
-    const heatmapLayer = new HeatmapLayer({
-      source: heatmapVectorSource,
-      blur: 15,
-      radius: 8,
-      gradient: [
-        '#00f', '#0ff', '#0f0', '#ff0', '#f00'
-      ],
+    const gridLayer = new VectorLayer({
+      source: gridVectorSource,
       visible: mapLayers.value[3].visible,
       opacity: mapLayers.value[3].opacity
     });
+
+    // 註解掉原本的熱區圖層
+    // const heatmapVectorSource = new VectorSource({
+    //   format: new GeoJSON(),
+    //   loader: async (extent, resolution, projection) => {
+    //     try {
+    //       console.log('[HeatmapLayer] OpenLayers 自動觸發資料載入')
+    //       await loadRawDataForLayer('heatmap', extent, resolution, projection, heatmapVectorSource)
+    //     } catch (error) {
+    //       console.error('[HeatmapLayer] 載入失敗:', error)
+    //       showError('熱區圖層載入失敗')
+    //     }
+    //   },
+    //   strategy: (extent) => {
+    //     const buffer = 0.1
+    //     const width = extent[2] - extent[0]
+    //     const height = extent[3] - extent[1]
+    //     return [[
+    //       extent[0] - width * buffer,
+    //       extent[1] - height * buffer,
+    //       extent[2] + width * buffer,
+    //       extent[3] + height * buffer
+    //     ]]
+    //   }
+    // });
+
+    // const heatmapLayer = new HeatmapLayer({
+    //   source: heatmapVectorSource,
+    //   blur: 15,
+    //   radius: 8,
+    //   gradient: [
+    //     '#00f', '#0ff', '#0f0', '#ff0', '#f00'
+    //   ],
+    //   visible: mapLayers.value[3].visible,
+    //   opacity: mapLayers.value[3].opacity
+    // });
 
     // 建立補助案件點位圖層 - 使用原始資料 + OpenLayers 聚合
     const baseVectorSource = new VectorSource({
@@ -2156,16 +2328,16 @@ async function initMap() {
     });
 
     // 儲存圖層引用
-    grantHeatmapLayer.value = heatmapLayer;
+    grantGridLayer.value = gridLayer;
     grantPointsLayer.value = grantLayer;
 
-    const layers = [nlscLayer, osmLayer, stamenLayer, heatmapLayer, grantLayer];
+    const layers = [nlscLayer, osmLayer, stamenLayer, gridLayer, grantLayer];
 
     // 關聯圖層到 mapLayers 數據結構
     mapLayers.value[0].layer = nlscLayer;
     mapLayers.value[1].layer = osmLayer;
     mapLayers.value[2].layer = stamenLayer;
-    mapLayers.value[3].layer = heatmapLayer;
+    mapLayers.value[3].layer = gridLayer;
     mapLayers.value[4].layer = grantLayer;
 
     // 設置初始可見性和透明度
@@ -2194,13 +2366,12 @@ async function initMap() {
       })
     });
 
-    // 添加點擊事件處理補助案件點位
+    // 添加點擊事件處理補助案件點位和格網
     map.on('singleclick', (event) => {
-      // 只在點位模式下處理點擊事件
-      if (displayMode.value === 'points') {
-        const features = map!.getFeaturesAtPixel(event.pixel);
-        if (features.length > 0) {
-          // 檢查是否點擊的是補助案件圖層的特徵
+      const features = map!.getFeaturesAtPixel(event.pixel);
+      if (features.length > 0) {
+        if (displayMode.value === 'points') {
+          // 點位模式：處理聚合點位
           const feature = features.find(f => {
             const layer = f.get('layer');
             return layer === grantLayer || !layer; // 補助案件特徵
@@ -2209,6 +2380,13 @@ async function initMap() {
           if (feature) {
             const properties = feature.getProperties();
             showGrantPopup(event.coordinate, properties);
+          }
+        } else if (displayMode.value === 'grid') {
+          // 格網模式：處理格網統計
+          const gridFeature = features.find(f => f.get('gridKey'));
+          if (gridFeature) {
+            const properties = gridFeature.getProperties();
+            showGridPopup(event.coordinate, properties);
           }
         }
       }
@@ -2257,6 +2435,24 @@ async function initMap() {
         // 設置初始圖層可見性
         updateLayerVisibility();
 
+        // 確保初始化後觸發圖層資料載入
+        setTimeout(() => {
+          if (displayMode.value === 'grid' && grantGridLayer.value) {
+            const gridSource = grantGridLayer.value.getSource();
+            if (gridSource) {
+              console.log('[InitMap] 初始化完成，觸發格網圖層資料載入');
+              gridSource.refresh();
+            }
+          } else if (displayMode.value === 'points' && grantPointsLayer.value) {
+            const clusterSource = grantPointsLayer.value.getSource() as Cluster;
+            const baseSource = clusterSource?.getSource();
+            if (baseSource) {
+              console.log('[InitMap] 初始化完成，觸發點位圖層資料載入');
+              baseSource.refresh();
+            }
+          }
+        }, 100);
+
         // OpenLayers 會自動觸發資料載入，使用當前篩選條件
         console.log('地圖初始化完成，OpenLayers 將使用初始篩選條件載入圖層資料');
       }
@@ -2272,7 +2468,61 @@ async function initMap() {
 if (import.meta.env.DEV) {
   (window as any).testFrontendFilters = testFrontendFilters
   (window as any).getInitialOverlayLoadingParams = getInitialParams
-  console.log('[Dev] 已暴露測試函數: testFrontendFilters, getInitialOverlayLoadingParams')
+  // 新增格網測試函數
+  (window as any).testGridLayer = () => {
+    console.log('[TestGrid] 開始測試格網圖層...');
+    if (grantGridLayer.value) {
+      const gridSource = grantGridLayer.value.getSource();
+      console.log('[TestGrid] 格網圖層存在:', !!grantGridLayer.value);
+      console.log('[TestGrid] 格網資料源存在:', !!gridSource);
+      console.log('[TestGrid] 格網特徵數量:', gridSource?.getFeatures().length || 0);
+      console.log('[TestGrid] 格網圖層可見性:', grantGridLayer.value.getVisible());
+      console.log('[TestGrid] 顯示模式:', displayMode.value);
+
+      // 手動觸發格網更新
+      if (allLoadedFeatures.value.length > 0) {
+        console.log('[TestGrid] 使用已載入資料更新格網:', allLoadedFeatures.value.length, '個特徵');
+        updateGridLayer(allLoadedFeatures.value);
+      } else {
+        console.log('[TestGrid] 觸發格網圖層重新載入');
+        gridSource?.refresh();
+      }
+    } else {
+      console.log('[TestGrid] 格網圖層不存在！');
+    }
+  };
+
+  // 新增測試格網函數，使用假資料
+  (window as any).createTestGrid = () => {
+    console.log('[CreateTestGrid] 建立測試格網...');
+    if (!grantGridLayer.value || !map) {
+      console.log('[CreateTestGrid] 格網圖層或地圖不存在！');
+      return;
+    }
+
+    // 建立一些測試點位資料（台灣中部）
+    const testFeatures: GeoJsonFeature[] = [
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [120.9, 23.5] },
+        properties: { cluster: false, id: 1, source_system: 'new_aerc', source_id: 'test1', applicant_name: '測試1', land_section: '測試段', land_number: '001', apply_year: 114, case_status: '核准', land_type: '農地' }
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [120.91, 23.51] },
+        properties: { cluster: false, id: 2, source_system: 'new_aerc', source_id: 'test2', applicant_name: '測試2', land_section: '測試段', land_number: '002', apply_year: 114, case_status: '核准', land_type: '農地' }
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [120.92, 23.52] },
+        properties: { cluster: false, id: 3, source_system: 'new_aerc', source_id: 'test3', applicant_name: '測試3', land_section: '測試段', land_number: '003', apply_year: 114, case_status: '核准', land_type: '農地' }
+      }
+    ];
+
+    console.log('[CreateTestGrid] 使用測試資料建立格網:', testFeatures.length, '個點位');
+    updateGridLayer(testFeatures);
+  };
+  console.log('[Dev] 已暴露測試函數: testFrontendFilters, getInitialOverlayLoadingParams, testGridLayer, createTestGrid')
 }
 
 // 監視 fluid 狀態變化，以便在切換時更新地圖
@@ -2325,136 +2575,9 @@ const resolutionToZoomLevel = (resolution: number) => {
   return Math.round(Math.log2(156543.03392804097 / resolution))
 }
 
-// OpenLayers 圖層資料載入器
-const loadDataForLayer = async (
-  layerType: 'heatmap' | 'points',
-  extent: number[],
-  resolution: number,
-  projection: import('ol/proj/Projection').default,
-  vectorSource: VectorSource
-) => {
-  try {
-    // 防止重複載入
-    if (gisLoading.value) {
-      console.log(`[${layerType}Layer] 正在載入中，跳過此次請求`)
-      return
-    }
-
-    const bbox = extentToBbox(extent)
-    const zoomLevel = resolutionToZoomLevel(resolution)
-
-    console.log(`[${layerType}Layer] OpenLayers 觸發載入:`, {
-      bbox,
-      zoomLevel,
-      resolution,
-      projection: projection.getCode()
-    })
-
-    // 根據圖層類型和當前狀態決定是否載入資料
-    if (layerType === 'heatmap' && displayMode.value !== 'heatmap') {
-      console.log('[HeatmapLayer] 當前非熱區模式，跳過載入')
-      return
-    }
-
-    if (layerType === 'points' && displayMode.value !== 'points') {
-      console.log('[PointsLayer] 當前非點位模式，跳過載入')
-      return
-    }
-
-    // 檢查是否有搜尋條件
-    const hasSearchCriteria = searchCriteria.value.applicantName ||
-                              searchCriteria.value.landSection ||
-                              searchCriteria.value.caseNumber
-
-    let geoJsonData: GeoJsonFeatureCollection | null = null
-
-    if (hasSearchCriteria) {
-      // 執行搜尋 - 移除數量限制以評估效能
-      console.log(`[${layerType}Layer] 執行搜尋載入（無數量限制）`)
-      await gisStore.searchCases(bbox, {
-        applicant_name: searchCriteria.value.applicantName || undefined,
-        land_section: searchCriteria.value.landSection || undefined,
-        case_number: searchCriteria.value.caseNumber || undefined
-        // 移除 limit 限制，載入所有符合條件的點位
-      })
-      geoJsonData = gisStore.lastLoadedData
-    } else {
-      // 一般載入 - 移除數量限制以評估效能
-      console.log(`[${layerType}Layer] 執行一般載入（無數量限制）`)
-      await gisStore.loadGrantLocations(bbox, zoomLevel, {
-        source_system: searchCriteria.value.sourceSystem as 'new_aerc' | 'legacy_farmdata' | undefined
-        // 不設定 limit 參數，載入所有符合條件的點位
-      })
-      geoJsonData = gisStore.lastLoadedData
-    }
-
-    if (!geoJsonData || !geoJsonData.features) {
-      console.log(`[${layerType}Layer] 無資料返回`)
-      return
-    }
-
-    // 清除現有特徵
-    vectorSource.clear()
-
-    // 載入新特徵
-    if (layerType === 'heatmap') {
-      // 熱區圖層：轉換為帶權重的點位
-      const features = geoJsonData.features.map((feature: GeoJsonFeature) => {
-        if (feature.geometry?.type === 'Point') {
-          const coords = feature.geometry.coordinates as [number, number]
-          const point = new Point(fromLonLat(coords))
-          return new Feature({
-            geometry: point,
-            weight: 1,
-            ...feature.properties
-          })
-        }
-        return null
-      }).filter((f): f is Feature<Point> => f !== null)
-
-      vectorSource.addFeatures(features)
-      console.log(`[HeatmapLayer] 載入了 ${features.length} 個熱區點位`)
-
-    } else {
-      // 點位圖層：使用 GeoJSON format
-      try {
-        const geoJSONFormat = new GeoJSON()
-        const features = geoJSONFormat.readFeatures(geoJsonData, {
-          featureProjection: 'EPSG:3857'
-        })
-
-        vectorSource.addFeatures(features)
-        console.log(`[PointsLayer] 載入了 ${features.length} 個點位`)
-
-      } catch (error) {
-        console.error(`[PointsLayer] GeoJSON 解析失敗:`, error)
-        // 降級處理
-        const features = geoJsonData.features.map((featureData: GeoJsonFeature) => {
-          if (featureData.geometry?.type === 'Point') {
-            const coords = featureData.geometry.coordinates as [number, number]
-            const point = new Point(fromLonLat(coords))
-            return new Feature({
-              geometry: point,
-              ...featureData.properties
-            })
-          }
-          return null;
-        }).filter((f): f is Feature<Point> => f !== null)
-
-        vectorSource.addFeatures(features)
-        console.log(`[PointsLayer] 手動載入了 ${features.length} 個點位`)
-      }
-    }
-
-  } catch (error) {
-    console.error(`[${layerType}Layer] 載入失敗:`, error)
-    throw error
-  }
-}
-
 // OpenLayers 圖層資料載入器（聚合用）- 只載入原始點位資料
 const loadRawDataForLayer = async (
-  layerType: 'heatmap' | 'points',
+  layerType: 'grid' | 'points',
   extent: number[],
   resolution: number,
   projection: import('ol/proj/Projection').default,
@@ -2478,8 +2601,8 @@ const loadRawDataForLayer = async (
     })
 
     // 根據圖層類型和當前狀態決定是否載入資料
-    if (layerType === 'heatmap' && displayMode.value !== 'heatmap') {
-      console.log('[HeatmapLayer] 當前非熱區模式，跳過載入')
+    if (layerType === 'grid' && displayMode.value !== 'grid') {
+      console.log('[GridLayer] 當前非格網統計模式，跳過載入')
       return
     }
 
@@ -2502,7 +2625,7 @@ const loadRawDataForLayer = async (
       console.log(`[${layerType}Layer] 執行搜尋載入（原始資料，無數量限制）`)
 
       // 準備搜尋參數
-      let searchParams: any = {};
+      const searchParams: Record<string, unknown> = {};
 
       if (hasQuickFilter) {
         // 快速篩選（統一對所有欄位進行OR邏輯）
@@ -2557,23 +2680,10 @@ const loadRawDataForLayer = async (
     vectorSource.clear()
 
     // 載入新特徵 - 都作為個別點位處理
-    if (layerType === 'heatmap') {
-      // 熱區圖層：轉換為帶權重的點位
-      const features = geoJsonData.features.map((feature: GeoJsonFeature) => {
-        if (feature.geometry?.type === 'Point') {
-          const coords = feature.geometry.coordinates as [number, number]
-          const point = new Point(fromLonLat(coords))
-          return new Feature({
-            geometry: point,
-            weight: 1,
-            ...feature.properties
-          })
-        }
-        return null
-      }).filter((f): f is Feature<Point> => f !== null)
-
-      vectorSource.addFeatures(features)
-      console.log(`[HeatmapLayer] 載入了 ${features.length} 個原始熱區點位`)
+    if (layerType === 'grid') {
+      // 格網圖層：直接使用原始特徵資料進行格網統計
+      updateGridLayer(geoJsonData.features);
+      console.log(`[GridLayer] 載入了 ${geoJsonData.features.length} 個原始點位進行格網統計`)
 
     } else {
       // 點位圖層：使用 GeoJSON format
@@ -2695,9 +2805,14 @@ const createClusterStyle = (feature: Feature | import('ol/render/Feature').defau
 
 // 刷新圖層資料（供手動觸發使用）
 const refreshLayerData = () => {
-  if (grantHeatmapLayer.value && displayMode.value === 'heatmap') {
-    console.log('[RefreshLayers] 刷新熱區圖層')
-    grantHeatmapLayer.value.getSource()?.refresh()
+  if (grantGridLayer.value && displayMode.value === 'grid') {
+    console.log('[RefreshLayers] 刷新格網統計圖層')
+    // 格網圖層需要重新載入或統計
+    const gridSource = grantGridLayer.value.getSource();
+    if (gridSource) {
+      // 觸發重新載入
+      gridSource.refresh();
+    }
   }
 
   if (grantPointsLayer.value && displayMode.value === 'points') {
@@ -2996,16 +3111,7 @@ const refreshLayerData = () => {
   /*flex-shrink: 1; /* 允許收縮 */
 }
 
-/* 面板內容樣式 */
-.filter-panel-content {
-  /* background-color: rgba(248, 250, 252, 0.8) !important; */
-  /* padding: 20px !important; */
-  /* max-height: 400px; */
-  /* overflow-y: auto; */
-  /* width: 100% !important; /* 確保與父容器同寬 */
-  /* max-width: 100% !important; /* 防止內容撐大 */
-  /* box-sizing: border-box; /* 包含 padding 在寬度計算內 */
-}
+/* 面板內容樣式 - 已註解 */
 
 /* 內容區域的容器樣式 */
 .filter-panel-content .v-container {

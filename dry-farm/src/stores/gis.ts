@@ -41,7 +41,7 @@ export const useGisStore = defineStore('gis', () => {
   // UI 狀態
   const loading = ref(false)
   const error = ref<string | null>(null)
-  const displayMode = ref<DisplayMode>('heatmap')
+  const displayMode = ref<DisplayMode>('grid')
 
   // 篩選狀態
   const filters = ref<GisFilters>({
