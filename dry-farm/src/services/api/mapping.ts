@@ -1,4 +1,4 @@
-import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES } from './endpoints';
+import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES,GIS } from './endpoints';
 
 // 取得當前的 API 版本前綴
 const API_BASE_URL = import.meta.env.FAST_API_BASE_URL || '';
@@ -89,6 +89,11 @@ export const BACKEND_PATHS = {
     LIST: '/irrigation_types/',
     OPTIONS: '/irrigation_types/options',
     DETAIL: (id: number | string) => `/irrigation_types/${id}`,
+  },
+  GIS: {
+    POINTS: '/gis/points',
+    STATS: '/gis/stats',
+    SEARCH: '/gis/search',
   }
 };
 
@@ -112,6 +117,9 @@ export const API_MAPPING: Record<string, string> = {
   [PF_MATERIALS.LIST]: BACKEND_PATHS.PF_MATERIALS.LIST,
   [IRRIGATION_TYPES.LIST]: BACKEND_PATHS.IRRIGATION_TYPES.LIST,
   [IRRIGATION_TYPES.OPTIONS]: BACKEND_PATHS.IRRIGATION_TYPES.OPTIONS,
+  [GIS.POINTS]: BACKEND_PATHS.GIS.POINTS,
+  [GIS.STATS]: BACKEND_PATHS.GIS.STATS,
+  [GIS.SEARCH]: BACKEND_PATHS.GIS.SEARCH,
 }
 
 // 動態參數路徑匹配規則

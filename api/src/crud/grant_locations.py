@@ -1,10 +1,12 @@
 
 import logging
+import json
 from typing import List, Dict, Any
 from tortoise.transactions import in_transaction
-from psycopg2.extras import Json
 
-from src.database.models import Grants, GrantLocations
+
+from src.database.models import Grants
+from src.database.geo_models import GrantLocations
 
 logger = logging.getLogger(__name__)
 
@@ -60,14 +62,14 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                     "land_type_text": parcel.get('land_type_text')
                 }
 
-                # SQL for UPSERT
+                # SQL for UPSERT (修正: 移除不存在的grant_id欄位)
                 sql = """
                 INSERT INTO grant_locations (
-                    grant_id, source_system, source_id, land_section, land_number, geom, 
+                    source_system, source_id, land_section, land_number, geom, 
                     applicant_name, apply_year, case_status, comment, meta_data, updated_at
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
-                ON CONFLICT (grant_id, land_section, land_number) DO UPDATE SET
+                VALUES ($1, $2, $3, $4, ST_GeomFromText($5, 4326), $6, $7, $8, $9, $10, NOW())
+                ON CONFLICT (source_system, source_id, land_section, land_number) DO UPDATE SET
                     geom = EXCLUDED.geom,
                     applicant_name = EXCLUDED.applicant_name,
                     apply_year = EXCLUDED.apply_year,
@@ -79,8 +81,8 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                 
                 await conn.execute_script(
                     sql,
-                    grant_id, 'new_aerc', str(grant_id), land_section, land_number, geom,
-                    applicant_name, apply_year, case_status, comment, Json(meta_data)
+                    'new_aerc', str(grant_id), land_section, land_number, geom,
+                    applicant_name, apply_year, case_status, comment, json.dumps(meta_data)
                 )
 
             except Exception as e:

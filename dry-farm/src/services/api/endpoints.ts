@@ -49,6 +49,14 @@ export const USERS = {
   DELETE: (id: number | string) => `${BASE}/users/${id}`,
 }
 
+// GIS related endpoints
+export const GIS = {
+  BASE: `${BASE}/gis`,
+  POINTS: `${BASE}/gis/points`,
+  STATS: `${BASE}/gis/stats`,
+  SEARCH: `${BASE}/gis/search`,
+}
+
 // budget related endpoints
 export const BUDGET = {
   EXECUTION: `${BASE}/budget/execution`,
