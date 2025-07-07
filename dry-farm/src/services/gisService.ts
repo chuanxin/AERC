@@ -329,5 +329,22 @@ export const validateAndNormalizeFilters = (filters: Partial<Omit<GetPointsParam
     normalized.no_clustering = filters.no_clustering
   }
 
+  // 驗證詳細篩選參數
+  if (typeof filters.case_number === 'string' && filters.case_number.trim()) {
+    normalized.case_number = filters.case_number.trim()
+  }
+
+  if (typeof filters.applicant_name === 'string' && filters.applicant_name.trim()) {
+    normalized.applicant_name = filters.applicant_name.trim()
+  }
+
+  if (typeof filters.land_section === 'string' && filters.land_section.trim()) {
+    normalized.land_section = filters.land_section.trim()
+  }
+
+  if (typeof filters.land_number === 'string' && filters.land_number.trim()) {
+    normalized.land_number = filters.land_number.trim()
+  }
+
   return normalized
 }

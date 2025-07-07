@@ -75,6 +75,7 @@ export interface GisFilters {
   apply_year_max?: number;
   applicant_name?: string;
   land_section?: string;
+  land_number?: string;
   case_number?: string;
   limit?: number;
   no_clustering?: boolean;
