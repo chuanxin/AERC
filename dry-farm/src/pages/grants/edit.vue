@@ -459,14 +459,14 @@ import { GrantStorage } from '@/utils/grant-storage'
 import { debounce } from 'lodash'
 
 // Import step components
-import step1 from './steps/step1.vue'
-import step2 from './steps/step2.vue'
-import step3 from './steps/step3.vue'
-import step4 from './steps/step4.vue'
-import step5 from './steps/step5.vue'
-import step6 from './steps/step6.vue'
-import step7 from './steps/step7.vue'
-import step8 from './steps/step8.vue'
+import step1 from '@/pages/grants/steps/step1.vue'
+import step2 from '@/pages/grants/steps/step2.vue'
+import step3 from '@/pages/grants/steps/step3.vue'
+import step4 from '@/pages/grants/steps/step4.vue'
+import step5 from '@/pages/grants/steps/step5.vue'
+import step6 from '@/pages/grants/steps/step6.vue'
+import step7 from '@/pages/grants/steps/step7.vue'
+import step8 from '@/pages/grants/steps/step8.vue'
 
 // Setup
 const route = useRoute()

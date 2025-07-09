@@ -134,7 +134,7 @@
 </template>
 
 <script lang="ts" setup>
-import step0 from './components/step0.vue'
+import step0 from '@/pages/grants/steps/step0.vue'
 import { useGrantsStore } from '@/stores/grants'
 import { useRouter, useRoute } from 'vue-router'
 import type { GrantCreateRequest } from '@/types/grantForms'

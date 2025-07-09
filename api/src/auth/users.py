@@ -7,17 +7,6 @@ from tortoise.exceptions import DoesNotExist
 from src.database.models import Users
 from src.schemas.users import UserDatabaseSchema
 
-
-# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-# def verify_password(plain_password, hashed_password):
-#     return pwd_context.verify(plain_password, hashed_password)
-#     return bcrypt.checkpw(
-#         bytes(plain_password, encoding="utf-8"),
-#         bytes(hashed_password, encoding="utf-8"),
-#     )
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against a hash using bcrypt directly"""
     try:
@@ -53,16 +42,26 @@ def get_password_hash(password: str) -> str:
             detail="Error processing password",
         )
 
-# def get_password_hash(password):
-#     return pwd_context.hash(password)
-#     return bcrypt.hashpw(
-#         bytes(password, encoding="utf-8"),
-#         bcrypt.gensalt(),
-#     )
-
-
 async def get_user(username: str):
-    return await UserDatabaseSchema.from_queryset_single(Users.get(username=username))
+    try:
+        # 只查詢需要的欄位，避免關聯查詢
+        user = await Users.get(username=username, is_active=True)
+        
+        if not user:
+            raise DoesNotExist("User not found")
+        
+        return UserDatabaseSchema(
+            id=user.id,
+            username=user.username,
+            password=user.password,
+            is_active=user.is_active,
+            role=user.role,
+            permissions=user.permissions,
+            last_login=user.last_login
+        )
+        
+    except DoesNotExist:
+        raise DoesNotExist("User not found")
 
 
 async def validate_user(user: OAuth2PasswordRequestForm = Depends()):

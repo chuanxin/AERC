@@ -1,6 +1,6 @@
 from tortoise.contrib.pydantic import pydantic_model_creator
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, NewType
 
 from src.database.models import Users
 
@@ -8,25 +8,24 @@ from src.database.models import Users
 UserInSchema = pydantic_model_creator(
     Users, name="UserIn", exclude_readonly=True
 )
-UserOutSchema = pydantic_model_creator(
-    Users, name="UserOut", exclude=["password", "created_at", "modified_at"]
-)
 UserDatabaseSchema = pydantic_model_creator(
-    Users, name="User", exclude=["created_at", "modified_at"]
+    Users, name="User", include=["id", "username", "is_active", "role", "permissions", "password", "last_login"]
 )
 
-class SimpleOfficeSchema(BaseModel):
+class BaseSchema(BaseModel):
+    class Config:
+        from_attributes = True
+        arbitrary_types_allowed = True
+
+class SimpleOfficeSchema(BaseSchema):
     id: int
     name: str
     short_name: str
     code: str
     classification: int
     is_funding_source: bool
-    
-    class Config:
-        from_attributes = True
 
-class UserInfoSchema(BaseModel):
+class UserInfoSchema(BaseSchema):
     id: int
     username: str
     full_name: Optional[str]
@@ -37,6 +36,7 @@ class UserInfoSchema(BaseModel):
     permissions: Optional[list]
     # last_login: Optional[datetime]
     office: Optional[SimpleOfficeSchema] = None
-    
-    class Config:
-        from_attributes = True
+
+UserOutSchema = UserInfoSchema
+
+UserId = NewType("UserId", int)
