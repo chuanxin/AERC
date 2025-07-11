@@ -7,8 +7,8 @@
       class="breadcrumbs-wrapper mx-auto px-0"
       style="max-width: 96%"
     > -->
-    <!-- <v-breadcrumbs
-      v-if="route.path !== '/'"
+    <v-breadcrumbs
+      v-if="route.path !== '/' && route.path !== '/maps'"
       :items="breadcrumbItems"
       class="pl-10 px-2 py-1 transparent-breadcrumb"
       density="compact"
@@ -43,7 +43,7 @@
           <span v-if="item.href !== '/'">{{ item.title }}</span>
         </a>
       </template>
-    </v-breadcrumbs> -->
+    </v-breadcrumbs>
     <!-- </v-card> -->
 
     <router-view />
