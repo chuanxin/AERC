@@ -781,6 +781,13 @@
             </v-row>
           </v-card>
         </div>
+
+        <!-- 版權資訊 -->
+        <div class="copyright-info">
+          <div class="copyright-text">
+            <div>版權所有：農業部農田水利署、系統開發：財團法人農業工程研究中心</div>
+          </div>
+        </div>
       </div>
     </v-card>
     <!-- 顯示成功訊息的Snackbar -->
@@ -803,6 +810,7 @@ import 'ol/ol.css';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import {defaults as defaultControls} from 'ol/control/defaults.js';
+import ScaleLine from 'ol/control/ScaleLine.js';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
@@ -2349,6 +2357,17 @@ async function initMap() {
       }
     });
 
+    // 創建 ScaleLine 控制
+    const scaleLineControl = new ScaleLine({
+      units: 'metric',
+      bar: true,
+      steps: 4,
+      text: true,
+      minWidth: 100,
+      maxWidth: 140,
+      // className: 'ol-scale-line'
+    });
+
     // 創建地圖
     map = new Map({
       target: mapContainer.value,
@@ -2363,7 +2382,7 @@ async function initMap() {
         zoom: false,
         attribution: true,
         rotate: false
-      })
+      }).extend([scaleLineControl])
     });
 
     // 添加點擊事件處理補助案件點位和格網
@@ -3211,6 +3230,58 @@ const refreshLayerData = () => {
 /* 自定義滾動條 */
 .filter-panel-content::-webkit-scrollbar {
   width: 6px;
+}
+
+/* 版權資訊樣式 */
+.copyright-info {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 1000;
+  pointer-events: none; /* 允許滑鼠事件穿透到地圖 */
+}
+
+.copyright-text {
+  background-color: rgba(255, 255, 255, 0);
+  backdrop-filter: blur(4px);
+  padding: 8px 12px;
+  border-radius: 6px;
+  /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); */
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1.4;
+  text-align: right;
+  /* border: 1px solid rgba(0, 0, 0, 0.1); */
+}
+
+.copyright-text > div {
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* 響應式調整 */
+@media (max-width: 768px) {
+  .copyright-info {
+    bottom: 8px;
+    right: 8px;
+  }
+
+  .copyright-text {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .copyright-info {
+    bottom: 6px;
+    right: 6px;
+  }
+
+  .copyright-text {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
 }
 </style>
 
