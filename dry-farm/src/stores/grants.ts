@@ -6,12 +6,18 @@ import {
   updateGrantStepData,
   updateGrantStepDataWithTracking,
   updateCurrentStep as updateCurrentStepAPI,
+  hybridGrantService,
+  grantCacheService,
   type GrantCreateResponse,
   type GrantStepDataUpdateRequest,
+  type GrantListItem,
+  type GrantListParams,
+  type ServiceStatus,
 } from '@/services/grantsService'
 import { ApplicationError } from '@/utils/asyncHelpers'
 import { GrantStorage } from '@/utils/grant-storage'
 import type { GrantCreateRequest } from '@/types/grantForms'
+import { debounce } from 'lodash-es'
 
 // 🔧 同步特定字段到 localStorage 的工具函數
 function syncFieldsToLocalStorage(caseNumber: string, stepData: Record<string, unknown>, functionName: string): void {
@@ -729,7 +735,7 @@ export const useGrantsStore = defineStore('grants', () => {
           try {
             await updateCurrentStepAPI(currentGrant.value.case_number, step);
             console.log(`[grantsStore] Successfully synced current_step ${step} to database for grant ${currentGrant.value.case_number}`);
-            
+
             // 🆕 如果需要追蹤步驟變更，可以使用單獨的追蹤邏輯，不影響步驟資料
             if (previousStep !== step) {
               console.log(`[grantsStore] Step change tracked: ${previousStep} → ${step} (sessionId: ${sessionId})`);
@@ -813,8 +819,219 @@ export const useGrantsStore = defineStore('grants', () => {
     }
   };
 
+  // =============================================================================
+  // 列表管理功能
+  // =============================================================================
+
+  // 列表相關狀態
+  const grantsList = ref<GrantListItem[]>([])
+  const listLoading = ref(false)
+  const listError = ref<string | null>(null)
+  const serviceStatus = ref<ServiceStatus>(hybridGrantService.getServiceStatus())
+
+  // 篩選與搜尋
+  const listFilters = reactive<GrantListParams>({
+    year: undefined,
+    office_id: undefined,
+    search: '',
+    skip: 0,
+    limit: 100
+  })
+
+  // 選取的案件
+  const selectedGrants = ref<string[]>([])
+
+  // 分頁資訊
+  const pagination = reactive({
+    page: 1,
+    itemsPerPage: 50,
+    totalItems: 0
+  })
+
+  // 列表相關的 getters
+  const filteredGrantsList = computed(() => {
+    let result = grantsList.value
+
+    // 本地篩選（如果需要的話）
+    if (listFilters.search && listFilters.search.length > 0) {
+      const searchTerm = listFilters.search.toLowerCase()
+      result = result.filter(grant =>
+        grant.applicant_name.toLowerCase().includes(searchTerm) ||
+        grant.case_number.toLowerCase().includes(searchTerm) ||
+        (grant.applicant_id && grant.applicant_id.toLowerCase().includes(searchTerm))
+      )
+    }
+
+    return result
+  })
+
+  const isUsingApi = computed(() => serviceStatus.value.apiAvailable && !serviceStatus.value.fallbackMode)
+
+  // 列表相關的 actions
+
+  /**
+   * 載入案件列表
+   */
+  const loadGrantsList = async (params?: Partial<GrantListParams>) => {
+    listLoading.value = true
+    listError.value = null
+
+    try {
+      // 合併參數
+      const queryParams = { ...listFilters, ...params }
+
+      // 使用混合服務載入資料
+      const grants = await hybridGrantService.getGrants(queryParams)
+      grantsList.value = grants
+
+      // 更新服務狀態
+      serviceStatus.value = hybridGrantService.getServiceStatus()
+
+      // 更新分頁資訊
+      pagination.totalItems = grants.length
+
+      console.log(`📋 [loadGrantsList] Loaded ${grants.length} grants`)
+
+    } catch (err) {
+      listError.value = err instanceof Error ? err.message : '載入案件列表失敗'
+      console.error('📋 [loadGrantsList] Error:', err)
+    } finally {
+      listLoading.value = false
+    }
+  }
+
+  /**
+   * 防抖搜尋
+   */
+  const debouncedSearch = debounce(async (searchTerm: string) => {
+    listFilters.search = searchTerm
+    await loadGrantsList()
+  }, 500)
+
+  /**
+   * 更新篩選條件
+   */
+  const updateFilters = async (newFilters: Partial<GrantListParams>) => {
+    Object.assign(listFilters, newFilters)
+    await loadGrantsList()
+  }
+
+  /**
+   * 重置篩選條件
+   */
+  const resetFilters = async () => {
+    Object.assign(listFilters, {
+      year: undefined,
+      office_id: undefined,
+      search: '',
+      skip: 0,
+      limit: 100
+    })
+    await loadGrantsList()
+  }
+
+  /**
+   * 刪除案件
+   */
+  const deleteGrantFromList = async (item: GrantListItem) => {
+    try {
+      await hybridGrantService.deleteGrant(item)
+
+      // 從列表中移除
+      const index = grantsList.value.findIndex(grant => grant.case_number === item.case_number)
+      if (index >= 0) {
+        grantsList.value.splice(index, 1)
+      }
+
+      console.log(`📋 [deleteGrantFromList] Deleted grant ${item.case_number}`)
+
+    } catch (err) {
+      console.error(`📋 [deleteGrantFromList] Error deleting grant ${item.case_number}:`, err)
+      throw err
+    }
+  }
+
+  /**
+   * 批次刪除案件
+   */
+  const deleteSelectedGrants = async () => {
+    if (selectedGrants.value.length === 0) return
+
+    const deletePromises = selectedGrants.value.map(async (caseNumber) => {
+      const item = grantsList.value.find(grant => grant.case_number === caseNumber)
+      if (item) {
+        await deleteGrantFromList(item)
+      }
+    })
+
+    try {
+      await Promise.all(deletePromises)
+      selectedGrants.value = []
+      console.log(`📋 [deleteSelectedGrants] Deleted ${deletePromises.length} grants`)
+    } catch (err) {
+      console.error('📋 [deleteSelectedGrants] Error in batch delete:', err)
+      throw err
+    }
+  }
+
+  /**
+   * 重新整理列表
+   */
+  const refreshGrantsList = async () => {
+    // 清除快取
+    grantCacheService.clear('grants-list')
+
+    // 重新載入
+    await loadGrantsList()
+  }
+
+  /**
+   * 嘗試重新連接 API
+   */
+  const tryReconnectApi = async () => {
+    try {
+      const success = await hybridGrantService.tryReconnectApi()
+      serviceStatus.value = hybridGrantService.getServiceStatus()
+
+      if (success) {
+        // 重新載入列表
+        await loadGrantsList()
+      }
+
+      return success
+    } catch (err) {
+      console.error('📋 [tryReconnectApi] Error:', err)
+      return false
+    }
+  }
+
+  // =============================================================================
+  // 網路狀態監控
+  // =============================================================================
+
+  /**
+   * 監聽網路狀態變化
+   */
+  const setupNetworkMonitoring = () => {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', async () => {
+        console.log('📋 [NetworkMonitor] Back online, attempting to reconnect...')
+        await tryReconnectApi()
+      })
+
+      window.addEventListener('offline', () => {
+        console.log('📋 [NetworkMonitor] Gone offline, switching to fallback mode')
+        serviceStatus.value.apiAvailable = false
+        serviceStatus.value.fallbackMode = true
+      })
+    }
+  }
+
+  // 初始化網路監控
+  setupNetworkMonitoring()
+
   return {
-    // State
+    // State - 原有的
     currentGrant,
     currentStep,
     isLoading,
@@ -824,13 +1041,26 @@ export const useGrantsStore = defineStore('grants', () => {
     lastSavedAt,
     hasUnsavedChanges,
 
-    // Getters
+    // State - 新增的列表功能
+    grantsList,
+    listLoading,
+    listError,
+    serviceStatus,
+    listFilters,
+    selectedGrants,
+    pagination,
+
+    // Getters - 原有的
     isGrantLoaded,
     caseNumber,
     status,
     lastSavedTime,
 
-    // Actions
+    // Getters - 新增的
+    filteredGrantsList,
+    isUsingApi,
+
+    // Actions - 原有的
     loadGrant,
     loadStepData,
     saveStepData,
@@ -844,7 +1074,17 @@ export const useGrantsStore = defineStore('grants', () => {
     importGrantBackup,
     updateCurrentStep,
 
-    // Tracking functions
+    // Actions - 新增的列表功能
+    loadGrantsList,
+    debouncedSearch,
+    updateFilters,
+    resetFilters,
+    deleteGrantFromList,
+    deleteSelectedGrants,
+    refreshGrantsList,
+    tryReconnectApi,
+
+    // Tracking functions - 原有的
     trackFormValidation,
     trackFileOperation,
   }

@@ -134,4 +134,7 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    include: ['lodash-es'] // 預構建 lodash-es
+  },
 })

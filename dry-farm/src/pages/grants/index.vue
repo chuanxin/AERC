@@ -16,6 +16,21 @@
         <div class="d-flex flex-wrap align-center pr-2">
           <v-spacer />
           <div class="d-flex gap-2">
+            <!-- 重新連接 API 按鈕 -->
+            <v-btn
+              v-if="!isUsingApi"
+              class="action-btn mr-2"
+              color="orange"
+              prepend-icon="mdi-wifi"
+              variant="outlined"
+              rounded="lg"
+              size="large"
+              @click="tryReconnect"
+              :loading="reconnecting"
+            >
+              重新連接
+            </v-btn>
+
             <v-btn
               class="action-btn mr-2"
               color="#3ea0a3"
@@ -54,6 +69,33 @@
             </v-card-item>
 
             <v-card-text>
+              <!-- 服務狀態指示器 -->
+              <v-alert
+                v-if="!isUsingApi"
+                type="warning"
+                variant="outlined"
+                class="mb-4"
+              >
+                <div class="d-flex align-center">
+                  <v-icon icon="mdi-wifi-off" class="mr-2" />
+                  <div>
+                    <div>目前使用本地資料模式</div>
+                    <div class="text-caption">
+                      上次 API 檢查：{{ formatTime(serviceStatus.lastApiCheck) }}
+                    </div>
+                  </div>
+                  <v-spacer />
+                  <v-btn
+                    variant="text"
+                    size="small"
+                    @click="tryReconnect"
+                    :loading="reconnecting"
+                  >
+                    重試連接
+                  </v-btn>
+                </div>
+              </v-alert>
+
               <!-- 篩選卡片 -->
               <v-card
                 class="table-card mb-4"
@@ -75,7 +117,7 @@
                   <!-- 篩選區域 -->
                   <div class="d-flex flex-wrap">
                     <v-select
-                      v-model="selectedYear"
+                      v-model="filters.year"
                       :items="yearOptions"
                       label="年度"
                       density="comfortable"
@@ -86,9 +128,10 @@
                       clearable
                       bg-color="white"
                       rounded="lg"
+                      @update:model-value="updateFilters"
                     />
                     <v-select
-                      v-model="selectedOffice"
+                      v-model="filters.office_id"
                       :items="officeOptions"
                       label="管理處"
                       density="comfortable"
@@ -99,6 +142,7 @@
                       clearable
                       bg-color="white"
                       rounded="lg"
+                      @update:model-value="updateFilters"
                     />
                     <v-text-field
                       v-model="search"
@@ -112,6 +156,13 @@
                       bg-color="white"
                       rounded="lg"
                     />
+                    <v-btn
+                      title="重新整理"
+                      icon="mdi-refresh"
+                      variant="text"
+                      :loading="listLoading"
+                      @click="refreshList"
+                    />
                   </div>
                 </div>
               </v-card>
@@ -123,37 +174,48 @@
                 elevation="0"
               >
                 <v-data-table-virtual
-                  v-model:selected="selected"
+                  v-model:selected="selectedGrants"
                   fixed-header
                   :headers="headers"
-                  :items="filteredItems"
-                  :loading="loading"
+                  :items="filteredGrantsList"
+                  :loading="listLoading"
                   :height="500"
                   density="comfortable"
-                  item-value="caseNumber"
+                  item-value="case_number"
                   show-select
-                  :item-selectable="item => item.selectable"
                   class="grants-table rounded-lg"
                 >
                   <!-- 自定義表頭：選取欄 -->
                   <template #[`header.data-table-select`]>
-                    <span class="ml-2 text-subtitle-2 font-weight-medium">選取</span>
+                    <div class="d-flex align-center">
+                      <span class="ml-2 text-subtitle-2 font-weight-medium">選取</span>
+                      <v-btn
+                        v-if="selectedGrants.length > 0"
+                        title="批次刪除"
+                        icon="mdi-delete"
+                        variant="text"
+                        size="small"
+                        color="error"
+                        class="ml-2"
+                        @click="showDeleteConfirmDialog = true"
+                      />
+                    </div>
                   </template>
                   <!-- 案件狀態欄位 -->
-                  <template #[`item.stepName`]="{ item }">
+                  <template #[`item.status`]="{ item }">
                     <v-chip
-                      :color="getStatusColor(item.stepName)"
+                      :color="getStatusColor(item.current_step)"
                       variant="flat"
                       size="small"
                       label
                       class="font-weight-medium"
                     >
-                      {{ item.stepName }}
+                      {{ getStatusText(item.current_step) }}
                     </v-chip>
                   </template>
 
                   <!-- 公告狀態欄位 -->
-                  <template #[`item.card`]="{ item }">
+                  <!-- <template #[`item.card`]="{ item }">
                     <v-chip
                       :color="getCardStatusColor(item.card)"
                       variant="outlined"
@@ -163,6 +225,10 @@
                     >
                       {{ item.card }}
                     </v-chip>
+                  </template> -->
+                  <!-- 設施面積欄位 -->
+                  <template #[`item.facility_area_m2`]="{ item }">
+                    {{ item.facility_area_m2 ? item.facility_area_m2.toLocaleString() : '-' }}
                   </template>
 
                   <!-- 操作按鈕 -->
@@ -173,32 +239,29 @@
                         size="small"
                         color="#3ea0a3"
                         variant="text"
-                        @click="editItem(item.caseNumber)"
+                        @click="editItem(item)"
                       />
                       <v-btn
                         icon="mdi-delete"
                         size="small"
                         color="error"
                         variant="text"
-                        @click="deleteItem(item.caseNumber)"
+                        @click="deleteItem(item)"
                       />
                     </div>
                   </template>
 
-                  <!-- 表格底部分頁與合計 -->
+                  <!-- 表格底部 -->
                   <template #bottom>
                     <div class="d-flex align-center pa-3">
                       <span class="text-body-2 text-medium-emphasis">
-                        共 {{ filteredItems.length }} 筆資料
+                        共 {{ filteredGrantsList.length }} 筆資料
+                        <span v-if="!isUsingApi" class="text-warning">（本地資料）</span>
                       </span>
                       <v-spacer />
-                      <!-- <v-pagination
-                        v-model="page"
-                        :length="Math.ceil(filteredItems.length / itemsPerPage)"
-                        :total-visible="5"
-                        density="comfortable"
-                        color="#3ea0a3"
-                      /> -->
+                      <div v-if="listError" class="text-error text-caption">
+                        {{ listError }}
+                      </div>
                     </div>
                   </template>
                 </v-data-table-virtual>
@@ -225,8 +288,14 @@
 </template>
 
 <script lang="ts" setup>
+import { storeToRefs } from 'pinia';
+import { useRouter } from 'vue-router'
+import type { GrantListItem } from '@/services/grantsService'
 import { useGrantsStore } from '@/stores/grants'
 import { GrantStorage, type GrantData } from '@/utils/grant-storage'
+
+const router = useRouter()
+const grantsStore = useGrantsStore()
 
 interface Step2Data {
   facilityAreaHa?: string
@@ -257,12 +326,35 @@ interface GrantItem {
   officeName: string
 }
 
+// 響應式資料
+const searchInput = ref('')
+const reconnecting = ref(false)
+const deleting = ref(false)
+const showDeleteConfirmDialog = ref(false)
+
+// 篩選條件
+const filters = reactive({
+  year: null as number | null,
+  office_id: null as number | null
+})
+
+// 從 store 取得狀態
+const {
+  grantsList,
+  filteredGrantsList,
+  listLoading,
+  listError,
+  serviceStatus,
+  selectedGrants,
+  // migrationInProgress,
+  // migrationResult,
+  isUsingApi
+} = storeToRefs(grantsStore)
+
 const allItems = ref<GrantItem[]>([])
 const loading = ref(true)
 const search = ref('')
 const selected = ref<string[]>([])
-const router = useRouter()
-const grantsStore = useGrantsStore()
 
 // 篩選選項
 const selectedYear = ref(null)
@@ -289,33 +381,18 @@ const officeOptions = [
   { title: '台東管理處', value: '台東管理處' }
 ]
 
+// 表格標題
 const headers = ref([
-  { title: '申請年度', key: 'caseYear', align: 'start' as const, width: '110px' },
-  { title: '案號', key: 'caseNumber', align: 'start' as const },
-  { title: '申請人姓名', key: 'applicantName', align: 'start' as const },
-  { title: '管理處', key: 'officeName', align: 'start' as const },
-  { title: '末端形式', key: 'irrigationName', align: 'end' as const },
-  { title: '施作面積 (m²)', key: 'facilityArea', align: 'end' as const },
-  { title: '案件狀態', key: 'stepName', align: 'end' as const },
+  { title: '申請年度', key: 'year', align: 'start' as const, width: '110px' },
+  { title: '案號', key: 'case_number', align: 'start' as const },
+  { title: '申請人姓名', key: 'applicant_name', align: 'start' as const },
+  { title: '管理處', key: 'office', align: 'start' as const },
+  { title: '末端形式', key: 'facility_type', align: 'end' as const },
+  { title: '施作面積 (m²)', key: 'facility_area_m2', align: 'end' as const },
+  { title: '案件狀態', key: 'status', align: 'end' as const },
   // { title: '公告狀態（農民卡）', key: 'card', align: 'end' as const },
-  { title: '操作', key: 'actions', align: 'end' as const },
+  { title: '操作', key: 'actions', align: 'end' as const, sortable: false },
 ])
-
-// 根據案件狀態返回對應的顏色
-const getStatusColor = (status: string) => {
-  if (!status) return 'grey-lighten-4';
-
-  if (status.includes('完成申請人資料') || status.includes('完成土地資料')) {
-    return 'blue-lighten-5';
-  } else if (status.includes('完成灌溉調控設施') || status.includes('完成田間管路')) {
-    return 'amber-lighten-5';
-  } else if (status.includes('完成現場勘查') || status.includes('完成補助申請資料')) {
-    return 'light-green-lighten-5';
-  } else if (status.includes('完成變更設計') || status.includes('完成上傳佐證文件')) {
-    return 'light-blue-lighten-5';
-  }
-  return 'grey-lighten-4';
-}
 
 // 根據公告狀態返回對應的顏色
 const getCardStatusColor = (status: string) => {
@@ -345,6 +422,81 @@ const statusMapping = {
   6: '完成現場勘查',
   7: '完成補助申請資料',
   8: '完成結案申報',
+}
+
+const getStatusText = (currentStep: number): string => {
+  return statusMapping[currentStep as keyof typeof statusMapping] || '處理中'
+}
+
+// 根據案件狀態返回對應的顏色
+// const getStatusColor = (status: string) => {
+//   if (!status) return 'grey-lighten-4';
+
+//   if (status.includes('完成申請人資料') || status.includes('完成土地資料')) {
+//     return 'blue-lighten-5';
+//   } else if (status.includes('完成灌溉調控設施') || status.includes('完成田間管路')) {
+//     return 'amber-lighten-5';
+//   } else if (status.includes('完成現場勘查') || status.includes('完成補助申請資料')) {
+//     return 'light-green-lighten-5';
+//   } else if (status.includes('完成變更設計') || status.includes('完成上傳佐證文件')) {
+//     return 'light-blue-lighten-5';
+//   }
+//   return 'grey-lighten-4';
+// }
+const getStatusColor = (currentStep: number) => {
+  if (currentStep <= 2) return 'blue-lighten-5'
+  if (currentStep <= 4) return 'amber-lighten-5'
+  if (currentStep <= 6) return 'light-green-lighten-5'
+  if (currentStep <= 8) return 'light-blue-lighten-5'
+  return 'grey-lighten-4'
+}
+
+const formatTime = (date: Date) => {
+  return new Intl.DateTimeFormat('zh-TW', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).format(date)
+}
+
+const handleSearch = () => {
+  grantsStore.debouncedSearch(searchInput.value)
+}
+
+const updateFilters = async () => {
+  await grantsStore.updateFilters(filters)
+}
+
+const refreshList = async () => {
+  await grantsStore.refreshGrantsList()
+}
+
+const tryReconnect = async () => {
+  reconnecting.value = true
+  try {
+    const success = await grantsStore.tryReconnectApi()
+    if (success) {
+      console.log('📡 API 重新連接成功')
+    }
+  } catch (error) {
+    console.error('📡 API 重新連接失敗:', error)
+  } finally {
+    reconnecting.value = false
+  }
+}
+
+const confirmBatchDelete = async () => {
+  showDeleteConfirmDialog.value = false
+  deleting.value = true
+
+  try {
+    await grantsStore.deleteSelectedGrants()
+  } catch (error) {
+    console.error('批次刪除失敗:', error)
+    alert('批次刪除失敗，請稍後再試')
+  } finally {
+    deleting.value = false
+  }
 }
 
 // Card status options (random assignment for demo)
@@ -451,39 +603,53 @@ const loadAllItems = () => {
   loading.value = false
 }
 
-const editItem = (itemId: string) => {
-  const grantData = GrantStorage.getGrant(itemId) as ExtendedGrantData | null;
-  if (grantData) {
-    // 取得案件的 currentStep，如果沒有則預設為 0
-    const currentStep = grantData.currentStep || 0;
+// const editItem = (itemId: string) => {
+//   const grantData = GrantStorage.getGrant(itemId) as ExtendedGrantData | null;
+//   if (grantData) {
+//     // 取得案件的 currentStep，如果沒有則預設為 0
+//     const currentStep = grantData.currentStep || 0;
 
-    console.log(`[editItem] Navigating to edit grant ${itemId} at step ${currentStep}`);
+//     console.log(`[editItem] Navigating to edit grant ${itemId} at step ${currentStep}`);
 
-    // 直接導航到編輯頁面，讓 edit.vue 自己處理案件載入和步驟設置
-    router.push(`/grants/edit?id=${itemId}&step=${currentStep}`);
-  } else {
-    // 如果找不到數據，只帶 ID 參數導航
-    console.warn(`Grant data not found for ID: ${itemId}, navigating with ID only`);
-    router.push(`/grants/edit?id=${itemId}`);
-  }
+//     // 直接導航到編輯頁面，讓 edit.vue 自己處理案件載入和步驟設置
+//     router.push(`/grants/edit?id=${itemId}&step=${currentStep}`);
+//   } else {
+//     // 如果找不到數據，只帶 ID 參數導航
+//     console.warn(`Grant data not found for ID: ${itemId}, navigating with ID only`);
+//     router.push(`/grants/edit?id=${itemId}`);
+//   }
+// }
+const editItem = (item: GrantListItem) => {
+  router.push(`/grants/edit?id=${item.case_number}&step=${item.current_step}`)
 }
 
-const deleteItem = (itemId: string) => {
-  if (confirm(`確定要刪除案號 ${itemId} 的申請案件嗎？`)) {
+// const deleteItem = (itemId: string) => {
+//   if (confirm(`確定要刪除案號 ${itemId} 的申請案件嗎？`)) {
+//     try {
+//       // Remove from localStorage
+//       GrantStorage.deleteGrant(itemId)
+//       // Also remove from UI
+//       allItems.value = allItems.value.filter(item => item.caseNumber !== itemId)
+//     } catch (error) {
+//       console.error('Failed to delete grant:', error)
+//     }
+//   }
+// }
+const deleteItem = async (item: GrantListItem) => {
+  if (confirm(`確定要刪除案號 ${item.case_number} 的申請案件嗎？`)) {
     try {
-      // Remove from localStorage
-      GrantStorage.deleteGrant(itemId)
-      // Also remove from UI
-      allItems.value = allItems.value.filter(item => item.caseNumber !== itemId)
+      await grantsStore.deleteGrantFromList(item)
     } catch (error) {
-      console.error('Failed to delete grant:', error)
+      console.error('刪除案件失敗:', error)
+      alert('刪除案件失敗，請稍後再試')
     }
   }
 }
 
 // Load data when component is mounted
 onMounted(() => {
-  loadAllItems()
+  // loadAllItems()
+  grantsStore.loadGrantsList()
 })
 
 // Watch for changes in grantsStore currentStep to update status

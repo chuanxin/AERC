@@ -1648,7 +1648,7 @@ import { click } from 'ol/events/condition';
 import { unByKey } from 'ol/Observable';
 import type { EventsKey } from 'ol/events';
 import { getArea } from 'ol/sphere';
-import { debounce } from 'lodash';
+import { debounce } from 'lodash-es';
 import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
 

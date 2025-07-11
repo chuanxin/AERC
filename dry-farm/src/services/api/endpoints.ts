@@ -66,20 +66,13 @@ export const BUDGET = {
 
 // grant related endpoints
 export const GRANTS = {
-  // BASE: `${BASE}/grants`,
+  BASE: `${BASE}/grants`,
+  LIST: `${BASE}/grants`,
+  CREATE: `${BASE}/grants`,
   DETAIL: (id: number | string) => `${BASE}/grants/${id}`,
-  // CREATE: `${BASE}/grants/new`,
   UPDATE: (id: number | string) => `${BASE}/grants/${id}`,
   DELETE: (id: number | string) => `${BASE}/grants/${id}`,
-  // STEPS: {
-  //   STEP1: (id: number | string) => `${BASE}/grants/${id}/step1`,
-  //   STEP2: (id: number | string) => `${BASE}/grants/${id}/step2`,
-  //   // ... 其他步驟
-  // },
-  CREATE: `${BASE}/grants`,
-  // DETAIL: (id: string) => `${BASE}/grants/${id}`,
   BY_CASE_NUMBER: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}`,
-  // STEP: (id: number | string, step: number) => `${BASE}/grants/${id}/step/${step}`,
   STEP: (caseNumber: string, step: number) => `${BASE}/grants/case/${caseNumber}/step/${step}`,
   UPDATE_CURRENT_STEP: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/current-step`,
 }

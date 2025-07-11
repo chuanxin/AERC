@@ -456,7 +456,7 @@ import { useDisplay, useGoTo } from 'vuetify'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useGrantsStore } from '@/stores/grants'
 import { GrantStorage } from '@/utils/grant-storage'
-import { debounce } from 'lodash'
+import { debounce } from 'lodash-es'
 
 // Import step components
 import step1 from '@/pages/grants/steps/step1.vue'

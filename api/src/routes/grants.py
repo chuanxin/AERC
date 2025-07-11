@@ -87,7 +87,7 @@ async def update_current_step_api(
     
 @router.get(
     "",
-    response_model=List[GrantListSchema],
+    response_model=List[Dict[str, Any]],  # 修改回應模型以支援動態欄位
     dependencies=[Depends(get_current_user)],
 )
 async def read_grants(
@@ -96,12 +96,14 @@ async def read_grants(
     office_id: Optional[int] = Query(None, description="管理處過濾"),
     search: Optional[str] = Query(None, description="搜尋關鍵字"),
     skip: int = Query(0, description="分頁 - 跳過筆數"),
-    limit: int = Query(100, description="分頁 - 每頁筆數")
+    limit: int = Query(100, description="分頁 - 每頁筆數"),
+    current_user: UserOutSchema = Depends(get_current_user)
 ):
     """取得補助申請案件列表，可依條件過濾"""
     if status:
-        return await get_grants_by_status(status, year, office_id, search, skip, limit)
-    return await get_grants(year, office_id, search, skip, limit)
+        # TODO: 實作 get_grants_by_status 並加入 current_user 參數
+        return await crud.get_grants_by_status(status, year, office_id, search, skip, limit, current_user)
+    return await crud.get_grants(year, office_id, search, skip, limit, current_user)
 
 
 @router.get(

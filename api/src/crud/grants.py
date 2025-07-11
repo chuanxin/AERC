@@ -46,68 +46,139 @@ def get_taiwan_datetime():
 logger = logging.getLogger(__name__)
 
 
-# async def get_grants(
-#     year: Optional[int] = None,
-#     office_id: Optional[int] = None,
-#     search: Optional[str] = None,
-#     skip: int = 0,
-#     limit: int = 100
-# ) -> List[Dict[str, Any]]:
-#     """取得補助申請案件列表，可依條件過濾"""
-#     # 建立基本查詢
-#     query = Grant.all()
+async def get_grants(
+    year: Optional[int] = None,
+    office_id: Optional[int] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
+    current_user = None  # 添加使用者權限控制
+) -> List[Dict[str, Any]]:
+    """取得補助申請案件列表，可依條件過濾
     
-#     # 應用過濾條件
-#     if year:
-#         query = query.filter(year=year)
-#     if office_id:
-#         query = query.filter(office_id=office_id)
-#     if search:
-#         query = query.filter(
-#             Q(case_number__contains=search) | 
-#             Q(applicant_name__contains=search) |
-#             Q(applicant_id__contains=search)
-#         )
+    Args:
+        year: 申請年度過濾
+        office_id: 管理處過濾
+        search: 搜尋關鍵字（案件編號、申請人姓名、身分證字號）
+        skip: 分頁跳過筆數
+        limit: 分頁每頁筆數
+        current_user: 當前使用者（用於權限控制）
     
-#     # 設定關聯欄位預載入
-#     query = query.select_related('county', 'town', 'office')
-    
-#     # 執行查詢
-#     grants = await query.offset(skip).limit(limit).order_by('-created_at')
-    
-#     # 格式化結果
-#     results = []
-#     for grant in grants:
-#         # 嘗試獲取土地資訊
-#         land = await Land.filter(grant_id=grant.id).first()
-#         facility_area = None
-#         facility_type = None
+    Returns:
+        案件列表
+    """
+    try:
+        # 建立基本查詢
+        query = Grants.all()
         
-#         if land:
-#             facility_area = land.facility_area
+        # 權限控制：如果使用者不是管理員，只能看到自己管理處的案件
+        if current_user and hasattr(current_user, 'office_id') and current_user.office_id:
+            if not hasattr(current_user, 'role') or current_user.role != 'admin':
+                query = query.filter(office_id=current_user.office_id)
         
-#         # 嘗試獲取最終設施類型
-#         pipes = await Pipe.filter(grant_id=grant.id, type="end").first()
-#         if pipes:
-#             facility_type = pipes.installation_type
+        # 應用過濾條件
+        if year:
+            query = query.filter(year=year)
+        if office_id:
+            query = query.filter(office_id=office_id)
+        if search:
+            # 使用 Q 物件進行多欄位搜尋
+            query = query.filter(
+                Q(case_number__icontains=search) | 
+                Q(applicant_name__icontains=search) |
+                Q(applicant_id__icontains=search)
+            )
         
-#         results.append({
-#             "id": grant.id,
-#             "case_number": grant.case_number,
-#             "year": grant.year,
-#             "applicant_name": grant.applicant_name,
-#             "status": grant.status,
-#             "status_detail": grant.status_detail,
-#             "current_step": grant.current_step,
-#             "county_name": grant.county.name,
-#             "town_name": grant.town.name,
-#             "office_name": grant.office.name,
-#             "facility_type": facility_type,
-#             "facility_area": facility_area,
-#             "created_at": grant.created_at
-#         })
-    
-#     return results
+        # 執行查詢並預載入相關資料
+        grants = await query.prefetch_related(
+            'created_by',  # 建立者資訊
+            'active_version'  # 啟用版本資訊
+        ).offset(skip).limit(limit).order_by('-created_at')
+        
+        # 格式化結果
+        results = []
+        for grant in grants:
+            # 基本案件資訊
+            grant_data = {
+                "id": grant.id,
+                "case_number": grant.case_number,
+                "year": grant.year,
+                "applicant_name": grant.applicant_name,
+                "applicant_id": grant.applicant_id,
+                "county": grant.county,
+                "town": grant.town,
+                "village": grant.village,
+                "office": grant.office,
+                "office_id": grant.office_id,
+                "undertracker": grant.undertracker,
+                "status": grant.status,
+                "current_step": grant.current_step,
+                "is_disaster_case": grant.is_disaster_case,
+                "created_at": grant.created_at,
+                "modified_at": grant.modified_at,
+            }
+            
+            # 添加建立者資訊
+            if hasattr(grant, 'created_by') and grant.created_by:
+                grant_data["created_by"] = {
+                    "id": grant.created_by.id,
+                    "username": grant.created_by.username,
+                    "full_name": grant.created_by.full_name
+                }
+            
+            # 從 active_version 取得額外資訊
+            facility_area = None
+            facility_type = None
+            
+            if hasattr(grant, 'active_version') and grant.active_version:
+                try:
+                    version_data = grant.active_version.all_steps_data
+                    if version_data and isinstance(version_data, dict):
+                        steps = version_data.get("steps", {})
+                        
+                        # 從 step 2 取得土地/設施面積
+                        step2_data = steps.get("2", {}) or steps.get(2, {})
+                        if step2_data:
+                            # 優先使用設施面積，其次土地面積
+                            facility_area = (
+                                step2_data.get("facilityAreaHa") or 
+                                step2_data.get("landAreaHa") or 
+                                step2_data.get("facility_area_ha") or 
+                                step2_data.get("land_area_ha")
+                            )
+                            
+                        # 從 step 4 取得設施類型/灌溉類型
+                        step4_data = steps.get("4", {}) or steps.get(4, {})
+                        if step4_data:
+                            facility_type = (
+                                step4_data.get("irrigationType") or 
+                                step4_data.get("facilityType") or 
+                                step4_data.get("irrigation_type") or 
+                                step4_data.get("facility_type")
+                            )
+                            
+                except Exception as e:
+                    logger.warning(f"解析版本資料失敗，案件: {grant.case_number}, 錯誤: {str(e)}")
+            
+            # 將計算出的資料添加到結果
+            grant_data.update({
+                "facility_area": facility_area,
+                "facility_type": facility_type,
+                # 轉換面積單位（公頃轉平方公尺）用於前端顯示
+                "facility_area_m2": int(float(facility_area) * 10000) if facility_area else None
+            })
+            
+            results.append(grant_data)
+        
+        logger.info(f"成功取得 {len(results)} 筆案件資料")
+        return results
+        
+    except Exception as e:
+        logger.error(f"取得案件列表失敗: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"取得案件列表失敗: {str(e)}"
+        )
 
 
 # async def get_grants_by_status(

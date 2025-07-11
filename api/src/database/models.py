@@ -97,6 +97,7 @@ class Grants(models.Model):
     current_step = fields.IntField(default=1, description="目前步驟")
     bulletin = fields.CharField(max_length=20, null=True, description="公告狀態: 0:已受理, 1:審查中, 2:審查通過 3:結案流程 4:撥款作業 5:撥款完成")
     bulletin_sys = fields.CharField(max_length=20, null=True, description="公告狀態(系統): 0:申請人資料, 1:現場勘查, 2:補助申請資料 3:結案申報 4:測試合格的時間 5:")
+    is_legacy = fields.BooleanField(default=False, description="是否為歷史匯入資料")
     
     # 時間戳記
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
@@ -111,6 +112,9 @@ class Grants(models.Model):
         table = "grants"
         table_description = "補助申請案件資料表"
         unique_together = ("year", "office_id", "sn")
+        indexes = [
+            ("year", "office_id", "sn"),
+        ]
     
     @classmethod
     async def generate_sn(cls, year: int, office_id: int) -> int:
@@ -621,7 +625,17 @@ class TankMaterials(models.Model):
     
     def __str__(self):
         return self.name
-    
+
+class DataSchemaVersions(str, Enum):
+    """資料結構版本枚舉"""
+    V1_0 = "1.0"          # 初始版本
+    V1_1 = "1.1"          # 第一次結構調整
+    V1_2 = "1.2"          # 新增災害案件欄位
+    V1_3 = "1.3"          # 優化土地資料結構
+    V1_4 = "1.4"          # 新增設施資料驗證
+    V2_0 = "2.0"          # 重大結構變更
+    LEGACY = "legacy"     # 歷史匯入資料
+
 class GrantVersions(models.Model):
     """補助申請單版本資料表"""
     id = fields.IntField(pk=True)
@@ -629,6 +643,7 @@ class GrantVersions(models.Model):
     version = fields.IntField(description="版本資訊")
     all_steps_data = fields.JSONField(description="所有步驟的資料(JSON格式)")
     all_steps_data_hash = fields.CharField(max_length=64, description="所有步驟資料的Hash值，用於檢查版本變更", null=True)
+    data_schema_version = fields.CharEnumField(DataSchemaVersions, default=DataSchemaVersions.V1_0, description="資料結構版本")
     comment = fields.CharField(max_length=255, null=True, description="版本說明")
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
     created_by = fields.ForeignKeyField("models.Users", related_name="created_versions", description="建立人帳號", null=True, on_delete=fields.CASCADE)
