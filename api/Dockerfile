@@ -20,6 +20,11 @@ RUN apk add --no-cache \
     ttf-dejavu \
     wqy-zenhei
 
+# create font directory for Kaiu
+RUN mkdir -p /usr/share/fonts/truetype/kaiu
+COPY src/utils/kaiu.ttf /usr/share/fonts/truetype/kaiu/
+RUN fc-cache -fv
+
 # copy requirements files
 COPY requirements.txt .
 COPY requirements-dev.txt .

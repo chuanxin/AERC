@@ -76,30 +76,33 @@ async def test_pdf_packages():
 
 @router.get("/generate-sample-pdf")
 async def generate_sample_pdf():
-    """生成示例 PDF 文件"""
+    """生成示例 PDF 文件（使用標楷體）"""
     try:
-        from src.utils.chinese_pdf import create_chinese_pdf
+        from src.utils.chinese_pdf import create_kaiu_pdf
         import datetime
         
         content = [
             "AERC 農業工程系統",
-            "PDF 生成測試",
-            "=" * 30,
+            "標楷體 PDF 生成測試",
+            "=" * 35,
             "✅ ReportLab 正常工作",
             f"✅ 系統時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            "✅ 中文字體測試"
+            "✅ 標楷體字體測試",
+            "繁體中文內容展示：",
+            "農業工程研究、系統開發、資料庫管理",
+            "標楷體特色：楷書風格、端正典雅"
         ]
         
-        pdf_data = create_chinese_pdf("PDF 測試文件", content)
+        pdf_data = create_kaiu_pdf("標楷體 PDF 測試文件", content)
         
         return Response(
             content=pdf_data,
             media_type="application/pdf",
-            headers={"Content-Disposition": "attachment; filename=chinese_test.pdf"}
+            headers={"Content-Disposition": "attachment; filename=kaiu_test.pdf"}
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF 生成失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"標楷體 PDF 生成失敗: {str(e)}")
 
 @router.get("/check-fonts")
 async def check_available_fonts():
@@ -119,3 +122,71 @@ async def check_available_fonts():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"字體檢查失敗: {str(e)}")
+
+@router.get("/generate-kaiu-pdf")
+async def generate_kaiu_pdf():
+    """生成標楷體 PDF 文件"""
+    try:
+        from src.utils.chinese_pdf import create_kaiu_pdf, setup_kaiu_font
+        import datetime
+        
+        # 檢查標楷體是否可用
+        font_available, font_name = setup_kaiu_font()
+        
+        content = [
+            "標楷體字體展示文件",
+            "AERC 農業工程研究中心",
+            "=" * 40,
+            f"字體狀態: {'✅ 標楷體可用' if font_name == 'KaiU' else '⚠️ 使用備用字體'}",
+            f"使用字體: {font_name}",
+            f"生成時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            "",
+            "標楷體特色展示：",
+            "端正典雅的楷書字體",
+            "適合正式文件與報告",
+            "繁體中文完整支援",
+            "",
+            "農業工程相關詞彙：",
+            "灌溉系統、土壤管理、作物栽培",
+            "機械操作、環境監測、產量分析",
+            "",
+            "數字與符號測試：",
+            "0123456789",
+            "※◎★☆▲▼◆◇○●□■"
+        ]
+        
+        pdf_data = create_kaiu_pdf("標楷體展示文件", content)
+        
+        return Response(
+            content=pdf_data,
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=kaiu_showcase.pdf"}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"標楷體 PDF 生成失敗: {str(e)}")
+
+@router.get("/check-kaiu-font")
+async def check_kaiu_font():
+    """檢查標楷體字體狀態"""
+    try:
+        from src.utils.chinese_pdf import setup_kaiu_font
+        import os
+        
+        kaiu_path = '/usr/share/fonts/truetype/kaiu/kaiu.ttf'
+        font_available, font_name = setup_kaiu_font()
+        
+        return {
+            "kaiu_file_exists": os.path.exists(kaiu_path),
+            "kaiu_file_path": kaiu_path,
+            "font_registered": font_available,
+            "active_font_name": font_name,
+            "is_kaiu_active": font_name == 'KaiU',
+            "file_size": os.path.getsize(kaiu_path) if os.path.exists(kaiu_path) else 0,
+            "recommendations": {
+                "use_kaiu": font_name == 'KaiU',
+                "message": "標楷體可用，推薦用於正式文件" if font_name == 'KaiU' else "標楷體不可用，使用備用字體"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"標楷體檢查失敗: {str(e)}")
