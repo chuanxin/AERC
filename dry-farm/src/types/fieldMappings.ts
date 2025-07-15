@@ -63,7 +63,8 @@ export const FIELD_MAPPING_CONFIG: FieldMappingConfig = {
       'received_time': 'receivedTime',
       'valid': 'valid',
       'is_disaster_case': 'isDisasterCase', // 新增災害案件字段
-      'disaster_case_description': 'disasterCaseDescription' // 新增災害
+      'disaster_case_description': 'disasterCaseDescription', // 新增災害
+      'is_legacy': 'is_Legacy' // 新增是否為舊版案件字段
     },
     deprecatedFields: {
       // 'manager': 'undertracker',         // 舊字段名 -> 新字段名

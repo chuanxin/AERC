@@ -116,6 +116,7 @@ async def get_grants(
                 "is_disaster_case": grant.is_disaster_case,
                 "created_at": grant.created_at,
                 "modified_at": grant.modified_at,
+                "is_legacy": grant.is_legacy,
             }
             
             # 添加建立者資訊

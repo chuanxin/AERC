@@ -2363,9 +2363,7 @@ async function initMap() {
       bar: true,
       steps: 4,
       text: true,
-      minWidth: 100,
-      maxWidth: 140,
-      // className: 'ol-scale-line'
+      minWidth: 100
     });
 
     // 創建地圖

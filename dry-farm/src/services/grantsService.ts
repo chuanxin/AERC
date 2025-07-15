@@ -60,6 +60,7 @@ export interface GrantListItem {
     username: string;
     full_name: string;
   };
+  is_legacy?: boolean; // 是否為舊版案件
 }
 
 export interface GrantListParams {
@@ -231,10 +232,10 @@ export const updateCurrentStep = async (caseNumber: string, currentStep: number)
 /**
  * 取得案件列表
  */
-export const getGrants = async (params: GrantListParams = {}): Promise<GrantListItem[]> => {
+export const getGrantsFromAPI = async (params: GrantListParams = {}): Promise<GrantListItem[]> => {
   try {
     const searchParams = new URLSearchParams()
-    
+
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         searchParams.append(key, String(value))
@@ -243,10 +244,10 @@ export const getGrants = async (params: GrantListParams = {}): Promise<GrantList
 
     const url = `${GRANTS.LIST}?${searchParams.toString()}`
     console.log(`📡 [getGrants] API call to: ${url}`)
-    
+
     const response = await apiService.get<GrantListItem[]>(url)
     console.log(`📡 [getGrants] Received ${Array.isArray(response) ? response.length : 0} grants`)
-    
+
     return response
   } catch (error) {
     console.error('📡 [getGrants] API error:', error)
@@ -295,7 +296,7 @@ export class HybridGrantService {
   async getGrants(params: GrantListParams = {}): Promise<GrantListItem[]> {
     if (this.useApi) {
       try {
-        const grants = await getGrants(params)
+        const grants = await getGrantsFromAPI(params)
         this.serviceStatus.apiAvailable = true
         this.serviceStatus.fallbackMode = false
         this.serviceStatus.lastApiCheck = new Date()
@@ -318,8 +319,8 @@ export class HybridGrantService {
    */
   private getGrantsFromLocalStorage(params: GrantListParams): GrantListItem[] {
     const localGrants = GrantStorage.getAllGrants()
-    
-    let results = Object.entries(localGrants).map(([caseNumber, grantData]) => 
+
+    let results = Object.entries(localGrants).map(([caseNumber, grantData]) =>
       this.transformLocalDataToListItem(caseNumber, grantData)
     )
 
@@ -330,7 +331,7 @@ export class HybridGrantService {
 
     if (params.search) {
       const searchTerm = params.search.toLowerCase()
-      results = results.filter(item => 
+      results = results.filter(item =>
         item.applicant_name.toLowerCase().includes(searchTerm) ||
         item.case_number.toLowerCase().includes(searchTerm) ||
         (item.applicant_id && item.applicant_id.toLowerCase().includes(searchTerm))
@@ -402,7 +403,7 @@ export class HybridGrantService {
   async tryReconnectApi(): Promise<boolean> {
     try {
       // 嘗試一個簡單的 API 呼叫
-      await getGrants({ limit: 1 })
+      await getGrantsFromAPI({ limit: 1 })
       this.useApi = true
       this.serviceStatus.apiAvailable = true
       this.serviceStatus.fallbackMode = false

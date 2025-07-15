@@ -210,7 +210,7 @@
                       label
                       class="font-weight-medium"
                     >
-                      {{ getStatusText(item.current_step) }}
+                      {{ getStatusText(item.current_step, item.is_legacy) }}
                     </v-chip>
                   </template>
 
@@ -234,20 +234,36 @@
                   <!-- 操作按鈕 -->
                   <template #[`item.actions`]="{ item }">
                     <div class="ma-0 pa-0 d-flex gap-2 justify-end">
-                      <v-btn
-                        icon="mdi-pencil"
-                        size="small"
-                        color="#3ea0a3"
-                        variant="text"
-                        @click="editItem(item)"
-                      />
-                      <v-btn
-                        icon="mdi-delete"
-                        size="small"
-                        color="error"
-                        variant="text"
-                        @click="deleteItem(item)"
-                      />
+                      <!-- 歷史案件：只顯示查看按鈕 -->
+                      <template v-if="item.is_legacy">
+                        <v-btn
+                          icon="mdi-eye"
+                          size="small"
+                          color="#3ea0a3"
+                          variant="text"
+                          title="查看歷史案件"
+                          @click="editItem(item)"
+                        />
+                      </template>
+                      <!-- 一般案件：顯示編輯和刪除按鈕 -->
+                      <template v-else>
+                        <v-btn
+                          icon="mdi-pencil"
+                          size="small"
+                          color="#3ea0a3"
+                          variant="text"
+                          title="編輯案件"
+                          @click="editItem(item)"
+                        />
+                        <v-btn
+                          icon="mdi-delete"
+                          size="small"
+                          color="error"
+                          variant="text"
+                          title="刪除案件"
+                          @click="deleteItem(item)"
+                        />
+                      </template>
                     </div>
                   </template>
 
@@ -310,7 +326,8 @@ interface Step4Data {
 
 // 擴展 GrantData 類型以包含 currentStep
 interface ExtendedGrantData extends GrantData {
-  currentStep?: number
+  currentStep?: number,
+  is_legacy?: boolean // 是否為舊版案件
 }
 
 interface GrantItem {
@@ -424,7 +441,10 @@ const statusMapping = {
   8: '完成結案申報',
 }
 
-const getStatusText = (currentStep: number): string => {
+const getStatusText = (currentStep: number, isLegacy?: boolean): string => {
+  if (isLegacy) {
+    return '歷史案件'
+  }
   return statusMapping[currentStep as keyof typeof statusMapping] || '處理中'
 }
 
@@ -620,6 +640,12 @@ const loadAllItems = () => {
 //   }
 // }
 const editItem = (item: GrantListItem) => {
+  if (item.is_legacy) {
+    // 如果是歷史案件，在新分頁中開啟查看頁面
+    const url = router.resolve(`/grants/statements?case=${item.case_number}`).href
+    window.open(url, '_blank')
+    return
+  }
   router.push(`/grants/edit?id=${item.case_number}&step=${item.current_step}`)
 }
 
