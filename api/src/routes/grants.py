@@ -96,7 +96,7 @@ async def read_grants(
     office_id: Optional[int] = Query(None, description="管理處過濾"),
     search: Optional[str] = Query(None, description="搜尋關鍵字"),
     skip: int = Query(0, description="分頁 - 跳過筆數"),
-    limit: int = Query(100, description="分頁 - 每頁筆數"),
+    limit: int = Query(10000, description="分頁 - 每頁筆數（預設不限制）"),
     current_user: UserOutSchema = Depends(get_current_user)
 ):
     """取得補助申請案件列表，可依條件過濾"""
@@ -268,7 +268,7 @@ async def create_land_api(
 async def search_grants_api(
     search_data: GrantSearchSchema,
     skip: int = Query(0, description="分頁 - 跳過筆數"),
-    limit: int = Query(100, description="分頁 - 每頁筆數")
+    limit: int = Query(10000, description="分頁 - 每頁筆數（預設不限制）")
 ):
     """進階搜尋補助申請案件"""
     try:

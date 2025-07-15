@@ -51,7 +51,7 @@ async def get_grants(
     office_id: Optional[int] = None,
     search: Optional[str] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 10000,
     current_user = None  # 添加使用者權限控制
 ) -> List[Dict[str, Any]]:
     """取得補助申請案件列表，可依條件過濾

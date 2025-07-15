@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>測試案件列表數量限制修復</title>
+</head>
+<body>
+    <h1>測試案件列表數量限制修復</h1>
+    <p>這個測試檔案用來驗證後端 API 的 100 筆限制是否已經修復</p>
+    
+    <h2>測試步驟：</h2>
+    <ol>
+        <li>開啟瀏覽器開發者工具 (F12)</li>
+        <li>進入申請案件列表頁面</li>
+        <li>查看 Network 標籤中的 API 請求</li>
+        <li>確認 grants API 請求是否：
+            <ul>
+                <li>URL 中沒有 limit 參數（因為前端設為 undefined）</li>
+                <li>回傳的資料筆數超過 100 筆（如果資料庫有超過 100 筆資料）</li>
+            </ul>
+        </li>
+        <li>查看偵錯資訊中的「已載入案件數」是否超過 100</li>
+    </ol>
+    
+    <h2>修復內容：</h2>
+    <ul>
+        <li>✅ 後端 API 路由層：預設 limit 從 100 改為 10000</li>
+        <li>✅ 後端 CRUD 層：預設 limit 從 100 改為 10000</li>
+        <li>✅ 後端搜尋 API：預設 limit 從 100 改為 10000</li>
+        <li>✅ 前端：正確設置 limit: undefined</li>
+        <li>✅ 重新啟動後端 API 服務</li>
+    </ul>
+    
+    <p><strong>預期結果：</strong>現在應該能載入所有符合篩選條件的案件資料，不受 100 筆限制</p>
+</body>
+</html>

@@ -96,6 +96,23 @@
                 </div>
               </v-alert>
 
+              <!-- 偵錯資訊 -->
+              <!-- <v-alert
+                type="info"
+                variant="outlined"
+                class="mb-4"
+              >
+                <div class="text-caption">
+                  <div><strong>🔍 偵錯資訊：</strong></div>
+                  <div>當前年度：{{ getCurrentYear() }}</div>
+                  <div>使用者：{{ userStore.currentUser?.username || '未登入' }} ({{ userStore.currentUser?.office?.name || '無管理處' }})</div>
+                  <div>使用者管理處ID：{{ getUserOfficeId() ?? '未偵測到' }}</div>
+                  <div>篩選條件：年度={{ filters.year || '無' }}, 管理處={{ filters.office_id || '無' }}</div>
+                  <div>已載入案件數：{{ filteredGrantsList.length }}</div>
+                  <div>API狀態：{{ isUsingApi ? '正常' : '離線模式' }}</div>
+                </div>
+              </v-alert> -->
+
               <!-- 篩選卡片 -->
               <v-card
                 class="table-card mb-4"
@@ -180,6 +197,7 @@
                   :items="filteredGrantsList"
                   :loading="listLoading"
                   :height="500"
+                  :search="search"
                   density="comfortable"
                   item-value="case_number"
                   show-select
@@ -308,10 +326,24 @@ import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router'
 import type { GrantListItem } from '@/services/grantsService'
 import { useGrantsStore } from '@/stores/grants'
+import { useUserStore } from '@/stores/users'
 import { GrantStorage, type GrantData } from '@/utils/grant-storage'
 
 const router = useRouter()
 const grantsStore = useGrantsStore()
+const userStore = useUserStore()
+
+// 取得當前使用者資訊和設定預設篩選條件
+const getCurrentYear = () => new Date().getFullYear() - 1911 // 民國年
+const getUserOfficeId = () => {
+  // 優先從 userStore 取得當前使用者的管理處ID
+  const officeId = userStore.currentUser?.office?.id || null
+  console.log('🏢 [getUserOfficeId] 從 userStore 取得管理處ID:', officeId)
+  console.log('👤 [getUserOfficeId] 當前使用者:', userStore.currentUser?.username)
+  console.log('🏢 [getUserOfficeId] 管理處名稱:', userStore.currentUser?.office?.name)
+
+  return officeId
+}
 
 interface Step2Data {
   facilityAreaHa?: string
@@ -349,10 +381,10 @@ const reconnecting = ref(false)
 const deleting = ref(false)
 const showDeleteConfirmDialog = ref(false)
 
-// 篩選條件
+// 篩選條件 - 設置預設值
 const filters = reactive({
-  year: null as number | null,
-  office_id: null as number | null
+  year: getCurrentYear(), // 預設為當年度
+  office_id: getUserOfficeId() // 預設為使用者所屬管理處
 })
 
 // 從 store 取得狀態
@@ -379,23 +411,40 @@ const selectedOffice = ref(null)
 
 // 年度選項 - 動態生成近5年的選項（台灣年號）
 const currentYear = new Date().getFullYear() - 1911
-const yearOptions = Array.from({ length: 5 }, (_, i) => {
-  const year = currentYear - i
+const startYear = 97 // 民國 97 年
+const yearOptions = Array.from({ length: currentYear - startYear + 1 }, (_, i) => {
+  const year = currentYear - i // 從最新年度開始，向前遞減
   return { title: `${year}年`, value: year }
 })
 
-// 管理處選項
+// 管理處選項 - 根據實際資料庫資料更新對應關係
 const officeOptions = [
-  { title: '瑠公管理處', value: '瑠公管理處' },
-  { title: '七星管理處', value: '七星管理處' },
-  { title: '北基管理處', value: '北基管理處' },
-  { title: '石門管理處', value: '石門管理處' },
-  { title: '臺中管理處', value: '臺中管理處' },
-  { title: '嘉南管理處', value: '嘉南管理處' },
-  { title: '高雄管理處', value: '高雄管理處' },
-  { title: '屏東管理處', value: '屏東管理處' },
-  { title: '花蓮管理處', value: '花蓮管理處' },
-  { title: '台東管理處', value: '台東管理處' }
+  { title: '農業部農田水利署', value: 0 },
+  { title: '宜蘭管理處', value: 1 },
+  { title: '北基管理處', value: 2 },
+  { title: '桃園管理處', value: 3 },
+  { title: '石門管理處', value: 4 },
+  { title: '新竹管理處', value: 5 },
+  { title: '苗栗管理處', value: 6 },
+  { title: '臺中管理處', value: 7 },
+  { title: '南投管理處', value: 8 },
+  { title: '彰化管理處', value: 9 },
+  { title: '雲林管理處', value: 10 },
+  { title: '嘉南管理處', value: 11 },
+  { title: '高雄管理處', value: 12 },
+  { title: '屏東管理處', value: 13 },
+  { title: '臺東管理處', value: 14 },
+  { title: '花蓮管理處', value: 15 },
+  { title: '七星管理處', value: 16 },
+  { title: '瑠公管理處', value: 17 },
+  { title: '金門縣農會', value: 18 },
+  { title: '澎湖縣農會', value: 19 },
+  { title: '農田水利人力發展中心', value: 20 },
+  { title: '茶葉改良場', value: 21 },
+  { title: '財團法人農業工程研究中心', value: 22 },
+  { title: '高雄市政府農業局', value: 23 },
+  { title: '農工中心', value: 99 },
+  { title: '農業部', value: 100 }
 ]
 
 // 表格標題
@@ -484,7 +533,19 @@ const handleSearch = () => {
 }
 
 const updateFilters = async () => {
-  await grantsStore.updateFilters(filters)
+  // 明確設定篩選參數，包括移除數量限制
+  const filterParams = {
+    year: filters.year || undefined,
+    office_id: filters.office_id || undefined,
+    limit: undefined, // 明確移除數量限制
+    skip: 0
+  }
+
+  console.log('🔍 [index.vue] Updating filters with params:', filterParams)
+  await grantsStore.updateFilters(filterParams)
+
+  // 篩選條件變更時重新載入案件清單，確保不限制數量
+  await grantsStore.loadGrantsList(filterParams)
 }
 
 const refreshList = async () => {
@@ -673,9 +734,40 @@ const deleteItem = async (item: GrantListItem) => {
 }
 
 // Load data when component is mounted
-onMounted(() => {
-  // loadAllItems()
-  grantsStore.loadGrantsList()
+onMounted(async () => {
+  console.log('🚀 [grants/index] 頁面載入開始')
+
+  // 確保使用者資料已載入
+  if (!userStore.currentUser && userStore.token) {
+    console.log('👤 [grants/index] 等待使用者資料載入...')
+    await userStore.fetchCurrentUser()
+  }
+
+  // 重新取得預設篩選條件（使用者資料載入後）
+  filters.year = getCurrentYear()
+  filters.office_id = getUserOfficeId()
+
+  console.log('📊 [grants/index] 設定預設篩選條件:', {
+    year: filters.year,
+    office_id: filters.office_id,
+    user: userStore.currentUser?.username,
+    officeName: userStore.currentUser?.office?.name
+  })
+
+  // 明確設定篩選參數,包括移除數量限制
+  const filterParams = {
+    year: filters.year || undefined,
+    office_id: filters.office_id || undefined,
+    limit: undefined, // 明確移除數量限制
+    skip: 0
+  }
+
+  console.log('🔍 [grants/index] 使用篩選參數載入案件列表:', filterParams)
+
+  // 直接載入案件清單（含預設篩選條件），避免重複調用updateFilters
+  await grantsStore.loadGrantsList(filterParams)
+
+  console.log('✅ [grants/index] 頁面載入完成，共載入', filteredGrantsList.value.length, '筆案件')
 })
 
 // Watch for changes in grantsStore currentStep to update status

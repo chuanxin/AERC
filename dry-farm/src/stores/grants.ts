@@ -829,13 +829,13 @@ export const useGrantsStore = defineStore('grants', () => {
   const listError = ref<string | null>(null)
   const serviceStatus = ref<ServiceStatus>(hybridGrantService.getServiceStatus())
 
-  // 篩選與搜尋
+  // 篩選與搜尋 - 移除預設的數量限制
   const listFilters = reactive<GrantListParams>({
     year: undefined,
     office_id: undefined,
     search: '',
     skip: 0,
-    limit: 100
+    limit: undefined // 預設不限制數量
   })
 
   // 選取的案件
@@ -912,7 +912,10 @@ export const useGrantsStore = defineStore('grants', () => {
    * 更新篩選條件
    */
   const updateFilters = async (newFilters: Partial<GrantListParams>) => {
+    // 使用 Object.assign 並特別處理 undefined 值
     Object.assign(listFilters, newFilters)
+
+    console.log('🔍 [updateFilters] Updated filters:', listFilters)
     await loadGrantsList()
   }
 
@@ -925,7 +928,7 @@ export const useGrantsStore = defineStore('grants', () => {
       office_id: undefined,
       search: '',
       skip: 0,
-      limit: 100
+      limit: undefined // 重置時也不限制數量
     })
     await loadGrantsList()
   }

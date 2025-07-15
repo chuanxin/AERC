@@ -318,15 +318,24 @@ export class HybridGrantService {
    * 從 localStorage 獲取案件列表
    */
   private getGrantsFromLocalStorage(params: GrantListParams): GrantListItem[] {
+    console.log('💾 [getGrantsFromLocalStorage] 從 localStorage 載入資料，參數:', params)
     const localGrants = GrantStorage.getAllGrants()
 
     let results = Object.entries(localGrants).map(([caseNumber, grantData]) =>
       this.transformLocalDataToListItem(caseNumber, grantData)
     )
 
+    console.log('💾 [getGrantsFromLocalStorage] 原始資料筆數:', results.length)
+
     // 應用篩選條件
     if (params.year) {
       results = results.filter(item => item.year === params.year)
+      console.log('💾 [getGrantsFromLocalStorage] 年度篩選後:', results.length, '筆 (年度:', params.year, ')')
+    }
+
+    if (params.office_id !== undefined && params.office_id !== null) {
+      results = results.filter(item => item.office_id === params.office_id)
+      console.log('💾 [getGrantsFromLocalStorage] 管理處篩選後:', results.length, '筆 (office_id:', params.office_id, ')')
     }
 
     if (params.search) {
@@ -336,16 +345,19 @@ export class HybridGrantService {
         item.case_number.toLowerCase().includes(searchTerm) ||
         (item.applicant_id && item.applicant_id.toLowerCase().includes(searchTerm))
       )
+      console.log('💾 [getGrantsFromLocalStorage] 搜尋篩選後:', results.length, '筆 (搜尋詞:', params.search, ')')
     }
 
     // 排序（最新的在前）
     results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-    // 分頁
-    if (params.skip || params.limit) {
+    // 分頁 - 只有在明確指定 limit 時才進行分頁
+    if (params.limit !== undefined && params.limit > 0) {
       const skip = params.skip || 0
-      const limit = params.limit || 100
-      results = results.slice(skip, skip + limit)
+      console.log('💾 [getGrantsFromLocalStorage] 套用分頁: skip:', skip, 'limit:', params.limit)
+      results = results.slice(skip, skip + params.limit)
+    } else {
+      console.log('💾 [getGrantsFromLocalStorage] 不限制數量，回傳所有', results.length, '筆資料')
     }
 
     return results
@@ -355,13 +367,46 @@ export class HybridGrantService {
    * 轉換本地資料為列表項目格式
    */
   private transformLocalDataToListItem(caseNumber: string, grantData: GrantData): GrantListItem {
+    // 根據 officeName 對應到 office_id
+    const officeNameToIdMap: Record<string, number> = {
+      '農業部農田水利署': 0,
+      '宜蘭管理處': 1,
+      '北基管理處': 2,
+      '桃園管理處': 3,
+      '石門管理處': 4,
+      '新竹管理處': 5,
+      '苗栗管理處': 6,
+      '臺中管理處': 7,
+      '南投管理處': 8,
+      '彰化管理處': 9,
+      '雲林管理處': 10,
+      '嘉南管理處': 11,
+      '高雄管理處': 12,
+      '屏東管理處': 13,
+      '臺東管理處': 14,
+      '花蓮管理處': 15,
+      '七星管理處': 16,
+      '瑠公管理處': 17,
+      '金門縣農會': 18,
+      '澎湖縣農會': 19,
+      '農田水利人力發展中心': 20,
+      '茶葉改良場': 21,
+      '財團法人農業工程研究中心': 22,
+      '高雄市政府農業局': 23,
+      '農工中心': 99,
+      '農業部': 100
+    }
+
+    const officeName = grantData.officeName || '未設定'
+    const officeId = officeNameToIdMap[officeName] ?? null
+
     return {
       id: parseInt(caseNumber.replace(/\D/g, '')) || 0, // 臨時 ID
       case_number: caseNumber,
       year: parseInt(caseNumber.substring(0, 3)) || new Date().getFullYear() - 1911,
       applicant_name: grantData.applicantName || '未填寫',
-      office: grantData.officeName || '未設定',
-      office_id: 0, // 預設值，需要從 API 對應
+      office: officeName,
+      office_id: officeId,
       facility_type: this.extractFacilityType(grantData),
       facility_area_m2: this.extractFacilityArea(grantData),
       status: grantData.stepName || '處理中',
@@ -440,7 +485,7 @@ export class HybridGrantService {
 // =============================================================================
 
 export class GrantCacheService {
-  private cache = new Map<string, { data: any; timestamp: number }>()
+  private cache = new Map<string, { data: unknown; timestamp: number }>()
   private readonly CACHE_DURATION = 5 * 60 * 1000 // 5分鐘
 
   /**
@@ -449,7 +494,7 @@ export class GrantCacheService {
   get<T>(key: string): T | null {
     const cached = this.cache.get(key)
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      return cached.data
+      return cached.data as T
     }
     return null
   }
