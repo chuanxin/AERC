@@ -85,6 +85,7 @@ tests/
 
 # Documentation
 docs/
+*.pdf
 
 # Deployment files
 dev/

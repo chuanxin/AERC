@@ -197,6 +197,103 @@ def create_kaiu_pdf(title: str = "標楷體測試文件", content: list = None) 
     p.save()
     return buffer.getvalue()
 
+def create_template_with_reportlab(data: dict = None) -> bytes:
+    """使用 ReportLab 精確重現原始範本佈局，確保中文正確顯示"""
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.units import cm
+    import datetime
+    
+    # 預設資料
+    current_time = datetime.datetime.now()
+    default_data = {
+        "CASE_ID": "11400888",
+        "APPLICANT": "陳大明",
+        "ADDRESS": "台中市南區綠川東街88號",
+        "LOCATION": "台中市南區-綠川段",
+        "LAND_ID": "8888-9999",
+        "AREA_NUMBER": "0.3500",
+        "FACILITY_TYPE": "地表定置式噴灌系統及微噴設備",
+        "YEAR": "114"
+    }
+    
+    # 合併用戶資料
+    final_data = {**default_data, **(data or {})}
+    
+    buffer = io.BytesIO()
+    
+    # 使用原始範本的頁面尺寸 (595 x 842 pt)
+    page_size = (595, 842)
+    p = canvas.Canvas(buffer, pagesize=page_size)
+    
+    # 設置標楷體字體
+    font_available, font_name = setup_kaiu_font()
+    
+    if not font_available:
+        raise Exception("標楷體字體不可用")
+    
+    # 頁面尺寸
+    width, height = page_size
+    
+    # 根據原始範本的座標和字體大小精確重現
+    # 注意：ReportLab 的座標系統 Y 軸是從底部開始，需要轉換
+    
+    # 1. 標題：推廣管路灌溉設施補助計畫 (原座標 y: 54, 字體大小: 26)
+    p.setFont(font_name, 26)
+    p.drawString(141.5, height - 54 - 26, "推廣管路灌溉設施補助計畫")
+    
+    # 2. 年度：114年度 (原座標 y: 124, 字體大小: 24/26)
+    p.setFont(font_name, 24)
+    p.drawString(252, height - 124 - 24, final_data['YEAR'])
+    p.setFont(font_name, 26)
+    p.drawString(288, height - 124 - 26, "年度")
+    
+    # 3. 機構名稱：財團法人農業工程研究中心 (原座標 y: 192, 字體大小: 26)
+    p.setFont(font_name, 26)
+    p.drawString(141.5, height - 192 - 26, "財團法人農業工程研究中心")
+    
+    # 4. 申請案號 (原座標 y: 257, 字體大小: 20)
+    p.setFont(font_name, 20)
+    p.drawString(56, height - 257 - 20, f"申請案號:{final_data['CASE_ID']}")
+    
+    # 5. 申請人 (原座標 y: 317, 字體大小: 20)
+    p.setFont(font_name, 20)
+    p.drawString(56, height - 317 - 20, f"申 請 人:{final_data['APPLICANT']}")
+    
+    # 6. 通訊住址 (原座標 y: 377, 字體大小: 20)
+    p.setFont(font_name, 20)
+    p.drawString(56, height - 377 - 20, f"通訊住址:{final_data['ADDRESS']}")
+    
+    # 7. 設施地點 (原座標 y: 437, 字體大小: 20)
+    p.setFont(font_name, 20)
+    p.drawString(56, height - 437 - 20, f"設施地點:{final_data['LOCATION']},地號:{final_data['LAND_ID']},等1筆")
+    
+    # 8. 土地 (原座標 y: 467, 字體大小: 20)
+    p.setFont(font_name, 20)
+    p.drawString(146, height - 467 - 20, "土地。")
+    
+    # 9. 申請面積 (原座標 y: 527, 字體大小: 20)
+    p.setFont(font_name, 20)
+    p.drawString(56, height - 527 - 20, f"申請面積:{final_data['AREA_NUMBER']}公頃")
+    
+    # 10. 設施型式 (原座標 y: 587, 字體大小: 20)
+    p.setFont(font_name, 20)
+    p.drawString(56, height - 587 - 20, f"設施型式:{final_data['FACILITY_TYPE']}")
+    
+    # 頁尾資訊（較小字體，不影響原版面）
+    p.setFont(font_name, 8)
+    footer_text = f"ReportLab 標楷體版本 | {current_time.strftime('%Y年%m月%d日 %H:%M:%S')}"
+    p.drawString(50, 30, footer_text)
+    
+    # 右下角標記（確認中文顯示正常）
+    p.setFont(font_name, 10)
+    p.setFillColor((0, 0, 1))  # 藍色
+    signature_text = "✅ 中文字體正常"
+    p.drawString(width - 150, 50, signature_text)
+    
+    p.save()
+    return buffer.getvalue()
+
 def list_available_fonts():
     """列出系統可用字體"""
     font_dirs = [
