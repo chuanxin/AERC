@@ -130,6 +130,52 @@
                   </template>
                 </v-list-item>
               </v-list>
+
+              <!-- 功能項目分隔線 -->
+              <v-divider class="my-2" />
+
+              <!-- 版本管理功能項目 -->
+              <v-list nav class="function-list">
+                <v-list-item
+                  :disabled="isNavigating || designChangeLoading"
+                  variant="elevated"
+                  elevation="0"
+                  class="design-change-item"
+                  @click="handleDesignChangeClick"
+                >
+                  <template #prepend>
+                    <v-icon
+                      :color="designChangeLoading ? 'grey' : '#3ea0a3'"
+                      size="large"
+                      :class="{ 'mdi-spin': designChangeLoading }"
+                    >
+                      {{ designChangeLoading ? 'mdi-loading' : 'mdi-content-copy' }}
+                    </v-icon>
+                  </template>
+
+                  <v-list-item-title>
+                    <span class="function-item-title">變更設計</span>
+                  </v-list-item-title>
+
+                  <v-list-item-subtitle v-if="!isRailMode" class="text-medium-emphasis">
+                    建立新版本
+                  </v-list-item-subtitle>
+
+                  <!-- 版本資訊顯示 -->
+                  <template v-if="!isRailMode" #append>
+                    <div class="version-info">
+                      <v-chip
+                        size="x-small"
+                        color="#3ea0a3"
+                        variant="outlined"
+                        class="version-chip"
+                      >
+                        v{{ grantsStore.currentGrant?.active_version?.version || 1 }}
+                      </v-chip>
+                    </div>
+                  </template>
+                </v-list-item>
+              </v-list>
             </v-navigation-drawer>
 
             <!-- Main content area -->
@@ -339,14 +385,6 @@
                         @validated="handleStepValidated"
                         @go-back="handleGoBack"
                       />
-                      <step9
-                        v-if="currentStep === 9"
-                        :form-data="grantsStore.formData[9]"
-                        :current-step="currentStep"
-                        @update:form-data="handleFormDataUpdate(9, $event)"
-                        @validated="handleStepValidated"
-                        @go-back="handleGoBack"
-                      />
                     </v-card>
                   </v-card-text>
 
@@ -448,6 +486,92 @@
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <!-- 🆕 變更設計確認對話框 -->
+    <v-dialog v-model="showDesignChangeDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="text-h6 d-flex align-center pa-4">
+          <v-icon color="#3ea0a3" class="mr-3">mdi-content-copy</v-icon>
+          <span>變更設計</span>
+          <v-spacer />
+          <v-btn icon variant="text" @click="showDesignChangeDialog = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="pa-4">
+          <div class="mb-4">
+            <p class="text-body-2 mb-3">
+              系統將複製當前版本的所有資料，建立一個新的版本記錄。
+            </p>
+
+            <!-- 當前版本資訊 -->
+            <v-card variant="outlined" color="#3ea0a3" class="mb-4">
+              <v-card-text class="pa-3">
+                <div class="d-flex align-center">
+                  <v-icon color="#3ea0a3" class="mr-2">mdi-tag</v-icon>
+                  <div>
+                    <div class="text-subtitle-2 font-weight-medium">
+                      當前版本：版本 {{ grantsStore.currentGrant?.active_version?.version || 1 }}
+                    </div>
+                    <div class="text-caption text-medium-emphasis">
+                      案件編號：{{ grantsStore.currentGrant?.case_number }}
+                    </div>
+                  </div>
+                </div>
+              </v-card-text>
+            </v-card>
+
+            <!-- 版本說明輸入 -->
+            <v-textarea
+              v-model="designChangeComment"
+              label="版本說明（選填）"
+              placeholder="請輸入此次變更設計的說明..."
+              rows="3"
+              variant="outlined"
+              hide-details="auto"
+              counter="255"
+              maxlength="255"
+            />
+          </div>
+
+          <!-- 未儲存變更警告 -->
+          <v-alert
+            v-if="grantsStore.hasUnsavedChanges"
+            type="warning"
+            variant="tonal"
+            class="mb-3"
+          >
+            <v-icon>mdi-alert</v-icon>
+            <span class="ml-2">系統偵測到未儲存的變更，將先自動儲存後再建立新版本。</span>
+          </v-alert>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn
+            variant="text"
+            @click="showDesignChangeDialog = false"
+            :disabled="designChangeLoading"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            :loading="designChangeLoading"
+            color="#3ea0a3"
+            variant="elevated"
+            @click="executeDesignChange(designChangeComment)"
+          >
+            <v-icon start>mdi-content-copy</v-icon>
+            建立新版本
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -457,6 +581,8 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useGrantsStore } from '@/stores/grants'
 import { GrantStorage } from '@/utils/grant-storage'
 import { debounce } from 'lodash-es'
+// 🆕 導入版本管理服務函數
+import { createGrantVersion } from '@/services/grantsService'
 
 // Import step components
 import step1 from '@/pages/grants/steps/step1.vue'
@@ -492,6 +618,11 @@ const step7ButtonConfig = ref({
 
 // Step7 組件引用
 const step7Ref = ref<{ handleActionRequest: (action: string) => void } | null>(null)
+
+// 🆕 變更設計相關狀態
+const designChangeLoading = ref(false)
+const showDesignChangeDialog = ref(false)
+const designChangeComment = ref('')
 
 // 🆕 統一事件驅動架構：組件引用接口定義
 interface StepComponent {
@@ -530,8 +661,52 @@ const steps = [
   { title: '文件列印及完成申報', value: 6, subtitle: '請填寫補助申請資料' },
   { title: '功能測試', value: 7, subtitle: '請填寫結案申報' },
   { title: '佐證及相關文件上傳', value: 8, subtitle: '請上傳佐證及相關文件' },
-  { title: '變更設計', value: 9, subtitle: '變更設計' }
 ]
+
+
+// 格式化日期
+const formatDate = (dateString?: string) => {
+  if (!dateString) return ''
+  return new Date(dateString).toLocaleDateString('zh-TW')
+}
+
+// 變更設計功能
+const handleDesignChange = async (comment?: string) => {
+  if (!grantsStore.currentGrant?.case_number) return
+
+  try {
+    designChangeLoading.value = true
+
+    // 1. 先保存當前所有變更
+    await grantsStore.saveAllChanges()
+
+    // 2. 收集所有步驟資料
+    const allStepsData = { ...grantsStore.formData }
+
+    // 3. 調用版本創建 API
+    const result = await createGrantVersion(
+      grantsStore.currentGrant.case_number,
+      allStepsData,
+      comment || `變更設計 - ${new Date().toLocaleString('zh-TW')}`
+    )
+
+    // 4. 更新當前案件的版本資訊
+    if (grantsStore.currentGrant.active_version) {
+      grantsStore.currentGrant.active_version.version = result.version
+      grantsStore.currentGrant.active_version.created_at = result.created_at
+    }
+
+    // 5. 顯示成功訊息
+    showSnackbar('變更設計版本建立成功', 'success')
+
+  } catch (error) {
+    console.error('變更設計失敗:', error)
+    showSnackbar('變更設計失敗', 'error')
+  } finally {
+    designChangeLoading.value = false
+    showDesignChangeDialog.value = false
+  }
+}
 
 // Step icon and color logic
 const getStepIcon = (stepValue: number): string => {
@@ -621,6 +796,66 @@ const handleMainButtonClick = () => {
   } else {
     // 其他步驟的正常邏輯
     goToNextStep()
+  }
+}
+
+// 🆕 變更設計點擊處理
+const handleDesignChangeClick = () => {
+  if (grantsStore.hasUnsavedChanges) {
+    // 如果有未儲存變更，先顯示對話框
+    showDesignChangeDialog.value = true
+  } else {
+    // 直接執行變更設計
+    executeDesignChange()
+  }
+}
+
+// 🆕 執行變更設計
+const executeDesignChange = async (comment?: string) => {
+  if (!grantsStore.currentGrant?.case_number) {
+    console.error('無法執行變更設計：沒有載入案件')
+    return
+  }
+
+  try {
+    designChangeLoading.value = true
+    console.log('🔄 開始執行變更設計...')
+
+    // 1. 先保存當前所有變更
+    if (grantsStore.hasUnsavedChanges) {
+      console.log('💾 發現未儲存變更，先進行儲存...')
+      await grantsStore.saveAllChanges()
+    }
+
+    // 2. 收集所有步驟資料
+    const allStepsData = { ...grantsStore.formData }
+    console.log('📦 收集到的步驟資料:', Object.keys(allStepsData))
+
+    // 3. 調用版本創建 API
+    const result = await createGrantVersion(
+      grantsStore.currentGrant.case_number,
+      allStepsData,
+      comment || `變更設計 - ${new Date().toLocaleString('zh-TW')}`
+    )
+
+    console.log('✅ 版本建立成功:', result)
+
+    // 4. 更新當前案件的版本資訊
+    if (grantsStore.currentGrant.active_version) {
+      grantsStore.currentGrant.active_version.version = result.version
+      grantsStore.currentGrant.active_version.created_at = result.created_at
+    }
+
+    // 5. 顯示成功訊息（暫時用 console，後續可改為 snackbar）
+    console.log(`🎉 變更設計完成！新版本：v${result.version}`)
+
+  } catch (error) {
+    console.error('❌ 變更設計失敗:', error)
+    // TODO: 顯示錯誤訊息給用戶
+  } finally {
+    designChangeLoading.value = false
+    showDesignChangeDialog.value = false
+    designChangeComment.value = ''
   }
 }
 
@@ -1223,6 +1458,52 @@ onBeforeRouteLeave((to, from, next) => {
 }
 
 .mdi-loading.mdi-spin {
+  animation: spin 1s infinite linear;
+}
+
+/* 🆕 功能項目樣式 */
+.function-list {
+  background-color: rgba(62, 160, 163, 0.02);
+  margin: 0 8px;
+  border-radius: 8px;
+}
+
+.design-change-item {
+  margin-bottom: 4px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.design-change-item:hover {
+  background-color: rgba(62, 160, 163, 0.1) !important;
+}
+
+.function-item-title {
+  color: #3ea0a3;
+  font-weight: 500;
+}
+
+.version-chip {
+  font-size: 10px;
+  height: 16px;
+}
+
+.version-info {
+  display: flex;
+  align-items: center;
+}
+
+/* Rail 模式下的特殊處理 */
+.v-navigation-drawer--rail .function-list {
+  margin: 0 4px;
+}
+
+.v-navigation-drawer--rail .design-change-item {
+  min-height: 48px;
+}
+
+/* 載入動畫 */
+.mdi-spin {
   animation: spin 1s infinite linear;
 }
 </style>

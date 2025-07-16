@@ -252,7 +252,7 @@
                   <!-- 操作按鈕 -->
                   <template #[`item.actions`]="{ item }">
                     <div class="ma-0 pa-0 d-flex gap-2 justify-end">
-                      <!-- 歷史案件：只顯示查看按鈕 -->
+                      <!-- 歷史案件：顯示查看按鈕和查看歷史按鈕 -->
                       <template v-if="item.is_legacy">
                         <v-btn
                           icon="mdi-eye"
@@ -261,6 +261,15 @@
                           variant="text"
                           title="查看歷史案件"
                           @click="editItem(item)"
+                        />
+                        <v-btn
+                          icon="mdi-file-pdf-box"
+                          size="small"
+                          color="#ff9800"
+                          variant="text"
+                          title="查看歷史 - 生成工程預算書封面PDF"
+                          :loading="pdfGenerating === item.case_number"
+                          @click="generateHistoryPdf(item)"
                         />
                       </template>
                       <!-- 一般案件：顯示編輯和刪除按鈕 -->
@@ -325,6 +334,7 @@
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router'
 import type { GrantListItem } from '@/services/grantsService'
+import { generateKaiuPdf, downloadPdfBlob } from '@/services/grantsService'
 import { useGrantsStore } from '@/stores/grants'
 import { useUserStore } from '@/stores/users'
 import { GrantStorage, type GrantData } from '@/utils/grant-storage'
@@ -380,6 +390,7 @@ const searchInput = ref('')
 const reconnecting = ref(false)
 const deleting = ref(false)
 const showDeleteConfirmDialog = ref(false)
+const pdfGenerating = ref<string | null>(null) // 追蹤正在生成PDF的案件編號
 
 // 篩選條件 - 設置預設值
 const filters = reactive({
@@ -730,6 +741,37 @@ const deleteItem = async (item: GrantListItem) => {
       console.error('刪除案件失敗:', error)
       alert('刪除案件失敗，請稍後再試')
     }
+  }
+}
+
+// 新增：生成歷史案件PDF
+const generateHistoryPdf = async (item: GrantListItem) => {
+  if (!item.is_legacy) {
+    console.warn('只有歷史案件才能生成PDF')
+    return
+  }
+  
+  try {
+    console.log('🖨️ 開始生成PDF，案件:', item.case_number)
+    pdfGenerating.value = item.case_number
+    
+    // 調用PDF生成服務
+    const pdfBlob = await generateKaiuPdf(item)
+    
+    // 生成檔案名稱
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:]/g, '-')
+    const filename = `${item.case_number}_工程預算書封面_${timestamp}.pdf`
+    
+    // 下載PDF
+    downloadPdfBlob(pdfBlob, filename)
+    
+    console.log('🖨️ PDF生成並下載完成')
+    
+  } catch (error) {
+    console.error('🖨️ PDF生成失敗:', error)
+    alert('PDF生成失敗，請稍後再試')
+  } finally {
+    pdfGenerating.value = null
   }
 }
 

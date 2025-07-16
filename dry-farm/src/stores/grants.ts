@@ -69,6 +69,7 @@ export const useGrantsStore = defineStore('grants', () => {
     6: {}, // Step 6 form data (localStorage)
     7: {}, // Step 7 form data (localStorage)
     8: {}, // Step 8 form data (localStorage)
+    // 🚫 移除 step9，變更設計功能不使用傳統的步驟流程
   })
 
   // Request cache to prevent duplicate API calls

@@ -585,3 +585,229 @@ const handleApiError = (error: unknown, source: string): never => {
     })
   }
 }
+
+// =============================================================================
+// 🆕 PDF生成相關函數
+// =============================================================================
+
+/**
+ * 生成工程預算書封面PDF
+ * @param grantData 補助案件資料
+ */
+export const generateKaiuPdf = async (grantData: GrantListItem): Promise<Blob> => {
+  try {
+    console.log('🖨️ [generateKaiuPdf] 準備生成PDF，案件資料:', grantData)
+    
+    // 構建PDF生成所需的資料格式
+    const pdfData = {
+      CASE_ID: grantData.case_number,
+      APPLICANT: grantData.applicant_name,
+      ADDRESS: '', // 這裡可能需要從其他地方取得地址資料
+      LOCATION: '', // 土地位置資訊
+      LAND_ID: '', // 地號資訊
+      AREA_NUMBER: grantData.facility_area_m2 ? (grantData.facility_area_m2 / 10000).toFixed(4) : '0.0000', // 轉換為公頃
+      FACILITY_TYPE: grantData.facility_type || '未設定',
+      YEAR: grantData.year.toString()
+    }
+    
+    console.log('🖨️ [generateKaiuPdf] PDF生成參數:', pdfData)
+    
+    // 調用後端PDF生成API - 直接使用axios實例以確保responseType生效
+    const response = await apiService.post('/test/generate-kaiu-pdf-reportlab', pdfData, {
+      responseType: 'blob',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    
+    console.log('🖨️ [generateKaiuPdf] PDF生成成功')
+    
+    // 檢查回應是否為Blob
+    if (response instanceof Blob) {
+      console.log('🖨️ [generateKaiuPdf] 檔案大小:', response.size, 'bytes')
+      return response
+    } else {
+      // 如果不是Blob，可能是因為responseType沒有生效，需要手動轉換
+      console.log('🖨️ [generateKaiuPdf] 轉換回應為Blob')
+      return new Blob([response as any], { type: 'application/pdf' })
+    }
+    
+  } catch (error: unknown) {
+    console.error('🖨️ [generateKaiuPdf] PDF生成失敗:', error)
+    throw new ApplicationError({
+      message: 'PDF生成失敗，請稍後再試',
+      status: (error as any)?.response?.status || 500,
+      source: 'grantsService.generateKaiuPdf',
+      originalError: error
+    })
+  }
+}
+
+/**
+ * 下載PDF檔案
+ * @param blob PDF檔案Blob
+ * @param filename 檔案名稱
+ */
+export const downloadPdfBlob = (blob: Blob, filename: string): void => {
+  try {
+    console.log('💾 [downloadPdfBlob] 開始下載PDF檔案:', filename)
+    
+    // 創建下載連結
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    
+    // 觸發下載
+    document.body.appendChild(link)
+    link.click()
+    
+    // 清理
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    console.log('💾 [downloadPdfBlob] PDF下載完成')
+    
+  } catch (error) {
+    console.error('💾 [downloadPdfBlob] PDF下載失敗:', error)
+    throw new ApplicationError({
+      message: 'PDF下載失敗',
+      status: 500,
+      source: 'grantsService.downloadPdfBlob',
+      originalError: error
+    })
+  }
+}
+
+// =============================================================================
+// 🆕 版本管理相關函數
+// =============================================================================
+
+// 版本相關的類型定義
+export interface GrantVersionResponse {
+  id: number
+  grant_id: number
+  version: number
+  comment?: string
+  created_at: string
+  case_number?: string
+  is_duplicate?: boolean
+  message: string
+}
+
+export interface GrantVersionDetail {
+  id: number
+  grant_id: number
+  version: number
+  all_steps_data: Record<string, any>
+  all_steps_data_hash?: string
+  comment?: string
+  created_at: string
+  modified_at: string
+  created_by?: {
+    id: number
+    username: string
+    full_name?: string
+  }
+}
+
+/**
+ * 建立新的補助案件版本
+ * @param caseNumber 案件編號
+ * @param allStepsData 所有步驟的完整資料
+ * @param comment 版本說明
+ */
+export const createGrantVersion = async (
+  caseNumber: string,
+  allStepsData: Record<string, any>,
+  comment?: string
+): Promise<GrantVersionResponse> => {
+  try {
+    console.log(`🔄 Creating new version for case ${caseNumber}`)
+    console.log(`📦 All steps data keys:`, Object.keys(allStepsData))
+    console.log(`📝 Comment:`, comment)
+    
+    // 🔧 修正請求格式以匹配後端 API
+    const requestBody = {
+      all_steps_data: allStepsData,
+      comment: comment || `變更設計 - ${new Date().toLocaleString('zh-TW')}`
+    }
+    
+    const response = await apiService.post<GrantVersionResponse>(
+      `/grants/case/${caseNumber}/create-version`,
+      requestBody
+    )
+
+    console.log(`✅ Version created successfully:`, response)
+    return response
+
+  } catch (error: any) {
+    console.error(`❌ Failed to create version for case ${caseNumber}:`, error)
+    
+    // 🔧 改善錯誤處理
+    if (error.response?.status === 400) {
+      const detail = error.response?.data?.detail || ''
+      if (detail.includes('相同') || detail.includes('duplicate')) {
+        throw new ApplicationError({
+          message: '資料內容與現有版本相同，無需建立新版本',
+          status: 400,
+          source: 'grantsService.createGrantVersion',
+          originalError: error
+        })
+      }
+    }
+    
+    return handleApiError(error, 'grantsService.createGrantVersion')
+  }
+}
+
+/**
+ * 取得補助案件的版本列表
+ * @param grantId 補助案件 ID
+ * @param skip 跳過筆數
+ * @param limit 限制筆數
+ */
+export const getGrantVersions = async (
+  grantId: number,
+  skip: number = 0,
+  limit: number = 100
+): Promise<GrantVersionDetail[]> => {
+  try {
+    console.log(`🔄 Loading versions for grant ${grantId}`)
+    
+    const response = await apiService.get<GrantVersionDetail[]>(
+      `/grants/${grantId}/versions`,
+      { params: { skip, limit } }
+    )
+
+    console.log(`✅ Loaded ${response.length} versions`)
+    return response
+
+  } catch (error: any) {
+    console.error(`❌ Failed to load versions for grant ${grantId}:`, error)
+    return handleApiError(error, 'grantsService.getGrantVersions')
+  }
+}
+
+/**
+ * 取得單一版本的詳細資料
+ * @param versionId 版本 ID
+ */
+export const getGrantVersion = async (
+  versionId: number
+): Promise<GrantVersionDetail> => {
+  try {
+    console.log(`🔄 Loading version details for ${versionId}`)
+    
+    const response = await apiService.get<GrantVersionDetail>(
+      `/grants/versions/${versionId}`
+    )
+
+    console.log(`✅ Loaded version details`)
+    return response
+
+  } catch (error: any) {
+    console.error(`❌ Failed to load version ${versionId}:`, error)
+    return handleApiError(error, 'grantsService.getGrantVersion')
+  }
+}
