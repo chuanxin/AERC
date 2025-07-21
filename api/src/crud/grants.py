@@ -24,22 +24,22 @@ import pytz
 TAIWAN_TZ = pytz.timezone('Asia/Taipei')
 
 def get_taiwan_now():
-    """獲取台灣時區的當前時間"""
+    """獲取本地時區的當前時間"""
     return datetime.now(TAIWAN_TZ)
 
 def get_taiwan_time_naive():
-    """獲取台灣時區的當前時間（無時區資訊，適用於 TimeField）"""
-    # 先獲取台灣時間，然後完全移除任何時區資訊
+    """獲取本地時區的當前時間（無時區資訊，適用於 TimeField）"""
+    # 先獲取本地時間，然後完全移除任何時區資訊
     taiwan_datetime = datetime.now(TAIWAN_TZ)
     # 創建一個全新的 time 對象，確保沒有任何時區資訊
     return taiwan_datetime.replace(tzinfo=None).time()
 
 def get_taiwan_date():
-    """獲取台灣時區的當前日期"""
+    """獲取本地時區的當前日期"""
     return datetime.now(TAIWAN_TZ).date()
 
 def get_taiwan_datetime():
-    """獲取台灣時區的當前日期時間（用於 DatetimeField）"""
+    """獲取本地時區的當前日期時間（用於 DatetimeField）"""
     return datetime.now(TAIWAN_TZ)
 
 
@@ -1462,4 +1462,163 @@ async def update_grant_current_step(case_number: str, current_step: int, current
             raise HTTPException(
                 status_code=500, 
                 detail=f"更新當前步驟失敗: {str(e)}"
+            )
+
+
+async def batch_cross_year_grants(case_numbers: List[str], current_user) -> List[Dict[str, Any]]:
+    """批次跨年度處理 - 複製案件並設定跨年度狀態"""
+    results = []
+    
+    # 批次處理，但每個案件獨立處理以避免單一失敗影響整批
+    for case_number in case_numbers:
+        try:
+            result = await process_single_cross_year_grant(case_number, current_user)
+            results.append(result)
+            logger.info(f"✅ 案件 {case_number} 跨年度處理成功")
+            
+        except Exception as e:
+            logger.error(f"❌ 案件 {case_number} 跨年度處理失敗: {str(e)}")
+            results.append({
+                "original_case_number": case_number,
+                "success": False,
+                "message": f"跨年度處理失敗: {str(e)}",
+                "error": str(e)
+            })
+    
+    return results
+
+
+async def process_single_cross_year_grant(case_number: str, current_user) -> Dict[str, Any]:
+    """處理單一案件的跨年度複製"""
+    async with in_transaction():
+        try:
+            # 1. 取得原始案件
+            original_grant = await Grants.get(case_number=case_number).prefetch_related('active_version')
+            logger.info(f"📋 處理案件: {case_number}, 申請人: {original_grant.applicant_name}")
+            
+            # 2. 計算次年度
+            next_year = original_grant.year + 1
+            current_taiwan_year = datetime.now().year - 1911
+            
+            # 如果次年度超過當前年度，使用當前年度
+            if next_year > current_taiwan_year:
+                next_year = current_taiwan_year
+                logger.info(f"⚠️ 次年度 {next_year + 1} 超過當前年度，調整為 {next_year}")
+            
+            # 3. 複製案件資料並建立新案件
+            new_grant = Grants(
+                year=next_year,
+                applicant_name=original_grant.applicant_name,
+                applicant_id=original_grant.applicant_id,
+                applicant_phone=original_grant.applicant_phone,
+                county=original_grant.county,
+                town=original_grant.town,
+                village=original_grant.village,
+                address=original_grant.address,
+                office=original_grant.office,
+                office_id=original_grant.office_id,
+                undertracker=original_grant.undertracker,
+                is_disaster_case=original_grant.is_disaster_case,
+                disaster_case_description=original_grant.disaster_case_description,
+                created_by_id=current_user.id,
+                received_date=get_taiwan_date(),
+                received_time=get_taiwan_time_naive(),
+                status=GrantStatus.DRAFT,  # 新案件從草稿開始
+                current_step=1  # 新案件從步驟1開始
+            )
+            
+            # 儲存新案件
+            await new_grant.save()
+            logger.info(f"📄 成功建立新案件: {new_grant.case_number}")
+            
+            # 4. 複製原案件的版本資料到新案件
+            if original_grant.active_version:
+                original_version = await GrantVersions.get(id=original_grant.active_version_id)
+                
+                # 計算新版本的雜湊值
+                new_version_data = original_version.all_steps_data.copy() if original_version.all_steps_data else {"steps": {}}
+                data_hash = calculate_data_hash(new_version_data)
+                
+                # 建立新案件的初始版本，並在 comment 中記錄來源
+                new_version = await GrantVersions.create(
+                    grant_id=new_grant.id,
+                    version=1,
+                    all_steps_data=new_version_data,
+                    all_steps_data_hash=data_hash,
+                    comment=f"跨年度案件 - 來源案件ID: {original_grant.id} (案件編號: {case_number})",
+                    created_by_id=current_user.id
+                )
+                
+                # 設定新案件的 active_version
+                await Grants.filter(id=new_grant.id).update(active_version_id=new_version.id)
+                logger.info(f"📦 成功複製版本資料到新案件")
+            else:
+                # 如果原案件沒有版本資料，建立空的初始版本
+                initial_version_data = {
+                    "steps": {str(i): {} for i in range(2, 9)}
+                }
+                data_hash = calculate_data_hash(initial_version_data)
+                
+                new_version = await GrantVersions.create(
+                    grant_id=new_grant.id,
+                    version=1,
+                    all_steps_data=initial_version_data,
+                    all_steps_data_hash=data_hash,
+                    comment=f"跨年度案件 - 來源案件ID: {original_grant.id} (案件編號: {case_number})",
+                    created_by_id=current_user.id
+                )
+                
+                await Grants.filter(id=new_grant.id).update(active_version_id=new_version.id)
+                logger.info(f"📦 成功建立新案件的初始版本")
+            
+            # 5. 更新原案件為跨年度狀態
+            await Grants.filter(id=original_grant.id).update(
+                status=GrantStatus.CROSS_YEAR,  # 設定為跨年度案件狀態
+                status_detail=f"預算用罄，移至{next_year}年度撥款"
+            )
+            
+            # 6. 建立原案件的歷史紀錄
+            await GrantHistory.create(
+                grant=original_grant,
+                action_type=GrantActionType.STATUS_CHANGE,
+                grant_status=GrantStatus.CROSS_YEAR,
+                changed_fields=['status', 'status_detail'],
+                old_value={
+                    'status': original_grant.status,
+                    'status_detail': original_grant.status_detail or ''
+                },
+                new_value={
+                    'status': GrantStatus.CROSS_YEAR,
+                    'status_detail': f"預算用罄，移至{next_year}年度撥款"
+                },
+                changed_by_id=current_user.id,
+                notes=f"批次跨年度處理 - 案件複製到 {new_grant.case_number}"
+            )
+            
+            # 7. 建立新案件的歷史紀錄
+            await GrantHistory.create(
+                grant=new_grant,
+                action_type=GrantActionType.CASE_CREATE,
+                grant_status=GrantStatus.DRAFT,
+                changed_by_id=current_user.id,
+                notes=f"跨年度案件建立 - 來源案件: {case_number}"
+            )
+            
+            logger.info(f"🎯 案件 {case_number} 跨年度處理完成，新案件編號: {new_grant.case_number}")
+            
+            return {
+                "original_case_number": case_number,
+                "new_case_number": new_grant.case_number,
+                "new_year": next_year,
+                "success": True,
+                "message": f"成功複製到 {next_year} 年度，新案件編號: {new_grant.case_number}"
+            }
+            
+        except DoesNotExist:
+            raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+        except Exception as e:
+            logger.error(f"處理案件 {case_number} 跨年度時發生錯誤: {str(e)}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"跨年度處理失敗: {str(e)}"
             )

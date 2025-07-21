@@ -344,3 +344,43 @@ async def create_version_from_frontend_data_api(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"從前端資料建立版本失敗: {str(e)}",
         )
+
+
+@router.post(
+    "/batch-cross-year",
+    response_model=List[Dict[str, Any]],
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(get_current_user)],
+)
+async def batch_cross_year_grants_api(
+    batch_data: Dict[str, Any] = Body(..., description="批次跨年度資料"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """批次跨年度處理 - 複製選取的案件並設定為跨年度狀態"""
+    try:
+        logger.info(f"🔄 批次跨年度處理開始，使用者: {current_user.username}")
+        logger.info(f"📦 收到批次資料: {batch_data}")
+        
+        case_numbers = batch_data.get("case_numbers", [])
+        grants_info = batch_data.get("grants_info", [])
+        
+        if not case_numbers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="未提供要處理的案件編號"
+            )
+        
+        logger.info(f"📋 準備處理 {len(case_numbers)} 筆案件: {case_numbers}")
+        
+        # 調用 CRUD 函數進行批次跨年度處理
+        results = await crud.batch_cross_year_grants(case_numbers, current_user)
+        
+        logger.info(f"✅ 批次跨年度處理完成，處理結果: {len(results)} 筆")
+        return results
+        
+    except Exception as e:
+        logger.error(f"❌ 批次跨年度處理失敗: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"批次跨年度處理失敗: {str(e)}",
+        )

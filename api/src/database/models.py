@@ -45,6 +45,8 @@ class GrantStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     WITHDRAWN = "withdrawn"
+    CROSS_YEAR = "cross_year"  # 跨年度案件狀態
+    COMPLETED = "completed"    # 結案狀態
 
 
 class GrantTypes(str, Enum):
@@ -656,3 +658,39 @@ class GrantVersions(models.Model):
     
     def __str__(self):
         return f"{self.grant.case_number} - Version {self.version}"
+    
+class DocumentType(str, Enum):
+    APPLICATION_FORM = "application_form"        # 申請表
+    BUDGET_SHEET = "budget_sheet"               # 預算書
+    LAND_REGISTRY = "land_registry"             # 土地清冊
+    MATERIAL_LIST = "material_list"             # 材料數量表
+    DESIGN_DRAWING = "design_drawing"           # 設計圖
+    PHOTO_RECORD = "photo_record"               # 照片記錄
+    RECEIPT = "receipt"                         # 收據
+    TEST_REPORT = "test_report"                 # 測試報告
+    REVIEW_FORM = "review_form"                 # 審查表
+    BUDGET_STATEMENT = "budget_statement"           # 預算聲明
+
+
+class GrantPapers(models.Model):
+    """補助申請文件表"""
+    id = fields.IntField(pk=True)
+    version = fields.ForeignKeyField("models.GrantVersions", related_name="reports", description="所屬補助申請版本")
+    document_type = fields.CharField(max_length=50, description="文件類型")
+    document_data = fields.JSONField(description="文件內容")
+    data_hash = fields.CharField(max_length=64, description="文件內容的Hash值，用於檢查變更", null=True)
+    generated_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    created_by = fields.ForeignKeyField("models.Users", related_name="created_reports", description="建立人帳號", null=True, on_delete=fields.CASCADE)
+    is_valid = fields.BooleanField(default=True, description="文件是否有效")
+    
+    class Meta:
+        table = "grant_papers"
+        table_description = "補助申請文件表"
+        unique_together = (("version", "document_type"),)
+        indexes = [
+            ("version_id", "document_type"),      # 覆蓋複合查詢
+        ]
+    
+    def __str__(self):
+        """返回文件的簡要描述"""
+        return f"{self.version.grant.case_number} - {self.document_type.value} - v{self.version.version}"

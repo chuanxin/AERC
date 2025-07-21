@@ -680,6 +680,64 @@ export const downloadPdfBlob = (blob: Blob, filename: string): void => {
 }
 
 // =============================================================================
+// 🆕 批次跨年度處理相關函數
+// =============================================================================
+
+/**
+ * 批次跨年度處理結果介面
+ */
+export interface BatchCrossYearResult {
+  originalCaseNumber: string
+  newCaseNumber?: string
+  success: boolean
+  message: string
+  error?: string
+}
+
+/**
+ * 批次跨年度處理
+ * @param selectedGrants 選取的案件列表
+ */
+export const batchCrossYearGrants = async (selectedGrants: GrantListItem[]): Promise<BatchCrossYearResult[]> => {
+  try {
+    console.log('🔄 [batchCrossYearGrants] 開始批次跨年度處理，案件數量:', selectedGrants.length)
+    
+    const requestData = {
+      case_numbers: selectedGrants.map(grant => grant.case_number),
+      grants_info: selectedGrants.map(grant => ({
+        case_number: grant.case_number,
+        applicant_name: grant.applicant_name,
+        year: grant.year,
+        office_id: grant.office_id
+      }))
+    }
+    
+    console.log('🔄 [batchCrossYearGrants] 發送請求資料:', requestData)
+    
+    const response = await apiService.post<BatchCrossYearResult[]>(
+      '/grants/batch-cross-year',
+      requestData
+    )
+    
+    console.log('✅ [batchCrossYearGrants] 批次跨年度處理完成:', response)
+    return response
+
+  } catch (error: any) {
+    console.error('❌ [batchCrossYearGrants] 批次跨年度處理失敗:', error)
+    
+    // 如果是網路錯誤或API錯誤，回傳錯誤訊息給每個案件
+    const errorResults: BatchCrossYearResult[] = selectedGrants.map(grant => ({
+      originalCaseNumber: grant.case_number,
+      success: false,
+      message: '批次跨年度處理失敗',
+      error: error.response?.data?.detail || error.message || '未知錯誤'
+    }))
+    
+    return errorResults
+  }
+}
+
+// =============================================================================
 // 🆕 版本管理相關函數
 // =============================================================================
 
