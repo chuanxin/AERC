@@ -84,10 +84,11 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0',
-    https: {
-      key: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/privkey.pem'),
-      cert: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/fullchain.pem'),
-    },
+    // HTTPS configuration disabled for development
+    // https: {
+    //   key: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/privkey.pem'),
+    //   cert: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/fullchain.pem'),
+    // },
     proxy: {
       [API_BASE_URL]: {
         target: API_TARGET,
@@ -113,9 +114,10 @@ export default defineConfig({
       usePolling: true,
       interval: 1000,
     },
-    allowedHosts: [
-      'cxin.mynetgear.com',
-    ]
+    // allowedHosts restriction removed for development
+    // allowedHosts: [
+    //   'cxin.mynetgear.com',
+    // ]
   },
   css: {
     preprocessorOptions: {
