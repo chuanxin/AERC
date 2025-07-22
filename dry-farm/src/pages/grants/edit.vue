@@ -576,6 +576,7 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick } from 'vue'
 import { useDisplay, useGoTo } from 'vuetify'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useGrantsStore } from '@/stores/grants'
@@ -846,7 +847,10 @@ const executeDesignChange = async (comment?: string) => {
       grantsStore.currentGrant.active_version.created_at = result.created_at
     }
 
-    // 5. 顯示成功訊息（暫時用 console，後續可改為 snackbar）
+    // 5. 觸發版本比較資料的重新載入（通過更新響應式資料）
+    await nextTick() // 等待DOM更新
+    
+    // 6. 顯示成功訊息（暫時用 console，後續可改為 snackbar）
     console.log(`🎉 變更設計完成！新版本：v${result.version}`)
 
   } catch (error) {

@@ -86,6 +86,7 @@ tests/
 # Documentation
 docs/
 *.pdf
+CLAUDE.md
 
 # Deployment files
 dev/

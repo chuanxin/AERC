@@ -597,7 +597,7 @@ const handleApiError = (error: unknown, source: string): never => {
 export const generateKaiuPdf = async (grantData: GrantListItem): Promise<Blob> => {
   try {
     console.log('🖨️ [generateKaiuPdf] 準備生成PDF，案件資料:', grantData)
-    
+
     // 構建PDF生成所需的資料格式
     const pdfData = {
       CASE_ID: grantData.case_number,
@@ -609,9 +609,9 @@ export const generateKaiuPdf = async (grantData: GrantListItem): Promise<Blob> =
       FACILITY_TYPE: grantData.facility_type || '未設定',
       YEAR: grantData.year.toString()
     }
-    
+
     console.log('🖨️ [generateKaiuPdf] PDF生成參數:', pdfData)
-    
+
     // 調用後端PDF生成API - 直接使用axios實例以確保responseType生效
     const response = await apiService.post('/test/generate-kaiu-pdf-reportlab', pdfData, {
       responseType: 'blob',
@@ -619,9 +619,9 @@ export const generateKaiuPdf = async (grantData: GrantListItem): Promise<Blob> =
         'Content-Type': 'application/json'
       }
     })
-    
+
     console.log('🖨️ [generateKaiuPdf] PDF生成成功')
-    
+
     // 檢查回應是否為Blob
     if (response instanceof Blob) {
       console.log('🖨️ [generateKaiuPdf] 檔案大小:', response.size, 'bytes')
@@ -631,7 +631,7 @@ export const generateKaiuPdf = async (grantData: GrantListItem): Promise<Blob> =
       console.log('🖨️ [generateKaiuPdf] 轉換回應為Blob')
       return new Blob([response as any], { type: 'application/pdf' })
     }
-    
+
   } catch (error: unknown) {
     console.error('🖨️ [generateKaiuPdf] PDF生成失敗:', error)
     throw new ApplicationError({
@@ -651,23 +651,23 @@ export const generateKaiuPdf = async (grantData: GrantListItem): Promise<Blob> =
 export const downloadPdfBlob = (blob: Blob, filename: string): void => {
   try {
     console.log('💾 [downloadPdfBlob] 開始下載PDF檔案:', filename)
-    
+
     // 創建下載連結
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     link.download = filename
-    
+
     // 觸發下載
     document.body.appendChild(link)
     link.click()
-    
+
     // 清理
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-    
+
     console.log('💾 [downloadPdfBlob] PDF下載完成')
-    
+
   } catch (error) {
     console.error('💾 [downloadPdfBlob] PDF下載失敗:', error)
     throw new ApplicationError({
@@ -701,7 +701,7 @@ export interface BatchCrossYearResult {
 export const batchCrossYearGrants = async (selectedGrants: GrantListItem[]): Promise<BatchCrossYearResult[]> => {
   try {
     console.log('🔄 [batchCrossYearGrants] 開始批次跨年度處理，案件數量:', selectedGrants.length)
-    
+
     const requestData = {
       case_numbers: selectedGrants.map(grant => grant.case_number),
       grants_info: selectedGrants.map(grant => ({
@@ -711,20 +711,20 @@ export const batchCrossYearGrants = async (selectedGrants: GrantListItem[]): Pro
         office_id: grant.office_id
       }))
     }
-    
+
     console.log('🔄 [batchCrossYearGrants] 發送請求資料:', requestData)
-    
+
     const response = await apiService.post<BatchCrossYearResult[]>(
       '/grants/batch-cross-year',
       requestData
     )
-    
+
     console.log('✅ [batchCrossYearGrants] 批次跨年度處理完成:', response)
     return response
 
   } catch (error: any) {
     console.error('❌ [batchCrossYearGrants] 批次跨年度處理失敗:', error)
-    
+
     // 如果是網路錯誤或API錯誤，回傳錯誤訊息給每個案件
     const errorResults: BatchCrossYearResult[] = selectedGrants.map(grant => ({
       originalCaseNumber: grant.case_number,
@@ -732,7 +732,7 @@ export const batchCrossYearGrants = async (selectedGrants: GrantListItem[]): Pro
       message: '批次跨年度處理失敗',
       error: error.response?.data?.detail || error.message || '未知錯誤'
     }))
-    
+
     return errorResults
   }
 }
@@ -784,13 +784,13 @@ export const createGrantVersion = async (
     console.log(`🔄 Creating new version for case ${caseNumber}`)
     console.log(`📦 All steps data keys:`, Object.keys(allStepsData))
     console.log(`📝 Comment:`, comment)
-    
+
     // 🔧 修正請求格式以匹配後端 API
     const requestBody = {
       all_steps_data: allStepsData,
       comment: comment || `變更設計 - ${new Date().toLocaleString('zh-TW')}`
     }
-    
+
     const response = await apiService.post<GrantVersionResponse>(
       `/grants/case/${caseNumber}/create-version`,
       requestBody
@@ -801,7 +801,7 @@ export const createGrantVersion = async (
 
   } catch (error: any) {
     console.error(`❌ Failed to create version for case ${caseNumber}:`, error)
-    
+
     // 🔧 改善錯誤處理
     if (error.response?.status === 400) {
       const detail = error.response?.data?.detail || ''
@@ -814,7 +814,7 @@ export const createGrantVersion = async (
         })
       }
     }
-    
+
     return handleApiError(error, 'grantsService.createGrantVersion')
   }
 }
@@ -832,7 +832,7 @@ export const getGrantVersions = async (
 ): Promise<GrantVersionDetail[]> => {
   try {
     console.log(`🔄 Loading versions for grant ${grantId}`)
-    
+
     const response = await apiService.get<GrantVersionDetail[]>(
       `/grants/${grantId}/versions`,
       { params: { skip, limit } }
@@ -856,7 +856,7 @@ export const getGrantVersion = async (
 ): Promise<GrantVersionDetail> => {
   try {
     console.log(`🔄 Loading version details for ${versionId}`)
-    
+
     const response = await apiService.get<GrantVersionDetail>(
       `/grants/versions/${versionId}`
     )
@@ -868,4 +868,258 @@ export const getGrantVersion = async (
     console.error(`❌ Failed to load version ${versionId}:`, error)
     return handleApiError(error, 'grantsService.getGrantVersion')
   }
+}
+
+/**
+ * 取得案件的 grant_papers 文件資料（根據 active_version_id 匹配）
+ * @param caseNumber 案件編號
+ * @param documentType 文件類型，預設為 'budget_statement'
+ * @param grantsId 案件ID，用於區分重複案件編號（歷史案件）
+ */
+export const getGrantPapers = async (
+  caseNumber: string,
+  documentType: string = 'budget_statement',
+  grantsId?: number
+): Promise<any> => {
+  try {
+    console.log(`🔄 Loading grant papers for case ${caseNumber}, document type: ${documentType}${grantsId ? `, grants_id: ${grantsId}` : ''}`)
+
+    const params = new URLSearchParams({
+      document_type: documentType
+    })
+
+    if (grantsId) {
+      params.append('grants_id', grantsId.toString())
+    }
+
+    const response = await apiService.get(
+      `/grants/case/${caseNumber}/papers?${params.toString()}`
+    )
+
+    console.log(`✅ Loaded grant papers for case ${caseNumber}`)
+    return response
+
+  } catch (error: any) {
+    console.error(`❌ Failed to load grant papers for case ${caseNumber}:`, error)
+    return handleApiError(error, 'grantsService.getGrantPapers')
+  }
+}
+
+// =============================================================================
+// 🆕 版本比較相關函數
+// =============================================================================
+
+/**
+ * 版本比較結果介面
+ */
+export interface VersionComparisonResult {
+  case_number: string
+  first_version: GrantVersionDetail
+  latest_version: GrantVersionDetail
+  facilities_comparison: FacilitiesComparison
+}
+
+/**
+ * 設施比較結果介面
+ */
+export interface FacilitiesComparison {
+  irrigation_control_facilities: FacilityComparisonItem[]
+  pipeline_facilities: FacilityComparisonItem[]
+  summary: {
+    total_changes: number
+    has_irrigation_changes: boolean
+    has_pipeline_changes: boolean
+  }
+}
+
+/**
+ * 設施比較項目介面
+ */
+export interface FacilityComparisonItem {
+  name: string
+  specification?: string
+  beforeQuantity: number
+  afterQuantity: number
+  quantityChange: number
+  beforePrice?: string
+  afterPrice?: string
+  unit?: string
+  changeType: 'added' | 'removed' | 'modified' | 'unchanged'
+}
+
+/**
+ * 比較第一版本與最新版本的設施差異
+ * @param caseNumber 案件編號
+ */
+export const compareGrantVersions = async (
+  caseNumber: string
+): Promise<VersionComparisonResult> => {
+  try {
+    console.log(`🔄 Comparing grant versions for case ${caseNumber}`)
+
+    const response = await apiService.get<VersionComparisonResult>(
+      `/grants/case/${caseNumber}/versions/compare`
+    )
+
+    console.log(`✅ Version comparison completed`)
+    return response
+
+  } catch (error: any) {
+    console.error(`❌ Failed to compare versions for case ${caseNumber}:`, error)
+    return handleApiError(error, 'grantsService.compareGrantVersions')
+  }
+}
+
+/**
+ * 取得案件的版本摘要（用於顯示版本資訊）
+ * @param caseNumber 案件編號
+ */
+export const getGrantVersionSummary = async (
+  case_number: string
+): Promise<{
+  total_versions: number
+  first_version: { id: number; version: number; created_at: string }
+  latest_version: { id: number; version: number; created_at: string }
+  has_versions: boolean
+}> => {
+  try {
+    console.log(`🔄 Loading version summary for case ${case_number}`)
+
+    const response = await apiService.get<{
+      total_versions: number
+      first_version: { id: number; version: number; created_at: string }
+      latest_version: { id: number; version: number; created_at: string }
+      has_versions: boolean
+    }>(
+      `/grants/case/${case_number}/versions/summary`
+    )
+
+    console.log(`✅ Loaded version summary`)
+    return response
+
+  } catch (error: any) {
+    console.error(`❌ Failed to load version summary for case ${case_number}:`, error)
+    return handleApiError(error, 'grantsService.getGrantVersionSummary')
+  }
+}
+
+/**
+ * 本地版本比較函數（當API不可用時的備用方案）
+ * @param firstVersionData 第一版本資料
+ * @param latestVersionData 最新版本資料
+ */
+export const compareVersionsLocally = (
+  firstVersionData: Record<string, any>,
+  latestVersionData: Record<string, any>
+): FacilitiesComparison => {
+  console.log('🔄 Performing local version comparison')
+
+  // 比較 step3 的灌溉調控設施
+  const irrigationComparison = compareFacilities(
+    firstVersionData[3]?.facilities || [],
+    latestVersionData[3]?.facilities || [],
+    'irrigation'
+  )
+
+  // 比較 step4 的田間管路設施
+  const pipelineComparison = compareFacilities(
+    [
+      ...(firstVersionData[4]?.mainPipes || []),
+      ...(firstVersionData[4]?.irrigationSystem || [])
+    ],
+    [
+      ...(latestVersionData[4]?.mainPipes || []),
+      ...(latestVersionData[4]?.irrigationSystem || [])
+    ],
+    'pipeline'
+  )
+
+  const result: FacilitiesComparison = {
+    irrigation_control_facilities: irrigationComparison,
+    pipeline_facilities: pipelineComparison,
+    summary: {
+      total_changes: irrigationComparison.filter(item => item.changeType !== 'unchanged').length +
+                     pipelineComparison.filter(item => item.changeType !== 'unchanged').length,
+      has_irrigation_changes: irrigationComparison.some(item => item.changeType !== 'unchanged'),
+      has_pipeline_changes: pipelineComparison.some(item => item.changeType !== 'unchanged')
+    }
+  }
+
+  console.log('✅ Local comparison completed:', result.summary)
+  return result
+}
+
+/**
+ * 比較兩個設施陣列的差異
+ */
+function compareFacilities(
+  beforeFacilities: any[],
+  afterFacilities: any[],
+  type: 'irrigation' | 'pipeline'
+): FacilityComparisonItem[] {
+  const results: FacilityComparisonItem[] = []
+  const processedNames = new Set<string>()
+
+  // 處理 after 設施（包含新增和修改）
+  afterFacilities.forEach(afterItem => {
+    const name = afterItem.name || afterItem.typeLabel || `未命名${type}設施`
+    processedNames.add(name)
+
+    const beforeItem = beforeFacilities.find(item =>
+      (item.name || item.typeLabel) === name
+    )
+
+    if (!beforeItem) {
+      // 新增的設施
+      results.push({
+        name,
+        specification: afterItem.specification || '',
+        beforeQuantity: 0,
+        afterQuantity: parseFloat(afterItem.quantity) || 0,
+        quantityChange: parseFloat(afterItem.quantity) || 0,
+        beforePrice: '0',
+        afterPrice: afterItem.unitPrice || afterItem.totalPrice || '0',
+        unit: afterItem.unit || '台',
+        changeType: 'added'
+      })
+    } else {
+      // 比較修改的設施
+      const beforeQty = parseFloat(beforeItem.quantity) || 0
+      const afterQty = parseFloat(afterItem.quantity) || 0
+      const quantityChange = afterQty - beforeQty
+
+      results.push({
+        name,
+        specification: afterItem.specification || beforeItem.specification || '',
+        beforeQuantity: beforeQty,
+        afterQuantity: afterQty,
+        quantityChange,
+        beforePrice: beforeItem.unitPrice || beforeItem.totalPrice || '0',
+        afterPrice: afterItem.unitPrice || afterItem.totalPrice || '0',
+        unit: afterItem.unit || beforeItem.unit || '台',
+        changeType: quantityChange === 0 ? 'unchanged' : 'modified'
+      })
+    }
+  })
+
+  // 處理已移除的設施
+  beforeFacilities.forEach(beforeItem => {
+    const name = beforeItem.name || beforeItem.typeLabel || `未命名${type}設施`
+
+    if (!processedNames.has(name)) {
+      results.push({
+        name,
+        specification: beforeItem.specification || '',
+        beforeQuantity: parseFloat(beforeItem.quantity) || 0,
+        afterQuantity: 0,
+        quantityChange: -(parseFloat(beforeItem.quantity) || 0),
+        beforePrice: beforeItem.unitPrice || beforeItem.totalPrice || '0',
+        afterPrice: '0',
+        unit: beforeItem.unit || '台',
+        changeType: 'removed'
+      })
+    }
+  })
+
+  return results.sort((a, b) => a.name.localeCompare(b.name))
 }

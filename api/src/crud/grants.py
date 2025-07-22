@@ -6,7 +6,7 @@ from tortoise.exceptions import DoesNotExist, IntegrityError
 from tortoise.transactions import in_transaction
 from tortoise.expressions import Q
 
-from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus, GrantActionType, GrantVersions)
+from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus, GrantActionType, GrantVersions, GrantPapers)
 from src.config.field_mappings import FieldMappingConfig, validate_step_fields
 from src.schemas.users import UserOutSchema
 from src.schemas.grants import (
@@ -1622,3 +1622,264 @@ async def process_single_cross_year_grant(case_number: str, current_user) -> Dic
                 status_code=500, 
                 detail=f"跨年度處理失敗: {str(e)}"
             )
+
+
+async def get_grant_papers_by_case_number(case_number: str, document_type: str = "budget_statement", grants_id: Optional[int] = None) -> Dict[str, Any]:
+    """依案件編號取得 grant_papers 文件資料（根據 active_version_id 匹配）
+    
+    Args:
+        case_number: 案件編號
+        document_type: 文件類型，預設為 'budget_statement'
+        grants_id: 案件ID，用於區分重複案件編號（歷史案件）
+    """
+    try:
+        # 1. 先取得案件和其 active_version_id
+        if grants_id:
+            # 如果提供了 grants_id，優先使用 ID 查詢
+            grant = await Grants.get(id=grants_id, case_number=case_number).select_related('active_version')
+        else:
+            # 沒有提供 grants_id，使用案件編號查詢（可能有多筆，取最新的）
+            grant = await Grants.filter(case_number=case_number).select_related('active_version').order_by('-id').first()
+        
+        if not grant:
+            raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+        
+        if not grant.active_version_id:
+            raise HTTPException(status_code=404, detail=f"案件 {case_number} 沒有有效的版本資料")
+        
+        # 2. 根據 active_version_id 查詢 grant_papers
+        try:
+            grant_paper = await GrantPapers.get(
+                version_id=grant.active_version_id,
+                document_type=document_type
+            )
+            
+            return {
+                "case_number": case_number,
+                "version_id": grant.active_version_id,
+                "document_type": grant_paper.document_type,
+                "document_data": grant_paper.document_data,
+                "generated_at": grant_paper.generated_at.isoformat() if grant_paper.generated_at else None,
+                "is_valid": grant_paper.is_valid,
+                "data_hash": grant_paper.data_hash
+            }
+            
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"案件 {case_number} 的 {document_type} 文件不存在（版本ID: {grant.active_version_id}）"
+            )
+        
+    except DoesNotExist:
+        raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+    except Exception as e:
+        logger.error(f"取得案件 {case_number} 的文件資料時發生錯誤: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"取得文件資料失敗: {str(e)}"
+        )
+
+
+async def compare_grant_versions(case_number: str) -> Dict[str, Any]:
+    """比較案件的第一版本與最新版本設施差異"""
+    try:
+        # 1. 取得案件
+        grant = await Grants.filter(case_number=case_number).order_by('-id').first()
+        if not grant:
+            raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+
+        # 2. 取得版本資料
+        versions = await GrantVersions.filter(grant_id=grant.id).order_by('version')
+        if len(versions) < 1:
+            raise HTTPException(status_code=404, detail=f"案件 {case_number} 沒有版本資料")
+
+        # 3. 取得第一版和最新版
+        first_version = versions[0]
+        latest_version = versions[-1] if len(versions) > 1 else versions[0]
+
+        # 4. 比較設施差異
+        facilities_comparison = compare_facilities_data(
+            first_version.all_steps_data,
+            latest_version.all_steps_data
+        )
+
+        return {
+            "case_number": case_number,
+            "first_version": {
+                "id": first_version.id,
+                "version": first_version.version,
+                "created_at": first_version.created_at.isoformat() if first_version.created_at else None,
+                "comment": first_version.comment
+            },
+            "latest_version": {
+                "id": latest_version.id,
+                "version": latest_version.version,
+                "created_at": latest_version.created_at.isoformat() if latest_version.created_at else None,
+                "comment": latest_version.comment
+            },
+            "facilities_comparison": facilities_comparison
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"比較案件 {case_number} 版本時發生錯誤: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"版本比較失敗: {str(e)}"
+        )
+
+
+async def get_grant_version_summary(case_number: str) -> Dict[str, Any]:
+    """取得案件版本摘要資訊"""
+    try:
+        # 取得案件
+        grant = await Grants.filter(case_number=case_number).order_by('-id').first()
+        if not grant:
+            raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+
+        # 取得版本資料
+        versions = await GrantVersions.filter(grant_id=grant.id).order_by('version')
+        
+        if not versions:
+            return {
+                "case_number": case_number,
+                "total_versions": 0,
+                "has_versions": False,
+                "first_version": None,
+                "latest_version": None
+            }
+
+        first_version = versions[0]
+        latest_version = versions[-1]
+
+        return {
+            "case_number": case_number,
+            "total_versions": len(versions),
+            "has_versions": True,
+            "first_version": {
+                "id": first_version.id,
+                "version": first_version.version,
+                "created_at": first_version.created_at.isoformat() if first_version.created_at else None
+            },
+            "latest_version": {
+                "id": latest_version.id,
+                "version": latest_version.version,
+                "created_at": latest_version.created_at.isoformat() if latest_version.created_at else None
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"取得案件 {case_number} 版本摘要時發生錯誤: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"取得版本摘要失敗: {str(e)}"
+        )
+
+
+def compare_facilities_data(first_version_data: Dict[str, Any], latest_version_data: Dict[str, Any]) -> Dict[str, Any]:
+    """比較兩個版本的設施資料差異"""
+    
+    # 取得 step3 和 step4 的資料
+    first_steps = first_version_data.get("steps", {})
+    latest_steps = latest_version_data.get("steps", {})
+    
+    first_step3 = first_steps.get("3", {})
+    first_step4 = first_steps.get("4", {})
+    latest_step3 = latest_steps.get("3", {})
+    latest_step4 = latest_steps.get("4", {})
+
+    # 比較灌溉調控設施 (step3)
+    irrigation_comparison = compare_facility_list(
+        first_step3.get("facilities", []),
+        latest_step3.get("facilities", []),
+        "irrigation"
+    )
+
+    # 比較田間管路設施 (step4) 
+    pipeline_comparison = compare_facility_list(
+        [
+            *first_step4.get("mainPipes", []),
+            *first_step4.get("irrigationSystem", [])
+        ],
+        [
+            *latest_step4.get("mainPipes", []),
+            *latest_step4.get("irrigationSystem", [])
+        ],
+        "pipeline"
+    )
+
+    return {
+        "irrigation_control_facilities": irrigation_comparison,
+        "pipeline_facilities": pipeline_comparison,
+        "summary": {
+            "total_changes": len([item for item in irrigation_comparison + pipeline_comparison if item["change_type"] != "unchanged"]),
+            "has_irrigation_changes": any(item["change_type"] != "unchanged" for item in irrigation_comparison),
+            "has_pipeline_changes": any(item["change_type"] != "unchanged" for item in pipeline_comparison)
+        }
+    }
+
+
+def compare_facility_list(before_list: List[Dict], after_list: List[Dict], facility_type: str) -> List[Dict[str, Any]]:
+    """比較設施列表的差異"""
+    results = []
+    processed_names = set()
+
+    # 處理 after 設施
+    for after_item in after_list:
+        name = after_item.get("name") or after_item.get("typeLabel") or f"未命名{facility_type}設施"
+        processed_names.add(name)
+        
+        before_item = next((item for item in before_list if (item.get("name") or item.get("typeLabel")) == name), None)
+        
+        if not before_item:
+            # 新增的設施
+            results.append({
+                "name": name,
+                "specification": after_item.get("specification", ""),
+                "before_quantity": 0,
+                "after_quantity": float(after_item.get("quantity", 0)),
+                "quantity_change": float(after_item.get("quantity", 0)),
+                "before_price": "0",
+                "after_price": str(after_item.get("unitPrice") or after_item.get("totalPrice") or 0),
+                "unit": after_item.get("unit", "台"),
+                "change_type": "added"
+            })
+        else:
+            # 比較修改的設施
+            before_qty = float(before_item.get("quantity", 0))
+            after_qty = float(after_item.get("quantity", 0))
+            quantity_change = after_qty - before_qty
+            
+            results.append({
+                "name": name,
+                "specification": after_item.get("specification") or before_item.get("specification", ""),
+                "before_quantity": before_qty,
+                "after_quantity": after_qty,
+                "quantity_change": quantity_change,
+                "before_price": str(before_item.get("unitPrice") or before_item.get("totalPrice") or 0),
+                "after_price": str(after_item.get("unitPrice") or after_item.get("totalPrice") or 0),
+                "unit": after_item.get("unit") or before_item.get("unit", "台"),
+                "change_type": "unchanged" if quantity_change == 0 else "modified"
+            })
+
+    # 處理已移除的設施
+    for before_item in before_list:
+        name = before_item.get("name") or before_item.get("typeLabel") or f"未命名{facility_type}設施"
+        
+        if name not in processed_names:
+            results.append({
+                "name": name,
+                "specification": before_item.get("specification", ""),
+                "before_quantity": float(before_item.get("quantity", 0)),
+                "after_quantity": 0,
+                "quantity_change": -float(before_item.get("quantity", 0)),
+                "before_price": str(before_item.get("unitPrice") or before_item.get("totalPrice") or 0),
+                "after_price": "0",
+                "unit": before_item.get("unit", "台"),
+                "change_type": "removed"
+            })
+
+    return sorted(results, key=lambda x: x["name"])

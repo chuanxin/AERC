@@ -776,8 +776,8 @@ const loadAllItems = () => {
 // }
 const editItem = (item: GrantListItem) => {
   if (item.is_legacy) {
-    // 如果是歷史案件，在新分頁中開啟查看頁面
-    const url = router.resolve(`/grants/statements?case=${item.case_number}`).href
+    // 如果是歷史案件，在新分頁中開啟查看頁面，包含 grants_id 參數以區分重複案件編號
+    const url = router.resolve(`/grants/statements?case=${item.case_number}&grants_id=${item.id}`).href
     window.open(url, '_blank')
     return
   }

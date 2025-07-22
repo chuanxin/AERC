@@ -75,6 +75,7 @@
       '/grants/query': '申請案件查詢與列印',
       '/grants/new': '建立新案件',
       '/grants/edit': '案件編輯',
+      '/grants/statements': '歷史案件表單資料',
       '/qualification': '申請資格預查',
       '/statistics': '統計報表',
       '/supplies': '材料管理',

@@ -346,6 +346,68 @@ async def create_version_from_frontend_data_api(
         )
 
 
+@router.get(
+    "/case/{case_number}/papers",
+    response_model=Dict[str, Any],
+    dependencies=[Depends(get_current_user)],
+)
+async def get_grant_papers_by_case_number(
+    case_number: str = Path(..., description="案件編號"),
+    document_type: Optional[str] = Query("budget_statement", description="文件類型"),
+    grants_id: Optional[int] = Query(None, description="案件ID（用於區分重複案件編號）")
+):
+    """依案件編號取得 grant_papers 文件資料（根據 active_version_id 匹配）
+    
+    對於歷史案件可能有重複案件編號的情況，可使用 grants_id 參數明確指定案件
+    """
+    try:
+        result = await crud.get_grant_papers_by_case_number(case_number, document_type, grants_id)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"取得文件資料失敗: {str(e)}",
+        )
+
+
+@router.get(
+    "/case/{case_number}/versions/compare",
+    response_model=Dict[str, Any],
+    dependencies=[Depends(get_current_user)],
+)
+async def compare_grant_versions_api(
+    case_number: str = Path(..., description="案件編號")
+):
+    """比較案件的第一版本與最新版本設施差異"""
+    try:
+        result = await crud.compare_grant_versions(case_number)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"版本比較失敗: {str(e)}",
+        )
+
+
+@router.get(
+    "/case/{case_number}/versions/summary",
+    response_model=Dict[str, Any],
+    dependencies=[Depends(get_current_user)],
+)
+async def get_grant_version_summary_api(
+    case_number: str = Path(..., description="案件編號")
+):
+    """取得案件版本摘要資訊"""
+    try:
+        result = await crud.get_grant_version_summary(case_number)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"取得版本摘要失敗: {str(e)}",
+        )
+
+
 @router.post(
     "/batch-cross-year",
     response_model=List[Dict[str, Any]],
