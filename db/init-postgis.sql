@@ -84,5 +84,9 @@ ON CONFLICT DO NOTHING;
 CREATE INDEX IF NOT EXISTS idx_postgis_test_location 
 ON postgis_test USING GIST (location);
 
-RAISE NOTICE 'PostGIS test table created and sample data inserted';
-RAISE NOTICE 'You can test with: SELECT name, ST_AsText(location) FROM postgis_test;';
+DO $$
+BEGIN
+    RAISE NOTICE 'PostGIS test table created and sample data inserted';
+    RAISE NOTICE 'You can test with: SELECT name, ST_AsText(location) FROM postgis_test;';
+END
+$$;

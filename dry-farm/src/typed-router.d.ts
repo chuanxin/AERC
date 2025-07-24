@@ -22,8 +22,6 @@ declare module 'vue-router/auto-routes' {
     '/budget/': RouteRecordInfo<'/budget/', '/budget', Record<never, never>, Record<never, never>>,
     '/budget/index_alt': RouteRecordInfo<'/budget/index_alt', '/budget/index_alt', Record<never, never>, Record<never, never>>,
     '/config/': RouteRecordInfo<'/config/', '/config', Record<never, never>, Record<never, never>>,
-    '/dev/EventDrivenTestPanel': RouteRecordInfo<'/dev/EventDrivenTestPanel', '/dev/EventDrivenTestPanel', Record<never, never>, Record<never, never>>,
-    '/dev/FieldMappingDebugger': RouteRecordInfo<'/dev/FieldMappingDebugger', '/dev/FieldMappingDebugger', Record<never, never>, Record<never, never>>,
     '/grants/': RouteRecordInfo<'/grants/', '/grants', Record<never, never>, Record<never, never>>,
     '/grants/edit': RouteRecordInfo<'/grants/edit', '/grants/edit', Record<never, never>, Record<never, never>>,
     '/grants/new': RouteRecordInfo<'/grants/new', '/grants/new', Record<never, never>, Record<never, never>>,

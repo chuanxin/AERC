@@ -98,6 +98,87 @@ function Test-Compose {
     }
 }
 
+function Read-EnvFile {
+    param([string]$envPath = ".env")
+    $envVars = @{}
+    if (Test-Path $envPath) {
+        Get-Content $envPath | Where-Object { $_ -match "=" } | ForEach-Object {
+            $kv = $_ -split "=", 2
+            $key = $kv[0].Trim()
+            $val = $kv[1].Trim().Trim('"')
+            $envVars[$key] = $val
+        }
+    }
+    return $envVars
+}
+
+function Generate-SafePassword {
+    $charset = @(
+        'a','b','c','d','e','f','g','h','i','j','k','l','m',
+        'n','o','p','q','r','s','t','u','v','w','x','y','z',
+        'A','B','C','D','E','F','G','H','I','J','K','L','M',
+        'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+        '0','1','2','3','4','5','6','7','8','9',
+        '#','^','&','*','-','_','+'
+    )
+    return -join (1..20 | ForEach-Object { Get-Random -InputObject $charset })
+}
+
+
+function UrlEncode {
+    param([string]$raw)
+    return [System.Uri]::EscapeDataString($raw)
+}
+
+function Update-EnvPassword {
+    $envPath = ".env"
+    $envVars = Read-EnvFile $envPath
+    if (-not $envVars.ContainsKey("POSTGRES_PASSWORD")) {
+        Write-Warning "No POSTGRES_PASSWORD found in .env file. Generating secure password..."
+        $newPassword = Generate-SafePassword
+        $encoded = UrlEncode $newPassword
+
+        # Update lines
+        $newLines = @()
+        foreach ($line in Get-Content $envPath) {
+            if ($line -match "^POSTGRES_PASSWORD=") {
+                continue
+            } elseif ($line -match "^DATABASE_URL=") {
+                $user = $envVars["POSTGRES_USER"]
+                $dbhost = "db"
+                $port = "5432"
+                $dbname = $envVars["POSTGRES_DB"]
+                $newUrl = "DATABASE_URL=postgres://${user}:${encoded}@${dbHost}:${port}/${dbname}"
+                $newLines += $newUrl
+                continue
+            }
+            $newLines += $line
+        }
+
+        # Add new password
+        $newLines += "POSTGRES_PASSWORD=$newPassword"
+
+        # 如果原本沒有 DATABASE_URL，也補上
+        if (-not $envVars.ContainsKey("DATABASE_URL")) {
+            $user = $envVars["POSTGRES_USER"]
+            $dbhost = "db"
+            $port = "5432"
+            $dbname = $envVars["POSTGRES_DB"]
+            $newLines += "DATABASE_URL=postgres://${user}:${encoded}@${dbhost}:${port}/${dbname}"
+        }
+
+        Set-Content $envPath $newLines
+
+        Write-Success "Password has been updated in .env and DATABASE_URL has been regenerated."
+        Write-Host "Generated password: " -NoNewline
+        Write-Host "$newPassword" -ForegroundColor Yellow
+    } else {
+        Write-Info "Password already exists in .env. Skipping generation."
+    }
+}
+
+Update-EnvPassword
+
 function Rebuild-Services {
     Write-Info "Rebuilding AERC services..."
     if ($global:COMPOSE) {
