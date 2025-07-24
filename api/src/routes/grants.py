@@ -344,3 +344,105 @@ async def create_version_from_frontend_data_api(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"從前端資料建立版本失敗: {str(e)}",
         )
+
+
+@router.get(
+    "/case/{case_number}/papers",
+    response_model=Dict[str, Any],
+    dependencies=[Depends(get_current_user)],
+)
+async def get_grant_papers_by_case_number(
+    case_number: str = Path(..., description="案件編號"),
+    document_type: Optional[str] = Query("budget_statement", description="文件類型"),
+    grants_id: Optional[int] = Query(None, description="案件ID（用於區分重複案件編號）")
+):
+    """依案件編號取得 grant_papers 文件資料（根據 active_version_id 匹配）
+    
+    對於歷史案件可能有重複案件編號的情況，可使用 grants_id 參數明確指定案件
+    """
+    try:
+        result = await crud.get_grant_papers_by_case_number(case_number, document_type, grants_id)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"取得文件資料失敗: {str(e)}",
+        )
+
+
+@router.get(
+    "/case/{case_number}/versions/compare",
+    response_model=Dict[str, Any],
+    dependencies=[Depends(get_current_user)],
+)
+async def compare_grant_versions_api(
+    case_number: str = Path(..., description="案件編號")
+):
+    """比較案件的第一版本與最新版本設施差異"""
+    try:
+        result = await crud.compare_grant_versions(case_number)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"版本比較失敗: {str(e)}",
+        )
+
+
+@router.get(
+    "/case/{case_number}/versions/summary",
+    response_model=Dict[str, Any],
+    dependencies=[Depends(get_current_user)],
+)
+async def get_grant_version_summary_api(
+    case_number: str = Path(..., description="案件編號")
+):
+    """取得案件版本摘要資訊"""
+    try:
+        result = await crud.get_grant_version_summary(case_number)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"取得版本摘要失敗: {str(e)}",
+        )
+
+
+@router.post(
+    "/batch-cross-year",
+    response_model=List[Dict[str, Any]],
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(get_current_user)],
+)
+async def batch_cross_year_grants_api(
+    batch_data: Dict[str, Any] = Body(..., description="批次跨年度資料"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """批次跨年度處理 - 複製選取的案件並設定為跨年度狀態"""
+    try:
+        logger.info(f"🔄 批次跨年度處理開始，使用者: {current_user.username}")
+        logger.info(f"📦 收到批次資料: {batch_data}")
+        
+        case_numbers = batch_data.get("case_numbers", [])
+        grants_info = batch_data.get("grants_info", [])
+        
+        if not case_numbers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="未提供要處理的案件編號"
+            )
+        
+        logger.info(f"📋 準備處理 {len(case_numbers)} 筆案件: {case_numbers}")
+        
+        # 調用 CRUD 函數進行批次跨年度處理
+        results = await crud.batch_cross_year_grants(case_numbers, current_user)
+        
+        logger.info(f"✅ 批次跨年度處理完成，處理結果: {len(results)} 筆")
+        return results
+        
+    except Exception as e:
+        logger.error(f"❌ 批次跨年度處理失敗: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"批次跨年度處理失敗: {str(e)}",
+        )

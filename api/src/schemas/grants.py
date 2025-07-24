@@ -57,7 +57,7 @@ class GrantCreateRequestSchema(BaseSchema):
         # 去除空格和特殊符號，保留數字
         cleaned = ''.join(filter(lambda x: x.isdigit(), v))
         
-        # 檢查長度，台灣電話號碼通常為9-10碼
+        # 檢查長度，電話號碼通常為9-10碼
         if len(cleaned) not in [9, 10]:
             raise ValueError('電話號碼長度不正確，應為9-10碼')
         
@@ -130,7 +130,7 @@ class GrantInSchema(BaseSchema):
         # 去除空格和特殊符號
         v = ''.join(filter(lambda x: x.isdigit(), v))
         
-        # 檢查長度，台灣手機號碼通常為10碼
+        # 檢查長度，手機號碼通常為10碼
         if len(v) not in [9, 10]:
             raise ValueError('電話號碼長度不正確')
         
@@ -182,7 +182,7 @@ class GrantUpdateSchema(BaseSchema):
         # 去除空格和特殊符號
         v = ''.join(filter(lambda x: x.isdigit(), v))
         
-        # 檢查長度，台灣手機號碼通常為10碼
+        # 檢查長度，手機號碼通常為10碼
         if len(v) not in [9, 10]:
             raise ValueError('電話號碼長度不正確')
         

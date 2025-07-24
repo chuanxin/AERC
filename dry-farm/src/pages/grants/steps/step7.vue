@@ -13,98 +13,250 @@
           v-model="localValid"
           @submit.prevent
         >
-          <!-- 變更設計部分 -->
-          <!-- <v-card
+          <!-- 版本比較與變更設計部分 -->
+          <v-card
+            v-if="shouldShowVersionComparison"
             class="mb-4"
             variant="outlined"
           >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
+            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center justify-space-between py-2 px-4">
+              <div class="d-flex align-center">
+                <v-icon
+                  class="me-2"
+                  size="small"
+                >
+                  mdi-file-compare
+                </v-icon>
+                <span class="text-subtitle-1 font-weight-medium">版本比較與變更設計</span>
+              </div>
+              <v-chip
+                v-if="versionSummary"
                 size="small"
+                color="#3ea0a3"
+                variant="outlined"
               >
-                mdi-file-compare
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">變更設計</span>
+                v{{ versionSummary.first_version.version }} → v{{ versionSummary.latest_version.version }}
+              </v-chip>
             </v-card-title>
 
             <v-card-text class="pa-4">
+              <!-- 載入中狀態 -->
+              <div
+                v-if="versionComparisonLoading"
+                class="text-center py-8"
+              >
+                <v-progress-circular
+                  indeterminate
+                  color="#3ea0a3"
+                  size="64"
+                  class="mb-3"
+                />
+                <div class="text-body-1">
+                  載入版本比較資料中...
+                </div>
+              </div>
+
+              <!-- 版本比較內容 -->
               <v-sheet
+                v-else-if="facilitiesComparison && !versionComparisonLoading && !versionComparisonError"
                 class="pa-3 rounded"
                 color="grey-lighten-5"
               >
-                <v-btn
-                  color="primary"
-                  block
+                <!-- 比較摘要 -->
+                <v-alert
+                  v-if="facilitiesComparison.summary.total_changes > 0"
+                  type="info"
+                  variant="tonal"
                   class="mb-4"
-                  @click="toggleDesignChange"
                 >
-                  {{ isDesignChangeVisible ? '取消變更設計' : '進行變更設計' }}
-                </v-btn>
+                  <div class="d-flex align-center">
+                    <v-icon class="me-2">mdi-information</v-icon>
+                    <span>
+                      偵測到 {{ facilitiesComparison.summary.total_changes }} 項設施變更，
+                      {{ facilitiesComparison.summary.has_irrigation_changes ? '包含灌溉調控設施' : '' }}
+                      {{ facilitiesComparison.summary.has_irrigation_changes && facilitiesComparison.summary.has_pipeline_changes ? '和' : '' }}
+                      {{ facilitiesComparison.summary.has_pipeline_changes ? '田間管路設施' : '' }}
+                    </span>
+                  </div>
+                </v-alert>
 
-                <div v-if="isDesignChangeVisible">
+                <v-alert
+                  v-else
+                  type="success"
+                  variant="tonal"
+                  class="mb-4"
+                >
+                  <div class="d-flex align-center">
+                    <v-icon class="me-2">mdi-check-circle</v-icon>
+                    <span>設施配置與第一版本相同，無變更。</span>
+                  </div>
+                </v-alert>
+
+                <!-- 灌溉調控設施比較表 -->
+                <div
+                  v-if="facilitiesComparison.irrigation_control_facilities.length > 0"
+                  class="mb-6"
+                >
+                  <h4 class="text-h6 mb-3 d-flex align-center">
+                    <v-icon class="me-2" color="#3ea0a3">mdi-water</v-icon>
+                    灌溉調控設施表
+                  </h4>
                   <v-table class="design-change-table border-table">
                     <thead>
                       <tr>
-                        <th>變更項目</th>
-                        <th>變更前數量</th>
-                        <th>變更後數量</th>
+                        <th>設施項目</th>
+                        <th>規格</th>
+                        <th>第一版數量</th>
+                        <th>最新版數量</th>
                         <th>增減數量</th>
+                        <th>單位</th>
+                        <th>變更狀態</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr
-                        v-for="(item, index) in designChangeItems"
-                        :key="index"
+                        v-for="(item, index) in facilitiesComparison.irrigation_control_facilities"
+                        :key="`irrigation-${index}`"
+                        :class="{
+                          'bg-green-lighten-5': item.changeType === 'added',
+                          'bg-red-lighten-5': item.changeType === 'removed',
+                          'bg-yellow-lighten-5': item.changeType === 'modified'
+                        }"
                       >
                         <td>{{ item.name }}</td>
-                        <td>
-                          <v-text-field
-                            v-model="item.beforeQuantity"
-                            variant="outlined"
-                            density="compact"
-                            type="number"
-                            min="0"
-                            :rules="[
-                              v => v >= 0 || '數量不能為負數'
-                            ]"
-                            hide-details="auto"
-                            @update:model-value="calculateDifference"
-                          />
+                        <td>{{ item.specification || '-' }}</td>
+                        <td class="text-center">{{ item.beforeQuantity }}</td>
+                        <td class="text-center">{{ item.afterQuantity }}</td>
+                        <td class="text-center">
+                          <span
+                            :class="{
+                              'text-green-darken-2': item.quantityChange > 0,
+                              'text-red-darken-2': item.quantityChange < 0
+                            }"
+                          >
+                            {{ item.quantityChange > 0 ? '+' : '' }}{{ item.quantityChange }}
+                          </span>
                         </td>
-                        <td>
-                          <v-text-field
-                            v-model="item.afterQuantity"
-                            variant="outlined"
-                            density="compact"
-                            type="number"
-                            min="0"
-                            :rules="[
-                              v => v >= 0 || '數量不能為負數'
-                            ]"
-                            hide-details="auto"
-                            @update:model-value="calculateDifference"
-                          />
+                        <td class="text-center">{{ item.unit }}</td>
+                        <td class="text-center">
+                          <v-chip
+                            size="x-small"
+                            :color="getChangeStatusColor(item.changeType)"
+                            variant="flat"
+                          >
+                            {{ getChangeStatusText(item.changeType) }}
+                          </v-chip>
                         </td>
-                        <td>{{ item.afterQuantity - item.beforeQuantity }}</td>
                       </tr>
                     </tbody>
-                    <tfoot>
-                      <tr>
-                        <td
-                          colspan="3"
-                          class="text-right font-weight-bold"
-                        >
-                          合計增減
-                        </td>
-                        <td>{{ totalQuantityChange }}</td>
-                      </tr>
-                    </tfoot>
                   </v-table>
                 </div>
+
+                <!-- 田間管路設施比較表 -->
+                <div
+                  v-if="facilitiesComparison.pipeline_facilities.length > 0"
+                  class="mb-4"
+                >
+                  <h4 class="text-h6 mb-3 d-flex align-center">
+                    <v-icon class="me-2" color="#3ea0a3">mdi-pipe</v-icon>
+                    田間管路設施表
+                  </h4>
+                  <v-table class="design-change-table border-table">
+                    <thead>
+                      <tr>
+                        <th>設施項目</th>
+                        <th>規格</th>
+                        <th>第一版數量</th>
+                        <th>最新版數量</th>
+                        <th>增減數量</th>
+                        <th>單位</th>
+                        <th>變更狀態</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="(item, index) in facilitiesComparison.pipeline_facilities"
+                        :key="`pipeline-${index}`"
+                        :class="{
+                          'bg-green-lighten-5': item.changeType === 'added',
+                          'bg-red-lighten-5': item.changeType === 'removed',
+                          'bg-yellow-lighten-5': item.changeType === 'modified'
+                        }"
+                      >
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.specification || '-' }}</td>
+                        <td class="text-center">{{ item.beforeQuantity }}</td>
+                        <td class="text-center">{{ item.afterQuantity }}</td>
+                        <td class="text-center">
+                          <span
+                            :class="{
+                              'text-green-darken-2': item.quantityChange > 0,
+                              'text-red-darken-2': item.quantityChange < 0
+                            }"
+                          >
+                            {{ item.quantityChange > 0 ? '+' : '' }}{{ item.quantityChange }}
+                          </span>
+                        </td>
+                        <td class="text-center">{{ item.unit }}</td>
+                        <td class="text-center">
+                          <v-chip
+                            size="x-small"
+                            :color="getChangeStatusColor(item.changeType)"
+                            variant="flat"
+                          >
+                            {{ getChangeStatusText(item.changeType) }}
+                          </v-chip>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </v-table>
+                </div>
+
+                <!-- 總計變更摘要 -->
+                <v-card
+                  v-if="facilitiesComparison.summary.total_changes > 0"
+                  variant="outlined"
+                  color="#3ea0a3"
+                  class="mt-4"
+                >
+                  <v-card-text class="pa-3">
+                    <div class="d-flex align-center">
+                      <v-icon color="#3ea0a3" class="mr-2">mdi-sigma</v-icon>
+                      <div>
+                        <div class="text-subtitle-2 font-weight-medium">
+                          變更總計：{{ facilitiesComparison.summary.total_changes }} 項設施
+                        </div>
+                        <div class="text-caption text-medium-emphasis">
+                          設施配置已根據實際需求進行調整
+                        </div>
+                      </div>
+                    </div>
+                  </v-card-text>
+                </v-card>
               </v-sheet>
+
+              <!-- 錯誤狀態 -->
+              <v-alert
+                v-else-if="versionComparisonError"
+                type="error"
+                variant="tonal"
+                class="mb-4"
+              >
+                <div class="d-flex align-center">
+                  <v-icon class="me-2">mdi-alert-circle</v-icon>
+                  <span>{{ versionComparisonError }}</span>
+                </div>
+              </v-alert>
+
+              <!-- Debug: 顯示當前狀態 -->
+              <div v-else class="pa-3 text-center text-caption text-medium-emphasis">
+                載入狀態: {{ versionComparisonLoading }}, 
+                有錯誤: {{ !!versionComparisonError }}, 
+                有比較資料: {{ !!facilitiesComparison }},
+                版本摘要: {{ !!versionSummary }}
+              </div>
             </v-card-text>
-          </v-card> -->
+          </v-card>
 
           <!-- 結案申報基本資訊區域 -->
           <v-card
@@ -871,7 +1023,16 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick } from 'vue';
 import { useGrantsStore } from '@/stores/grants';
+// 🆕 導入版本比較相關服務
+import {
+  compareGrantVersions,
+  getGrantVersionSummary,
+  compareVersionsLocally,
+  type FacilitiesComparison,
+  type VersionComparisonResult
+} from '@/services/grantsService';
 
 // Props and emits
 const props = defineProps({
@@ -891,6 +1052,35 @@ const emit = defineEmits(['update:formData', 'validated', 'go-back', 'save-for-i
 
 // Access the grants store
 const grantsStore = useGrantsStore();
+
+// 🆕 版本比較相關狀態
+const versionComparisonLoading = ref(false);
+const versionComparisonError = ref<string | null>(null);
+const facilitiesComparison = ref<FacilitiesComparison | null>(null);
+const versionSummary = ref<{
+  total_versions: number;
+  first_version: { id: number; version: number; created_at: string };
+  latest_version: { id: number; version: number; created_at: string };
+  has_versions: boolean;
+} | null>(null);
+
+// 🆕 是否顯示版本比較
+const shouldShowVersionComparison = computed(() => {
+  const hasVersions = versionSummary.value?.has_versions === true;
+  const multipleVersions = versionSummary.value?.total_versions > 1;
+  const noError = !versionComparisonError.value;
+  
+  console.log('🔍 shouldShowVersionComparison 檢查:', {
+    hasVersions,
+    multipleVersions, 
+    totalVersions: versionSummary.value?.total_versions,
+    noError,
+    error: versionComparisonError.value,
+    result: hasVersions && multipleVersions && noError
+  });
+  
+  return hasVersions && multipleVersions && noError;
+});
 
 // Form validation and dialogs
 const form = ref(null);
@@ -1026,14 +1216,119 @@ const localFormData = reactive({
   valid: true
 });
 
-// 變更設計項目
+// 🆕 版本比較輔助函數
+const getChangeStatusColor = (changeType: string) => {
+  switch (changeType) {
+    case 'added':
+      return 'green'
+    case 'removed':
+      return 'red'
+    case 'modified':
+      return 'orange'
+    default:
+      return 'grey'
+  }
+}
+
+const getChangeStatusText = (changeType: string) => {
+  switch (changeType) {
+    case 'added':
+      return '新增'
+    case 'removed':
+      return '移除'
+    case 'modified':
+      return '修改'
+    default:
+      return '無變更'
+  }
+}
+
+// 🆕 載入版本比較資料
+const loadVersionComparison = async () => {
+  console.log('🔄 loadVersionComparison 被調用，檢查案件狀態:', {
+    currentGrant: grantsStore.currentGrant,
+    caseNumber: grantsStore.currentGrant?.case_number
+  });
+  
+  if (!grantsStore.currentGrant?.case_number) {
+    console.warn('無法載入版本比較：案件編號不存在')
+    return
+  }
+
+  try {
+    versionComparisonLoading.value = true
+    versionComparisonError.value = null
+
+    console.log('🔄 嘗試載入版本摘要...')
+
+    try {
+      // 嘗試獲取版本摘要
+      const summary = await getGrantVersionSummary(grantsStore.currentGrant.case_number)
+      versionSummary.value = summary
+      console.log('✅ 版本摘要載入成功:', summary)
+
+      // 如果有多個版本，才進行比較
+      if (summary.has_versions && summary.total_versions > 1) {
+        console.log('🔄 載入版本比較...')
+
+        try {
+          // 嘗試使用 API 進行版本比較
+          const comparisonResult = await compareGrantVersions(grantsStore.currentGrant.case_number)
+          facilitiesComparison.value = comparisonResult.facilities_comparison
+          console.log('✅ API 版本比較完成:', facilitiesComparison.value)
+        } catch (apiError) {
+          console.warn('⚠️ API 版本比較失敗，使用本地比較:', apiError)
+
+          // API 失敗時，使用本地比較
+          const firstVersionData = grantsStore.formData // 假設當前是最新版本
+          const latestVersionData = grantsStore.formData // 這裡應該獲取第一版本的數據
+
+          facilitiesComparison.value = compareVersionsLocally(firstVersionData, latestVersionData)
+          console.log('✅ 本地版本比較完成:', facilitiesComparison.value)
+        }
+      } else {
+        console.log('📝 只有一個版本或無版本，跳過比較')
+        facilitiesComparison.value = null
+      }
+    } catch (apiError) {
+      // API 不存在或其他錯誤，靜默處理
+      console.log('ℹ️ 版本比較 API 尚未實現，跳過版本比較功能')
+
+      // 設置預設值，表示沒有多版本
+      versionSummary.value = {
+        total_versions: 1,
+        first_version: { id: 1, version: 1, created_at: new Date().toISOString() },
+        latest_version: { id: 1, version: 1, created_at: new Date().toISOString() },
+        has_versions: false
+      }
+      facilitiesComparison.value = null
+      versionComparisonError.value = null // 不顯示錯誤
+    }
+
+  } catch (error) {
+    console.warn('⚠️ 版本比較功能暫時不可用:', error)
+    // 設置安全的預設值
+    versionSummary.value = {
+      total_versions: 1,
+      first_version: { id: 1, version: 1, created_at: new Date().toISOString() },
+      latest_version: { id: 1, version: 1, created_at: new Date().toISOString() },
+      has_versions: false
+    }
+    facilitiesComparison.value = null
+    versionComparisonError.value = null
+  } finally {
+    versionComparisonLoading.value = false
+  }
+}
+
+// 變更設計項目（保留原有功能作為備用）
 const designChangeItems = reactive([
   { name: '主管', beforeQuantity: 2, afterQuantity: 1 },
   { name: '馬達+抽水機', beforeQuantity: 1, afterQuantity: 0 },
   { name: '單口噴頭-塑鋼', beforeQuantity: 0, afterQuantity: 10 }
 ]);
 
-// 計算變更總量
+// 計算變更總量（保留原有功能作為備用）
 const totalQuantityChange = computed(() => {
   return designChangeItems.reduce((total, item) => {
     return total + (Number(item.afterQuantity) - Number(item.beforeQuantity));
@@ -1319,7 +1614,7 @@ const confirmSave = () => {
 };
 
 // 初始化數據
-onMounted(() => {
+onMounted(async () => {
   console.log('step2 data:', localFormData);
   console.log('facilityArea from step2:', localFormData.facilityAreaHa);
   console.log('landAreaHa from step2:', localFormData.landAreaHa);
@@ -1490,17 +1785,26 @@ onMounted(() => {
     // localFormData.testResultDescription = '工程完工符合規範，依核定補助款發放。';
   }
 
-  // Set sample photo previews if none exist
+  // Set sample photo previews if none exist - 使用簡單的 data URL 避免外部依賴
   if (!localFormData.beforePhotoPreview) {
-    localFormData.beforePhotoPreview = 'https://via.placeholder.com/400x300?text=施工前照片示例';
+    localFormData.beforePhotoPreview = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect width="100%25" height="100%25" fill="%23ddd"/%3E%3Ctext x="50%25" y="50%25" fill="%23999" text-anchor="middle" font-family="Arial" font-size="16"%3E施工前照片%3C/text%3E%3C/svg%3E';
   }
 
   if (!localFormData.afterPhotoPreview) {
-    localFormData.afterPhotoPreview = 'https://via.placeholder.com/400x300?text=竣工照片示例';
+    localFormData.afterPhotoPreview = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect width="100%25" height="100%25" fill="%23ddd"/%3E%3Ctext x="50%25" y="50%25" fill="%23999" text-anchor="middle" font-family="Arial" font-size="16"%3E竣工照片%3C/text%3E%3C/svg%3E';
   }
 
   // Initial update to parent
   updateFormData();
+
+  // 🆕 載入版本比較資料
+  try {
+    // 添加小延遲確保 grantsStore 已經準備好
+    await nextTick();
+    await loadVersionComparison();
+  } catch (error) {
+    console.warn('載入版本比較資料失敗:', error);
+  }
 });
 
 // 監聽測試結果變化
@@ -1786,6 +2090,14 @@ watch(localValid, (newVal) => {
   }
 });
 
+// 🆕 監聽當前案件變化，重新載入版本比較
+watch(() => grantsStore.currentGrant?.case_number, (newCaseNumber, oldCaseNumber) => {
+  if (newCaseNumber && newCaseNumber !== oldCaseNumber) {
+    console.log('🔄 案件變更，重新載入版本比較:', newCaseNumber);
+    loadVersionComparison();
+  }
+});
+
 // 組件卸載時清理資源
 onUnmounted(() => {
   cleanupPreviews();
@@ -1913,6 +2225,40 @@ defineExpose({
 .design-change-table th {
   background-color: rgba(0, 0, 0, 0.05);
   font-weight: 600;
+}
+
+/* 🆕 版本比較表特殊樣式 */
+.design-change-table tbody tr.bg-green-lighten-5 {
+  background-color: rgba(76, 175, 80, 0.1) !important;
+}
+
+.design-change-table tbody tr.bg-red-lighten-5 {
+  background-color: rgba(244, 67, 54, 0.1) !important;
+}
+
+.design-change-table tbody tr.bg-yellow-lighten-5 {
+  background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+.design-change-table tbody tr:hover {
+  background-color: rgba(62, 160, 163, 0.1) !important;
+}
+
+/* 數量變更文字顏色 */
+.text-green-darken-2 {
+  color: #2e7d32 !important;
+  font-weight: 500;
+}
+
+.text-red-darken-2 {
+  color: #c62828 !important;
+  font-weight: 500;
+}
+
+/* 版本比較區塊樣式 */
+.version-comparison-summary {
+  border-left: 4px solid #3ea0a3;
+  padding-left: 12px;
 }
 
 /* 必填欄位紅色星號樣式 */

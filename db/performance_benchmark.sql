@@ -47,7 +47,7 @@ CREATE TABLE spatial_perf_test (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 插入台灣範圍內的隨機點
+-- 插入台灣地區範圍內的隨機點
 INSERT INTO spatial_perf_test (name, location)
 SELECT 
     'sensor_' || generate_series,
@@ -83,7 +83,7 @@ WHERE ST_Within(
 SELECT 
     name,
     ST_Distance(
-        ST_Transform(location, 3826),  -- 轉換為台灣座標系統 (TWD97)
+        ST_Transform(location, 3826),  -- 轉換為台灣地區坐標系統 (TWD97)
         ST_Transform(ST_Point(121.5654, 25.0340), 3826)  -- 台北101
     ) / 1000 as distance_km
 FROM spatial_perf_test 

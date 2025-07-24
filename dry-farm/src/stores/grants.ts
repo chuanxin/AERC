@@ -985,8 +985,19 @@ export const useGrantsStore = defineStore('grants', () => {
     // 清除快取
     grantCacheService.clear('grants-list')
 
+    // 清除選取狀態
+    selectedGrants.value = []
+
     // 重新載入
     await loadGrantsList()
+  }
+
+  /**
+   * 清除選取狀態
+   */
+  const clearSelectedGrants = () => {
+    selectedGrants.value = []
+    console.log('🔄 [grantsStore] 清除選取狀態')
   }
 
   /**
@@ -1087,6 +1098,7 @@ export const useGrantsStore = defineStore('grants', () => {
     deleteSelectedGrants,
     refreshGrantsList,
     tryReconnectApi,
+    clearSelectedGrants,
 
     // Tracking functions - 原有的
     trackFormValidation,
