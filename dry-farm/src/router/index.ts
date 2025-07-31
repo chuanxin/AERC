@@ -31,6 +31,12 @@ const router = createRouter({
   routes: setupLayouts(routes),
 })
 
+// TODO: fix Docker Container Route Navigation Double-Click Issue
+// Issue: After Docker image rebuild, every first-time visited route requires double-click to navigate successfully
+// Root Cause: authGuard middleware blocks navigation due to async fetchCurrentUser() calls failing/hanging after container restart
+// Impact: Poor UX - users must click twice on every new route after deployment
+// Priority: High - affects core navigation functionality
+// Solution: Implement authentication state caching and Docker restart detection in navguardService.ts
 // Register global navigation guard
 router.beforeEach(authGuard)
 
