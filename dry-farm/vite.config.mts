@@ -84,6 +84,31 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0',
+    fs: {
+      allow: [
+        // Allow serving files from the project root
+        '.',
+        // Allow serving files from the runtime node_modules directory
+        '../../runtime/node_modules',
+      ],
+      deny: [
+        // 環境和配置檔案
+        '**/.env*',
+        '**/secrets/**',
+        '**/credentials/**',
+
+        // 可執行檔案
+        '**/.bin/**',
+
+        // 防止向上遍歷
+        '../../../**',
+
+        // 專案特定
+        '../../runtime/.env*',
+        '../../app/api/**',
+        '../../db/**',
+      ]
+    }
     // HTTPS configuration disabled for development
     // https: {
     //   key: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/privkey.pem'),
