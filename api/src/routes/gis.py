@@ -1,3 +1,27 @@
+# -*- coding: utf-8 -*-
+import os
+import sys
+import locale
+import codecs
+
+# 強制設定 UTF-8 編碼 - 解決 Windows charmap 編碼問題
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+# 設定標準輸出和錯誤輸出為 UTF-8
+if sys.platform.startswith('win'):
+    # Windows 特定的 UTF-8 設定
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.detach())
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.detach())
+
+if hasattr(locale, 'setlocale'):
+    try:
+        locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+    except:
+        try:
+            locale.setlocale(locale.LC_ALL, 'C.UTF-8')
+        except:
+            pass
+
 from fastapi import APIRouter, Query, HTTPException
 from typing import List, Optional, Dict, Any
 import json
@@ -50,9 +74,6 @@ async def get_spatial_points(
     獲取空間點位資料，始終以使用者視窗範圍(bbox)為準
     基於縮放等級自動決定聚合策略，確保最佳效能
     """
-    import asyncpg
-    from src.database.config import TORTOISE_ORM
-    
     try:
         # 解析必需的 bbox 參數
         try:
@@ -103,10 +124,10 @@ async def get_spatial_points(
                     ST_SnapToGrid(geom, {grid_size}) as cluster_geom,
                     source_system,
                     COUNT(*) as point_count,
-                    array_agg(applicant_name) as cluster_applicants,
+                    array_agg(COALESCE(applicant_name, '')) as cluster_applicants,
                     MIN(apply_year) as min_year,
                     MAX(apply_year) as max_year,
-                    array_agg(DISTINCT land_section) as cluster_sections
+                    array_agg(DISTINCT COALESCE(land_section, '')) as cluster_sections
                 FROM grant_locations 
                 WHERE {' AND '.join(where_conditions)}
                 GROUP BY ST_SnapToGrid(geom, {grid_size}), source_system
@@ -146,8 +167,8 @@ async def get_spatial_points(
                         'id', id,
                         'source_system', source_system,
                         'source_id', source_id,
-                        'applicant_name', applicant_name,
-                        'land_section', land_section,
+                        'applicant_name', COALESCE(applicant_name, ''),
+                        'land_section', COALESCE(land_section, ''),
                         'land_number', land_number,
                         'apply_year', apply_year,
                         'case_status', case_status,
@@ -161,33 +182,37 @@ async def get_spatial_points(
             {limit_clause}
             """
         
-        # 執行查詢
-        conn = await asyncpg.connect(TORTOISE_ORM["connections"]["default"])
-        try:
-            results = await conn.fetch(sql, *params)
-            features = [json.loads(row['feature']) if isinstance(row['feature'], str) 
-                       else row['feature'] for row in results]
-            
-            return {
-                "type": "FeatureCollection",
-                "features": features,
-                "meta": {
-                    "count": len(features),
-                    "bbox": bbox,
-                    "clustering": {
-                        "enabled": use_clustering,
-                        "zoom_level": zoom_level,
-                        "grid_size": _calculate_grid_size(zoom_level) if use_clustering else None
-                    },
-                    "filters": {
-                        "source_system": source_system,
-                        "apply_year_min": apply_year_min,
-                        "apply_year_max": apply_year_max
-                    }
+        # 執行查詢 - 使用 Tortoise 的連接
+        conn = connections.get("default")
+        results = await conn.execute_query_dict(sql, params)
+        
+        # 處理結果
+        features = []
+        for row in results:
+            feature_data = row['feature']
+            if isinstance(feature_data, str):
+                features.append(json.loads(feature_data))
+            else:
+                features.append(feature_data)
+        
+        return {
+            "type": "FeatureCollection",
+            "features": features,
+            "meta": {
+                "count": len(features),
+                "bbox": bbox,
+                "clustering": {
+                    "enabled": use_clustering,
+                    "zoom_level": zoom_level,
+                    "grid_size": _calculate_grid_size(zoom_level) if use_clustering else None
+                },
+                "filters": {
+                    "source_system": source_system,
+                    "apply_year_min": apply_year_min,
+                    "apply_year_max": apply_year_max
                 }
             }
-        finally:
-            await conn.close()
+        }
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -197,16 +222,7 @@ async def get_spatial_stats() -> Dict[str, Any]:
     """
     獲取空間資料統計資訊
     """
-    import asyncpg
-    from src.database.config import TORTOISE_ORM
-    
     try:
-        # 直接使用 asyncpg 連接
-        db_url = TORTOISE_ORM["connections"]["default"]
-        
-        if not db_url:
-            raise Exception("Database URL not found")
-    
         sql = """
         SELECT 
             source_system,
@@ -219,31 +235,28 @@ async def get_spatial_stats() -> Dict[str, Any]:
         GROUP BY source_system
         """
         
-        # 使用 asyncpg 直接連接
-        conn = await asyncpg.connect(db_url)
-        try:
-            results = await conn.fetch(sql)
-            
-            # 轉換結果為字典格式
-            statistics = []
-            total_points = 0
-            for row in results:
-                stat = {
-                    "source_system": row["source_system"],
-                    "total_points": row["total_points"],
-                    "earliest_year": row["earliest_year"],
-                    "latest_year": row["latest_year"],
-                    "bbox_polygon": row["bbox_polygon"]
-                }
-                statistics.append(stat)
-                total_points += row["total_points"]
-            
-            return {
-                "statistics": statistics,
-                "total_points": total_points
+        # 使用 Tortoise 的連接
+        conn = connections.get("default")
+        results = await conn.execute_query_dict(sql, [])
+        
+        # 轉換結果為字典格式
+        statistics = []
+        total_points = 0
+        for row in results:
+            stat = {
+                "source_system": row["source_system"],
+                "total_points": row["total_points"],
+                "earliest_year": row["earliest_year"],
+                "latest_year": row["latest_year"],
+                "bbox_polygon": row["bbox_polygon"]
             }
-        finally:
-            await conn.close()
+            statistics.append(stat)
+            total_points += row["total_points"]
+        
+        return {
+            "statistics": statistics,
+            "total_points": total_points
+        }
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -262,16 +275,7 @@ async def search_by_criteria(
     if not any([applicant_name, land_section, case_number]):
         raise HTTPException(status_code=400, detail="至少需要提供一個搜尋條件")
     
-    import asyncpg
-    from src.database.config import TORTOISE_ORM
-    
     try:
-        # 直接使用 asyncpg 連接
-        db_url = TORTOISE_ORM["connections"]["default"]
-        
-        if not db_url:
-            raise Exception("Database URL not found")
-    
         where_conditions = ["geom IS NOT NULL"]
         params = []
         
@@ -319,40 +323,37 @@ async def search_by_criteria(
         {limit_clause}
         """
         
-        # 使用 asyncpg 直接連接
-        conn = await asyncpg.connect(db_url)
-        try:
-            results = await conn.fetch(sql, *params)
-            
-            # 轉換結果為字典格式
-            result_list = []
-            for row in results:
-                result_list.append({
-                    "id": row["id"],
-                    "source_system": row["source_system"],
-                    "source_id": row["source_id"],
-                    "applicant_name": row["applicant_name"],
-                    "land_section": row["land_section"],
-                    "land_number": row["land_number"],
-                    "apply_year": row["apply_year"],
-                    "case_status": row["case_status"],
-                    "longitude": row["longitude"],
-                    "latitude": row["latitude"],
-                    "geometry": row["geometry"]
-                })
-            
-            return {
-                "results": result_list,
-                "count": len(result_list),
-                "search_criteria": {
-                    "bbox": bbox,
-                    "applicant_name": applicant_name,
-                    "land_section": land_section,
-                    "case_number": case_number
-                }
+        # 使用 Tortoise 的連接
+        conn = connections.get("default")
+        results = await conn.execute_query_dict(sql, params)
+        
+        # 轉換結果為字典格式
+        result_list = []
+        for row in results:
+            result_list.append({
+                "id": row["id"],
+                "source_system": row["source_system"],
+                "source_id": row["source_id"],
+                "applicant_name": row["applicant_name"],
+                "land_section": row["land_section"],
+                "land_number": row["land_number"],
+                "apply_year": row["apply_year"],
+                "case_status": row["case_status"],
+                "longitude": row["longitude"],
+                "latitude": row["latitude"],
+                "geometry": row["geometry"]
+            })
+        
+        return {
+            "results": result_list,
+            "count": len(result_list),
+            "search_criteria": {
+                "bbox": bbox,
+                "applicant_name": applicant_name,
+                "land_section": land_section,
+                "case_number": case_number
             }
-        finally:
-            await conn.close()
+        }
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
