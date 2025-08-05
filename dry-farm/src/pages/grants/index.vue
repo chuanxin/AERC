@@ -35,12 +35,14 @@
               class="action-btn mr-2"
               color="#3ea0a3"
               prepend-icon="mdi-content-copy"
-              to="/grants/edit"
               variant="outlined"
               rounded="lg"
               size="large"
+              :disabled="isBatchButtonDisabled"
+              :loading="batchProcessing"
+              @click="showBatchCrossYearDialog = true"
             >
-              批次跨年度
+              批次跨年度 {{ selectedCount > 0 ? `(${selectedCount})` : '' }}
             </v-btn>
 
             <v-btn
@@ -207,28 +209,18 @@
                   <template #[`header.data-table-select`]>
                     <div class="d-flex align-center">
                       <span class="ml-2 text-subtitle-2 font-weight-medium">選取</span>
-                      <v-btn
-                        v-if="selectedGrants.length > 0"
-                        title="批次刪除"
-                        icon="mdi-delete"
-                        variant="text"
-                        size="small"
-                        color="error"
-                        class="ml-2"
-                        @click="showDeleteConfirmDialog = true"
-                      />
                     </div>
                   </template>
                   <!-- 案件狀態欄位 -->
                   <template #[`item.status`]="{ item }">
                     <v-chip
-                      :color="getStatusColor(item.current_step)"
+                      :color="getStatusColor(item.current_step, item.status)"
                       variant="flat"
                       size="small"
                       label
                       class="font-weight-medium"
                     >
-                      {{ getStatusText(item.current_step, item.is_legacy) }}
+                      {{ getStatusText(item.current_step, item.is_legacy, item.status) }}
                     </v-chip>
                   </template>
 
@@ -327,6 +319,58 @@
         </div>
       </v-col>
     </v-row>
+
+    <!-- 批次跨年度確認對話框 -->
+    <v-dialog v-model="showBatchCrossYearDialog" max-width="600px" persistent>
+      <v-card rounded="lg">
+        <v-card-title class="text-h5 pa-6 pb-2">
+          <v-icon icon="mdi-content-copy" color="#3ea0a3" class="mr-2" />
+          批次跨年度確認
+        </v-card-title>
+
+        <v-card-text class="pa-6">
+          <v-alert type="info" variant="outlined" class="mb-4">
+            <div>
+              <strong>批次跨年度處理說明：</strong>
+            </div>
+            <div class="mt-2">
+              • 被選取的案件將被複製為新案件，並調整為次年度<br>
+              • 原案件狀態將變更為「跨年度案件」<br>
+              • 原案件說明將標示為「預算用罄，移至次年度撥款」<br>
+              • 新案件將建立初始版本，並在版本註解中記錄來源案件資訊
+            </div>
+          </v-alert>
+
+          <div class="text-body-1 mb-3">
+            <strong>已選取案件數量：</strong> {{ selectedCount }} 筆
+          </div>
+
+          <div class="text-body-2 text-medium-emphasis">
+            選取的案件編號：{{ selectedGrants.join(', ') }}
+          </div>
+        </v-card-text>
+
+        <v-card-actions class="pa-6 pt-0">
+          <v-spacer />
+          <v-btn
+            variant="outlined"
+            @click="showBatchCrossYearDialog = false"
+            :disabled="batchProcessing"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            color="#3ea0a3"
+            variant="flat"
+            @click="confirmBatchCrossYear"
+            :loading="batchProcessing"
+          >
+            確認執行
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
   </v-container>
 </template>
 
@@ -334,7 +378,7 @@
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router'
 import type { GrantListItem } from '@/services/grantsService'
-import { generateKaiuPdf, downloadPdfBlob } from '@/services/grantsService'
+import { generateKaiuPdf, downloadPdfBlob, batchCrossYearGrants } from '@/services/grantsService'
 import { useGrantsStore } from '@/stores/grants'
 import { useUserStore } from '@/stores/users'
 import { GrantStorage, type GrantData } from '@/utils/grant-storage'
@@ -391,6 +435,8 @@ const reconnecting = ref(false)
 const deleting = ref(false)
 const showDeleteConfirmDialog = ref(false)
 const pdfGenerating = ref<string | null>(null) // 追蹤正在生成PDF的案件編號
+const batchProcessing = ref(false) // 批次處理狀態
+const showBatchCrossYearDialog = ref(false) // 批次跨年度確認對話框
 
 // 篩選條件 - 設置預設值
 const filters = reactive({
@@ -411,6 +457,16 @@ const {
   isUsingApi
 } = storeToRefs(grantsStore)
 
+// 計算選取案件數量，確保響應式更新
+const selectedCount = computed(() => selectedGrants.value.length)
+const isBatchButtonDisabled = computed(() => selectedCount.value === 0)
+
+// 監聽選取變化，用於調試
+watch(selectedGrants, (newVal) => {
+  console.log('🔍 [selectedGrants] 變化:', newVal)
+  console.log('🔍 [selectedCount] 數量:', selectedCount.value)
+}, { deep: true })
+
 const allItems = ref<GrantItem[]>([])
 const loading = ref(true)
 const search = ref('')
@@ -420,7 +476,7 @@ const selected = ref<string[]>([])
 const selectedYear = ref(null)
 const selectedOffice = ref(null)
 
-// 年度選項 - 動態生成近5年的選項（台灣年號）
+// 年度選項
 const currentYear = new Date().getFullYear() - 1911
 const startYear = 97 // 民國 97 年
 const yearOptions = Array.from({ length: currentYear - startYear + 1 }, (_, i) => {
@@ -501,29 +557,32 @@ const statusMapping = {
   8: '完成結案申報',
 }
 
-const getStatusText = (currentStep: number, isLegacy?: boolean): string => {
+const getStatusText = (currentStep: number, isLegacy?: boolean, status?: string): string => {
   if (isLegacy) {
     return '歷史案件'
   }
+
+  // 處理特殊狀態
+  if (status === 'cross_year') {
+    return '跨年度案件'
+  }
+  if (status === 'completed') {
+    return '已結案'
+  }
+
   return statusMapping[currentStep as keyof typeof statusMapping] || '處理中'
 }
 
-// 根據案件狀態返回對應的顏色
-// const getStatusColor = (status: string) => {
-//   if (!status) return 'grey-lighten-4';
+const getStatusColor = (currentStep: number, status?: string) => {
+  // 處理特殊狀態的顏色
+  if (status === 'cross_year') {
+    return 'orange-lighten-4' // 跨年度案件使用橙色
+  }
+  if (status === 'completed') {
+    return 'green-lighten-4' // 已結案使用綠色
+  }
 
-//   if (status.includes('完成申請人資料') || status.includes('完成土地資料')) {
-//     return 'blue-lighten-5';
-//   } else if (status.includes('完成灌溉調控設施') || status.includes('完成田間管路')) {
-//     return 'amber-lighten-5';
-//   } else if (status.includes('完成現場勘查') || status.includes('完成補助申請資料')) {
-//     return 'light-green-lighten-5';
-//   } else if (status.includes('完成變更設計') || status.includes('完成上傳佐證文件')) {
-//     return 'light-blue-lighten-5';
-//   }
-//   return 'grey-lighten-4';
-// }
-const getStatusColor = (currentStep: number) => {
+  // 根據步驟返回顏色
   if (currentStep <= 2) return 'blue-lighten-5'
   if (currentStep <= 4) return 'amber-lighten-5'
   if (currentStep <= 6) return 'light-green-lighten-5'
@@ -544,6 +603,9 @@ const handleSearch = () => {
 }
 
 const updateFilters = async () => {
+  // 篩選條件變更時清除選取狀態
+  grantsStore.clearSelectedGrants()
+
   // 明確設定篩選參數，包括移除數量限制
   const filterParams = {
     year: filters.year || undefined,
@@ -560,6 +622,7 @@ const updateFilters = async () => {
 }
 
 const refreshList = async () => {
+  // refreshGrantsList 內部會自動清除選取狀態
   await grantsStore.refreshGrantsList()
 }
 
@@ -713,8 +776,8 @@ const loadAllItems = () => {
 // }
 const editItem = (item: GrantListItem) => {
   if (item.is_legacy) {
-    // 如果是歷史案件，在新分頁中開啟查看頁面
-    const url = router.resolve(`/grants/statements?case=${item.case_number}`).href
+    // 如果是歷史案件，在新分頁中開啟查看頁面，包含 grants_id 參數以區分重複案件編號
+    const url = router.resolve(`/grants/statements?case=${item.case_number}&grants_id=${item.id}`).href
     window.open(url, '_blank')
     return
   }
@@ -750,28 +813,71 @@ const generateHistoryPdf = async (item: GrantListItem) => {
     console.warn('只有歷史案件才能生成PDF')
     return
   }
-  
+
   try {
     console.log('🖨️ 開始生成PDF，案件:', item.case_number)
     pdfGenerating.value = item.case_number
-    
+
     // 調用PDF生成服務
     const pdfBlob = await generateKaiuPdf(item)
-    
+
     // 生成檔案名稱
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:]/g, '-')
     const filename = `${item.case_number}_工程預算書封面_${timestamp}.pdf`
-    
+
     // 下載PDF
     downloadPdfBlob(pdfBlob, filename)
-    
+
     console.log('🖨️ PDF生成並下載完成')
-    
+
   } catch (error) {
     console.error('🖨️ PDF生成失敗:', error)
     alert('PDF生成失敗，請稍後再試')
   } finally {
     pdfGenerating.value = null
+  }
+}
+
+// 新增：批次跨年度處理
+const confirmBatchCrossYear = async () => {
+  showBatchCrossYearDialog.value = false
+  batchProcessing.value = true
+
+  try {
+    console.log('🔄 開始批次跨年度處理，選取案件:', selectedGrants.value)
+
+    // 獲取選取案件的詳細資料
+    const selectedItems = selectedGrants.value.map(caseNumber =>
+      grantsList.value.find(grant => grant.case_number === caseNumber)
+    ).filter(Boolean) as GrantListItem[]
+
+    // 調用批次跨年度服務
+    const results = await batchCrossYearGrants(selectedItems)
+
+    console.log('✅ 批次跨年度處理完成:', results)
+
+    // 使用 grantsStore 的方法清除選取狀態
+    grantsStore.clearSelectedGrants()
+
+    // 重新載入案件列表以顯示更新
+    await refreshList()
+
+    // 顯示成功訊息
+    const successCount = results.filter(r => r.success).length
+    const failCount = results.length - successCount
+    let message = `批次跨年度處理完成！成功處理 ${successCount} 筆案件`
+    if (failCount > 0) {
+      message += `，失敗 ${failCount} 筆案件`
+    }
+
+    // 使用瀏覽器原生 alert，後續可改為 Vuetify 的 snackbar
+    alert(message)
+
+  } catch (error) {
+    console.error('🔄 批次跨年度處理失敗:', error)
+    alert('批次跨年度處理失敗，請稍後再試')
+  } finally {
+    batchProcessing.value = false
   }
 }
 

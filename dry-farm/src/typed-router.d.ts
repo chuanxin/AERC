@@ -25,6 +25,7 @@ declare module 'vue-router/auto-routes' {
     '/grants/': RouteRecordInfo<'/grants/', '/grants', Record<never, never>, Record<never, never>>,
     '/grants/edit': RouteRecordInfo<'/grants/edit', '/grants/edit', Record<never, never>, Record<never, never>>,
     '/grants/new': RouteRecordInfo<'/grants/new', '/grants/new', Record<never, never>, Record<never, never>>,
+    '/grants/statements': RouteRecordInfo<'/grants/statements', '/grants/statements', Record<never, never>, Record<never, never>>,
     '/grants/steps/guide': RouteRecordInfo<'/grants/steps/guide', '/grants/steps/guide', Record<never, never>, Record<never, never>>,
     '/grants/steps/step0': RouteRecordInfo<'/grants/steps/step0', '/grants/steps/step0', Record<never, never>, Record<never, never>>,
     '/grants/steps/step1': RouteRecordInfo<'/grants/steps/step1', '/grants/steps/step1', Record<never, never>, Record<never, never>>,
