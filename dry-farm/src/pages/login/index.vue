@@ -173,7 +173,7 @@
                   class="pa-0 ma-0"
                 >
                   <!-- Step 1 -->
-                  <v-stepper-window-item value="0">
+                  <v-stepper-window-item value="1">
                     <v-form class="mt-6">
                       <v-text-field
                         v-model="registerForm.account"
@@ -206,7 +206,7 @@
                   </v-stepper-window-item>
 
                   <!-- Step 2 -->
-                  <v-stepper-window-item value="1">
+                  <v-stepper-window-item value="2">
                     <v-form class="mt-6">
                       <v-text-field
                         v-model="registerForm.name"
@@ -251,7 +251,7 @@
 
         <div class="pa-0 ma-0">
           <v-btn
-            v-if="currentStep === 1 && activeForm === 'register'"
+            v-if="currentStep === '2' && activeForm === 'register'"
             variant="text"
             class="mb-2"
             block
@@ -355,6 +355,7 @@
 
   // Generate initial CAPTCHA on component mount
   onMounted(async () => {
+    collectEnvInfo()
     generateCaptcha()
 
     // Load offices if not already loaded
@@ -367,7 +368,19 @@
       } finally {
         isOfficesLoading.value = false
       }
+    } else {
+      addLog('Offices already loaded')
     }
+
+    addLog('Component mounted - end')
+    addLog(`Final testStep value: ${testStep.value} (type: ${typeof testStep.value})`)
+    addLog(`Final currentStep value: ${currentStep.value} (type: ${typeof currentStep.value})`)
+
+    // 使用 nextTick 確保所有響應式更新完成後再次檢查
+    await nextTick()
+    addLog('After nextTick:')
+    addLog(`testStep value: ${testStep.value} (type: ${typeof testStep.value})`)
+    addLog(`currentStep value: ${currentStep.value} (type: ${typeof currentStep.value})`)
   })
 
   const handleLogin = async () => {
@@ -509,7 +522,47 @@
     console.log('Registration submitted:', registerForm.value)
   }
 
-  const currentStep = ref(0)
+  const currentStep = ref('1')
+  const testStep = ref(1) // 測試用的 stepper
+
+  // 添加調試相關的變量
+  const initLogs = ref<string[]>([])
+  const debugInfo = ref({
+    nodeEnv: 'unknown',
+    mode: 'unknown',
+    ssr: 'unknown',
+    client: 'unknown',
+    dev: 'unknown',
+    prod: 'unknown'
+  })
+
+  // 記錄初始化日誌的函數
+  const addLog = (message: string) => {
+    const timestamp = new Date().toISOString().split('T')[1].split('.')[0]
+    initLogs.value.push(`[${timestamp}] ${message}`)
+    console.log(`🔧 [${timestamp}] ${message}`)
+  }
+
+  // 收集環境信息
+  const collectEnvInfo = () => {
+    try {
+      // 使用較安全的方式獲取環境變量
+      const env = (window as any).__ENV__ || {}
+      const globalProcess = (window as any).process || (globalThis as any).process || {}
+      debugInfo.value = {
+        nodeEnv: env.NODE_ENV || globalProcess?.env?.NODE_ENV || 'undefined',
+        mode: env.MODE || 'undefined',
+        ssr: env.SSR || 'undefined',
+        client: String(!env.SSR) || 'undefined',
+        dev: env.DEV || 'undefined',
+        prod: env.PROD || 'undefined'
+      }
+      addLog(`Environment collected: ${JSON.stringify(debugInfo.value)}`)
+    } catch (error) {
+      addLog(`Error collecting env info: ${error}`)
+    }
+  }
+
   const loginForm = ref({
     account: '',
     password: ''
@@ -539,28 +592,78 @@
 
   const handleStep = (direction: 'next' | 'prev') => {
     if (direction === 'next') {
-      if (currentStep.value === 1) {
+      if (currentStep.value === '2') {
         handleRegistration()
         return
       }
-      currentStep.value++
+      currentStep.value = (parseInt(currentStep.value) + 1).toString()
     } else {
-      currentStep.value--
+      currentStep.value = (parseInt(currentStep.value) - 1).toString()
     }
   }
 
   const getButtonText = computed(() => {
     if (activeForm.value === 'login') return '登入'
-    return currentStep.value === 0 ? '下一步' : '註冊'
+    return currentStep.value === '1' ? '下一步' : '註冊'
   })
 
-  // watchEffect(() => {
-  //   console.log('Departments:', departments.value)
-  //   if (departments.value?.length > 0) {
-  //     console.log('First item:', departments.value[0])
-  //     console.log('Classification type:', typeof departments.value[0].classification)
-  //   }
-  // })
+  // Watch for activeForm changes and reset currentStep when switching to register
+  watch(activeForm, (newForm) => {
+    if (newForm === 'register') {
+      currentStep.value = '1'
+    }
+  })
+
+  // Watch testStep changes for debugging
+  watch(testStep, (newStep, oldStep) => {
+    const changeInfo = {
+      from: oldStep,
+      to: newStep,
+      newType: typeof newStep,
+      oldType: typeof oldStep,
+      timestamp: new Date().toISOString(),
+      environment: (window as any)?.__VITE_ENV__?.MODE || 'unknown',
+      userAgent: navigator.userAgent.substring(0, 50),
+      vuetifyVersion: (window as any)?.$vuetify?.version || 'unknown'
+    }
+    console.log('🔍 Test Step Changed:', changeInfo)
+    addLog(`testStep changed: ${oldStep} (${typeof oldStep}) -> ${newStep} (${typeof newStep})`)
+  }, { immediate: true })
+
+  // 添加對 v-stepper 內部值的監聽
+  watch(() => testStep.value, (newVal) => {
+    addLog(`testStep reactive value changed to: ${newVal} (${typeof newVal})`)
+  })
+
+  // Platform detection functions
+  const getPlatformInfo = () => {
+    const platform = navigator.platform || 'Unknown'
+    const userAgent = navigator.userAgent
+
+    if (userAgent.indexOf('Windows') !== -1) return `Windows (${platform})`
+    if (userAgent.indexOf('Mac') !== -1) return `macOS (${platform})`
+    if (userAgent.indexOf('Linux') !== -1) return `Linux (${platform})`
+    return platform
+  }
+
+  const getBrowserInfo = () => {
+    const userAgent = navigator.userAgent
+
+    if (userAgent.indexOf('Chrome') !== -1 && userAgent.indexOf('Edg') === -1) return 'Chrome'
+    if (userAgent.indexOf('Firefox') !== -1) return 'Firefox'
+    if (userAgent.indexOf('Safari') !== -1 && userAgent.indexOf('Chrome') === -1) return 'Safari'
+    if (userAgent.indexOf('Edg') !== -1) return 'Edge'
+    return 'Unknown'
+  }
+
+  const getVueVersion = () => {
+    // 嘗試獲取 Vue 版本
+    try {
+      return (window as any).Vue?.version || '3.x'
+    } catch {
+      return '3.x'
+    }
+  }
 </script>
 
 <style scoped>
@@ -602,14 +705,24 @@
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
-  .version-chip:hover {
-    /* background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%) !important; */
-    /* box-shadow: 0 4px 12px rgba(25, 118, 210, 0.4) !important; */
-    /* transform: translateY(-2px); */
-  }
-
   .version-chip .v-icon {
     margin-right: 4px;
+  }
+
+  /* Test container styles */
+  .test-container {
+    max-width: 100%;
+    margin-bottom: 40px;
+  }
+
+  .test-info div {
+    padding: 2px 0;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+
+  .gap-2 > * + * {
+    margin-left: 8px;
   }
   /* Disable all possible stepper transitions */
   :deep(.v-stepper) {

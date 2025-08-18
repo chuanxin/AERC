@@ -87,6 +87,10 @@ tests/
 docs/
 *.pdf
 CLAUDE.md
+CLAUDE.local.md
 
 # Deployment files
 dev/
+
+# SpecStory
+.specstory/

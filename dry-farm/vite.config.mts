@@ -108,7 +108,7 @@ export default defineConfig({
         '../../app/api/**',
         '../../db/**',
       ]
-    }
+    },
     // HTTPS configuration disabled for development
     // https: {
     //   key: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/privkey.pem'),
