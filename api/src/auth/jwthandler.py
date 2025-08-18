@@ -33,20 +33,30 @@ class OAuth2PasswordBearerCookie(OAuth2):
         super().__init__(flows=flows, scheme_name=scheme_name, auto_error=auto_error)
 
     async def __call__(self, request: Request) -> Optional[str]:
-        authorization: str = request.cookies.get("Authorization")
-        scheme, param = get_authorization_scheme_param(authorization)
+        # 優先從 Authorization Header 獲取 Token
+        authorization_header = request.headers.get("Authorization")
+        
+        if authorization_header:
+            scheme, param = get_authorization_scheme_param(authorization_header)
+            if authorization_header and scheme.lower() == "bearer":
+                return param
+        
+        # 回退到 Cookie 方式（向後相容）
+        authorization_cookie = request.cookies.get("Authorization")
+        if authorization_cookie:
+            scheme, param = get_authorization_scheme_param(authorization_cookie)
+            if authorization_cookie and scheme.lower() == "bearer":
+                return param
 
-        if not authorization or scheme.lower() != "bearer":
-            if self.auto_error:
-                raise HTTPException(
-                    status_code=401,
-                    detail="Not authenticated",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-            else:
-                return None
-
-        return param
+        # 如果兩種方式都沒有找到 Token
+        if self.auto_error:
+            raise HTTPException(
+                status_code=401,
+                detail="Not authenticated",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        else:
+            return None
 
 
 security = OAuth2PasswordBearerCookie(token_url="/login")
