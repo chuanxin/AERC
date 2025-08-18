@@ -682,12 +682,61 @@ $manageServicesContent = @'
 
 param(
     [Parameter(Mandatory=$true)]
-    [ValidateSet("start", "stop", "restart", "status", "install", "remove", "logs")]
+    [ValidateSet("start", "stop", "restart", "status", "install", "remove", "logs", "checkout", "sync", "deploy")]
     [string]$Action,
     
     [ValidateSet("api", "frontend", "all")]
-    [string]$Service = "all"
+    [string]$Service = "all",
+    
+    [string]$SvnUrl = "",
+    
+    [string]$CheckoutPath = "temp\checkout",
+    
+    [string]$TargetPath = "app"
 )
+
+# 檢查是否以管理員身份運行
+function Test-IsAdmin {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+# 顯示管理員權限要求提示
+function Show-AdminRequiredMessage {
+    param([string]$Action)
+    
+    Write-Host "`n  Administrator Privileges Required" -ForegroundColor Red
+    Write-Host "============================================" -ForegroundColor Red
+    Write-Host "The '$Action' operation requires administrator privileges." -ForegroundColor Yellow
+    Write-Host "`nTo run this command with administrator privileges:" -ForegroundColor Cyan
+    Write-Host "1. Right-click on PowerShell and select 'Run as Administrator'" -ForegroundColor White
+    Write-Host "2. Navigate to the scripts directory:" -ForegroundColor White
+    Write-Host "   cd c:\AERC\AERC-Deploy\scripts" -ForegroundColor Gray
+    Write-Host "3. Re-run the command:" -ForegroundColor White
+    
+    # 重新構建當前命令
+    $currentCommand = ".\Manage_Services.ps1 -Action '$Action'"
+    if ($Service -ne "all") { $currentCommand += " -Service '$Service'" }
+    if ($SvnUrl) { $currentCommand += " -SvnUrl '$SvnUrl'" }
+    if ($CheckoutPath -ne "temp\checkout") { $currentCommand += " -CheckoutPath '$CheckoutPath'" }
+    if ($TargetPath -ne "app") { $currentCommand += " -TargetPath '$TargetPath'" }
+    
+    Write-Host "   $currentCommand" -ForegroundColor Gray
+    Write-Host "`nAlternatively, you can start an elevated PowerShell with:" -ForegroundColor Cyan
+    Write-Host "   Start-Process powershell -Verb RunAs" -ForegroundColor Gray
+    Write-Host "`n" -ForegroundColor White
+}
+
+# 檢查是否需要管理員權限的操作
+$adminRequiredActions = @("start", "stop", "restart", "remove", "deploy")
+if ($Action -in $adminRequiredActions) {
+    if (-not (Test-IsAdmin)) {
+        Show-AdminRequiredMessage -Action $Action
+        exit 1
+    }
+    Write-Host "Running with Administrator privileges ✓" -ForegroundColor Green
+}
 
 $apiServiceName = "AERC-API"
 $frontendServiceName = "AERC-Frontend"
@@ -695,51 +744,108 @@ $frontendServiceName = "AERC-Frontend"
 function Show-ServiceStatus {
     param([string]$ServiceName)
     
-    $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-    if ($service) {
+    try {
+        $service = Get-Service -Name $ServiceName -ErrorAction Stop
         $status = $service.Status
         $color = switch ($status) {
             'Running' { 'Green' }
             'Stopped' { 'Red' }
+            'Paused' { 'Yellow' }
+            'StartPending' { 'Cyan' }
+            'StopPending' { 'Magenta' }
             default { 'Yellow' }
         }
         Write-Host "$ServiceName`: $status" -ForegroundColor $color
-    } else {
-        Write-Host "$ServiceName`: Not installed" -ForegroundColor Gray
+    }
+    catch [System.ServiceProcess.ServiceController] {
+        Write-Host "$ServiceName`: Not found" -ForegroundColor Gray
+    }
+    catch {
+        if (-not (Test-IsAdmin)) {
+            Write-Host "$ServiceName`: Access Denied (Administrator required)" -ForegroundColor Red
+        } else {
+            Write-Host "$ServiceName`: Error - $($_.Exception.Message)" -ForegroundColor Red
+        }
     }
 }
 
 function Start-AercService {
     param([string]$ServiceName)
     
-    $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-    if ($service) {
-        if ($service.Status -ne 'Running') {
-            Write-Host "Starting $ServiceName..." -ForegroundColor Cyan
-            Start-Service -Name $ServiceName
-            Write-Host "$ServiceName started successfully!" -ForegroundColor Green
-        } else {
+    try {
+        $service = Get-Service -Name $ServiceName -ErrorAction Stop
+        if ($service.Status -eq 'Running') {
             Write-Host "$ServiceName is already running." -ForegroundColor Yellow
+            return $true
         }
-    } else {
+        
+        Write-Host "Starting $ServiceName..." -ForegroundColor Cyan
+        Start-Service -Name $ServiceName -ErrorAction Stop
+        
+        # 等待服務啟動
+        $timeout = 30
+        $elapsed = 0
+        do {
+            Start-Sleep -Seconds 1
+            $elapsed++
+            $service.Refresh()
+        } while ($service.Status -ne 'Running' -and $elapsed -lt $timeout)
+        
+        if ($service.Status -eq 'Running') {
+            Write-Host "$ServiceName started successfully!" -ForegroundColor Green
+            return $true
+        } else {
+            Write-Host "$ServiceName failed to start within $timeout seconds." -ForegroundColor Red
+            return $false
+        }
+    }
+    catch [System.ServiceProcess.ServiceController] {
         Write-Host "$ServiceName is not installed." -ForegroundColor Red
+        return $false
+    }
+    catch {
+        Write-Host "Failed to start $ServiceName`: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
     }
 }
 
 function Stop-AercService {
     param([string]$ServiceName)
     
-    $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-    if ($service) {
-        if ($service.Status -eq 'Running') {
-            Write-Host "Stopping $ServiceName..." -ForegroundColor Cyan
-            Stop-Service -Name $ServiceName -Force
-            Write-Host "$ServiceName stopped successfully!" -ForegroundColor Green
-        } else {
-            Write-Host "$ServiceName is not running." -ForegroundColor Yellow
+    try {
+        $service = Get-Service -Name $ServiceName -ErrorAction Stop
+        if ($service.Status -eq 'Stopped') {
+            Write-Host "$ServiceName is already stopped." -ForegroundColor Yellow
+            return $true
         }
-    } else {
+        
+        Write-Host "Stopping $ServiceName..." -ForegroundColor Cyan
+        Stop-Service -Name $ServiceName -Force -ErrorAction Stop
+        
+        # 等待服務停止
+        $timeout = 30
+        $elapsed = 0
+        do {
+            Start-Sleep -Seconds 1
+            $elapsed++
+            $service.Refresh()
+        } while ($service.Status -ne 'Stopped' -and $elapsed -lt $timeout)
+        
+        if ($service.Status -eq 'Stopped') {
+            Write-Host "$ServiceName stopped successfully!" -ForegroundColor Green
+            return $true
+        } else {
+            Write-Host "$ServiceName failed to stop within $timeout seconds." -ForegroundColor Red
+            return $false
+        }
+    }
+    catch [System.ServiceProcess.ServiceController] {
         Write-Host "$ServiceName is not installed." -ForegroundColor Red
+        return $false
+    }
+    catch {
+        Write-Host "Failed to stop $ServiceName`: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
     }
 }
 
@@ -794,6 +900,271 @@ function Show-ServiceLogs {
     } else {
         Write-Host "No recent log entries found for $ServiceName" -ForegroundColor Gray
     }
+}
+
+function Invoke-SvnCheckout {
+    param(
+        [string]$SvnUrl,
+        [string]$CheckoutPath
+    )
+    
+    # 檢查 SVN 是否可用
+    $svnCommand = Get-Command svn -ErrorAction SilentlyContinue
+    if (-not $svnCommand) {
+        Write-Host "ERROR: SVN command not found. Please install SVN client." -ForegroundColor Red
+        return $false
+    }
+    
+    if ([string]::IsNullOrEmpty($SvnUrl)) {
+        Write-Host "ERROR: SVN URL is required for checkout." -ForegroundColor Red
+        Write-Host "Usage: .\Manage_Services.ps1 -Action checkout -SvnUrl 'https://your-svn-repo/trunk'" -ForegroundColor Yellow
+        return $false
+    }
+    
+    # 確保 checkout 路徑是絕對路徑
+    if (-not [System.IO.Path]::IsPathRooted($CheckoutPath)) {
+        # 如果是相對路徑，應該相對於 AERC-Deploy 根目錄，而不是 scripts 目錄
+        $scriptDir = Split-Path $PSScriptRoot -Parent
+        $CheckoutPath = Join-Path $scriptDir $CheckoutPath
+    }
+    
+    Write-Host "SVN Checkout Operation" -ForegroundColor Cyan
+    Write-Host "=====================" -ForegroundColor Cyan
+    Write-Host "Repository: $SvnUrl" -ForegroundColor White
+    Write-Host "Target Path: $CheckoutPath" -ForegroundColor White
+    
+    # 如果目標目錄已存在，詢問是否覆蓋
+    if (Test-Path $CheckoutPath) {
+        $overwrite = Read-Host "Target directory exists. Overwrite? (y/N)"
+        if ($overwrite -eq 'y' -or $overwrite -eq 'Y') {
+            Write-Host "Removing existing directory..." -ForegroundColor Yellow
+            Remove-Item $CheckoutPath -Recurse -Force
+        } else {
+            Write-Host "Operation cancelled." -ForegroundColor Yellow
+            return $false
+        }
+    }
+    
+    # 創建父目錄
+    $parentDir = Split-Path $CheckoutPath -Parent
+    if (-not (Test-Path $parentDir)) {
+        New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+    }
+    
+    try {
+        Write-Host "Executing SVN checkout..." -ForegroundColor Cyan
+        Write-Host "Note: If prompted for credentials, please enter your SVN username and password." -ForegroundColor Yellow
+        
+        # 使用 --non-interactive 和 --trust-server-cert 來避免互動式提示
+        $svnArgs = @(
+            "checkout",
+            $SvnUrl,
+            $CheckoutPath,
+            "--non-interactive",
+            "--trust-server-cert"
+        )
+        
+        # 執行 SVN 命令並捕獲輸出
+        $process = Start-Process -FilePath "svn" -ArgumentList $svnArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput "svn_output.log" -RedirectStandardError "svn_error.log"
+        
+        if ($process.ExitCode -eq 0) {
+            Write-Host "SVN checkout completed successfully!" -ForegroundColor Green
+            Write-Host "Files checked out to: $CheckoutPath" -ForegroundColor Green
+            
+            # 顯示檢出的內容摘要
+            if (Test-Path $CheckoutPath) {
+                $itemCount = (Get-ChildItem $CheckoutPath -Recurse).Count
+                Write-Host "Total items checked out: $itemCount" -ForegroundColor Cyan
+            }
+            
+            return $true
+        } else {
+            Write-Host "SVN checkout failed with exit code: $($process.ExitCode)" -ForegroundColor Red
+            
+            # 讀取並顯示錯誤信息
+            if (Test-Path "svn_error.log") {
+                $errorContent = Get-Content "svn_error.log" -Raw
+                if ($errorContent) {
+                    Write-Host "Error details:" -ForegroundColor Red
+                    Write-Host $errorContent -ForegroundColor Red
+                }
+                Remove-Item "svn_error.log" -ErrorAction SilentlyContinue
+            }
+            
+            return $false
+        }
+    }
+    catch {
+        Write-Host "SVN checkout failed with exception: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+    finally {
+        # 清理臨時日誌檔案
+        Remove-Item "svn_output.log" -ErrorAction SilentlyContinue
+        Remove-Item "svn_error.log" -ErrorAction SilentlyContinue
+    }
+}
+
+function Sync-ProjectFiles {
+    param(
+        [string]$SourcePath,
+        [string]$TargetPath
+    )
+    
+    # 確保路徑是絕對路徑
+    if (-not [System.IO.Path]::IsPathRooted($SourcePath)) {
+        $scriptDir = Split-Path $PSScriptRoot -Parent
+        $SourcePath = Join-Path $scriptDir $SourcePath
+    }
+    if (-not [System.IO.Path]::IsPathRooted($TargetPath)) {
+        $scriptDir = Split-Path $PSScriptRoot -Parent
+        $TargetPath = Join-Path $scriptDir $TargetPath
+    }
+    
+    Write-Host "Project Files Synchronization" -ForegroundColor Cyan
+    Write-Host "=============================" -ForegroundColor Cyan
+    Write-Host "Source: $SourcePath" -ForegroundColor White
+    Write-Host "Target: $TargetPath" -ForegroundColor White
+    
+    # 檢查源目錄是否存在
+    if (-not (Test-Path $SourcePath)) {
+        Write-Host "ERROR: Source directory does not exist: $SourcePath" -ForegroundColor Red
+        return $false
+    }
+    
+    # 確認是否要進行同步
+    $confirm = Read-Host "This will overwrite files in the target directory. Continue? (y/N)"
+    if ($confirm -ne 'y' -and $confirm -ne 'Y') {
+        Write-Host "Operation cancelled." -ForegroundColor Yellow
+        return $false
+    }
+    
+    try {
+        # 創建目標目錄（如果不存在）
+        if (-not (Test-Path $TargetPath)) {
+            Write-Host "Creating target directory..." -ForegroundColor Yellow
+            New-Item -ItemType Directory -Path $TargetPath -Force | Out-Null
+        }
+        
+        # 定義要同步的項目
+        $itemsToSync = @(
+            @{ Source = "api"; Description = "API 後端代碼" },
+            @{ Source = "dry-farm"; Description = "前端代碼" },
+            @{ Source = "db"; Description = "資料庫腳本" },
+            @{ Source = "version-snapshots"; Description = "版本快照" }
+        )
+        
+        foreach ($item in $itemsToSync) {
+            $srcPath = Join-Path $SourcePath $item.Source
+            $dstPath = Join-Path $TargetPath $item.Source
+            
+            if (Test-Path $srcPath) {
+                Write-Host "Syncing $($item.Description) ($($item.Source))..." -ForegroundColor Cyan
+                
+                # 如果目標存在，先刪除
+                if (Test-Path $dstPath) {
+                    Remove-Item $dstPath -Recurse -Force
+                }
+                
+                # 複製整個目錄
+                Copy-Item $srcPath $dstPath -Recurse -Force
+                Write-Host "  ✓ $($item.Source) synced successfully" -ForegroundColor Green
+            } else {
+                Write-Host "  ⚠ $($item.Source) not found in source, skipping" -ForegroundColor Yellow
+            }
+        }
+        
+        # 同步根目錄的重要檔案
+        $rootFiles = @("README-WINDOWS.md", ".env")
+        foreach ($file in $rootFiles) {
+            $srcFile = Join-Path $SourcePath $file
+            $dstFile = Join-Path $TargetPath $file
+            
+            if (Test-Path $srcFile) {
+                Write-Host "Syncing $file..." -ForegroundColor Cyan
+                Copy-Item $srcFile $dstFile -Force
+                Write-Host "  ✓ $file synced successfully" -ForegroundColor Green
+            }
+        }
+        
+        # 重新建立 node_modules junction (如果需要)
+        Write-Host "`nRestoring node_modules junction..." -ForegroundColor Cyan
+        $frontendPath = Join-Path $TargetPath "dry-farm"
+        $nodeModulesJunction = Join-Path $frontendPath "node_modules"
+        $scriptDir = Split-Path $PSScriptRoot -Parent
+        $runtimeNodeModules = Join-Path $scriptDir "runtime\node_modules"
+        
+        # 檢查 runtime/node_modules 是否存在
+        if (Test-Path $runtimeNodeModules) {
+            # 如果 junction 不存在，重新建立
+            if (-not (Test-Path $nodeModulesJunction)) {
+                try {
+                    Write-Host "Creating node_modules junction: $nodeModulesJunction -> $runtimeNodeModules" -ForegroundColor Yellow
+                    New-Item -ItemType Junction -Path $nodeModulesJunction -Target $runtimeNodeModules -Force | Out-Null
+                    Write-Host "  ✓ node_modules junction created successfully" -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "  ⚠ Failed to create node_modules junction: $($_.Exception.Message)" -ForegroundColor Red
+                    Write-Host "  You may need to run 'npm install' in the dry-farm directory" -ForegroundColor Yellow
+                }
+            } else {
+                Write-Host "  ✓ node_modules junction already exists" -ForegroundColor Green
+            }
+        } else {
+            Write-Host "  ⚠ runtime/node_modules not found, skipping junction creation" -ForegroundColor Yellow
+            Write-Host "  Please run the frontend installation script first" -ForegroundColor Yellow
+        }
+        
+        Write-Host "`nSynchronization completed successfully!" -ForegroundColor Green
+        return $true
+    }
+    catch {
+        Write-Host "Synchronization failed with exception: $($_.Exception.Message)" -ForegroundColor Red
+        return $false
+    }
+}
+
+function Invoke-FullDeploy {
+    param(
+        [string]$SvnUrl,
+        [string]$CheckoutPath,
+        [string]$TargetPath
+    )
+    
+    Write-Host "Full Deployment Process" -ForegroundColor Magenta
+    Write-Host "=======================" -ForegroundColor Magenta
+    
+    # Step 1: 停止服務
+    Write-Host "`nStep 1: Stopping services..." -ForegroundColor Cyan
+    Stop-AercService $apiServiceName
+    Stop-AercService $frontendServiceName
+    
+    # Step 2: SVN Checkout
+    Write-Host "`nStep 2: SVN Checkout..." -ForegroundColor Cyan
+    $checkoutSuccess = Invoke-SvnCheckout -SvnUrl $SvnUrl -CheckoutPath $CheckoutPath
+    if (-not $checkoutSuccess) {
+        Write-Host "Deployment failed at SVN checkout step." -ForegroundColor Red
+        return $false
+    }
+    
+    # Step 3: Sync Files
+    Write-Host "`nStep 3: Synchronizing files..." -ForegroundColor Cyan
+    $syncSuccess = Sync-ProjectFiles -SourcePath $CheckoutPath -TargetPath $TargetPath
+    if (-not $syncSuccess) {
+        Write-Host "Deployment failed at file synchronization step." -ForegroundColor Red
+        return $false
+    }
+    
+    # Step 4: 重新啟動服務
+    Write-Host "`nStep 4: Restarting services..." -ForegroundColor Cyan
+    Start-Sleep -Seconds 3
+    Start-AercService $apiServiceName
+    Start-AercService $frontendServiceName
+    
+    Write-Host "`nDeployment completed successfully! 🎉" -ForegroundColor Green
+    Write-Host "Please verify the services are running correctly." -ForegroundColor Yellow
+    
+    return $true
 }
 
 # Determine which services to operate on
@@ -855,13 +1226,55 @@ switch ($Action) {
             Show-ServiceLogs $svc
         }
     }
+    
+    "checkout" {
+        $success = Invoke-SvnCheckout -SvnUrl $SvnUrl -CheckoutPath $CheckoutPath
+        if ($success) {
+            Write-Host "`nNext steps:" -ForegroundColor Yellow
+            Write-Host "  1. Review the checked out files in: $CheckoutPath" -ForegroundColor White
+            Write-Host "  2. Run sync command: .\Manage_Services.ps1 -Action sync" -ForegroundColor White
+        }
+    }
+    
+    "sync" {
+        $success = Sync-ProjectFiles -SourcePath $CheckoutPath -TargetPath $TargetPath
+        if ($success) {
+            Write-Host "`nNext steps:" -ForegroundColor Yellow
+            Write-Host "  1. Restart services: .\Manage_Services.ps1 -Action restart" -ForegroundColor White
+            Write-Host "  2. Check service status: .\Manage_Services.ps1 -Action status" -ForegroundColor White
+        }
+    }
+    
+    "deploy" {
+        if ([string]::IsNullOrEmpty($SvnUrl)) {
+            Write-Host "ERROR: SVN URL is required for deployment." -ForegroundColor Red
+            Write-Host "Usage: .\Manage_Services.ps1 -Action deploy -SvnUrl 'https://your-svn-repo/trunk'" -ForegroundColor Yellow
+        } else {
+            Invoke-FullDeploy -SvnUrl $SvnUrl -CheckoutPath $CheckoutPath -TargetPath $TargetPath
+        }
+    }
 }
 
 Write-Host "`nUsage examples:" -ForegroundColor Yellow
-Write-Host "  .\Manage-Services.ps1 -Action status" -ForegroundColor White
-Write-Host "  .\Manage-Services.ps1 -Action start -Service api" -ForegroundColor White
-Write-Host "  .\Manage-Services.ps1 -Action restart -Service all" -ForegroundColor White
-Write-Host "  .\Manage-Services.ps1 -Action logs -Service frontend" -ForegroundColor White
+Write-Host "Service Management:" -ForegroundColor Cyan
+Write-Host "  .\Manage_Services.ps1 -Action status" -ForegroundColor White
+Write-Host "  .\Manage_Services.ps1 -Action start -Service api" -ForegroundColor White
+Write-Host "  .\Manage_Services.ps1 -Action restart -Service all" -ForegroundColor White
+Write-Host "  .\Manage_Services.ps1 -Action logs -Service frontend" -ForegroundColor White
+
+Write-Host "`nDeployment Operations:" -ForegroundColor Cyan
+Write-Host "  .\Manage_Services.ps1 -Action checkout -SvnUrl 'https://your-svn-repo/trunk'" -ForegroundColor White
+Write-Host "  .\Manage_Services.ps1 -Action sync" -ForegroundColor White
+Write-Host "  .\Manage_Services.ps1 -Action deploy -SvnUrl 'https://your-svn-repo/trunk'" -ForegroundColor White
+
+Write-Host "`nCustom Paths:" -ForegroundColor Cyan
+Write-Host "  .\Manage_Services.ps1 -Action checkout -SvnUrl 'https://repo/trunk' -CheckoutPath 'custom\path'" -ForegroundColor White
+Write-Host "  .\Manage_Services.ps1 -Action sync -CheckoutPath 'custom\path' -TargetPath 'production'" -ForegroundColor White
+
+Write-Host "`nNote:" -ForegroundColor Yellow
+Write-Host "  • Service operations (start/stop/restart/remove/deploy) require Administrator privileges" -ForegroundColor Gray
+Write-Host "  • Please run PowerShell as Administrator for service management operations" -ForegroundColor Gray
+Write-Host "  • Status, logs, checkout, and sync can run without elevation" -ForegroundColor Gray
 '@
 Set-Content -Path (Join-Path $scriptsPath "Manage_Services.ps1") -Value $manageServicesContent -Encoding UTF8
 Write-Host "Generated: Manage_Services.ps1" -ForegroundColor Green
