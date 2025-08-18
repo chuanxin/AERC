@@ -695,14 +695,14 @@ param(
     [string]$TargetPath = "app"
 )
 
-# 檢查是否以管理員身份運行
+# Check if running as administrator
 function Test-IsAdmin {
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-# 顯示管理員權限要求提示
+# Show administrator privileges required message
 function Show-AdminRequiredMessage {
     param([string]$Action)
     
@@ -715,7 +715,7 @@ function Show-AdminRequiredMessage {
     Write-Host "   cd c:\AERC\AERC-Deploy\scripts" -ForegroundColor Gray
     Write-Host "3. Re-run the command:" -ForegroundColor White
     
-    # 重新構建當前命令
+    # Rebuild current command
     $currentCommand = ".\Manage_Services.ps1 -Action '$Action'"
     if ($Service -ne "all") { $currentCommand += " -Service '$Service'" }
     if ($SvnUrl) { $currentCommand += " -SvnUrl '$SvnUrl'" }
@@ -728,14 +728,14 @@ function Show-AdminRequiredMessage {
     Write-Host "`n" -ForegroundColor White
 }
 
-# 檢查是否需要管理員權限的操作
+# Check if operation requires administrator privileges
 $adminRequiredActions = @("start", "stop", "restart", "remove", "deploy")
 if ($Action -in $adminRequiredActions) {
     if (-not (Test-IsAdmin)) {
         Show-AdminRequiredMessage -Action $Action
         exit 1
     }
-    Write-Host "Running with Administrator privileges ✓" -ForegroundColor Green
+    Write-Host "Running with Administrator privileges [OK]" -ForegroundColor Green
 }
 
 $apiServiceName = "AERC-API"
@@ -782,7 +782,7 @@ function Start-AercService {
         Write-Host "Starting $ServiceName..." -ForegroundColor Cyan
         Start-Service -Name $ServiceName -ErrorAction Stop
         
-        # 等待服務啟動
+        # Wait for service to start
         $timeout = 30
         $elapsed = 0
         do {
@@ -822,7 +822,7 @@ function Stop-AercService {
         Write-Host "Stopping $ServiceName..." -ForegroundColor Cyan
         Stop-Service -Name $ServiceName -Force -ErrorAction Stop
         
-        # 等待服務停止
+        # Wait for service to stop
         $timeout = 30
         $elapsed = 0
         do {
@@ -908,7 +908,7 @@ function Invoke-SvnCheckout {
         [string]$CheckoutPath
     )
     
-    # 檢查 SVN 是否可用
+    # Check if SVN is available
     $svnCommand = Get-Command svn -ErrorAction SilentlyContinue
     if (-not $svnCommand) {
         Write-Host "ERROR: SVN command not found. Please install SVN client." -ForegroundColor Red
@@ -921,9 +921,9 @@ function Invoke-SvnCheckout {
         return $false
     }
     
-    # 確保 checkout 路徑是絕對路徑
+    # Ensure checkout path is absolute path
     if (-not [System.IO.Path]::IsPathRooted($CheckoutPath)) {
-        # 如果是相對路徑，應該相對於 AERC-Deploy 根目錄，而不是 scripts 目錄
+        # If relative path, should be relative to AERC-Deploy root directory, not scripts directory
         $scriptDir = Split-Path $PSScriptRoot -Parent
         $CheckoutPath = Join-Path $scriptDir $CheckoutPath
     }
@@ -933,7 +933,7 @@ function Invoke-SvnCheckout {
     Write-Host "Repository: $SvnUrl" -ForegroundColor White
     Write-Host "Target Path: $CheckoutPath" -ForegroundColor White
     
-    # 如果目標目錄已存在，詢問是否覆蓋
+    # If target directory exists, ask for overwrite confirmation
     if (Test-Path $CheckoutPath) {
         $overwrite = Read-Host "Target directory exists. Overwrite? (y/N)"
         if ($overwrite -eq 'y' -or $overwrite -eq 'Y') {
@@ -945,7 +945,7 @@ function Invoke-SvnCheckout {
         }
     }
     
-    # 創建父目錄
+    # Create parent directory
     $parentDir = Split-Path $CheckoutPath -Parent
     if (-not (Test-Path $parentDir)) {
         New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
@@ -955,7 +955,7 @@ function Invoke-SvnCheckout {
         Write-Host "Executing SVN checkout..." -ForegroundColor Cyan
         Write-Host "Note: If prompted for credentials, please enter your SVN username and password." -ForegroundColor Yellow
         
-        # 使用 --non-interactive 和 --trust-server-cert 來避免互動式提示
+        # Use --non-interactive and --trust-server-cert to avoid interactive prompts
         $svnArgs = @(
             "checkout",
             $SvnUrl,
@@ -964,14 +964,14 @@ function Invoke-SvnCheckout {
             "--trust-server-cert"
         )
         
-        # 執行 SVN 命令並捕獲輸出
+        # Execute SVN command and capture output
         $process = Start-Process -FilePath "svn" -ArgumentList $svnArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput "svn_output.log" -RedirectStandardError "svn_error.log"
         
         if ($process.ExitCode -eq 0) {
             Write-Host "SVN checkout completed successfully!" -ForegroundColor Green
             Write-Host "Files checked out to: $CheckoutPath" -ForegroundColor Green
             
-            # 顯示檢出的內容摘要
+            # Show checkout content summary
             if (Test-Path $CheckoutPath) {
                 $itemCount = (Get-ChildItem $CheckoutPath -Recurse).Count
                 Write-Host "Total items checked out: $itemCount" -ForegroundColor Cyan
@@ -981,7 +981,7 @@ function Invoke-SvnCheckout {
         } else {
             Write-Host "SVN checkout failed with exit code: $($process.ExitCode)" -ForegroundColor Red
             
-            # 讀取並顯示錯誤信息
+            # Read and display error information
             if (Test-Path "svn_error.log") {
                 $errorContent = Get-Content "svn_error.log" -Raw
                 if ($errorContent) {
@@ -999,7 +999,7 @@ function Invoke-SvnCheckout {
         return $false
     }
     finally {
-        # 清理臨時日誌檔案
+        # Clean up temporary log files
         Remove-Item "svn_output.log" -ErrorAction SilentlyContinue
         Remove-Item "svn_error.log" -ErrorAction SilentlyContinue
     }
@@ -1011,7 +1011,7 @@ function Sync-ProjectFiles {
         [string]$TargetPath
     )
     
-    # 確保路徑是絕對路徑
+    # Ensure paths are absolute paths
     if (-not [System.IO.Path]::IsPathRooted($SourcePath)) {
         $scriptDir = Split-Path $PSScriptRoot -Parent
         $SourcePath = Join-Path $scriptDir $SourcePath
@@ -1026,13 +1026,13 @@ function Sync-ProjectFiles {
     Write-Host "Source: $SourcePath" -ForegroundColor White
     Write-Host "Target: $TargetPath" -ForegroundColor White
     
-    # 檢查源目錄是否存在
+    # Check if source directory exists
     if (-not (Test-Path $SourcePath)) {
         Write-Host "ERROR: Source directory does not exist: $SourcePath" -ForegroundColor Red
         return $false
     }
     
-    # 確認是否要進行同步
+    # Confirm whether to proceed with synchronization
     $confirm = Read-Host "This will overwrite files in the target directory. Continue? (y/N)"
     if ($confirm -ne 'y' -and $confirm -ne 'Y') {
         Write-Host "Operation cancelled." -ForegroundColor Yellow
@@ -1040,18 +1040,18 @@ function Sync-ProjectFiles {
     }
     
     try {
-        # 創建目標目錄（如果不存在）
+        # Create target directory (if not exists)
         if (-not (Test-Path $TargetPath)) {
             Write-Host "Creating target directory..." -ForegroundColor Yellow
             New-Item -ItemType Directory -Path $TargetPath -Force | Out-Null
         }
         
-        # 定義要同步的項目
+        # Define items to synchronize
         $itemsToSync = @(
-            @{ Source = "api"; Description = "API 後端代碼" },
-            @{ Source = "dry-farm"; Description = "前端代碼" },
-            @{ Source = "db"; Description = "資料庫腳本" },
-            @{ Source = "version-snapshots"; Description = "版本快照" }
+            @{ Source = "api"; Description = "Backend API code" },
+            @{ Source = "dry-farm"; Description = "Frontend code" },
+            @{ Source = "db"; Description = "Database scripts" },
+            @{ Source = "version-snapshots"; Description = "Version snapshots" }
         )
         
         foreach ($item in $itemsToSync) {
@@ -1061,20 +1061,20 @@ function Sync-ProjectFiles {
             if (Test-Path $srcPath) {
                 Write-Host "Syncing $($item.Description) ($($item.Source))..." -ForegroundColor Cyan
                 
-                # 如果目標存在，先刪除
+                # If target exists, delete first
                 if (Test-Path $dstPath) {
                     Remove-Item $dstPath -Recurse -Force
                 }
                 
-                # 複製整個目錄
+                # Copy entire directory
                 Copy-Item $srcPath $dstPath -Recurse -Force
-                Write-Host "  ✓ $($item.Source) synced successfully" -ForegroundColor Green
+                Write-Host "  [OK] $($item.Source) synced successfully" -ForegroundColor Green
             } else {
-                Write-Host "  ⚠ $($item.Source) not found in source, skipping" -ForegroundColor Yellow
+                Write-Host "  [WARNING] $($item.Source) not found in source, skipping" -ForegroundColor Yellow
             }
         }
         
-        # 同步根目錄的重要檔案
+        # Sync important files in root directory
         $rootFiles = @("README-WINDOWS.md", ".env")
         foreach ($file in $rootFiles) {
             $srcFile = Join-Path $SourcePath $file
@@ -1083,40 +1083,40 @@ function Sync-ProjectFiles {
             if (Test-Path $srcFile) {
                 Write-Host "Syncing $file..." -ForegroundColor Cyan
                 Copy-Item $srcFile $dstFile -Force
-                Write-Host "  ✓ $file synced successfully" -ForegroundColor Green
+                Write-Host "  [OK] $file synced successfully" -ForegroundColor Green
             }
         }
         
-        # 重新建立 node_modules junction (如果需要)
+        # Re-establish node_modules junction (if needed)
         Write-Host "`nRestoring node_modules junction..." -ForegroundColor Cyan
         $frontendPath = Join-Path $TargetPath "dry-farm"
         $nodeModulesJunction = Join-Path $frontendPath "node_modules"
         $scriptDir = Split-Path $PSScriptRoot -Parent
         $runtimeNodeModules = Join-Path $scriptDir "runtime\node_modules"
         
-        # 檢查 runtime/node_modules 是否存在
+        # Check if runtime/node_modules exists
         if (Test-Path $runtimeNodeModules) {
-            # 如果 junction 不存在，重新建立
+            # If junction doesn't exist, re-establish it
             if (-not (Test-Path $nodeModulesJunction)) {
                 try {
                     Write-Host "Creating node_modules junction: $nodeModulesJunction -> $runtimeNodeModules" -ForegroundColor Yellow
                     New-Item -ItemType Junction -Path $nodeModulesJunction -Target $runtimeNodeModules -Force | Out-Null
-                    Write-Host "  ✓ node_modules junction created successfully" -ForegroundColor Green
+                    Write-Host "  [OK] node_modules junction created successfully" -ForegroundColor Green
                 }
                 catch {
-                    Write-Host "  ⚠ Failed to create node_modules junction: $($_.Exception.Message)" -ForegroundColor Red
+                    Write-Host "  [WARNING] Failed to create node_modules junction: $($_.Exception.Message)" -ForegroundColor Red
                     Write-Host "  You may need to run 'npm install' in the dry-farm directory" -ForegroundColor Yellow
                 }
             } else {
-                Write-Host "  ✓ node_modules junction already exists" -ForegroundColor Green
+                Write-Host "  [OK] node_modules junction already exists" -ForegroundColor Green
             }
         } else {
-            Write-Host "  ⚠ runtime/node_modules not found, skipping junction creation" -ForegroundColor Yellow
+            Write-Host "  [WARNING] runtime/node_modules not found, skipping junction creation" -ForegroundColor Yellow
             Write-Host "  Please run the frontend installation script first" -ForegroundColor Yellow
         }
         
-        Write-Host "`nSynchronization completed successfully!" -ForegroundColor Green
-        return $true
+    Write-Host "`nSynchronization completed successfully!" -ForegroundColor Green
+    return $true
     }
     catch {
         Write-Host "Synchronization failed with exception: $($_.Exception.Message)" -ForegroundColor Red
@@ -1134,7 +1134,7 @@ function Invoke-FullDeploy {
     Write-Host "Full Deployment Process" -ForegroundColor Magenta
     Write-Host "=======================" -ForegroundColor Magenta
     
-    # Step 1: 停止服務
+    # Step 1: Stop services
     Write-Host "`nStep 1: Stopping services..." -ForegroundColor Cyan
     Stop-AercService $apiServiceName
     Stop-AercService $frontendServiceName
@@ -1155,7 +1155,7 @@ function Invoke-FullDeploy {
         return $false
     }
     
-    # Step 4: 重新啟動服務
+    # Step 4: Restart services
     Write-Host "`nStep 4: Restarting services..." -ForegroundColor Cyan
     Start-Sleep -Seconds 3
     Start-AercService $apiServiceName
@@ -1272,9 +1272,9 @@ Write-Host "  .\Manage_Services.ps1 -Action checkout -SvnUrl 'https://repo/trunk
 Write-Host "  .\Manage_Services.ps1 -Action sync -CheckoutPath 'custom\path' -TargetPath 'production'" -ForegroundColor White
 
 Write-Host "`nNote:" -ForegroundColor Yellow
-Write-Host "  • Service operations (start/stop/restart/remove/deploy) require Administrator privileges" -ForegroundColor Gray
-Write-Host "  • Please run PowerShell as Administrator for service management operations" -ForegroundColor Gray
-Write-Host "  • Status, logs, checkout, and sync can run without elevation" -ForegroundColor Gray
+Write-Host "  - Service operations (start/stop/restart/remove/deploy) require Administrator privileges" -ForegroundColor Gray
+Write-Host "  - Please run PowerShell as Administrator for service management operations" -ForegroundColor Gray
+Write-Host "  - Status, logs, checkout, and sync can run without elevation" -ForegroundColor Gray
 '@
 Set-Content -Path (Join-Path $scriptsPath "Manage_Services.ps1") -Value $manageServicesContent -Encoding UTF8
 Write-Host "Generated: Manage_Services.ps1" -ForegroundColor Green
