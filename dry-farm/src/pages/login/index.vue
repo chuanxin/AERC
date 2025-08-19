@@ -173,7 +173,7 @@
                   class="pa-0 ma-0"
                 >
                   <!-- Step 1 -->
-                  <v-stepper-window-item value="0">
+                  <v-stepper-window-item value="1">
                     <v-form class="mt-6">
                       <v-text-field
                         v-model="registerForm.account"
@@ -206,7 +206,7 @@
                   </v-stepper-window-item>
 
                   <!-- Step 2 -->
-                  <v-stepper-window-item value="1">
+                  <v-stepper-window-item value="2">
                     <v-form class="mt-6">
                       <v-text-field
                         v-model="registerForm.name"
@@ -251,7 +251,7 @@
 
         <div class="pa-0 ma-0">
           <v-btn
-            v-if="currentStep === 1 && activeForm === 'register'"
+            v-if="currentStep === '2' && activeForm === 'register'"
             variant="text"
             class="mb-2"
             block
@@ -509,7 +509,7 @@
     console.log('Registration submitted:', registerForm.value)
   }
 
-  const currentStep = ref(0)
+  const currentStep = ref("1")
   const loginForm = ref({
     account: '',
     password: ''
@@ -539,19 +539,19 @@
 
   const handleStep = (direction: 'next' | 'prev') => {
     if (direction === 'next') {
-      if (currentStep.value === 1) {
+      if (currentStep.value === "2") {
         handleRegistration()
         return
       }
-      currentStep.value++
+      currentStep.value = currentStep.value === "1" ? "2" : "1"
     } else {
-      currentStep.value--
+      currentStep.value = currentStep.value === "2" ? "1" : "2"
     }
   }
 
   const getButtonText = computed(() => {
     if (activeForm.value === 'login') return '登入'
-    return currentStep.value === 0 ? '下一步' : '註冊'
+    return currentStep.value === "1" ? '下一步' : '註冊'
   })
 
   // watchEffect(() => {
