@@ -55,16 +55,42 @@ def setup_kaiu_font():
     try:
         from reportlab.pdfbase.ttfonts import TTFont
         from reportlab.pdfbase import pdfmetrics
+        import platform
         
-        kaiu_path = '/usr/share/fonts/truetype/kaiu/kaiu.ttf'
-        if os.path.exists(kaiu_path):
-            try:
-                pdfmetrics.registerFont(TTFont('KaiU', kaiu_path))
-                print(f"Successfully registered KaiU font from {kaiu_path}")
-                return True, 'KaiU'
-            except Exception as e:
-                print(f"Failed to register KaiU font: {e}")
+        # 根據作業系統選擇字體路徑
+        system = platform.system()
+        kaiu_paths = []
         
+        if system == "Linux":
+            kaiu_paths = [
+                '/usr/share/fonts/truetype/kaiu/kaiu.ttf',
+                '/usr/local/share/fonts/kaiu.ttf'
+            ]
+        elif system == "Windows":
+            kaiu_paths = [
+                'C:/Windows/Fonts/kaiu.ttf',
+                'C:/Windows/Fonts/kaiu.TTF',
+                'fonts/kaiu.ttf',
+                './fonts/kaiu.ttf'
+            ]
+        elif system == "Darwin":  # macOS
+            kaiu_paths = [
+                '/System/Library/Fonts/kaiu.ttf',
+                '/Library/Fonts/kaiu.ttf'
+            ]
+        
+        # 嘗試找到並註冊標楷體字體
+        for kaiu_path in kaiu_paths:
+            if os.path.exists(kaiu_path):
+                try:
+                    pdfmetrics.registerFont(TTFont('KaiU', kaiu_path))
+                    print(f"Successfully registered KaiU font from {kaiu_path}")
+                    return True, 'KaiU'
+                except Exception as e:
+                    print(f"Failed to register KaiU font from {kaiu_path}: {e}")
+                    continue
+        
+        print("KaiU font not found in standard locations")
         # 回退到其他中文字體
         return setup_chinese_font()
     except ImportError:
@@ -230,7 +256,7 @@ def create_template_with_reportlab(data: dict = None) -> bytes:
     font_available, font_name = setup_kaiu_font()
     
     if not font_available:
-        raise Exception("標楷體字體不可用")
+        raise Exception("Kaiu font not available")
     
     # 頁面尺寸
     width, height = page_size

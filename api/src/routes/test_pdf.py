@@ -600,7 +600,7 @@ async def generate_kaiu_pdf_reportlab(data: dict = None):
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"ReportLab PDF 生成失敗: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"ReportLab PDF generation failed: {str(e)}")
 
 @router.get("/analyze-original-template")
 async def analyze_original_template():
