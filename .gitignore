@@ -94,3 +94,6 @@ dev/
 
 # SpecStory
 .specstory/
+
+# GitHub
+.github/
