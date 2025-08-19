@@ -90,3 +90,9 @@ CLAUDE.md
 
 # Deployment files
 dev/
+
+# SpecStory
+.specstory/
+
+# GitHub
+.github/
