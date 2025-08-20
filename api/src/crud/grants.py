@@ -18,6 +18,7 @@ from src.schemas.token import Status
 
 from datetime import datetime, date
 
+import json
 import logging
 import pytz
 
@@ -882,6 +883,11 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                     
                     # Import and call the synchronization function
                     from src.crud.grant_locations import sync_grant_locations
+                    
+                    # /debug
+                    logger.info(f"🔍 [DEBUG] Step2資料內容: {json.dumps(actual_data, ensure_ascii=False, indent=2)}")
+                    # debug/
+                    
                     await sync_grant_locations(grant.id, actual_data)
 
                     logger.info(f"Step 2 資料處理完成，案件: {case_number}, 版本: {current_version.version}")
