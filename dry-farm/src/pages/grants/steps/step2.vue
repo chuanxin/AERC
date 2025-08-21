@@ -2005,15 +2005,22 @@ const createCascadeSelectManager = (
   },
 
   resetCascadeSelections: (level: 'county' | 'town' | 'village') => {
-    if (guard.isInitializing) return
+    // 🔥 修復：防止載入時錯誤清空級聯選擇
+    if (guard.isInitializing) {
+      console.log('⏸️ resetCascadeSelections blocked during data loading')
+      return
+    }
 
+    console.log(`🔄 resetCascadeSelections: ${level}`)
     switch (level) {
       case 'county':
         formData.landTown = ''
         formData.landSec = ''
+        console.log('  → Cleared landTown and landSec')
         break
       case 'town':
         formData.landSec = ''
+        console.log('  → Cleared landSec')
         break
     }
   }
@@ -2243,41 +2250,61 @@ const landUtils = {
     owners: [...localFormData.owners]
   }),
 
-  // 將土地資料載入到當前表單
+  // 🔥 修復：防止載入時觸發級聯重置的土地資料載入
   loadLandToCurrentForm: (land: LandData): void => {
-    Object.assign(localFormData, {
-      landCounty: land.landCounty,
-      landTown: land.landTown,
-      landSec: land.landSec,
-      landNumber: land.landNumber,
-      landNumberMain: land.landNumberMain,
-      landNumberSub: land.landNumberSub,
-      isAboriginalArea: land.isAboriginalArea,
-      isIrrigationArea: land.isIrrigationArea,
-      isReapplied: land.isReapplied,
-      hasAgriculturalCertificate: land.hasAgriculturalCertificate,
-      certificateYear: land.certificateYear,
-      certificateMonth: land.certificateMonth,
-      certificateDay: land.certificateDay,
-      longitude: land.longitude,
-      latitude: land.latitude,
-      landArea: land.landArea,
-      landAreaHa: land.landAreaHa,
-      facilityArea: land.facilityArea,
-      facilityAreaHa: land.facilityAreaHa,
-      cropCategory: land.cropCategory,
-      cropName: land.cropName,
-      crops: [...land.crops],
-      ownerName: land.ownerName,
-      ownerId: land.ownerId,
-      ownerCounty: land.ownerCounty,
-      ownerTown: land.ownerTown,
-      ownerVillage: land.ownerVillage,
-      ownerShare1: land.ownerShare1,
-      ownerShare2: land.ownerShare2,
-      ownerArea: land.ownerArea,
-      owners: [...land.owners]
-    })
+    console.log('🔧 loadLandToCurrentForm - Starting land data load...')
+    
+    // 暫時標記為載入模式，防止級聯重置
+    initGuard.isInitializing = true
+    
+    try {
+      // 確保資料類型正確轉換  
+      Object.assign(localFormData, {
+        landCounty: typeof land.landCounty === 'string' ? parseInt(land.landCounty) || land.landCounty : land.landCounty,
+        landTown: typeof land.landTown === 'string' ? parseInt(land.landTown) || land.landTown : land.landTown,
+        landSec: typeof land.landSec === 'string' ? parseInt(land.landSec) || land.landSec : land.landSec,
+        landNumber: land.landNumber,
+        landNumberMain: land.landNumberMain,
+        landNumberSub: land.landNumberSub,
+        isAboriginalArea: land.isAboriginalArea,
+        isIrrigationArea: land.isIrrigationArea,
+        isReapplied: land.isReapplied,
+        hasAgriculturalCertificate: land.hasAgriculturalCertificate,
+        certificateYear: land.certificateYear,
+        certificateMonth: land.certificateMonth,
+        certificateDay: land.certificateDay,
+        longitude: land.longitude,
+        latitude: land.latitude,
+        landArea: land.landArea,
+        landAreaHa: land.landAreaHa,
+        facilityArea: land.facilityArea,
+        facilityAreaHa: land.facilityAreaHa,
+        cropCategory: land.cropCategory,
+        cropName: land.cropName,
+        crops: [...land.crops],
+        ownerName: land.ownerName,
+        ownerId: land.ownerId,
+        ownerCounty: typeof land.ownerCounty === 'string' ? parseInt(land.ownerCounty) || land.ownerCounty : land.ownerCounty,
+        ownerTown: typeof land.ownerTown === 'string' ? parseInt(land.ownerTown) || land.ownerTown : land.ownerTown,
+        ownerVillage: typeof land.ownerVillage === 'string' ? parseInt(land.ownerVillage) || land.ownerVillage : land.ownerVillage,
+        ownerShare1: land.ownerShare1,
+        ownerShare2: land.ownerShare2,
+        ownerArea: land.ownerArea,
+        owners: [...land.owners]
+      })
+      
+      console.log('🔧 loadLandToCurrentForm - Data loaded:')
+      console.log('  landCounty:', localFormData.landCounty, typeof localFormData.landCounty)
+      console.log('  landTown:', localFormData.landTown, typeof localFormData.landTown)
+      console.log('  landSec:', localFormData.landSec, typeof localFormData.landSec)
+      
+    } finally {
+      // 使用 nextTick 確保 Vue 響應性更新完成後再開啟級聯重置
+      nextTick(() => {
+        initGuard.isInitializing = false
+        console.log('✅ loadLandToCurrentForm - Cascade reset protection disabled')
+      })
+    }
   },
 
   // 清空當前表單
@@ -2821,7 +2848,7 @@ const addNewLand = () => {
   console.log('✅ step2.vue: Ready for new land input')
 }
 
-const editLand = (landId: string) => {
+const editLand = async (landId: string) => {
   console.log('✏️ step2.vue: Editing land:', landId)
 
   const land = landManagement.lands.find(l => l.id === landId)
@@ -2830,7 +2857,16 @@ const editLand = (landId: string) => {
     return
   }
 
-  // 載入土地資料到當前表單
+  // 🔥 P0 修復：載入該土地的級聯資料
+  console.log('🔗 Loading cascade data for editing land...')
+  try {
+    await preloadCascadeDataForLands([land])
+    console.log('✅ Cascade data loaded for editing')
+  } catch (error) {
+    console.warn('⚠️ Failed to load cascade data for editing:', error)
+  }
+
+  // 載入土地資料到當前表單（修復後的版本包含類型轉換）
   landUtils.loadLandToCurrentForm(land)
 
   // 設置為編輯模式
@@ -2966,9 +3002,183 @@ defineExpose({
   }))
 });
 
-// 生命週期管理 - 防護機制
-onMounted(() => {
+// 🔥 P0 修復：級聯選擇載入邏輯
+// Linus 原則：Simple, Predictable, Fast
+
+// 簡化的級聯資料預載 - 消除複雜的保護機制
+const preloadCascadeDataForLands = async (lands: LandData[]) => {
+  console.log('🔧 [P0 Fix] Preloading cascade data for lands...')
+  
+  try {
+    // 1. 確保縣市資料已載入
+    if (!domicileStore.countyOptions.length) {
+      console.log('📍 Loading counties...')
+      await domicileStore.loadCounties()
+    }
+
+    // 2. 收集所有需要的縣市和鄉鎮ID
+    const countyIds = new Set<number>()
+    const townIds = new Set<number>()
+    
+    lands.forEach(land => {
+      if (land.landCounty && typeof land.landCounty === 'number') {
+        countyIds.add(land.landCounty)
+      }
+      if (land.landTown && typeof land.landTown === 'number') {
+        townIds.add(land.landTown)
+      }
+    })
+
+    // 3. 平行載入所有需要的鄉鎮資料
+    const townPromises = Array.from(countyIds).map(async (countyId) => {
+      console.log(`📍 Loading towns for county ${countyId}...`)
+      try {
+        await domicileStore.loadTownsByCountyId(countyId)
+      } catch (error) {
+        console.warn(`⚠️ Failed to load towns for county ${countyId}:`, error)
+      }
+    })
+
+    await Promise.all(townPromises)
+
+    // 4. 平行載入所有需要的地段資料  
+    const sectionPromises = Array.from(townIds).map(async (townId) => {
+      console.log(`📍 Loading sections for town ${townId}...`)
+      try {
+        await domicileStore.loadLandSectionsByTownId(townId)
+      } catch (error) {
+        console.warn(`⚠️ Failed to load sections for town ${townId}:`, error)
+      }
+    })
+
+    await Promise.all(sectionPromises)
+    
+    console.log('✅ [P0 Fix] Cascade data preloading completed')
+  } catch (error) {
+    console.error('❌ [P0 Fix] Cascade data preloading failed:', error)
+  }
+}
+
+// 修復初始化邏輯 - 去除過度複雜的保護機制
+const initializeStep2WithCascadeData = async () => {
+  console.log('🎯 [P0 Fix] Initializing Step2 with proper cascade loading...')
+  
+  try {
+    // 標記開始初始化
+    initGuard.isInitializing = true
+    
+    // 1. 首先載入步驟資料
+    const caseNumber = grantsStore.caseNumber
+    if (!caseNumber) {
+      console.log('⚠️ No case number available, skipping data load')
+      return
+    }
+
+    console.log(`📦 Loading step data for case: ${caseNumber}`)
+    const stepData = await grantsStore.loadStepData(caseNumber, 2)
+    
+    // 2. 處理土地資料 - 向後相容
+    let lands: LandData[] = []
+    
+    if (stepData?.lands?.length) {
+      // 新版多筆土地資料
+      lands = stepData.lands as LandData[]
+      console.log(`📍 Found ${lands.length} lands in new format`)
+    } else if (stepData?.landCounty) {
+      // 向後相容：轉換舊版單筆資料
+      const legacyLand = {
+        id: 'legacy_land_1',
+        landCounty: stepData.landCounty,
+        landTown: stepData.landTown, 
+        landSec: stepData.landSec,
+        landNumber: stepData.landNumber || '',
+        landNumberMain: stepData.landNumberMain || '',
+        landNumberSub: stepData.landNumberSub || '',
+        isAboriginalArea: stepData.isAboriginalArea || false,
+        isIrrigationArea: stepData.isIrrigationArea || false,
+        isReapplied: stepData.isReapplied || false,
+        hasAgriculturalCertificate: stepData.hasAgriculturalCertificate || false,
+        certificateYear: stepData.certificateYear || '',
+        certificateMonth: stepData.certificateMonth || '',
+        certificateDay: stepData.certificateDay || '',
+        longitude: stepData.longitude || '',
+        latitude: stepData.latitude || '',
+        landArea: stepData.landArea || '',
+        landAreaHa: stepData.landAreaHa || '',
+        facilityArea: stepData.facilityArea || '',
+        facilityAreaHa: stepData.facilityAreaHa || '',
+        cropCategory: stepData.cropCategory || '',
+        cropName: stepData.cropName || '',
+        crops: stepData.crops || [],
+        ownerName: stepData.ownerName || '',
+        ownerId: stepData.ownerId || '',
+        ownerCounty: stepData.ownerCounty || '',
+        ownerTown: stepData.ownerTown || '',
+        ownerVillage: stepData.ownerVillage || '',
+        ownerShare1: stepData.ownerShare1 || '',
+        ownerShare2: stepData.ownerShare2 || '',
+        ownerArea: stepData.ownerArea || '',
+        owners: stepData.owners || []
+      } as LandData
+      
+      lands = [legacyLand]
+      console.log('🔄 Converted legacy single land data')
+    }
+
+    // 3. 關鍵修復：預載所有級聯資料
+    if (lands.length > 0) {
+      await preloadCascadeDataForLands(lands)
+    } else {
+      // 即使沒有土地資料，也要載入基本的縣市資料
+      if (!domicileStore.countyOptions.length) {
+        await domicileStore.loadCounties()
+      }
+    }
+
+    // 4. 更新元件狀態
+    landManagement.lands = lands
+    localFormData.lands = lands
+    
+    // 5. 如果有單筆土地資料，同時更新向後相容的欄位
+    if (lands.length === 1) {
+      const land = lands[0]
+      Object.assign(localFormData, {
+        landCounty: land.landCounty,
+        landTown: land.landTown,
+        landSec: land.landSec,
+        landNumber: land.landNumber,
+        landNumberMain: land.landNumberMain,
+        landNumberSub: land.landNumberSub,
+        // ... 其他欄位保持原有邏輯
+      })
+    }
+    
+    // 完成初始化
+    initGuard.isInitialized = true
+    initGuard.isInitializing = false
+    
+    console.log('✅ [P0 Fix] Step2 initialization completed successfully')
+    
+  } catch (error) {
+    console.error('❌ [P0 Fix] Step2 initialization failed:', error)
+    initGuard.isInitializing = false
+    // 確保即使初始化失敗，基本的縣市資料也要載入
+    try {
+      if (!domicileStore.countyOptions.length) {
+        await domicileStore.loadCounties()
+      }
+    } catch (fallbackError) {
+      console.error('❌ Even fallback county loading failed:', fallbackError)
+    }
+  }
+}
+
+// 生命週期管理 - 使用修復後的邏輯
+onMounted(async () => {
   window.addEventListener('beforeunload', beforeUnloadHandler)
+  
+  // 🔥 P0 修復：使用新的初始化邏輯
+  await initializeStep2WithCascadeData()
 })
 
 onUnmounted(() => {
