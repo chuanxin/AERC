@@ -13,15 +13,16 @@
           v-model="localValid"
           @submit.prevent
         >
-          <!-- 多筆土地資料管理區域 -->
+          <!-- 多筆土地資料管理區域 - 僅在非編輯模式時顯示 -->
           <v-card
+            v-show="!landManagement.isEditingMode"
             flat
             class="mb-4 pa-4"
             color="#f8f9fa"
             rounded="lg"
           >
             <v-card-title
-              class="text-subtitle-1 font-weight-bold pa-0 pb-4"
+              class="text-subtitle-1 font-weight-bold pa-0 pb-4 d-flex align-center"
               style="color: #2d8c8f"
             >
               <v-icon
@@ -33,7 +34,9 @@
               </v-icon>
               <span>土地資料管理</span>
               <v-spacer />
+              <!-- 只在有土地資料時顯示新增按鈕 -->
               <v-btn
+                v-if="landManagement.lands.length > 0"
                 color="#3ea0a3"
                 variant="flat"
                 rounded="lg"
@@ -180,38 +183,49 @@
               </v-row>
             </div>
 
-            <!-- 空狀態提示 -->
+            <!-- 空狀態：友善引導設計 -->
             <v-sheet
               v-else
-              class="pa-6 text-center rounded"
-              color="rgba(158, 158, 158, 0.1)"
+              class="pa-8 text-center rounded"
+              color="rgba(62, 160, 163, 0.05)"
             >
-              <v-icon
-                size="48"
-                color="grey"
-                class="mb-3"
-              >
-                mdi-map-plus
-              </v-icon>
-              <div class="text-h6 text-grey-darken-1 mb-2">
-                尚未新增任何土地資料
+              <!-- 情感連結：友善的視覺引導 -->
+              <div class="mb-4">
+                <v-icon
+                  size="64"
+                  color="#3ea0a3"
+                  class="mb-3"
+                >
+                  mdi-map-plus
+                </v-icon>
               </div>
-              <div class="text-body-2 text-grey mb-4">
-                請點擊上方「新增土地」按鈕開始建立您的第一筆土地資料
+
+              <!-- 認知引導：清晰的狀態說明 -->
+              <div class="mb-6">
+                <h4 class="text-h6 font-weight-bold mb-3" style="color: #2d8c8f;">
+                  尚未新增任何土地資料
+                </h4>
+                <p class="text-body-1 text-grey-darken-1 mb-1">
+                  您可以新增多筆土地資料，系統會自動計算總施作面積
+                </p>
               </div>
+
+              <!-- 行動召喚：降低使用者啟動阻力 -->
               <v-btn
                 color="#3ea0a3"
                 variant="flat"
                 rounded="lg"
+                size="large"
+                class="px-8 py-2"
                 @click="addNewLand"
               >
                 <v-icon
                   size="small"
-                  class="me-1"
+                  class="me-2"
                 >
                   mdi-plus
                 </v-icon>
-                新增土地
+                新增第一筆土地資料
               </v-btn>
             </v-sheet>
           </v-card>
@@ -224,8 +238,29 @@
             color="#e3f4f4"
             rounded="lg"
           >
+            <!-- 狀態指示條 -->
+            <v-alert
+              type="info"
+              variant="tonal"
+              density="compact"
+              class="ma-0 mb-4"
+              color="warning"
+              prominent
+            >
+              <template #prepend>
+                <v-icon size="small">mdi-pencil-lock</v-icon>
+              </template>
+              <div class="d-flex align-center justify-space-between">
+                <span class="text-body-2">
+                  {{ landManagement.currentEditingLandId ? '編輯模式' : '新增模式' }}
+                </span>
+                <v-chip size="x-small" color="warning" variant="tonal">
+                  編輯中
+                </v-chip>
+              </div>
+            </v-alert>
             <v-card-title
-              class="text-subtitle-1 font-weight-bold pa-0 pb-4"
+              class="text-subtitle-1 font-weight-bold pa-0 pb-4 d-flex align-center"
               style="color: #2d8c8f"
             >
               <v-icon
@@ -256,35 +291,23 @@
               </v-btn>
             </v-card-title>
 
-            <!-- 編輯操作按鈕 -->
-            <div class="d-flex gap-3 mb-4">
+            <!-- 頂部操作按鈕：便利性設計 -->
+            <div class="d-flex gap-3 mb-6 pb-4 border-b border-grey-lighten-2">
               <v-btn
                 color="success"
                 variant="flat"
                 rounded="lg"
+                size="large"
+                class="flex-grow-1"
                 @click="saveLandEdit"
               >
                 <v-icon
                   size="small"
-                  class="me-1"
+                  class="me-2"
                 >
                   mdi-content-save
                 </v-icon>
-                {{ landManagement.currentEditingLandId ? '更新土地' : '儲存土地' }}
-              </v-btn>
-              <v-btn
-                variant="outlined"
-                color="grey"
-                rounded="lg"
-                @click="cancelLandEdit"
-              >
-                <v-icon
-                  size="small"
-                  class="me-1"
-                >
-                  mdi-cancel
-                </v-icon>
-                取消
+                {{ landManagement.currentEditingLandId ? '更新土地資料' : '儲存土地資料' }}
               </v-btn>
             </div>
 
@@ -1052,6 +1075,25 @@
                 </tbody>
               </v-table>
             </v-sheet>
+            <!-- 底部操作按鈕：易達性設計 -->
+            <div class="d-flex gap-3 mt-6 pt-4 border-t border-grey-lighten-2">
+              <v-btn
+                color="success"
+                variant="flat"
+                rounded="lg"
+                size="large"
+                class="flex-grow-1"
+                @click="saveLandEdit"
+              >
+                <v-icon
+                  size="small"
+                  class="me-2"
+                >
+                  mdi-content-save
+                </v-icon>
+                {{ landManagement.currentEditingLandId ? '更新土地資料' : '儲存土地資料' }}
+              </v-btn>
+            </div>
           </v-card>
 
           <!-- 所有權人資料區域 (已隱藏) -->
@@ -1734,6 +1776,13 @@ interface Step2Events {
   'validation-changed': [eventData: { step: number; valid: boolean }];
   'ready-to-proceed': [eventData: { step: number; data: Record<string, unknown> }];
   'go-back-requested': [eventData: { step: number }];
+  // 新增：導航狀態控制事件
+  'navigation-state-changed': [eventData: {
+    step: number;
+    canNavigate: boolean;
+    isEditing: boolean;
+    reason?: string;
+  }];
 }
 
 // 事件驅動架構：定義 emits
@@ -2767,7 +2816,7 @@ const addNewLand = () => {
 
   // 設置為新增模式
   landManagement.currentEditingLandId = null
-  landManagement.isEditingMode = true
+  landManagement.isEditingMode = true // 這裡會觸發 watch，自動發送事件
 
   console.log('✅ step2.vue: Ready for new land input')
 }
@@ -2811,7 +2860,7 @@ const saveLandEdit = () => {
     console.log('✅ step2.vue: New land added successfully')
   }
 
-  // 退出編輯模式
+  // 退出編輯模式（會自動觸發導航狀態更新）
   cancelLandEdit()
 
   // 同步到 localFormData.lands 以便儲存
@@ -2831,7 +2880,7 @@ const cancelLandEdit = () => {
 
   // 退出編輯模式
   landManagement.currentEditingLandId = null
-  landManagement.isEditingMode = false
+  landManagement.isEditingMode = false // 這裡會觸發 watch，自動發送事件
 
   console.log('✅ step2.vue: Edit cancelled')
 }
@@ -2860,6 +2909,22 @@ const deleteLand = (landId: string) => {
   }
 }
 
+// 編輯狀態監聽與事件發送
+watch(() => landManagement.isEditingMode, (isEditing, wasEditing) => {
+  // 避免初始化時觸發
+  if (isEditing === wasEditing) return
+
+  console.log(`🎛️ step2.vue: Navigation state changed - isEditing: ${isEditing}`)
+
+  // 發送導航狀態變更事件
+  emit('navigation-state-changed', {
+    step: 2,
+    canNavigate: !isEditing,
+    isEditing: isEditing,
+    reason: isEditing ? '正在編輯土地資料，請先完成或取消編輯' : undefined
+  })
+}, { immediate: false })
+
 // 向後相容性處理：從舊版單筆土地資料轉換為多筆土地格式
 const convertLegacyDataToMultipleLands = () => {
   // 檢查是否有舊版資料但沒有新版 lands 陣列
@@ -2878,11 +2943,37 @@ const convertLegacyDataToMultipleLands = () => {
   }
 }
 
-// 事件驅動架構:暴露方法給父組件
+// 瀏覽器原生防護
+const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
+  if (landManagement.isEditingMode) {
+    event.preventDefault()
+    event.returnValue = '您有未完成的土地資料編輯，確定要離開嗎？'
+    return event.returnValue
+  }
+}
+
+// 事件驅動架構:暴露方法給父組件 + 新增編輯狀態暴露
 defineExpose({
   handleProceedToNext,
-  handleGoBack
+  handleGoBack,
+  // 新增：編輯狀態暴露
+  isEditingMode: computed(() => landManagement.isEditingMode),
+  canNavigate: computed(() => !landManagement.isEditingMode),
+  navigationState: computed(() => ({
+    canNavigate: !landManagement.isEditingMode,
+    blockingReason: landManagement.isEditingMode ? '正在編輯土地資料' : null,
+    hasUnsavedChanges: landManagement.isEditingMode
+  }))
 });
+
+// 生命週期管理 - 防護機制
+onMounted(() => {
+  window.addEventListener('beforeunload', beforeUnloadHandler)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', beforeUnloadHandler)
+})
 
 // Area calculations
 watch(() => localFormData.landArea, stepManager.createProtectedWatch((...args: unknown[]) => {

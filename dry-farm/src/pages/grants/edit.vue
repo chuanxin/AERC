@@ -209,24 +209,42 @@
                     <div class="d-flex">
                       <v-btn
                         v-if="currentStep > 1"
-                        :disabled="isNavigating"
+                        :disabled="isNavigating || !canGoToPreviousStep"
                         icon
                         variant="text"
                         rounded="circle"
                         @click="handleGoBack"
                       >
                         <v-icon>mdi-arrow-left</v-icon>
+                        
+                        <!-- 禁用狀態提示 -->
+                        <v-tooltip 
+                          v-if="!canGoToPreviousStep && navigationBlockingReason" 
+                          activator="parent"
+                          location="top"
+                        >
+                          {{ navigationBlockingReason }}
+                        </v-tooltip>
                       </v-btn>
 
                       <v-btn
                         v-if="currentStep < steps.length"
-                        :disabled="isNavigating"
+                        :disabled="isNavigating || !canGoToNextStep"
                         icon
                         variant="text"
                         rounded="circle"
                         @click="goToNextStep"
                       >
                         <v-icon>mdi-arrow-right</v-icon>
+                        
+                        <!-- 禁用狀態提示 -->
+                        <v-tooltip 
+                          v-if="!canGoToNextStep && navigationBlockingReason" 
+                          activator="parent"
+                          location="top"
+                        >
+                          {{ navigationBlockingReason }}
+                        </v-tooltip>
                       </v-btn>
                     </div>
                   </div>
@@ -332,6 +350,7 @@
                         @validation-changed="handleStepValidationChanged"
                         @ready-to-proceed="handleStepReadyToProceed"
                         @go-back-requested="handleGoBack"
+                        @navigation-state-changed="handleNavigationStateChanged"
                       />
                       <step3
                         v-if="currentStep === 3"
@@ -397,7 +416,8 @@
 
                     <v-btn
                       v-if="currentStep > 1"
-                      :disabled="isNavigating"
+                      :disabled="isNavigating || !canGoToPreviousStep"
+                      :class="{ 'navigation-blocked': !canGoToPreviousStep }"
                       size="x-large"
                       class="ml-6 mb-1 pr-6 navigation-btn"
                       color="#3ea0a3"
@@ -407,14 +427,27 @@
                       :ripple="false"
                       @click="handleGoBack"
                     >
-                      <v-icon start>
+                      <v-icon 
+                        start
+                        :color="canGoToPreviousStep ? 'primary' : 'grey'"
+                      >
                         mdi-arrow-left
                       </v-icon>
                       上一步
+                      
+                      <!-- 禁用狀態提示 -->
+                      <v-tooltip 
+                        v-if="!canGoToPreviousStep && navigationBlockingReason" 
+                        activator="parent"
+                        location="top"
+                      >
+                        {{ navigationBlockingReason }}
+                      </v-tooltip>
                     </v-btn>
 
                     <v-btn
-                      :disabled="isNavigating"
+                      :disabled="isNavigating || !canGoToNextStep"
+                      :class="{ 'navigation-blocked': !canGoToNextStep }"
                       :color="currentStep === 7 ? step7ButtonConfig.color : '#3ea0a3'"
                       class="mr-6 pl-6 next-btn"
                       size="x-large"
@@ -441,21 +474,33 @@
                       <v-icon
                         v-if="currentStep === 8"
                         end
+                        :color="canGoToNextStep ? 'white' : 'grey'"
                       >
                         mdi-check
                       </v-icon>
                       <v-icon
                         v-else-if="currentStep === 7"
                         end
+                        :color="canGoToNextStep ? 'white' : 'grey'"
                       >
                         {{ step7ButtonConfig.icon }}
                       </v-icon>
                       <v-icon
                         v-else
                         end
+                        :color="canGoToNextStep ? 'white' : 'grey'"
                       >
                         mdi-arrow-right
                       </v-icon>
+                      
+                      <!-- 禁用狀態提示 -->
+                      <v-tooltip 
+                        v-if="!canGoToNextStep && navigationBlockingReason" 
+                        activator="parent"
+                        location="top"
+                      >
+                        {{ navigationBlockingReason }}
+                      </v-tooltip>
                     </v-btn>
                   </v-card-actions>
                 </v-card>
@@ -609,6 +654,29 @@ const isDataLoaded = ref(false)
 const isNavigating = ref(false)
 const autoSaveTimer = ref<number | null>(null)
 
+// 新增：導航狀態管理
+const navigationStates = ref<Record<number, {
+  canNavigate: boolean;
+  isEditing: boolean;
+  reason?: string;
+}>>({})
+
+// 新增：統一導航控制計算屬性
+const canGoToPreviousStep = computed(() => {
+  const currentStepState = navigationStates.value[currentStep.value]
+  return currentStepState ? currentStepState.canNavigate : true
+})
+
+const canGoToNextStep = computed(() => {
+  const currentStepState = navigationStates.value[currentStep.value]
+  return currentStepState ? currentStepState.canNavigate : true
+})
+
+const navigationBlockingReason = computed(() => {
+  const currentStepState = navigationStates.value[currentStep.value]
+  return currentStepState?.reason || null
+})
+
 // Step7 按鈕配置
 const step7ButtonConfig = ref({
   text: '結案',
@@ -735,8 +803,14 @@ const updateStepInURL = (step: number) => {
   debouncedUpdateStepInURL(step)
 }
 
-// Helper function to trigger next step
+// Helper function to trigger next step + 新增導航狀態檢查
 const goToNextStep = () => {
+  // 檢查當前步驟是否允許導航
+  if (!canGoToNextStep.value) {
+    console.log('🚫 edit.vue: Navigation blocked -', navigationBlockingReason.value)
+    return
+  }
+
   if (currentStep.value < steps.length) {
     // 🆕 統一事件驅動：使用映射表統一處理所有步驟
     const stepComponent = stepRefs[currentStep.value]
@@ -779,7 +853,24 @@ const handleSaveForImprovement = async () => {
   }
 }
 
-// 修改按鈕點擊邏輯
+// 新增：處理來自步驟組件的導航狀態變更
+const handleNavigationStateChanged = (eventData: {
+  step: number;
+  canNavigate: boolean;
+  isEditing: boolean;
+  reason?: string;
+}) => {
+  console.log(`🎛️ edit.vue: Navigation state changed for step ${eventData.step}:`, eventData)
+  
+  // 更新對應步驟的導航狀態
+  navigationStates.value[eventData.step] = {
+    canNavigate: eventData.canNavigate,
+    isEditing: eventData.isEditing,
+    reason: eventData.reason
+  }
+}
+
+// 修改現有的導航函數，結合新的導航狀態檢查
 const handleMainButtonClick = () => {
   console.log('主按鈕點擊:', {
     currentStep: currentStep.value,
@@ -1104,8 +1195,14 @@ const handleStepClick = (stepValue: number) => {
   })
 }
 
-// Go back handler with improved navigation flow
+// Go back handler with improved navigation flow + 新增導航狀態檢查
 const handleGoBack = async () => {
+  // 檢查當前步驟是否允許導航
+  if (!canGoToPreviousStep.value) {
+    console.log('🚫 edit.vue: Navigation blocked -', navigationBlockingReason.value)
+    return
+  }
+
   if (currentStep.value > 1 && !isNavigating.value) {
     try {
       isNavigating.value = true
@@ -1430,6 +1527,30 @@ onBeforeRouteLeave((to, from, next) => {
   border-radius: 12px;
 }
 
+/* 禁用狀態樣式 */
+.navigation-blocked {
+  position: relative;
+  transition: all 0.3s ease;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(158, 158, 158, 0.1);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  
+  /* 禁用時的視覺回饋 */
+  &:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
 /* 按鈕懸停效果 */
 .next-btn {
   font-weight: 500;
@@ -1437,9 +1558,7 @@ onBeforeRouteLeave((to, from, next) => {
   transition: all 0.2s ease;
 }
 
-.next-btn:hover {
-  /* transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); */
+.next-btn:hover:not(.navigation-blocked) {
   background-color: #3ea0a3 !important;
   color: white !important;
 }
@@ -1450,9 +1569,28 @@ onBeforeRouteLeave((to, from, next) => {
   font-weight: 500;
 }
 
-.navigation-btn:hover {
-  /* transform: translateY(-2px); */
+.navigation-btn:hover:not(.navigation-blocked) {
   box-shadow: 0 2px 8px rgba(62, 160, 163, 0.2) !important;
+}
+
+/* 編輯模式狀態指示器 */
+.step-indicator {
+  .v-chip {
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  
+  .editing-pulse {
+    animation: editingPulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes editingPulse {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); 
+  }
+  50% { 
+    box-shadow: 0 0 0 8px rgba(255, 193, 7, 0); 
+  }
 }
 
 /* Spinner animation for loading icon */
