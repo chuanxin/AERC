@@ -2748,12 +2748,28 @@ const ensureDefaultMaterials = () => {
 
 const calculateWidth = () => {
   const length = localFormData.fieldLength || 0;
-  const area = localFormData.facilityArea || 0;
+  const area = facilityAreaFromStep2.value || 0;
   if (length > 0 && area > 0) {
     localFormData.fieldWidth = Math.round(area / length);
   }
   // updateFormData();
 };
+
+// 🔧 Linus式修正：監聽 Step2 面積變化，自動重新計算 fieldWidth
+watch(facilityAreaFromStep2, (newArea, oldArea) => {
+  if (newArea !== oldArea) {
+    console.log(`📊 step4.vue: facilityArea changed from ${oldArea} to ${newArea}, recalculating width`);
+    calculateWidth();
+  }
+}, { immediate: false });
+
+// 也監聽 fieldLength 變化
+watch(() => localFormData.fieldLength, (newLength, oldLength) => {
+  if (newLength !== oldLength && newLength > 0) {
+    console.log(`📊 step4.vue: fieldLength changed from ${oldLength} to ${newLength}, recalculating width`);
+    calculateWidth();
+  }
+}, { immediate: false });
 
 const fetchPipeFittings = async () => {
   try {
@@ -3072,167 +3088,6 @@ const fetchPipePrice = async (pipeNumber: 1 | 2) => {
 };
 
 
-// 獲取支管價格
-// const fetchBranchPipePrice = async () => {
-//   if (!localFormData.branchPipeMaterial || !localFormData.branchPipeDiameter) return;
-
-//   try {
-//     // 模擬API調用獲取價格
-//     // console.log('Fetching branch pipe price for:', localFormData.branchPipeMaterial, localFormData.branchPipeDiameter);
-
-//     // 模擬延遲
-//     await new Promise(resolve => setTimeout(resolve, 300));
-
-//     // 模擬價格
-//     const price = Math.floor(Math.random() * 80) + 40;
-//     localFormData.branchPipeUnitPrice = price.toString();
-
-//     updateFormData();
-//   } catch (error) {
-//     console.error('Error fetching branch pipe price:', error);
-//   }
-// };
-
-// 獲取末端設施價格
-// const fetchEndFacilityPrice = async () => {
-//   if (!localFormData.endFacilityType || !localFormData.endFacilityDiameter) return;
-
-//   try {
-//     // 模擬API調用獲取價格
-//     // console.log('Fetching end facility price for:', localFormData.endFacilityType, localFormData.endFacilityDiameter);
-
-//     // 模擬延遲
-//     await new Promise(resolve => setTimeout(resolve, 300));
-
-//     // 模擬價格
-//     const price = Math.floor(Math.random() * 60) + 30;
-//     localFormData.endFacilityUnitPrice = price.toString();
-
-//     updateFormData();
-//   } catch (error) {
-//     console.error('Error fetching end facility price:', error);
-//   }
-// };
-
-// 添加主管
-// const addMainPipe = () => {
-//   if (canAddMainPipe.value) {
-//     const length = parseFloat(localFormData.mainPipeLength);
-//     const unitPrice = parseFloat(localFormData.mainPipeUnitPrice);
-//     const quantity = parseFloat(localFormData.mainPipeQuantity);
-
-//     localFormData.pipes.push({
-//       groupId: 1, // 主管配件組
-//       moduleType: '主管',
-//       name: `${localFormData.mainPipeMaterial} ${localFormData.mainPipeDiameter}`,
-//       specification: `${localFormData.mainPipeDiameter}`,
-//       unit: '支',
-//       description: `主管管線(${localFormData.mainPipeMaterial})`,
-//       unitPrice: unitPrice,
-//       quantity: quantity,
-//       totalPrice: Math.round(unitPrice * quantity)
-//     });
-
-//     // 保留補助來源，清空其他欄位
-//     const fundingSource = localFormData.fundingSource;
-//     localFormData.mainPipeLength = '';
-//     localFormData.mainPipeDiameter = '';
-//     localFormData.mainPipeMaterial = '';
-//     localFormData.mainPipeUnitPrice = '';
-//     localFormData.mainPipeQuantity = '';
-//     localFormData.fundingSource = fundingSource;
-
-//     updateFormData();
-//   }
-// };
-
-// // 添加支管
-// const addBranchPipe = () => {
-//   if (canAddBranchPipe.value) {
-//     const length = parseFloat(localFormData.branchPipeLength);
-//     const unitPrice = parseFloat(localFormData.branchPipeUnitPrice);
-//     const quantity = parseFloat(localFormData.branchPipeQuantity);
-
-//     localFormData.pipes.push({
-//       groupId: 2, // 支管配件組
-//       moduleType: '支管',
-//       name: `${localFormData.branchPipeMaterial} ${localFormData.branchPipeDiameter}`,
-//       specification: `${localFormData.branchPipeDiameter}`,
-//       unit: '支',
-//       description: `支管管線(${localFormData.branchPipeMaterial})`,
-//       unitPrice: unitPrice,
-//       quantity: quantity,
-//       totalPrice: Math.round(unitPrice * quantity)
-//     });
-
-//     // 保留部分欄位，清空其他欄位
-//     const fundingSource = localFormData.fundingSource;
-//     const branchPipeSpacing = localFormData.branchPipeSpacing;
-//     const sprinklerSpacing = localFormData.sprinklerSpacing;
-//     const riserHeight = localFormData.riserHeight;
-//     const variantType = localFormData.variantType;
-
-//     localFormData.branchPipeLength = '';
-//     localFormData.branchPipeDiameter = '';
-//     localFormData.branchPipeMaterial = '';
-//     localFormData.branchPipeUnitPrice = '';
-//     localFormData.branchPipeQuantity = '';
-
-//     localFormData.fundingSource = fundingSource;
-//     localFormData.branchPipeSpacing = branchPipeSpacing;
-//     localFormData.sprinklerSpacing = sprinklerSpacing;
-//     localFormData.riserHeight = riserHeight;
-//     localFormData.variantType = variantType;
-
-//     updateFormData();
-//   }
-// };
-
-// // 添加末端設施
-// const addEndFacility = () => {
-//   if (canAddEndFacility.value) {
-//     const unitPrice = parseFloat(localFormData.endFacilityUnitPrice);
-//     const quantity = parseFloat(localFormData.endFacilityQuantity);
-
-//     localFormData.pipes.push({
-//       groupId: 3, // 末端設施組
-//       moduleType: '末端設施',
-//       name: localFormData.endFacilityType,
-//       specification: `${localFormData.endFacilityDiameter}`,
-//       unit: '個',
-//       description: `${localFormData.endFacilityType}(${localFormData.endFacilityMaterial})`,
-//       unitPrice: unitPrice,
-//       quantity: quantity,
-//       totalPrice: Math.round(unitPrice * quantity)
-//     });
-
-//     // 保留部分欄位，清空其他欄位
-//     const fundingSource = localFormData.fundingSource;
-//     const irrigationType = localFormData.irrigationType;
-//     const installationType = localFormData.installationType;
-//     const waterSource = localFormData.waterSource;
-//     const perforatedPipeType = localFormData.perforatedPipeType;
-//     const sprinklerType = localFormData.sprinklerType;
-//     const dripperType = localFormData.dripperType;
-
-//     localFormData.endFacilityType = '';
-//     localFormData.endFacilityDiameter = '';
-//     localFormData.endFacilityMaterial = '';
-//     localFormData.endFacilityUnitPrice = '';
-//     localFormData.endFacilityQuantity = '';
-
-//     localFormData.fundingSource = fundingSource;
-//     localFormData.irrigationType = irrigationType;
-//     localFormData.installationType = installationType;
-//     localFormData.waterSource = waterSource;
-//     localFormData.perforatedPipeType = perforatedPipeType;
-//     localFormData.sprinklerType = sprinklerType;
-//     localFormData.dripperType = dripperType;
-
-//     updateFormData();
-//   }
-// };
-
 // 更新管路數量
 const updatePipeQuantity = (groupNo: number, pipeIndex: number, newQuantity: number) => {
   // 確保數量不為負數
@@ -3463,114 +3318,6 @@ const showDebugInfo = (pipe: any) => {
   debugDialog.value = true;
 };
 
-
-// 自動帶入材料
-// const autoFillMaterials = async () => {
-//   if (!canAutoFillMaterials.value) {
-//     console.error('Not all required fields filled for auto-filling materials');
-//     return;
-//   }
-
-//   isLoadingMaterials.value = true;
-
-//   try {
-//     // 構建請求數據
-//     const requestData = {
-//       // 栅塊數據
-//       Length: parseInt(localFormData.fieldLength),
-//       width: parseInt(localFormData.fieldWidth),
-
-//       // 主管數據
-//       L1Len: parseFloat(localFormData.mainPipeLength),
-//       L1Material: parseInt(getMatTypeId(localFormData.mainPipeMaterial)),
-//       L1Spec: parseInt(getSpecId(localFormData.mainPipeDiameter)),
-//       L1Price: parseFloat(localFormData.mainPipeUnitPrice) || 0,
-//       L1MatAmt: parseInt(localFormData.mainPipeQuantity) || 0,
-
-//       // 支管數據
-//       L2Len: 0,
-//       L2Material: 1,
-//       L2Spec: 1,
-//       L2Price: 0,
-//       L2MatAmt: 0,
-
-//       // 灌溉系統數據
-//       ddl_EndType: getEndTypeId(localFormData.irrigationType),
-//       ddl_Sprinkler: localFormData.sprinklerType || 2,
-//       ddl_Drop: localFormData.dripperType || 7,
-//       ddl_Perforated: localFormData.perforatedPipeType || 1,
-
-//       // 設施類型
-//       ddl_FacType: localFormData.installationType || 1,
-
-//       // 灌溉水源
-//       ddl_WtaerSrc: localFormData.waterSource || 1,
-
-//       // 支管與噴頭間距
-//       SL: parseFloat(localFormData.branchPipeSpacing) || 0,
-//       SS: parseFloat(localFormData.sprinklerSpacing) || 0,
-
-//       // 支管材質與規格
-//       BranchMaterial: parseInt(getMatTypeId(localFormData.branchPipeMaterial)) || 1,
-//       BranchSpec: parseInt(getSpecId(localFormData.branchPipeDiameter)) || 1,
-
-//       // 變徑規格
-//       ChangeBranchSpec: localFormData.variantType || 1,
-
-//       // 豎管高度
-//       StdpipeHei: parseFloat(localFormData.riserHeight) || 1,
-
-//       // 其他需要的參數
-//       StdpipeSpec: 1,
-//       StdpipeMat: 1,
-//       NozzleMaterial: 1,
-//       NozzleSpec: 1
-//     };
-
-//     console.log('Auto-filling materials with data:', requestData);
-
-//     // 模擬API調用（實際使用中替換為真實的API調用）
-//     // const response = await axios.post('../FarmerSys/GetStdSysByConditionAddGroup', requestData);
-
-//     // 模擬延遲
-//     await new Promise(resolve => setTimeout(resolve, 1500));
-
-//     // 模擬API響應數據
-//     const mockResponse = {
-//       data: getMockMaterialData()
-//     };
-
-//     // 處理響應數據
-//     const materialGroups = mockResponse.data;
-
-//     // 清空當前管路列表
-//     localFormData.pipes = [];
-
-//     // 添加新的材料列表
-//     materialGroups.forEach(group => {
-//       group.List.forEach(material => {
-//         localFormData.pipes.push({
-//           groupId: group.GroupNo,
-//           moduleType: material.module,
-//           name: material.matname,
-//           specification: `${material.spec1} ${material.spec2} ${material.spec3}`.trim(),
-//           unit: material.itemunit,
-//           description: material.description,
-//           unitPrice: material.matprice,
-//           quantity: material.matamount,
-//           totalPrice: Math.round(material.matprice * material.matamount)
-//         });
-//       });
-//     });
-
-//     // 計算輔助金額
-//     calculateSubsidy();
-//   } catch (error) {
-//     console.error('Error auto-filling materials:', error);
-//   } finally {
-//     isLoadingMaterials.value = false;
-//   }
-// };
 const autoFillMaterials = async () => {
   if (!form.value?.validate()) {
      console.error('Form validation failed for auto-filling materials');
@@ -5728,14 +5475,9 @@ onMounted(async () => {
     await grantsStore.loadStepData(grantsStore.currentGrant.case_number, 2);
   }
 
-  // 3. 只有在沒有從 props 載入到 totalFacilityArea 時，才從 step2 載入
-  // if (!localFormData.facilityArea || localFormData.facilityArea === 0 || localFormData.facilityArea === '0') {
-    const step2FacilityArea = grantsStore.formData[2]?.totalFacilityArea;
-    if (step2FacilityArea !== undefined) {
-      localFormData.facilityArea = parseFloat(step2FacilityArea) || 0;
-      console.log("✅ Using facilityArea from Step 2:", localFormData.facilityArea);
-    }
-  // }
+  // 🔧 Linus式修正：不再需要手動設置 facilityArea，已改為 computed
+  // facilityAreaFromStep2 會自動從 Step2 資料計算，無需初始化
+  console.log("📊 step4.vue: facilityAreaFromStep2 computed will handle Step2 sync automatically");
 
   calculateWidth();
 
