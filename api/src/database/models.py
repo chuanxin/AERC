@@ -90,8 +90,8 @@ class Grants(models.Model):
     disaster_case_description = fields.TextField(null=True, description="災害案件說明")
     
     # 申請、收件日期
-    received_date = fields.DateField(description="收件日期")
-    received_time = fields.TimeField(description="收件時間")
+    received_date = fields.DateField(description="建檔日期")
+    received_time = fields.TimeField(description="建檔時間")
     
     # 案件狀態
     status = fields.CharField(max_length=20, default="draft", description="案件狀態: 0:完成申請人資料, 1:完成土地資料, 2:完成灌溉調控設施, 3:完成田間管路, 4:完成現場勘查, 5:完成補助申請資料, 6:完成結案申報, 7:完成測試合格的時間, 8:完成撥款作業, 9:完成撥款, 99:駁回申請")

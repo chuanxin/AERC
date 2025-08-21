@@ -479,7 +479,7 @@
                 </v-card>
               </v-col>
 
-              <!-- 右半邊：案件編號和收件日期垂直排列 -->
+              <!-- 右半邊：案件編號和建檔日期垂直排列 -->
               <v-col
                 cols="12"
                 md="6"
@@ -499,7 +499,7 @@
                   <v-col cols="12">
                     <v-text-field
                       v-model="localFormData.receivedDate"
-                      label="收件日期"
+                      label="建檔日期"
                       disabled
                       variant="outlined"
                       density="comfortable"

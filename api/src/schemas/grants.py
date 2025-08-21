@@ -310,8 +310,8 @@ class GrantCreateResponseSchema(BaseSchema):
     case_number: str = Field(..., description="案件編號")
     year: int = Field(..., description="申請年度")
     applicant_name: str = Field(..., description="申請人姓名")
-    received_date: date = Field(..., description="收件日期")
-    received_time: str = Field(..., description="收件時間")
+    received_date: date = Field(..., description="建檔日期")
+    received_time: str = Field(..., description="建檔時間")
     status: str = Field(..., description="案件狀態")
     is_disaster_case: bool = Field(..., description="是否為災害案件")
     disaster_case_description: Optional[str] = Field(None, description="災害案件說明")
@@ -333,8 +333,8 @@ class GrantSearchSchema(BaseSchema):
     applicant_id: Optional[str] = Field(None, description="申請人身分證字號")
     land_number: Optional[str] = Field(None, description="地號")
     is_aboriginal_area: Optional[bool] = Field(None, description="是否為原民區")
-    date_from: Optional[date] = Field(None, description="收件日期(起)")
-    date_to: Optional[date] = Field(None, description="收件日期(迄)")
+    date_from: Optional[date] = Field(None, description="建檔日期(起)")
+    date_to: Optional[date] = Field(None, description="建檔日期(迄)")
 
 
 # 土地相關模型
