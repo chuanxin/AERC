@@ -105,7 +105,7 @@
                       施設面積:
                     </div>
                     <v-text-field
-                      v-model.number="localFormData.facilityArea"
+                      :value="facilityAreaFromStep2"
                       suffix="m²"
                       type="number"
                       variant="outlined"
@@ -1992,7 +1992,8 @@ const localFormData = reactive({
   // 栅塊形狀和面積
   fieldLength: null as number | null,
   fieldWidth: null as number | null,
-  facilityArea: null as number | null,
+  // 🔧 facilityArea 不再是獨立欄位，改為從 Step2 計算得出
+  // facilityArea: null as number | null,
 
   // 補助來源
   fundingSourceId: 0, // 存儲ID
@@ -2404,6 +2405,26 @@ const pipe1MaterialOptions = computed(() => getFilteredMaterialOptions(localForm
 
 const pipe2DiameterOptions = computed(() => getFilteredDiameterOptions(localFormData.mainPipe2MaterialId));
 const pipe2MaterialOptions = computed(() => getFilteredMaterialOptions(localFormData.mainPipe2DiameterId));
+
+// 🔧 Linus式修正：建立正確的資料依賴關係
+// Step4 的設施面積應該直接從 Step2 的總施作面積計算得出
+const facilityAreaFromStep2 = computed(() => {
+  const step2Data = grantsStore.formData[2]
+
+  if (!step2Data || !step2Data.lands || !Array.isArray(step2Data.lands)) {
+    console.log('📊 step4.vue: No Step2 lands data available')
+    return 0
+  }
+
+  // 計算所有土地的施作面積總和（與 Step2 的 totalFacilityArea 邏輯一致）
+  const totalArea = step2Data.lands.reduce((total, land) => {
+    const area = parseFloat(land.facilityArea || '0')
+    return total + (isNaN(area) ? 0 : area)
+  }, 0)
+
+  console.log(`📊 step4.vue: Calculated facility area from Step2: ${totalArea} m²`)
+  return totalArea
+})
 
 // 創建新的計算屬性用於支管的選項
 const branchPipeDiameterOptions = computed(() => {
@@ -3825,7 +3846,7 @@ const calculateSubsidy = async () => {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     const currentTotalPipesPrice = parseFloat(totalPipesPrice.value.replace(/,/g, ''));
-    const facilityAreaInHectares = (localFormData.facilityArea || 0) / 10000; // 轉換為公頃
+    const facilityAreaInHectares = facilityAreaFromStep2.value / 10000; // 轉換為公頃
 
     // 從 step2 數據中獲取原民區域狀態
     const isAboriginalArea = grantsStore.formData[2]?.isAboriginalArea || false;
@@ -3916,11 +3937,13 @@ const updateFormData = () => {
   const dataToEmit = {
     ...props.formData, // 保留父組件的其他步驟數據
     ...localFormData, // 將此步驟的數據嵌套
+    // 🔧 Linus式修正：facilityArea 現在是 computed，確保使用正確的值
+    facilityArea: facilityAreaFromStep2.value,
     valid: localValid.value // 或總是true，取決於您的導航邏輯
   };
 
   console.log('🔄 step4.vue updateFormData called');
-  console.log('📤 Emitting update:formData with facilityArea:', dataToEmit.facilityArea);
+  console.log('📤 Emitting update:formData with facilityArea from Step2:', dataToEmit.facilityArea);
 
   emit('update:formData', dataToEmit);
 };
