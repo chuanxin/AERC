@@ -70,7 +70,6 @@
                   class="mb-4"
                 >
                   <div class="d-flex align-center">
-                    <v-icon class="me-2">mdi-information</v-icon>
                     <span>
                       偵測到 {{ facilitiesComparison.summary.total_changes }} 項設施變更，
                       {{ facilitiesComparison.summary.has_irrigation_changes ? '包含灌溉調控設施' : '' }}
@@ -87,7 +86,6 @@
                   class="mb-4"
                 >
                   <div class="d-flex align-center">
-                    <v-icon class="me-2">mdi-check-circle</v-icon>
                     <span>設施配置與第一版本相同，無變更。</span>
                   </div>
                 </v-alert>
@@ -250,8 +248,8 @@
 
               <!-- Debug: 顯示當前狀態 -->
               <div v-else class="pa-3 text-center text-caption text-medium-emphasis">
-                載入狀態: {{ versionComparisonLoading }}, 
-                有錯誤: {{ !!versionComparisonError }}, 
+                載入狀態: {{ versionComparisonLoading }},
+                有錯誤: {{ !!versionComparisonError }},
                 有比較資料: {{ !!facilitiesComparison }},
                 版本摘要: {{ !!versionSummary }}
               </div>
@@ -1069,16 +1067,16 @@ const shouldShowVersionComparison = computed(() => {
   const hasVersions = versionSummary.value?.has_versions === true;
   const multipleVersions = versionSummary.value?.total_versions > 1;
   const noError = !versionComparisonError.value;
-  
+
   console.log('🔍 shouldShowVersionComparison 檢查:', {
     hasVersions,
-    multipleVersions, 
+    multipleVersions,
     totalVersions: versionSummary.value?.total_versions,
     noError,
     error: versionComparisonError.value,
     result: hasVersions && multipleVersions && noError
   });
-  
+
   return hasVersions && multipleVersions && noError;
 });
 
@@ -1249,7 +1247,7 @@ const loadVersionComparison = async () => {
     currentGrant: grantsStore.currentGrant,
     caseNumber: grantsStore.currentGrant?.case_number
   });
-  
+
   if (!grantsStore.currentGrant?.case_number) {
     console.warn('無法載入版本比較：案件編號不存在')
     return

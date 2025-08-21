@@ -533,7 +533,7 @@
                         <!-- <v-icon size="18">mdi-information-outline</v-icon> -->
                       </template>
                       <div class="text-caption">
-                        <strong>查詢說明：</strong>請輸入完整地號後點擊查詢按鈕。若查無地號資料，請洽請洽中心技術團隊。
+                        <strong>查詢說明：</strong>請輸入完整地號後點擊查詢按鈕。若查無地號資料，請洽中心技術團隊。
                       </div>
                     </v-alert>
                   </v-card>
@@ -580,7 +580,7 @@
                       class="text-body-2 font-weight-medium me-3"
                       style="min-width: 80px;"
                     >
-                      位於灌區內
+                      農田水利事業區域內
                     </span>
                     <v-radio-group
                       v-model="localFormData.isIrrigationArea"
