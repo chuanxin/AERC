@@ -532,6 +532,40 @@
       </v-card>
     </v-dialog>
 
+    <!-- 🆕 統一的成功/錯誤回饋 Snackbar -->  
+    <v-snackbar
+      v-model="showNotification"
+      :color="notificationConfig.color"
+      :timeout="notificationConfig.timeout"
+      location="top center"
+      variant="elevated"
+      class="design-change-notification"
+    >
+      <div class="d-flex align-center">
+        <v-icon :color="notificationConfig.iconColor" class="mr-3">
+          {{ notificationConfig.icon }}
+        </v-icon>
+        <div>
+          <div class="text-subtitle-2 font-weight-medium">
+            {{ notificationConfig.title }}
+          </div>
+          <div v-if="notificationConfig.message" class="text-body-2">
+            {{ notificationConfig.message }}
+          </div>
+        </div>
+      </div>
+
+      <template #actions>
+        <v-btn
+          variant="text"
+          :color="notificationConfig.iconColor"
+          @click="showNotification = false"
+        >
+          關閉
+        </v-btn>
+      </template>
+    </v-snackbar>
+
     <!-- 🆕 變更設計確認對話框 -->
     <v-dialog v-model="showDesignChangeDialog" max-width="500" persistent>
       <v-card>
@@ -693,6 +727,26 @@ const designChangeLoading = ref(false)
 const showDesignChangeDialog = ref(false)
 const designChangeComment = ref('')
 
+// 🆕 通知系統狀態
+const showNotification = ref(false)
+const notificationConfig = ref({
+  title: '',
+  message: '',
+  color: 'success',
+  icon: 'mdi-check-circle',
+  iconColor: 'white',
+  timeout: 4000
+})
+
+// 🆕 錯誤類型定義 - 簡潔但完整
+enum DesignChangeErrorType {
+  NETWORK_ERROR = 'network',
+  SAVE_ERROR = 'save', 
+  API_ERROR = 'api',
+  VALIDATION_ERROR = 'validation',
+  UNKNOWN_ERROR = 'unknown'
+}
+
 // 🆕 統一事件驅動架構：組件引用接口定義
 interface StepComponent {
   handleProceedToNext: () => void;
@@ -739,43 +793,96 @@ const formatDate = (dateString?: string) => {
   return new Date(dateString).toLocaleDateString('zh-TW')
 }
 
-// 變更設計功能
-const handleDesignChange = async (comment?: string) => {
-  if (!grantsStore.currentGrant?.case_number) return
-
-  try {
-    designChangeLoading.value = true
-
-    // 1. 先保存當前所有變更
-    await grantsStore.saveAllChanges()
-
-    // 2. 收集所有步驟資料
-    const allStepsData = { ...grantsStore.formData }
-
-    // 3. 調用版本創建 API
-    const result = await createGrantVersion(
-      grantsStore.currentGrant.case_number,
-      allStepsData,
-      comment || `變更設計 - ${new Date().toLocaleString('zh-TW')}`
-    )
-
-    // 4. 更新當前案件的版本資訊
-    if (grantsStore.currentGrant.active_version) {
-      grantsStore.currentGrant.active_version.version = result.version
-      grantsStore.currentGrant.active_version.created_at = result.created_at
+// 🆕 統一的通知顯示函數
+const showNotificationMessage = (
+  title: string, 
+  message: string = '', 
+  type: 'success' | 'error' | 'warning' = 'success'
+) => {
+  const configs = {
+    success: {
+      color: 'success',
+      icon: 'mdi-check-circle',
+      iconColor: 'white',
+      timeout: 4000
+    },
+    error: {
+      color: 'error', 
+      icon: 'mdi-alert-circle',
+      iconColor: 'white',
+      timeout: 6000
+    },
+    warning: {
+      color: 'warning',
+      icon: 'mdi-alert',
+      iconColor: 'white', 
+      timeout: 5000
     }
-
-    // 5. 顯示成功訊息
-    showSnackbar('變更設計版本建立成功', 'success')
-
-  } catch (error) {
-    console.error('變更設計失敗:', error)
-    showSnackbar('變更設計失敗', 'error')
-  } finally {
-    designChangeLoading.value = false
-    showDesignChangeDialog.value = false
   }
+
+  notificationConfig.value = {
+    title,
+    message,
+    ...configs[type]
+  }
+  showNotification.value = true
 }
+
+// 🆕 錯誤分類處理器 - 遵循單一責任原則
+const classifyError = (error: any): DesignChangeErrorType => {
+  // 網路連線錯誤
+  if (!navigator.onLine || error.code === 'NETWORK_ERROR') {
+    return DesignChangeErrorType.NETWORK_ERROR
+  }
+  
+  // HTTP 狀態碼錯誤
+  if (error.response) {
+    const status = error.response.status
+    if (status >= 400 && status < 500) {
+      return DesignChangeErrorType.VALIDATION_ERROR
+    }
+    if (status >= 500) {
+      return DesignChangeErrorType.API_ERROR
+    }
+  }
+  
+  // 儲存相關錯誤
+  if (error.message?.includes('save') || error.message?.includes('storage')) {
+    return DesignChangeErrorType.SAVE_ERROR
+  }
+  
+  return DesignChangeErrorType.UNKNOWN_ERROR
+}
+
+// 🆕 錯誤訊息映射 - 消除 if-else 特殊情況
+const getErrorMessage = (errorType: DesignChangeErrorType, originalError: any) => {
+  const errorMessages = {
+    [DesignChangeErrorType.NETWORK_ERROR]: {
+      title: '網路連線失敗',
+      message: '請檢查網路連線後重試'
+    },
+    [DesignChangeErrorType.SAVE_ERROR]: {
+      title: '資料儲存失敗',
+      message: '無法儲存當前變更，請稍後重試'
+    },
+    [DesignChangeErrorType.API_ERROR]: {
+      title: '伺服器錯誤',
+      message: '伺服器發生內部錯誤，請聯繫管理員'
+    },
+    [DesignChangeErrorType.VALIDATION_ERROR]: {
+      title: '資料驗證失敗',
+      message: '請檢查輸入資料是否正確完整'
+    },
+    [DesignChangeErrorType.UNKNOWN_ERROR]: {
+      title: '未知錯誤',
+      message: '系統發生未知錯誤，請重新嘗試'
+    }
+  }
+
+  return errorMessages[errorType]
+}
+
+// 🗑️ 移除舊的變更設計功能 - 已被 executeDesignChange 取代
 
 // Step icon and color logic
 const getStepIcon = (stepValue: number): string => {
@@ -902,35 +1009,41 @@ const handleDesignChangeClick = () => {
   }
 }
 
-// 🆕 執行變更設計
+// 🆕 執行變更設計 - 重構錯誤處理
 const executeDesignChange = async (comment?: string) => {
   if (!grantsStore.currentGrant?.case_number) {
-    console.error('無法執行變更設計：沒有載入案件')
+    showNotificationMessage(
+      '變更設計失敗',
+      '無案件資料，無法建立新版本',
+      'error'
+    )
     return
   }
 
   try {
     designChangeLoading.value = true
-    console.log('🔄 開始執行變更設計...')
 
-    // 1. 先保存當前所有變更
+    // 1. 先保存當前所有變更 - 分離儲存邏輯
     if (grantsStore.hasUnsavedChanges) {
-      console.log('💾 發現未儲存變更，先進行儲存...')
-      await grantsStore.saveAllChanges()
+      try {
+        await grantsStore.saveAllChanges()
+      } catch (saveError) {
+        const errorType = classifyError(saveError)
+        const errorMsg = getErrorMessage(errorType, saveError)
+        showNotificationMessage(errorMsg.title, errorMsg.message, 'error')
+        return
+      }
     }
 
     // 2. 收集所有步驟資料
     const allStepsData = { ...grantsStore.formData }
-    console.log('📦 收集到的步驟資料:', Object.keys(allStepsData))
 
-    // 3. 調用版本創建 API
+    // 3. 調用版本創建 API - 分離 API 邏輯
     const result = await createGrantVersion(
       grantsStore.currentGrant.case_number,
       allStepsData,
       comment || `變更設計 - ${new Date().toLocaleString('zh-TW')}`
     )
-
-    console.log('✅ 版本建立成功:', result)
 
     // 4. 更新當前案件的版本資訊
     if (grantsStore.currentGrant.active_version) {
@@ -938,16 +1051,23 @@ const executeDesignChange = async (comment?: string) => {
       grantsStore.currentGrant.active_version.created_at = result.created_at
     }
 
-    // 5. 觸發版本比較資料的重新載入（通過更新響應式資料）
-    await nextTick() // 等待DOM更新
+    // 5. 觸發版本比較資料的重新載入
+    await nextTick()
     
-    // 6. 顯示成功訊息（暫時用 console，後續可改為 snackbar）
-    console.log(`🎉 變更設計完成！新版本：v${result.version}`)
+    // 6. 統一成功回饋
+    showNotificationMessage(
+      '變更設計成功',
+      `新版本 v${result.version} 建立完成`,
+      'success'
+    )
 
   } catch (error) {
-    console.error('❌ 變更設計失敗:', error)
-    // TODO: 顯示錯誤訊息給用戶
+    // 統一錯誤處理 - 不再有特殊情況
+    const errorType = classifyError(error)
+    const errorMsg = getErrorMessage(errorType, error)
+    showNotificationMessage(errorMsg.title, errorMsg.message, 'error')
   } finally {
+    // 清理狀態 - 無論成功失敗都執行
     designChangeLoading.value = false
     showDesignChangeDialog.value = false
     designChangeComment.value = ''
