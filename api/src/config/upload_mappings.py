@@ -22,7 +22,12 @@ class UploadMappingsConfig:
         """根據環境設置路徑"""
         if self.environment == "production":
             # Windows 部署環境
-            self.data_root = Path("C:/AERC-Data")
+            current_file = Path(__file__)  # api/src/config/upload_mappings.py
+            api_dir = current_file.parent.parent.parent  # api/
+            app_dir = api_dir.parent  # app/
+            deploy_root = app_dir.parent  # AERC-Deploy/
+            # AERC-Data 與 AERC-Deploy 在同一層級
+            self.data_root = deploy_root.parent / "AERC-Data"
         elif self.environment == "development":
             # 開發環境 (相對於專案根目錄)
             project_root = Path(__file__).parent.parent.parent.parent
