@@ -76,8 +76,8 @@ dry-farm/public/.well-known/acme-challenge/
 dry-farm/certbot
 *.pem
 
-# Backup files
-backups/
+# Local data
+data/
 
 # Test cases
 test_cases/
