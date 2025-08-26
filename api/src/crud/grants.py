@@ -565,7 +565,8 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
                 "id": grant.active_version.id,
                 "version": grant.active_version.version,
                 "comment": grant.active_version.comment,
-                "created_at": grant.active_version.created_at
+                "created_at": grant.active_version.created_at,
+                "all_steps_data": grant.active_version.all_steps_data  # 添加完整步驟資料用於版本繼承
             } if hasattr(grant, "active_version") and grant.active_version else None,
             
             "comments": [
@@ -603,11 +604,11 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
             result["attachments"] = [
                 {
                     "id": attachment.id,
-                    "file_name": attachment.file_name,
-                    "file_path": attachment.file_path,
-                    "file_type": attachment.file_type,
-                    "file_size": attachment.file_size,
-                    "upload_time": attachment.upload_time.isoformat() if hasattr(attachment, "upload_time") else None,
+                    "file_name": attachment.original_filename,  # 使用正確的欄位名稱
+                    "file_path": attachment.filepath,  # 使用正確的欄位名稱
+                    "file_type": attachment.mime_type,  # 使用正確的欄位名稱
+                    "file_size": attachment.filesize,  # 使用正確的欄位名稱
+                    "upload_time": attachment.uploaded_at.isoformat() if hasattr(attachment, "uploaded_at") else None,  # 使用正確的欄位名稱
                     "description": attachment.description
                 }
                 for attachment in grant.attachments

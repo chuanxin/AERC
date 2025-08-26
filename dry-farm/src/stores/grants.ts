@@ -127,6 +127,10 @@ export const useGrantsStore = defineStore('grants', () => {
     console.log('[grantsStore.createProject] Attempting to create project with data:', JSON.stringify(projectData, null, 2)); // Log 1
 
     try {
+      // 🔥 Linus式修復：在創建新案件前先清空所有資料，確保乾淨的狀態
+      console.log('[grantsStore.createProject] 清空前一個案件的資料，準備建立新案件...');
+      clearCurrentGrant();
+
       console.log('[grantsStore.createProject] Calling createGrant API service...');
       const result = await createGrant(projectData);
       console.log('[grantsStore.createProject] API createGrant successful. Result:', JSON.stringify(result, null, 2)); // Log 2
@@ -509,10 +513,16 @@ export const useGrantsStore = defineStore('grants', () => {
    * Clear current grant data
    */
   const clearCurrentGrant = () => {
+    console.log('[grantsStore.clearCurrentGrant] 清理當前案件資料...')
+    
     currentGrant.value = null
     currentStep.value = 1
+    
+    // 🔥 Linus式修復：徹底清空所有步驟資料，避免資料污染
     Object.keys(formData).forEach(key => {
-      formData[Number(key)] = {}
+      const stepNum = Number(key)
+      formData[stepNum] = { valid: true } // 重置為初始狀態
+      console.log(`[grantsStore.clearCurrentGrant] 清空 formData[${stepNum}]`)
     })
 
     // 清理追蹤相關的狀態
@@ -525,6 +535,8 @@ export const useGrantsStore = defineStore('grants', () => {
 
     hasUnsavedChanges.value = false
     lastSavedAt.value = null
+    
+    console.log('[grantsStore.clearCurrentGrant] 案件資料清理完成')
   }
 
   /**

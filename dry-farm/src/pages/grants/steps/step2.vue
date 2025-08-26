@@ -202,7 +202,10 @@
 
               <!-- 認知引導：清晰的狀態說明 -->
               <div class="mb-6">
-                <h4 class="text-h6 font-weight-bold mb-3" style="color: #2d8c8f;">
+                <h4
+                  class="text-h6 font-weight-bold mb-3"
+                  style="color: #2d8c8f;"
+                >
                   尚未新增任何土地資料
                 </h4>
                 <p class="text-body-1 text-grey-darken-1 mb-1">
@@ -248,13 +251,19 @@
               prominent
             >
               <template #prepend>
-                <v-icon size="small">mdi-pencil-lock</v-icon>
+                <v-icon size="small">
+                  mdi-pencil-lock
+                </v-icon>
               </template>
               <div class="d-flex align-center justify-space-between">
                 <span class="text-body-2">
                   {{ landManagement.currentEditingLandId ? '編輯模式' : '新增模式' }}
                 </span>
-                <v-chip size="x-small" color="warning" variant="tonal">
+                <v-chip
+                  size="x-small"
+                  color="warning"
+                  variant="tonal"
+                >
                   編輯中
                 </v-chip>
               </div>

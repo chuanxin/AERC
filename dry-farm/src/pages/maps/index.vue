@@ -76,7 +76,12 @@
                       variant="outlined"
                       class="me-2 flex-shrink-0"
                     >
-                      <v-icon size="small" class="me-1">mdi-calendar</v-icon>
+                      <v-icon
+                        size="small"
+                        class="me-1"
+                      >
+                        mdi-calendar
+                      </v-icon>
                       民國{{ filterCriteria.yearStart }}~{{ filterCriteria.yearEnd }}年
                     </v-chip>
 
@@ -88,7 +93,12 @@
                       variant="outlined"
                       class="me-2 flex-shrink-0"
                     >
-                      <v-icon size="small" class="me-1">mdi-filter-check</v-icon>
+                      <v-icon
+                        size="small"
+                        class="me-1"
+                      >
+                        mdi-filter-check
+                      </v-icon>
                       已篩選
                     </v-chip>
                   </div>
@@ -105,18 +115,29 @@
 
               <!-- 面板內容 - 詳細篩選選項 -->
               <v-expansion-panel-text class="filter-panel-content pa-0 ma-0">
-                <v-container fluid class="pa-0">
+                <v-container
+                  fluid
+                  class="pa-0"
+                >
                   <v-row dense>
                     <!-- 詳細篩選欄位 -->
                     <v-col cols="12">
                       <div class="d-flex align-center mb-3">
-                        <v-icon size="small" class="me-2">mdi-filter-outline</v-icon>
+                        <v-icon
+                          size="small"
+                          class="me-2"
+                        >
+                          mdi-filter-outline
+                        </v-icon>
                         <span class="text-body-2 font-weight-medium">詳細篩選欄位</span>
                       </div>
                     </v-col>
 
                     <!-- 申請人姓名 -->
-                    <v-col cols="12" md="6">
+                    <v-col
+                      cols="12"
+                      md="6"
+                    >
                       <v-text-field
                         v-model="filterCriteria.applicantName"
                         label="申請人姓名"
@@ -299,7 +320,12 @@
           >
             <v-card-title class="d-flex align-center justify-space-between pa-3">
               <div class="d-flex align-center">
-                <v-icon size="small" class="me-2">mdi-magnify</v-icon>
+                <v-icon
+                  size="small"
+                  class="me-2"
+                >
+                  mdi-magnify
+                </v-icon>
                 <span class="text-h6">案件搜尋</span>
               </div>
               <v-btn
@@ -358,10 +384,10 @@
                   </v-col>
                   <v-col cols="12">
                     <v-btn
-                      @click="refreshLayerData"
                       color="primary"
                       :loading="gisLoading"
                       block
+                      @click="refreshLayerData"
                     >
                       <v-icon>mdi-magnify</v-icon>
                       搜尋
@@ -378,12 +404,28 @@
                 selected-class="text-primary"
                 class="mb-3"
               >
-                <v-chip value="grid" size="small">
-                  <v-icon left size="small">mdi-grid</v-icon>
+                <v-chip
+                  value="grid"
+                  size="small"
+                >
+                  <v-icon
+                    left
+                    size="small"
+                  >
+                    mdi-grid
+                  </v-icon>
                   格網統計圖
                 </v-chip>
-                <v-chip value="points" size="small">
-                  <v-icon left size="small">mdi-circle</v-icon>
+                <v-chip
+                  value="points"
+                  size="small"
+                >
+                  <v-icon
+                    left
+                    size="small"
+                  >
+                    mdi-circle
+                  </v-icon>
                   點位圖
                 </v-chip>
               </v-chip-group>
@@ -391,7 +433,12 @@
               <!-- 年度區間篩選 -->
               <div class="mb-3">
                 <div class="d-flex align-center mb-2">
-                  <v-icon size="small" class="me-2">mdi-calendar-range</v-icon>
+                  <v-icon
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-calendar-range
+                  </v-icon>
                   <span class="text-body-2">申請年度篩選</span>
                 </div>
                 <v-range-slider
@@ -402,7 +449,7 @@
                   thumb-label="always"
                   density="compact"
                   class="mb-2"
-                  @update:modelValue="onYearRangeChange"
+                  @update:model-value="onYearRangeChange"
                 >
                   <template #thumb-label="{ modelValue }">
                     民國{{ modelValue }}年
@@ -423,7 +470,12 @@
                   size="small"
                   class="me-2 mb-2"
                 >
-                  <v-icon left size="small">mdi-chart-line</v-icon>
+                  <v-icon
+                    left
+                    size="small"
+                  >
+                    mdi-chart-line
+                  </v-icon>
                   {{ statistics.total_points?.toLocaleString() }} 筆資料
                 </v-chip>
                 <v-chip
@@ -433,7 +485,12 @@
                   size="small"
                   class="mb-2"
                 >
-                  <v-icon left size="small">mdi-eye</v-icon>
+                  <v-icon
+                    left
+                    size="small"
+                  >
+                    mdi-eye
+                  </v-icon>
                   顯示 {{ currentPointCount }} 點位
                 </v-chip>
                 <v-chip
@@ -442,7 +499,12 @@
                   size="small"
                   class="mb-2"
                 >
-                  <v-icon left size="small">mdi-eye-settings</v-icon>
+                  <v-icon
+                    left
+                    size="small"
+                  >
+                    mdi-eye-settings
+                  </v-icon>
                   {{ displayMode === 'grid' ? '格網統計模式' : '點位模式' }}
                 </v-chip>
               </div>
@@ -638,7 +700,12 @@
                 >
                   <template #default>
                     <div class="d-flex flex-column align-center">
-                      <v-icon size="40" class="mb-0">mdi-layers</v-icon>
+                      <v-icon
+                        size="40"
+                        class="mb-0"
+                      >
+                        mdi-layers
+                      </v-icon>
                       <span class="btn-text">圖層</span>
                     </div>
                   </template>
@@ -660,7 +727,12 @@
                 >
                   <template #default>
                     <div class="d-flex flex-column align-center">
-                      <v-icon size="40" class="mb-0">mdi-crosshairs-gps</v-icon>
+                      <v-icon
+                        size="40"
+                        class="mb-0"
+                      >
+                        mdi-crosshairs-gps
+                      </v-icon>
                       <span class="btn-text">定位</span>
                     </div>
                   </template>
@@ -683,7 +755,12 @@
                 >
                   <template #default>
                     <div class="d-flex flex-column align-center">
-                      <v-icon size="40" class="mb-0">mdi-draw</v-icon>
+                      <v-icon
+                        size="40"
+                        class="mb-0"
+                      >
+                        mdi-draw
+                      </v-icon>
                       <span class="btn-text">展繪</span>
                     </div>
                   </template>
@@ -706,7 +783,12 @@
                 >
                   <template #default>
                     <div class="d-flex flex-column align-center">
-                      <v-icon size="40" class="mb-0">mdi-ruler</v-icon>
+                      <v-icon
+                        size="40"
+                        class="mb-0"
+                      >
+                        mdi-ruler
+                      </v-icon>
                       <span class="btn-text">量測</span>
                     </div>
                   </template>
@@ -728,7 +810,12 @@
                 >
                   <template #default>
                     <div class="d-flex flex-column align-center">
-                      <v-icon size="40" class="mb-0">mdi-plus</v-icon>
+                      <v-icon
+                        size="40"
+                        class="mb-0"
+                      >
+                        mdi-plus
+                      </v-icon>
                       <span class="btn-text">放大</span>
                     </div>
                   </template>
@@ -750,7 +837,12 @@
                 >
                   <template #default>
                     <div class="d-flex flex-column align-center">
-                      <v-icon size="40" class="mb-0">mdi-minus</v-icon>
+                      <v-icon
+                        size="40"
+                        class="mb-0"
+                      >
+                        mdi-minus
+                      </v-icon>
                       <span class="btn-text">縮小</span>
                     </div>
                   </template>
@@ -772,7 +864,12 @@
                 >
                   <template #default>
                     <div class="d-flex flex-column align-center">
-                      <v-icon size="40" class="mb-0">mdi-home</v-icon>
+                      <v-icon
+                        size="40"
+                        class="mb-0"
+                      >
+                        mdi-home
+                      </v-icon>
                       <span class="btn-text">重置</span>
                     </div>
                   </template>
@@ -1486,7 +1583,7 @@ const applyFilters = async () => {
       console.log('檢測到詳細篩選條件，使用後端API重新載入');
 
       // 準備搜尋條件
-      let combinedCriteria = { ...filterCriteria.value };
+      const combinedCriteria = { ...filterCriteria.value };
 
       // 同步到原有的搜尋條件（用於後端API）
       searchCriteria.value.applicantName = combinedCriteria.applicantName;

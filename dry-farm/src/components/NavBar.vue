@@ -43,7 +43,10 @@
         class="gradient-background"
       >
         <!-- 按照 navigationItems 原始順序渲染所有項目 -->
-        <template v-for="item in navigationItems" :key="item.value">
+        <template
+          v-for="item in navigationItems"
+          :key="item.value"
+        >
           <!-- 一般選單項目（沒有子選單） -->
           <v-tab
             v-if="!item.children"
@@ -175,7 +178,10 @@
       v-model:selected="activeTab"
     >
       <!-- 按照 navigationItems 原始順序渲染所有項目 -->
-      <template v-for="item in navigationItems" :key="item.value">
+      <template
+        v-for="item in navigationItems"
+        :key="item.value"
+      >
         <!-- 一般選單項目（沒有子選單） -->
         <v-list-item
           v-if="!item.children"

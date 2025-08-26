@@ -1123,7 +1123,10 @@
             </v-card-text>
 
             <v-card-text class="pa-4">
-              <v-table class="rounded border" density="compact">
+              <v-table
+                class="rounded border"
+                density="compact"
+              >
                 <thead class="bg-grey-lighten-3">
                   <tr>
                     <th
@@ -1217,7 +1220,10 @@
                         </div>
                       </td>
                       <td class="px-2">
-                        <div class="text-body-2" style="word-break: break-word;">
+                        <div
+                          class="text-body-2"
+                          style="word-break: break-word;"
+                        >
                           {{ pipe.matname }}
                         </div>
                       </td>
@@ -1237,7 +1243,10 @@
                         </div>
                       </td>
                       <td class="px-2">
-                        <div class="text-body-2" style="word-break: break-word;">
+                        <div
+                          class="text-body-2"
+                          style="word-break: break-word;"
+                        >
                           {{ pipe.description }}
                         </div>
                       </td>
@@ -1315,7 +1324,9 @@
                           variant="text"
                           @click="removePipe(group.groupNo, pipeIndex)"
                         >
-                          <v-icon size="small">mdi-close</v-icon>
+                          <v-icon size="small">
+                            mdi-close
+                          </v-icon>
                         </v-btn>
                       </td>
                     </tr>
@@ -1420,7 +1431,12 @@
   >
     <v-card>
       <v-card-title class="d-flex align-center">
-        <v-icon class="me-2" color="info">mdi-bug</v-icon>
+        <v-icon
+          class="me-2"
+          color="info"
+        >
+          mdi-bug
+        </v-icon>
         <span>材料比對除錯資訊</span>
         <v-spacer />
         <v-btn
@@ -1435,53 +1451,84 @@
       <v-card-text v-if="selectedMaterialDebugInfo">
         <v-row>
           <!-- 生成的材料資訊 -->
-          <v-col cols="12" md="6">
-            <v-card variant="outlined" class="mb-4">
+          <v-col
+            cols="12"
+            md="6"
+          >
+            <v-card
+              variant="outlined"
+              class="mb-4"
+            >
               <v-card-title class="bg-blue-lighten-5 py-2">
-                <v-icon class="me-2" size="small">mdi-wrench</v-icon>
+                <v-icon
+                  class="me-2"
+                  size="small"
+                >
+                  mdi-wrench
+                </v-icon>
                 生成的材料資訊
               </v-card-title>
               <v-card-text class="pa-3">
                 <v-table density="compact">
                   <tbody>
                     <tr>
-                      <td class="font-weight-bold">POMNO</td>
+                      <td class="font-weight-bold">
+                        POMNO
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.generated.pomno }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">模組</td>
+                      <td class="font-weight-bold">
+                        模組
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.generated.module }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">模組ID</td>
+                      <td class="font-weight-bold">
+                        模組ID
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.generated.module_id }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">材料名稱</td>
+                      <td class="font-weight-bold">
+                        材料名稱
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.generated.matname }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">材質</td>
+                      <td class="font-weight-bold">
+                        材質
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.generated.mattype || 'N/A' }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">規格1</td>
+                      <td class="font-weight-bold">
+                        規格1
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.generated.spec1 || 'N/A' }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">規格2</td>
+                      <td class="font-weight-bold">
+                        規格2
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.generated.spec2 || 'N/A' }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">規格3</td>
+                      <td class="font-weight-bold">
+                        規格3
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.generated.spec3 || 'N/A' }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">單價</td>
+                      <td class="font-weight-bold">
+                        單價
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.generated.matprice }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">數量</td>
+                      <td class="font-weight-bold">
+                        數量
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.generated.matamount }}</td>
                     </tr>
                   </tbody>
@@ -1491,9 +1538,18 @@
           </v-col>
 
           <!-- 比對狀態與條件 -->
-          <v-col cols="12" md="6">
-            <v-card variant="outlined" class="mb-4">
-              <v-card-title class="py-2" :class="selectedMaterialDebugInfo.matchStatus === 'success' ? 'bg-green-lighten-5' : 'bg-red-lighten-5'">
+          <v-col
+            cols="12"
+            md="6"
+          >
+            <v-card
+              variant="outlined"
+              class="mb-4"
+            >
+              <v-card-title
+                class="py-2"
+                :class="selectedMaterialDebugInfo.matchStatus === 'success' ? 'bg-green-lighten-5' : 'bg-red-lighten-5'"
+              >
                 <v-icon
                   class="me-2"
                   size="small"
@@ -1505,12 +1561,20 @@
               </v-card-title>
               <v-card-text class="pa-3">
                 <div class="mb-3">
-                  <div class="font-weight-bold mb-2">比對條件:</div>
+                  <div class="font-weight-bold mb-2">
+                    比對條件:
+                  </div>
                   <v-chip-group column>
-                    <v-chip size="small" color="primary">
+                    <v-chip
+                      size="small"
+                      color="primary"
+                    >
                       模組ID: {{ selectedMaterialDebugInfo.matchCriteria.module_id }}
                     </v-chip>
-                    <v-chip size="small" color="secondary">
+                    <v-chip
+                      size="small"
+                      color="secondary"
+                    >
                       規格: {{ selectedMaterialDebugInfo.matchCriteria.spec1 }}
                     </v-chip>
                     <v-chip
@@ -1531,54 +1595,84 @@
               variant="outlined"
             >
               <v-card-title class="bg-green-lighten-5 py-2">
-                <v-icon class="me-2" size="small" color="success">mdi-database-check</v-icon>
+                <v-icon
+                  class="me-2"
+                  size="small"
+                  color="success"
+                >
+                  mdi-database-check
+                </v-icon>
                 比對的 Store 資料
               </v-card-title>
               <v-card-text class="pa-3">
                 <v-table density="compact">
                   <tbody>
                     <tr>
-                      <td class="font-weight-bold">POMNO</td>
+                      <td class="font-weight-bold">
+                        POMNO
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.matched.pomno }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">名稱</td>
+                      <td class="font-weight-bold">
+                        名稱
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.matched.name }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">模組ID</td>
+                      <td class="font-weight-bold">
+                        模組ID
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.matched.module_id }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">材質ID</td>
+                      <td class="font-weight-bold">
+                        材質ID
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.matched.material_id }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">材質名稱</td>
+                      <td class="font-weight-bold">
+                        材質名稱
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.matched.material?.name || 'N/A' }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">規格1 ID</td>
+                      <td class="font-weight-bold">
+                        規格1 ID
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.matched.diameter1_id || 'N/A' }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">規格1 值</td>
+                      <td class="font-weight-bold">
+                        規格1 值
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.matched.diameter1?.value || 'N/A' }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">規格1 名稱</td>
+                      <td class="font-weight-bold">
+                        規格1 名稱
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.matched.diameter1?.name || 'N/A' }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">目前價格</td>
-                      <td class="text-success font-weight-bold">{{ selectedMaterialDebugInfo.matched.current_price || 'N/A' }}</td>
+                      <td class="font-weight-bold">
+                        目前價格
+                      </td>
+                      <td class="text-success font-weight-bold">
+                        {{ selectedMaterialDebugInfo.matched.current_price || 'N/A' }}
+                      </td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">單位</td>
+                      <td class="font-weight-bold">
+                        單位
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.matched.unit || 'N/A' }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">說明</td>
+                      <td class="font-weight-bold">
+                        說明
+                      </td>
                       <td>{{ selectedMaterialDebugInfo.matched.description || 'N/A' }}</td>
                     </tr>
                   </tbody>
@@ -1592,7 +1686,13 @@
               variant="outlined"
             >
               <v-card-title class="bg-red-lighten-5 py-2">
-                <v-icon class="me-2" size="small" color="error">mdi-database-remove</v-icon>
+                <v-icon
+                  class="me-2"
+                  size="small"
+                  color="error"
+                >
+                  mdi-database-remove
+                </v-icon>
                 未找到比對資料
               </v-card-title>
               <v-card-text class="pa-3">
@@ -1623,10 +1723,15 @@
   </v-dialog>
 
   <!-- 手動新增材料對話框 -->
-  <v-dialog v-model="showManualAddDialog" max-width="800">
+  <v-dialog
+    v-model="showManualAddDialog"
+    max-width="800"
+  >
     <v-card>
       <v-card-title class="bg-primary text-white d-flex align-center">
-        <v-icon class="me-2">mdi-plus</v-icon>
+        <v-icon class="me-2">
+          mdi-plus
+        </v-icon>
         手動新增材料
       </v-card-title>
 
@@ -1663,13 +1768,23 @@
             </v-col>
 
             <!-- 選中材料的詳細資訊 -->
-            <v-col v-if="selectedMaterial" cols="12">
-              <v-card variant="outlined" color="grey-lighten-5">
+            <v-col
+              v-if="selectedMaterial"
+              cols="12"
+            >
+              <v-card
+                variant="outlined"
+                color="grey-lighten-5"
+              >
                 <v-card-text>
-                  <div class="text-subtitle-2 mb-2">選中的材料：</div>
+                  <div class="text-subtitle-2 mb-2">
+                    選中的材料：
+                  </div>
                   <div class="d-flex align-center">
                     <div class="flex-grow-1">
-                      <div class="text-body-2 font-weight-medium">{{ selectedMaterial.name }}</div>
+                      <div class="text-body-2 font-weight-medium">
+                        {{ selectedMaterial.name }}
+                      </div>
                       <div class="text-caption text-grey-darken-1">
                         POMNO: {{ selectedMaterial.pomno }} |
                         {{ selectedMaterial.material?.name || 'N/A' }} |
@@ -1677,7 +1792,11 @@
                         單價: ${{ selectedMaterial.current_price?.toLocaleString() || 'N/A' }}
                       </div>
                     </div>
-                    <v-chip size="small" color="primary" variant="outlined">
+                    <v-chip
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    >
                       {{ selectedMaterial.unit || '個' }}
                     </v-chip>
                   </div>
@@ -1686,7 +1805,10 @@
             </v-col>
 
             <!-- 選擇組別 -->
-            <v-col cols="12" md="6">
+            <v-col
+              cols="12"
+              md="6"
+            >
               <v-select
                 v-model="selectedGroup"
                 :items="materialGroupOptions"
@@ -1699,7 +1821,10 @@
             </v-col>
 
             <!-- 數量輸入 -->
-            <v-col cols="12" md="6">
+            <v-col
+              cols="12"
+              md="6"
+            >
               <v-text-field
                 v-model.number="materialQuantity"
                 type="number"

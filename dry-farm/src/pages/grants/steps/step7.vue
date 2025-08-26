@@ -96,7 +96,12 @@
                   class="mb-6"
                 >
                   <h4 class="text-h6 mb-3 d-flex align-center">
-                    <v-icon class="me-2" color="#3ea0a3">mdi-water</v-icon>
+                    <v-icon
+                      class="me-2"
+                      color="#3ea0a3"
+                    >
+                      mdi-water
+                    </v-icon>
                     灌溉調控設施表
                   </h4>
                   <v-table class="design-change-table border-table">
@@ -123,8 +128,12 @@
                       >
                         <td>{{ item.name }}</td>
                         <td>{{ item.specification || '-' }}</td>
-                        <td class="text-center">{{ item.beforeQuantity }}</td>
-                        <td class="text-center">{{ item.afterQuantity }}</td>
+                        <td class="text-center">
+                          {{ item.beforeQuantity }}
+                        </td>
+                        <td class="text-center">
+                          {{ item.afterQuantity }}
+                        </td>
                         <td class="text-center">
                           <span
                             :class="{
@@ -135,7 +144,9 @@
                             {{ item.quantityChange > 0 ? '+' : '' }}{{ item.quantityChange }}
                           </span>
                         </td>
-                        <td class="text-center">{{ item.unit }}</td>
+                        <td class="text-center">
+                          {{ item.unit }}
+                        </td>
                         <td class="text-center">
                           <v-chip
                             size="x-small"
@@ -156,7 +167,12 @@
                   class="mb-4"
                 >
                   <h4 class="text-h6 mb-3 d-flex align-center">
-                    <v-icon class="me-2" color="#3ea0a3">mdi-pipe</v-icon>
+                    <v-icon
+                      class="me-2"
+                      color="#3ea0a3"
+                    >
+                      mdi-pipe
+                    </v-icon>
                     田間管路設施表
                   </h4>
                   <v-table class="design-change-table border-table">
@@ -183,8 +199,12 @@
                       >
                         <td>{{ item.name }}</td>
                         <td>{{ item.specification || '-' }}</td>
-                        <td class="text-center">{{ item.beforeQuantity }}</td>
-                        <td class="text-center">{{ item.afterQuantity }}</td>
+                        <td class="text-center">
+                          {{ item.beforeQuantity }}
+                        </td>
+                        <td class="text-center">
+                          {{ item.afterQuantity }}
+                        </td>
                         <td class="text-center">
                           <span
                             :class="{
@@ -195,7 +215,9 @@
                             {{ item.quantityChange > 0 ? '+' : '' }}{{ item.quantityChange }}
                           </span>
                         </td>
-                        <td class="text-center">{{ item.unit }}</td>
+                        <td class="text-center">
+                          {{ item.unit }}
+                        </td>
                         <td class="text-center">
                           <v-chip
                             size="x-small"
@@ -219,7 +241,12 @@
                 >
                   <v-card-text class="pa-3">
                     <div class="d-flex align-center">
-                      <v-icon color="#3ea0a3" class="mr-2">mdi-sigma</v-icon>
+                      <v-icon
+                        color="#3ea0a3"
+                        class="mr-2"
+                      >
+                        mdi-sigma
+                      </v-icon>
                       <div>
                         <div class="text-subtitle-2 font-weight-medium">
                           變更總計：{{ facilitiesComparison.summary.total_changes }} 項設施
@@ -241,13 +268,18 @@
                 class="mb-4"
               >
                 <div class="d-flex align-center">
-                  <v-icon class="me-2">mdi-alert-circle</v-icon>
+                  <v-icon class="me-2">
+                    mdi-alert-circle
+                  </v-icon>
                   <span>{{ versionComparisonError }}</span>
                 </div>
               </v-alert>
 
               <!-- Debug: 顯示當前狀態 -->
-              <div v-else class="pa-3 text-center text-caption text-medium-emphasis">
+              <div
+                v-else
+                class="pa-3 text-center text-caption text-medium-emphasis"
+              >
                 載入狀態: {{ versionComparisonLoading }},
                 有錯誤: {{ !!versionComparisonError }},
                 有比較資料: {{ !!facilitiesComparison }},
@@ -987,7 +1019,12 @@
     >
       <v-card>
         <v-card-title class="text-h6 font-weight-bold bg-orange-lighten-4 pa-4">
-          <v-icon class="me-2" color="orange-darken-2">mdi-alert-circle</v-icon>
+          <v-icon
+            class="me-2"
+            color="orange-darken-2"
+          >
+            mdi-alert-circle
+          </v-icon>
           存檔確認
         </v-card-title>
         <v-card-text class="pa-6">
@@ -999,7 +1036,7 @@
           </p>
         </v-card-text>
         <v-card-actions class="pa-4">
-          <v-spacer></v-spacer>
+          <v-spacer />
           <v-btn
             color="grey"
             variant="outlined"

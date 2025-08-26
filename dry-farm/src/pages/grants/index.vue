@@ -25,8 +25,8 @@
               variant="outlined"
               rounded="lg"
               size="large"
-              @click="tryReconnect"
               :loading="reconnecting"
+              @click="tryReconnect"
             >
               重新連接
             </v-btn>
@@ -79,7 +79,10 @@
                 class="mb-4"
               >
                 <div class="d-flex align-center">
-                  <v-icon icon="mdi-wifi-off" class="mr-2" />
+                  <v-icon
+                    icon="mdi-wifi-off"
+                    class="mr-2"
+                  />
                   <div>
                     <div>目前使用本地資料模式</div>
                     <div class="text-caption">
@@ -90,8 +93,8 @@
                   <v-btn
                     variant="text"
                     size="small"
-                    @click="tryReconnect"
                     :loading="reconnecting"
+                    @click="tryReconnect"
                   >
                     重試連接
                   </v-btn>
@@ -291,10 +294,16 @@
                     <div class="d-flex align-center pa-3">
                       <span class="text-body-2 text-medium-emphasis">
                         共 {{ filteredGrantsList.length }} 筆資料
-                        <span v-if="!isUsingApi" class="text-warning">（本地資料）</span>
+                        <span
+                          v-if="!isUsingApi"
+                          class="text-warning"
+                        >（本地資料）</span>
                       </span>
                       <v-spacer />
-                      <div v-if="listError" class="text-error text-caption">
+                      <div
+                        v-if="listError"
+                        class="text-error text-caption"
+                      >
                         {{ listError }}
                       </div>
                     </div>
@@ -321,15 +330,27 @@
     </v-row>
 
     <!-- 批次跨年度確認對話框 -->
-    <v-dialog v-model="showBatchCrossYearDialog" max-width="600px" persistent>
+    <v-dialog
+      v-model="showBatchCrossYearDialog"
+      max-width="600px"
+      persistent
+    >
       <v-card rounded="lg">
         <v-card-title class="text-h5 pa-6 pb-2">
-          <v-icon icon="mdi-content-copy" color="#3ea0a3" class="mr-2" />
+          <v-icon
+            icon="mdi-content-copy"
+            color="#3ea0a3"
+            class="mr-2"
+          />
           批次跨年度確認
         </v-card-title>
 
         <v-card-text class="pa-6">
-          <v-alert type="info" variant="outlined" class="mb-4">
+          <v-alert
+            type="info"
+            variant="outlined"
+            class="mb-4"
+          >
             <div>
               <strong>批次跨年度處理說明：</strong>
             </div>
@@ -354,23 +375,22 @@
           <v-spacer />
           <v-btn
             variant="outlined"
-            @click="showBatchCrossYearDialog = false"
             :disabled="batchProcessing"
+            @click="showBatchCrossYearDialog = false"
           >
             取消
           </v-btn>
           <v-btn
             color="#3ea0a3"
             variant="flat"
-            @click="confirmBatchCrossYear"
             :loading="batchProcessing"
+            @click="confirmBatchCrossYear"
           >
             確認執行
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
-
   </v-container>
 </template>
 
