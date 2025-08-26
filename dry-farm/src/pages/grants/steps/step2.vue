@@ -72,7 +72,7 @@
                   {{ totalFacilityArea.toLocaleString() }} m²
                 </span>
                 <span class="text-body-2 ms-2 text-grey-darken-1">
-                  ({{ totalFacilityAreaHa.toFixed(4) }} 公頃)
+                  ({{ totalFacilityAreaHa }} 公頃)
                 </span>
               </div>
             </v-sheet>
@@ -1609,6 +1609,9 @@
                 </div>
                 <div v-if="selectedFeatureInfo.area">
                   <strong>面積:</strong> {{ selectedFeatureInfo.area }} 平方公尺
+                  <div class="text-caption text-grey-darken-1">
+                    來源: {{ getAreaSourceDisplay(selectedFeatureInfo) }}
+                  </div>
                 </div>
                 <div class="mt-2">
                   <v-btn
@@ -2549,7 +2552,7 @@ const landAreaHaComputed = computed({
   get: () => {
     if (!localFormData.landArea) return '';
     const area = parseFloat(localFormData.landArea);
-    return !isNaN(area) ? (area / 10000).toFixed(4) : '';
+    return !isNaN(area) ? (area / 10000).toString() : '';
   },
   set: (val) => {
     if (val) {
@@ -2568,7 +2571,7 @@ const facilityAreaHaComputed = computed({
   get: () => {
     if (!localFormData.facilityArea) return '';
     const area = parseFloat(localFormData.facilityArea);
-    return !isNaN(area) ? (area / 10000).toFixed(4) : '';
+    return !isNaN(area) ? (area / 10000).toString() : '';
   },
   set: (val) => {
     if (val) {
@@ -2767,6 +2770,24 @@ const calculateTotalShare = () => {
   }
 
   return totalShare;
+};
+
+// Get area source display text
+const getAreaSourceDisplay = (featureInfo: any) => {
+  if (!featureInfo || !featureInfo.areaSource) {
+    return '未知';
+  }
+  
+  switch (featureInfo.areaSource) {
+    case 'cadastral':
+      return '地籍登記面積 (Desc_area)';
+    case 'survey':
+      return '測量面積 (Map_area)';
+    case 'calculated':
+      return '地圖幾何計算';
+    default:
+      return '未知';
+  }
 };
 
 // Add and remove owners - 使用保護函數工廠
@@ -3232,7 +3253,7 @@ watch(() => localFormData.landArea, stepManager.createProtectedWatch((...args: u
     const area = parseFloat(newVal);
     if (!isNaN(area)) {
       // 更新農地地籍面積公頃值
-      const calculatedHa = (area / 10000).toFixed(4)
+      const calculatedHa = (area / 10000).toString()
       localFormData.landAreaHa = calculatedHa
 
       // 檢查設施面積是否超出農地地籍面積
@@ -3264,7 +3285,7 @@ watch(() => localFormData.facilityArea as string, stepManager.createProtectedWat
         localFormData.facilityAreaHa = localFormData.landAreaHa;
       } else {
         // 正常更新公頃值
-        localFormData.facilityAreaHa = (facilityArea / 10000).toFixed(4);
+        localFormData.facilityAreaHa = (facilityArea / 10000).toString();
       }
     }
   } else {
@@ -3481,34 +3502,38 @@ const handleFeatureModify = (event: { features: { getArray: () => Feature<Geomet
   if (features.length > 0) {
     const feature = features[0];
 
-    // Calculate the new area
+    // When feature is modified, always use OpenLayers calculated area
     const geometry = feature.getGeometry();
     if (geometry) {
-      // Get area in square meters
+      // Get area in square meters using OpenLayers calculation
       const areaValue = getArea(geometry);
-      // Round to 1 decimal place
-      const roundedArea = Math.round(areaValue * 10) / 10;
+      // Use precise area value without rounding
+      const preciseArea = areaValue;
 
-      // Update the feature's area property
-      feature.set('area', roundedArea);
+      // Update the feature's area property and mark it as calculated
+      feature.set('area', preciseArea);
+      feature.set('areaSource', 'calculated'); // Override any previous source
 
-      // Update the selectedFeatureInfo to reflect the new area
+      console.log(`Feature modified. Using calculated area: ${preciseArea} m² (source: calculated)`);
+
+      // Update the selectedFeatureInfo to reflect the new area and source
       if (selectedFeatureInfo.value) {
         selectedFeatureInfo.value = {
           ...selectedFeatureInfo.value,
-          area: roundedArea
+          area: preciseArea,
+          areaSource: 'calculated'
         };
       }
 
       // Update the land area in the form if this is the currently used feature
       if (landInfo.number === feature.get('Land_no')) {
-        localFormData.landArea = roundedArea.toString();
-        localFormData.landAreaHa = (roundedArea / 10000).toFixed(4);
+        localFormData.landArea = preciseArea.toString();
+        localFormData.landAreaHa = (preciseArea / 10000).toString();
 
         // If facility area is not set, set it to the same value
         if (!localFormData.facilityArea) {
-          localFormData.facilityArea = roundedArea.toString();
-          localFormData.facilityAreaHa = (roundedArea / 10000).toFixed(4);
+          localFormData.facilityArea = preciseArea.toString();
+          localFormData.facilityAreaHa = (preciseArea / 10000).toString();
         }
 
         // 使用統一的事件保護
@@ -3516,8 +3541,6 @@ const handleFeatureModify = (event: { features: { getArray: () => Feature<Geomet
           eventEmitter.emitDataChanged();
         }
       }
-
-      console.log(`Feature modified. New area: ${roundedArea} m²`);
     }
   }
 };
@@ -3545,29 +3568,43 @@ const handleFeatureSelect = (e: { selected: Feature<Geometry>[]; deselected: Fea
         localFormData.latitude = properties.lat;
       }
 
-      // Calculate area of the feature if it has a geometry
+      // Calculate area of the feature - prioritize Desc_area from GeoJSON
       const geometry = feature.getGeometry();
       let areaValue = 0;
+      let areaSource = 'none';
 
-      if (geometry) {
+      // Priority 1: Use Desc_area from GeoJSON properties (cadastral area)
+      if (properties.Desc_area && !isNaN(parseFloat(properties.Desc_area))) {
+        areaValue = parseFloat(properties.Desc_area);
+        areaSource = 'cadastral';
+        console.log(`Using cadastral area (Desc_area): ${areaValue} m²`);
+      } 
+      // Priority 2: Use Map_area from GeoJSON properties (survey area)
+      else if (properties.Map_area && !isNaN(parseFloat(properties.Map_area))) {
+        areaValue = parseFloat(properties.Map_area);
+        areaSource = 'survey';
+        console.log(`Using survey area (Map_area): ${areaValue} m²`);
+      }
+      // Priority 3: Calculate from geometry using OpenLayers
+      else if (geometry) {
         // Get area in square meters
         areaValue = getArea(geometry);
-        // Round to 1 decimal place
-        areaValue = Math.round(areaValue * 10) / 10;
-
-        // Set area property on the feature
-        feature.set('area', areaValue);
-
-        // If the feature already has an area property, use that instead
-        if (properties.area && !isNaN(parseFloat(properties.area))) {
-          areaValue = parseFloat(properties.area);
-        }
+        // Use precise area value without rounding
+        areaSource = 'calculated';
+        console.log(`Using calculated area from geometry: ${areaValue} m²`);
       }
 
-      // Create a copy of properties with updated area
+      // Set area property and source on the feature for future reference
+      if (areaValue > 0) {
+        feature.set('area', areaValue);
+        feature.set('areaSource', areaSource);
+      }
+
+      // Create a copy of properties with updated area and source
       const updatedProperties = {
         ...properties,
-        area: areaValue
+        area: areaValue,
+        areaSource: areaSource
       };
 
       // You can show a popup with feature info including the area
@@ -3620,7 +3657,7 @@ const useSelectedFeature = () => {
     if (selectedFeatureInfo.value.area) {
       localFormData.landArea = String(selectedFeatureInfo.value.area);
       // Convert to hectares
-      const areaInHa = (parseFloat(String(selectedFeatureInfo.value.area)) / 10000).toFixed(4);
+      const areaInHa = (parseFloat(String(selectedFeatureInfo.value.area)) / 10000).toString();
       localFormData.landAreaHa = areaInHa;
 
       // Set the facility area to match land area by default
