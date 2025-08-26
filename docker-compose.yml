@@ -12,6 +12,7 @@ services:
       - TZ=Asia/Taipei
     volumes:
       - ./api:/app
+      - ./data:/app/data
       - /app/bin
       - /app/include
       - /app/lib

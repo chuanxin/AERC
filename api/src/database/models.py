@@ -162,18 +162,42 @@ class Grants(models.Model):
 class GrantAttachments(models.Model):
     """補助案件附件資料表"""
     id = fields.IntField(pk=True)
-    grant = fields.ForeignKeyField("models.Grants", related_name="attachments", description="所屬案件")
-    file_name = fields.CharField(max_length=255, description="檔案名稱")
-    file_path = fields.CharField(max_length=255, description="檔案路徑")
-    file_type = fields.CharField(max_length=50, description="檔案類型")
-    file_size = fields.IntField(description="檔案大小(bytes)")
-    upload_time = fields.DatetimeField(auto_now_add=True, description="上傳時間")
-    description = fields.CharField(max_length=255, null=True, description="檔案描述")
+    grant = fields.ForeignKeyField("models.Grants", related_name="attachments", description="所屬補助申請案件")
+    version = fields.ForeignKeyField("models.GrantVersions", related_name="attachments", null=True, description="所屬案件版本")
+
+    # 分類資訊
+    step = fields.IntField(description="申請步驟編號 (5:現場勘查, 6:補助申請, 7:結案申報, 8:測試合格)")
+    category = fields.CharField(max_length=20, description="附件分類 (如:施工前照片、施工後照片、收據等)")
+
+    # 檔案資訊（關鍵設計）
+    original_filename = fields.CharField(max_length=255, description="使用者上傳的原始檔名")
+    internal_filename = fields.CharField(max_length=255, description="系統內部儲存檔名 (UUID格式)")
+    filepath = fields.CharField(max_length=500, description="檔案儲存相對路徑")
+    filesize = fields.BigIntField(description="檔案大小 (位元組)")
+    mime_type = fields.CharField(max_length=100, description="檔案MIME類型")
+    checksum = fields.CharField(max_length=64, description="檔案SHA-256校驗和")
+
+    # 業務資訊
+    description = fields.TextField(null=True, description="附件說明或備註")
+    status = fields.CharField(max_length=20, default="active", description="附件狀態 (active:有效, deleted:已刪除)")
+
+    # 關聯性（Step 7 前後對比用）
+    related_attachment = fields.ForeignKeyField("models.GrantAttachments", null=True, description="關聯附件ID (用於前後對比)")
+    
+    # 審計欄位
+    uploaded_at = fields.DatetimeField(auto_now_add=True, description="上傳時間")
+    uploaded_by = fields.ForeignKeyField("models.Users", related_name="uploaded_attachments", description="上傳人員")
     
     class Meta:
         table = "grant_attachments"
         table_description = "補助案件附件資料表"
-
+        indexes = [
+            ("grant", "step", "category"),
+            ("internal_filename",),
+            ("uploaded_at",),
+            ("status",),
+        ]
+        
 
 class GrantComments(models.Model):
     """補助案件評論資料表"""
