@@ -349,7 +349,7 @@
                     accept="image/*"
                     style="display: none"
                     @change="handleSinglePhotoUpload"
-                  />
+                  >
 
                   <!-- 上傳狀態提示 -->
                   <div

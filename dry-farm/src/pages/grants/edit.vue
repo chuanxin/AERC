@@ -135,7 +135,10 @@
               <v-divider class="my-2" />
 
               <!-- 版本管理功能項目 -->
-              <v-list nav class="function-list">
+              <v-list
+                nav
+                class="function-list"
+              >
                 <v-list-item
                   :disabled="isNavigating || designChangeLoading"
                   variant="elevated"
@@ -157,12 +160,18 @@
                     <span class="function-item-title">變更設計</span>
                   </v-list-item-title>
 
-                  <v-list-item-subtitle v-if="!isRailMode" class="text-medium-emphasis">
+                  <v-list-item-subtitle
+                    v-if="!isRailMode"
+                    class="text-medium-emphasis"
+                  >
                     建立新版本
                   </v-list-item-subtitle>
 
                   <!-- 版本資訊顯示 -->
-                  <template v-if="!isRailMode" #append>
+                  <template
+                    v-if="!isRailMode"
+                    #append
+                  >
                     <div class="version-info">
                       <v-chip
                         size="x-small"
@@ -542,14 +551,20 @@
       class="design-change-notification"
     >
       <div class="d-flex align-center">
-        <v-icon :color="notificationConfig.iconColor" class="mr-3">
+        <v-icon
+          :color="notificationConfig.iconColor"
+          class="mr-3"
+        >
           {{ notificationConfig.icon }}
         </v-icon>
         <div>
           <div class="text-subtitle-2 font-weight-medium">
             {{ notificationConfig.title }}
           </div>
-          <div v-if="notificationConfig.message" class="text-body-2">
+          <div
+            v-if="notificationConfig.message"
+            class="text-body-2"
+          >
             {{ notificationConfig.message }}
           </div>
         </div>
@@ -567,13 +582,26 @@
     </v-snackbar>
 
     <!-- 🆕 變更設計確認對話框 -->
-    <v-dialog v-model="showDesignChangeDialog" max-width="500" persistent>
+    <v-dialog
+      v-model="showDesignChangeDialog"
+      max-width="500"
+      persistent
+    >
       <v-card>
         <v-card-title class="text-h6 d-flex align-center pa-4">
-          <v-icon color="#3ea0a3" class="mr-3">mdi-content-copy</v-icon>
+          <v-icon
+            color="#3ea0a3"
+            class="mr-3"
+          >
+            mdi-content-copy
+          </v-icon>
           <span>變更設計</span>
           <v-spacer />
-          <v-btn icon variant="text" @click="showDesignChangeDialog = false">
+          <v-btn
+            icon
+            variant="text"
+            @click="showDesignChangeDialog = false"
+          >
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </v-card-title>
@@ -587,10 +615,19 @@
             </p>
 
             <!-- 當前版本資訊 -->
-            <v-card variant="outlined" color="#3ea0a3" class="mb-4">
+            <v-card
+              variant="outlined"
+              color="#3ea0a3"
+              class="mb-4"
+            >
               <v-card-text class="pa-3">
                 <div class="d-flex align-center">
-                  <v-icon color="#3ea0a3" class="mr-2">mdi-tag</v-icon>
+                  <v-icon
+                    color="#3ea0a3"
+                    class="mr-2"
+                  >
+                    mdi-tag
+                  </v-icon>
                   <div>
                     <div class="text-subtitle-2 font-weight-medium">
                       當前版本：版本 {{ grantsStore.currentGrant?.active_version?.version || 1 }}
@@ -634,8 +671,8 @@
           <v-spacer />
           <v-btn
             variant="text"
-            @click="showDesignChangeDialog = false"
             :disabled="designChangeLoading"
+            @click="showDesignChangeDialog = false"
           >
             取消
           </v-btn>
@@ -645,7 +682,9 @@
             variant="elevated"
             @click="executeDesignChange(designChangeComment)"
           >
-            <v-icon start>mdi-content-copy</v-icon>
+            <v-icon start>
+              mdi-content-copy
+            </v-icon>
             建立新版本
           </v-btn>
         </v-card-actions>
@@ -1000,13 +1039,8 @@ const handleMainButtonClick = () => {
 
 // 🆕 變更設計點擊處理
 const handleDesignChangeClick = () => {
-  if (grantsStore.hasUnsavedChanges) {
-    // 如果有未儲存變更，先顯示對話框
-    showDesignChangeDialog.value = true
-  } else {
-    // 直接執行變更設計
-    executeDesignChange()
-  }
+  // 🔥 Linus式修復：總是顯示確認對話窗，讓使用者輸入版本說明
+  showDesignChangeDialog.value = true
 }
 
 // 🆕 執行變更設計 - 重構錯誤處理
@@ -1035,8 +1069,37 @@ const executeDesignChange = async (comment?: string) => {
       }
     }
 
-    // 2. 收集所有步驟資料
-    const allStepsData = { ...grantsStore.formData }
+    // 2. 收集所有步驟資料 - 修復資料結構污染問題
+    console.log('🔄 Implementing version inheritance for design change')
+    
+    // 先取得前一版本的完整資料
+    const { getCurrentVersionData } = await import('../../services/grantsService')
+    const previousVersionData = await getCurrentVersionData(grantsStore.currentGrant.case_number)
+    
+    // 🔥 Linus式修復：確保資料格式統一，避免前後端格式混合
+    // 提取前一版本中的 steps 格式資料（後端正確格式）
+    const previousStepsData = previousVersionData.steps || {}
+    
+    // 將當前編輯的資料轉換為 steps 格式
+    const currentStepsData: Record<string, any> = {}
+    Object.entries(grantsStore.formData).forEach(([stepKey, stepData]) => {
+      if (stepKey !== '1' && stepData && Object.keys(stepData).length > 0) {
+        currentStepsData[stepKey] = stepData
+      }
+    })
+    
+    // 合併資料：使用統一的 steps 格式
+    const allStepsData = {
+      steps: {
+        ...previousStepsData,   // 前一版本的步驟資料
+        ...currentStepsData     // 當前修改的步驟資料
+      }
+    }
+    
+    console.log('📋 Previous version steps:', Object.keys(previousStepsData))
+    console.log('✏️ Current editing steps:', Object.keys(currentStepsData))
+    console.log('🔄 Final merged structure:', Object.keys(allStepsData))
+    console.log('🔄 Steps in final structure:', Object.keys(allStepsData.steps))
 
     // 3. 調用版本創建 API - 分離 API 邏輯
     const result = await createGrantVersion(
@@ -1047,7 +1110,7 @@ const executeDesignChange = async (comment?: string) => {
 
     // 4. 更新當前案件的版本資訊
     if (grantsStore.currentGrant.active_version) {
-      grantsStore.currentGrant.active_version.version = result.version
+      grantsStore.currentGrant.active_version.version = String(result.version)
       grantsStore.currentGrant.active_version.created_at = result.created_at
     }
 

@@ -261,7 +261,9 @@
                   class="mb-3"
                 >
                   <template #prepend>
-                    <v-icon size="small">mdi-alert-circle</v-icon>
+                    <v-icon size="small">
+                      mdi-alert-circle
+                    </v-icon>
                   </template>
                   <div class="text-caption">
                     <strong>提醒：</strong>未偵測到 Step2 的施作面積資料，補助款以 0.1 公頃為基準計算。請確認 Step2 已完成並儲存。
@@ -399,8 +401,12 @@
                     >
                       NO.
                     </th>
-                    <th style="width: 140px">設施類型</th>
-                    <th style="width: 200px">設施名稱</th>
+                    <th style="width: 140px">
+                      設施類型
+                    </th>
+                    <th style="width: 200px">
+                      設施名稱
+                    </th>
                     <th
                       class="text-center"
                       style="width: 100px"
@@ -413,8 +419,12 @@
                     >
                       單價
                     </th>
-                    <th style="width: 220px">補助標準</th>
-                    <th style="width: 180px">補助來源</th>
+                    <th style="width: 220px">
+                      補助標準
+                    </th>
+                    <th style="width: 180px">
+                      補助來源
+                    </th>
                     <th
                       class="text-center"
                       style="width: 80px"
@@ -490,9 +500,15 @@
               </v-table>
 
               <!-- 💰 金額統計區塊 -->
-              <div v-if="localFormData.facilities.length > 0" class="mt-4">
+              <div
+                v-if="localFormData.facilities.length > 0"
+                class="mt-4"
+              >
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-card
                       class="pa-4 text-center"
                       color="green-lighten-5"
@@ -516,7 +532,10 @@
                       </div>
                     </v-card>
                   </v-col>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-card
                       class="pa-4 text-center"
                       color="orange-lighten-5"
@@ -1008,16 +1027,18 @@ const onControlTypeChange = () => {
 onMounted(async () => {
   console.log("Step 3 mounted, formData:", props.formData);
 
-  // 🔥 Linus式修復：強制載入step2資料，解決reload問題
-  const caseNumber = grantsStore.caseNumber;
-  if (caseNumber && (!grantsStore.formData[2] || Object.keys(grantsStore.formData[2]).length === 0)) {
-    console.log('[Step3] 偵測到step2資料缺失，強制載入...');
+  // 🔥 Linus式修復：確保 caseNumber 與當前案件一致，避免載入錯誤資料
+  const currentCaseNumber = grantsStore.currentGrant?.case_number;
+  if (currentCaseNumber && (!grantsStore.formData[2] || Object.keys(grantsStore.formData[2]).length === 0)) {
+    console.log('[Step3] 偵測到step2資料缺失，為當前案件載入...', currentCaseNumber);
     try {
-      await grantsStore.loadStepData(caseNumber, 2);
+      await grantsStore.loadStepData(currentCaseNumber, 2);
       console.log('[Step3] step2資料載入完成:', grantsStore.formData[2]);
     } catch (error) {
       console.error('[Step3] 載入step2資料失敗:', error);
     }
+  } else if (!currentCaseNumber) {
+    console.warn('[Step3] 沒有當前案件，無法載入step2資料');
   }
 
   // Set form data from props

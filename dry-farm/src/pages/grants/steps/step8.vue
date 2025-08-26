@@ -17,9 +17,13 @@
           border="start"
         >
           <template #prepend>
-            <v-icon size="large">mdi-upload-multiple</v-icon>
+            <v-icon size="large">
+              mdi-upload-multiple
+            </v-icon>
           </template>
-          <div class="text-h6 mb-2">文件上傳說明</div>
+          <div class="text-h6 mb-2">
+            文件上傳說明
+          </div>
           <div class="text-body-1">
             <p class="mb-2">
               <strong>請注意：</strong>案件需要上傳以下所有類別的文件才能完成申請程序。
@@ -30,7 +34,12 @@
               <li>其他資料：現勘紀錄表、委託規劃書、接受補助切結書、竣工報驗書、驗收報告書、領款收據、設計圖</li>
             </ul>
             <p class="mt-2 mb-0">
-              <v-icon size="small" class="me-1">mdi-information</v-icon>
+              <v-icon
+                size="small"
+                class="me-1"
+              >
+                mdi-information
+              </v-icon>
               支援格式：PDF、JPG、PNG（設計圖另支援 DWG、DXF）
             </p>
           </div>

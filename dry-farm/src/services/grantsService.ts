@@ -820,6 +820,52 @@ export const createGrantVersion = async (
 }
 
 /**
+ * 取得當前活躍版本的完整資料（用於變更設計繼承）
+ * @param caseNumber 案件編號
+ */
+export const getCurrentVersionData = async (
+  caseNumber: string
+): Promise<Record<string, any>> => {
+  try {
+    console.log(`🔄 Loading current version data for case ${caseNumber}`)
+
+    // 取得案件完整資料，包含當前版本
+    const grantData = await apiService.get<any>(`/grants/case/${caseNumber}`)
+    
+    if (!grantData.active_version) {
+      throw new Error('無法找到當前版本資料')
+    }
+
+    // 從當前版本中提取 all_steps_data
+    const currentVersionData = grantData.active_version.all_steps_data || {}
+    
+    // 🔥 Linus式修復：清理資料結構，只保留 steps 格式，避免前後端格式混合
+    // 檢查是否存在污染的資料結構（同時有數字鍵和 steps 鍵）
+    const hasNumericKeys = Object.keys(currentVersionData).some(key => /^\d+$/.test(key))
+    const hasStepsKey = 'steps' in currentVersionData
+    
+    if (hasNumericKeys && hasStepsKey) {
+      console.warn('🚨 Detected mixed data structure, cleaning up...')
+      console.log('Keys before cleanup:', Object.keys(currentVersionData))
+      
+      // 只返回正確的 steps 格式，移除污染的數字鍵
+      const cleanedData = {
+        steps: currentVersionData.steps || {}
+      }
+      console.log('✅ Cleaned data structure:', Object.keys(cleanedData))
+      return cleanedData
+    }
+    
+    console.log(`✅ Loaded current version data with steps:`, Object.keys(currentVersionData))
+    return currentVersionData
+
+  } catch (error: any) {
+    console.error(`❌ Failed to load current version data for case ${caseNumber}:`, error)
+    return handleApiError(error, 'grantsService.getCurrentVersionData')
+  }
+}
+
+/**
  * 取得補助案件的版本列表
  * @param grantId 補助案件 ID
  * @param skip 跳過筆數

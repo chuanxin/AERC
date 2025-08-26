@@ -91,7 +91,10 @@
           找不到案件資料，請確認案件編號是否正確
         </v-alert>
 
-        <div v-if="currentCase" class="section-wrapper">
+        <div
+          v-if="currentCase"
+          class="section-wrapper"
+        >
           <!-- 案件基本資訊摘要 -->
           <v-card
             class="mb-4 pa-4"
@@ -113,28 +116,56 @@
             </v-card-title>
 
             <v-row dense>
-              <v-col cols="12" md="3">
+              <v-col
+                cols="12"
+                md="3"
+              >
                 <div class="info-item">
-                  <div class="text-caption text-grey-600">案件編號</div>
-                  <div class="text-subtitle-1 font-weight-medium">{{ currentCase?.cover?.case_number || '-' }}</div>
+                  <div class="text-caption text-grey-600">
+                    案件編號
+                  </div>
+                  <div class="text-subtitle-1 font-weight-medium">
+                    {{ currentCase?.cover?.case_number || '-' }}
+                  </div>
                 </div>
               </v-col>
-              <v-col cols="12" md="3">
+              <v-col
+                cols="12"
+                md="3"
+              >
                 <div class="info-item">
-                  <div class="text-caption text-grey-600">申請年度</div>
-                  <div class="text-subtitle-1 font-weight-medium">民國 {{ currentCase?.cover?.year || '-' }} 年</div>
+                  <div class="text-caption text-grey-600">
+                    申請年度
+                  </div>
+                  <div class="text-subtitle-1 font-weight-medium">
+                    民國 {{ currentCase?.cover?.year || '-' }} 年
+                  </div>
                 </div>
               </v-col>
-              <v-col cols="12" md="3">
+              <v-col
+                cols="12"
+                md="3"
+              >
                 <div class="info-item">
-                  <div class="text-caption text-grey-600">申請人</div>
-                  <div class="text-subtitle-1 font-weight-medium">{{ currentCase?.cover?.applicant_name || '-' }}</div>
+                  <div class="text-caption text-grey-600">
+                    申請人
+                  </div>
+                  <div class="text-subtitle-1 font-weight-medium">
+                    {{ currentCase?.cover?.applicant_name || '-' }}
+                  </div>
                 </div>
               </v-col>
-              <v-col cols="12" md="3">
+              <v-col
+                cols="12"
+                md="3"
+              >
                 <div class="info-item">
-                  <div class="text-caption text-grey-600">設施類型</div>
-                  <div class="text-subtitle-1 font-weight-medium">{{ currentCase?.cover?.facility_type || '-' }}</div>
+                  <div class="text-caption text-grey-600">
+                    設施類型
+                  </div>
+                  <div class="text-subtitle-1 font-weight-medium">
+                    {{ currentCase?.cover?.facility_type || '-' }}
+                  </div>
                 </div>
               </v-col>
             </v-row>
@@ -142,22 +173,43 @@
             <v-divider class="my-3" />
 
             <v-row dense>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <div class="info-item">
-                  <div class="text-caption text-grey-600">通訊地址</div>
-                  <div class="text-body-2">{{ currentCase?.cover?.address || '-' }}</div>
+                  <div class="text-caption text-grey-600">
+                    通訊地址
+                  </div>
+                  <div class="text-body-2">
+                    {{ currentCase?.cover?.address || '-' }}
+                  </div>
                 </div>
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <div class="info-item">
-                  <div class="text-caption text-grey-600">設施地點</div>
-                  <div class="text-body-2">{{ (currentCase?.cover?.facility_location?.county || '') + (currentCase?.cover?.facility_location?.district || '') || '-' }}</div>
+                  <div class="text-caption text-grey-600">
+                    設施地點
+                  </div>
+                  <div class="text-body-2">
+                    {{ (currentCase?.cover?.facility_location?.county || '') + (currentCase?.cover?.facility_location?.district || '') || '-' }}
+                  </div>
                 </div>
               </v-col>
-              <v-col cols="12" md="4">
+              <v-col
+                cols="12"
+                md="4"
+              >
                 <div class="info-item">
-                  <div class="text-caption text-grey-600">申請面積</div>
-                  <div class="text-body-2">{{ (currentCase?.cover?.application_area || '-') + ' ' + (currentCase?.cover?.area_unit || '') }}</div>
+                  <div class="text-caption text-grey-600">
+                    申請面積
+                  </div>
+                  <div class="text-body-2">
+                    {{ (currentCase?.cover?.application_area || '-') + ' ' + (currentCase?.cover?.area_unit || '') }}
+                  </div>
                 </div>
               </v-col>
             </v-row>
@@ -192,25 +244,44 @@
 
                 <v-row>
                   <!-- 預算項目 -->
-                  <v-col cols="12" md="8">
+                  <v-col
+                    cols="12"
+                    md="8"
+                  >
                     <v-card
                       flat
                       bg-color="white"
                       rounded="lg"
                       class="pa-3"
                     >
-                      <v-table density="comfortable" class="budget-table">
+                      <v-table
+                        density="comfortable"
+                        class="budget-table"
+                      >
                         <thead>
                           <tr>
-                            <th class="text-left">項目</th>
-                            <th class="text-right">金額 (元)</th>
-                            <th class="text-left">備註</th>
+                            <th class="text-left">
+                              項目
+                            </th>
+                            <th class="text-right">
+                              金額 (元)
+                            </th>
+                            <th class="text-left">
+                              備註
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          <tr v-for="(item, key) in currentCase?.budget_table?.items || {}" :key="key">
-                            <td class="font-weight-medium">{{ item.category }}</td>
-                            <td class="text-right">{{ formatNumber(item.amount) }}</td>
+                          <tr
+                            v-for="(item, key) in currentCase?.budget_table?.items || {}"
+                            :key="key"
+                          >
+                            <td class="font-weight-medium">
+                              {{ item.category }}
+                            </td>
+                            <td class="text-right">
+                              {{ formatNumber(item.amount) }}
+                            </td>
                             <td>{{ item.note || '-' }}</td>
                           </tr>
                         </tbody>
@@ -219,14 +290,22 @@
                   </v-col>
 
                   <!-- 預算摘要 -->
-                  <v-col cols="12" md="4">
+                  <v-col
+                    cols="12"
+                    md="4"
+                  >
                     <v-card
                       flat
                       bg-color="white"
                       rounded="lg"
                       class="pa-3"
                     >
-                      <div class="text-subtitle-2 font-weight-bold mb-3" style="color: #2d8c8f">預算摘要</div>
+                      <div
+                        class="text-subtitle-2 font-weight-bold mb-3"
+                        style="color: #2d8c8f"
+                      >
+                        預算摘要
+                      </div>
                       <div class="summary-item mb-2">
                         <div class="d-flex justify-space-between">
                           <span>總預算：</span>
@@ -242,7 +321,10 @@
                       <div class="summary-item mb-2">
                         <div class="d-flex justify-space-between">
                           <span>政府補助：</span>
-                          <span class="font-weight-bold" style="color: #3ea0a3">{{ formatNumber(currentCase?.budget_table?.summary?.government_subsidy?.total || 0) }}</span>
+                          <span
+                            class="font-weight-bold"
+                            style="color: #3ea0a3"
+                          >{{ formatNumber(currentCase?.budget_table?.summary?.government_subsidy?.total || 0) }}</span>
                         </div>
                       </div>
                       <v-divider class="my-2" />
@@ -281,28 +363,55 @@
                   rounded="lg"
                   class="pa-3"
                 >
-                  <v-table density="comfortable" class="land-table">
+                  <v-table
+                    density="comfortable"
+                    class="land-table"
+                  >
                     <thead>
                       <tr>
-                        <th class="text-left">地段</th>
-                        <th class="text-left">地號</th>
-                        <th class="text-right">土地面積(㎡)</th>
-                        <th class="text-right">設施面積(㎡)</th>
+                        <th class="text-left">
+                          地段
+                        </th>
+                        <th class="text-left">
+                          地號
+                        </th>
+                        <th class="text-right">
+                          土地面積(㎡)
+                        </th>
+                        <th class="text-right">
+                          設施面積(㎡)
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr v-for="(land, index) in currentCase?.lands_table?.lands || []" :key="index">
+                      <tr
+                        v-for="(land, index) in currentCase?.lands_table?.lands || []"
+                        :key="index"
+                      >
                         <td>{{ land.section }}</td>
                         <td>{{ land.land_number }}</td>
-                        <td class="text-right">{{ formatNumber(land.land_area_sqm) }}</td>
-                        <td class="text-right">{{ formatNumber(land.facility_area_sqm) }}</td>
+                        <td class="text-right">
+                          {{ formatNumber(land.land_area_sqm) }}
+                        </td>
+                        <td class="text-right">
+                          {{ formatNumber(land.facility_area_sqm) }}
+                        </td>
                       </tr>
                     </tbody>
                     <tfoot>
-                      <tr class="font-weight-bold" style="background-color: #f5f5f5">
-                        <td colspan="2">總計</td>
-                        <td class="text-right">{{ formatNumber(currentCase?.lands_table?.summary?.total_land_area || 0) }}</td>
-                        <td class="text-right">{{ formatNumber(currentCase?.lands_table?.summary?.total_facility_area || 0) }}</td>
+                      <tr
+                        class="font-weight-bold"
+                        style="background-color: #f5f5f5"
+                      >
+                        <td colspan="2">
+                          總計
+                        </td>
+                        <td class="text-right">
+                          {{ formatNumber(currentCase?.lands_table?.summary?.total_land_area || 0) }}
+                        </td>
+                        <td class="text-right">
+                          {{ formatNumber(currentCase?.lands_table?.summary?.total_facility_area || 0) }}
+                        </td>
                       </tr>
                     </tfoot>
                   </v-table>
@@ -331,72 +440,141 @@
                 </v-card-title>
 
                 <v-row>
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-card
                       flat
                       bg-color="white"
                       rounded="lg"
                       class="pa-3"
                     >
-                      <div class="text-subtitle-2 font-weight-bold mb-3" style="color: #2d8c8f">動力設備</div>
-                      <v-table density="comfortable" class="equipment-table">
+                      <div
+                        class="text-subtitle-2 font-weight-bold mb-3"
+                        style="color: #2d8c8f"
+                      >
+                        動力設備
+                      </div>
+                      <v-table
+                        density="comfortable"
+                        class="equipment-table"
+                      >
                         <thead>
                           <tr>
-                            <th class="text-left">項目</th>
-                            <th class="text-center">數量</th>
-                            <th class="text-right">金額</th>
+                            <th class="text-left">
+                              項目
+                            </th>
+                            <th class="text-center">
+                              數量
+                            </th>
+                            <th class="text-right">
+                              金額
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          <tr v-for="(item, index) in currentCase?.power_storage_equipments_table?.power_equipment?.items || []" :key="index">
+                          <tr
+                            v-for="(item, index) in currentCase?.power_storage_equipments_table?.power_equipment?.items || []"
+                            :key="index"
+                          >
                             <td>{{ item.name }}</td>
-                            <td class="text-center">{{ item.quantity }}</td>
-                            <td class="text-right">{{ formatNumber(item.amount) }}</td>
+                            <td class="text-center">
+                              {{ item.quantity }}
+                            </td>
+                            <td class="text-right">
+                              {{ formatNumber(item.amount) }}
+                            </td>
                           </tr>
                         </tbody>
                         <tfoot>
-                          <tr class="font-weight-bold" style="background-color: #f5f5f5">
+                          <tr
+                            class="font-weight-bold"
+                            style="background-color: #f5f5f5"
+                          >
                             <td>小計</td>
-                            <td></td>
-                            <td class="text-right">{{ formatNumber(currentCase?.power_storage_equipments_table?.power_equipment?.subtotal || 0) }}</td>
+                            <td />
+                            <td class="text-right">
+                              {{ formatNumber(currentCase?.power_storage_equipments_table?.power_equipment?.subtotal || 0) }}
+                            </td>
                           </tr>
                         </tfoot>
                       </v-table>
                     </v-card>
                   </v-col>
 
-                  <v-col cols="12" md="6">
+                  <v-col
+                    cols="12"
+                    md="6"
+                  >
                     <v-card
                       flat
                       bg-color="white"
                       rounded="lg"
                       class="pa-3"
                     >
-                      <div class="text-subtitle-2 font-weight-bold mb-3" style="color: #2d8c8f">調蓄設備</div>
-                      <div v-if="(currentCase?.power_storage_equipments_table?.storage_equipment?.items || []).length === 0" class="text-center py-6">
-                        <v-icon size="48" color="grey-lighten-2">mdi-information</v-icon>
-                        <div class="text-body-2 text-grey-600 mt-2">無調蓄設備</div>
+                      <div
+                        class="text-subtitle-2 font-weight-bold mb-3"
+                        style="color: #2d8c8f"
+                      >
+                        調蓄設備
                       </div>
-                      <v-table v-else density="comfortable" class="equipment-table">
+                      <div
+                        v-if="(currentCase?.power_storage_equipments_table?.storage_equipment?.items || []).length === 0"
+                        class="text-center py-6"
+                      >
+                        <v-icon
+                          size="48"
+                          color="grey-lighten-2"
+                        >
+                          mdi-information
+                        </v-icon>
+                        <div class="text-body-2 text-grey-600 mt-2">
+                          無調蓄設備
+                        </div>
+                      </div>
+                      <v-table
+                        v-else
+                        density="comfortable"
+                        class="equipment-table"
+                      >
                         <thead>
                           <tr>
-                            <th class="text-left">項目</th>
-                            <th class="text-center">數量</th>
-                            <th class="text-right">金額</th>
+                            <th class="text-left">
+                              項目
+                            </th>
+                            <th class="text-center">
+                              數量
+                            </th>
+                            <th class="text-right">
+                              金額
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          <tr v-for="(item, index) in currentCase?.power_storage_equipments_table?.storage_equipment?.items || []" :key="index">
+                          <tr
+                            v-for="(item, index) in currentCase?.power_storage_equipments_table?.storage_equipment?.items || []"
+                            :key="index"
+                          >
                             <td>{{ item.name }}</td>
-                            <td class="text-center">{{ item.quantity }}</td>
-                            <td class="text-right">{{ formatNumber(item.amount) }}</td>
+                            <td class="text-center">
+                              {{ item.quantity }}
+                            </td>
+                            <td class="text-right">
+                              {{ formatNumber(item.amount) }}
+                            </td>
                           </tr>
                         </tbody>
                         <tfoot>
-                          <tr class="font-weight-bold" style="background-color: #f5f5f5">
+                          <tr
+                            class="font-weight-bold"
+                            style="background-color: #f5f5f5"
+                          >
                             <td>小計</td>
-                            <td></td>
-                            <td class="text-right">{{ formatNumber(currentCase?.power_storage_equipments_table?.storage_equipment?.subtotal || 0) }}</td>
+                            <td />
+                            <td class="text-right">
+                              {{ formatNumber(currentCase?.power_storage_equipments_table?.storage_equipment?.subtotal || 0) }}
+                            </td>
                           </tr>
                         </tfoot>
                       </v-table>
@@ -426,34 +604,71 @@
                   管路灌溉系統材料數量表
                 </v-card-title>
 
-                <div v-for="(category, categoryKey) in currentCase?.pipe_materials_table?.categories || {}" :key="categoryKey" class="mb-4">
+                <div
+                  v-for="(category, categoryKey) in currentCase?.pipe_materials_table?.categories || {}"
+                  :key="categoryKey"
+                  class="mb-4"
+                >
                   <v-card
                     flat
                     bg-color="white"
                     rounded="lg"
                     class="pa-3"
                   >
-                    <div class="text-subtitle-2 font-weight-bold mb-3" style="color: #3ea0a3">{{ category.name }}</div>
-                    <v-table density="comfortable" class="materials-table">
+                    <div
+                      class="text-subtitle-2 font-weight-bold mb-3"
+                      style="color: #3ea0a3"
+                    >
+                      {{ category.name }}
+                    </div>
+                    <v-table
+                      density="comfortable"
+                      class="materials-table"
+                    >
                       <thead>
                         <tr>
-                          <th class="text-left">項目</th>
-                          <th class="text-left">規格</th>
-                          <th class="text-center">單位</th>
-                          <th class="text-right">數量</th>
-                          <th class="text-right">單價</th>
-                          <th class="text-right">總價</th>
-                          <th class="text-left">備註</th>
+                          <th class="text-left">
+                            項目
+                          </th>
+                          <th class="text-left">
+                            規格
+                          </th>
+                          <th class="text-center">
+                            單位
+                          </th>
+                          <th class="text-right">
+                            數量
+                          </th>
+                          <th class="text-right">
+                            單價
+                          </th>
+                          <th class="text-right">
+                            總價
+                          </th>
+                          <th class="text-left">
+                            備註
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="(item, index) in category.items" :key="index">
+                        <tr
+                          v-for="(item, index) in category.items"
+                          :key="index"
+                        >
                           <td>{{ item.material_name }}</td>
                           <td>{{ item.specification }}</td>
-                          <td class="text-center">{{ item.unit }}</td>
-                          <td class="text-right">{{ formatNumber(item.quantity) }}</td>
-                          <td class="text-right">{{ formatNumber(item.unit_price) }}</td>
-                          <td class="text-right font-weight-medium">{{ formatNumber(item.total_price) }}</td>
+                          <td class="text-center">
+                            {{ item.unit }}
+                          </td>
+                          <td class="text-right">
+                            {{ formatNumber(item.quantity) }}
+                          </td>
+                          <td class="text-right">
+                            {{ formatNumber(item.unit_price) }}
+                          </td>
+                          <td class="text-right font-weight-medium">
+                            {{ formatNumber(item.total_price) }}
+                          </td>
                           <td>{{ item.note || '-' }}</td>
                         </tr>
                       </tbody>
@@ -468,7 +683,10 @@
                   class="pa-3"
                 >
                   <div class="text-right">
-                    <div class="text-subtitle-1 font-weight-bold" style="color: #3ea0a3">
+                    <div
+                      class="text-subtitle-1 font-weight-bold"
+                      style="color: #3ea0a3"
+                    >
                       材料總價：{{ formatNumber(currentCase?.pipe_materials_table?.total_price || 0) }} 元
                     </div>
                   </div>
@@ -477,7 +695,10 @@
 
               <!-- 工程參數與系統資訊 -->
               <v-row>
-                <v-col cols="12" md="6">
+                <v-col
+                  cols="12"
+                  md="6"
+                >
                   <v-card
                     flat
                     class="mb-4 pa-4"
@@ -506,35 +727,62 @@
                     >
                       <div class="parameter-grid">
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">坵塊大小</div>
-                          <div class="text-body-2">{{ currentCase?.metadata?.engineering_parameters?.block_shape || '-' }}</div>
+                          <div class="text-caption text-grey-600">
+                            坵塊大小
+                          </div>
+                          <div class="text-body-2">
+                            {{ currentCase?.metadata?.engineering_parameters?.block_shape || '-' }}
+                          </div>
                         </div>
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">主管配置</div>
-                          <div class="text-body-2">{{ currentCase?.metadata?.engineering_parameters?.main_pipe_l1 || '-' }}</div>
+                          <div class="text-caption text-grey-600">
+                            主管配置
+                          </div>
+                          <div class="text-body-2">
+                            {{ currentCase?.metadata?.engineering_parameters?.main_pipe_l1 || '-' }}
+                          </div>
                         </div>
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">支管間距</div>
-                          <div class="text-body-2">{{ currentCase?.metadata?.engineering_parameters?.branch_spacing || '-' }}</div>
+                          <div class="text-caption text-grey-600">
+                            支管間距
+                          </div>
+                          <div class="text-body-2">
+                            {{ currentCase?.metadata?.engineering_parameters?.branch_spacing || '-' }}
+                          </div>
                         </div>
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">噴頭間距</div>
-                          <div class="text-body-2">{{ currentCase?.metadata?.engineering_parameters?.sprinkler_spacing || '-' }}</div>
+                          <div class="text-caption text-grey-600">
+                            噴頭間距
+                          </div>
+                          <div class="text-body-2">
+                            {{ currentCase?.metadata?.engineering_parameters?.sprinkler_spacing || '-' }}
+                          </div>
                         </div>
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">水源</div>
-                          <div class="text-body-2">{{ currentCase?.metadata?.engineering_parameters?.water_source || '-' }}</div>
+                          <div class="text-caption text-grey-600">
+                            水源
+                          </div>
+                          <div class="text-body-2">
+                            {{ currentCase?.metadata?.engineering_parameters?.water_source || '-' }}
+                          </div>
                         </div>
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">設計者</div>
-                          <div class="text-body-2">{{ currentCase?.metadata?.engineering_parameters?.designer || '-' }}</div>
+                          <div class="text-caption text-grey-600">
+                            設計者
+                          </div>
+                          <div class="text-body-2">
+                            {{ currentCase?.metadata?.engineering_parameters?.designer || '-' }}
+                          </div>
                         </div>
                       </div>
                     </v-card>
                   </v-card>
                 </v-col>
 
-                <v-col cols="12" md="6">
+                <v-col
+                  cols="12"
+                  md="6"
+                >
                   <v-card
                     flat
                     class="mb-4 pa-4"
@@ -563,28 +811,52 @@
                     >
                       <div class="parameter-grid">
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">生成時間</div>
-                          <div class="text-body-2">{{ formatDate(currentCase?.metadata?.generated_at) }}</div>
+                          <div class="text-caption text-grey-600">
+                            生成時間
+                          </div>
+                          <div class="text-body-2">
+                            {{ formatDate(currentCase?.metadata?.generated_at) }}
+                          </div>
                         </div>
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">模板版本</div>
-                          <div class="text-body-2">{{ currentCase?.metadata?.template_version || '-' }}</div>
+                          <div class="text-caption text-grey-600">
+                            模板版本
+                          </div>
+                          <div class="text-body-2">
+                            {{ currentCase?.metadata?.template_version || '-' }}
+                          </div>
                         </div>
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">調控設施</div>
-                          <div class="text-body-2">{{ currentCase?.metadata?.equipment_summary?.control_facilities || '-' }}</div>
+                          <div class="text-caption text-grey-600">
+                            調控設施
+                          </div>
+                          <div class="text-body-2">
+                            {{ currentCase?.metadata?.equipment_summary?.control_facilities || '-' }}
+                          </div>
                         </div>
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">動力設備</div>
-                          <div class="text-body-2">{{ currentCase?.metadata?.equipment_summary?.power_equipment || '-' }}</div>
+                          <div class="text-caption text-grey-600">
+                            動力設備
+                          </div>
+                          <div class="text-body-2">
+                            {{ currentCase?.metadata?.equipment_summary?.power_equipment || '-' }}
+                          </div>
                         </div>
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">調蓄設施</div>
-                          <div class="text-body-2">{{ currentCase?.metadata?.equipment_summary?.storage_capacity || '-' }}</div>
+                          <div class="text-caption text-grey-600">
+                            調蓄設施
+                          </div>
+                          <div class="text-body-2">
+                            {{ currentCase?.metadata?.equipment_summary?.storage_capacity || '-' }}
+                          </div>
                         </div>
                         <div class="parameter-item">
-                          <div class="text-caption text-grey-600">資料來源</div>
-                          <div class="text-body-2">{{ currentCase?.metadata?.source || '-' }}</div>
+                          <div class="text-caption text-grey-600">
+                            資料來源
+                          </div>
+                          <div class="text-body-2">
+                            {{ currentCase?.metadata?.source || '-' }}
+                          </div>
                         </div>
                       </div>
                     </v-card>
