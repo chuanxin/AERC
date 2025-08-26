@@ -133,7 +133,7 @@
                           >
                             mdi-land-plots
                           </v-icon>
-                          地號：{{ land.landNumber || '未設定' }}
+                          地號：{{ getLandNumber(land) }}
                         </div>
 
                         <div class="text-body-2 mb-1">
@@ -2659,6 +2659,22 @@ const getLandLocationText = (land: LandData): string => {
   return parts.length > 0 ? parts.join('') : '未設定位置'
 }
 
+// 動態計算並顯示地號的函數
+const getLandNumber = (land: LandData): string => {
+  // 優先使用 landNumber，如果沒有則從 landNumberMain 和 landNumberSub 計算
+  if (land.landNumber) {
+    return land.landNumber
+  }
+  
+  if (land.landNumberMain) {
+    return land.landNumberSub 
+      ? `${land.landNumberMain}-${land.landNumberSub}`
+      : land.landNumberMain
+  }
+  
+  return '未設定'
+}
+
 // Helper function to format land numbers for display elsewhere
 // const formatLandNumber = (value) => {
 //   if (!value) return '0000';
@@ -3593,6 +3609,11 @@ const useSelectedFeature = () => {
         localFormData.landNumberMain = landNo;
         localFormData.landNumberSub = '';
       }
+
+      // Update landNumber to ensure card display sync
+      localFormData.landNumber = localFormData.landNumberSub
+        ? `${localFormData.landNumberMain}-${localFormData.landNumberSub}`
+        : localFormData.landNumberMain;
     }
 
     // If the feature has an area, update the area fields
