@@ -1013,7 +1013,8 @@ const materialOptions = computed(() => {
 });
 
 const getDiameterDisplay = (diameterId: number | null) => {
-  if (!diameterId) return '';
+  // 🔥 Linus式修復：使用嚴格比較，避免 0 被判斷為 falsy
+  if (diameterId === null || diameterId === undefined) return '';
   const diameter = pfDiametersStore.getDiameterById(diameterId);
   return diameter ? `${diameter.name} (${diameter.value})` : '';
 };
