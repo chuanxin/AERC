@@ -18,21 +18,16 @@
         >
           <template #prepend>
             <v-icon size="large">
-              mdi-upload-multiple
+              mdi-clipboard-check
             </v-icon>
           </template>
           <div class="text-h6 mb-2">
-            文件上傳說明
+            上傳資料檢核表
           </div>
           <div class="text-body-1">
             <p class="mb-2">
-              <strong>請注意：</strong>案件需要上傳以下所有類別的文件才能完成申請程序。
+              <strong>請依照檢核表逐項確認：</strong>請確認文件已備齊並勾選對應項目，然後統一上傳所需檔案。
             </p>
-            <ul class="ml-4">
-              <li>申請資料：申請檔案</li>
-              <li>土地資料：土地登記謄本、地籍圖謄本、租賃同意書、土地施設同意書</li>
-              <li>其他資料：現勘紀錄表、委託規劃書、接受補助切結書、竣工報驗書、驗收報告書、領款收據、設計圖</li>
-            </ul>
             <p class="mt-2 mb-0">
               <v-icon
                 size="small"
@@ -40,7 +35,7 @@
               >
                 mdi-information
               </v-icon>
-              支援格式：PDF、JPG、PNG（設計圖另支援 DWG、DXF）
+              支援格式：PDF、JPG、PNG
             </p>
           </div>
         </v-alert>
@@ -50,760 +45,400 @@
           v-model="localValid"
           @submit.prevent
         >
-          <!-- 申請資料區域 -->
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
+          <v-row>
+            <!-- 左側：上傳資料檢核表 -->
+            <v-col
+              cols="12"
+              md="7"
+            >
+              <v-card
+                class="mb-4"
+                variant="outlined"
               >
-                mdi-file-document
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>申請資料</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <v-list class="bg-transparent">
-                  <v-list-item
-                    title="申請檔案"
-                    subtitle="請上傳申請相關檔案 (PDF, JPG, PNG)"
-                    class="mb-2"
+                <v-card-title class="bg-primary-lighten-4 d-flex align-center py-3 px-4">
+                  <v-icon
+                    class="me-2"
+                    size="small"
                   >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.applicationFile ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.applicationFile ? 'mdi-check' : 'mdi-file-document' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.applicationFile"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('applicationFile')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.applicationFile ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.applicationFile ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <!-- 預覽區域 -->
-                  <div
-                    v-if="localFormData.applicationFilePreview"
-                    class="mt-2 mb-4"
+                    mdi-clipboard-check-outline
+                  </v-icon>
+                  <span class="text-subtitle-1 font-weight-medium">上傳資料檢核表</span>
+                  <v-spacer />
+                  <v-chip
+                    :color="completionPercentage === 100 ? 'success' : 'primary'"
+                    variant="flat"
+                    size="small"
                   >
-                    <v-img
-                      :src="localFormData.applicationFilePreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-                </v-list>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
+                    {{ completedItems }}/{{ checklistItems.length }} 項目 ({{ checklistItems.length === 13 ? '完整' : '異常' }})
+                  </v-chip>
+                </v-card-title>
 
-          <!-- 土地資料區域 -->
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-map
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>土地資料</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <v-list class="bg-transparent">
-                  <v-list-item
-                    title="土地登記謄本"
-                    subtitle="請上傳土地登記謄本 (PDF, JPG, PNG)"
-                    class="mb-2"
-                  >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.landReg ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.landReg ? 'mdi-check' : 'mdi-file-document' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.landRegistration"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('landReg')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.landReg ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.landReg ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <div
-                    v-if="localFormData.landRegistrationPreview"
-                    class="mt-2 mb-4"
-                  >
-                    <v-img
-                      :src="localFormData.landRegistrationPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-
-                  <v-list-item
-                    title="地籍圖謄本"
-                    subtitle="請上傳地籍圖謄本 (PDF, JPG, PNG)"
-                    class="mb-2"
-                  >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.landMap ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.landMap ? 'mdi-check' : 'mdi-map' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.landMap"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('landMap')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.landMap ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.landMap ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <div
-                    v-if="localFormData.landMapPreview"
-                    class="mt-2 mb-4"
-                  >
-                    <v-img
-                      :src="localFormData.landMapPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-
-                  <v-list-item
-                    title="租賃同意書"
-                    subtitle="請上傳租賃同意書 (PDF, JPG, PNG)"
-                    class="mb-2"
-                  >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.lease ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.lease ? 'mdi-check' : 'mdi-file-document-outline' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.leaseAgreement"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('lease')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.lease ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.lease ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <div
-                    v-if="localFormData.leaseAgreementPreview"
-                    class="mt-2 mb-4"
-                  >
-                    <v-img
-                      :src="localFormData.leaseAgreementPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-
-                  <v-list-item
-                    title="土地施設同意書"
-                    subtitle="請上傳土地施設同意書 (PDF, JPG, PNG)"
-                    class="mb-2"
-                  >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.landUse ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.landUse ? 'mdi-check' : 'mdi-file-document-outline' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.landUseConsent"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('landUse')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.landUse ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.landUse ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <div
-                    v-if="localFormData.landUseConsentPreview"
-                    class="mt-2 mb-4"
-                  >
-                    <v-img
-                      :src="localFormData.landUseConsentPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-                </v-list>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
-
-          <!-- 其他資料區域 -->
-          <v-card variant="outlined">
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-file-multiple
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>其他資料</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <v-list class="bg-transparent">
-                  <v-list-item
-                    title="現勘紀錄表"
-                    subtitle="請上傳現勘紀錄表 (PDF, JPG, PNG)"
-                    class="mb-2"
-                  >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.inspection ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.inspection ? 'mdi-check' : 'mdi-clipboard-check' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.inspectionRecord"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('inspection')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.inspection ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.inspection ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <div
-                    v-if="localFormData.inspectionRecordPreview"
-                    class="mt-2 mb-4"
-                  >
-                    <v-img
-                      :src="localFormData.inspectionRecordPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-
-                  <v-list-item
-                    title="委託規劃書"
-                    subtitle="請上傳委託規劃書 (PDF, JPG, PNG)"
-                    class="mb-2"
-                  >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.planning ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.planning ? 'mdi-check' : 'mdi-file-document-outline' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.planningDoc"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('planning')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.planning ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.planning ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <div
-                    v-if="localFormData.planningDocPreview"
-                    class="mt-2 mb-4"
-                  >
-                    <v-img
-                      :src="localFormData.planningDocPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-
-                  <v-list-item
-                    title="接受補助切結書"
-                    subtitle="請上傳接受補助切結書 (PDF, JPG, PNG)"
-                    class="mb-2"
-                  >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.subsidy ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.subsidy ? 'mdi-check' : 'mdi-file-document-outline' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.subsidy"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('subsidy')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.subsidy ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.subsidy ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <div
-                    v-if="localFormData.subsidyPreview"
-                    class="mt-2 mb-4"
-                  >
-                    <v-img
-                      :src="localFormData.subsidyPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-
-                  <v-list-item
-                    title="竣工報驗書"
-                    subtitle="請上傳竣工報驗書 (PDF, JPG, PNG)"
-                    class="mb-2"
-                  >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.workInspection ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.workInspection ? 'mdi-check' : 'mdi-file-document-outline' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.workInspection"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('workInspection')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.workInspection ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.workInspection ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <div
-                    v-if="localFormData.workInspectionPreview"
-                    class="mt-2 mb-4"
-                  >
-                    <v-img
-                      :src="localFormData.workInspectionPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-
-                  <v-list-item
-                    title="驗收報告書"
-                    subtitle="請上傳驗收報告書 (PDF, JPG, PNG)"
-                    class="mb-2"
-                  >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.inspectionReport ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.inspectionReport ? 'mdi-check' : 'mdi-file-document-outline' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.inspectionReport"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('inspectionReport')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.inspectionReport ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.inspectionReport ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <div
-                    v-if="localFormData.inspectionReportPreview"
-                    class="mt-2 mb-4"
-                  >
-                    <v-img
-                      :src="localFormData.inspectionReportPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-
-                  <v-list-item
-                    title="領款收據"
-                    subtitle="請上傳領款收據 (PDF, JPG, PNG)"
-                    class="mb-2"
-                  >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.paymentReceipt ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.paymentReceipt ? 'mdi-check' : 'mdi-receipt' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.paymentReceipt"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('paymentReceipt')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.paymentReceipt ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.paymentReceipt ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <div
-                    v-if="localFormData.paymentReceiptPreview"
-                    class="mt-2 mb-4"
-                  >
-                    <v-img
-                      :src="localFormData.paymentReceiptPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-
-                  <v-list-item
-                    title="設計圖"
-                    subtitle="請上傳設計圖 (PDF, JPG, PNG, DWG, DXF)"
-                    class="mb-2"
-                  >
-                    <template #prepend>
-                      <v-avatar :color="localFormData.uploadStatus.designDrawing ? 'success' : 'grey-lighten-1'">
-                        <v-icon color="white">
-                          {{ localFormData.uploadStatus.designDrawing ? 'mdi-check' : 'mdi-drawing' }}
-                        </v-icon>
-                      </v-avatar>
-                    </template>
-
-                    <template #append>
-                      <v-file-input
-                        v-model="localFormData.designDrawing"
-                        variant="plain"
-                        density="compact"
-                        accept=".pdf,.jpg,.jpeg,.png,.dwg,.dxf"
-                        hide-details
-                        class="file-input-inline"
-                        @update:model-value="handleFileChange('designDrawing')"
-                      >
-                        <template #prepend-inner>
-                          <v-btn
-                            :color="localFormData.uploadStatus.designDrawing ? 'success' : 'grey-lighten-1'"
-                            :icon="localFormData.uploadStatus.designDrawing ? 'mdi-check' : 'mdi-upload'"
-                            variant="text"
-                            size="small"
-                          />
-                        </template>
-                      </v-file-input>
-                    </template>
-                  </v-list-item>
-
-                  <div
-                    v-if="localFormData.designDrawingPreview"
-                    class="mt-2 mb-4"
-                  >
-                    <v-img
-                      :src="localFormData.designDrawingPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
-                  </div>
-                </v-list>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
-
-          <!-- 上傳進度總覽
-          <v-card
-            variant="outlined"
-            class="mt-4"
-          >
-            <v-card-title class="bg-grey-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-progress-check
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">上傳進度總覽</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <v-row>
-                <v-col
-                  cols="12"
-                  md="4"
-                >
-                  <v-card
-                    :color="uploadedFilesCount === 0 ? 'grey-lighten-3' : 'blue-lighten-5'"
-                    class="pa-3 text-center"
-                    variant="tonal"
-                  >
-                    <div class="text-h4 font-weight-bold mb-1">
-                      {{ uploadedFilesCount }}
-                    </div>
-                    <div class="text-body-2 text-medium-emphasis">
-                      已上傳檔案
-                    </div>
-                  </v-card>
-                </v-col>
-                <v-col
-                  cols="12"
-                  md="4"
-                >
-                  <v-card
-                    :color="totalRequiredFiles === uploadedFilesCount ? 'green-lighten-5' : 'orange-lighten-5'"
-                    class="pa-3 text-center"
-                    variant="tonal"
-                  >
-                    <div class="text-h4 font-weight-bold mb-1">
-                      {{ totalRequiredFiles }}
-                    </div>
-                    <div class="text-body-2 text-medium-emphasis">
-                      需要檔案總數
-                    </div>
-                  </v-card>
-                </v-col>
-                <v-col
-                  cols="12"
-                  md="4"
-                >
-                  <v-card
-                    :color="isAllFilesUploaded ? 'green-lighten-5' : 'red-lighten-5'"
-                    class="pa-3 text-center"
-                    variant="tonal"
-                  >
-                    <v-icon
-                      :color="isAllFilesUploaded ? 'success' : 'error'"
-                      size="large"
-                      class="mb-1"
+                <v-card-text class="pa-0">
+                  <v-list class="py-0">
+                    <template
+                      v-for="(item, index) in checklistItems"
+                      :key="item.id"
                     >
-                      {{ isAllFilesUploaded ? 'mdi-check-circle' : 'mdi-alert-circle' }}
-                    </v-icon>
-                    <div class="text-body-2 text-medium-emphasis">
-                      {{ isAllFilesUploaded ? '上傳完成' : '未完成' }}
+                      <v-list-item
+                        class="checklist-item"
+                        :class="{
+                          'item-completed': item.completed,
+                          'item-has-files': getItemFiles(item.id).length > 0
+                        }"
+                      >
+                        <template #prepend>
+                          <v-icon
+                            :color="item.completed ? 'success' : 'grey-lighten-1'"
+                            size="large"
+                          >
+                            {{ item.completed ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+                          </v-icon>
+                        </template>
+
+                        <v-list-item-title class="font-weight-medium">
+                          {{ item.name }}
+                          <span
+                            v-if="item.required"
+                            class="required-asterisk"
+                          >*</span>
+                        </v-list-item-title>
+
+                        <v-list-item-subtitle class="text-caption mt-1">
+                          {{ item.description }}
+                        </v-list-item-subtitle>
+
+                        <!-- 已上傳檔案標籤 -->
+                        <div
+                          v-if="getItemFiles(item.id).length > 0"
+                          class="mt-2"
+                        >
+                          <v-chip
+                            v-for="file in getItemFiles(item.id)"
+                            :key="file.id"
+                            size="x-small"
+                            variant="outlined"
+                            color="success"
+                            class="me-1 mb-1"
+                          >
+                            <v-icon
+                              start
+                              size="x-small"
+                            >
+                              mdi-file-check-outline
+                            </v-icon>
+                            {{ file.display_name }}
+                          </v-chip>
+                        </div>
+                      </v-list-item>
+                      <v-divider v-if="index < checklistItems.length - 1" />
+                    </template>
+                  </v-list>
+                </v-card-text>
+              </v-card>
+
+              <!-- 完成進度 -->
+              <v-card variant="outlined">
+                <v-card-title class="bg-info-lighten-4 d-flex align-center py-3 px-4">
+                  <v-icon
+                    class="me-2"
+                    size="small"
+                  >
+                    mdi-progress-check
+                  </v-icon>
+                  <span class="text-subtitle-1 font-weight-medium">完成進度</span>
+                </v-card-title>
+
+                <v-card-text class="pa-4">
+                  <div class="d-flex align-center mb-3">
+                    <v-progress-circular
+                      :model-value="completionPercentage"
+                      :color="completionPercentage === 100 ? 'success' : 'primary'"
+                      size="48"
+                      width="4"
+                    >
+                      <span class="text-caption font-weight-bold">{{ Math.round(completionPercentage) }}%</span>
+                    </v-progress-circular>
+                    <div class="ml-3">
+                      <div class="text-body-2 font-weight-medium">
+                        {{ completedItems }} / {{ checklistItems.length }} 項目完成 ({{ checklistItems.length === 13 ? '13項完整' : '數量異常' }})
+                      </div>
+                      <div class="text-caption text-medium-emphasis">
+                        {{ uniqueUploadedFiles.length }} 個檔案已上傳
+                      </div>
                     </div>
+                  </div>
+
+                  <!-- 完成狀態提示 -->
+                  <v-alert
+                    v-if="completionPercentage === 100"
+                    type="success"
+                    variant="tonal"
+                    density="compact"
+                    class="mb-0"
+                  >
+                    <template #prepend>
+                      <v-icon size="small">
+                        mdi-check-circle
+                      </v-icon>
+                    </template>
+                    所有必要文件已上傳完成，可以進行下一步！
+                  </v-alert>
+
+                  <v-alert
+                    v-else
+                    type="warning"
+                    variant="tonal"
+                    density="compact"
+                    class="mb-0"
+                  >
+                    <template #prepend>
+                      <v-icon size="small">
+                        mdi-alert-circle-outline
+                      </v-icon>
+                    </template>
+                    還有 {{ incompleteRequiredItems }} 項必要文件待處理 (總共 {{ checklistItems.length }} 項)
+                  </v-alert>
+                </v-card-text>
+              </v-card>
+            </v-col>
+
+            <!-- 右側：檔案上傳區域 -->
+            <v-col
+              cols="12"
+              md="5"
+            >
+              <!-- 檔案上傳控制 -->
+              <v-card
+                class="mb-4"
+                variant="outlined"
+              >
+                <v-card-title class="bg-success-lighten-4 d-flex align-center py-3 px-4">
+                  <v-icon
+                    class="me-2"
+                    size="small"
+                  >
+                    mdi-cloud-upload-outline
+                  </v-icon>
+                  <span class="text-subtitle-1 font-weight-medium">檔案上傳</span>
+                </v-card-title>
+
+                <v-card-text class="pa-4">
+                  <!-- 檔案類別選擇 -->
+                  <div class="mb-3">
+                    <v-label class="text-subtitle-2 mb-2 d-block">
+                      選擇文件類別（可多選） - 共 {{ checklistItems.length }} 個類別
+                    </v-label>
+                    <div class="category-chips-container">
+                      <v-chip
+                        v-for="item in checklistItems"
+                        :key="item.id"
+                        :variant="selectedCategories.includes(item.id) ? 'flat' : 'outlined'"
+                        :color="selectedCategories.includes(item.id) ? 'primary' : 'default'"
+                        size="small"
+                        class="me-2 mb-2 category-chip"
+                        @click="toggleCategory(item.id)"
+                      >
+                        <v-icon
+                          start
+                          size="x-small"
+                          :color="item.completed ? 'success' : 'grey'"
+                        >
+                          {{ item.completed ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+                        </v-icon>
+                        {{ item.name }}
+                        <v-icon
+                          v-if="selectedCategories.includes(item.id)"
+                          end
+                          size="x-small"
+                        >
+                          mdi-check
+                        </v-icon>
+                      </v-chip>
+                    </div>
+                    <!-- 調試用：顯示所有類別名稱 -->
+                    <div
+                      v-if="checklistItems.length === 0"
+                      class="text-caption text-error mt-2"
+                    >
+                      警告：檢核表項目未載入
+                    </div>
+                  </div>
+
+                  <!-- 檔案說明 -->
+                  <v-textarea
+                    v-model="fileDescription"
+                    label="檔案說明（選填）"
+                    variant="outlined"
+                    density="compact"
+                    rows="3"
+                    class="mb-3"
+                  />
+
+                  <!-- 檔案上傳拖放區域 -->
+                  <v-card
+                    variant="outlined"
+                    class="upload-dropzone mb-3"
+                    :class="{ 'dropzone-active': isDragOver }"
+                    @dragover.prevent="handleDragOver"
+                    @dragleave.prevent="handleDragLeave"
+                    @drop.prevent="handleDrop"
+                    @click="triggerFileSelect"
+                  >
+                    <v-card-text class="text-center py-4">
+                      <v-icon
+                        size="32"
+                        color="primary"
+                        class="mb-2"
+                      >
+                        mdi-cloud-upload
+                      </v-icon>
+                      <h4 class="text-subtitle-2 mb-1">
+                        拖放檔案到此處或點擊選擇
+                      </h4>
+                      <p class="text-body-2 text-medium-emphasis mb-0">
+                        支援 PDF、JPG、PNG 等格式，單檔最大 3MB
+                      </p>
+
+                      <v-file-input
+                        ref="fileInputRef"
+                        v-model="selectedFiles"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.dwg,.dxf"
+                        multiple
+                        style="display: none;"
+                        @change="handleFileSelect"
+                      />
+                    </v-card-text>
                   </v-card>
-                </v-col>
-              </v-row>
 
-              <v-progress-linear
-                :model-value="uploadProgress"
-                :color="isAllFilesUploaded ? 'success' : 'primary'"
-                height="8"
-                rounded
-                class="mt-4 mb-3"
-              />
+                  <!-- 選中檔案列表 -->
+                  <div
+                    v-if="selectedFiles?.length"
+                    class="mb-3"
+                  >
+                    <v-list
+                      density="compact"
+                      class="bg-grey-lighten-5 rounded"
+                    >
+                      <v-list-item
+                        v-for="(file, index) in selectedFiles"
+                        :key="index"
+                        class="px-3 py-1"
+                      >
+                        <template #prepend>
+                          <v-icon
+                            size="small"
+                            color="primary"
+                          >
+                            mdi-file-outline
+                          </v-icon>
+                        </template>
+                        <v-list-item-title class="text-body-2">
+                          {{ file.name }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle class="text-caption">
+                          {{ formatFileSize(file.size) }}
+                        </v-list-item-subtitle>
+                        <template #append>
+                          <v-btn
+                            icon="mdi-close"
+                            size="x-small"
+                            variant="text"
+                            @click="removeSelectedFile(index)"
+                          />
+                        </template>
+                      </v-list-item>
+                    </v-list>
+                  </div>
 
-              <div class="text-center">
-                <div class="text-body-1 mb-2">
-                  上傳進度：{{ uploadProgress.toFixed(0) }}%
-                  ({{ uploadedFilesCount }}/{{ totalRequiredFiles }})
-                </div>
+                  <!-- 上傳按鈕 -->
+                  <v-btn
+                    :disabled="!selectedFiles?.length || selectedCategories.length === 0 || uploading"
+                    :loading="uploading"
+                    color="success"
+                    variant="flat"
+                    block
+                    @click="uploadFiles"
+                  >
+                    <v-icon start>
+                      mdi-upload
+                    </v-icon>
+                    上傳檔案到 {{ selectedCategories.length }} 個類別 ({{ selectedFiles?.length || 0 }} 個檔案)
+                  </v-btn>
+                </v-card-text>
+              </v-card>
 
-                <v-alert
-                  v-if="!isAllFilesUploaded"
-                  type="warning"
-                  variant="tonal"
-                  density="compact"
-                  class="text-start"
-                >
-                  <template #prepend>
-                    <v-icon>mdi-alert</v-icon>
-                  </template>
-                  <strong>注意：</strong>您還需要上傳 {{ totalRequiredFiles - uploadedFilesCount }} 個檔案才能完成申請。
-                  請確保所有必要文件都已上傳後再進行下一步。
-                </v-alert>
+              <!-- 已上傳檔案管理 -->
+              <v-card
+                v-if="uniqueUploadedFiles.length > 0"
+                variant="outlined"
+              >
+                <v-card-title class="bg-grey-lighten-4 d-flex align-center py-3 px-4">
+                  <v-icon
+                    class="me-2"
+                    size="small"
+                  >
+                    mdi-file-check-outline
+                  </v-icon>
+                  <span class="text-subtitle-1 font-weight-medium">已上傳檔案</span>
+                  <v-spacer />
+                  <v-chip
+                    color="info"
+                    variant="flat"
+                    size="small"
+                  >
+                    共 {{ uniqueUploadedFiles.length }} 個檔案
+                  </v-chip>
+                </v-card-title>
 
-                <v-alert
-                  v-else
-                  type="success"
-                  variant="tonal"
-                  density="compact"
-                  class="text-start"
-                >
-                  <template #prepend>
-                    <v-icon>mdi-check-circle</v-icon>
-                  </template>
-                  <strong>恭喜！</strong>所有必要文件已上傳完成，您現在可以進行下一步操作。
-                </v-alert>
-              </div>
-            </v-card-text>
-          </v-card> -->
+                <v-card-text class="pa-0">
+                  <v-list
+                    class="py-0"
+                    density="compact"
+                  >
+                    <v-list-item
+                      v-for="file in uniqueUploadedFiles"
+                      :key="file.uniqueId"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          :color="getFileTypeColor(file.file_type)"
+                          size="small"
+                        >
+                          {{ getFileTypeIcon(file.file_type) }}
+                        </v-icon>
+                      </template>
+
+                      <v-list-item-title class="text-body-2">
+                        {{ file.display_name }}
+                      </v-list-item-title>
+                      <v-list-item-subtitle class="text-caption">
+                        {{ formatFileSize(file.file_size) }}
+                        <span v-if="file.description"> • {{ file.description }}</span>
+                      </v-list-item-subtitle>
+
+                      <template #append>
+                        <div class="d-flex align-center">
+                          <v-btn
+                            icon="mdi-download"
+                            size="x-small"
+                            variant="text"
+                            @click="downloadFile(file)"
+                          />
+                          <v-btn
+                            icon="mdi-delete"
+                            size="x-small"
+                            variant="text"
+                            color="error"
+                            @click="deleteUniqueFile(file)"
+                          />
+                        </div>
+                      </template>
+                    </v-list-item>
+                  </v-list>
+                </v-card-text>
+              </v-card>
+            </v-col>
+          </v-row>
         </v-form>
       </v-card-text>
     </v-card>
@@ -811,6 +446,8 @@
 </template>
 
 <script setup lang="ts">
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+
 // Props definition
 const props = defineProps({
   formData: {
@@ -829,348 +466,434 @@ const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 
 // Form validation references
 const form = ref(null);
-const localValid = ref(true);
+const localValid = ref(false);
 
-// Define upload status interface
-interface UploadStatus {
-  idFront: boolean;
-  idBack: boolean;
-  applicationFile: boolean;
-  landReg: boolean;
-  landMap: boolean;
-  lease: boolean;
-  landUse: boolean;
-  inspection: boolean;
-  planning: boolean;
-  subsidy: boolean;
-  workInspection: boolean;
-  inspectionReport: boolean;
-  paymentReceipt: boolean;
-  designDrawing: boolean;
+// 檔案上傳相關狀態
+const selectedFiles = ref<File[]>([]);
+const selectedCategories = ref<string[]>([]);
+const fileDescription = ref<string>('');
+const uploading = ref<boolean>(false);
+const isDragOver = ref<boolean>(false);
+const fileInputRef = ref<any>();
+
+// 觸發檔案選擇對話窗
+const triggerFileSelect = () => {
+  console.log('觸發檔案選擇');
+  try {
+    // 嘗試多種方式找到檔案輸入元素
+    let input = null;
+
+    if (fileInputRef.value) {
+      // 方法1: 直接從 Vue 組件的 $refs
+      input = fileInputRef.value.$refs?.input;
+
+      // 方法2: 從 Vue 組件的 $el
+      if (!input && fileInputRef.value.$el) {
+        input = fileInputRef.value.$el.querySelector('input[type="file"]');
+      }
+
+      // 方法3: 直接查詢 DOM
+      if (!input) {
+        input = document.querySelector('input[type="file"][accept*=".pdf"]');
+      }
+    }
+
+    if (input && typeof input.click === 'function') {
+      console.log('找到檔案輸入元素，觸發點擊');
+      input.click();
+    } else {
+      console.error('無法找到檔案輸入元素或點擊方法');
+      console.log('fileInputRef.value:', fileInputRef.value);
+      console.log('input:', input);
+
+      // 最後一招：直接創建並觸發點擊
+      const fallbackInput = document.createElement('input');
+      fallbackInput.type = 'file';
+      fallbackInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.dwg,.dxf';
+      fallbackInput.multiple = true;
+      fallbackInput.style.display = 'none';
+
+      fallbackInput.onchange = (e) => {
+        selectedFiles.value = Array.from(e.target.files || []);
+        handleFileSelect(e);
+        document.body.removeChild(fallbackInput);
+      };
+
+      document.body.appendChild(fallbackInput);
+      fallbackInput.click();
+    }
+  } catch (error) {
+    console.error('觸發檔案選擇時發生錯誤:', error);
+  }
+};
+// 上傳檔案類型定義
+interface UploadedFile {
+  id: number;
+  display_name: string;
+  file_type: string;
+  file_size: number;
+  category: string;
+  description: string;
+  upload_date: string;
 }
 
-// Define form data interface
-interface FormData {
-  idCardFront: File | null;
-  idCardBack: File | null;
-  idCardFrontPreview: string | null;
-  idCardBackPreview: string | null;
-  applicationFile: File | null;
-  applicationFilePreview: string | null;
-  landRegistration: File | null;
-  landRegistrationPreview: string | null;
-  landMap: File | null;
-  landMapPreview: string | null;
-  leaseAgreement: File | null;
-  leaseAgreementPreview: string | null;
-  landUseConsent: File | null;
-  landUseConsentPreview: string | null;
-  inspectionRecord: File | null;
-  inspectionRecordPreview: string | null;
-  planningDoc: File | null;
-  planningDocPreview: string | null;
-  subsidy: File | null;
-  subsidyPreview: string | null;
-  workInspection: File | null;
-  workInspectionPreview: string | null;
-  inspectionReport: File | null;
-  inspectionReportPreview: string | null;
-  paymentReceipt: File | null;
-  paymentReceiptPreview: string | null;
-  designDrawing: File | null;
-  designDrawingPreview: string | null;
-  uploadStatus: UploadStatus;
-  valid: boolean;
-}
+const uploadedFiles = ref<UploadedFile[]>([]);
 
-// 本地表單數據
-const localFormData = reactive<FormData>({
-  // 申請資料
-  idCardFront: null,
-  idCardBack: null,
-  idCardFrontPreview: null,
-  idCardBackPreview: null,
-  applicationFile: null,
-  applicationFilePreview: null,
+// 唱一檔案計算屬性（去重）
+const uniqueUploadedFiles = computed(() => {
+  const fileMap = new Map<string, UploadedFile & { uniqueId: string; categories: string[] }>();
 
-  // 土地資料
-  landRegistration: null,
-  landRegistrationPreview: null,
-  landMap: null,
-  landMapPreview: null,
-  leaseAgreement: null,
-  leaseAgreementPreview: null,
-  landUseConsent: null,
-  landUseConsentPreview: null,
+  uploadedFiles.value.forEach(file => {
+    const key = `${file.display_name}_${file.file_size}_${file.file_type}`;
+    if (fileMap.has(key)) {
+      // 如果檔案已存在，將類別加入列表
+      const existingFile = fileMap.get(key)!;
+      if (!existingFile.categories.includes(file.category)) {
+        existingFile.categories.push(file.category);
+      }
+    } else {
+      // 新增檔案
+      fileMap.set(key, {
+        ...file,
+        uniqueId: key,
+        categories: [file.category]
+      });
+    }
+  });
 
-  // 其他資料
-  inspectionRecord: null,
-  inspectionRecordPreview: null,
-  planningDoc: null,
-  planningDocPreview: null,
-  subsidy: null,
-  subsidyPreview: null,
-  workInspection: null,
-  workInspectionPreview: null,
-  inspectionReport: null,
-  inspectionReportPreview: null,
-  paymentReceipt: null,
-  paymentReceiptPreview: null,
-  designDrawing: null,
-  designDrawingPreview: null,
+  return Array.from(fileMap.values());
+});
 
-  // 檔案上傳狀態
-  uploadStatus: {
-    idFront: false,
-    idBack: false,
-    applicationFile: false,
-    landReg: false,
-    landMap: false,
-    lease: false,
-    landUse: false,
-    inspection: false,
-    planning: false,
-    subsidy: false,
-    workInspection: false,
-    inspectionReport: false,
-    paymentReceipt: false,
-    designDrawing: false
+// 檢核表項目定義
+const checklistItems = reactive([
+  {
+    id: 'application',
+    name: '申請檔案',
+    description: '申請相關檔案 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
   },
+  {
+    id: 'land_registration',
+    name: '土地登記謄本',
+    description: '土地登記謄本 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
+  },
+  {
+    id: 'land_map',
+    name: '地籍圖謄本',
+    description: '地籍圖謄本 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
+  },
+  {
+    id: 'lease_agreement',
+    name: '租賃同意書',
+    description: '租賃同意書 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
+  },
+  {
+    id: 'land_use_consent',
+    name: '土地施設同意書',
+    description: '土地施設同意書 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
+  },
+  {
+    id: 'inspection_record',
+    name: '現勘紀錄表',
+    description: '現勘紀錄表 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
+  },
+  {
+    id: 'planning_doc',
+    name: '委託規劃書',
+    description: '委託規劃書 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
+  },
+  {
+    id: 'subsidy_agreement',
+    name: '接受補助切結書',
+    description: '接受補助切結書 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
+  },
+  {
+    id: 'work_inspection',
+    name: '竣工報驗書',
+    description: '竣工報驗書 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
+  },
+  {
+    id: 'inspection_report',
+    name: '驗收報告書',
+    description: '驗收報告書 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
+  },
+  {
+    id: 'payment_receipt',
+    name: '領款收據',
+    description: '領款收據 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
+  },
+  {
+    id: 'design_drawing',
+    name: '設計圖',
+    description: '設計圖 (PDF, JPG, PNG)',
+    completed: false,
+    required: true
+  },
+  {
+    id: 'other_documents',
+    name: '其它補充資料',
+    description: '其他補充相關資料 (PDF, JPG, PNG)',
+    completed: false,
+    required: false
+  }
+]);
 
-  // Always set to true for seamless navigation
-  valid: true
+// 計算屬性
+const completedItems = computed(() => {
+  return checklistItems.filter(item => item.completed).length;
 });
 
-// 計算屬性：已上傳檔案數量
-const uploadedFilesCount = computed(() => {
-  return Object.values(localFormData.uploadStatus).filter(status => status).length;
+const completionPercentage = computed(() => {
+  if (checklistItems.length === 0) return 0;
+  return (completedItems.value / checklistItems.length) * 100;
 });
 
-// 計算屬性：總檔案數量
-const totalRequiredFiles = computed(() => {
-  return Object.keys(localFormData.uploadStatus).length;
+const incompleteRequiredItems = computed(() => {
+  return checklistItems.filter(item => item.required && !item.completed).length;
 });
 
-// 計算屬性：是否所有檔案都已上傳
-const isAllFilesUploaded = computed(() => {
-  return uploadedFilesCount.value === totalRequiredFiles.value;
-});
-
-// 計算屬性：上傳進度百分比
-const uploadProgress = computed(() => {
-  if (totalRequiredFiles.value === 0) return 0;
-  return (uploadedFilesCount.value / totalRequiredFiles.value) * 100;
-});
-
-// 判斷檔案是否為圖片類型
-const isImageFile = (file: File | string | null): boolean => {
-  if (!file) return false;
-
-  // Handle string URLs (like placeholders or previously saved images)
-  if (typeof file === 'string') return true;
-
-  const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg'];
-  return file instanceof File && imageTypes.includes(file.type);
+// 拖放處理
+const handleDragOver = (e: DragEvent) => {
+  e.preventDefault();
+  isDragOver.value = true;
 };
 
-// 處理檔案變更並產生預覽（如果是圖片）
-const handleFileChange = (type: keyof UploadStatus) => {
-  // 更新檔案上傳狀態
-  localFormData.uploadStatus[type] = true;
+const handleDragLeave = (e: DragEvent) => {
+  e.preventDefault();
+  isDragOver.value = false;
+};
 
-  // 根據不同類型的檔案處理預覽
-  switch(type) {
-    case 'idFront':
-      createPreview(localFormData.idCardFront, 'idCardFrontPreview');
-      break;
-    case 'idBack':
-      createPreview(localFormData.idCardBack, 'idCardBackPreview');
-      break;
-    case 'applicationFile':
-      createPreview(localFormData.applicationFile, 'applicationFilePreview');
-      break;
-    case 'landReg':
-      createPreview(localFormData.landRegistration, 'landRegistrationPreview');
-      break;
-    case 'landMap':
-      createPreview(localFormData.landMap, 'landMapPreview');
-      break;
-    case 'lease':
-      createPreview(localFormData.leaseAgreement, 'leaseAgreementPreview');
-      break;
-    case 'landUse':
-      createPreview(localFormData.landUseConsent, 'landUseConsentPreview');
-      break;
-    case 'inspection':
-      createPreview(localFormData.inspectionRecord, 'inspectionRecordPreview');
-      break;
-    case 'planning':
-      createPreview(localFormData.planningDoc, 'planningDocPreview');
-      break;
-    case 'subsidy':
-      createPreview(localFormData.subsidy, 'subsidyPreview');
-      break;
-    case 'workInspection':
-      createPreview(localFormData.workInspection, 'workInspectionPreview');
-      break;
-    case 'inspectionReport':
-      createPreview(localFormData.inspectionReport, 'inspectionReportPreview');
-      break;
-    case 'paymentReceipt':
-      createPreview(localFormData.paymentReceipt, 'paymentReceiptPreview');
-      break;
-    case 'designDrawing':
-      createPreview(localFormData.designDrawing, 'designDrawingPreview');
-      break;
+const handleDrop = (e: DragEvent) => {
+  e.preventDefault();
+  isDragOver.value = false;
+
+  const files = Array.from(e.dataTransfer?.files || []);
+  selectedFiles.value = [...selectedFiles.value, ...files];
+};
+
+const handleFileSelect = (event: any) => {
+  console.log('檔案選擇事件觸發:', event);
+  console.log('選中的檔案:', selectedFiles.value);
+  // Files are already bound to selectedFiles via v-model
+};
+
+const removeSelectedFile = (index: number) => {
+  selectedFiles.value.splice(index, 1);
+};
+
+// 切換類別選擇
+const toggleCategory = (categoryId: string) => {
+  const index = selectedCategories.value.indexOf(categoryId);
+  if (index > -1) {
+    selectedCategories.value.splice(index, 1);
+  } else {
+    selectedCategories.value.push(categoryId);
+  }
+};
+
+// 檔案上傳
+const uploadFiles = async () => {
+  if (!selectedFiles.value.length || selectedCategories.value.length === 0) return;
+
+  uploading.value = true;
+
+  try {
+    // 為每個檔案和每個選中類別創建上傳記錄
+    for (const file of selectedFiles.value) {
+      for (const categoryId of selectedCategories.value) {
+        // 這裡應該調用實際的檔案上傳 API
+        const uploadedFile = {
+          id: Date.now() + Math.random() + Math.random(), // 確保唯一性
+          display_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          category: categoryId,
+          description: fileDescription.value || '',
+          upload_date: new Date().toISOString()
+        };
+
+        uploadedFiles.value.push(uploadedFile);
+      }
+    }
+
+    // 只有實際上傳成功後才更新檢核項目狀態
+    for (const categoryId of selectedCategories.value) {
+      const categoryItem = checklistItems.find(item => item.id === categoryId);
+      if (categoryItem) {
+        categoryItem.completed = true;
+      }
+    }
+
+    // 清空選中狀態
+    selectedFiles.value = [];
+    selectedCategories.value = [];
+    fileDescription.value = '';
+
+    updateFormData();
+  } catch (error) {
+    console.error('檔案上傳失敗:', error);
+    // 如果上傳失敗，不應該更新檢核表狀態
+  } finally {
+    uploading.value = false;
+  }
+};
+
+// 檔案管理
+const downloadFile = (file: UploadedFile) => {
+  // 實現檔案下載邏輯
+  console.log('下載檔案:', file);
+};
+
+// 移除未使用的 deleteFile 函數，使用 deleteUniqueFile 代替
+
+// 刪除唯一檔案（會刪除所有相關的類別記錄）
+const deleteUniqueFile = (uniqueFile: UploadedFile & { uniqueId: string; categories: string[] }) => {
+  const fileKey = `${uniqueFile.display_name}_${uniqueFile.file_size}_${uniqueFile.file_type}`;
+  const filesToRemove = uploadedFiles.value.filter(f =>
+    `${f.display_name}_${f.file_size}_${f.file_type}` === fileKey
+  );
+
+  // 收集受影響的類別
+  const affectedCategories = [...new Set(filesToRemove.map(f => f.category))];
+
+  // 刪除所有相關記錄
+  uploadedFiles.value = uploadedFiles.value.filter(f =>
+    `${f.display_name}_${f.file_size}_${f.file_type}` !== fileKey
+  );
+
+  // 更新受影響類別的完成狀態
+  for (const categoryId of affectedCategories) {
+    const categoryHasFiles = uploadedFiles.value.some(f => f.category === categoryId);
+    if (!categoryHasFiles) {
+      const categoryItem = checklistItems.find(item => item.id === categoryId);
+      if (categoryItem) {
+        categoryItem.completed = false;
+      }
+    }
   }
 
-  // 觸發驗證更新
-  localValid.value = isAllFilesUploaded.value;
   updateFormData();
 };
 
-// Helper function to create previews
-const createPreview = (file: File | null, previewKey: keyof FormData) => {
-  if (isImageFile(file)) {
-    // Clean up existing preview if it's a blob URL
-    const currentPreview = localFormData[previewKey];
-    if (currentPreview &&
-        typeof currentPreview === 'string' &&
-        currentPreview.startsWith('blob:')) {
-      URL.revokeObjectURL(currentPreview);
-    }
-
-    // Create new preview if file is a File object
-    if (file instanceof File) {
-      (localFormData[previewKey] as string | null) = URL.createObjectURL(file);
-    }
-  }
+// 輔助函數
+const getItemFiles = (categoryId: string) => {
+  return uploadedFiles.value.filter(file => file.category === categoryId);
 };
+
+// 移除未使用的 getCategoryName 函數
+
+const getFileTypeIcon = (fileType: string) => {
+  if (fileType.includes('pdf')) return 'mdi-file-pdf-box';
+  if (fileType.includes('image')) return 'mdi-file-image';
+  if (fileType.includes('word')) return 'mdi-file-word-box';
+  if (fileType.includes('excel')) return 'mdi-file-excel-box';
+  return 'mdi-file-document';
+};
+
+const getFileTypeColor = (fileType: string) => {
+  if (fileType.includes('pdf')) return 'red';
+  if (fileType.includes('image')) return 'green';
+  if (fileType.includes('word')) return 'blue';
+  if (fileType.includes('excel')) return 'success';
+  return 'grey';
+};
+
+const formatFileSize = (bytes: number) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+// 移除手動更新檢核項目狀態的功能
+// 檢核表狀態只能透過實際上傳檔案來更新
 
 // 更新父組件數據
 const updateFormData = () => {
+  // 計算表單驗證狀態
+  const requiredItemsCompleted = checklistItems
+    .filter(item => item.required)
+    .every(item => item.completed);
+
+  localValid.value = requiredItemsCompleted;
+
   emit('update:formData', {
     ...props.formData,
-    ...localFormData,
-    valid: isAllFilesUploaded.value // 根據檔案上傳完成狀態設定有效性
+    checklistItems: [...checklistItems],
+    uploadedFiles: [...uploadedFiles.value],
+    valid: localValid.value
   });
 };
 
-// 清理所有預覽資源的函數
-const cleanupAllPreviews = () => {
-  const previewKeys: (keyof FormData)[] = [
-    'idCardFrontPreview', 'idCardBackPreview', 'applicationFilePreview',
-    'landRegistrationPreview', 'landMapPreview', 'leaseAgreementPreview',
-    'landUseConsentPreview', 'inspectionRecordPreview', 'planningDocPreview',
-    'subsidyPreview', 'workInspectionPreview', 'inspectionReportPreview',
-    'paymentReceiptPreview', 'designDrawingPreview'
-  ];
-
-  previewKeys.forEach(key => {
-    const preview = localFormData[key];
-    if (preview &&
-        typeof preview === 'string' &&
-        preview.startsWith('blob:')) {
-      URL.revokeObjectURL(preview);
-      (localFormData[key] as string | null) = null;
-    }
-  });
-};
-
-// 初始化數據
+// 初始化
 onMounted(() => {
   console.log("Step 8 mounted, formData:", props.formData);
+  console.log("檢核表項目數量:", checklistItems.length);
+  console.log("檢核表項目:", checklistItems.map(item => ({ id: item.id, name: item.name })));
 
   // 從父組件接收數據
-  if (props.formData) {
-    // 設置基本屬性
-    (Object.keys(localFormData) as (keyof FormData)[]).forEach(key => {
-      if (props.formData[key] !== undefined) {
-        if (key === 'uploadStatus') {
-          // Handle nested uploadStatus object
-          if (props.formData.uploadStatus) {
-            (Object.keys(props.formData.uploadStatus) as (keyof UploadStatus)[]).forEach(statusKey => {
-              if (props.formData.uploadStatus[statusKey] !== undefined) {
-                localFormData.uploadStatus[statusKey] = props.formData.uploadStatus[statusKey];
-              }
-            });
-          }
-        } else {
-          // Handle normal properties with proper typing
-          const typedLocalFormData = localFormData as Record<string, unknown>;
-          typedLocalFormData[key] = props.formData[key];
-        }
-      }
-    });
+  if (props.formData?.checklistItems && props.formData.checklistItems.length > 0) {
+    console.log('從 props 中載入檢核表項目');
+    checklistItems.splice(0, checklistItems.length, ...props.formData.checklistItems);
+  } else {
+    console.log('使用預設檢核表項目');
   }
 
-  // Set example data for demonstration purposes
-  // if (!localFormData.idCardFrontPreview) {
-  //   localFormData.idCardFrontPreview = 'https://via.placeholder.com/400x250?text=身分證正面示例';
-  //   localFormData.uploadStatus.idFront = true;
-  // }
+  if (props.formData?.uploadedFiles) {
+    uploadedFiles.value = [...(props.formData.uploadedFiles || [])];
+  }
 
-  // if (!localFormData.idCardBackPreview) {
-  //   localFormData.idCardBackPreview = 'https://via.placeholder.com/400x250?text=身分證反面示例';
-  //   localFormData.uploadStatus.idBack = true;
-  // }
-
-  // if (!localFormData.landRegistrationPreview) {
-  //   localFormData.landRegistrationPreview = 'https://via.placeholder.com/400x250?text=土地登記謄本示例';
-  //   localFormData.uploadStatus.landReg = true;
-  // }
-
-  // if (!localFormData.landMapPreview) {
-  //   localFormData.landMapPreview = 'https://via.placeholder.com/400x250?text=地籍圖謄本示例';
-  //   localFormData.uploadStatus.landMap = true;
-  // }
-
-  // Initial update to parent
   updateFormData();
+
+  // 讓 Vue 重新渲染以確保檢核表顯示
+  setTimeout(() => {
+    console.log('一秒後檢核表項目數量:', checklistItems.length);
+  }, 1000);
 });
 
 // 監聽父組件數據變化
 watch(() => props.formData, (newVal) => {
-  if (newVal) {
-    // Simple re-copy of new values, skipping complex file objects
-    (Object.keys(localFormData) as (keyof FormData)[]).forEach(key => {
-      if (key !== 'uploadStatus' && newVal[key] !== undefined &&
-          !(newVal[key] instanceof File) && // Skip File objects which can't be deeply compared
-          JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
-        const typedLocalFormData = localFormData as Record<string, unknown>;
-        typedLocalFormData[key] = newVal[key];
-      }
-    });
+  if (newVal?.checklistItems && newVal.checklistItems.length > 0) {
+    console.log('更新檢核表項目：', newVal.checklistItems.length);
+    checklistItems.splice(0, checklistItems.length, ...newVal.checklistItems);
+  }
 
-    // Handle uploadStatus specifically
-    if (newVal.uploadStatus) {
-      (Object.keys(newVal.uploadStatus) as (keyof UploadStatus)[]).forEach(statusKey => {
-        if (newVal.uploadStatus[statusKey] !== undefined &&
-            newVal.uploadStatus[statusKey] !== localFormData.uploadStatus[statusKey]) {
-          localFormData.uploadStatus[statusKey] = newVal.uploadStatus[statusKey];
-        }
-      });
-    }
+  if (newVal?.uploadedFiles) {
+    uploadedFiles.value = [...(newVal.uploadedFiles || [])];
   }
 }, { deep: true });
 
-// Watch local form validation status
-watch(localValid, (newVal) => {
-  if (props.formData?.valid !== newVal) {
-    updateFormData();
-  }
+// 監聽完成狀態變化
+watch(completionPercentage, () => {
+  updateFormData();
 });
 
-// 監聽上傳狀態變化，自動更新表單有效性
-watch(isAllFilesUploaded, (newVal) => {
-  localValid.value = newVal;
-  localFormData.valid = newVal;
+// 監聽檢核表項目變化
+watch(() => checklistItems.length, (newLength) => {
+  console.log('檢核表項目數量變化:', newLength);
 }, { immediate: true });
-
-// Clean up on component unmount
-onUnmounted(() => {
-  cleanupAllPreviews();
-});
 </script>
 
 <style scoped>
@@ -1178,25 +901,65 @@ onUnmounted(() => {
   padding: 0;
 }
 
-.v-card-title {
-  color: rgba(0, 0, 0, 0.87);
-  font-size: 1.25rem;
+.upload-dropzone {
+  border: 2px dashed #90CAF9;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.upload-dropzone:hover,
+.dropzone-active {
+  border-color: #2196F3;
+  background-color: #E3F2FD;
+}
+
+.checklist-item {
+  transition: all 0.2s ease;
+}
+
+.item-completed {
+  background-color: #F1F8E9;
+}
+
+.item-has-files .v-list-item-title {
+  color: #2E7D32;
   font-weight: 500;
-  padding: 16px;
 }
 
-.bg-light-blue-lighten-4 {
-  background-color: #B3E5FC !important;
-}
-
-.text-red {
-  color: red;
-}
-
-/* 必填欄位紅色星號樣式 */
 .required-asterisk {
-  color: #ff0000 !important;
+  color: #ff0000;
   font-weight: bold;
   margin-left: 2px;
+}
+
+.bg-primary-lighten-4 {
+  background-color: #E3F2FD !important;
+}
+
+.bg-success-lighten-4 {
+  background-color: #F1F8E9 !important;
+}
+
+.bg-info-lighten-4 {
+  background-color: #E1F5FE !important;
+}
+
+.bg-grey-lighten-4 {
+  background-color: #FAFAFA !important;
+}
+
+.category-chips-container {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.category-chip {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.category-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 </style>
