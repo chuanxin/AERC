@@ -2,7 +2,7 @@
   "name": "dry-farm",
   "private": true,
   "type": "module",
-  "version": "0826_06_win",
+  "version": "0827_01_win",
   "scripts": {
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
