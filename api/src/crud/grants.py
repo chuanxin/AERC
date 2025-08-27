@@ -69,8 +69,10 @@ async def get_grants(
         案件列表
     """
     try:
-        # 建立基本查詢
-        query = Grants.all()
+        from src.database.models import GrantStatus
+        
+        # 建立基本查詢：過濾掉已刪除的案件
+        query = Grants.all().filter(status__not=GrantStatus.SOFT_DELETE)
         
         # 權限控制：如果使用者不是管理員，只能看到自己管理處的案件
         if current_user and hasattr(current_user, 'office_id') and current_user.office_id:
@@ -1143,35 +1145,43 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
 #             raise HTTPException(status_code=500, detail=f"更新補助申請案件步驟 {step} 發生錯誤: {str(e)}")
 
 
-# async def delete_grant(grant_id: int, current_user: UserOutSchema) -> Dict[str, str]:
-#     """刪除補助申請案件"""
-#     async with in_transaction():
-#         try:
-#             # 檢查補助申請案件是否存在
-#             try:
-#                 grant = await Grant.get(id=grant_id)
-#             except DoesNotExist:
-#                 raise HTTPException(status_code=404, detail=f"補助案件ID {grant_id} 不存在")
+async def delete_grant(grant_id: int, current_user: UserOutSchema) -> Dict[str, str]:
+    """邏輯刪除補助申請案件"""
+    from src.database.models import GrantStatus
+    async with in_transaction():
+        try:
+            # 檢查補助申請案件是否存在
+            try:
+                grant = await Grants.get(id=grant_id)
+            except DoesNotExist:
+                raise HTTPException(status_code=404, detail=f"補助案件ID {grant_id} 不存在")
             
-#             # 記錄刪除動作
-#             await AuditLog.create(
-#                 grant_id=grant_id,
-#                 action="delete",
-#                 description=f"刪除補助申請案件",
-#                 from_status=grant.status,
-#                 to_status="deleted",
-#                 created_by_id=current_user.id
-#             )
+            # 檢查是否已經被刪除
+            if grant.status == GrantStatus.SOFT_DELETE:
+                raise HTTPException(status_code=400, detail=f"補助案件ID {grant_id} 已經被刪除")
             
-#             # 刪除補助申請案件
-#             await Grant.filter(id=grant_id).delete()
+            # 記錄刪除動作
+            await GrantHistory.create(
+                grant_id=grant_id,
+                action_type=GrantActionType.STATUS_CHANGE,
+                description=f"邏輯刪除補助申請案件 (案號: {grant.case_number})",
+                grant_status=GrantStatus.SOFT_DELETE,
+                changed_by_id=current_user.id
+            )
             
-#             # 返回結果
-#             return {"message": f"補助案件ID {grant_id} 已刪除"}
+            # 邏輯刪除：設置狀態為 deleted，而不是物理刪除
+            await Grants.filter(id=grant_id).update(
+                status=GrantStatus.SOFT_DELETE
+            )
             
-#         except Exception as e:
-#             logger.error(f"刪除補助申請案件發生錯誤: {str(e)}")
-#             raise HTTPException(status_code=500, detail=f"刪除補助申請案件發生錯誤: {str(e)}")
+            logger.info(f"📋 [delete_grant] Grant {grant.case_number} (ID: {grant_id}) soft deleted by user {current_user.id}")
+            
+            # 返回結果
+            return {"message": f"補助案件 {grant.case_number} (ID: {grant_id}) 已刪除"}
+            
+        except Exception as e:
+            logger.error(f"刪除補助申請案件發生錯誤: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"刪除補助申請案件發生錯誤: {str(e)}")
 
 
 # async def get_grant_land_details(grant_id: int) -> Dict[str, Any]:

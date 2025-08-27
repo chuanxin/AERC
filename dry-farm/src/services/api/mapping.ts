@@ -60,6 +60,7 @@ export const BACKEND_PATHS = {
     // STEP: (step: number) => `/grants/step/${step}`
     STEP: (caseNumber: string, step: number) => `/grants/case/${caseNumber}/step/${step}`,
     UPDATE_CURRENT_STEP: (caseNumber: string) => `/grants/case/${caseNumber}/current-step`,
+    DELETE: (id: number | string) => `/grants/${id}`,
   },
   PIPE_FITTINGS: { // Added PIPE_FITTINGS backend paths
     LIST: '/pipe_fittings/', // For GET all and POST create
@@ -201,19 +202,29 @@ export function mapApiPath(frontendPath: string): string {
         mappedBasePath = BACKEND_PATHS.GRANTS.UPDATE_CURRENT_STEP(caseNumber);
         console.debug(`[mapApiPath] Grant current-step dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
       } else {
-        // 4. 回退到通用動態模式匹配 (使用原始路徑)
-        for (const { pattern, transform } of DYNAMIC_PATH_PATTERNS) {
-          if (!pattern) continue;
+        // 3.4 匹配 grants delete 路徑 (DELETE /grants/{id})
+        const deleteMatch = cleanPath.match(/^\/grants\/(\d+)$/);
+        if (deleteMatch) {
+          const grantId = deleteMatch[1];
+          mappedBasePath = BACKEND_PATHS.GRANTS.DELETE(grantId);
+          console.debug(`[mapApiPath] Grant delete dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+        }
+      }
+    }
+  }
 
-          const matches = basePathFromFrontend.match(pattern);
-          if (matches && transform) {
-            const transformedPath = transform(matches);
-            if (transformedPath) {
-              mappedBasePath = transformedPath;
-              console.debug(`[mapApiPath] Generic dynamic mapping for ${basePathFromFrontend} using pattern ${pattern}: ${mappedBasePath}`);
-              break;
-            }
-          }
+  // 4. 回退到通用動態模式匹配 (使用原始路徑)
+  if (!mappedBasePath) {
+    for (const { pattern, transform } of DYNAMIC_PATH_PATTERNS) {
+      if (!pattern) continue;
+
+      const matches = basePathFromFrontend.match(pattern);
+      if (matches && transform) {
+        const transformedPath = transform(matches);
+        if (transformedPath) {
+          mappedBasePath = transformedPath;
+          console.debug(`[mapApiPath] Generic dynamic mapping for ${basePathFromFrontend} using pattern ${pattern}: ${mappedBasePath}`);
+          break;
         }
       }
     }

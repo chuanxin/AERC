@@ -589,6 +589,9 @@ const getStatusText = (currentStep: number, isLegacy?: boolean, status?: string)
   if (status === 'completed') {
     return '已結案'
   }
+  if (status === 'deleted') {
+    return '已刪除'
+  }
 
   return statusMapping[currentStep as keyof typeof statusMapping] || '處理中'
 }
@@ -817,12 +820,45 @@ const editItem = (item: GrantListItem) => {
 //   }
 // }
 const deleteItem = async (item: GrantListItem) => {
-  if (confirm(`確定要刪除案號 ${item.case_number} 的申請案件嗎？`)) {
+  // 🔥 Linus式修復：提供清晰的確認對話框，說明邏輯刪除的含義
+  const confirmMessage = [
+    `確定要刪除以下申請案件嗎？`,
+    ``,
+    `案件編號：${item.case_number}`,
+    `申請者：${item.applicant_name || '未填寫'}`,
+    `管理處：${item.office || '未指定'}`,
+    ``,
+    `注意：此操作將案件狀態設為「已刪除」，`,
+    `案件資料將保留在資料庫中以供審計追蹤。`
+  ].join('\n')
+
+  if (confirm(confirmMessage)) {
     try {
+      console.log(`📋 [deleteItem] 開始刪除案件: ${item.case_number} (ID: ${item.id})`)
+      
       await grantsStore.deleteGrantFromList(item)
+      
+      console.log(`📋 [deleteItem] 案件 ${item.case_number} 已成功刪除`)
+      alert(`案件 ${item.case_number} 已成功刪除`)
+      
     } catch (error) {
-      console.error('刪除案件失敗:', error)
-      alert('刪除案件失敗，請稍後再試')
+      console.error(`📋 [deleteItem] 刪除案件 ${item.case_number} 失敗:`, error)
+      
+      // 提供更詳細的錯誤信息
+      let errorMessage = '刪除案件失敗'
+      if (error instanceof Error) {
+        if (error.message.includes('已經被刪除')) {
+          errorMessage = '此案件已經被刪除'
+        } else if (error.message.includes('不存在')) {
+          errorMessage = '案件不存在，可能已被其他人刪除'
+        } else if (error.message.includes('權限')) {
+          errorMessage = '沒有權限刪除此案件'
+        } else {
+          errorMessage = `刪除失敗：${error.message}`
+        }
+      }
+      
+      alert(errorMessage)
     }
   }
 }
