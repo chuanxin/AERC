@@ -422,9 +422,9 @@
                     <th style="width: 220px">
                       補助標準
                     </th>
-                    <th style="width: 180px">
+                    <!-- <th style="width: 180px">
                       補助來源
-                    </th>
+                    </th> -->
                     <th
                       class="text-center"
                       style="width: 80px"
@@ -475,7 +475,7 @@
                       />
                     </td>
                     <td>{{ facility.remark }}</td>
-                    <td>{{ getFundingSourceName(facility.fundingSourceId) }}</td>
+                    <!-- <td>{{ getFundingSourceName(facility.fundingSourceId) }}</td> -->
                     <td class="text-center">
                       <v-btn
                         icon
@@ -884,7 +884,7 @@ const addPowerEquipment = () => {
       unitPrice: correctSubsidy, // 補助款即為單價
       totalPrice: correctSubsidy, // 總價等於補助款
       remark: `[${regionType.value === 'indigenous' ? '原民地區' : '一般地區'}]`,
-      fundingSourceId: localFormData.fundingSourceId || '未選擇補助來源'
+      fundingSourceId: localFormData.fundingSourceId !== null && localFormData.fundingSourceId !== undefined ? localFormData.fundingSourceId : '未選擇補助來源'
     });
 
     // 清空選擇
@@ -921,7 +921,7 @@ const addStorageFacility = () => {
       unitPrice: correctSubsidy, // 補助款即為單價
       totalPrice: correctSubsidy, // 總價等於補助款
       remark: `${localFormData.storageRemark || ''} [${regionType.value === 'indigenous' ? '原民地區' : '一般地區'}]`,
-      fundingSourceId: localFormData.fundingSourceId || '未選擇補助來源'
+      fundingSourceId: localFormData.fundingSourceId !== null && localFormData.fundingSourceId !== undefined ? localFormData.fundingSourceId : '未選擇補助來源'
     });
 
     // 清空選擇
@@ -954,7 +954,7 @@ const addControlFacility = () => {
       subsidyAmount: subsidyAmount, // 實際補助款
       selfPaidAmount: selfPaidAmount, // 自備款
       remark: `[${regionType.value === 'indigenous' ? '原民地區' : '一般地區'}] 設施面積: ${formatArea(facilityArea.value)}公頃`,
-      fundingSourceId: localFormData.fundingSourceId || '未選擇補助來源'
+      fundingSourceId: localFormData.fundingSourceId !== null && localFormData.fundingSourceId !== undefined ? localFormData.fundingSourceId : '未選擇補助來源'
     });
 
     // 清空選擇
@@ -999,7 +999,8 @@ const formatArea = (area: number): string => {
 };
 
 const getFundingSourceName = (fundingSourceId: string | number): string => {
-  if (!fundingSourceId || fundingSourceId === '未選擇補助來源') {
+  // 🔥 Linus式修復：使用嚴格比較，避免 0 被判斷為 falsy
+  if (fundingSourceId === null || fundingSourceId === undefined || fundingSourceId === '未選擇補助來源') {
     return '未選擇補助來源';
   }
 

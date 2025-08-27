@@ -175,7 +175,8 @@ export const useUserStore = defineStore('user', () => {
    * @returns 更新後的用戶資料或 null（如果更新失敗）
    */
   const updateProfile = wrapAsync(async (userData: UpdateUserData) => {
-    if (!currentUser.value?.id) {
+    // 🔥 Linus式修復：使用嚴格比較，避免 ID 為 0 的用戶被誤判為未登入
+    if (!currentUser.value || currentUser.value.id === null || currentUser.value.id === undefined) {
       throw new Error('未登入')
     }
 
