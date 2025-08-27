@@ -1369,7 +1369,7 @@
           </v-card>
 
           <!-- 補助計算結果 -->
-          <v-card
+          <!-- <v-card
             variant="outlined"
             class="mt-4"
           >
@@ -1426,7 +1426,7 @@
                 計算輔助金額
               </v-btn>
             </v-card-text>
-          </v-card>
+          </v-card> -->
         </v-form>
       </v-card-text>
     </v-card>

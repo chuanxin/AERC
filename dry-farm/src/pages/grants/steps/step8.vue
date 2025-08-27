@@ -69,7 +69,7 @@
                     variant="flat"
                     size="small"
                   >
-                    {{ completedItems }}/{{ checklistItems.length }} 項目 ({{ checklistItems.length === 13 ? '完整' : '異常' }})
+                    {{ completedItems }}/{{ checklistItems.length }} 項目
                   </v-chip>
                 </v-card-title>
 
@@ -160,7 +160,7 @@
                     </v-progress-circular>
                     <div class="ml-3">
                       <div class="text-body-2 font-weight-medium">
-                        {{ completedItems }} / {{ checklistItems.length }} 項目完成 ({{ checklistItems.length === 13 ? '13項完整' : '數量異常' }})
+                        {{ completedItems }} / {{ checklistItems.length }} 項目完成
                       </div>
                       <div class="text-caption text-medium-emphasis">
                         {{ uniqueUploadedFiles.length }} 個檔案已上傳
