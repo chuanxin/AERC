@@ -13,7 +13,7 @@
           v-model="localValid"
           @submit.prevent
         >
-          <!-- STEP 1: 補助來源選擇 -->
+          <!-- STEP 1: 設計人姓名 -->
           <v-card
             class="mb-4"
             variant="outlined"
@@ -23,9 +23,9 @@
                 class="me-2"
                 size="small"
               >
-                mdi-hand-coin
+                mdi-account-edit
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">補助來源</span>
+              <span class="text-subtitle-1 font-weight-medium">設計資訊</span>
             </v-card-title>
 
             <v-card-text class="pa-4">
@@ -33,21 +33,15 @@
                 class="pa-3 rounded"
                 color="grey-lighten-5"
               >
-                <v-select
-                  v-model="localFormData.fundingSourceId"
-                  :items="fundingSourceOptions"
-                  item-title="name"
-                  item-value="id"
+                <v-text-field
+                  v-model="localFormData.designerName"
+                  label="設計人姓名"
                   variant="outlined"
                   density="comfortable"
                   style="max-width: 400px"
-                  :rules="[v => (v !== null && v !== undefined) || '請選擇補助單位']"
+                  placeholder="請輸入設計人姓名"
                   @update:model-value="updateFormData"
-                >
-                  <template #label>
-                    補助單位<span class="required-asterisk" />
-                  </template>
-                </v-select>
+                />
               </v-sheet>
             </v-card-text>
           </v-card>
@@ -2122,6 +2116,8 @@ const localFormData = reactive({
 
   // 補助來源
   fundingSourceId: 0, // 存儲ID
+  // 設計人姓名
+  designerName: '' as string,
 
   // 主管
   mainPipeLength: null as number | null,
