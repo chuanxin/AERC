@@ -260,7 +260,8 @@ export const getGrantsFromAPI = async (params: GrantListParams = {}): Promise<Gr
  */
 export const deleteGrant = async (grantId: number): Promise<void> => {
   try {
-    await apiService.delete(`${GRANTS.LIST}/${grantId}`)
+    // 🔥 Linus式修復：使用正確的 DELETE endpoint 函數
+    await apiService.delete(GRANTS.DELETE(grantId))
     console.log(`📡 [deleteGrant] Successfully deleted grant ${grantId}`)
   } catch (error) {
     console.error(`📡 [deleteGrant] Failed to delete grant ${grantId}:`, error)

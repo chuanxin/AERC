@@ -16,7 +16,7 @@ from src.schemas.grants import (
 # import src.crud.offices as crud
 import src.crud.grants as crud
 from src.schemas.token import Status
-from src.crud.grants import get_grant_by_case_number  # Import the missing function
+from src.crud.grants import get_grant_by_case_number, delete_grant  # Import the missing functions
 
 import logging
 

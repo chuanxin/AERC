@@ -47,7 +47,7 @@ class GrantStatus(str, Enum):
     WITHDRAWN = "withdrawn"
     CROSS_YEAR = "cross_year"  # 跨年度案件狀態
     COMPLETED = "completed"    # 結案狀態
-
+    SOFT_DELETE = "deleted"    # 邏輯刪除
 
 class GrantTypes(str, Enum):
     FARMING = "farming"
