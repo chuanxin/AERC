@@ -1083,12 +1083,12 @@
                   </v-icon>
                   自動帶入材料
                 </v-btn>
-                <v-btn
+                <!-- <v-btn
                   color="primary"
                   variant="outlined"
                   class="mb-2"
                   block
-                  @click="openManualAddDialog"
+                  @click="openManualAddDialog()"
                 >
                   <v-icon
                     start
@@ -1097,7 +1097,7 @@
                     mdi-plus
                   </v-icon>
                   手動新增材料
-                </v-btn>
+                </v-btn> -->
                 <div
                   v-if="!canAutoFillMaterials"
                   class="text-caption text-red mt-1"
@@ -1116,7 +1116,7 @@
               </v-sheet>
             </v-card-text>
 
-            <v-card-text class="pa-4">
+            <v-card-text class="pb-4 pt-0">
               <v-table
                 class="rounded border"
                 density="compact"
@@ -1202,6 +1202,21 @@
                         class="py-2 px-3 font-weight-bold text-body-2"
                       >
                         {{ groupIndex + 1 }}. {{ group.groupName }}
+                        <v-btn
+                          variant="text"
+                          size="small"
+                          color="primary"
+                          class="text-caption"
+                          @click="openManualAddDialog(group.groupNo)"
+                        >
+                          <v-icon
+                            start
+                            size="x-small"
+                          >
+                            mdi-plus
+                          </v-icon>
+                          新增材料
+                        </v-btn>
                       </td>
                     </tr>
                     <tr
@@ -5677,11 +5692,11 @@ watch(pipeMaterialOptions, (newOptions) => {
 });
 
 // 手動新增材料相關方法
-const openManualAddDialog = () => {
+const openManualAddDialog = (preselectedGroupId?: number) => {
   showManualAddDialog.value = true;
   // 重置表單
   selectedMaterialPomno.value = null;
-  selectedGroup.value = null;
+  selectedGroup.value = preselectedGroupId || null;
   materialQuantity.value = 1;
   materialSearchQuery.value = '';
 };
