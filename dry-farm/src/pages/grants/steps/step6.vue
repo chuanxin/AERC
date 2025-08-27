@@ -744,10 +744,10 @@ onMounted(() => {
     }
     // If still not set, try to get from step1's received date
     if (!localFormData.applicationYear && grantsStore.formData[1]?.receivedDate) {
-      const receivedDate = grantsStore.formData[1].receivedDate;
+      const receivedDate = grantsStore.formData[1].receivedDate as string;
       try {
         // Check if it's in YYYY-MM-DD format
-        if (receivedDate.includes('-')) {
+        if (typeof receivedDate === 'string' && receivedDate.includes('-')) {
           const year = parseInt(receivedDate.split('-')[0]);
           if (!isNaN(year)) {
             localFormData.applicationYear = `${year - 1911}`;
@@ -773,6 +773,11 @@ onMounted(() => {
 
     // Calculate from pipes in step 4 using the synchronized field names
     const step4Data = grantsStore.formData[4];
+    console.log('=== Step6 調試信息 ===');
+    console.log('step4Data:', step4Data);
+    console.log('step4Data?.pipes:', step4Data?.pipes);
+    console.log('是否為陣列:', Array.isArray(step4Data?.pipes));
+    console.log('pipes 長度:', step4Data?.pipes?.length);
     if (step4Data) {
       // Calculate total from both main pipes
       let mainPipe1Total = 0;
@@ -780,14 +785,14 @@ onMounted(() => {
 
       // Main pipe 1 calculation
       if (step4Data.mainPipeQuantity && step4Data.mainPipeUnitPrice) {
-        mainPipe1Total = parseInt(step4Data.mainPipeQuantity || '0') *
-                        parseFloat(step4Data.mainPipeUnitPrice || '0');
+        mainPipe1Total = parseInt((step4Data.mainPipeQuantity as string) || '0') *
+                        parseFloat((step4Data.mainPipeUnitPrice as string) || '0');
       }
 
       // Main pipe 2 calculation (if enabled)
       if (step4Data.mainPipe2Enabled && step4Data.mainPipe2Quantity && step4Data.mainPipe2UnitPrice) {
-        mainPipe2Total = parseInt(step4Data.mainPipe2Quantity || '0') *
-                        parseFloat(step4Data.mainPipe2UnitPrice || '0');
+        mainPipe2Total = parseInt((step4Data.mainPipe2Quantity as string) || '0') *
+                        parseFloat((step4Data.mainPipe2UnitPrice as string) || '0');
       }
 
       pipelineTotal = mainPipe1Total + mainPipe2Total;
@@ -796,11 +801,11 @@ onMounted(() => {
       const mainPipeData = [];
 
       // Main pipe 1 data
-      if (step4Data.mainPipeQuantity && parseInt(step4Data.mainPipeQuantity) > 0) {
+      if (step4Data.mainPipeQuantity && parseInt(step4Data.mainPipeQuantity as string) > 0) {
         mainPipeData.push({
           name: '田間主管1',
-          quantity: step4Data.mainPipeQuantity,
-          unitPrice: step4Data.mainPipeUnitPrice ? parseFloat(step4Data.mainPipeUnitPrice).toLocaleString() : '-',
+          quantity: step4Data.mainPipeQuantity as string,
+          unitPrice: step4Data.mainPipeUnitPrice ? parseFloat(step4Data.mainPipeUnitPrice as string).toLocaleString() : '-',
           totalPrice: mainPipe1Total > 0 ? mainPipe1Total.toLocaleString() : '-',
           unit: '支',
           remark: step4Data.mainPipeMaterialId ? `管材長度: ${step4Data.mainPipeLength} 公尺` : '-'
@@ -808,11 +813,11 @@ onMounted(() => {
       }
 
       // Main pipe 2 data (if enabled)
-      if (step4Data.mainPipe2Enabled && step4Data.mainPipe2Quantity && parseInt(step4Data.mainPipe2Quantity) > 0) {
+      if (step4Data.mainPipe2Enabled && step4Data.mainPipe2Quantity && parseInt(step4Data.mainPipe2Quantity as string) > 0) {
         mainPipeData.push({
           name: '田間主管2',
-          quantity: step4Data.mainPipe2Quantity,
-          unitPrice: step4Data.mainPipe2UnitPrice ? parseFloat(step4Data.mainPipe2UnitPrice).toLocaleString() : '-',
+          quantity: step4Data.mainPipe2Quantity as string,
+          unitPrice: step4Data.mainPipe2UnitPrice ? parseFloat(step4Data.mainPipe2UnitPrice as string).toLocaleString() : '-',
           totalPrice: mainPipe2Total > 0 ? mainPipe2Total.toLocaleString() : '-',
           unit: '支',
           remark: step4Data.mainPipe2MaterialId ? `管材長度: ${step4Data.mainPipe2Length} 公尺` : '-'
@@ -824,8 +829,8 @@ onMounted(() => {
       }
 
       // Synchronize irrigation system from pipes array
-      if (step4Data.pipes && step4Data.pipes.length > 0) {
-        const pipes = step4Data.pipes;
+      if (step4Data.pipes && Array.isArray(step4Data.pipes) && step4Data.pipes.length > 0) {
+        const pipes = step4Data.pipes as any[];
 
         // Calculate legacy pipeline total for fallback
         const legacyPipelineTotal = pipes.reduce((sum: number, pipe: any) => {
@@ -877,8 +882,8 @@ onMounted(() => {
           };
 
           if (pipe.groupId === 1) {
-            // 主管組 - but exclude main pipes that are already shown separately
-            if (!pipe.matname?.includes('主管') || pipe.description?.includes('配件')) {
+            // 主管組 - 包含所有非「主管」module的材料
+            if (pipe.module !== '主管') {
               irrigationComponents.mainGroup.push(component);
             }
           } else if (pipe.groupId === 2) {
@@ -891,8 +896,19 @@ onMounted(() => {
         });
 
         // Calculate irrigation system total
+        // 包含：groupId=1且module非「主管」的材料 + groupId=2-8的所有材料
         irrigationTotal = pipes
-          .filter((p: any) => [2, 3, 4, 5, 6, 7, 8].includes(p.groupId)) // Exclude main pipe group
+          .filter((p: any) => {
+            // groupId 為 2-8 的所有材料
+            if ([2, 3, 4, 5, 6, 7, 8].includes(p.groupId)) {
+              return true;
+            }
+            // groupId 為 1 但 module 非「主管」的材料
+            if (p.groupId === 1) {
+              return p.module !== '主管';
+            }
+            return false;
+          })
           .reduce((sum: number, pipe: any) => {
             return sum + (typeof pipe.totalPrice === 'number'
                           ? pipe.totalPrice
@@ -916,15 +932,27 @@ onMounted(() => {
       }
 
       // Calculate and set pipeLineTotal (mainPipes + irrigationSystem)
-      // This calculation should ALWAYS happen, regardless of pipes array existence
+      // pipelineTotal: 只包含主管費用
+      // irrigationTotal: 包含所有非主管材料費用 (groupId=1且module非「主管」+ groupId=2-8)
+      // 總計應等於 step4 的 subsidyTotal
       const totalPipelineAmount = pipelineTotal + irrigationTotal;
       localFormData.pipeLineTotal = totalPipelineAmount.toLocaleString();
+      
+      // 強制更新表單資料和觸發重新計算
+      console.log(`✅ 設定 pipeLineTotal 為: ${localFormData.pipeLineTotal}`);
+      updateFormData();
+      
+      console.log(`Step6 計算結果:
+        主管費用 (pipelineTotal): ${pipelineTotal.toLocaleString()}
+        灌溉系統費用 (irrigationTotal): ${irrigationTotal.toLocaleString()}  
+        田間管路設施費總計: ${totalPipelineAmount.toLocaleString()}
+        (應等於 step4 subsidyTotal: ${grantsStore.formData[4]?.subsidyTotal || '未設定'})`);
       // localFormData.totalPipelineAmount = totalPipelineAmount.toLocaleString();
     }
 
     // Calculate from facilities in step 3
-    if (grantsStore.formData[3]?.facilities) {
-      const facilities = grantsStore.formData[3].facilities;
+    if (grantsStore.formData[3]?.facilities && Array.isArray(grantsStore.formData[3].facilities)) {
+      const facilities = grantsStore.formData[3].facilities as any[];
       facilityTotal = facilities.reduce((sum: number, facility: any) => {
         return sum + (typeof facility.totalPrice === 'number'
                      ? facility.totalPrice
@@ -969,6 +997,10 @@ onMounted(() => {
     const facilityValue = parseInt(localFormData.facilitySubsidy.replace(/,/g, '')) || 0;
     const designValue = parseInt(localFormData.designFee.replace(/,/g, '')) || 0;
     localFormData.totalBudget = (pipelineValue + facilityValue + designValue).toLocaleString();
+    
+    // 最終更新表單資料
+    console.log(`✅ 最終計算結果 - pipeLineTotal: ${localFormData.pipeLineTotal}, totalBudget: ${localFormData.totalBudget}`);
+    updateFormData();
   } catch (error) {
     console.error('Error calculating subsidies:', error);
   }
