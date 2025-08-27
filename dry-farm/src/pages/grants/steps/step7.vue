@@ -1806,10 +1806,27 @@ onMounted(async () => {
 
   // Set default payment info
   if (!localFormData.originalPayment && localFormData.testResult === 'original') {
+    console.log('=== Step7 onMounted originalPayment 初始化調試 ===');
+    console.log('grantsStore.formData[6]?.totalBudget:', grantsStore.formData[6]?.totalBudget);
+    
     if (grantsStore.formData[6]?.totalBudget) {
-      localFormData.originalPayment = grantsStore.formData[6].totalBudget;
+      const totalBudget = grantsStore.formData[6].totalBudget;
+      localFormData.originalPayment = typeof totalBudget === 'string' ? totalBudget : totalBudget.toString();
+      console.log('✅ onMounted 設置 originalPayment:', localFormData.originalPayment);
     } else {
-      // localFormData.originalPayment = '13,378';
+      console.log('❌ onMounted totalBudget 不存在，嘗試計算...');
+      // 嘗試從其他步驟獲取預算資料
+      if (grantsStore.formData[6]?.pipeLineSubsidy || grantsStore.formData[6]?.facilitySubsidy) {
+        const pipelineSubsidy = parseInt(((grantsStore.formData[6].pipeLineSubsidy as string) || '0').replace(/,/g, ''));
+        const facilitySubsidy = parseInt(((grantsStore.formData[6].facilitySubsidy as string) || '0').replace(/,/g, ''));
+        const designFee = parseInt(((grantsStore.formData[6].designFee as string) || '0').replace(/,/g, ''));
+        const calculatedTotal = pipelineSubsidy + facilitySubsidy + designFee;
+        
+        if (calculatedTotal > 0) {
+          localFormData.originalPayment = calculatedTotal.toLocaleString();
+          console.log('🔄 onMounted 從子項目計算 originalPayment:', localFormData.originalPayment);
+        }
+      }
     }
 
     localFormData.actualPayment = localFormData.originalPayment;
@@ -1864,13 +1881,32 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
   if (newValue === 'original') {
     // 如果是 "依核定補助款發放"，則自動設置相關金額
     // 確保每次都重新設置原補助款金額
+    console.log('=== Step7 originalPayment 設置調試 ===');
+    console.log('grantsStore.formData[6]:', grantsStore.formData[6]);
+    console.log('grantsStore.formData[6]?.totalBudget:', grantsStore.formData[6]?.totalBudget);
+    console.log('typeof totalBudget:', typeof grantsStore.formData[6]?.totalBudget);
+    
     if (grantsStore.formData[6]?.totalBudget) {
-      localFormData.originalPayment = grantsStore.formData[6].totalBudget;
-      console.log('從 grantsStore 設置 originalPayment:', localFormData.originalPayment);
-    } else if (!localFormData.originalPayment) {
-      // 如果沒有總預算，設置一個預設值
-      localFormData.originalPayment = '13,000'; // 設置一個測試值
-      console.log('設置預設 originalPayment:', localFormData.originalPayment);
+      // 確保資料型別正確 - 如果是字串就直接使用，如果是數字就轉為字串
+      const totalBudget = grantsStore.formData[6].totalBudget;
+      localFormData.originalPayment = typeof totalBudget === 'string' ? totalBudget : totalBudget.toString();
+      console.log('✅ 從 grantsStore 設置 originalPayment:', localFormData.originalPayment);
+    } else {
+      console.log('❌ grantsStore.formData[6].totalBudget 不存在或為空');
+      // 嘗試從其他步驟獲取預算資料
+      if (grantsStore.formData[6]?.pipeLineSubsidy || grantsStore.formData[6]?.facilitySubsidy) {
+        const pipelineSubsidy = parseInt(((grantsStore.formData[6].pipeLineSubsidy as string) || '0').replace(/,/g, ''));
+        const facilitySubsidy = parseInt(((grantsStore.formData[6].facilitySubsidy as string) || '0').replace(/,/g, ''));
+        const designFee = parseInt(((grantsStore.formData[6].designFee as string) || '0').replace(/,/g, ''));
+        const calculatedTotal = pipelineSubsidy + facilitySubsidy + designFee;
+        
+        if (calculatedTotal > 0) {
+          localFormData.originalPayment = calculatedTotal.toLocaleString();
+          console.log('🔄 從子項目計算 originalPayment:', localFormData.originalPayment);
+        } else if (!localFormData.originalPayment) {
+          console.log('⚠️ 無法取得總預算，保持現有值');
+        }
+      }
     }
 
     // 清空減列金額
@@ -1886,10 +1922,33 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
     });
   } else if (newValue === 'adjusted') {
     // 如果是 "依核定補助款增減列"，則設置金額欄位
+    console.log('=== Step7 adjusted originalPayment 設置調試 ===');
+    console.log('grantsStore.formData[6]?.totalBudget:', grantsStore.formData[6]?.totalBudget);
+    
     if (grantsStore.formData[6]?.totalBudget) {
-      localFormData.originalPayment = grantsStore.formData[6].totalBudget;
-    } else if (!localFormData.originalPayment) {
-      localFormData.originalPayment = '0';
+      const totalBudget = grantsStore.formData[6].totalBudget;
+      localFormData.originalPayment = typeof totalBudget === 'string' ? totalBudget : totalBudget.toString();
+      console.log('✅ 從 grantsStore 設置 adjusted originalPayment:', localFormData.originalPayment);
+    } else {
+      console.log('❌ totalBudget 不存在，嘗試計算...');
+      // 嘗試從其他步驟獲取預算資料
+      if (grantsStore.formData[6]?.pipeLineSubsidy || grantsStore.formData[6]?.facilitySubsidy) {
+        const pipelineSubsidy = parseInt(((grantsStore.formData[6].pipeLineSubsidy as string) || '0').replace(/,/g, ''));
+        const facilitySubsidy = parseInt(((grantsStore.formData[6].facilitySubsidy as string) || '0').replace(/,/g, ''));
+        const designFee = parseInt(((grantsStore.formData[6].designFee as string) || '0').replace(/,/g, ''));
+        const calculatedTotal = pipelineSubsidy + facilitySubsidy + designFee;
+        
+        if (calculatedTotal > 0) {
+          localFormData.originalPayment = calculatedTotal.toLocaleString();
+          console.log('🔄 從子項目計算 adjusted originalPayment:', localFormData.originalPayment);
+        } else if (!localFormData.originalPayment) {
+          localFormData.originalPayment = '0';
+          console.log('⚠️ 設置預設值 0');
+        }
+      } else if (!localFormData.originalPayment) {
+        localFormData.originalPayment = '0';
+        console.log('⚠️ 設置預設值 0');
+      }
     }
 
     if (!localFormData.increasedDecreasedAmount) {
@@ -2004,6 +2063,11 @@ watch([() => localFormData.designCompliance, () => localFormData.operationCompli
     // 如果沒有不符合項目但當前選擇是 cancel 或 improvement，可以考慮重置為空讓用戶重新選擇
     console.log('不符合項目已修正，可重新選擇測試結果');
   }
+
+  // 確保所有變更都同步到父組件
+  console.log('=== 測試結果變化完成，同步資料到父組件 ===');
+  console.log('當前 originalPayment:', localFormData.originalPayment);
+  updateFormData();
 });
 
 // 監聽按鈕配置變化，通知父組件
@@ -2089,7 +2153,7 @@ watch(() => props.formData, (newVal) => {
     // 更新基本屬性
     Object.keys(localFormData).forEach(key => {
       if (newVal[key] !== undefined &&
-          JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
+          JSON.stringify(newVal[key]) !== JSON.stringify((localFormData as any)[key])) {
         // 如果正在自動同步結果說明，跳過 testResultDescription 的更新
         if (key === 'testResultDescription' && isAutoSyncingDescription.value) {
           return;
@@ -2098,7 +2162,7 @@ watch(() => props.formData, (newVal) => {
         if (key === 'testResultDescription' && isManuallyEditedDescription.value) {
           return;
         }
-        localFormData[key] = newVal[key];
+        (localFormData as any)[key] = newVal[key];
       }
     });
 
@@ -2152,7 +2216,7 @@ const handleProceedRequest = () => {
 };
 
 // 統一的動作請求處理器
-const handleActionRequest = (action) => {
+const handleActionRequest = (action: string) => {
   console.log('接收到動作請求:', action);
 
   if (action === 'save') {
