@@ -1067,6 +1067,36 @@
                 <div class="text-body-2 mb-2 text-grey-darken-1">
                   點擊下方按鈕可根據您選擇的灌溉型式和設施配置，自動帶入相應的材料清單。
                 </div>
+                
+                <!-- 版本選擇控制項 -->
+                <div class="mb-3">
+                  <v-chip-group
+                    v-model="materialGenerationVersion"
+                    mandatory
+                    selected-class="text-primary"
+                    class="mb-2"
+                  >
+                    <v-chip
+                      value="v1"
+                      size="small"
+                      variant="outlined"
+                      class="me-2"
+                    >
+                      v1 - 包含所有材料
+                    </v-chip>
+                    <v-chip
+                      value="v2"
+                      size="small"
+                      variant="outlined"
+                    >
+                      v2 - 僅含有單價材料
+                    </v-chip>
+                  </v-chip-group>
+                  <div class="text-caption text-grey-darken-1 mb-2">
+                    {{ materialGenerationVersion === 'v1' ? '包含所有材料項目（含無單價項目）' : '僅包含具有單價的材料項目' }}
+                  </div>
+                </div>
+
                 <v-btn
                   color="success"
                   class="mb-2"
@@ -1081,7 +1111,7 @@
                   >
                     mdi-autorenew
                   </v-icon>
-                  自動帶入材料
+                  自動帶入材料 ({{ materialGenerationVersion.toUpperCase() }})
                 </v-btn>
                 <!-- <v-btn
                   color="primary"
@@ -1887,6 +1917,7 @@ interface MaterialData {
   groupId: number;
   groupName?: string;
   module: string;
+  module_id?: number;
   matname: string;
   mattype?: string;
   specification: string;
@@ -1995,6 +2026,7 @@ interface MaterialData {
   groupId: number;
   groupName?: string;
   module: string;
+  module_id?: number;
   matname: string;
   mattype?: string;
   specification: string;
@@ -2105,6 +2137,8 @@ const stepContent = ref<HTMLElement | null>(null); // 顯式類型
 
 // 載入與計算狀態
 const isLoadingMaterials = ref(false);
+// 材料生成版本控制
+const materialGenerationVersion = ref<'v1' | 'v2'>('v1');
 
 // 手動新增材料相關狀態
 const showManualAddDialog = ref(false);
@@ -3616,11 +3650,14 @@ const autoFillMaterials = async () => {
     // console.log('Generating materials using dynamic formula calculation...');
 
     // 直接使用真實的前端數據進行材料計算
-    const materialGroupsFromApi = getMockMaterialData(requestPayload.form_inputs);
+    const materialGroupsFromApi = getMockMaterialData(requestPayload.form_inputs, {
+      excludeNoPriceMaterials: materialGenerationVersion.value === 'v2',
+      version: materialGenerationVersion.value
+    });
 
     localFormData.pipes = []; // 清空現有
     materialGroupsFromApi.forEach(group => {
-      group.List.forEach(material => {
+      group.List.forEach((material: any) => {
         localFormData.pipes.push({
           pomno: material.pomno,
           groupId: group.GroupNo,
@@ -4003,19 +4040,64 @@ const getTotalPrice = () => {
 };
 
 // 獲取材料數據 - 實現14種公式條件的動態材料計算
-const getMockMaterialData = (formInputs: FormInputs) => {
-  // console.log("Dynamic material calculation based on form inputs:", formInputs);
+// 🔥 Linus式修復：材料生成版本控制參數
+interface MaterialGenerationOptions {
+  excludeNoPriceMaterials?: boolean; // 是否排除沒有單價的材料
+  version?: 'v1' | 'v2'; // 版本控制：v1=包含所有材料，v2=排除無單價材料
+}
+
+const getMockMaterialData = (formInputs: FormInputs, options: MaterialGenerationOptions = {}) => {
+  // 預設版本設定
+  const { excludeNoPriceMaterials = false, version = 'v1' } = options;
+  
+  console.log(`[getMockMaterialData] 使用版本: ${version}, 排除無單價材料: ${excludeNoPriceMaterials}`);
 
   // 映射前端欄位到legacy欄位名稱
   const legacyData = mapToLegacyFields(formInputs);
-  // console.log("Legacy data mapping:", legacyData);
 
   // 決定使用哪個公式
   const formulaNumber = determineFormula(legacyData);
-  // console.log(`Using formula ${formulaNumber} for material calculation`);
+  console.log(`[getMockMaterialData] 使用公式 ${formulaNumber} 進行材料計算 (版本: ${version})`);
 
   // 根據公式生成材料列表
-  return generateMaterialsByFormula(formulaNumber, legacyData);
+  const materialGroups = generateMaterialsByFormula(formulaNumber, legacyData);
+  
+  // 🔥 Linus式修復：版本 v2 過濾邏輯
+  if (version === 'v2' || excludeNoPriceMaterials) {
+    return filterMaterialGroupsByPrice(materialGroups);
+  }
+  
+  return materialGroups;
+};
+
+// 🔥 Linus式修復：過濾沒有單價的材料（版本 v2 專用）
+const filterMaterialGroupsByPrice = (materialGroups: any[]) => {
+  const filteredGroups = materialGroups.map(group => {
+    const filteredList = group.List.filter((material: any) => {
+      // 過濾條件：材料必須有有效的單價
+      const hasValidPrice = material.matprice !== null && 
+                           material.matprice !== undefined && 
+                           material.matprice > 0;
+      
+      if (!hasValidPrice) {
+        console.log(`[filterMaterialGroupsByPrice] 排除無單價材料: ${material.matname} (${material.description})`);
+      }
+      
+      return hasValidPrice;
+    });
+    
+    return {
+      ...group,
+      List: filteredList
+    };
+  }).filter(group => group.List.length > 0); // 移除空的群組
+
+  const originalCount = materialGroups.reduce((sum, group) => sum + group.List.length, 0);
+  const filteredCount = filteredGroups.reduce((sum, group) => sum + group.List.length, 0);
+  
+  console.log(`[filterMaterialGroupsByPrice] 過濾結果: ${originalCount} -> ${filteredCount} 項材料 (移除 ${originalCount - filteredCount} 項無單價材料)`);
+  
+  return filteredGroups;
 };
 
 // 映射前端欄位到Legacy系統欄位
