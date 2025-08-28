@@ -188,7 +188,7 @@
           @submit.prevent
         >
           <!-- 補助申請基本資訊區 -->
-          <v-card
+          <!-- <v-card
             class="mb-4"
             variant="outlined"
           >
@@ -281,7 +281,7 @@
                 </v-table>
               </v-sheet>
             </v-card-text>
-          </v-card>
+          </v-card> -->
 
           <!-- 農戶補助明細區 -->
           <v-card
@@ -511,7 +511,8 @@ const localValid = ref(true);
 
 // Computed property for farmer contribution - 從 grantsStore 讀取
 const displayFarmerContribution = computed(() => {
-  return grantsStore.formData[6]?.farmerContribution || '0';
+  const step6Data = getStepDataSafely(6);
+  return step6Data?.farmerContribution || '0';
 });
 
 // 本地表單數據 - 僅保留必要的表單欄位
@@ -519,21 +520,46 @@ const localFormData = reactive<Record<string, any>>({
   valid: true // Always valid for seamless navigation
 });
 
+// 智慧資料來源選擇器：透過案件號比對確保 formData 歸屬正確
+const getStepDataSafely = (step: number) => {
+  const currentCaseNumber = route.query.id as string;
+  
+  // 確保只處理當前案件的資料
+  if (!currentCaseNumber || grantsStore.caseNumber !== currentCaseNumber) {
+    return null;
+  }
+  
+  const formData = grantsStore.formData[step];
+  const allStepsData = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.[step.toString()];
+  
+  // 檢查 formData 是否屬於當前案件（透過 _caseNumber 欄位比對）
+  const formDataCaseNumber = formData?._caseNumber;
+  const isFormDataValid = formDataCaseNumber === currentCaseNumber;
+  
+  if (isFormDataValid && formData && Object.keys(formData).length > 1) { // >1 因為至少有 _caseNumber
+    console.log(`✅ Step6: Using formData for step ${step} (case: ${formDataCaseNumber})`);
+    return formData; // 使用 formData（即時同步）
+  }
+  
+  // 否則使用 all_steps_data（持久化資料）
+  if (allStepsData && Object.keys(allStepsData).length > 0) {
+    console.log(`📚 Step6: Using all_steps_data for step ${step} (formData case: ${formDataCaseNumber}, current: ${currentCaseNumber})`);
+    return allStepsData;
+  }
+  
+  return null;
+};
+
 // Computed properties for facility data - 直接從 grantsStore 讀取資料，不維護本地副本
 const mainPipes = computed(() => {
-  // 優先使用 formData（最新資料），fallback 到 all_steps_data（持久化資料）
-  const formDataStep4 = grantsStore.formData[4];
-  const allStepsDataStep4 = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['4'];
-  
-  // 選擇有資料的來源，formData 優先
-  const step4Data = (formDataStep4 && Object.keys(formDataStep4).length > 0) ? formDataStep4 : allStepsDataStep4;
+  const step4Data = getStepDataSafely(4);
   if (!step4Data || Object.keys(step4Data).length === 0) return [];
-  
+
   const mainPipeData = [];
-  
+
   // Main pipe 1
   if (step4Data.mainPipeQuantity && parseInt(step4Data.mainPipeQuantity as string) > 0) {
-    const mainPipe1Total = parseInt(step4Data.mainPipeQuantity as string || '0') * 
+    const mainPipe1Total = parseInt(step4Data.mainPipeQuantity as string || '0') *
                           parseFloat(step4Data.mainPipeUnitPrice as string || '0');
     mainPipeData.push({
       name: '田間主管1',
@@ -544,10 +570,10 @@ const mainPipes = computed(() => {
       remark: step4Data.mainPipeMaterialId ? `管材長度: ${step4Data.mainPipeLength} 公尺` : '-'
     });
   }
-  
+
   // Main pipe 2
   if (step4Data.mainPipe2Enabled && step4Data.mainPipe2Quantity && parseInt(step4Data.mainPipe2Quantity as string) > 0) {
-    const mainPipe2Total = parseInt(step4Data.mainPipe2Quantity as string || '0') * 
+    const mainPipe2Total = parseInt(step4Data.mainPipe2Quantity as string || '0') *
                           parseFloat(step4Data.mainPipe2UnitPrice as string || '0');
     mainPipeData.push({
       name: '田間主管2',
@@ -558,7 +584,7 @@ const mainPipes = computed(() => {
       remark: step4Data.mainPipe2MaterialId ? `管材長度: ${step4Data.mainPipe2Length} 公尺` : '-'
     });
   }
-  
+
   // Legacy pipes support
   if (mainPipeData.length === 0 && step4Data.pipes && Array.isArray(step4Data.pipes)) {
     const legacyMainPipes = step4Data.pipes.filter((p: any) => p.type === 'main' || (p.groupId === 1 && p.module === '主管'));
@@ -571,28 +597,23 @@ const mainPipes = computed(() => {
       remark: p.specification || '-'
     }));
   }
-  
+
   return mainPipeData;
 });
 
 const irrigationSystem = computed(() => {
-  // 優先使用 formData（最新資料），fallback 到 all_steps_data（持久化資料）
-  const formDataStep4 = grantsStore.formData[4];
-  const allStepsDataStep4 = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['4'];
-  
-  // 選擇有資料的來源，formData 優先
-  const step4Data = (formDataStep4 && Object.keys(formDataStep4).length > 0) ? formDataStep4 : allStepsDataStep4;
+  const step4Data = getStepDataSafely(4);
   if (!step4Data?.pipes || !Array.isArray(step4Data.pipes)) return [];
-  
+
   const pipes = step4Data.pipes as any[];
-  
+
   // 建立灌溉系統組件
   const irrigationComponents = {
     mainGroup: [] as Array<{id: string, name: string, specification: string, quantity: string}>,
     branchGroup: [] as Array<{id: string, name: string, specification: string, quantity: string}>,
     endDevices: [] as Array<{id: string, name: string, specification: string, quantity: string}>
   };
-  
+
   pipes.forEach((pipe: any, index: number) => {
     const component = {
       id: `${pipe.groupId}-${index}`,
@@ -600,7 +621,7 @@ const irrigationSystem = computed(() => {
       specification: pipe.specification || `${pipe.spec1 || ''} ${pipe.spec2 || ''} ${pipe.spec3 || ''}`.trim() || '-',
       quantity: `*${pipe.matamount || pipe.quantity || 0}`
     };
-    
+
     if (pipe.groupId === 1 && pipe.module !== '主管') {
       irrigationComponents.mainGroup.push(component);
     } else if (pipe.groupId === 2) {
@@ -609,7 +630,7 @@ const irrigationSystem = computed(() => {
       irrigationComponents.endDevices.push(component);
     }
   });
-  
+
   // 計算灌溉系統總價
   const irrigationTotal = pipes
     .filter((p: any) => {
@@ -618,11 +639,11 @@ const irrigationSystem = computed(() => {
       return false;
     })
     .reduce((sum: number, pipe: any) => {
-      return sum + (typeof pipe.totalPrice === 'number' 
-                   ? pipe.totalPrice 
+      return sum + (typeof pipe.totalPrice === 'number'
+                   ? pipe.totalPrice
                    : parseInt(pipe.totalPrice || '0'));
     }, 0);
-  
+
   if (irrigationComponents.mainGroup.length > 0 ||
       irrigationComponents.branchGroup.length > 0 ||
       irrigationComponents.endDevices.length > 0) {
@@ -635,19 +656,14 @@ const irrigationSystem = computed(() => {
       remark: irrigationComponents
     }];
   }
-  
+
   return [];
 });
 
 const controlFacilities = computed(() => {
-  // 優先使用 formData（最新資料），fallback 到 all_steps_data（持久化資料）
-  const formDataStep3 = grantsStore.formData[3];
-  const allStepsDataStep3 = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['3'];
-  
-  // 選擇有資料的來源，formData 優先
-  const step3Data = (formDataStep3 && Object.keys(formDataStep3).length > 0) ? formDataStep3 : allStepsDataStep3;
+  const step3Data = getStepDataSafely(3);
   if (!step3Data?.facilities || !Array.isArray(step3Data.facilities)) return [];
-  
+
   const facilities = step3Data.facilities as any[];
   return facilities.map((f: any) => ({
     name: f.typeLabel || f.name,
@@ -662,28 +678,23 @@ const controlFacilities = computed(() => {
 
 // Computed properties for calculated values
 const pipeLineTotal = computed(() => {
-  // 優先使用 formData（最新資料），fallback 到 all_steps_data（持久化資料）
-  const formDataStep4 = grantsStore.formData[4];
-  const allStepsDataStep4 = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['4'];
-  
-  // 選擇有資料的來源，formData 優先
-  const step4Data = (formDataStep4 && Object.keys(formDataStep4).length > 0) ? formDataStep4 : allStepsDataStep4;
+  const step4Data = getStepDataSafely(4);
   if (!step4Data || Object.keys(step4Data).length === 0) return '0';
-  
+
   let pipelineTotal = 0;
   let irrigationTotal = 0;
-  
+
   // Main pipe calculation
   if (step4Data.mainPipeQuantity && step4Data.mainPipeUnitPrice) {
-    pipelineTotal += parseInt(step4Data.mainPipeQuantity as string || '0') * 
+    pipelineTotal += parseInt(step4Data.mainPipeQuantity as string || '0') *
                     parseFloat(step4Data.mainPipeUnitPrice as string || '0');
   }
-  
+
   if (step4Data.mainPipe2Enabled && step4Data.mainPipe2Quantity && step4Data.mainPipe2UnitPrice) {
-    pipelineTotal += parseInt(step4Data.mainPipe2Quantity as string || '0') * 
+    pipelineTotal += parseInt(step4Data.mainPipe2Quantity as string || '0') *
                     parseFloat(step4Data.mainPipe2UnitPrice as string || '0');
   }
-  
+
   // Irrigation system calculation
   if (step4Data.pipes && Array.isArray(step4Data.pipes)) {
     irrigationTotal = step4Data.pipes
@@ -693,32 +704,27 @@ const pipeLineTotal = computed(() => {
         return false;
       })
       .reduce((sum: number, pipe: any) => {
-        return sum + (typeof pipe.totalPrice === 'number' 
-                     ? pipe.totalPrice 
+        return sum + (typeof pipe.totalPrice === 'number'
+                     ? pipe.totalPrice
                      : parseInt(pipe.totalPrice || '0'));
       }, 0);
   }
-  
+
   return (pipelineTotal + irrigationTotal).toLocaleString();
 });
 
 const pipeLineSubsidy = computed(() => pipeLineTotal.value);
 
 const facilitySubsidy = computed(() => {
-  // 優先使用 formData（最新資料），fallback 到 all_steps_data（持久化資料）
-  const formDataStep3 = grantsStore.formData[3];
-  const allStepsDataStep3 = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['3'];
-  
-  // 選擇有資料的來源，formData 優先
-  const step3Data = (formDataStep3 && Object.keys(formDataStep3).length > 0) ? formDataStep3 : allStepsDataStep3;
+  const step3Data = getStepDataSafely(3);
   if (!step3Data || Object.keys(step3Data).length === 0 || !step3Data?.facilities || !Array.isArray(step3Data.facilities)) return '0';
-  
+
   const total = step3Data.facilities.reduce((sum: number, facility: any) => {
     return sum + (typeof facility.totalPrice === 'number'
                  ? facility.totalPrice
                  : parseInt(facility.totalPrice || '0'));
   }, 0);
-  
+
   return total.toLocaleString();
 });
 
@@ -774,46 +780,63 @@ const printDocument = (documentType: string) => {
 };
 
 // Computed properties for display data - 直接從 grantsStore 讀取，不維護本地副本
-const displayCaseNumber = computed(() => grantsStore.caseNumber || '');
-const displayApplicantName = computed(() => grantsStore.formData[1]?.name || '');
+const displayCaseNumber = computed(() => {
+  const currentCaseNumber = route.query.id as string;
+  if (!currentCaseNumber || grantsStore.caseNumber !== currentCaseNumber) {
+    return '';
+  }
+  return grantsStore.caseNumber || '';
+});
+
+const displayApplicantName = computed(() => {
+  const step1Data = getStepDataSafely(1);
+  return step1Data?.name || '';
+});
+
 const displayApplicantAddress = computed(() => {
-  const step1Data = grantsStore.formData[1];
+  const step1Data = getStepDataSafely(1);
   if (!step1Data) return '';
   return [step1Data.county, step1Data.town, step1Data.village, step1Data.address]
     .filter(Boolean).join('');
 });
+
 const displayFacilityLocation = computed(() => {
-  // 優先從 currentGrant.all_steps_data 讀取，fallback 到 formData
-  const step2Data = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['2'] || grantsStore.formData[2];
+  const step2Data = getStepDataSafely(2);
   if (!step2Data) return '';
   return [step2Data.addressCounty, step2Data.addressTown, step2Data.addressVillage]
     .filter(Boolean).join('');
 });
+
 const displayFacilityNumber = computed(() => {
-  // 優先從 currentGrant.all_steps_data 讀取，fallback 到 formData
-  const step2Data = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['2'] || grantsStore.formData[2];
+  const step2Data = getStepDataSafely(2);
   return step2Data?.landNumber || '';
 });
+
 const displayFacilityArea = computed(() => {
-  // 優先從 currentGrant.all_steps_data 讀取，fallback 到 formData
-  const step2Data = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['2'] || grantsStore.formData[2];
+  const step2Data = getStepDataSafely(2);
   return step2Data?.totalFacilityAreaHa || '';
 });
+
 const displayFacilityType = computed(() => {
-  // 優先從 currentGrant.all_steps_data 讀取，fallback 到 formData
-  const step4Data = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['4'] || grantsStore.formData[4];
+  const step4Data = getStepDataSafely(4);
   if (!step4Data) return '';
   const parts = [step4Data.installationType, step4Data.irrigationType].filter(Boolean);
   return parts.length > 0 ? `${parts.join('')}系統` : '';
 });
 const displayApplicationYear = computed(() => {
+  const currentCaseNumber = route.query.id as string;
+  if (!currentCaseNumber || grantsStore.caseNumber !== currentCaseNumber) {
+    return '';
+  }
+  
   // 從案號提取年度
   if (grantsStore.caseNumber?.includes('-')) {
     const yearPart = grantsStore.caseNumber.split('-')[0];
     if (/^\d{1,3}$/.test(yearPart)) return yearPart;
   }
   // 從收件日期提取年度
-  const receivedDate = grantsStore.formData[1]?.receivedDate;
+  const step1Data = getStepDataSafely(1);
+  const receivedDate = step1Data?.receivedDate;
   if (receivedDate && typeof receivedDate === 'string') {
     const match = receivedDate.match(/^(\d{4})-/);
     if (match) {
@@ -834,12 +857,43 @@ const updateFormData = () => {
   });
 };
 
+// 案件切換監控 - 清理跨案件資料污染
+watch(() => route.query.id, async (newCaseNumber, oldCaseNumber) => {
+  if (newCaseNumber && newCaseNumber !== oldCaseNumber) {
+    console.log('🔄 Step6: 案件切換偵測', { from: oldCaseNumber, to: newCaseNumber });
+    
+    // 清理本地表單資料
+    Object.keys(localFormData).forEach(key => {
+      if (key !== 'valid') {
+        delete localFormData[key];
+      }
+    });
+    
+    // 載入新案件資料
+    const caseNumberStr = newCaseNumber as string;
+    if (grantsStore.caseNumber !== caseNumberStr) {
+      await grantsStore.loadGrant(caseNumberStr);
+    }
+    
+    // 載入必要的步驟資料
+    await Promise.all([
+      grantsStore.loadStepData(caseNumberStr, 1),
+      grantsStore.loadStepData(caseNumberStr, 2),
+      grantsStore.loadStepData(caseNumberStr, 3),
+      grantsStore.loadStepData(caseNumberStr, 4),
+      grantsStore.loadStepData(caseNumberStr, 6)
+    ]);
+    
+    console.log('✅ Step6: 案件切換完成，已清理舊資料並載入新案件資料');
+  }
+}, { immediate: false });
+
 // 初始化數據 - 總是載入資料庫資料，確保資料最新
 onMounted(async () => {
   console.log("Step 6 mounted, formData:", props.formData);
 
   const caseNumberFromRoute = route.query.id as string;
-  
+
   if (caseNumberFromRoute) {
     console.log('🔄 Step6: 載入案件資料...', caseNumberFromRoute);
     try {
@@ -851,19 +905,19 @@ onMounted(async () => {
       // 總是載入必要的步驟資料，不進行條件判斷
       await Promise.all([
         grantsStore.loadStepData(caseNumberFromRoute, 1),
-        grantsStore.loadStepData(caseNumberFromRoute, 2), 
+        grantsStore.loadStepData(caseNumberFromRoute, 2),
         grantsStore.loadStepData(caseNumberFromRoute, 3),
         grantsStore.loadStepData(caseNumberFromRoute, 4),
         grantsStore.loadStepData(caseNumberFromRoute, 6)  // 載入 step6 本身的資料
       ]);
-      
+
       console.log('✅ Step6: 案件資料載入完成');
-      
+
       // 詳細檢查載入的資料
       console.log('🔍 Step6: 檢查載入的資料狀態:', {
         formData: {
           step1Keys: Object.keys(grantsStore.formData[1] || {}),
-          step2Keys: Object.keys(grantsStore.formData[2] || {}), 
+          step2Keys: Object.keys(grantsStore.formData[2] || {}),
           step3Keys: Object.keys(grantsStore.formData[3] || {}),
           step4Keys: Object.keys(grantsStore.formData[4] || {}),
           step6Keys: Object.keys(grantsStore.formData[6] || {}),
@@ -876,10 +930,10 @@ onMounted(async () => {
           step4HasMainPipe: !!((grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['4']?.mainPipeQuantity),
         }
       });
-      
+
       // 觸發 computed 屬性重新計算
       await nextTick();
-      
+
       console.log('✅ Step6: computed properties 已觸發重新計算', {
         pipeLineTotal: pipeLineTotal.value,
         facilitySubsidy: facilitySubsidy.value,
@@ -897,7 +951,7 @@ onMounted(async () => {
         localFormData[key] = props.formData[key];
       }
     });
-    
+
     // 初始化或更新 farmerContribution 到 grantsStore
     if (props.formData.farmerContribution !== undefined) {
       if (!grantsStore.formData[6]) {

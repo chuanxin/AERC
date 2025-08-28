@@ -308,8 +308,8 @@ export const useGrantsStore = defineStore('grants', () => {
         data = {}
       }
 
-      // Initialize form data with loaded data
-      formData[step] = { ...data, valid: true }
+      // Initialize form data with loaded data and case number tracking
+      formData[step] = { ...data, valid: true, _caseNumber: caseNumber }
 
       // 初始化 previousFormData 以便追蹤變更
       previousFormData.value[step] = { ...data, valid: true }
@@ -474,7 +474,9 @@ export const useGrantsStore = defineStore('grants', () => {
     trackFieldChanges(step, data)
 
     // Update the form data
-    formData[step] = { ...formData[step], ...data }
+    // Preserve case number when updating form data
+    const currentCaseNumber = formData[step]?._caseNumber || (currentGrant.value?.case_number as string);
+    formData[step] = { ...formData[step], ...data, _caseNumber: currentCaseNumber }
     // console.log('📥 Updated formData[' + step + ']:', JSON.stringify(formData[step], null, 2));
   }
 
