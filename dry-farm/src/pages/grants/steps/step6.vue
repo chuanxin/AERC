@@ -480,6 +480,7 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useGrantsStore } from '@/stores/grants';
+import { useRoute } from 'vue-router';
 import type { PropType } from 'vue';
 
 // Define types for better TypeScript support
@@ -527,8 +528,9 @@ const props = defineProps({
 // Event emitters
 const emit = defineEmits(['update:formData', 'validated', 'go-back']);
 
-// Use the grants store
+// Use the grants store and route
 const grantsStore = useGrantsStore();
+const route = useRoute();
 
 // Form ref and validation state
 const form = ref<any>(null);
@@ -639,8 +641,30 @@ const updateFormData = () => {
 };
 
 // 初始化數據
-onMounted(() => {
+onMounted(async () => {
   console.log("Step 6 mounted, formData:", props.formData);
+  
+  // 檢查是否需要載入案件資料（直接進入 step6 的情況）
+  const caseNumberFromRoute = route.query.id as string;
+  const needsToLoadData = caseNumberFromRoute && 
+      (!grantsStore.formData[4] || !grantsStore.formData[3]);
+  
+  if (needsToLoadData) {
+    console.log('🔄 Step6: 直接進入頁面，載入案件資料...', caseNumberFromRoute);
+    try {
+      // 如果當前案件不匹配，先載入案件基本資料
+      if (grantsStore.caseNumber !== caseNumberFromRoute) {
+        await grantsStore.loadGrant(caseNumberFromRoute);
+      }
+      
+      // 載入 step3 和 step4 的資料
+      await grantsStore.loadStepData(caseNumberFromRoute, 3);
+      await grantsStore.loadStepData(caseNumberFromRoute, 4);
+      console.log('✅ Step6: 案件資料載入完成');
+    } catch (error) {
+      console.error('❌ Step6: 載入案件資料失敗', error);
+    }
+  }
 
   // 從父組件接收數據
   if (props.formData) {
@@ -1000,6 +1024,7 @@ onMounted(() => {
     
     // 最終更新表單資料
     console.log(`✅ 最終計算結果 - pipeLineTotal: ${localFormData.pipeLineTotal}, totalBudget: ${localFormData.totalBudget}`);
+    console.log('🔄 Step6 呼叫 updateFormData 同步到 grantsStore');
     updateFormData();
   } catch (error) {
     console.error('Error calculating subsidies:', error);
