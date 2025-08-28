@@ -62,6 +62,26 @@
                   </v-list-item-title>
                   <template #append>
                     <v-btn
+                      v-if="isAdminMode"
+                      icon
+                      variant="text"
+                      rounded="circle"
+                      size="small"
+                      class="mr-2"
+                      color="warning"
+                      @click="showResetStepDialog = true"
+                    >
+                      <v-icon size="small">
+                        mdi-refresh
+                      </v-icon>
+                      <v-tooltip
+                        activator="parent"
+                        location="bottom"
+                      >
+                        重置當前步驟資料
+                      </v-tooltip>
+                    </v-btn>
+                    <v-btn
                       icon
                       variant="text"
                       rounded="circle"
@@ -690,6 +710,73 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- 重置步驟資料確認對話框 -->
+    <v-dialog
+      v-model="showResetStepDialog"
+      max-width="400"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h6 d-flex align-center pa-4">
+          <v-icon
+            color="warning"
+            class="mr-3"
+          >
+            mdi-alert
+          </v-icon>
+          <span>重置步驟資料</span>
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="pa-4">
+          <div class="mb-3">
+            <v-alert
+              type="warning"
+              variant="tonal"
+              density="compact"
+            >
+              <v-icon>mdi-information</v-icon>
+              <span class="ml-2">
+                這個操作將會清除 <strong>步驟 {{ currentStep }}</strong> 的所有資料。
+              </span>
+            </v-alert>
+          </div>
+          
+          <div class="text-body-1 mb-2">
+            您確定要重置當前步驟的資料嗎？
+          </div>
+          <div class="text-body-2 text-medium-emphasis">
+            此操作<strong>無法復原</strong>，所有已填寫的資料將會被清除。
+          </div>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn
+            variant="text"
+            :disabled="resetStepLoading"
+            @click="showResetStepDialog = false"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            :loading="resetStepLoading"
+            color="warning"
+            variant="elevated"
+            @click="handleResetStepData"
+          >
+            <v-icon left>
+              mdi-refresh
+            </v-icon>
+            確認重置
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -719,6 +806,11 @@ const router = useRouter()
 const { name } = useDisplay()
 const isSmallScreen = computed(() => name.value === 'xs' || name.value === 'sm')
 const grantsStore = useGrantsStore()
+
+// Admin mode detection - check if URL contains "admin"
+const isAdminMode = computed(() => {
+  return route.path.includes('admin') || route.fullPath.includes('admin')
+})
 
 // State refs
 const currentStep = ref(1)
@@ -764,6 +856,8 @@ const step7Ref = ref<{ handleActionRequest: (action: string) => void } | null>(n
 // 🆕 變更設計相關狀態
 const designChangeLoading = ref(false)
 const showDesignChangeDialog = ref(false)
+const showResetStepDialog = ref(false)
+const resetStepLoading = ref(false)
 const designChangeComment = ref('')
 
 // 🆕 通知系統狀態
@@ -1134,6 +1228,76 @@ const executeDesignChange = async (comment?: string) => {
     designChangeLoading.value = false
     showDesignChangeDialog.value = false
     designChangeComment.value = ''
+  }
+}
+
+// 重置步驟資料處理函數
+const handleResetStepData = async () => {
+  if (!grantsStore.currentGrant?.case_number || !currentStep.value) {
+    showNotificationMessage(
+      '重置失敗',
+      '無案件資料或當前步驟資訊',
+      'error'
+    )
+    return
+  }
+
+  resetStepLoading.value = true
+
+  try {
+    // 清空當前步驟的資料
+    const emptyData = getDefaultStepData(currentStep.value)
+    
+    // 使用現有 API 更新步驟資料為空值
+    await grantsStore.saveStepData(currentStep.value, emptyData)
+    
+    // 清除 store 中的該步驟資料
+    grantsStore.formData[currentStep.value] = {}
+    
+    // 觸發當前步驟組件重新載入
+    await nextTick()
+    
+    showNotificationMessage(
+      '重置成功',
+      `步驟 ${currentStep.value} 的資料已清除`,
+      'success'
+    )
+
+  } catch (error) {
+    console.error('Reset step data failed:', error)
+    showNotificationMessage(
+      '重置失敗', 
+      '清除步驟資料時發生錯誤',
+      'error'
+    )
+  } finally {
+    resetStepLoading.value = false
+    showResetStepDialog.value = false
+  }
+}
+
+// 獲取步驟的預設空資料
+const getDefaultStepData = (step: number): Record<string, unknown> => {
+  // 根據步驟返回預設的空資料結構
+  switch (step) {
+    case 1:
+      return { valid: true }
+    case 2: 
+      return { valid: true }
+    case 3:
+      return { facilities: [], valid: true }
+    case 4:
+      return { pipes: [], valid: true }
+    case 5:
+      return { valid: true }
+    case 6:
+      return { valid: true }
+    case 7:
+      return { valid: true }
+    case 8:
+      return { valid: true }
+    default:
+      return { valid: true }
   }
 }
 
