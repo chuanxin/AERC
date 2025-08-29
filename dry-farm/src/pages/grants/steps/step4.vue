@@ -1067,7 +1067,7 @@
                 <div class="text-body-2 mb-2 text-grey-darken-1">
                   點擊下方按鈕可根據您選擇的灌溉型式和設施配置，自動帶入相應的材料清單。
                 </div>
-                
+
                 <!-- 版本選擇控制項 -->
                 <div class="mb-3">
                   <v-chip-group
@@ -1764,137 +1764,358 @@
   <!-- 手動新增材料對話框 -->
   <v-dialog
     v-model="showManualAddDialog"
-    max-width="800"
+    max-width="650"
+    persistent
+    scrollable
   >
     <v-card>
-      <v-card-title class="bg-primary text-white d-flex align-center">
-        <v-icon class="me-2">
-          mdi-plus
+      <v-card-title class="text-h6 d-flex align-center pa-4" style="color: #2d8c8f; background-color: #f8f9fa;">
+        <v-icon
+          color="#3ea0a3"
+          class="me-3"
+          size="large"
+        >
+          mdi-plus-circle
         </v-icon>
-        手動新增材料
+        <span>手動新增材料</span>
+        <v-spacer />
+        <v-btn
+          icon
+          variant="text"
+          size="small"
+          @click="closeManualAddDialog"
+        >
+          <v-icon color="#666">mdi-close</v-icon>
+        </v-btn>
       </v-card-title>
 
-      <v-card-text class="pa-4">
-        <v-form ref="manualAddForm">
-          <v-row>
-            <!-- 材料搜尋與選擇 -->
-            <v-col cols="12">
-              <v-autocomplete
-                v-model="selectedMaterialPomno"
-                :items="filteredMaterialOptions"
-                item-title="searchText"
-                item-value="pomno"
-                label="搜尋並選擇材料"
-                placeholder="請輸入材料名稱、材質或管徑進行搜尋"
-                clearable
-                no-data-text="沒有找到相符的材料"
-                @update:search="onMaterialSearch"
-              >
-                <template #item="{ props, item }">
-                  <v-list-item v-bind="props">
-                    <template #title>
-                      {{ item.raw.name }}
-                    </template>
-                    <template #subtitle>
-                      POMNO: {{ item.raw.pomno }} |
-                      {{ item.raw.material?.name || 'N/A' }} |
-                      {{ item.raw.module?.name || 'N/A' }} |
-                      單價: ${{ item.raw.current_price?.toLocaleString() || 'N/A' }}
-                    </template>
-                  </v-list-item>
-                </template>
-              </v-autocomplete>
-            </v-col>
+      <v-divider />
+
+      <v-card-text class="pa-0">
+        <v-container fluid class="pa-6">
+          <v-form ref="manualAddForm" v-model="manualAddFormValid">
+
+            <!-- 材料搜尋與選擇區塊 -->
+            <v-card
+              variant="outlined"
+              class="mb-4"
+              rounded="lg"
+            >
+              <v-card-title class="d-flex align-center py-3 px-4" style="background-color: #f8f9fa; color: #2d8c8f;">
+                <v-icon
+                  color="#3ea0a3"
+                  class="me-2"
+                  size="small"
+                >
+                  mdi-magnify
+                </v-icon>
+                <span class="text-subtitle-1 font-weight-medium">材料搜尋</span>
+              </v-card-title>
+
+              <v-card-text class="pa-4">
+                <v-autocomplete
+                  v-model="selectedMaterialPomno"
+                  :items="filteredMaterialOptions"
+                  :item-title="item => item.searchText || item.name"
+                  item-value="pomno"
+                  label="搜尋並選擇材料"
+                  placeholder="可搜尋材料名稱、規格管徑(如:1、1吋、3/4)、材質或型號..."
+                  variant="outlined"
+                  density="comfortable"
+                  :loading="isLoadingMaterialOptions"
+                  :no-data-text="materialSearchQuery ? '沒有找到相符的材料，請嘗試其他關鍵字或規格(如:1、1吋、3/4等)' : '請輸入關鍵字開始搜尋'"
+                  clearable
+                  hide-details="auto"
+                  :rules="[v => !!v || '請選擇材料']"
+                  :search="materialSearchQuery"
+                  @update:search="onMaterialSearch"
+                  @update:model-value="onMaterialSelectionChange"
+                >
+                  <template #prepend-inner>
+                    <v-icon
+                      color="grey-darken-1"
+                      size="small"
+                    >
+                      mdi-database-search
+                    </v-icon>
+                  </template>
+
+                  <template #item="{ props, item }">
+                    <v-list-item
+                      v-bind="props"
+                      class="px-4 py-3"
+                    >
+                      <template #title>
+                        <div class="text-body-1 font-weight-medium text-grey-darken-3">
+                          {{ item.raw.name }}
+                        </div>
+                      </template>
+
+                      <template #subtitle>
+                        <div class="d-flex flex-column mt-1">
+                          <div class="text-caption text-grey-darken-1 mb-1">
+                            <v-icon
+                              size="x-small"
+                              class="me-1"
+                              color="grey-darken-1"
+                            >
+                              mdi-identifier
+                            </v-icon>
+                            POMNO: {{ item.raw.pomno }}
+                          </div>
+
+                          <div class="d-flex flex-wrap ga-1">
+                            <v-chip
+                              v-if="item.raw.material?.name"
+                              size="x-small"
+                              color="#3ea0a3"
+                              variant="tonal"
+                            >
+                              {{ item.raw.material.name }}
+                            </v-chip>
+
+                            <v-chip
+                              v-if="item.raw.module?.name"
+                              size="x-small"
+                              color="blue-grey"
+                              variant="tonal"
+                            >
+                              {{ item.raw.module.name }}
+                            </v-chip>
+
+                            <v-chip
+                              v-if="getDiameterDisplay(item.raw)"
+                              size="x-small"
+                              color="indigo"
+                              variant="tonal"
+                            >
+                              {{ getDiameterDisplay(item.raw) }}
+                            </v-chip>
+
+                            <v-chip
+                              v-if="item.raw.current_price"
+                              size="x-small"
+                              color="green"
+                              variant="tonal"
+                              class="font-weight-medium"
+                            >
+                              ${{ item.raw.current_price.toLocaleString() }}
+                            </v-chip>
+
+                            <v-chip
+                              v-else
+                              size="x-small"
+                              color="orange"
+                              variant="tonal"
+                            >
+                              無單價
+                            </v-chip>
+                          </div>
+                        </div>
+                      </template>
+                    </v-list-item>
+                  </template>
+
+                  <template #no-data>
+                    <v-list-item class="text-center py-4">
+                      <template #title>
+                        <div class="text-grey-darken-1">
+                          <v-icon size="large" color="grey-darken-1" class="mb-2">
+                            {{ materialSearchQuery ? 'mdi-magnify-close' : 'mdi-magnify' }}
+                          </v-icon>
+                          <div>{{ materialSearchQuery ? '沒有找到相符的材料' : '請輸入關鍵字開始搜尋' }}</div>
+                        </div>
+                      </template>
+                    </v-list-item>
+                  </template>
+                </v-autocomplete>
+              </v-card-text>
+            </v-card>
 
             <!-- 選中材料的詳細資訊 -->
-            <v-col
+            <v-card
               v-if="selectedMaterial"
-              cols="12"
+              variant="outlined"
+              class="mb-4"
+              rounded="lg"
             >
-              <v-card
-                variant="outlined"
-                color="grey-lighten-5"
+              <v-card-title
+                class="d-flex align-center py-3 px-4"
+                style="background-color: #f0f8f8; color: #2d8c8f;"
               >
-                <v-card-text>
-                  <div class="text-subtitle-2 mb-2">
-                    選中的材料：
-                  </div>
-                  <div class="d-flex align-center">
-                    <div class="flex-grow-1">
-                      <div class="text-body-2 font-weight-medium">
-                        {{ selectedMaterial.name }}
-                      </div>
-                      <div class="text-caption text-grey-darken-1">
-                        POMNO: {{ selectedMaterial.pomno }} |
-                        {{ selectedMaterial.material?.name || 'N/A' }} |
-                        {{ selectedMaterial.module?.name || 'N/A' }} |
-                        單價: ${{ selectedMaterial.current_price?.toLocaleString() || 'N/A' }}
-                      </div>
+                <v-icon
+                  color="#3ea0a3"
+                  class="me-2"
+                  size="small"
+                >
+                  mdi-check-circle
+                </v-icon>
+                <span class="text-subtitle-1 font-weight-medium">選中的材料</span>
+              </v-card-title>
+
+              <v-card-text class="pa-4">
+                <div class="d-flex align-center">
+                  <div class="flex-grow-1">
+                    <div class="text-body-1 font-weight-medium text-grey-darken-3">
+                      {{ selectedMaterial.name }}
                     </div>
-                    <v-chip
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    >
-                      {{ selectedMaterial.unit || '個' }}
-                    </v-chip>
+                    <div class="text-caption text-grey-darken-1 mt-1">
+                      <v-icon
+                        size="x-small"
+                        class="me-1"
+                        color="grey-darken-1"
+                      >
+                        mdi-identifier
+                      </v-icon>
+                      POMNO: {{ selectedMaterial.pomno }}
+                    </div>
+
+                    <div class="d-flex flex-wrap mt-2 ga-1">
+                      <v-chip
+                        v-if="selectedMaterial.material?.name"
+                        size="small"
+                        color="#3ea0a3"
+                        variant="tonal"
+                      >
+                        {{ selectedMaterial.material.name }}
+                      </v-chip>
+
+                      <v-chip
+                        v-if="selectedMaterial.module?.name"
+                        size="small"
+                        color="blue-grey"
+                        variant="tonal"
+                      >
+                        {{ selectedMaterial.module.name }}
+                      </v-chip>
+
+                      <v-chip
+                        v-if="selectedMaterial.current_price"
+                        size="small"
+                        color="green"
+                        variant="tonal"
+                        class="font-weight-medium"
+                      >
+                        單價: ${{ selectedMaterial.current_price.toLocaleString() }}
+                      </v-chip>
+
+                      <v-chip
+                        v-else
+                        size="small"
+                        color="orange"
+                        variant="tonal"
+                      >
+                        無單價資訊
+                      </v-chip>
+                    </div>
                   </div>
-                </v-card-text>
-              </v-card>
-            </v-col>
 
-            <!-- 選擇組別 -->
-            <v-col
-              cols="12"
-              md="6"
-            >
-              <v-select
-                v-model="selectedGroup"
-                :items="materialGroupOptions"
-                item-title="name"
-                item-value="id"
-                label="選擇材料組別"
-                required
-                :rules="[v => !!v || '請選擇材料組別']"
-              />
-            </v-col>
+                  <v-chip
+                    size="small"
+                    color="#3ea0a3"
+                    variant="outlined"
+                    class="font-weight-medium"
+                  >
+                    {{ selectedMaterial.unit || '個' }}
+                  </v-chip>
+                </div>
+              </v-card-text>
+            </v-card>
 
-            <!-- 數量輸入 -->
-            <v-col
-              cols="12"
-              md="6"
-            >
-              <v-text-field
-                v-model.number="materialQuantity"
-                type="number"
-                label="數量"
-                min="1"
-                step="1"
-                required
-                :rules="[
-                  v => !!v || '請輸入數量',
-                  v => v > 0 || '數量必須大於0'
-                ]"
-              />
-            </v-col>
-          </v-row>
-        </v-form>
+            <!-- 表單輸入區域 -->
+            <v-row>
+              <!-- 選擇組別 -->
+              <v-col
+                cols="12"
+                md="6"
+              >
+                <v-select
+                  v-model="selectedGroup"
+                  :items="materialGroupOptions"
+                  item-title="name"
+                  item-value="id"
+                  label="選擇材料組別"
+                  variant="outlined"
+                  required
+                  hide-details="auto"
+                  :rules="[v => !!v || '請選擇材料組別']"
+                >
+                  <template #prepend-inner>
+                    <v-icon
+                      color="grey-darken-1"
+                      size="small"
+                    >
+                      mdi-group
+                    </v-icon>
+                  </template>
+                </v-select>
+              </v-col>
+
+              <!-- 數量輸入 -->
+              <v-col
+                cols="12"
+                md="6"
+              >
+                <v-text-field
+                  v-model.number="materialQuantity"
+                  type="number"
+                  label="數量"
+                  variant="outlined"
+                  min="1"
+                  step="1"
+                  required
+                  hide-details="auto"
+                  :rules="[
+                    v => !!v || '請輸入數量',
+                    v => v > 0 || '數量必須大於0'
+                  ]"
+                >
+                  <template #prepend-inner>
+                    <v-icon
+                      color="grey-darken-1"
+                      size="small"
+                    >
+                      mdi-numeric
+                    </v-icon>
+                  </template>
+                </v-text-field>
+              </v-col>
+            </v-row>
+          </v-form>
+        </v-container>
       </v-card-text>
 
-      <v-card-actions class="px-4 pb-4">
+      <v-divider />
+
+      <v-card-actions class="pa-4">
         <v-spacer />
         <v-btn
           variant="outlined"
+          size="large"
           @click="closeManualAddDialog"
         >
+          <v-icon
+            size="small"
+            class="me-1"
+          >
+            mdi-close
+          </v-icon>
           取消
         </v-btn>
         <v-btn
-          color="primary"
+          color="#3ea0a3"
+          variant="flat"
+          size="large"
           :disabled="!canAddMaterial"
           :loading="isAddingMaterial"
           @click="addMaterialToList"
         >
+          <v-icon
+            size="small"
+            class="me-1"
+          >
+            mdi-plus
+          </v-icon>
           新增材料
         </v-btn>
       </v-card-actions>
@@ -2137,14 +2358,17 @@ const stepContent = ref<HTMLElement | null>(null); // 顯式類型
 
 // 載入與計算狀態
 const isLoadingMaterials = ref(false);
+const isLoadingMaterialOptions = ref(false);
 // 材料生成版本控制
 const materialGenerationVersion = ref<'v1' | 'v2'>('v1');
 
 // 手動新增材料相關狀態
 const showManualAddDialog = ref(false);
+const manualAddFormValid = ref(false);
 const selectedMaterialPomno = ref<number | null>(null);
 const selectedGroup = ref<number | null>(null);
 const materialQuantity = ref<number>(1);
+const materialRemark = ref<string>('');
 const materialSearchQuery = ref('');
 const isAddingMaterial = ref(false);
 const isCalculatingSubsidy = ref(false);
@@ -2860,23 +3084,98 @@ const canAutoFillMaterials = computed(() => {
 
 // 手動新增材料相關計算屬性
 const filteredMaterialOptions = computed(() => {
+  // 建立唯一的材料選項，避免重複
+  const uniqueFittings = pipeFittingsStore.pipeFittings.reduce((acc, fitting) => {
+    // 使用 pomno 作為唯一鍵，確保沒有重複材料
+    if (!acc.has(fitting.pomno)) {
+      // 建構完整的搜尋文字，包含規格（管徑）資訊
+      const diameters = [
+        fitting.diameter1?.name,
+        fitting.diameter1?.value,
+        fitting.diameter2?.name,
+        fitting.diameter2?.value,
+        fitting.diameter3?.name,
+        fitting.diameter3?.value
+      ].filter(d => d !== null && d !== undefined && d !== '').join(' ');
+
+      const searchText = [
+        fitting.name,
+        fitting.material?.name,
+        fitting.module?.name,
+        diameters,
+        fitting.description,
+        fitting.pomno?.toString()
+      ].filter(text => text && text.toString().trim() !== '').join(' ');
+
+      acc.set(fitting.pomno, {
+        ...fitting,
+        searchText: searchText
+      });
+    }
+    return acc;
+  }, new Map());
+
+  // 轉換為陣列
+  const allMaterials = Array.from(uniqueFittings.values());
+
+  // 如果沒有搜尋查詢，返回所有材料
   if (!materialSearchQuery.value) {
-    return pipeFittingsStore.pipeFittings.map(fitting => ({
-      ...fitting,
-      searchText: `${fitting.name} ${fitting.material?.name || ''} ${fitting.module?.name || ''}`
-    }));
+    return allMaterials;
   }
 
-  const query = materialSearchQuery.value.toLowerCase();
-  return pipeFittingsStore.pipeFittings
-    .filter(fitting => {
-      const searchText = `${fitting.name} ${fitting.material?.name || ''} ${fitting.module?.name || ''}`.toLowerCase();
-      return searchText.includes(query);
-    })
-    .map(fitting => ({
-      ...fitting,
-      searchText: `${fitting.name} ${fitting.material?.name || ''} ${fitting.module?.name || ''}`
-    }));
+  // 有搜尋查詢時進行智慧過濾
+  const query = materialSearchQuery.value.toLowerCase().trim();
+  return allMaterials.filter(fitting => {
+    // 基本搜尋文字匹配
+    const searchText = fitting.searchText.toLowerCase();
+    if (searchText.includes(query)) {
+      return true;
+    }
+
+    // 額外的規格搜尋邏輯
+    // 支援直接搜尋管徑數值（如：搜尋 "1" 可以找到 "1\"" 的材料）
+    const diameterValues = [
+      fitting.diameter1?.value,
+      fitting.diameter2?.value,
+      fitting.diameter3?.value
+    ].filter(v => v !== null && v !== undefined);
+
+    // 檢查是否為數值搜尋
+    const numericQuery = parseFloat(query);
+    if (!isNaN(numericQuery)) {
+      // 數值匹配：支援精確匹配和模糊匹配
+      const hasNumericMatch = diameterValues.some(value => {
+        return Math.abs(value - numericQuery) < 0.001; // 精確匹配
+      });
+      if (hasNumericMatch) return true;
+    }
+
+    // 支援分數格式搜尋（如：搜尋 "3/4" 可以找到 0.75 的材料）
+    if (query.includes('/')) {
+      const [numerator, denominator] = query.split('/').map(n => parseFloat(n));
+      if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+        const fractionValue = numerator / denominator;
+        const hasFractionMatch = diameterValues.some(value => {
+          return Math.abs(value - fractionValue) < 0.001;
+        });
+        if (hasFractionMatch) return true;
+      }
+    }
+
+    // 支援英寸符號搜尋（如：搜尋 "1\"" 或 "1吋"）
+    if (query.includes('"') || query.includes('吋')) {
+      const cleanQuery = query.replace(/["\s吋]/g, '');
+      const inchValue = parseFloat(cleanQuery);
+      if (!isNaN(inchValue)) {
+        const hasInchMatch = diameterValues.some(value => {
+          return Math.abs(value - inchValue) < 0.001;
+        });
+        if (hasInchMatch) return true;
+      }
+    }
+
+    return false;
+  });
 });
 
 const selectedMaterial = computed(() => {
@@ -4049,7 +4348,7 @@ interface MaterialGenerationOptions {
 const getMockMaterialData = (formInputs: FormInputs, options: MaterialGenerationOptions = {}) => {
   // 預設版本設定
   const { excludeNoPriceMaterials = false, version = 'v1' } = options;
-  
+
   console.log(`[getMockMaterialData] 使用版本: ${version}, 排除無單價材料: ${excludeNoPriceMaterials}`);
 
   // 映射前端欄位到legacy欄位名稱
@@ -4061,12 +4360,12 @@ const getMockMaterialData = (formInputs: FormInputs, options: MaterialGeneration
 
   // 根據公式生成材料列表
   const materialGroups = generateMaterialsByFormula(formulaNumber, legacyData);
-  
+
   // 🔥 Linus式修復：版本 v2 過濾邏輯
   if (version === 'v2' || excludeNoPriceMaterials) {
     return filterMaterialGroupsByPrice(materialGroups);
   }
-  
+
   return materialGroups;
 };
 
@@ -4075,17 +4374,17 @@ const filterMaterialGroupsByPrice = (materialGroups: any[]) => {
   const filteredGroups = materialGroups.map(group => {
     const filteredList = group.List.filter((material: any) => {
       // 過濾條件：材料必須有有效的單價
-      const hasValidPrice = material.matprice !== null && 
-                           material.matprice !== undefined && 
+      const hasValidPrice = material.matprice !== null &&
+                           material.matprice !== undefined &&
                            material.matprice > 0;
-      
+
       if (!hasValidPrice) {
         console.log(`[filterMaterialGroupsByPrice] 排除無單價材料: ${material.matname} (${material.description})`);
       }
-      
+
       return hasValidPrice;
     });
-    
+
     return {
       ...group,
       List: filteredList
@@ -4094,9 +4393,9 @@ const filterMaterialGroupsByPrice = (materialGroups: any[]) => {
 
   const originalCount = materialGroups.reduce((sum, group) => sum + group.List.length, 0);
   const filteredCount = filteredGroups.reduce((sum, group) => sum + group.List.length, 0);
-  
+
   console.log(`[filterMaterialGroupsByPrice] 過濾結果: ${originalCount} -> ${filteredCount} 項材料 (移除 ${originalCount - filteredCount} 項無單價材料)`);
-  
+
   return filteredGroups;
 };
 
@@ -5785,10 +6084,52 @@ const openManualAddDialog = (preselectedGroupId?: number) => {
 
 const closeManualAddDialog = () => {
   showManualAddDialog.value = false;
+  // 重置表單數據
+  selectedMaterialPomno.value = null;
+  materialQuantity.value = 1;
+  materialRemark.value = '';
+  selectedGroup.value = null;
+  materialSearchQuery.value = '';
 };
 
 const onMaterialSearch = (query: string) => {
   materialSearchQuery.value = query;
+};
+
+// 工具函數：獲取管徑顯示
+const getDiameterDisplay = (item: any) => {
+  if (!item) return '';
+
+  // 收集所有可用的管徑資訊
+  const diameters = [];
+
+  // 檢查 diameter1, diameter2, diameter3
+  if (item.diameter1?.name) {
+    diameters.push(item.diameter1.name);
+  }
+  if (item.diameter2?.name && item.diameter2.name !== item.diameter1?.name) {
+    diameters.push(item.diameter2.name);
+  }
+  if (item.diameter3?.name && item.diameter3.name !== item.diameter1?.name && item.diameter3.name !== item.diameter2?.name) {
+    diameters.push(item.diameter3.name);
+  }
+
+  // 如果沒有找到 diameter 物件，回退到舊的邏輯
+  if (diameters.length === 0) {
+    const diameter = item.diameter?.name ||
+                     item.diameter_name ||
+                     item.diameter ||
+                     item.spec1 ||
+                     '';
+    if (diameter) {
+      diameters.push(diameter);
+    }
+  }
+
+  // 格式化顯示
+  if (diameters.length === 0) return '';
+  if (diameters.length === 1) return `φ${diameters[0]}`;
+  return `φ${diameters.join('×')}`;  // 多規格用 × 分隔
 };
 
 const addMaterialToList = async () => {
