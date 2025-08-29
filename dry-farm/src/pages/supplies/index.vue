@@ -1013,7 +1013,8 @@ const materialOptions = computed(() => {
 });
 
 const getDiameterDisplay = (diameterId: number | null) => {
-  if (!diameterId) return '';
+  // 🔥 Linus式修復：使用嚴格比較，避免 0 被判斷為 falsy
+  if (diameterId === null || diameterId === undefined) return '';
   const diameter = pfDiametersStore.getDiameterById(diameterId);
   return diameter ? `${diameter.name} (${diameter.value})` : '';
 };
@@ -1405,6 +1406,13 @@ const saveItem = async () => {
     saveData.name = saveData.materialName;
     delete saveData.materialName;
 
+    // 處理 length 欄位，允許空值或零值
+    if (saveData.length === '' || saveData.length === null || saveData.length === undefined) {
+      saveData.length = null; // 或者設為 0，取決於你的後端需求
+    } else {
+      saveData.length = parseFloat(saveData.length) || null;
+    }
+
     if (typeof saveData.material === 'string') {
       const material = pfMaterialsStore.materials.find(m => m.name === saveData.material);
       if (material) {
@@ -1605,7 +1613,7 @@ onBeforeUnmount(() => {
 
 /* 表格樣式 */
 .materials-table :deep(thead th) {
-  background-color: #62b7bb30 !important;
+  background-color: #e3f4f4 !important;
   color: #333 !important;
   font-weight: 900 !important;
   position: relative;

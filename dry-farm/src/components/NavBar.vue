@@ -20,7 +20,8 @@
     <!-- Application title -->
     <component
       :is="name === 'xs' ? 'h4' : 'h1'"
-      class="me-4 font-weight-black app-title"
+      class="me-4 font-black app-title"
+      style="font-family: 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;"
     >
       推廣管路灌溉設施管理資料庫
     </component>
@@ -41,65 +42,70 @@
         :grow="true"
         class="gradient-background"
       >
-        <v-tab
-          v-for="item in navigationItems.filter(i => !i.children)"
+        <!-- 按照 navigationItems 原始順序渲染所有項目 -->
+        <template
+          v-for="item in navigationItems"
           :key="item.value"
-          :to="item.to"
-          :value="item.value"
-          :text="item.title"
-          :prepend-icon="item.icon"
-          color="white"
-          size="x-large"
-        />
-
-        <!-- 系統管理下拉選單 -->
-        <v-menu
-          v-for="item in navigationItems.filter(i => i.children)"
-          :key="item.value"
-          open-on-hover
-          location="bottom"
-          offset="0 8px"
-          open-delay="0"
-          transition="scale-y-transition"
         >
-          <template #activator="{ props }">
-            <v-tab
-              v-bind="props"
-              color="white"
-              size="x-large"
-              @click.stop="preventTabSelection"
-            >
-              <v-icon
-                :icon="item.icon"
-                class="me-2"
-              />
-              {{ item.title }}
-              <v-icon
-                icon="mdi-chevron-down"
-                size="small"
-                class="ms-2"
-              />
-            </v-tab>
-          </template>
+          <!-- 一般選單項目（沒有子選單） -->
+          <v-tab
+            v-if="!item.children"
+            :to="item.to"
+            :value="item.value"
+            :text="item.title"
+            :prepend-icon="item.icon"
+            color="white"
+            size="x-large"
+          />
 
-          <v-list
-            density="compact"
-            bg-color="white"
-            elevation="1"
+          <!-- 有子選單的項目（下拉選單） -->
+          <v-menu
+            v-else
+            open-on-hover
+            location="bottom"
+            offset="0 8px"
+            open-delay="0"
+            transition="scale-y-transition"
           >
-            <v-list-item
-              v-for="child in item.children"
-              :key="child.value"
-              :to="child.to"
-              link
+            <template #activator="{ props }">
+              <v-tab
+                v-bind="props"
+                color="white"
+                size="x-large"
+                @click.stop="preventTabSelection"
+              >
+                <v-icon
+                  :icon="item.icon"
+                  class="me-2"
+                />
+                {{ item.title }}
+                <v-icon
+                  icon="mdi-chevron-down"
+                  size="small"
+                  class="ms-2"
+                />
+              </v-tab>
+            </template>
+
+            <v-list
+              density="compact"
+              bg-color="white"
+              elevation="1"
             >
-              <template #prepend>
-                <v-icon :icon="child.icon" />
-              </template>
-              {{ child.title }}
-            </v-list-item>
-          </v-list>
-        </v-menu>
+              <v-list-item
+                v-for="child in item.children"
+                :key="child.value"
+                :to="child.to"
+                link
+              >
+                <template #prepend>
+                  <v-icon :icon="child.icon" />
+                </template>
+                {{ child.title }}
+              </v-list-item>
+            </v-list>
+          </v-menu>
+        </template>
       </v-tabs>
     </template>
     <v-spacer />
@@ -171,40 +177,44 @@
     <v-list
       v-model:selected="activeTab"
     >
-      <!-- 一般選單項目 -->
-      <v-list-item
-        v-for="item in navigationItems.filter(i => !i.children)"
+      <!-- 按照 navigationItems 原始順序渲染所有項目 -->
+      <template
+        v-for="item in navigationItems"
         :key="item.value"
-        :value="item.value"
-        :title="item.title"
-        :to="item.to"
-        :prepend-icon="item.icon"
-      />
-
-      <!-- 有子選單的項目 -->
-      <v-list-group
-        v-for="item in navigationItems.filter(i => i.children)"
-        :key="item.value"
-        :value="item.value"
       >
-        <template #activator="{ props }">
-          <v-list-item
-            v-bind="props"
-            :value="item.value"
-            :title="item.title"
-            :prepend-icon="item.icon"
-          />
-        </template>
-
+        <!-- 一般選單項目（沒有子選單） -->
         <v-list-item
-          v-for="child in item.children"
-          :key="child.value"
-          :value="child.value"
-          :title="child.title"
-          :to="child.to"
-          :prepend-icon="child.icon"
+          v-if="!item.children"
+          :value="item.value"
+          :title="item.title"
+          :to="item.to"
+          :prepend-icon="item.icon"
         />
-      </v-list-group>
+
+        <!-- 有子選單的項目 -->
+        <v-list-group
+          v-else
+          :value="item.value"
+        >
+          <template #activator="{ props }">
+            <v-list-item
+              v-bind="props"
+              :value="item.value"
+              :title="item.title"
+              :prepend-icon="item.icon"
+            />
+          </template>
+
+          <v-list-item
+            v-for="child in item.children"
+            :key="child.value"
+            :value="child.value"
+            :title="child.title"
+            :to="child.to"
+            :prepend-icon="child.icon"
+          />
+        </v-list-group>
+      </template>
     </v-list>
 
     <!-- Logout button -->
@@ -262,8 +272,22 @@
     {
       title: '補助申請',
       value: 'grants',
-      to: { path: '/grants' },
-      icon: 'mdi-file-sign'
+      // to: { path: '/grants' },
+      icon: 'mdi-file-sign',
+      children: [
+        {
+          title: '補助案件申請',
+          value: 'grants-application',
+          to: { path: '/grants' },
+          icon: 'mdi-file-document-edit'
+        },
+        {
+          title: '申請案件查詢與列印',
+          value: 'grants-query',
+          to: { path: '/grants/query' },
+          icon: 'mdi-magnify'
+        }
+      ]
     },
     {
       title: '申請資格預查',
@@ -418,9 +442,17 @@
 }
 
 .app-title {
-  font-weight: 900 !important;
-  letter-spacing: -0.5px;
-  text-shadow: 1px 0 0 currentColor;
+  /* font-weight: 900 !important; */
+  /* letter-spacing: -0.5px; */
+  /* text-shadow: 1px 0 0 currentColor; */
+}
+
+h1.app-title {
+  font-size: 1.8rem !important;
+}
+
+h4.app-title {
+  font-size: 1.2rem !important;
 }
 
 /* 下拉選單樣式 */

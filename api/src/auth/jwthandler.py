@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request
@@ -10,8 +10,8 @@ from jose import JWTError, jwt
 from tortoise.exceptions import DoesNotExist
 
 from src.schemas.token import TokenData
-from src.schemas.users import UserOutSchema
-from src.database.models import Users
+from src.schemas.users import UserInfoSchema, SimpleOfficeSchema
+from src.database.models import Users, Offices
 
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
@@ -33,20 +33,30 @@ class OAuth2PasswordBearerCookie(OAuth2):
         super().__init__(flows=flows, scheme_name=scheme_name, auto_error=auto_error)
 
     async def __call__(self, request: Request) -> Optional[str]:
-        authorization: str = request.cookies.get("Authorization")
-        scheme, param = get_authorization_scheme_param(authorization)
+        # 優先從 Authorization Header 獲取 Token
+        authorization_header = request.headers.get("Authorization")
+        
+        if authorization_header:
+            scheme, param = get_authorization_scheme_param(authorization_header)
+            if authorization_header and scheme.lower() == "bearer":
+                return param
+        
+        # 回退到 Cookie 方式（向後相容）
+        authorization_cookie = request.cookies.get("Authorization")
+        if authorization_cookie:
+            scheme, param = get_authorization_scheme_param(authorization_cookie)
+            if authorization_cookie and scheme.lower() == "bearer":
+                return param
 
-        if not authorization or scheme.lower() != "bearer":
-            if self.auto_error:
-                raise HTTPException(
-                    status_code=401,
-                    detail="Not authenticated",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-            else:
-                return None
-
-        return param
+        # 如果兩種方式都沒有找到 Token
+        if self.auto_error:
+            raise HTTPException(
+                status_code=401,
+                detail="Not authenticated",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        else:
+            return None
 
 
 security = OAuth2PasswordBearerCookie(token_url="/login")
@@ -68,9 +78,9 @@ async def create_access_token(data: dict, expires_delta: Optional[timedelta] = N
         pass
     
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
 
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -95,10 +105,44 @@ async def get_current_user(token: str = Depends(security)):
         raise credentials_exception
 
     try:
-        user = await UserOutSchema.from_queryset_single(
-            Users.get(username=token_data.username)
+        user = await Users.filter(username=token_data.username, is_active=True).only(
+            'id', 'username', 'full_name', 'email', 'office_id', 
+            'job_title', 'is_active', 'role', 'permissions', 'last_login'
+        ).first()
+
+        office_data = None
+        if user.office_id:
+            office = await Offices.filter(id=user.office_id).only(
+                'id', 'name', 'short_name', 'code', 'classification', 'is_funding_source'
+            ).first()
+            
+            if office:
+                office_data = SimpleOfficeSchema(
+                    id=office.id,
+                    name=office.name,
+                    short_name=office.short_name,
+                    code=office.code,
+                    classification=office.classification,
+                    is_funding_source=office.is_funding_source
+                )
+
+        return UserInfoSchema(
+            id=user.id,
+            username=user.username,
+            full_name=user.full_name,
+            email=user.email,
+            job_title=user.job_title,
+            is_active=user.is_active,
+            role=user.role,
+            permissions=user.permissions,
+            last_login=user.last_login,
+            office=office_data
         )
+    
     except DoesNotExist:
         raise credentials_exception
-
-    return user
+    except Exception as e:
+        print(f"Error in get_current_user: {e}")
+        raise credentials_exception
+    
+    # return user

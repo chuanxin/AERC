@@ -9,6 +9,90 @@ class BaseSchema(BaseModel):
         from_attributes = True
         arbitrary_types_allowed = True
 
+# Frontend request schema - matches GrantCreateRequest from frontend
+class GrantCreateRequestSchema(BaseSchema):
+    """前端申請表單資料模型 - 對應 frontend GrantCreateRequest interface"""
+    name: str = Field(..., description="申請人姓名", min_length=1, max_length=50)
+    id: str = Field(..., description="申請人身分證字號", min_length=10, max_length=10) 
+    phone: str = Field(..., description="申請人電話", min_length=9)
+    county: str = Field(..., description="縣市名稱", min_length=1, max_length=30)
+    countyId: Optional[int] = Field(None, description="縣市ID")
+    town: str = Field(..., description="鄉鎮市區名稱", min_length=1, max_length=30)
+    townId: Optional[int] = Field(None, description="鄉鎮市區ID")
+    village: Optional[str] = Field(None, description="村里名稱", max_length=30)
+    villageId: Optional[int] = Field(None, description="村里ID")
+    address: str = Field(..., description="詳細地址", min_length=1, max_length=255)
+    undertracker: str = Field(..., description="承辦人姓名", min_length=1, max_length=50)
+    office: str = Field(..., description="管理處名稱", min_length=1, max_length=50)
+    officeId: Optional[int] = Field(None, description="管理處ID")
+    valid: Optional[bool] = Field(default=False, description="前端驗證狀態")
+    isDisasterCase: bool = Field(default=False, description="是否為災害案件")
+    disasterCaseDescription: str = Field(default="", description="災害案件說明")
+    
+    @field_validator('valid')
+    def validate_valid_field(cls, v):
+        """處理 valid 欄位，null 值轉換為 False"""
+        if v is None:
+            return False
+        return v
+    
+    @field_validator('id')
+    def validate_id_number(cls, v):
+        """驗證身分證字號格式"""
+        if not v or len(v) != 10:
+            raise ValueError('身分證字號必須為10碼')
+        
+        # 基本格式檢查: 第一碼為英文字母，第二碼為1或2，後面8碼為數字
+        if not (v[0].isalpha() and v[1] in ['1', '2'] and v[2:].isdigit()):
+            raise ValueError('身分證字號格式不正確')
+        
+        return v.upper()  # 確保英文字母為大寫
+    
+    @field_validator('phone')
+    def validate_phone(cls, v):
+        """驗證電話號碼格式"""
+        if not v:
+            raise ValueError('電話號碼不能為空')
+        
+        # 去除空格和特殊符號，保留數字
+        cleaned = ''.join(filter(lambda x: x.isdigit(), v))
+        
+        # 檢查長度，電話號碼通常為9-10碼
+        if len(cleaned) not in [9, 10]:
+            raise ValueError('電話號碼長度不正確，應為9-10碼')
+        
+        return cleaned
+    
+    @field_validator('name', 'undertracker')
+    def validate_name_fields(cls, v):
+        """驗證姓名欄位不能為空白或只有空格"""
+        if not v or not v.strip():
+            raise ValueError('姓名欄位不能為空')
+        return v.strip()
+    
+    @field_validator('county', 'town', 'office', 'address')
+    def validate_text_fields(cls, v):
+        """驗證文字欄位不能為空白或只有空格"""
+        if not v or not v.strip():
+            raise ValueError('此欄位不能為空')
+        return v.strip()
+    
+    @field_validator('disasterCaseDescription')
+    def validate_disaster_description(cls, v, values):
+        """驗證災害案件說明"""
+        # 從已驗證的值中獲取 isDisasterCase
+        is_disaster = values.data.get('isDisasterCase', False) if hasattr(values, 'data') else False
+        
+        if is_disaster:
+            if not v or not v.strip():
+                raise ValueError('災害案件必須填寫說明內容')
+            if len(v.strip()) < 10:
+                raise ValueError('災害案件說明至少需要10個字')
+            if len(v.strip()) > 500:
+                raise ValueError('災害案件說明不可超過500個字')
+        
+        return v.strip() if v else ""
+
 # 補助申請案件模型
 class GrantInSchema(BaseSchema):
     """建立補助申請案件時使用的資料模型"""
@@ -46,7 +130,7 @@ class GrantInSchema(BaseSchema):
         # 去除空格和特殊符號
         v = ''.join(filter(lambda x: x.isdigit(), v))
         
-        # 檢查長度，台灣手機號碼通常為10碼
+        # 檢查長度，手機號碼通常為10碼
         if len(v) not in [9, 10]:
             raise ValueError('電話號碼長度不正確')
         
@@ -68,7 +152,7 @@ class GrantUpdateSchema(BaseSchema):
     address: Optional[str] = Field(None, description="詳細地址")
     
     office_id: Optional[int] = Field(None, description="管理處ID")
-    manager: Optional[str] = Field(None, description="承辦人姓名")
+    undertracker: Optional[str] = Field(None, description="承辦人姓名")
     
     status: Optional[str] = Field(None, description="案件狀態")
     status_detail: Optional[str] = Field(None, description="狀態詳情")
@@ -98,7 +182,7 @@ class GrantUpdateSchema(BaseSchema):
         # 去除空格和特殊符號
         v = ''.join(filter(lambda x: x.isdigit(), v))
         
-        # 檢查長度，台灣手機號碼通常為10碼
+        # 檢查長度，手機號碼通常為10碼
         if len(v) not in [9, 10]:
             raise ValueError('電話號碼長度不正確')
         
@@ -226,9 +310,16 @@ class GrantCreateResponseSchema(BaseSchema):
     case_number: str = Field(..., description="案件編號")
     year: int = Field(..., description="申請年度")
     applicant_name: str = Field(..., description="申請人姓名")
-    received_date: date = Field(..., description="收件日期")
-    received_time: str = Field(..., description="收件時間")
+    received_date: date = Field(..., description="建檔日期")
+    received_time: str = Field(..., description="建檔時間")
     status: str = Field(..., description="案件狀態")
+    is_disaster_case: bool = Field(..., description="是否為災害案件")
+    disaster_case_description: Optional[str] = Field(None, description="災害案件說明")
+    office_id: int = Field(..., description="管理處ID")
+    undertracker: str = Field(..., description="收件人姓名")
+    
+    initial_version_id: Optional[int] = Field(None, description="初始版本ID")
+    initial_version: Optional[int] = Field(None, description="初始版本號")
 
 
 class GrantSearchSchema(BaseSchema):
@@ -242,8 +333,8 @@ class GrantSearchSchema(BaseSchema):
     applicant_id: Optional[str] = Field(None, description="申請人身分證字號")
     land_number: Optional[str] = Field(None, description="地號")
     is_aboriginal_area: Optional[bool] = Field(None, description="是否為原民區")
-    date_from: Optional[date] = Field(None, description="收件日期(起)")
-    date_to: Optional[date] = Field(None, description="收件日期(迄)")
+    date_from: Optional[date] = Field(None, description="建檔日期(起)")
+    date_to: Optional[date] = Field(None, description="建檔日期(迄)")
 
 
 # 土地相關模型
@@ -282,13 +373,13 @@ class GrantLandInSchema(BaseSchema):
     is_irrigation_area: bool = Field(False, description="是否位於灌區內")
     is_reapplied: bool = Field(False, description="是否再次申請")
     
-    # 座標
+    # 坐標
     longitude: float = Field(..., description="經度")
     latitude: float = Field(..., description="緯度")
     
     # 面積
-    land_area: float = Field(..., description="農地面積(平方公尺)")
-    land_area_ha: float = Field(..., description="農地面積(公頃)")
+    land_area: float = Field(..., description="農地地籍面積(平方公尺)")
+    land_area_ha: float = Field(..., description="農地地籍面積(公頃)")
     facility_area: float = Field(..., description="施設面積(平方公尺)")
     facility_area_ha: float = Field(..., description="施設面積(公頃)")
     

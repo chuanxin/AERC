@@ -31,7 +31,7 @@
               >
                 mdi-clipboard-check
               </v-icon>
-              <span>勘查資訊</span>
+              <span><span class="required-asterisk">*</span>勘查資訊</span>
             </v-card-title>
 
             <v-sheet
@@ -45,14 +45,17 @@
                 >
                   <v-text-field
                     v-model="localFormData.inspector"
-                    label="勘查人員"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
                     :rules="[v => !!v || '請填寫勘查人員']"
                     @update:model-value="updateFormData"
-                  />
+                  >
+                    <template #label>
+                      勘查人員
+                    </template>
+                  </v-text-field>
                 </v-col>
 
                 <v-col
@@ -62,7 +65,6 @@
                   <!-- 使用簡單的日期輸入 -->
                   <v-text-field
                     v-model="formattedInspectionDate"
-                    label="勘查日期"
                     prepend-icon="mdi-calendar"
                     variant="outlined"
                     density="comfortable"
@@ -71,7 +73,11 @@
                     readonly
                     :rules="[v => !!v || '請選擇勘查日期']"
                     @click="openDateDialog"
-                  />
+                  >
+                    <template #label>
+                      勘查日期
+                    </template>
+                  </v-text-field>
 
                   <!-- 自定義日期選擇對話框 -->
                   <v-dialog
@@ -221,7 +227,7 @@
               >
                 mdi-camera
               </v-icon>
-              <span>現場照片</span>
+              <span><span class="required-asterisk">*</span>現場照片</span>
             </v-card-title>
 
             <v-sheet
@@ -229,45 +235,149 @@
               color="white"
             >
               <v-row>
-                <v-col
-                  cols="12"
-                  md="6"
-                >
-                  <label class="text-body-2 font-weight-medium mb-2 d-block">
-                    <span class="text-red">*</span> 施工前照片
+                <v-col cols="12">
+                  <label class="text-body-2 font-weight-medium mb-3 d-block">
+                    施工前照片 <span class="text-grey text-caption">(需要1-3張照片)</span>
                   </label>
-                  <v-file-input
-                    v-model="localFormData.beforeConstructionPhoto"
-                    label="選擇照片檔"
-                    variant="outlined"
-                    density="comfortable"
-                    color="#3ea0a3"
-                    bg-color="white"
-                    accept="image/*"
-                    prepend-icon="mdi-camera"
-                    :rules="photoRules"
-                    @update:model-value="handlePhotoChange('before')"
-                  />
 
+                  <!-- 已上傳照片展示區域 -->
                   <div
-                    v-if="localFormData.beforePhotoPreview"
+                    v-if="localFormData.beforePhotoPreviews && localFormData.beforePhotoPreviews.length > 0"
+                    class="mb-3"
+                  >
+                    <v-row>
+                      <v-col
+                        v-for="(preview, index) in localFormData.beforePhotoPreviews"
+                        :key="`before-${index}`"
+                        cols="6"
+                        sm="4"
+                        md="3"
+                      >
+                        <v-card
+                          variant="outlined"
+                          class="photo-card"
+                        >
+                          <div class="position-relative">
+                            <v-img
+                              :src="preview"
+                              height="120"
+                              cover
+                              class="rounded-t"
+                            />
+                            <v-btn
+                              icon
+                              size="x-small"
+                              color="error"
+                              variant="elevated"
+                              class="position-absolute"
+                              style="top: 8px; right: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"
+                              @click="removeBeforePhoto(index)"
+                            >
+                              <v-icon size="small">
+                                mdi-close
+                              </v-icon>
+                            </v-btn>
+                          </div>
+                          <v-card-text class="pa-2 text-center">
+                            <div class="text-caption text-grey-darken-1">
+                              第 {{ index + 1 }} 張照片
+                            </div>
+                          </v-card-text>
+                        </v-card>
+                      </v-col>
+
+                      <!-- 新增照片按鈕 (當未達到3張時顯示) -->
+                      <v-col
+                        v-if="localFormData.beforePhotoPreviews.length < 3"
+                        cols="6"
+                        sm="4"
+                        md="3"
+                      >
+                        <v-card
+                          variant="outlined"
+                          class="photo-card add-photo-card"
+                          @click="triggerFileInput"
+                        >
+                          <div class="d-flex flex-column align-center justify-center h-100">
+                            <v-icon
+                              size="40"
+                              color="grey-lighten-1"
+                              class="mb-2"
+                            >
+                              mdi-plus-circle-outline
+                            </v-icon>
+                            <div class="text-caption text-grey text-center">
+                              新增照片<br>
+                              <span class="text-xs">({{ localFormData.beforePhotoPreviews.length }}/3)</span>
+                            </div>
+                          </div>
+                        </v-card>
+                      </v-col>
+                    </v-row>
+                  </div>
+
+                  <!-- 初次上傳區域 (當沒有照片時顯示) -->
+                  <div v-if="localFormData.beforePhotoPreviews.length === 0">
+                    <v-card
+                      variant="outlined"
+                      class="upload-zone"
+                      @click="triggerFileInput"
+                    >
+                      <v-card-text class="text-center pa-8">
+                        <v-icon
+                          size="48"
+                          color="grey-lighten-1"
+                          class="mb-3"
+                        >
+                          mdi-camera-plus-outline
+                        </v-icon>
+                        <div class="text-h6 text-grey-darken-1 mb-2">
+                          上傳施工前照片
+                        </div>
+                        <div class="text-body-2 text-grey">
+                          點擊選擇照片檔案<br>
+                          <span class="text-caption">支援 JPG、PNG 格式，需要 1-3 張照片</span>
+                        </div>
+                      </v-card-text>
+                    </v-card>
+                  </div>
+
+                  <!-- 隱藏的檔案輸入框 -->
+                  <input
+                    ref="fileInput"
+                    type="file"
+                    accept="image/*"
+                    style="display: none"
+                    @change="handleSinglePhotoUpload"
+                  >
+
+                  <!-- 上傳狀態提示 -->
+                  <div
+                    v-if="localFormData.beforePhotoPreviews.length > 0"
                     class="mt-2"
                   >
-                    <v-img
-                      :src="localFormData.beforePhotoPreview"
-                      max-height="200"
-                      contain
-                      class="bg-grey-lighten-3 rounded"
-                    />
+                    <v-chip
+                      :color="getUploadStatusColor()"
+                      variant="tonal"
+                      size="small"
+                    >
+                      <v-icon
+                        start
+                        size="small"
+                      >
+                        {{ getUploadStatusIcon() }}
+                      </v-icon>
+                      {{ getUploadStatusText() }}
+                    </v-chip>
                   </div>
                 </v-col>
 
-                <v-col
+                <!-- <v-col
                   cols="12"
                   md="6"
                 >
                   <label class="text-body-2 font-weight-medium mb-2 d-block">
-                    <span class="text-red">*</span> 施工後照片
+                    竣工照片
                   </label>
                   <v-file-input
                     v-model="localFormData.afterConstructionPhoto"
@@ -293,7 +403,7 @@
                       class="bg-grey-lighten-3 rounded"
                     />
                   </div>
-                </v-col>
+                </v-col> -->
               </v-row>
             </v-sheet>
           </v-card>
@@ -336,39 +446,66 @@ const localFormData = reactive({
   reason: '',
   inspectionDate: '',
   remarks: '',
-  beforeConstructionPhoto: null,
-  afterConstructionPhoto: null,
-  beforePhotoPreview: null,
-  afterPhotoPreview: null,
+  beforeConstructionPhotos: [] as File[], // 改為陣列以支援多張照片
+  afterConstructionPhoto: null as File | null,
+  beforePhotoPreviews: [] as string[], // 改為陣列以支援多張照片預覽
+  afterPhotoPreview: null as string | null,
   valid: true // Always true for seamless navigation
 });
 
 // 驗證規則
 const reasonRules = computed(() => {
   if (localFormData.inspectionResult === 'notComply' || localFormData.inspectionResult === 'other') {
-    return [v => !!v || '請填寫原因說明'];
+    return [(v: any) => !!v || '請填寫原因說明'];
   }
   return [];
 });
 
-const photoRules = [v => !!v || '請上傳照片'];
+const photoRules = [
+  (v: any) => {
+    if (!v || (Array.isArray(v) && v.length === 0)) {
+      return '請至少上傳1張照片';
+    }
+    if (Array.isArray(v) && v.length > 3) {
+      return '最多只能上傳3張照片';
+    }
+    return true;
+  }
+];
 
 // 處理照片預覽
 const handlePhotoChange = (type: 'before' | 'after') => {
-  const file = type === 'before'
-    ? localFormData.beforeConstructionPhoto
-    : localFormData.afterConstructionPhoto;
+  if (type === 'before') {
+    const files = localFormData.beforeConstructionPhotos;
 
-  if (file) {
-    // Only create object URLs for actual File objects
-    if (file instanceof File) {
-      // 清除之前的預覽
-      if (type === 'before') {
-        if (localFormData.beforePhotoPreview && localFormData.beforePhotoPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.beforePhotoPreview);
+    // 清除之前的預覽
+    localFormData.beforePhotoPreviews.forEach(preview => {
+      if (preview && typeof preview === 'string' && preview.startsWith('blob:')) {
+        URL.revokeObjectURL(preview);
+      }
+    });
+    localFormData.beforePhotoPreviews = [];
+
+    if (files && files.length > 0) {
+      // 限制最多3張照片
+      const limitedFiles = files.slice(0, 3);
+      localFormData.beforeConstructionPhotos = limitedFiles;
+
+      // 為每張照片創建預覽
+      limitedFiles.forEach(file => {
+        if (file instanceof File) {
+          const preview = URL.createObjectURL(file);
+          localFormData.beforePhotoPreviews.push(preview);
         }
-        localFormData.beforePhotoPreview = URL.createObjectURL(file);
-      } else {
+      });
+    }
+  } else {
+    const file = localFormData.afterConstructionPhoto;
+
+    if (file) {
+      // Only create object URLs for actual File objects
+      if (file instanceof File) {
+        // 清除之前的預覽
         if (localFormData.afterPhotoPreview && localFormData.afterPhotoPreview.startsWith('blob:')) {
           URL.revokeObjectURL(localFormData.afterPhotoPreview);
         }
@@ -378,6 +515,87 @@ const handlePhotoChange = (type: 'before' | 'after') => {
   }
 
   updateFormData();
+};
+
+// 移除單張施工前照片
+const removeBeforePhoto = (index: number) => {
+  // 清除預覽
+  if (localFormData.beforePhotoPreviews[index] &&
+      typeof localFormData.beforePhotoPreviews[index] === 'string' &&
+      localFormData.beforePhotoPreviews[index].startsWith('blob:')) {
+    URL.revokeObjectURL(localFormData.beforePhotoPreviews[index]);
+  }
+
+  // 移除照片和預覽
+  localFormData.beforeConstructionPhotos.splice(index, 1);
+  localFormData.beforePhotoPreviews.splice(index, 1);
+
+  updateFormData();
+};
+
+// 檔案輸入框引用
+const fileInput = ref<HTMLInputElement | null>(null);
+
+// 觸發檔案選擇
+const triggerFileInput = () => {
+  if (localFormData.beforePhotoPreviews.length < 3) {
+    fileInput.value?.click();
+  }
+};
+
+// 處理單張照片上傳
+const handleSinglePhotoUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+
+  if (file && localFormData.beforePhotoPreviews.length < 3) {
+    // 檢查檔案類型
+    if (!file.type.startsWith('image/')) {
+      alert('請選擇圖片檔案');
+      return;
+    }
+
+    // 檢查檔案大小 (限制為 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('檔案大小不能超過 5MB');
+      return;
+    }
+
+    // 添加到照片陣列
+    localFormData.beforeConstructionPhotos.push(file);
+
+    // 創建預覽
+    const preview = URL.createObjectURL(file);
+    localFormData.beforePhotoPreviews.push(preview);
+
+    // 清空 input value 以允許重複選擇同一檔案
+    target.value = '';
+
+    updateFormData();
+  }
+};
+
+// 取得上傳狀態顏色
+const getUploadStatusColor = () => {
+  const count = localFormData.beforePhotoPreviews.length;
+  if (count >= 1 && count <= 3) return 'success';
+  return 'warning';
+};
+
+// 取得上傳狀態圖示
+const getUploadStatusIcon = () => {
+  const count = localFormData.beforePhotoPreviews.length;
+  if (count >= 1 && count <= 3) return 'mdi-check-circle';
+  return 'mdi-alert-circle';
+};
+
+// 取得上傳狀態文字
+const getUploadStatusText = () => {
+  const count = localFormData.beforePhotoPreviews.length;
+  if (count === 1) return '已上傳 1 張照片，可繼續添加';
+  if (count === 2) return '已上傳 2 張照片，可再添加 1 張';
+  if (count === 3) return '已上傳 3 張照片（已達上限）';
+  return '請上傳照片';
 };
 
 // 日期格式化（民國年）
@@ -522,25 +740,18 @@ onMounted(() => {
 
   // Set example data for demo
   if (!localFormData.inspector) {
-    localFormData.inspector = '張工程師';
+    // localFormData.inspector = '張工程師';
   }
 
   if (!localFormData.inspectionResult) {
-    localFormData.inspectionResult = 'comply';
+    // localFormData.inspectionResult = 'comply';
   }
 
   if (!localFormData.remarks) {
-    localFormData.remarks = '設施符合規定，農地平整，排水良好。';
+    // localFormData.remarks = '設施符合規定，農地平整，排水良好。';
   }
 
-  // Set example photo previews if none exist
-  if (!localFormData.beforePhotoPreview) {
-    localFormData.beforePhotoPreview = 'https://via.placeholder.com/400x300?text=施工前照片示例';
-  }
-
-  if (!localFormData.afterPhotoPreview) {
-    localFormData.afterPhotoPreview = 'https://via.placeholder.com/400x300?text=施工後照片示例';
-  }
+  // 不再設置 mock 照片預覽，讓使用者自己上傳
 
   // Initial update to parent
   updateFormData();
@@ -572,12 +783,14 @@ watch(localValid, (newVal) => {
 
 // 清理預覽資源的函數
 const cleanupPreviews = () => {
-  // Only clean up blob URLs, not external URLs
-  if (localFormData.beforePhotoPreview && typeof localFormData.beforePhotoPreview === 'string' &&
-      localFormData.beforePhotoPreview.startsWith('blob:')) {
-    URL.revokeObjectURL(localFormData.beforePhotoPreview);
-  }
+  // 清理施工前照片預覽
+  localFormData.beforePhotoPreviews.forEach(preview => {
+    if (preview && typeof preview === 'string' && preview.startsWith('blob:')) {
+      URL.revokeObjectURL(preview);
+    }
+  });
 
+  // 清理竣工照片預覽
   if (localFormData.afterPhotoPreview && typeof localFormData.afterPhotoPreview === 'string' &&
       localFormData.afterPhotoPreview.startsWith('blob:')) {
     URL.revokeObjectURL(localFormData.afterPhotoPreview);
@@ -629,5 +842,42 @@ onUnmounted(() => {
 /* 唯讀輸入框樣式 */
 :deep(.v-field--disabled .v-field__input) {
   color: rgba(0, 0, 0, 1) !important;
+}
+
+/* 必填欄位紅色星號樣式 */
+.required-asterisk {
+  color: #ff0000 !important;
+  font-weight: bold;
+  margin-left: 2px;
+}
+
+/* 照片卡片樣式 */
+.photo-card {
+  transition: all 0.2s ease;
+  cursor: default;
+  height: 180px;
+}
+
+.add-photo-card {
+  cursor: pointer;
+  border: 2px dashed #ccc !important;
+  background-color: #fafafa;
+}
+
+.add-photo-card:hover {
+  border-color: #3ea0a3 !important;
+  background-color: #f0f8f8;
+}
+
+.upload-zone {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px dashed #ccc !important;
+  background-color: #fafafa;
+}
+
+.upload-zone:hover {
+  border-color: #3ea0a3 !important;
+  background-color: #f0f8f8;
 }
 </style>

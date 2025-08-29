@@ -13,20 +13,82 @@ let grantsCache: Record<string, GrantData> | null = null;
 
 // Generic step data interface
 export interface GrantStepData {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
-// Main grant data structure
+// Main grant data structure (new camelCase naming)
 export interface GrantData {
+  caseNumber: string;
+  applicantName: string;
+  officeName: string;
+  stepName: string;
+  currentStep?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  isDisasterCase: boolean;
+  disasterCaseDescription?: string;
+  undertracker?: string;
+  stepsData: {
+    [stepNumber: number]: GrantStepData;
+  };
+}
+
+// Legacy interface for backward compatibility
+export interface LegacyGrantData {
   caseNumber: string;
   applicant_name?: string;
   office_name?: string;
   status?: string;
+  current_step?: number;
   createdAt?: string;
   updatedAt?: string;
   steps: {
     [stepNumber: number]: GrantStepData;
   };
+}
+
+// Type to handle both legacy and new formats
+type GrantDataUnion = GrantData | LegacyGrantData;
+
+/**
+ * Check if grant data is in legacy format
+ */
+function isLegacyGrantData(data: GrantDataUnion): data is LegacyGrantData {
+  return 'steps' in data || 'applicant_name' in data || 'office_name' in data || 'status' in data || 'current_step' in data;
+}
+
+// 💡 現在使用現有類型系統，不需要額外的工具類
+// GrantData 接口與現有的 GrantCreateResponse、GrantCreateRequest 配合使用
+// 通過 TypeScript 的 satisfies 操作符確保類型安全
+
+/**
+ * Migrate legacy grant data to new camelCase format
+ */
+// TODO
+function migrateLegacyGrantData(legacyData: LegacyGrantData): GrantData {
+  return {
+    caseNumber: legacyData.caseNumber,
+    applicantName: legacyData.applicant_name ?? '',
+    officeName: legacyData.office_name ?? '',
+    stepName: legacyData.status ?? '',
+    currentStep: legacyData.current_step,
+    createdAt: legacyData.createdAt,
+    updatedAt: legacyData.updatedAt,
+    stepsData: legacyData.steps || {},
+    isDisasterCase: false, // Default value, adjust as needed
+    disasterCaseDescription: undefined,
+    undertracker: undefined
+  };
+}
+
+/**
+ * Ensure grant data is in new format, migrating if necessary
+ */
+function ensureNewFormat(data: GrantDataUnion): GrantData {
+  if (isLegacyGrantData(data)) {
+    return migrateLegacyGrantData(data);
+  }
+  return data;
 }
 
 // Error type for storage operations
@@ -66,7 +128,22 @@ export const GrantStorage = {
   refreshCache(): Record<string, GrantData> {
     try {
       const storedData = localStorage.getItem(STORAGE_KEY);
-      grantsCache = storedData ? JSON.parse(storedData) : {};
+      const rawCache: Record<string, GrantDataUnion> = storedData ? JSON.parse(storedData) : {};
+
+      // Migrate all data to new format
+      const migratedCache: Record<string, GrantData> = {};
+      Object.entries(rawCache).forEach(([caseNumber, grantData]) => {
+        migratedCache[caseNumber] = ensureNewFormat(grantData);
+      });
+
+      grantsCache = migratedCache;
+
+      // If we migrated any legacy data, persist the new format
+      if (storedData && Object.values(rawCache).some(data => isLegacyGrantData(data))) {
+        console.log('Migrating legacy grant data to new camelCase format...');
+        this.persistToStorage();
+      }
+
       return grantsCache;
     } catch (error) {
       console.error('Failed to refresh grants cache:', error);
@@ -84,7 +161,7 @@ export const GrantStorage = {
     if (forceRefresh || !grantsCache) {
       return this.refreshCache();
     }
-    return grantsCache;
+    return grantsCache!;
   },
 
   /**
@@ -111,8 +188,8 @@ export const GrantStorage = {
   getStepData(caseNumber: string, step: number): GrantStepData | null {
     try {
       const grant = this.getGrant(caseNumber);
-      if (!grant || !grant.steps[step]) return null;
-      return grant.steps[step];
+      if (!grant || !grant.stepsData[step]) return null;
+      return grant.stepsData[step];
     } catch (error) {
       console.error(`Failed to get step ${step} data for grant ${caseNumber}:`, error);
       throw new StorageError(`Failed to retrieve step ${step} data for grant ${caseNumber}`, error);
@@ -130,18 +207,26 @@ export const GrantStorage = {
     try {
       if (!grantsCache) this.refreshCache();
 
-      // Initialize if not exists
-      if (!grantsCache[caseNumber]) {
-        grantsCache[caseNumber] = {
+      // TODO初始化邏輯錯誤待修復
+      if (!grantsCache![caseNumber]) {
+        grantsCache![caseNumber] = {
           caseNumber,
+          applicantName: '',
+          officeName: '',
+          stepName: '',
+          isDisasterCase: false,
+          disasterCaseDescription: undefined,
+          currentStep: 0,
           createdAt: new Date().toISOString(),
-          steps: {}
+          updatedAt: new Date().toISOString(),
+          undertracker: undefined,
+          stepsData: {}
         };
       }
 
       // Update step data and timestamp
-      grantsCache[caseNumber].steps[step] = data;
-      grantsCache[caseNumber].updatedAt = new Date().toISOString();
+      grantsCache![caseNumber].stepsData[step] = data;
+      grantsCache![caseNumber].updatedAt = new Date().toISOString();
 
       // Save back to localStorage
       this.persistToStorage();
@@ -171,7 +256,7 @@ export const GrantStorage = {
       saveData.updatedAt = new Date().toISOString();
 
       // Save to cache
-      grantsCache[caseNumber] = saveData;
+      grantsCache![caseNumber] = saveData;
 
       // Persist to storage
       this.persistToStorage();
@@ -190,8 +275,8 @@ export const GrantStorage = {
     try {
       if (!grantsCache) this.refreshCache();
 
-      if (grantsCache[caseNumber]) {
-        delete grantsCache[caseNumber];
+      if (grantsCache![caseNumber]) {
+        delete grantsCache![caseNumber];
         this.persistToStorage();
         return true;
       }
@@ -215,10 +300,11 @@ export const GrantStorage = {
         throw new Error(`Grant ${caseNumber} not found`);
       }
 
-      grant.status = status;
+      grant.stepName = status;
       grant.updatedAt = new Date().toISOString();
 
-      grantsCache[caseNumber] = grant;
+      if (!grantsCache) this.refreshCache();
+      grantsCache![caseNumber] = grant;
       this.persistToStorage();
     } catch (error) {
       console.error(`Failed to update status for grant ${caseNumber}:`, error);

@@ -8,7 +8,7 @@
       style="max-width: 96%"
     > -->
     <v-breadcrumbs
-      v-if="route.path !== '/'"
+      v-if="route.path !== '/' && route.path !== '/maps'"
       :items="breadcrumbItems"
       class="pl-10 px-2 py-1 transparent-breadcrumb"
       density="compact"
@@ -49,7 +49,7 @@
     <router-view />
   </v-main>
   <!-- <ReportBugButton /> -->
-  <AppFooter />
+  <AppFooter v-if="route.path !== '/maps'" />
 </template>
 
 <script lang="ts" setup>
@@ -71,9 +71,11 @@
 
     // Map route path to breadcrumb title
     const pathTitles: Record<string, string> = {
-      '/grants': '補助申請',
+      '/grants': '補助案件申請',
+      '/grants/query': '申請案件查詢與列印',
       '/grants/new': '建立新案件',
       '/grants/edit': '案件編輯',
+      '/grants/statements': '歷史案件表單資料',
       '/qualification': '申請資格預查',
       '/statistics': '統計報表',
       '/supplies': '材料管理',

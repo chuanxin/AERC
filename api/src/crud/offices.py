@@ -36,6 +36,9 @@ async def paginate_queryset(queryset, page: int = 1, size: int = 10):
 # ==================== Offices CRUD ====================
 
 async def get_all_offices():
+    # TODO: Consider replacing from_queryset with manual schema construction
+    # if OfficeOutSchema includes complex relations in the future
+    # Currently safe as OfficeOutSchema only includes basic fields
     """獲取所有管理處/單位並以 id 排序，可以擴充分頁和搜索方法"""
     return await OfficeOutSchema.from_queryset(Offices.all().order_by("id"))
 

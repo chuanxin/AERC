@@ -51,9 +51,13 @@ VillageCreateSchema = pydantic_model_creator(
 )
 
 # For nested responses (simplified for frontend use)
-class TownNestedSchema(TownSchema):
+class TownNestedSchema(BaseModel):
+    id: int
+    name: str
+    code: str
+    
     class Config:
-        fields = {"id": {"exclude": False}, "name": {"exclude": False}, "code": {"exclude": False}}
+        from_attributes = True
 
 class VillageNestedSchema(BaseModel):
     id: int

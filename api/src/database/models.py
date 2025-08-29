@@ -1,8 +1,6 @@
 from tortoise import fields, models
 from enum import Enum
 
-
-
 class Users(models.Model):
     """系統使用者資料表"""
     id = fields.IntField(pk=True)
@@ -47,7 +45,9 @@ class GrantStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     WITHDRAWN = "withdrawn"
-
+    CROSS_YEAR = "cross_year"  # 跨年度案件狀態
+    COMPLETED = "completed"    # 結案狀態
+    SOFT_DELETE = "deleted"    # 邏輯刪除
 
 class GrantTypes(str, Enum):
     FARMING = "farming"
@@ -66,6 +66,7 @@ class Grants(models.Model):
     sn = fields.IntField(description="流水號，每年每管理處內唯一")
     case_number = fields.CharField(max_length=20, description="案件編號")
     year = fields.IntField(description="申請年度")
+    active_version = fields.ForeignKeyField("models.GrantVersions", related_name="active_grant", null=True, description="目前現行的版本ID")
     
     # 申請人資訊
     applicant_name = fields.CharField(max_length=50, description="申請人姓名")
@@ -84,9 +85,13 @@ class Grants(models.Model):
     office_id = fields.IntField(null=True, description="管理處ID", index=False)
     undertracker = fields.CharField(max_length=50, description="承辦人姓名")
     
+    # 災害案件相關欄位
+    is_disaster_case = fields.BooleanField(default=False, description="是否為災害案件")
+    disaster_case_description = fields.TextField(null=True, description="災害案件說明")
+    
     # 申請、收件日期
-    received_date = fields.DateField(description="收件日期")
-    received_time = fields.TimeField(description="收件時間")
+    received_date = fields.DateField(description="建檔日期")
+    received_time = fields.TimeField(description="建檔時間")
     
     # 案件狀態
     status = fields.CharField(max_length=20, default="draft", description="案件狀態: 0:完成申請人資料, 1:完成土地資料, 2:完成灌溉調控設施, 3:完成田間管路, 4:完成現場勘查, 5:完成補助申請資料, 6:完成結案申報, 7:完成測試合格的時間, 8:完成撥款作業, 9:完成撥款, 99:駁回申請")
@@ -94,6 +99,7 @@ class Grants(models.Model):
     current_step = fields.IntField(default=1, description="目前步驟")
     bulletin = fields.CharField(max_length=20, null=True, description="公告狀態: 0:已受理, 1:審查中, 2:審查通過 3:結案流程 4:撥款作業 5:撥款完成")
     bulletin_sys = fields.CharField(max_length=20, null=True, description="公告狀態(系統): 0:申請人資料, 1:現場勘查, 2:補助申請資料 3:結案申報 4:測試合格的時間 5:")
+    is_legacy = fields.BooleanField(default=False, description="是否為歷史匯入資料")
     
     # 時間戳記
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
@@ -108,6 +114,9 @@ class Grants(models.Model):
         table = "grants"
         table_description = "補助申請案件資料表"
         unique_together = ("year", "office_id", "sn")
+        indexes = [
+            ("year", "office_id", "sn"),
+        ]
     
     @classmethod
     async def generate_sn(cls, year: int, office_id: int) -> int:
@@ -153,18 +162,42 @@ class Grants(models.Model):
 class GrantAttachments(models.Model):
     """補助案件附件資料表"""
     id = fields.IntField(pk=True)
-    grant = fields.ForeignKeyField("models.Grants", related_name="attachments", description="所屬案件")
-    file_name = fields.CharField(max_length=255, description="檔案名稱")
-    file_path = fields.CharField(max_length=255, description="檔案路徑")
-    file_type = fields.CharField(max_length=50, description="檔案類型")
-    file_size = fields.IntField(description="檔案大小(bytes)")
-    upload_time = fields.DatetimeField(auto_now_add=True, description="上傳時間")
-    description = fields.CharField(max_length=255, null=True, description="檔案描述")
+    grant = fields.ForeignKeyField("models.Grants", related_name="attachments", description="所屬補助申請案件")
+    version = fields.ForeignKeyField("models.GrantVersions", related_name="attachments", null=True, description="所屬案件版本")
+
+    # 分類資訊
+    step = fields.IntField(description="申請步驟編號 (5:現場勘查, 6:補助申請, 7:結案申報, 8:測試合格)")
+    category = fields.CharField(max_length=20, description="附件分類 (如:施工前照片、施工後照片、收據等)")
+
+    # 檔案資訊（關鍵設計）
+    original_filename = fields.CharField(max_length=255, description="使用者上傳的原始檔名")
+    internal_filename = fields.CharField(max_length=255, description="系統內部儲存檔名 (UUID格式)")
+    filepath = fields.CharField(max_length=500, description="檔案儲存相對路徑")
+    filesize = fields.BigIntField(description="檔案大小 (位元組)")
+    mime_type = fields.CharField(max_length=100, description="檔案MIME類型")
+    checksum = fields.CharField(max_length=64, description="檔案SHA-256校驗和")
+
+    # 業務資訊
+    description = fields.TextField(null=True, description="附件說明或備註")
+    status = fields.CharField(max_length=20, default="active", description="附件狀態 (active:有效, deleted:已刪除)")
+
+    # 關聯性（Step 7 前後對比用）
+    related_attachment = fields.ForeignKeyField("models.GrantAttachments", null=True, description="關聯附件ID (用於前後對比)")
+    
+    # 審計欄位
+    uploaded_at = fields.DatetimeField(auto_now_add=True, description="上傳時間")
+    uploaded_by = fields.ForeignKeyField("models.Users", related_name="uploaded_attachments", description="上傳人員")
     
     class Meta:
         table = "grant_attachments"
         table_description = "補助案件附件資料表"
-
+        indexes = [
+            ("grant", "step", "category"),
+            ("internal_filename",),
+            ("uploaded_at",),
+            ("status",),
+        ]
+        
 
 class GrantComments(models.Model):
     """補助案件評論資料表"""
@@ -179,11 +212,44 @@ class GrantComments(models.Model):
         table_description = "補助案件評論資料表"
 
 
+class GrantActionType(str, Enum):
+    """操作類型枚舉"""
+    STATUS_CHANGE = "status_change"           # 狀態變更
+    STEP_CHANGE = "step_change"               # 步驟切換
+    DATA_UPDATE = "data_update"               # 資料更新
+    STEP_DATA_UPDATE = "step_data_update"     # 步驟資料更新
+    CURRENT_STEP_UPDATE = "current_step_update"  # 當前步驟更新
+    FILE_UPLOAD = "file_upload"               # 檔案上傳
+    FILE_DELETE = "file_delete"               # 檔案刪除
+    COMMENT_ADD = "comment_add"               # 新增評論
+    MANUAL_SAVE = "manual_save"               # 手動保存
+    AUTO_SAVE = "auto_save"                   # 自動保存
+    FORM_VALIDATION = "form_validation"       # 表單驗證
+    CASE_CREATE = "case_create"               # 案件建立
+    CASE_SUBMIT = "case_submit"               # 案件提交
+    VERSION_UPDATE = "version_update"         # 版本更新
+
+
 class GrantHistory(models.Model):
     """補助案件歷史紀錄資料表"""
     id = fields.IntField(pk=True)
     grant = fields.ForeignKeyField("models.Grants", related_name="history", description="所屬案件")
-    status = fields.CharEnumField(GrantStatus, description="案件狀態")
+    
+    # 核心欄位
+    action_type = fields.CharEnumField(GrantActionType, description="操作類型")
+    grant_status = fields.CharEnumField(GrantStatus, null=True, description="案件狀態")
+    step_number = fields.IntField(null=True, description="相關步驟編號")
+    changed_fields = fields.JSONField(null=True, description="變更的欄位列表")
+
+    # 審計欄位
+    old_value = fields.JSONField(null=True, description="變更前的值")
+    new_value = fields.JSONField(null=True, description="變更後的值")
+    
+    # 安全欄位 - 建議
+    session_id = fields.CharField(max_length=100, null=True, description="會話ID")
+    ip_address = fields.CharField(max_length=45, null=True, description="IP地址")
+    
+    # status = fields.CharEnumField(GrantStatus, description="案件狀態")
     changed_by = fields.ForeignKeyField(
         "models.Users", related_name="grant_history_changes", description="修改人員"
     )
@@ -193,6 +259,7 @@ class GrantHistory(models.Model):
     class Meta:
         table = "grant_history"
         table_description = "補助案件歷史紀錄資料表"
+
 
 class CropCategories(models.Model):
     """作物類別資料表"""
@@ -425,8 +492,8 @@ class PFAnnualPrices(models.Model):
     price = fields.FloatField(description="價格")
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
     modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
-    created_by = fields.ForeignKeyField("models.Users", related_name="created_pf_annual_price", description="建立人帳號", null=True, on_delete=fields.CASCADE)
-    modified_by = fields.ForeignKeyField("models.Users", related_name="modified_pf_annual_price", description="修改人帳號", null=True, on_delete=fields.SET_NULL)
+    created_by = fields.ForeignKeyField("models.Users", related_name="pf_annual_prices_created", description="建立人帳號", null=True, on_delete=fields.CASCADE)
+    modified_by = fields.ForeignKeyField("models.Users", related_name="pf_annual_prices_modified", description="修改人帳號", null=True, on_delete=fields.SET_NULL)
     
     class Meta:
         table = "pf_annual_prices"
@@ -584,4 +651,70 @@ class TankMaterials(models.Model):
     
     def __str__(self):
         return self.name
+
+class DataSchemaVersions(str, Enum):
+    """資料結構版本枚舉"""
+    V1_0 = "1.0"          # 初始版本
+    V1_1 = "1.1"          # 第一次結構調整
+    V1_2 = "1.2"          # 新增災害案件欄位
+    V1_3 = "1.3"          # 優化土地資料結構
+    V1_4 = "1.4"          # 新增設施資料驗證
+    V2_0 = "2.0"          # 重大結構變更
+    LEGACY = "legacy"     # 歷史匯入資料
+
+class GrantVersions(models.Model):
+    """補助申請單版本資料表"""
+    id = fields.IntField(pk=True)
+    grant = fields.ForeignKeyField("models.Grants", related_name="versions", description="所屬補助申請")
+    version = fields.IntField(description="版本資訊")
+    all_steps_data = fields.JSONField(description="所有步驟的資料(JSON格式)")
+    all_steps_data_hash = fields.CharField(max_length=64, description="所有步驟資料的Hash值，用於檢查版本變更", null=True)
+    data_schema_version = fields.CharEnumField(DataSchemaVersions, default=DataSchemaVersions.V1_0, description="資料結構版本")
+    comment = fields.CharField(max_length=255, null=True, description="版本說明")
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    created_by = fields.ForeignKeyField("models.Users", related_name="created_versions", description="建立人帳號", null=True, on_delete=fields.CASCADE)
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
     
+    class Meta:
+        table = "grant_versions"
+        table_description = "補助申請單版本資料表"
+        unique_together = (("grant", "version"),)
+    
+    def __str__(self):
+        return f"{self.grant.case_number} - Version {self.version}"
+    
+class DocumentType(str, Enum):
+    APPLICATION_FORM = "application_form"        # 申請表
+    BUDGET_SHEET = "budget_sheet"               # 預算書
+    LAND_REGISTRY = "land_registry"             # 土地清冊
+    MATERIAL_LIST = "material_list"             # 材料數量表
+    DESIGN_DRAWING = "design_drawing"           # 設計圖
+    PHOTO_RECORD = "photo_record"               # 照片記錄
+    RECEIPT = "receipt"                         # 收據
+    TEST_REPORT = "test_report"                 # 測試報告
+    REVIEW_FORM = "review_form"                 # 審查表
+    BUDGET_STATEMENT = "budget_statement"           # 預算聲明
+
+
+class GrantPapers(models.Model):
+    """補助申請文件表"""
+    id = fields.IntField(pk=True)
+    version = fields.ForeignKeyField("models.GrantVersions", related_name="reports", description="所屬補助申請版本")
+    document_type = fields.CharField(max_length=50, description="文件類型")
+    document_data = fields.JSONField(description="文件內容")
+    data_hash = fields.CharField(max_length=64, description="文件內容的Hash值，用於檢查變更", null=True)
+    generated_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    created_by = fields.ForeignKeyField("models.Users", related_name="created_reports", description="建立人帳號", null=True, on_delete=fields.CASCADE)
+    is_valid = fields.BooleanField(default=True, description="文件是否有效")
+    
+    class Meta:
+        table = "grant_papers"
+        table_description = "補助申請文件表"
+        unique_together = (("version", "document_type"),)
+        indexes = [
+            ("version_id", "document_type"),      # 覆蓋複合查詢
+        ]
+    
+    def __str__(self):
+        """返回文件的簡要描述"""
+        return f"{self.version.grant.case_number} - {self.document_type.value} - v{self.version.version}"

@@ -62,6 +62,26 @@
                   </v-list-item-title>
                   <template #append>
                     <v-btn
+                      v-if="isAdminMode"
+                      icon
+                      variant="text"
+                      rounded="circle"
+                      size="small"
+                      class="mr-2"
+                      color="warning"
+                      @click="showResetStepDialog = true"
+                    >
+                      <v-icon size="small">
+                        mdi-refresh
+                      </v-icon>
+                      <v-tooltip
+                        activator="parent"
+                        location="bottom"
+                      >
+                        重置當前步驟資料
+                      </v-tooltip>
+                    </v-btn>
+                    <v-btn
                       icon
                       variant="text"
                       rounded="circle"
@@ -130,6 +150,61 @@
                   </template>
                 </v-list-item>
               </v-list>
+
+              <!-- 功能項目分隔線 -->
+              <v-divider class="my-2" />
+
+              <!-- 版本管理功能項目 -->
+              <v-list
+                nav
+                class="function-list"
+              >
+                <v-list-item
+                  :disabled="isNavigating || designChangeLoading"
+                  variant="elevated"
+                  elevation="0"
+                  class="design-change-item"
+                  @click="handleDesignChangeClick"
+                >
+                  <template #prepend>
+                    <v-icon
+                      :color="designChangeLoading ? 'grey' : '#3ea0a3'"
+                      size="large"
+                      :class="{ 'mdi-spin': designChangeLoading }"
+                    >
+                      {{ designChangeLoading ? 'mdi-loading' : 'mdi-content-copy' }}
+                    </v-icon>
+                  </template>
+
+                  <v-list-item-title>
+                    <span class="function-item-title">變更設計</span>
+                  </v-list-item-title>
+
+                  <v-list-item-subtitle
+                    v-if="!isRailMode"
+                    class="text-medium-emphasis"
+                  >
+                    建立新版本
+                  </v-list-item-subtitle>
+
+                  <!-- 版本資訊顯示 -->
+                  <template
+                    v-if="!isRailMode"
+                    #append
+                  >
+                    <div class="version-info">
+                      <v-chip
+                        size="x-small"
+                        color="#3ea0a3"
+                        variant="outlined"
+                        class="version-chip"
+                      >
+                        v{{ grantsStore.currentGrant?.active_version?.version || 1 }}
+                      </v-chip>
+                    </div>
+                  </template>
+                </v-list-item>
+              </v-list>
             </v-navigation-drawer>
 
             <!-- Main content area -->
@@ -163,24 +238,42 @@
                     <div class="d-flex">
                       <v-btn
                         v-if="currentStep > 1"
-                        :disabled="isNavigating"
+                        :disabled="isNavigating || !canGoToPreviousStep"
                         icon
                         variant="text"
                         rounded="circle"
                         @click="handleGoBack"
                       >
                         <v-icon>mdi-arrow-left</v-icon>
+                        
+                        <!-- 禁用狀態提示 -->
+                        <v-tooltip 
+                          v-if="!canGoToPreviousStep && navigationBlockingReason" 
+                          activator="parent"
+                          location="top"
+                        >
+                          {{ navigationBlockingReason }}
+                        </v-tooltip>
                       </v-btn>
 
                       <v-btn
                         v-if="currentStep < steps.length"
-                        :disabled="isNavigating"
+                        :disabled="isNavigating || !canGoToNextStep"
                         icon
                         variant="text"
                         rounded="circle"
                         @click="goToNextStep"
                       >
                         <v-icon>mdi-arrow-right</v-icon>
+                        
+                        <!-- 禁用狀態提示 -->
+                        <v-tooltip 
+                          v-if="!canGoToNextStep && navigationBlockingReason" 
+                          activator="parent"
+                          location="top"
+                        >
+                          {{ navigationBlockingReason }}
+                        </v-tooltip>
                       </v-btn>
                     </div>
                   </div>
@@ -205,7 +298,20 @@
                           variant="flat"
                           rounded="sm"
                         >
-                          案號: {{ grantsStore.currentGrant?.case_number }}
+                          <span>案號: {{ grantsStore.currentGrant?.case_number }}</span>
+                          <v-divider
+                            v-if="grantsStore.currentGrant?.active_version?.version"
+                            vertical
+                            class="mx-2"
+                            style="opacity: 0.5;"
+                          />
+                          <span
+                            v-if="grantsStore.currentGrant?.active_version?.version"
+                            class="text-caption"
+                            style="opacity: 0.7; font-weight: 500;"
+                          >
+                            版本 {{ grantsStore.currentGrant.active_version.version }}
+                          </span>
                         </v-chip>
                       </span>
                     </v-card-title>
@@ -258,19 +364,22 @@
                       <!-- Step components -->
                       <step1
                         v-if="currentStep === 1"
-                        :form-data="grantsStore.formData[1]"
+                        ref="step1Ref"
                         :current-step="currentStep"
-                        @update:form-data="handleFormDataUpdate(1, $event)"
-                        @validated="handleStepValidated"
-                        @go-back="handleGoBack"
+                        @step-data-changed="handleStepDataChanged"
+                        @validation-changed="handleStepValidationChanged"
+                        @ready-to-proceed="handleStepReadyToProceed"
+                        @go-back-requested="handleGoBack"
                       />
                       <step2
                         v-if="currentStep === 2"
-                        :form-data="grantsStore.formData[2]"
+                        ref="step2Ref"
                         :current-step="currentStep"
-                        @update:form-data="handleFormDataUpdate(2, $event)"
-                        @validated="handleStepValidated"
-                        @go-back="handleGoBack"
+                        @step-data-changed="handleStepDataChanged"
+                        @validation-changed="handleStepValidationChanged"
+                        @ready-to-proceed="handleStepReadyToProceed"
+                        @go-back-requested="handleGoBack"
+                        @navigation-state-changed="handleNavigationStateChanged"
                       />
                       <step3
                         v-if="currentStep === 3"
@@ -306,11 +415,15 @@
                       />
                       <step7
                         v-if="currentStep === 7"
+                        ref="step7Ref"
                         :form-data="grantsStore.formData[7]"
                         :current-step="currentStep"
                         @update:form-data="handleFormDataUpdate(7, $event)"
                         @validated="handleStepValidated"
                         @go-back="handleGoBack"
+                        @button-config-changed="handleStep7ButtonConfigChanged"
+                        @save-for-improvement="handleSaveForImprovement"
+                        @proceed-to-next-step="goToNextStep"
                       />
                       <step8
                         v-if="currentStep === 8"
@@ -332,7 +445,8 @@
 
                     <v-btn
                       v-if="currentStep > 1"
-                      :disabled="isNavigating"
+                      :disabled="isNavigating || !canGoToPreviousStep"
+                      :class="{ 'navigation-blocked': !canGoToPreviousStep }"
                       size="x-large"
                       class="ml-6 mb-1 pr-6 navigation-btn"
                       color="#3ea0a3"
@@ -342,29 +456,42 @@
                       :ripple="false"
                       @click="handleGoBack"
                     >
-                      <v-icon start>
+                      <v-icon 
+                        start
+                        :color="canGoToPreviousStep ? 'primary' : 'grey'"
+                      >
                         mdi-arrow-left
                       </v-icon>
                       上一步
+                      
+                      <!-- 禁用狀態提示 -->
+                      <v-tooltip 
+                        v-if="!canGoToPreviousStep && navigationBlockingReason" 
+                        activator="parent"
+                        location="top"
+                      >
+                        {{ navigationBlockingReason }}
+                      </v-tooltip>
                     </v-btn>
 
                     <v-btn
-                      :disabled="isNavigating"
-                      color="#3ea0a3"
+                      :disabled="isNavigating || !canGoToNextStep"
+                      :class="{ 'navigation-blocked': !canGoToNextStep }"
+                      :color="currentStep === 7 ? step7ButtonConfig.color : '#3ea0a3'"
                       class="mr-6 pl-6 next-btn"
                       size="x-large"
                       variant="outlined"
                       density="compact"
                       rounded="lg"
                       :ripple="false"
-                      @click="goToNextStep"
+                      @click="handleMainButtonClick"
                     >
                       <!-- 替換為更詳細的邏輯顯示不同的按鈕文字 -->
                       <template v-if="currentStep === 8">
                         完成
                       </template>
                       <template v-else-if="currentStep === 7">
-                        結案
+                        {{ step7ButtonConfig.text }}
                       </template>
                       <template v-else-if="currentStep === 6">
                         完成申報
@@ -374,17 +501,35 @@
                       </template>
 
                       <v-icon
-                        v-if="currentStep < 8"
+                        v-if="currentStep === 8"
                         end
+                        :color="canGoToNextStep ? 'white' : 'grey'"
                       >
-                        mdi-arrow-right
+                        mdi-check
+                      </v-icon>
+                      <v-icon
+                        v-else-if="currentStep === 7"
+                        end
+                        :color="canGoToNextStep ? 'white' : 'grey'"
+                      >
+                        {{ step7ButtonConfig.icon }}
                       </v-icon>
                       <v-icon
                         v-else
                         end
+                        :color="canGoToNextStep ? 'white' : 'grey'"
                       >
-                        mdi-check
+                        mdi-arrow-right
                       </v-icon>
+                      
+                      <!-- 禁用狀態提示 -->
+                      <v-tooltip 
+                        v-if="!canGoToNextStep && navigationBlockingReason" 
+                        activator="parent"
+                        location="top"
+                      >
+                        {{ navigationBlockingReason }}
+                      </v-tooltip>
                     </v-btn>
                   </v-card-actions>
                 </v-card>
@@ -415,24 +560,245 @@
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <!-- 🆕 統一的成功/錯誤回饋 Snackbar -->  
+    <v-snackbar
+      v-model="showNotification"
+      :color="notificationConfig.color"
+      :timeout="notificationConfig.timeout"
+      location="top center"
+      variant="elevated"
+      class="design-change-notification"
+    >
+      <div class="d-flex align-center">
+        <v-icon
+          :color="notificationConfig.iconColor"
+          class="mr-3"
+        >
+          {{ notificationConfig.icon }}
+        </v-icon>
+        <div>
+          <div class="text-subtitle-2 font-weight-medium">
+            {{ notificationConfig.title }}
+          </div>
+          <div
+            v-if="notificationConfig.message"
+            class="text-body-2"
+          >
+            {{ notificationConfig.message }}
+          </div>
+        </div>
+      </div>
+
+      <template #actions>
+        <v-btn
+          variant="text"
+          :color="notificationConfig.iconColor"
+          @click="showNotification = false"
+        >
+          關閉
+        </v-btn>
+      </template>
+    </v-snackbar>
+
+    <!-- 🆕 變更設計確認對話框 -->
+    <v-dialog
+      v-model="showDesignChangeDialog"
+      max-width="500"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h6 d-flex align-center pa-4">
+          <v-icon
+            color="#3ea0a3"
+            class="mr-3"
+          >
+            mdi-content-copy
+          </v-icon>
+          <span>變更設計</span>
+          <v-spacer />
+          <v-btn
+            icon
+            variant="text"
+            @click="showDesignChangeDialog = false"
+          >
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="pa-4">
+          <div class="mb-4">
+            <p class="text-body-2 mb-3">
+              系統將複製當前版本的所有資料，建立一個新的版本記錄。
+            </p>
+
+            <!-- 當前版本資訊 -->
+            <v-card
+              variant="outlined"
+              color="#3ea0a3"
+              class="mb-4"
+            >
+              <v-card-text class="pa-3">
+                <div class="d-flex align-center">
+                  <v-icon
+                    color="#3ea0a3"
+                    class="mr-2"
+                  >
+                    mdi-tag
+                  </v-icon>
+                  <div>
+                    <div class="text-subtitle-2 font-weight-medium">
+                      當前版本：版本 {{ grantsStore.currentGrant?.active_version?.version || 1 }}
+                    </div>
+                    <div class="text-caption text-medium-emphasis">
+                      案件編號：{{ grantsStore.currentGrant?.case_number }}
+                    </div>
+                  </div>
+                </div>
+              </v-card-text>
+            </v-card>
+
+            <!-- 版本說明輸入 -->
+            <v-textarea
+              v-model="designChangeComment"
+              label="版本說明（選填）"
+              placeholder="請輸入此次變更設計的說明..."
+              rows="3"
+              variant="outlined"
+              hide-details="auto"
+              counter="255"
+              maxlength="255"
+            />
+          </div>
+
+          <!-- 未儲存變更警告 -->
+          <v-alert
+            v-if="grantsStore.hasUnsavedChanges"
+            type="warning"
+            variant="tonal"
+            class="mb-3"
+          >
+            <v-icon>mdi-alert</v-icon>
+            <span class="ml-2">系統偵測到未儲存的變更，將先自動儲存後再建立新版本。</span>
+          </v-alert>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn
+            variant="text"
+            :disabled="designChangeLoading"
+            @click="showDesignChangeDialog = false"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            :loading="designChangeLoading"
+            color="#3ea0a3"
+            variant="elevated"
+            @click="executeDesignChange(designChangeComment)"
+          >
+            <v-icon start>
+              mdi-content-copy
+            </v-icon>
+            建立新版本
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- 重置步驟資料確認對話框 -->
+    <v-dialog
+      v-model="showResetStepDialog"
+      max-width="400"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h6 d-flex align-center pa-4">
+          <v-icon
+            color="warning"
+            class="mr-3"
+          >
+            mdi-alert
+          </v-icon>
+          <span>重置步驟資料</span>
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="pa-4">
+          <div class="mb-3">
+            <v-alert
+              type="warning"
+              variant="tonal"
+              density="compact"
+            >
+              <v-icon>mdi-information</v-icon>
+              <span class="ml-2">
+                這個操作將會清除 <strong>步驟 {{ currentStep }}</strong> 的所有資料。
+              </span>
+            </v-alert>
+          </div>
+          
+          <div class="text-body-1 mb-2">
+            您確定要重置當前步驟的資料嗎？
+          </div>
+          <div class="text-body-2 text-medium-emphasis">
+            此操作<strong>無法復原</strong>，所有已填寫的資料將會被清除。
+          </div>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn
+            variant="text"
+            :disabled="resetStepLoading"
+            @click="showResetStepDialog = false"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            :loading="resetStepLoading"
+            color="warning"
+            variant="elevated"
+            @click="handleResetStepData"
+          >
+            <v-icon left>
+              mdi-refresh
+            </v-icon>
+            確認重置
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { useDisplay } from 'vuetify'
+import { nextTick } from 'vue'
+import { useDisplay, useGoTo } from 'vuetify'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useGrantsStore } from '@/stores/grants'
-import { debounce } from 'lodash'
+import { GrantStorage } from '@/utils/grant-storage'
+import { debounce } from 'lodash-es'
+// 🆕 導入版本管理服務函數
+import { createGrantVersion } from '@/services/grantsService'
 
 // Import step components
-import step1 from './components/step1.vue'
-import step2 from './components/step2.vue'
-import step3 from './components/step3.vue'
-import step4 from './components/step4.vue'
-import step5 from './components/step5.vue'
-import step6 from './components/step6.vue'
-import step7 from './components/step7.vue'
-import step8 from './components/step8.vue'
+import step1 from '@/pages/grants/steps/step1.vue'
+import step2 from '@/pages/grants/steps/step2.vue'
+import step3 from '@/pages/grants/steps/step3.vue'
+import step4 from '@/pages/grants/steps/step4.vue'
+import step5 from '@/pages/grants/steps/step5.vue'
+import step6 from '@/pages/grants/steps/step6.vue'
+import step7 from '@/pages/grants/steps/step7.vue'
+import step8 from '@/pages/grants/steps/step8.vue'
 
 // Setup
 const route = useRoute()
@@ -441,12 +807,100 @@ const { name } = useDisplay()
 const isSmallScreen = computed(() => name.value === 'xs' || name.value === 'sm')
 const grantsStore = useGrantsStore()
 
+// Admin mode detection - check if URL contains "admin"
+const isAdminMode = computed(() => {
+  return route.path.includes('admin') || route.fullPath.includes('admin')
+})
+
 // State refs
 const currentStep = ref(1)
 const submitting = ref(false)
 const isDataLoaded = ref(false)
 const isNavigating = ref(false)
 const autoSaveTimer = ref<number | null>(null)
+
+// 新增：導航狀態管理
+const navigationStates = ref<Record<number, {
+  canNavigate: boolean;
+  isEditing: boolean;
+  reason?: string;
+}>>({})
+
+// 新增：統一導航控制計算屬性
+const canGoToPreviousStep = computed(() => {
+  const currentStepState = navigationStates.value[currentStep.value]
+  return currentStepState ? currentStepState.canNavigate : true
+})
+
+const canGoToNextStep = computed(() => {
+  const currentStepState = navigationStates.value[currentStep.value]
+  return currentStepState ? currentStepState.canNavigate : true
+})
+
+const navigationBlockingReason = computed(() => {
+  const currentStepState = navigationStates.value[currentStep.value]
+  return currentStepState?.reason || null
+})
+
+// Step7 按鈕配置
+const step7ButtonConfig = ref({
+  text: '結案',
+  color: '#3ea0a3',
+  icon: 'mdi-arrow-right',
+  action: 'proceed'
+})
+
+// Step7 組件引用
+const step7Ref = ref<{ handleActionRequest: (action: string) => void } | null>(null)
+
+// 🆕 變更設計相關狀態
+const designChangeLoading = ref(false)
+const showDesignChangeDialog = ref(false)
+const showResetStepDialog = ref(false)
+const resetStepLoading = ref(false)
+const designChangeComment = ref('')
+
+// 🆕 通知系統狀態
+const showNotification = ref(false)
+const notificationConfig = ref({
+  title: '',
+  message: '',
+  color: 'success',
+  icon: 'mdi-check-circle',
+  iconColor: 'white',
+  timeout: 4000
+})
+
+// 🆕 錯誤類型定義 - 簡潔但完整
+enum DesignChangeErrorType {
+  NETWORK_ERROR = 'network',
+  SAVE_ERROR = 'save', 
+  API_ERROR = 'api',
+  VALIDATION_ERROR = 'validation',
+  UNKNOWN_ERROR = 'unknown'
+}
+
+// 🆕 統一事件驅動架構：組件引用接口定義
+interface StepComponent {
+  handleProceedToNext: () => void;
+  handleGoBack: () => void;
+}
+
+// 🆕 統一事件驅動架構：步驟組件引用映射
+const stepRefs = reactive<Record<number, StepComponent | null>>({
+  1: null,
+  2: null,
+  3: null,
+  4: null,
+  5: null,
+  6: null,
+  7: null,
+  8: null
+})
+
+// 保持現有引用以便向後兼容
+const step1Ref = ref<StepComponent | null>(null)
+const step2Ref = ref<StepComponent | null>(null)
 
 // Navigation drawer state
 const drawerOpen = ref(true)
@@ -460,10 +914,108 @@ const steps = [
   { title: '灌溉調控設施', value: 3, subtitle: '請填寫灌溉調控設施' },
   { title: '田間管路', value: 4, subtitle: '請填寫田間管路' },
   { title: '現場勘查', value: 5, subtitle: '請填寫現場勘查' },
-  { title: '文件列印及結案申報', value: 6, subtitle: '請填寫補助申請資料' },
-  { title: '變更設計及功能測試', value: 7, subtitle: '請填寫變更設計及結案申報' },
-  { title: '佐證及相關文件上傳', value: 8, subtitle: '請上傳佐證及相關文件' }
+  { title: '文件列印及完成申報', value: 6, subtitle: '請填寫補助申請資料' },
+  { title: '功能測試', value: 7, subtitle: '請填寫結案申報' },
+  { title: '佐證及相關文件上傳', value: 8, subtitle: '請上傳佐證及相關文件' },
 ]
+
+
+// 格式化日期
+const formatDate = (dateString?: string) => {
+  if (!dateString) return ''
+  return new Date(dateString).toLocaleDateString('zh-TW')
+}
+
+// 🆕 統一的通知顯示函數
+const showNotificationMessage = (
+  title: string, 
+  message: string = '', 
+  type: 'success' | 'error' | 'warning' = 'success'
+) => {
+  const configs = {
+    success: {
+      color: 'success',
+      icon: 'mdi-check-circle',
+      iconColor: 'white',
+      timeout: 4000
+    },
+    error: {
+      color: 'error', 
+      icon: 'mdi-alert-circle',
+      iconColor: 'white',
+      timeout: 6000
+    },
+    warning: {
+      color: 'warning',
+      icon: 'mdi-alert',
+      iconColor: 'white', 
+      timeout: 5000
+    }
+  }
+
+  notificationConfig.value = {
+    title,
+    message,
+    ...configs[type]
+  }
+  showNotification.value = true
+}
+
+// 🆕 錯誤分類處理器 - 遵循單一責任原則
+const classifyError = (error: any): DesignChangeErrorType => {
+  // 網路連線錯誤
+  if (!navigator.onLine || error.code === 'NETWORK_ERROR') {
+    return DesignChangeErrorType.NETWORK_ERROR
+  }
+  
+  // HTTP 狀態碼錯誤
+  if (error.response) {
+    const status = error.response.status
+    if (status >= 400 && status < 500) {
+      return DesignChangeErrorType.VALIDATION_ERROR
+    }
+    if (status >= 500) {
+      return DesignChangeErrorType.API_ERROR
+    }
+  }
+  
+  // 儲存相關錯誤
+  if (error.message?.includes('save') || error.message?.includes('storage')) {
+    return DesignChangeErrorType.SAVE_ERROR
+  }
+  
+  return DesignChangeErrorType.UNKNOWN_ERROR
+}
+
+// 🆕 錯誤訊息映射 - 消除 if-else 特殊情況
+const getErrorMessage = (errorType: DesignChangeErrorType, originalError: any) => {
+  const errorMessages = {
+    [DesignChangeErrorType.NETWORK_ERROR]: {
+      title: '網路連線失敗',
+      message: '請檢查網路連線後重試'
+    },
+    [DesignChangeErrorType.SAVE_ERROR]: {
+      title: '資料儲存失敗',
+      message: '無法儲存當前變更，請稍後重試'
+    },
+    [DesignChangeErrorType.API_ERROR]: {
+      title: '伺服器錯誤',
+      message: '伺服器發生內部錯誤，請聯繫管理員'
+    },
+    [DesignChangeErrorType.VALIDATION_ERROR]: {
+      title: '資料驗證失敗',
+      message: '請檢查輸入資料是否正確完整'
+    },
+    [DesignChangeErrorType.UNKNOWN_ERROR]: {
+      title: '未知錯誤',
+      message: '系統發生未知錯誤，請重新嘗試'
+    }
+  }
+
+  return errorMessages[errorType]
+}
+
+// 🗑️ 移除舊的變更設計功能 - 已被 executeDesignChange 取代
 
 // Step icon and color logic
 const getStepIcon = (stepValue: number): string => {
@@ -491,16 +1043,318 @@ const updateStepInURL = (step: number) => {
   debouncedUpdateStepInURL(step)
 }
 
-// Helper function to trigger next step
+// Helper function to trigger next step + 新增導航狀態檢查
 const goToNextStep = () => {
+  // 檢查當前步驟是否允許導航
+  if (!canGoToNextStep.value) {
+    console.log('🚫 edit.vue: Navigation blocked -', navigationBlockingReason.value)
+    return
+  }
+
   if (currentStep.value < steps.length) {
-    handleStepValidated({ valid: true, step: currentStep.value })
+    // 🆕 統一事件驅動：使用映射表統一處理所有步驟
+    const stepComponent = stepRefs[currentStep.value]
+    if (stepComponent) {
+      console.log(`🎯 edit.vue: Calling step${currentStep.value}Ref.handleProceedToNext()`)
+      stepComponent.handleProceedToNext()
+    } else {
+      // 對於沒有引用的步驟，使用傳統驗證方式
+      console.log(`🎯 edit.vue: Step ${currentStep.value} has no ref, using traditional validation`)
+      handleStepValidated({ valid: true, step: currentStep.value })
+    }
   }
 }
 
-// Helper function to scroll to top
+// 處理 Step7 按鈕配置變化
+const handleStep7ButtonConfigChanged = (buttonConfig: { text: string; color: string; icon: string; action: string }) => {
+  console.log('Step7 按鈕配置變化:', buttonConfig)
+  step7ButtonConfig.value = buttonConfig
+}
+
+// 處理存檔功能（限期改善）
+const handleSaveForImprovement = async () => {
+  console.log('處理存檔功能：現場勘查未通過驗收，將於改善後複驗')
+
+  try {
+    submitting.value = true
+
+    // 保存當前數據
+    await saveAllChanges()
+
+    // 顯示成功訊息
+    // 這裡可以添加 snackbar 或其他提示
+    console.log('存檔成功，待改善後複驗')
+
+    // 不進入下一步，停留在當前步驟
+  } catch (error) {
+    console.error('存檔失敗:', error)
+  } finally {
+    submitting.value = false
+  }
+}
+
+// 新增：處理來自步驟組件的導航狀態變更
+const handleNavigationStateChanged = (eventData: {
+  step: number;
+  canNavigate: boolean;
+  isEditing: boolean;
+  reason?: string;
+}) => {
+  console.log(`🎛️ edit.vue: Navigation state changed for step ${eventData.step}:`, eventData)
+  
+  // 更新對應步驟的導航狀態
+  navigationStates.value[eventData.step] = {
+    canNavigate: eventData.canNavigate,
+    isEditing: eventData.isEditing,
+    reason: eventData.reason
+  }
+}
+
+// 修改現有的導航函數，結合新的導航狀態檢查
+const handleMainButtonClick = () => {
+  console.log('主按鈕點擊:', {
+    currentStep: currentStep.value,
+    buttonConfig: step7ButtonConfig.value
+  })
+
+  if (currentStep.value === 7) {
+    // 委派給 step7 組件處理對應的動作
+    console.log('委派給 step7 組件處理動作:', step7ButtonConfig.value.action)
+    if (step7Ref.value && step7Ref.value.handleActionRequest) {
+      step7Ref.value.handleActionRequest(step7ButtonConfig.value.action)
+    } else {
+      console.error('step7Ref 或 handleActionRequest 方法不存在')
+    }
+  } else {
+    // 其他步驟的正常邏輯
+    goToNextStep()
+  }
+}
+
+// 🆕 變更設計點擊處理
+const handleDesignChangeClick = () => {
+  // 🔥 Linus式修復：總是顯示確認對話窗，讓使用者輸入版本說明
+  showDesignChangeDialog.value = true
+}
+
+// 🆕 執行變更設計 - 重構錯誤處理
+const executeDesignChange = async (comment?: string) => {
+  if (!grantsStore.currentGrant?.case_number) {
+    showNotificationMessage(
+      '變更設計失敗',
+      '無案件資料，無法建立新版本',
+      'error'
+    )
+    return
+  }
+
+  try {
+    designChangeLoading.value = true
+
+    // 1. 先保存當前所有變更 - 分離儲存邏輯
+    if (grantsStore.hasUnsavedChanges) {
+      try {
+        await grantsStore.saveAllChanges()
+      } catch (saveError) {
+        const errorType = classifyError(saveError)
+        const errorMsg = getErrorMessage(errorType, saveError)
+        showNotificationMessage(errorMsg.title, errorMsg.message, 'error')
+        return
+      }
+    }
+
+    // 2. 收集所有步驟資料 - 修復資料結構污染問題
+    console.log('🔄 Implementing version inheritance for design change')
+    
+    // 先取得前一版本的完整資料
+    const { getCurrentVersionData } = await import('../../services/grantsService')
+    const previousVersionData = await getCurrentVersionData(grantsStore.currentGrant.case_number)
+    
+    // 🔥 Linus式修復：確保資料格式統一，避免前後端格式混合
+    // 提取前一版本中的 steps 格式資料（後端正確格式）
+    const previousStepsData = previousVersionData.steps || {}
+    
+    // 將當前編輯的資料轉換為 steps 格式
+    const currentStepsData: Record<string, any> = {}
+    Object.entries(grantsStore.formData).forEach(([stepKey, stepData]) => {
+      if (stepKey !== '1' && stepData && Object.keys(stepData).length > 0) {
+        currentStepsData[stepKey] = stepData
+      }
+    })
+    
+    // 合併資料：使用統一的 steps 格式
+    const allStepsData = {
+      steps: {
+        ...previousStepsData,   // 前一版本的步驟資料
+        ...currentStepsData     // 當前修改的步驟資料
+      }
+    }
+    
+    console.log('📋 Previous version steps:', Object.keys(previousStepsData))
+    console.log('✏️ Current editing steps:', Object.keys(currentStepsData))
+    console.log('🔄 Final merged structure:', Object.keys(allStepsData))
+    console.log('🔄 Steps in final structure:', Object.keys(allStepsData.steps))
+
+    // 3. 調用版本創建 API - 分離 API 邏輯
+    const result = await createGrantVersion(
+      grantsStore.currentGrant.case_number,
+      allStepsData,
+      comment || `變更設計 - ${new Date().toLocaleString('zh-TW')}`
+    )
+
+    // 4. 更新當前案件的版本資訊
+    if (grantsStore.currentGrant.active_version) {
+      grantsStore.currentGrant.active_version.version = String(result.version)
+      grantsStore.currentGrant.active_version.created_at = result.created_at
+    }
+
+    // 5. 觸發版本比較資料的重新載入
+    await nextTick()
+    
+    // 6. 統一成功回饋
+    showNotificationMessage(
+      '變更設計成功',
+      `新版本 v${result.version} 建立完成`,
+      'success'
+    )
+
+  } catch (error) {
+    // 統一錯誤處理 - 不再有特殊情況
+    const errorType = classifyError(error)
+    const errorMsg = getErrorMessage(errorType, error)
+    showNotificationMessage(errorMsg.title, errorMsg.message, 'error')
+  } finally {
+    // 清理狀態 - 無論成功失敗都執行
+    designChangeLoading.value = false
+    showDesignChangeDialog.value = false
+    designChangeComment.value = ''
+  }
+}
+
+// 重置步驟資料處理函數
+const handleResetStepData = async () => {
+  if (!grantsStore.currentGrant?.case_number || !currentStep.value) {
+    showNotificationMessage(
+      '重置失敗',
+      '無案件資料或當前步驟資訊',
+      'error'
+    )
+    return
+  }
+
+  resetStepLoading.value = true
+
+  try {
+    // 清空當前步驟的資料
+    const emptyData = getDefaultStepData(currentStep.value)
+    
+    // 使用現有 API 更新步驟資料為空值
+    await grantsStore.saveStepData(currentStep.value, emptyData)
+    
+    // 清除 store 中的該步驟資料
+    grantsStore.formData[currentStep.value] = {}
+    
+    // 觸發當前步驟組件重新載入
+    await nextTick()
+    
+    showNotificationMessage(
+      '重置成功',
+      `步驟 ${currentStep.value} 的資料已清除`,
+      'success'
+    )
+
+  } catch (error) {
+    console.error('Reset step data failed:', error)
+    showNotificationMessage(
+      '重置失敗', 
+      '清除步驟資料時發生錯誤',
+      'error'
+    )
+  } finally {
+    resetStepLoading.value = false
+    showResetStepDialog.value = false
+  }
+}
+
+// 獲取步驟的預設空資料
+const getDefaultStepData = (step: number): Record<string, unknown> => {
+  // 根據步驟返回預設的空資料結構
+  switch (step) {
+    case 1:
+      return { valid: true }
+    case 2: 
+      return { valid: true }
+    case 3:
+      return { facilities: [], valid: true }
+    case 4:
+      return { pipes: [], valid: true }
+    case 5:
+      return { valid: true }
+    case 6:
+      return { valid: true }
+    case 7:
+      return { valid: true }
+    case 8:
+      return { valid: true }
+    default:
+      return { valid: true }
+  }
+}
+
+// Helper function to scroll to top using multiple strategies
+const goTo = useGoTo()
 const scrollToTop = () => {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  // Strategy 1: Force scroll on v-main with more specific targeting
+  const mainElement = document.querySelector('main.v-main')
+  if (mainElement) {
+    try {
+      mainElement.scrollTop = 0  // Direct property assignment
+      mainElement.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch {
+      // Silent fallback
+    }
+  }
+
+  // Strategy 2: Try v-main__wrap if it exists
+  const wrapElement = document.querySelector('.v-main__wrap')
+  if (wrapElement) {
+    wrapElement.scrollTop = 0
+    wrapElement.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Strategy 3: Try the application wrapper
+  const appWrap = document.querySelector('.v-application__wrap')
+  if (appWrap) {
+    appWrap.scrollTop = 0
+    appWrap.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Strategy 4: Try all potentially scrollable elements
+  const allScrollableElements = document.querySelectorAll('*')
+  for (const element of allScrollableElements) {
+    if (element.scrollHeight > element.clientHeight && element.scrollTop > 0) {
+      element.scrollTop = 0
+      element.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  // Strategy 5: Force document and window scroll
+  document.documentElement.scrollTop = 0
+  document.body.scrollTop = 0
+  window.scrollTo(0, 0)
+
+  // Strategy 6: Try Vuetify's useGoTo with specific container
+  try {
+    // Try to find the main scroll container
+    const scrollContainer = document.querySelector('main.v-main') || document.querySelector('.v-main__wrap')
+    if (scrollContainer && scrollContainer instanceof HTMLElement) {
+      goTo(0, { container: scrollContainer })
+    } else {
+      goTo(0)
+    }
+  } catch {
+    // Silent fallback
+  }
 }
 
 // Step validation handling with improved flow control
@@ -548,16 +1402,98 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
 }
 
 // Handle form data updates from step components
-const handleFormDataUpdate = (step: number, data: any) => {
+const handleFormDataUpdate = (step: number, data: Record<string, unknown>) => {
+  console.log(`🔄 edit.vue handleFormDataUpdate called for step ${step}`);
+  console.log('📤 Received data keys:', Object.keys(data));
+  console.log('📤 Received data sample:', {
+    fieldLength: data.fieldLength,
+    fieldWidth: data.fieldWidth,
+    facilityArea: data.facilityArea,
+    fundingSourceId: data.fundingSourceId
+  });
+
+  // 確保 grantsStore.currentStep 與接收到的 step 一致
+  if (grantsStore.currentStep !== step) {
+    console.log(`🔧 edit.vue: Correcting grantsStore.currentStep from ${grantsStore.currentStep} to ${step}`);
+    grantsStore.updateCurrentStep(step);
+  }
+
+  // 同時更新本地的 currentStep ref
+  if (currentStep.value !== step) {
+    console.log(`🔧 edit.vue: Correcting local currentStep from ${currentStep.value} to ${step}`);
+    currentStep.value = step;
+  }
+
   grantsStore.updateFormData(step, data)
+
+  console.log('📊 After updateFormData - grantsStore.hasUnsavedChanges:', grantsStore.hasUnsavedChanges);
+  console.log('📊 grantsStore.currentStep:', grantsStore.currentStep);
+  console.log('📊 local currentStep.value:', currentStep.value);
+  console.log('📊 grantsStore.formData[' + step + '] sample:', {
+    fieldLength: grantsStore.formData[step]?.fieldLength,
+    fieldWidth: grantsStore.formData[step]?.fieldWidth,
+    facilityArea: grantsStore.formData[step]?.facilityArea
+  });
 
   // Setup autosave if changes are made
   if (grantsStore.hasUnsavedChanges && !autoSaveTimer.value) {
+    console.log('⏰ Setting up autosave timer (3 seconds)');
     autoSaveTimer.value = window.setTimeout(async () => {
+      console.log('💾 Autosave triggered for step', grantsStore.currentStep);
       await saveAllChanges()
       autoSaveTimer.value = null
     }, 3000) // Autosave after 3 seconds of inactivity
+  } else if (grantsStore.hasUnsavedChanges) {
+    console.log('⏰ Autosave timer already exists');
+  } else {
+    console.log('⚠️ No unsaved changes detected');
   }
+}
+
+// 🆕 統一事件驅動架構：通用步驟事件處理器
+interface StepEventData {
+  step: number
+  data: Record<string, unknown>
+  valid: boolean
+}
+
+// 🆕 統一資料變更事件處理
+const handleStepDataChanged = (eventData: StepEventData) => {
+  const { step, data, valid } = eventData
+  console.log(`📥 edit.vue: Received step-data-changed event from step${step}`)
+  console.log(`📊 Step: ${step}, Valid: ${valid}, Data keys:`, Object.keys(data))
+
+  // 使用現有的 handleFormDataUpdate 邏輯處理資料
+  handleFormDataUpdate(step, { ...data, valid })
+}
+
+// 🆕 統一驗證狀態變更事件處理
+const handleStepValidationChanged = (eventData: { step: number, valid: boolean }) => {
+  const { step, valid } = eventData
+  console.log(`📋 edit.vue: Received validation-changed event from step${step} - Step: ${step}, Valid: ${valid}`)
+
+  // 確保步驟狀態同步
+  if (grantsStore.currentStep !== step) {
+    grantsStore.updateCurrentStep(step)
+  }
+
+  // 更新驗證狀態到 grantsStore
+  if (grantsStore.formData[step]) {
+    grantsStore.formData[step].valid = valid
+  }
+}
+
+// 🆕 統一準備進入下一步事件處理
+const handleStepReadyToProceed = async (eventData: { step: number, data: Record<string, unknown> }) => {
+  const { step, data } = eventData
+  console.log(`✅ edit.vue: Received ready-to-proceed event from step${step}`)
+  console.log(`📊 Step: ${step}, Data keys:`, Object.keys(data))
+
+  // 先更新最新的資料
+  handleFormDataUpdate(step, { ...data, valid: true })
+
+  // 觸發步驟驗證邏輯（進入下一步）
+  await handleStepValidated({ valid: true, step })
 }
 
 // Save all unsaved changes
@@ -606,8 +1542,14 @@ const handleStepClick = (stepValue: number) => {
   })
 }
 
-// Go back handler with improved navigation flow
+// Go back handler with improved navigation flow + 新增導航狀態檢查
 const handleGoBack = async () => {
+  // 檢查當前步驟是否允許導航
+  if (!canGoToPreviousStep.value) {
+    console.log('🚫 edit.vue: Navigation blocked -', navigationBlockingReason.value)
+    return
+  }
+
   if (currentStep.value > 1 && !isNavigating.value) {
     try {
       isNavigating.value = true
@@ -640,10 +1582,28 @@ const handleGoBack = async () => {
   }
 }
 
+const ensureCorrectStep = (expectedStep: number) => {
+  if (grantsStore.currentStep !== expectedStep) {
+    console.warn(`Step mismatch detected. Expected: ${expectedStep}, Actual: ${grantsStore.currentStep}`)
+    grantsStore.updateCurrentStep(expectedStep)
+  }
+}
+
 // Improved data loading with race condition prevention
 let isLoadingData = false
 const loadStepData = async (step: number) => {
   if (!route.query.id || isLoadingData) return;
+
+  ensureCorrectStep(step)
+
+  // 🆕 架構重構：step1.vue 和 step2.vue 採用自主載入模式
+  // step1.vue 和 step2.vue 會在自己的 onMounted 中直接載入資料，不需要父組件控制
+  // 這解決了從 index 導航時的 watch 時序問題
+  if (step === 1 || step === 2) {
+    console.log(`[edit.vue loadStepData] Skipping step ${step} - autonomous loading`);
+    isDataLoaded.value = true;
+    return;
+  }
 
   isLoadingData = true;
   const caseNum = route.query.id as string;
@@ -680,27 +1640,37 @@ onMounted(async () => {
     await grantsStore.loadGrant(caseNumberFromRoute);
     console.log('[edit.vue onMounted] grantsStore.loadGrant successful. Current grant:', JSON.stringify(grantsStore.currentGrant, null, 2));
 
+    // 檢查 localStorage 中是否有已保存的 currentStep
+    const grantData = GrantStorage.getGrant(caseNumberFromRoute);
+    const savedCurrentStep = grantData?.currentStep;
+
     let startStep = 1;
     if (stepParam) {
+      // URL 中有指定步驟，使用 URL 中的步驟
       const stepValue = parseInt(stepParam as string, 10);
       if (!isNaN(stepValue) && stepValue >= 1 && stepValue <= steps.length) {
         startStep = stepValue;
         console.log(`[edit.vue onMounted] startStep determined from route.query.step: ${startStep}`);
       } else {
-        console.warn(`[edit.vue onMounted] Invalid stepParam in route: ${stepParam}. Defaulting to step 1.`);
-        startStep = 1; // Default to 1 if stepParam is invalid
+        console.warn(`[edit.vue onMounted] Invalid stepParam in route: ${stepParam}. Using saved step: ${savedCurrentStep} or defaulting to 1.`);
+        startStep = savedCurrentStep || 1;
       }
     } else {
-      // No stepParam in URL, typically means fresh navigation after creation or direct entry
-      console.log('[edit.vue onMounted] No stepParam in route. Defaulting to step 1 for initial load.');
-      startStep = 1;
+      // URL 中沒有步驟參數，優先使用 localStorage 中保存的步驟
+      if (savedCurrentStep && savedCurrentStep >= 1 && savedCurrentStep <= steps.length) {
+        startStep = savedCurrentStep;
+        console.log(`[edit.vue onMounted] Using saved current_step from localStorage: ${startStep}`);
+      } else {
+        console.log('[edit.vue onMounted] No valid saved step found, defaulting to step 1.');
+        startStep = 1;
+      }
     }
 
-    // Ensure grantsStore.currentStep is aligned before loading data, especially for initial load.
-    grantsStore.currentStep = startStep;
+    // 使用 updateCurrentStep 來確保步驟同步到 localStorage
+    grantsStore.updateCurrentStep(startStep);
     currentStep.value = startStep; // Update local currentStep ref
 
-    console.log(`[edit.vue onMounted] Final startStep: ${startStep}. grantsStore.currentStep set to: ${grantsStore.currentStep}`);
+    console.log(`[edit.vue onMounted] Final startStep: ${startStep}. grantsStore.current_step updated to: ${grantsStore.currentStep}`);
 
     if (!stepParam) {
       updateStepInURL(startStep); // Update URL if it was not set
@@ -904,6 +1874,30 @@ onBeforeRouteLeave((to, from, next) => {
   border-radius: 12px;
 }
 
+/* 禁用狀態樣式 */
+.navigation-blocked {
+  position: relative;
+  transition: all 0.3s ease;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(158, 158, 158, 0.1);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  
+  /* 禁用時的視覺回饋 */
+  &:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
 /* 按鈕懸停效果 */
 .next-btn {
   font-weight: 500;
@@ -911,9 +1905,7 @@ onBeforeRouteLeave((to, from, next) => {
   transition: all 0.2s ease;
 }
 
-.next-btn:hover {
-  /* transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); */
+.next-btn:hover:not(.navigation-blocked) {
   background-color: #3ea0a3 !important;
   color: white !important;
 }
@@ -924,9 +1916,28 @@ onBeforeRouteLeave((to, from, next) => {
   font-weight: 500;
 }
 
-.navigation-btn:hover {
-  /* transform: translateY(-2px); */
+.navigation-btn:hover:not(.navigation-blocked) {
   box-shadow: 0 2px 8px rgba(62, 160, 163, 0.2) !important;
+}
+
+/* 編輯模式狀態指示器 */
+.step-indicator {
+  .v-chip {
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  
+  .editing-pulse {
+    animation: editingPulse 2s ease-in-out infinite;
+  }
+}
+
+@keyframes editingPulse {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); 
+  }
+  50% { 
+    box-shadow: 0 0 0 8px rgba(255, 193, 7, 0); 
+  }
 }
 
 /* Spinner animation for loading icon */
@@ -936,6 +1947,52 @@ onBeforeRouteLeave((to, from, next) => {
 }
 
 .mdi-loading.mdi-spin {
+  animation: spin 1s infinite linear;
+}
+
+/* 🆕 功能項目樣式 */
+.function-list {
+  background-color: rgba(62, 160, 163, 0.02);
+  margin: 0 8px;
+  border-radius: 8px;
+}
+
+.design-change-item {
+  margin-bottom: 4px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.design-change-item:hover {
+  background-color: rgba(62, 160, 163, 0.1) !important;
+}
+
+.function-item-title {
+  color: #3ea0a3;
+  font-weight: 500;
+}
+
+.version-chip {
+  font-size: 10px;
+  height: 16px;
+}
+
+.version-info {
+  display: flex;
+  align-items: center;
+}
+
+/* Rail 模式下的特殊處理 */
+.v-navigation-drawer--rail .function-list {
+  margin: 0 4px;
+}
+
+.v-navigation-drawer--rail .design-change-item {
+  min-height: 48px;
+}
+
+/* 載入動畫 */
+.mdi-spin {
   animation: spin 1s infinite linear;
 }
 </style>

@@ -1,5 +1,4 @@
 from typing import List, Optional, Dict, Any, Union
-import logging
 from datetime import datetime, date
 
 from fastapi import HTTPException
@@ -7,83 +6,183 @@ from tortoise.exceptions import DoesNotExist, IntegrityError
 from tortoise.transactions import in_transaction
 from tortoise.expressions import Q
 
-from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus)
+from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus, GrantActionType, GrantVersions, GrantPapers)
+from src.config.field_mappings import FieldMappingConfig, validate_step_fields
 from src.schemas.users import UserOutSchema
 from src.schemas.grants import (
     GrantInSchema, GrantUpdateSchema, GrantStepSchema, 
-    GrantSearchSchema, GrantLandInSchema
+    GrantSearchSchema, GrantLandInSchema, GrantCreateRequestSchema, GrantCreateResponseSchema
 )
+from src.crud.grant_versions import calculate_data_hash
 from src.schemas.token import Status
 
 from datetime import datetime, date
+
+import json
+import logging
 import pytz
+
+TAIWAN_TZ = pytz.timezone('Asia/Taipei')
+
+def get_taiwan_now():
+    """獲取本地時區的當前時間"""
+    return datetime.now(TAIWAN_TZ)
+
+def get_taiwan_time_naive():
+    """獲取本地時區的當前時間（無時區資訊，適用於 TimeField）"""
+    # 先獲取本地時間，然後完全移除任何時區資訊
+    taiwan_datetime = datetime.now(TAIWAN_TZ)
+    # 創建一個全新的 time 對象，確保沒有任何時區資訊
+    return taiwan_datetime.replace(tzinfo=None).time()
+
+def get_taiwan_date():
+    """獲取本地時區的當前日期"""
+    return datetime.now(TAIWAN_TZ).date()
+
+def get_taiwan_datetime():
+    """獲取本地時區的當前日期時間（用於 DatetimeField）"""
+    return datetime.now(TAIWAN_TZ)
 
 
 logger = logging.getLogger(__name__)
 
 
-# async def get_grants(
-#     year: Optional[int] = None,
-#     office_id: Optional[int] = None,
-#     search: Optional[str] = None,
-#     skip: int = 0,
-#     limit: int = 100
-# ) -> List[Dict[str, Any]]:
-#     """取得補助申請案件列表，可依條件過濾"""
-#     # 建立基本查詢
-#     query = Grant.all()
+async def get_grants(
+    year: Optional[int] = None,
+    office_id: Optional[int] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 10000,
+    current_user = None  # 添加使用者權限控制
+) -> List[Dict[str, Any]]:
+    """取得補助申請案件列表，可依條件過濾
     
-#     # 應用過濾條件
-#     if year:
-#         query = query.filter(year=year)
-#     if office_id:
-#         query = query.filter(office_id=office_id)
-#     if search:
-#         query = query.filter(
-#             Q(case_number__contains=search) | 
-#             Q(applicant_name__contains=search) |
-#             Q(applicant_id__contains=search)
-#         )
+    Args:
+        year: 申請年度過濾
+        office_id: 管理處過濾
+        search: 搜尋關鍵字（案件編號、申請人姓名、身分證字號）
+        skip: 分頁跳過筆數
+        limit: 分頁每頁筆數
+        current_user: 當前使用者（用於權限控制）
     
-#     # 設定關聯欄位預載入
-#     query = query.select_related('county', 'town', 'office')
-    
-#     # 執行查詢
-#     grants = await query.offset(skip).limit(limit).order_by('-created_at')
-    
-#     # 格式化結果
-#     results = []
-#     for grant in grants:
-#         # 嘗試獲取土地資訊
-#         land = await Land.filter(grant_id=grant.id).first()
-#         facility_area = None
-#         facility_type = None
+    Returns:
+        案件列表
+    """
+    try:
+        from src.database.models import GrantStatus
         
-#         if land:
-#             facility_area = land.facility_area
+        # 建立基本查詢：過濾掉已刪除的案件
+        query = Grants.all().filter(status__not=GrantStatus.SOFT_DELETE)
         
-#         # 嘗試獲取最終設施類型
-#         pipes = await Pipe.filter(grant_id=grant.id, type="end").first()
-#         if pipes:
-#             facility_type = pipes.installation_type
+        # 權限控制：如果使用者不是管理員，只能看到自己管理處的案件
+        if current_user and hasattr(current_user, 'office_id') and current_user.office_id:
+            if not hasattr(current_user, 'role') or current_user.role != 'admin':
+                query = query.filter(office_id=current_user.office_id)
         
-#         results.append({
-#             "id": grant.id,
-#             "case_number": grant.case_number,
-#             "year": grant.year,
-#             "applicant_name": grant.applicant_name,
-#             "status": grant.status,
-#             "status_detail": grant.status_detail,
-#             "current_step": grant.current_step,
-#             "county_name": grant.county.name,
-#             "town_name": grant.town.name,
-#             "office_name": grant.office.name,
-#             "facility_type": facility_type,
-#             "facility_area": facility_area,
-#             "created_at": grant.created_at
-#         })
-    
-#     return results
+        # 應用過濾條件
+        if year:
+            query = query.filter(year=year)
+        if office_id:
+            query = query.filter(office_id=office_id)
+        if search:
+            # 使用 Q 物件進行多欄位搜尋
+            query = query.filter(
+                Q(case_number__icontains=search) | 
+                Q(applicant_name__icontains=search) |
+                Q(applicant_id__icontains=search)
+            )
+        
+        # 執行查詢並預載入相關資料
+        grants = await query.prefetch_related(
+            'created_by',  # 建立者資訊
+            'active_version'  # 啟用版本資訊
+        ).offset(skip).limit(limit).order_by('-created_at')
+        
+        # 格式化結果
+        results = []
+        for grant in grants:
+            # 基本案件資訊
+            grant_data = {
+                "id": grant.id,
+                "case_number": grant.case_number,
+                "year": grant.year,
+                "applicant_name": grant.applicant_name,
+                "applicant_id": grant.applicant_id,
+                "county": grant.county,
+                "town": grant.town,
+                "village": grant.village,
+                "office": grant.office,
+                "office_id": grant.office_id,
+                "undertracker": grant.undertracker,
+                "status": grant.status,
+                "current_step": grant.current_step,
+                "is_disaster_case": grant.is_disaster_case,
+                "created_at": grant.created_at,
+                "modified_at": grant.modified_at,
+                "is_legacy": grant.is_legacy,
+            }
+            
+            # 添加建立者資訊
+            if hasattr(grant, 'created_by') and grant.created_by:
+                grant_data["created_by"] = {
+                    "id": grant.created_by.id,
+                    "username": grant.created_by.username,
+                    "full_name": grant.created_by.full_name
+                }
+            
+            # 從 active_version 取得額外資訊
+            facility_area = None
+            facility_type = None
+            
+            if hasattr(grant, 'active_version') and grant.active_version:
+                try:
+                    version_data = grant.active_version.all_steps_data
+                    if version_data and isinstance(version_data, dict):
+                        steps = version_data.get("steps", {})
+                        
+                        # 從 step 2 取得土地/設施面積
+                        step2_data = steps.get("2", {}) or steps.get(2, {})
+                        if step2_data:
+                            # 優先使用設施面積，其次土地面積
+                            facility_area = (
+                                step2_data.get("facilityAreaHa") or 
+                                step2_data.get("landAreaHa") or 
+                                step2_data.get("facility_area_ha") or 
+                                step2_data.get("land_area_ha")
+                            )
+                            
+                        # 從 step 4 取得設施類型/灌溉類型
+                        step4_data = steps.get("4", {}) or steps.get(4, {})
+                        if step4_data:
+                            facility_type = (
+                                step4_data.get("irrigationType") or 
+                                step4_data.get("facilityType") or 
+                                step4_data.get("irrigation_type") or 
+                                step4_data.get("facility_type")
+                            )
+                            
+                except Exception as e:
+                    logger.warning(f"解析版本資料失敗，案件: {grant.case_number}, 錯誤: {str(e)}")
+            
+            # 將計算出的資料添加到結果
+            grant_data.update({
+                "facility_area": facility_area,
+                "facility_type": facility_type,
+                # 轉換面積單位（公頃轉平方公尺）用於前端顯示
+                "facility_area_m2": int(float(facility_area) * 10000) if facility_area else None
+            })
+            
+            results.append(grant_data)
+        
+        logger.info(f"成功取得 {len(results)} 筆案件資料")
+        return results
+        
+    except Exception as e:
+        logger.error(f"取得案件列表失敗: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"取得案件列表失敗: {str(e)}"
+        )
 
 
 # async def get_grants_by_status(
@@ -248,15 +347,88 @@ def parse_tw_date(date_str: str) -> Optional[date]:
         return None
     
 
-async def create_grant(data: GrantInSchema, current_user: UserOutSchema) -> Dict[str, Any]:
+def map_frontend_to_backend(frontend_data: Union[Dict[str, Any], GrantCreateRequestSchema]) -> Dict[str, Any]:
+    """
+    Map frontend GrantCreateRequest data to backend grant creation format.
+    
+    Frontend (GrantCreateRequest) -> Backend (Grants model) field mapping:
+    - name -> applicant_name
+    - id -> applicant_id  
+    - phone -> applicant_phone
+    - county -> county
+    - countyId -> (not used directly, county name used instead)
+    - town -> town
+    - townId -> (not used directly, town name used instead)
+    - village -> village
+    - villageId -> (not used directly, village name used instead)
+    - address -> address
+    - undertracker -> undertracker
+    - office -> office
+    - officeId -> office_id
+    - valid -> (frontend validation flag, not stored in backend)
+    
+    Args:
+        frontend_data: Dict or GrantCreateRequestSchema containing frontend fields
+        
+    Returns:
+        Dict with backend-compatible field names and values
+        
+    Raises:
+        ValueError: If required fields are missing or invalid
+    """
+    # Convert schema object to dict if needed
+    if isinstance(frontend_data, GrantCreateRequestSchema):
+        data_dict = frontend_data.model_dump()
+    else:
+        # Validate using schema if it's a raw dict
+        validated_data = GrantCreateRequestSchema(**frontend_data)
+        data_dict = validated_data.model_dump()
+    
+    # Map frontend fields to backend fields
+    backend_data = {
+        'applicant_name': data_dict['name'],
+        'applicant_id': data_dict['id'],
+        'applicant_phone': data_dict['phone'],
+        'county': data_dict['county'],
+        'town': data_dict['town'],
+        'village': data_dict.get('village'),  # Optional field
+        'address': data_dict['address'],
+        'undertracker': data_dict['undertracker'],
+        'office': data_dict['office'],
+        'office_id': data_dict.get('officeId'),  # May be None if not provided
+        'is_disaster_case': data_dict.get('isDisasterCase', False),  # Disaster case flag
+        'disaster_case_description': data_dict.get('disasterCaseDescription', ''),  # Disaster case description
+    }
+    
+    # Clean up None/empty values for optional fields
+    if not backend_data['village']:
+        backend_data['village'] = None
+    
+    # Validate office_id is provided when office is specified
+    if backend_data['office'] and not backend_data['office_id']:
+        logger.warning(f"Office '{backend_data['office']}' provided without office_id")
+    
+    logger.info(f"Mapped frontend data to backend format for applicant: {backend_data['applicant_name']}")
+    return backend_data
+
+
+async def create_grant(data, current_user):
     """建立新的補助申請案件"""
     async with in_transaction():
         try:
+            # If data is a GrantCreateRequestSchema or dictionary (from frontend), map it to backend format
+            if isinstance(data, (dict, GrantCreateRequestSchema)):
+                mapped_data = map_frontend_to_backend(data)
+                # Create a simple object with the mapped data for backward compatibility
+                class MappedData:
+                    def __init__(self, **kwargs):
+                        for key, value in kwargs.items():
+                            setattr(self, key, value)
+                
+                data = MappedData(**mapped_data)
+            
             # 準備目前年度(民國年)
             current_year = datetime.now().year - 1911
-
-            tw_timezone = pytz.timezone('Asia/Taipei')
-            tw_now = datetime.now(tw_timezone)
             
             # 建立 Grant 物件但不儲存，讓我們可以生成 case_number
             grant = Grants(
@@ -266,14 +438,16 @@ async def create_grant(data: GrantInSchema, current_user: UserOutSchema) -> Dict
                 applicant_phone=data.applicant_phone if hasattr(data, 'applicant_phone') else '',
                 county=data.county,
                 town=data.town,
-                village=data.village if data.village else None,
+                village=data.village if hasattr(data, 'village') and data.village else None,
                 address=data.address,
                 office=data.office,
-                office_id=data.office_id,
+                office_id=data.office_id if hasattr(data, 'office_id') else None,
                 undertracker=data.undertracker,
+                is_disaster_case=data.is_disaster_case if hasattr(data, 'is_disaster_case') else False,
+                disaster_case_description=data.disaster_case_description if hasattr(data, 'disaster_case_description') else '',
                 created_by_id=current_user.id,
-                received_date=tw_now.date(),
-                received_time=tw_now.time(),
+                received_date=get_taiwan_date(),
+                received_time=get_taiwan_time_naive(),
                 status=GrantStatus.DRAFT,
                 current_step=1
             )
@@ -284,22 +458,68 @@ async def create_grant(data: GrantInSchema, current_user: UserOutSchema) -> Dict
             # 建立歷史紀錄
             await GrantHistory.create(
                 grant=grant,
-                status=GrantStatus.DRAFT,
+                grant_status=GrantStatus.DRAFT,
+                action_type=GrantActionType.CASE_CREATE,
                 changed_by_id=current_user.id,
-                notes="初始案件建立"
+                notes="案件初次建立"
             )
 
-            # 返回案件資訊
-            return {
+            # 準備初始版本資料 - step0的資料 + 其他步驟空值
+            initial_version_data = {
+                "steps": {
+                    "2": {},
+                    "3": {},
+                    "4": {},
+                    "5": {},
+                    "6": {},
+                    "7": {},
+                    "8": {}
+                }
+            }
+            
+            # 計算初始版本的雜湊值
+            data_hash = calculate_data_hash(initial_version_data)
+            
+            # 建立第一個版本記錄
+            initial_version = await GrantVersions.create(
+                grant_id=grant.id,
+                version=1,
+                all_steps_data=initial_version_data,
+                all_steps_data_hash=data_hash,
+                comment="初始版本 - 案件建立",
+                created_by_id=current_user.id
+            )
+            
+            # 🆕 設定案件的 active_version 為剛創建的初始版本
+            await Grants.filter(id=grant.id).update(active_version_id=initial_version.id)
+            
+            logger.info(f"成功建立案件 {grant.case_number} 和初始版本 (Version ID: {initial_version.id})，已設定為啟用版本")
+
+            # 返回案件資訊 GrantCreateResponseSchema
+            response_data = {
                 "id": grant.id,
                 "case_number": grant.case_number,
                 "year": grant.year,
                 "applicant_name": grant.applicant_name,
                 "status": grant.status,
                 "received_date": grant.received_date,
-                "received_time": grant.received_time.strftime("%H:%M")
+                "received_time": grant.received_time.strftime("%H:%M"),
+                "initial_version_id": initial_version.id,
+                "initial_version": 1,
+                "is_disaster_case": grant.is_disaster_case,
+                "disaster_case_description": grant.disaster_case_description,
+                "office_id": grant.office_id,
+                "undertracker": grant.undertracker,
             }
+
+            validated_response = GrantCreateResponseSchema(**response_data)
+            logger.info(f"[create_grant] 驗證後的回應: {validated_response.model_dump()}")
         
+            return validated_response.model_dump()
+        
+        except ValueError as e:
+            logger.error(f"資料映射錯誤: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"資料格式錯誤: {str(e)}")
         except IntegrityError as e:
             logger.error(f"建立補助申請案件失敗: {str(e)}")
             raise HTTPException(status_code=400, detail=f"建立補助申請案件失敗: {str(e)}")
@@ -312,7 +532,7 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
     """依案件編號取得單一補助申請案件詳細資料"""
     try:
         grant = await Grants.get(case_number=case_number).prefetch_related(
-            'created_by', 'attachments', 'comments__user', 'history__changed_by'
+            'created_by', 'attachments', 'comments__user', 'history__changed_by', 'active_version'
         )
         
         # Format the grant data
@@ -342,6 +562,15 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
                 "full_name": grant.created_by.full_name
             } if hasattr(grant, "created_by") and grant.created_by else None,
             
+            # Add active version information
+            "active_version": {
+                "id": grant.active_version.id,
+                "version": grant.active_version.version,
+                "comment": grant.active_version.comment,
+                "created_at": grant.active_version.created_at,
+                "all_steps_data": grant.active_version.all_steps_data  # 添加完整步驟資料用於版本繼承
+            } if hasattr(grant, "active_version") and grant.active_version else None,
+            
             "comments": [
                 {
                     "id": comment.id,
@@ -359,7 +588,7 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
             "history": [
                 {
                     "id": history.id,
-                    "status": history.status,
+                    "status": history.grant_status,
                     "notes": history.notes,
                     # "created_at": history.created_at,
                     "changed_by": {
@@ -377,11 +606,11 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
             result["attachments"] = [
                 {
                     "id": attachment.id,
-                    "file_name": attachment.file_name,
-                    "file_path": attachment.file_path,
-                    "file_type": attachment.file_type,
-                    "file_size": attachment.file_size,
-                    "upload_time": attachment.upload_time.isoformat() if hasattr(attachment, "upload_time") else None,
+                    "file_name": attachment.original_filename,  # 使用正確的欄位名稱
+                    "file_path": attachment.filepath,  # 使用正確的欄位名稱
+                    "file_type": attachment.mime_type,  # 使用正確的欄位名稱
+                    "file_size": attachment.filesize,  # 使用正確的欄位名稱
+                    "upload_time": attachment.uploaded_at.isoformat() if hasattr(attachment, "uploaded_at") else None,  # 使用正確的欄位名稱
                     "description": attachment.description
                 }
                 for attachment in grant.attachments
@@ -396,6 +625,7 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"案件不存在: {str(e)}")
 
 
+@validate_step_fields(step=1)
 async def get_grant_step_data(case_number: str, step: int) -> Dict[str, Any]:
     """取得補助申請案件特定步驟資料"""
     try:
@@ -410,64 +640,139 @@ async def get_grant_step_data(case_number: str, step: int) -> Dict[str, Any]:
             "status": grant.status
         }
         
-        # Add step-specific data
-        if step == 1:  # Basic applicant information step
-            result.update({
-                "name": grant.applicant_name,
-                "id": grant.applicant_id,
-                "phone": grant.applicant_phone,
-                "county": grant.county,
-                "town": grant.town, 
-                "village": grant.village,
-                "address": grant.address,
-                "manager": grant.undertracker,
-                "department": grant.office,
-                "departmentId": grant.office_id,
-                "caseNumber": grant.case_number,
-                "receivedDate": format_tw_date(grant.received_date) if grant.received_date else None,
-                "receivedTime": grant.received_time.strftime("%H:%M") if grant.received_time else None
-            })
-        elif step == 2:  # Land information step
-            # Fetch land-related data for step 2
-            # This would include fetching from related tables if you have them
-            result.update({
-                "land_data": {}  # Placeholder - replace with actual land data structure
-            })
-        # Add cases for other steps as needed
-        
+        # Add step-specific data using field mapping configuration
+        if step == 1:  # Basic applicant information step - 從 grants 表讀取
+            # 使用配置映射自動生成響應字段
+            step_data = build_step_response_data(grant, step)
+            result.update(step_data)
+            
+        elif step >= 2 and step <= 8:  # Steps 2-8 - 從 grant_versions.all_steps_data.steps[step] 讀取
+            try:
+                # 🆕 從 grant_versions 表讀取步驟資料 - 優先使用 active_version
+                logger.info(f"開始讀取 step {step} 資料，案件: {case_number}, grant.active_version_id: {grant.active_version_id}")
+                
+                current_version = None
+                if grant.active_version_id:
+                    current_version = await GrantVersions.get(id=grant.active_version_id)
+                    logger.info(f"使用案件指定的啟用版本 {current_version.version} 讀取 step {step} 資料，案件: {case_number}")
+                else:
+                    # 如果沒有設定 active_version，則查找最新版本
+                    current_version = await GrantVersions.filter(
+                        grant_id=grant.id
+                    ).order_by('-version').first()
+                    
+                    if current_version:
+                        logger.info(f"使用最新版本 {current_version.version} 讀取 step {step} 資料，案件: {case_number}")
+                    else:
+                        logger.warning(f"未找到任何版本記錄，案件: {case_number}")
+                
+                if current_version and current_version.all_steps_data:
+                    logger.info(f"版本 {current_version.version} 的 all_steps_data 結構: {current_version.all_steps_data}")
+                    steps_data = current_version.all_steps_data.get("steps", {})
+                    logger.info(f"steps_data 包含的步驟: {list(steps_data.keys())}")
+                    step_data = steps_data.get(str(step), {})
+                    logger.info(f"Step {step} 的原始資料: {step_data}")
+                    
+                    if step_data:
+                        result.update(step_data)
+                        logger.info(f"成功從版本 {current_version.version} 讀取 step {step} 資料，案件: {case_number}")
+                    else:
+                        logger.info(f"Step {step} 資料為空，案件: {case_number}")
+                else:
+                    logger.warning(f"未找到版本資料或版本資料為空，案件: {case_number}, current_version: {current_version}")
+                    if current_version:
+                        logger.warning(f"版本 {current_version.version} 的 all_steps_data: {current_version.all_steps_data}")
+                    
+            except Exception as version_error:
+                logger.error(f"從版本讀取 step {step} 資料失敗，案件: {case_number}, 錯誤: {str(version_error)}")
+                # 如果版本讀取失敗，返回空資料但不報錯
+                pass
+            
         return result
     except DoesNotExist:
         raise HTTPException(status_code=404, detail=f"補助案件編號 {case_number} 不存在")
 
 
-async def update_grant_step_data(case_number: str, step: int, data: Dict[str, Any], current_user: UserOutSchema) -> Dict[str, Any]:
+def build_step_response_data(grant: Grants, step: int) -> Dict[str, Any]:
+    """根據字段映射配置構建步驟響應數據"""
+    db_to_api_mapping = FieldMappingConfig.get_db_to_api_mapping(step)
+    step_data = {}
+    
+    for db_field, api_field in db_to_api_mapping.items():
+        try:
+            # 獲取數據庫字段值
+            db_value = getattr(grant, db_field, None)
+            
+            # 特殊處理某些字段格式
+            if api_field == "receivedDate" and db_value:
+                step_data[api_field] = format_tw_date(db_value)
+            elif api_field == "receivedTime" and db_value:
+                step_data[api_field] = db_value.strftime("%H:%M") if hasattr(db_value, 'strftime') else str(db_value)
+            else:
+                step_data[api_field] = db_value
+                
+        except AttributeError:
+            logger.warning(f"字段 {db_field} 在 Grant 模型中不存在")
+            step_data[api_field] = None
+    
+    return step_data
+
+
+async def update_grant_step_data(case_number: str, step: int, data, current_user):
     """更新補助申請案件特定步驟資料"""
     async with in_transaction():
         try:
             # Get the grant by case number
             grant = await Grants.get(case_number=case_number)
             
+            # 提取追蹤資訊（如果有的話）
+            tracking_info = {}
+            actual_data = data
+            
+            # 檢查是否包含追蹤資訊
+            if isinstance(data, dict) and 'data' in data:
+                actual_data = data.get('data', {})
+                tracking_info = {
+                    'action_type': data.get('action_type', GrantActionType.STEP_DATA_UPDATE.value),
+                    'changed_fields': data.get('changed_fields', []),
+                    'old_value': data.get('old_value', {}),
+                    'session_id': data.get('session_id'),
+                    'notes': data.get('notes', f"更新步驟 {step} 資料")
+                }
+            else:
+                tracking_info = {
+                    'action_type': GrantActionType.STEP_DATA_UPDATE.value,
+                    'changed_fields': [],
+                    'old_value': {},
+                    'session_id': None,
+                    'notes': f"更新步驟 {step} 資料"
+                }
+            
             # Update step-specific data
             if step == 1:  # Basic applicant information step
                 # Update the applicant information
                 update_data = {}
                 
-                if "name" in data:
-                    update_data["applicant_name"] = data["name"]
-                if "id" in data:
-                    update_data["applicant_id"] = data["id"]
-                if "phone" in data:
-                    update_data["applicant_phone"] = data["phone"]
-                if "county" in data:
-                    update_data["county"] = data["county"]
-                if "town" in data:
-                    update_data["town"] = data["town"]
-                if "village" in data:
-                    update_data["village"] = data["village"]
-                if "address" in data:
-                    update_data["address"] = data["address"]
-                if "undertracker" in data:
-                    update_data["undertracker"] = data["undertracker"]
+                if "name" in actual_data:
+                    update_data["applicant_name"] = actual_data["name"]
+                if "id" in actual_data:
+                    update_data["applicant_id"] = actual_data["id"]
+                if "phone" in actual_data:
+                    update_data["applicant_phone"] = actual_data["phone"]
+                if "county" in actual_data:
+                    update_data["county"] = actual_data["county"]
+                if "town" in actual_data:
+                    update_data["town"] = actual_data["town"]
+                if "village" in actual_data:
+                    update_data["village"] = actual_data["village"]
+                if "address" in actual_data:
+                    update_data["address"] = actual_data["address"]
+                if "undertracker" in actual_data:
+                    update_data["undertracker"] = actual_data["undertracker"]
+                if "isDisasterCase" in actual_data:
+                    update_data["is_disaster_case"] = actual_data["isDisasterCase"]
+                if "disasterCaseDescription" in actual_data:
+                    update_data["disaster_case_description"] = actual_data["disasterCaseDescription"]
                 
                 # Apply updates
                 await Grants.filter(id=grant.id).update(**update_data)
@@ -476,18 +781,209 @@ async def update_grant_step_data(case_number: str, step: int, data: Dict[str, An
                 if grant.current_step < step:
                     await Grants.filter(id=grant.id).update(current_step=step)
                 
-                # Create history record
-                if update_data:
+                # Create enhanced history record
+                if update_data or tracking_info.get('changed_fields'):
                     await GrantHistory.create(
                         grant=grant,
-                        status=grant.status,
+                        action_type=tracking_info.get('action_type', GrantActionType.DATA_UPDATE.value),
+                        grant_status=grant.status,
+                        step_number=step,
+                        changed_fields=tracking_info.get('changed_fields'),
+                        old_value=tracking_info.get('old_value'),
+                        new_value=actual_data,
+                        session_id=tracking_info.get('session_id'),
                         changed_by_id=current_user.id,
-                        notes=f"更新步驟 {step} 資料"
+                        notes=tracking_info.get('notes')
                     )
                 
-            elif step == 2:  # Land information step
-                # Implement updates for land-related data
-                pass
+            elif step == 2:  # Land information step - 儲存到 grant_versions.all_steps_data.steps["2"]
+                try:
+                    # 🆕 Step 2 資料儲存到案件的 active_version 指向的版本
+                    logger.info(f"開始處理 step 2 資料更新，案件: {case_number}")
+                    
+                    # 優先使用案件的 active_version，如果沒有則使用最新版本
+                    current_version = None
+                    if grant.active_version_id:
+                        current_version = await GrantVersions.get(id=grant.active_version_id)
+                        logger.info(f"使用案件指定的啟用版本 {current_version.version}，案件: {case_number}")
+                    else:
+                        # 如果沒有設定 active_version，則查找最新版本
+                        current_version = await GrantVersions.filter(
+                            grant_id=grant.id
+                        ).order_by('-version').first()
+                        
+                        if current_version:
+                            # 設定為 active_version
+                            await Grants.filter(id=grant.id).update(active_version_id=current_version.id)
+                            logger.info(f"自動設定最新版本 {current_version.version} 為啟用版本，案件: {case_number}")
+                    
+                    if not current_version:
+                        # 如果沒有任何版本，創建初始版本
+                        initial_version_data = {
+                            "steps": {
+                                "2": {},
+                                "3": {},
+                                "4": {},
+                                "5": {},
+                                "6": {},
+                                "7": {},
+                                "8": {}
+                            }
+                        }
+                        
+                        data_hash = calculate_data_hash(initial_version_data)
+                        
+                        current_version = await GrantVersions.create(
+                            grant_id=grant.id,
+                            version=1,
+                            all_steps_data=initial_version_data,
+                            all_steps_data_hash=data_hash,
+                            comment="系統自動建立初始版本",
+                            created_by_id=current_user.id
+                        )
+                        
+                        # 設定為 active_version
+                        await Grants.filter(id=grant.id).update(active_version_id=current_version.id)
+                        logger.info(f"為案件 {case_number} 創建並設定初始版本 1 為啟用版本")
+                    
+                    # 取得目前的 all_steps_data
+                    current_all_steps_data = current_version.all_steps_data or {"steps": {}}
+                    if "steps" not in current_all_steps_data:
+                        current_all_steps_data["steps"] = {}
+                    
+                    # 更新 step 2 的資料
+                    current_all_steps_data["steps"]["2"] = actual_data
+                    
+                    # 計算新的雜湊值
+                    new_data_hash = calculate_data_hash(current_all_steps_data)
+                    
+                    # 更新版本資料
+                    await GrantVersions.filter(id=current_version.id).update(
+                        all_steps_data=current_all_steps_data,
+                        all_steps_data_hash=new_data_hash,
+                        modified_at=get_taiwan_datetime()
+                    )
+                    
+                    logger.info(f"成功更新 step 2 資料到版本 {current_version.version}，案件: {case_number}")
+                    
+                    # 更新案件的當前步驟（如果需要）
+                    if grant.current_step < step:
+                        await Grants.filter(id=grant.id).update(current_step=step)
+                    
+                    # 建立歷史紀錄
+                    await GrantHistory.create(
+                        grant=grant,
+                        action_type=tracking_info.get('action_type', GrantActionType.VERSION_UPDATE.value),
+                        grant_status=grant.status,
+                        step_number=step,
+                        changed_fields=tracking_info.get('changed_fields', []),
+                        old_value=tracking_info.get('old_value', {}),
+                        new_value=actual_data,
+                        session_id=tracking_info.get('session_id'),
+                        changed_by_id=current_user.id,
+                        notes=f"Step 2 資料更新到版本 {current_version.version} - {tracking_info.get('notes', '')}"
+                    )
+                    
+                    # Import and call the synchronization function
+                    from src.crud.grant_locations import sync_grant_locations
+                    
+                    # /debug
+                    logger.info(f"🔍 [DEBUG] Step2資料內容: {json.dumps(actual_data, ensure_ascii=False, indent=2)}")
+                    # debug/
+                    
+                    await sync_grant_locations(grant.id, actual_data)
+
+                    logger.info(f"Step 2 資料處理完成，案件: {case_number}, 版本: {current_version.version}")
+                    
+                except Exception as step2_error:
+                    logger.error(f"Step 2 資料更新失敗，案件: {case_number}, 錯誤: {str(step2_error)}")
+                    raise HTTPException(status_code=500, detail=f"Step 2 資料更新失敗: {str(step2_error)}")
+                    
+            elif step >= 3 and step <= 8:  # Steps 3-8 也儲存到 grant_versions
+                try:
+                    # 🆕 Steps 3-8 也儲存到案件的 active_version 指向的版本
+                    logger.info(f"開始處理 step {step} 資料更新，案件: {case_number}")
+                    
+                    # 優先使用案件的 active_version，如果沒有則使用最新版本
+                    current_version = None
+                    if grant.active_version_id:
+                        current_version = await GrantVersions.get(id=grant.active_version_id)
+                        logger.info(f"使用案件指定的啟用版本 {current_version.version}，案件: {case_number}")
+                    else:
+                        # 如果沒有設定 active_version，則查找最新版本
+                        current_version = await GrantVersions.filter(
+                            grant_id=grant.id
+                        ).order_by('-version').first()
+                        
+                        if current_version:
+                            # 設定為 active_version
+                            await Grants.filter(id=grant.id).update(active_version_id=current_version.id)
+                            logger.info(f"自動設定最新版本 {current_version.version} 為啟用版本，案件: {case_number}")
+                    
+                    if not current_version:
+                        # 如果沒有任何版本，創建初始版本
+                        initial_version_data = {
+                            "steps": {str(i): {} for i in range(2, 9)}
+                        }
+                        
+                        data_hash = calculate_data_hash(initial_version_data)
+                        
+                        current_version = await GrantVersions.create(
+                            grant_id=grant.id,
+                            version=1,
+                            all_steps_data=initial_version_data,
+                            all_steps_data_hash=data_hash,
+                            comment="系統自動建立初始版本",
+                            created_by_id=current_user.id
+                        )
+                        
+                        # 設定為 active_version
+                        await Grants.filter(id=grant.id).update(active_version_id=current_version.id)
+                        logger.info(f"為案件 {case_number} 創建並設定初始版本 1 為啟用版本")
+                    
+                    # 取得目前的 all_steps_data
+                    current_all_steps_data = current_version.all_steps_data or {"steps": {}}
+                    if "steps" not in current_all_steps_data:
+                        current_all_steps_data["steps"] = {}
+                    
+                    # 更新對應步驟的資料
+                    current_all_steps_data["steps"][str(step)] = actual_data
+                    
+                    # 計算新的雜湊值
+                    new_data_hash = calculate_data_hash(current_all_steps_data)
+                    
+                    # 更新版本資料
+                    await GrantVersions.filter(id=current_version.id).update(
+                        all_steps_data=current_all_steps_data,
+                        all_steps_data_hash=new_data_hash,
+                        modified_at=get_taiwan_datetime()
+                    )
+                    
+                    logger.info(f"成功更新 step {step} 資料到版本 {current_version.version}，案件: {case_number}")
+                    
+                    # 更新案件的當前步驟（如果需要）
+                    if grant.current_step < step:
+                        await Grants.filter(id=grant.id).update(current_step=step)
+                    
+                    # 建立歷史紀錄
+                    await GrantHistory.create(
+                        grant=grant,
+                        action_type=tracking_info.get('action_type', GrantActionType.VERSION_UPDATE.value),
+                        grant_status=grant.status,
+                        step_number=step,
+                        changed_fields=tracking_info.get('changed_fields', []),
+                        old_value=tracking_info.get('old_value', {}),
+                        new_value=actual_data,
+                        session_id=tracking_info.get('session_id'),
+                        changed_by_id=current_user.id,
+                        notes=f"Step {step} 資料更新到版本 {current_version.version} - {tracking_info.get('notes', '')}"
+                    )
+                    
+                    logger.info(f"Step {step} 資料處理完成，案件: {case_number}, 版本: {current_version.version}")
+                    
+                except Exception as step_error:
+                    logger.error(f"Step {step} 資料更新失敗，案件: {case_number}, 錯誤: {str(step_error)}")
+                    raise HTTPException(status_code=500, detail=f"Step {step} 資料更新失敗: {str(step_error)}")
             # Add cases for other steps as needed
             
             # Fetch and return the updated grant data
@@ -649,35 +1145,43 @@ async def update_grant_step_data(case_number: str, step: int, data: Dict[str, An
 #             raise HTTPException(status_code=500, detail=f"更新補助申請案件步驟 {step} 發生錯誤: {str(e)}")
 
 
-# async def delete_grant(grant_id: int, current_user: UserOutSchema) -> Dict[str, str]:
-#     """刪除補助申請案件"""
-#     async with in_transaction():
-#         try:
-#             # 檢查補助申請案件是否存在
-#             try:
-#                 grant = await Grant.get(id=grant_id)
-#             except DoesNotExist:
-#                 raise HTTPException(status_code=404, detail=f"補助案件ID {grant_id} 不存在")
+async def delete_grant(grant_id: int, current_user: UserOutSchema) -> Dict[str, str]:
+    """邏輯刪除補助申請案件"""
+    from src.database.models import GrantStatus
+    async with in_transaction():
+        try:
+            # 檢查補助申請案件是否存在
+            try:
+                grant = await Grants.get(id=grant_id)
+            except DoesNotExist:
+                raise HTTPException(status_code=404, detail=f"補助案件ID {grant_id} 不存在")
             
-#             # 記錄刪除動作
-#             await AuditLog.create(
-#                 grant_id=grant_id,
-#                 action="delete",
-#                 description=f"刪除補助申請案件",
-#                 from_status=grant.status,
-#                 to_status="deleted",
-#                 created_by_id=current_user.id
-#             )
+            # 檢查是否已經被刪除
+            if grant.status == GrantStatus.SOFT_DELETE:
+                raise HTTPException(status_code=400, detail=f"補助案件ID {grant_id} 已經被刪除")
             
-#             # 刪除補助申請案件
-#             await Grant.filter(id=grant_id).delete()
+            # 記錄刪除動作
+            await GrantHistory.create(
+                grant_id=grant_id,
+                action_type=GrantActionType.STATUS_CHANGE,
+                description=f"邏輯刪除補助申請案件 (案號: {grant.case_number})",
+                grant_status=GrantStatus.SOFT_DELETE,
+                changed_by_id=current_user.id
+            )
             
-#             # 返回結果
-#             return {"message": f"補助案件ID {grant_id} 已刪除"}
+            # 邏輯刪除：設置狀態為 deleted，而不是物理刪除
+            await Grants.filter(id=grant_id).update(
+                status=GrantStatus.SOFT_DELETE
+            )
             
-#         except Exception as e:
-#             logger.error(f"刪除補助申請案件發生錯誤: {str(e)}")
-#             raise HTTPException(status_code=500, detail=f"刪除補助申請案件發生錯誤: {str(e)}")
+            logger.info(f"📋 [delete_grant] Grant {grant.case_number} (ID: {grant_id}) soft deleted by user {current_user.id}")
+            
+            # 返回結果
+            return {"message": f"補助案件 {grant.case_number} (ID: {grant_id}) 已刪除"}
+            
+        except Exception as e:
+            logger.error(f"刪除補助申請案件發生錯誤: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"刪除補助申請案件發生錯誤: {str(e)}")
 
 
 # async def get_grant_land_details(grant_id: int) -> Dict[str, Any]:
@@ -928,3 +1432,471 @@ async def update_grant_step_data(case_number: str, step: int, data: Dict[str, An
 #                 )
             
 #             # 記錄審核日誌
+async def update_grant_current_step(case_number: str, current_step: int, current_user):
+    """更新補助申請案件的當前步驟"""
+    async with in_transaction():
+        try:
+            # 檢查案件是否存在
+            try:
+                grant = await Grants.get(case_number=case_number)
+            except DoesNotExist:
+                raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+            
+            # 驗證步驟範圍
+            if current_step < 1 or current_step > 9:
+                raise HTTPException(status_code=400, detail=f"步驟值必須在1-9之間，收到：{current_step}")
+            
+            # 更新當前步驟
+            await Grants.filter(id=grant.id).update(current_step=current_step)
+            
+            # 建立歷史紀錄
+            await GrantHistory.create(
+                grant=grant,
+                action_type=GrantActionType.CURRENT_STEP_UPDATE,  # 添加必需的 action_type
+                grant_status=grant.status,
+                step_number=current_step,
+                changed_fields=['current_step'],
+                old_value={'current_step': grant.current_step},
+                new_value={'current_step': current_step},
+                changed_by_id=current_user.id,  # 使用 changed_by_id
+                notes=f"更新當前步驟為 {current_step}"
+            )
+            
+            logger.info(f"成功更新案件 {case_number} 的當前步驟為 {current_step}")
+            
+            return {
+                "success": True,
+                "case_number": case_number,
+                "current_step": current_step,
+                "message": f"成功更新當前步驟為 {current_step}"
+            }
+            
+        except HTTPException:
+            # 重新拋出 HTTPException
+            raise
+        except Exception as e:
+            logger.error(f"更新案件 {case_number} 當前步驟時發生錯誤: {str(e)}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"更新當前步驟失敗: {str(e)}"
+            )
+
+
+async def batch_cross_year_grants(case_numbers: List[str], current_user) -> List[Dict[str, Any]]:
+    """批次跨年度處理 - 複製案件並設定跨年度狀態"""
+    results = []
+    
+    # 批次處理，但每個案件獨立處理以避免單一失敗影響整批
+    for case_number in case_numbers:
+        try:
+            result = await process_single_cross_year_grant(case_number, current_user)
+            results.append(result)
+            logger.info(f"✅ 案件 {case_number} 跨年度處理成功")
+            
+        except Exception as e:
+            logger.error(f"❌ 案件 {case_number} 跨年度處理失敗: {str(e)}")
+            results.append({
+                "original_case_number": case_number,
+                "success": False,
+                "message": f"跨年度處理失敗: {str(e)}",
+                "error": str(e)
+            })
+    
+    return results
+
+
+async def process_single_cross_year_grant(case_number: str, current_user) -> Dict[str, Any]:
+    """處理單一案件的跨年度複製"""
+    async with in_transaction():
+        try:
+            # 1. 取得原始案件
+            original_grant = await Grants.get(case_number=case_number).prefetch_related('active_version')
+            logger.info(f"📋 處理案件: {case_number}, 申請人: {original_grant.applicant_name}")
+            
+            # 2. 計算次年度
+            next_year = original_grant.year + 1
+            current_taiwan_year = datetime.now().year - 1911
+            
+            # 如果次年度超過當前年度，使用當前年度
+            if next_year > current_taiwan_year:
+                next_year = current_taiwan_year
+                logger.info(f"⚠️ 次年度 {next_year + 1} 超過當前年度，調整為 {next_year}")
+            
+            # 3. 複製案件資料並建立新案件
+            new_grant = Grants(
+                year=next_year,
+                applicant_name=original_grant.applicant_name,
+                applicant_id=original_grant.applicant_id,
+                applicant_phone=original_grant.applicant_phone,
+                county=original_grant.county,
+                town=original_grant.town,
+                village=original_grant.village,
+                address=original_grant.address,
+                office=original_grant.office,
+                office_id=original_grant.office_id,
+                undertracker=original_grant.undertracker,
+                is_disaster_case=original_grant.is_disaster_case,
+                disaster_case_description=original_grant.disaster_case_description,
+                created_by_id=current_user.id,
+                received_date=get_taiwan_date(),
+                received_time=get_taiwan_time_naive(),
+                status=GrantStatus.DRAFT,  # 新案件從草稿開始
+                current_step=1  # 新案件從步驟1開始
+            )
+            
+            # 儲存新案件
+            await new_grant.save()
+            logger.info(f"📄 成功建立新案件: {new_grant.case_number}")
+            
+            # 4. 複製原案件的版本資料到新案件
+            if original_grant.active_version:
+                original_version = await GrantVersions.get(id=original_grant.active_version_id)
+                
+                # 計算新版本的雜湊值
+                new_version_data = original_version.all_steps_data.copy() if original_version.all_steps_data else {"steps": {}}
+                data_hash = calculate_data_hash(new_version_data)
+                
+                # 建立新案件的初始版本，並在 comment 中記錄來源
+                new_version = await GrantVersions.create(
+                    grant_id=new_grant.id,
+                    version=1,
+                    all_steps_data=new_version_data,
+                    all_steps_data_hash=data_hash,
+                    comment=f"跨年度案件 - 來源案件ID: {original_grant.id} (案件編號: {case_number})",
+                    created_by_id=current_user.id
+                )
+                
+                # 設定新案件的 active_version
+                await Grants.filter(id=new_grant.id).update(active_version_id=new_version.id)
+                logger.info(f"📦 成功複製版本資料到新案件")
+            else:
+                # 如果原案件沒有版本資料，建立空的初始版本
+                initial_version_data = {
+                    "steps": {str(i): {} for i in range(2, 9)}
+                }
+                data_hash = calculate_data_hash(initial_version_data)
+                
+                new_version = await GrantVersions.create(
+                    grant_id=new_grant.id,
+                    version=1,
+                    all_steps_data=initial_version_data,
+                    all_steps_data_hash=data_hash,
+                    comment=f"跨年度案件 - 來源案件ID: {original_grant.id} (案件編號: {case_number})",
+                    created_by_id=current_user.id
+                )
+                
+                await Grants.filter(id=new_grant.id).update(active_version_id=new_version.id)
+                logger.info(f"📦 成功建立新案件的初始版本")
+            
+            # 5. 更新原案件為跨年度狀態
+            await Grants.filter(id=original_grant.id).update(
+                status=GrantStatus.CROSS_YEAR,  # 設定為跨年度案件狀態
+                status_detail=f"預算用罄，移至{next_year}年度撥款"
+            )
+            
+            # 6. 建立原案件的歷史紀錄
+            await GrantHistory.create(
+                grant=original_grant,
+                action_type=GrantActionType.STATUS_CHANGE,
+                grant_status=GrantStatus.CROSS_YEAR,
+                changed_fields=['status', 'status_detail'],
+                old_value={
+                    'status': original_grant.status,
+                    'status_detail': original_grant.status_detail or ''
+                },
+                new_value={
+                    'status': GrantStatus.CROSS_YEAR,
+                    'status_detail': f"預算用罄，移至{next_year}年度撥款"
+                },
+                changed_by_id=current_user.id,
+                notes=f"批次跨年度處理 - 案件複製到 {new_grant.case_number}"
+            )
+            
+            # 7. 建立新案件的歷史紀錄
+            await GrantHistory.create(
+                grant=new_grant,
+                action_type=GrantActionType.CASE_CREATE,
+                grant_status=GrantStatus.DRAFT,
+                changed_by_id=current_user.id,
+                notes=f"跨年度案件建立 - 來源案件: {case_number}"
+            )
+            
+            logger.info(f"🎯 案件 {case_number} 跨年度處理完成，新案件編號: {new_grant.case_number}")
+            
+            return {
+                "original_case_number": case_number,
+                "new_case_number": new_grant.case_number,
+                "new_year": next_year,
+                "success": True,
+                "message": f"成功複製到 {next_year} 年度，新案件編號: {new_grant.case_number}"
+            }
+            
+        except DoesNotExist:
+            raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+        except Exception as e:
+            logger.error(f"處理案件 {case_number} 跨年度時發生錯誤: {str(e)}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"跨年度處理失敗: {str(e)}"
+            )
+
+
+async def get_grant_papers_by_case_number(case_number: str, document_type: str = "budget_statement", grants_id: Optional[int] = None) -> Dict[str, Any]:
+    """依案件編號取得 grant_papers 文件資料（根據 active_version_id 匹配）
+    
+    Args:
+        case_number: 案件編號
+        document_type: 文件類型，預設為 'budget_statement'
+        grants_id: 案件ID，用於區分重複案件編號（歷史案件）
+    """
+    try:
+        # 1. 先取得案件和其 active_version_id
+        if grants_id:
+            # 如果提供了 grants_id，優先使用 ID 查詢
+            grant = await Grants.get(id=grants_id, case_number=case_number).select_related('active_version')
+        else:
+            # 沒有提供 grants_id，使用案件編號查詢（可能有多筆，取最新的）
+            grant = await Grants.filter(case_number=case_number).select_related('active_version').order_by('-id').first()
+        
+        if not grant:
+            raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+        
+        if not grant.active_version_id:
+            raise HTTPException(status_code=404, detail=f"案件 {case_number} 沒有有效的版本資料")
+        
+        # 2. 根據 active_version_id 查詢 grant_papers
+        try:
+            grant_paper = await GrantPapers.get(
+                version_id=grant.active_version_id,
+                document_type=document_type
+            )
+            
+            return {
+                "case_number": case_number,
+                "version_id": grant.active_version_id,
+                "document_type": grant_paper.document_type,
+                "document_data": grant_paper.document_data,
+                "generated_at": grant_paper.generated_at.isoformat() if grant_paper.generated_at else None,
+                "is_valid": grant_paper.is_valid,
+                "data_hash": grant_paper.data_hash
+            }
+            
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"案件 {case_number} 的 {document_type} 文件不存在（版本ID: {grant.active_version_id}）"
+            )
+        
+    except DoesNotExist:
+        raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+    except Exception as e:
+        logger.error(f"取得案件 {case_number} 的文件資料時發生錯誤: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"取得文件資料失敗: {str(e)}"
+        )
+
+
+async def compare_grant_versions(case_number: str) -> Dict[str, Any]:
+    """比較案件的第一版本與最新版本設施差異"""
+    try:
+        # 1. 取得案件
+        grant = await Grants.filter(case_number=case_number).order_by('-id').first()
+        if not grant:
+            raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+
+        # 2. 取得版本資料
+        versions = await GrantVersions.filter(grant_id=grant.id).order_by('version')
+        if len(versions) < 1:
+            raise HTTPException(status_code=404, detail=f"案件 {case_number} 沒有版本資料")
+
+        # 3. 取得第一版和最新版
+        first_version = versions[0]
+        latest_version = versions[-1] if len(versions) > 1 else versions[0]
+
+        # 4. 比較設施差異
+        facilities_comparison = compare_facilities_data(
+            first_version.all_steps_data,
+            latest_version.all_steps_data
+        )
+
+        return {
+            "case_number": case_number,
+            "first_version": {
+                "id": first_version.id,
+                "version": first_version.version,
+                "created_at": first_version.created_at.isoformat() if first_version.created_at else None,
+                "comment": first_version.comment
+            },
+            "latest_version": {
+                "id": latest_version.id,
+                "version": latest_version.version,
+                "created_at": latest_version.created_at.isoformat() if latest_version.created_at else None,
+                "comment": latest_version.comment
+            },
+            "facilities_comparison": facilities_comparison
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"比較案件 {case_number} 版本時發生錯誤: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"版本比較失敗: {str(e)}"
+        )
+
+
+async def get_grant_version_summary(case_number: str) -> Dict[str, Any]:
+    """取得案件版本摘要資訊"""
+    try:
+        # 取得案件
+        grant = await Grants.filter(case_number=case_number).order_by('-id').first()
+        if not grant:
+            raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+
+        # 取得版本資料
+        versions = await GrantVersions.filter(grant_id=grant.id).order_by('version')
+        
+        if not versions:
+            return {
+                "case_number": case_number,
+                "total_versions": 0,
+                "has_versions": False,
+                "first_version": None,
+                "latest_version": None
+            }
+
+        first_version = versions[0]
+        latest_version = versions[-1]
+
+        return {
+            "case_number": case_number,
+            "total_versions": len(versions),
+            "has_versions": True,
+            "first_version": {
+                "id": first_version.id,
+                "version": first_version.version,
+                "created_at": first_version.created_at.isoformat() if first_version.created_at else None
+            },
+            "latest_version": {
+                "id": latest_version.id,
+                "version": latest_version.version,
+                "created_at": latest_version.created_at.isoformat() if latest_version.created_at else None
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"取得案件 {case_number} 版本摘要時發生錯誤: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"取得版本摘要失敗: {str(e)}"
+        )
+
+
+def compare_facilities_data(first_version_data: Dict[str, Any], latest_version_data: Dict[str, Any]) -> Dict[str, Any]:
+    """比較兩個版本的設施資料差異"""
+    
+    # 取得 step3 和 step4 的資料
+    first_steps = first_version_data.get("steps", {})
+    latest_steps = latest_version_data.get("steps", {})
+    
+    first_step3 = first_steps.get("3", {})
+    first_step4 = first_steps.get("4", {})
+    latest_step3 = latest_steps.get("3", {})
+    latest_step4 = latest_steps.get("4", {})
+
+    # 比較灌溉調控設施 (step3)
+    irrigation_comparison = compare_facility_list(
+        first_step3.get("facilities", []),
+        latest_step3.get("facilities", []),
+        "irrigation"
+    )
+
+    # 比較田間管路設施 (step4) 
+    pipeline_comparison = compare_facility_list(
+        [
+            *first_step4.get("mainPipes", []),
+            *first_step4.get("irrigationSystem", [])
+        ],
+        [
+            *latest_step4.get("mainPipes", []),
+            *latest_step4.get("irrigationSystem", [])
+        ],
+        "pipeline"
+    )
+
+    return {
+        "irrigation_control_facilities": irrigation_comparison,
+        "pipeline_facilities": pipeline_comparison,
+        "summary": {
+            "total_changes": len([item for item in irrigation_comparison + pipeline_comparison if item["change_type"] != "unchanged"]),
+            "has_irrigation_changes": any(item["change_type"] != "unchanged" for item in irrigation_comparison),
+            "has_pipeline_changes": any(item["change_type"] != "unchanged" for item in pipeline_comparison)
+        }
+    }
+
+
+def compare_facility_list(before_list: List[Dict], after_list: List[Dict], facility_type: str) -> List[Dict[str, Any]]:
+    """比較設施列表的差異"""
+    results = []
+    processed_names = set()
+
+    # 處理 after 設施
+    for after_item in after_list:
+        name = after_item.get("name") or after_item.get("typeLabel") or f"未命名{facility_type}設施"
+        processed_names.add(name)
+        
+        before_item = next((item for item in before_list if (item.get("name") or item.get("typeLabel")) == name), None)
+        
+        if not before_item:
+            # 新增的設施
+            results.append({
+                "name": name,
+                "specification": after_item.get("specification", ""),
+                "before_quantity": 0,
+                "after_quantity": float(after_item.get("quantity", 0)),
+                "quantity_change": float(after_item.get("quantity", 0)),
+                "before_price": "0",
+                "after_price": str(after_item.get("unitPrice") or after_item.get("totalPrice") or 0),
+                "unit": after_item.get("unit", "台"),
+                "change_type": "added"
+            })
+        else:
+            # 比較修改的設施
+            before_qty = float(before_item.get("quantity", 0))
+            after_qty = float(after_item.get("quantity", 0))
+            quantity_change = after_qty - before_qty
+            
+            results.append({
+                "name": name,
+                "specification": after_item.get("specification") or before_item.get("specification", ""),
+                "before_quantity": before_qty,
+                "after_quantity": after_qty,
+                "quantity_change": quantity_change,
+                "before_price": str(before_item.get("unitPrice") or before_item.get("totalPrice") or 0),
+                "after_price": str(after_item.get("unitPrice") or after_item.get("totalPrice") or 0),
+                "unit": after_item.get("unit") or before_item.get("unit", "台"),
+                "change_type": "unchanged" if quantity_change == 0 else "modified"
+            })
+
+    # 處理已移除的設施
+    for before_item in before_list:
+        name = before_item.get("name") or before_item.get("typeLabel") or f"未命名{facility_type}設施"
+        
+        if name not in processed_names:
+            results.append({
+                "name": name,
+                "specification": before_item.get("specification", ""),
+                "before_quantity": float(before_item.get("quantity", 0)),
+                "after_quantity": 0,
+                "quantity_change": -float(before_item.get("quantity", 0)),
+                "before_price": str(before_item.get("unitPrice") or before_item.get("totalPrice") or 0),
+                "after_price": "0",
+                "unit": before_item.get("unit", "台"),
+                "change_type": "removed"
+            })
+
+    return sorted(results, key=lambda x: x["name"])

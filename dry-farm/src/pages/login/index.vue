@@ -12,7 +12,7 @@
         class="mx-auto mb-5"
       />
       <v-sheet
-        class="mx-auto"
+        class="mx-auto sheet-container"
         max-width="380"
         min-width="340"
 
@@ -61,7 +61,7 @@
           </v-container>
         </v-sheet>
         <v-divider class="ma-0" />
-        <div class="pa-4">
+        <div class="px-4">
           <!-- Form content -->
           <v-window
             v-model="activeForm"
@@ -173,7 +173,7 @@
                   class="pa-0 ma-0"
                 >
                   <!-- Step 1 -->
-                  <v-stepper-window-item value="0">
+                  <v-stepper-window-item value="1">
                     <v-form class="mt-6">
                       <v-text-field
                         v-model="registerForm.account"
@@ -206,7 +206,7 @@
                   </v-stepper-window-item>
 
                   <!-- Step 2 -->
-                  <v-stepper-window-item value="1">
+                  <v-stepper-window-item value="2">
                     <v-form class="mt-6">
                       <v-text-field
                         v-model="registerForm.name"
@@ -249,9 +249,9 @@
 
         <v-divider />
 
-        <div class="pa-0">
+        <div class="pa-0 ma-0">
           <v-btn
-            v-if="currentStep === 1 && activeForm === 'register'"
+            v-if="currentStep === '2' && activeForm === 'register'"
             variant="text"
             class="mb-2"
             block
@@ -283,6 +283,26 @@
           {{ errorMessage }}
         </v-alert>
       </v-sheet>
+
+      <!-- Version info container with same width as v-sheet -->
+      <div class="version-container">
+        <div class="version-info-container">
+          <v-chip
+            size="default"
+            color="primary"
+            label
+            rounded="md"
+            class="text-body-2 font-weight-medium version-chip"
+          >
+            <v-icon
+              start
+              icon="mdi-tag-outline"
+              size="small"
+            />
+            release v.{{ packageInfo.version }}
+          </v-chip>
+        </div>
+      </div>
     </v-col>
   </v-container>
 </template>
@@ -290,6 +310,7 @@
 <script lang="ts" setup>
   import { useUserStore } from '@/stores/users'
   import { useOfficesStore } from '@/stores/offices'
+  import packageInfo from '../../../package.json'
 // import { de } from 'vuetify/locale'
 
   // Add these lines to handle redirection
@@ -488,7 +509,7 @@
     console.log('Registration submitted:', registerForm.value)
   }
 
-  const currentStep = ref(0)
+  const currentStep = ref("1")
   const loginForm = ref({
     account: '',
     password: ''
@@ -518,19 +539,19 @@
 
   const handleStep = (direction: 'next' | 'prev') => {
     if (direction === 'next') {
-      if (currentStep.value === 1) {
+      if (currentStep.value === "2") {
         handleRegistration()
         return
       }
-      currentStep.value++
+      currentStep.value = currentStep.value === "1" ? "2" : "1"
     } else {
-      currentStep.value--
+      currentStep.value = currentStep.value === "2" ? "1" : "2"
     }
   }
 
   const getButtonText = computed(() => {
     if (activeForm.value === 'login') return '登入'
-    return currentStep.value === 0 ? '下一步' : '註冊'
+    return currentStep.value === "1" ? '下一步' : '註冊'
   })
 
   // watchEffect(() => {
@@ -553,7 +574,42 @@
 
   .login-content-col {
     margin-bottom: 120px !important; /* 固定底部間距 */
-    padding-bottom: 20px; /* 額外內部間距 */
+    padding-bottom: 60px; /* 額外內部間距 */
+  }
+
+  .sheet-container {
+    position: relative; /* 為版本資訊定位提供相對定位基準 */
+  }
+
+  .version-container {
+    width: 390px; /* 與 v-sheet 相同寬度 */
+    margin: 0 auto; /* 置中對齊 */
+    margin-top: 10px; /* 與 v-sheet 間距 */
+  }
+
+  .version-info-container {
+    display: flex;
+    justify-content: flex-end; /* 在容器內靠右對齊 */
+    padding-right: 8px; /* 與 v-sheet 邊界保持一致 */
+  }
+
+  .version-chip {
+    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%) !important;
+    color: white !important;
+    box-shadow: 0 3px 6px rgba(25, 118, 210, 0.3) !important;
+    /* border-radius: 16px !important; */
+    transition: all 0.3s ease;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .version-chip:hover {
+    /* background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%) !important; */
+    /* box-shadow: 0 4px 12px rgba(25, 118, 210, 0.4) !important; */
+    /* transform: translateY(-2px); */
+  }
+
+  .version-chip .v-icon {
+    margin-right: 4px;
   }
   /* Disable all possible stepper transitions */
   :deep(.v-stepper) {

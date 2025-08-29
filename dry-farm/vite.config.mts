@@ -88,6 +88,31 @@ export default defineConfig({
       key: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/privkey.pem'),
       cert: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/fullchain.pem'),
     },
+    fs: {
+      allow: [
+        // Allow serving files from the project root
+        '.',
+        // Allow serving files from the runtime node_modules directory
+        '../../runtime/node_modules',
+      ],
+      deny: [
+        // 環境和配置檔案
+        '**/.env*',
+        '**/secrets/**',
+        '**/credentials/**',
+
+        // 可執行檔案
+        '**/.bin/**',
+
+        // 防止向上遍歷
+        '../../../**',
+
+        // 專案特定
+        '../../runtime/.env*',
+        '../../app/api/**',
+        '../../db/**',
+      ]
+    },
     proxy: {
       [API_BASE_URL]: {
         target: API_TARGET,
@@ -133,5 +158,8 @@ export default defineConfig({
         },
       },
     },
+  },
+  optimizeDeps: {
+    include: ['lodash-es'] // 預構建 lodash-es
   },
 })
