@@ -1990,6 +1990,15 @@
                       </v-chip>
 
                       <v-chip
+                        v-if="getDiameterDisplay(selectedMaterial)"
+                        size="small"
+                        color="indigo"
+                        variant="tonal"
+                      >
+                        {{ getDiameterDisplay(selectedMaterial) }}
+                      </v-chip>
+
+                      <v-chip
                         v-if="selectedMaterial.current_price"
                         size="small"
                         color="green"
