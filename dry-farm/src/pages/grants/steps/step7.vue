@@ -353,13 +353,24 @@
                         設施地段
                       </td>
                       <td>
-                        {{ localFormData.facilityLocation }}
+                        {{ displayFacilityLocation }}
                       </td>
                       <td class="font-weight-medium text-center">
                         設施地號
                       </td>
                       <td>
-                        {{ localFormData.facilityNumber }}
+                        <div v-if="displayFacilityNumbers.length > 1">
+                          <div 
+                            v-for="(number, index) in displayFacilityNumbers" 
+                            :key="index"
+                            class="mb-1"
+                          >
+                            {{ number }}
+                          </div>
+                        </div>
+                        <div v-else>
+                          {{ displayFacilityNumbers[0] }}
+                        </div>
                       </td>
                     </tr>
                     <tr>
@@ -367,7 +378,7 @@
                         設施面積
                       </td>
                       <td>
-                        {{ localFormData.facilityAreaHa }}公頃
+                        {{ displayFacilityArea }}公頃
                       </td>
                       <td class="font-weight-medium text-center">
                         設施型式
@@ -1061,6 +1072,7 @@
 import { nextTick, computed, watch, watchEffect } from 'vue';
 import { useRoute } from 'vue-router';
 import { useGrantsStore } from '@/stores/grants';
+import { useDomicileStore } from '@/stores/domicile';
 // 🆕 導入版本比較相關服務
 import {
   compareGrantVersions,
@@ -1088,6 +1100,7 @@ const emit = defineEmits(['update:formData', 'validated', 'go-back', 'save-for-i
 
 // Access the grants store
 const grantsStore = useGrantsStore();
+const domicileStore = useDomicileStore();
 const route = useRoute();
 
 // 🆕 版本比較相關狀態
@@ -1494,6 +1507,244 @@ const formattedReinspectionDate = computed(() => {
   }
 });
 
+// 計算顯示用的設施地段（中文地名）
+const displayFacilityLocation = computed(() => {
+  const step2Data = grantsStore.formData[2];
+  if (!step2Data) return localFormData.facilityLocation || '';
+
+  // 處理多筆土地格式
+  if (step2Data.lands && Array.isArray(step2Data.lands) && step2Data.lands.length > 0) {
+    const locations = step2Data.lands.map((land: any) => {
+      return getLandLocationText(land);
+    }).filter(Boolean);
+    
+    // 去重並合併
+    const uniqueLocations = [...new Set(locations)];
+    return uniqueLocations.join('、') || localFormData.facilityLocation || '';
+  }
+  
+  // 向後相容：處理舊格式
+  if (step2Data.landCounty || step2Data.landTown || step2Data.landSec) {
+    const land = {
+      landCounty: step2Data.landCounty,
+      landTown: step2Data.landTown,
+      landSec: step2Data.landSec
+    };
+    return getLandLocationText(land) || localFormData.facilityLocation || '';
+  }
+  
+  return localFormData.facilityLocation || '';
+});
+
+// 計算顯示用的設施地號（多筆分行顯示）
+const displayFacilityNumbers = computed(() => {
+  const step2Data = grantsStore.formData[2];
+  if (!step2Data) return [localFormData.facilityNumber || ''];
+
+  // 處理多筆土地格式
+  if (step2Data.lands && Array.isArray(step2Data.lands) && step2Data.lands.length > 0) {
+    const landNumbers = step2Data.lands
+      .map((land: any) => land.landNumber)
+      .filter(Boolean);
+    return landNumbers.length > 0 ? landNumbers : [localFormData.facilityNumber || ''];
+  }
+  
+  // 向後相容：處理舊格式
+  if (step2Data.landNumber) {
+    return [step2Data.landNumber];
+  }
+  
+  return [localFormData.facilityNumber || ''];
+});
+
+// 計算顯示用的設施面積（與step2同步）
+const displayFacilityArea = computed(() => {
+  const step2Data = grantsStore.formData[2];
+  if (!step2Data) return localFormData.facilityAreaHa || '';
+
+  // 處理多筆土地格式
+  if (step2Data.lands && Array.isArray(step2Data.lands) && step2Data.lands.length > 0) {
+    const totalFacilityAreaM2 = step2Data.lands.reduce((total: number, land: any) => {
+      const area = parseFloat(land.facilityArea || '0');
+      return total + (isNaN(area) ? 0 : area);
+    }, 0);
+    const totalFacilityAreaHa = totalFacilityAreaM2 / 10000;
+    return totalFacilityAreaHa > 0 ? totalFacilityAreaHa.toFixed(4) : localFormData.facilityAreaHa || '';
+  }
+  
+  // 向後相容：處理舊格式
+  if (step2Data.landArea) {
+    const landAreaM2 = parseFloat(step2Data.landArea || '0');
+    const landAreaHa = landAreaM2 / 10000;
+    return landAreaHa > 0 ? landAreaHa.toFixed(4) : localFormData.facilityAreaHa || '';
+  }
+  
+  return localFormData.facilityAreaHa || '';
+});
+
+// 土地位置文字轉換函數（將ID轉換為中文地名）
+const getLandLocationText = (land: any): string => {
+  const parts = [];
+  
+  // 縣市
+  if (land.landCounty) {
+    if (typeof land.landCounty === 'number') {
+      const county = domicileStore.countyOptions.find(c => c.value === land.landCounty);
+      if (county) parts.push(county.title);
+    } else {
+      parts.push(land.landCounty);
+    }
+  }
+  
+  // 鄉鎮
+  if (land.landTown) {
+    if (typeof land.landTown === 'number') {
+      const town = domicileStore.getTownsForCountyId(land.landCounty as number)
+        .find(t => t.value === land.landTown);
+      if (town) parts.push(town.title);
+    } else {
+      parts.push(land.landTown);
+    }
+  }
+  
+  // 地段
+  if (land.landSec) {
+    if (typeof land.landSec === 'number') {
+      const section = domicileStore.getLandSectionsForTownId(land.landTown as number)
+        .find(s => s.value === land.landSec);
+      if (section) parts.push(section.title);
+    } else {
+      parts.push(land.landSec);
+    }
+  }
+  
+  return parts.join('');
+};
+
+// 初始化設施資訊的函數
+const initializeFacilityInfo = async () => {
+  console.log('🔄 Initializing facility info...');
+  
+  const step2Data = grantsStore.formData[2];
+  if (!step2Data) {
+    console.log('❌ No step2 data available');
+    return;
+  }
+
+  // 需要載入的縣市和鄉鎮資料
+  const countyIds = new Set<number>();
+  const townIds = new Set<number>();
+  
+  // 收集需要載入的資料
+  if (step2Data.lands && Array.isArray(step2Data.lands)) {
+    step2Data.lands.forEach((land: any) => {
+      if (land.landCounty && typeof land.landCounty === 'number') {
+        countyIds.add(land.landCounty);
+      }
+      if (land.landTown && typeof land.landTown === 'number') {
+        townIds.add(land.landTown);
+      }
+    });
+  } else if (step2Data.landCounty && step2Data.landTown) {
+    if (typeof step2Data.landCounty === 'number') countyIds.add(step2Data.landCounty);
+    if (typeof step2Data.landTown === 'number') townIds.add(step2Data.landTown);
+  }
+
+  // 載入鄉鎮資料
+  for (const countyId of countyIds) {
+    try {
+      await domicileStore.loadTownsByCountyId(countyId);
+      console.log(`✅ Loaded towns for county ${countyId}`);
+    } catch (error) {
+      console.warn(`⚠️ Failed to load towns for county ${countyId}:`, error);
+    }
+  }
+
+  // 載入地段資料
+  for (const townId of townIds) {
+    try {
+      await domicileStore.loadLandSectionsByTownId(townId);
+      console.log(`✅ Loaded sections for town ${townId}`);
+    } catch (error) {
+      console.warn(`⚠️ Failed to load sections for town ${townId}:`, error);
+    }
+  }
+
+  // 初始化設施資訊
+  console.log('💡 Initializing facility info with domicile data...');
+  
+  // Get facility location (使用中文地名)
+  if (step2Data.lands && Array.isArray(step2Data.lands) && step2Data.lands.length > 0) {
+    const locations = step2Data.lands.map((land: any) => {
+      return getLandLocationText(land);
+    }).filter(Boolean);
+    
+    const uniqueLocations = [...new Set(locations)];
+    if (uniqueLocations.length > 0) {
+      localFormData.facilityLocation = uniqueLocations.join('、');
+    }
+  }
+  // 向後相容：處理舊格式
+  else if (step2Data.landCounty || step2Data.landTown || step2Data.landSec) {
+    const land = {
+      landCounty: step2Data.landCounty,
+      landTown: step2Data.landTown,
+      landSec: step2Data.landSec
+    };
+    const locationText = getLandLocationText(land);
+    if (locationText) {
+      localFormData.facilityLocation = locationText;
+    }
+  }
+
+  // Get facility numbers
+  if (step2Data.lands && Array.isArray(step2Data.lands) && step2Data.lands.length > 0) {
+    const landNumbers = step2Data.lands
+      .map((land: any) => land.landNumber)
+      .filter(Boolean)
+      .join('、');
+    if (landNumbers) {
+      localFormData.facilityNumber = landNumbers;
+    }
+  }
+  // 向後相容：從舊格式取得地號
+  else if (step2Data.landNumber) {
+    localFormData.facilityNumber = step2Data.landNumber;
+  }
+
+  // Get facility area
+  if (step2Data.lands && Array.isArray(step2Data.lands)) {
+    const totalFacilityAreaM2 = step2Data.lands.reduce((total: number, land: any) => {
+      const area = parseFloat(land.facilityArea || '0');
+      return total + (isNaN(area) ? 0 : area);
+    }, 0);
+    const totalFacilityAreaHa = totalFacilityAreaM2 / 10000;
+    if (totalFacilityAreaHa > 0) {
+      localFormData.facilityAreaHa = totalFacilityAreaHa.toFixed(4);
+    }
+  } else if (step2Data.landArea) {
+    // 舊格式：從單筆土地面積計算
+    const landAreaM2 = parseFloat(step2Data.landArea || '0');
+    const landAreaHa = landAreaM2 / 10000;
+    if (landAreaHa > 0) {
+      localFormData.facilityAreaHa = landAreaHa.toFixed(4);
+    }
+  }
+
+  // Get facility type from all_steps_data
+  const allStepsStep4 = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['4'];
+  if (allStepsStep4?.irrigationType) {
+    localFormData.facilityType = allStepsStep4.irrigationType;
+  }
+
+  console.log('✅ Facility info initialized:', {
+    facilityLocation: localFormData.facilityLocation,
+    facilityNumber: localFormData.facilityNumber,
+    facilityAreaHa: localFormData.facilityAreaHa,
+    facilityType: localFormData.facilityType
+  });
+};
+
 // 開啟日期選擇對話框
 const openDateDialog = (type) => {
   // 選擇要操作的組件和對話框
@@ -1833,6 +2084,7 @@ watch(computedTotalBudget, (newBudget, oldBudget) => {
   }
 }, { immediate: false });
 
+
 // 更新父組件數據
 const updateFormData = () => {
   emit('update:formData', {
@@ -1873,6 +2125,15 @@ onMounted(async () => {
   console.log('step2 data:', localFormData);
   console.log('facilityArea from step2:', localFormData.facilityAreaHa);
   console.log('landAreaHa from step2:', localFormData.landAreaHa);
+  
+  // 初始化 domicile store 以獲取縣市資料
+  try {
+    await domicileStore.loadCounties();
+    console.log('✅ Counties loaded successfully');
+  } catch (error) {
+    console.error('Failed to load counties:', error);
+  }
+
   // 從父組件接收數據
   if (props.formData) {
     // 設置基本屬性
@@ -1923,9 +2184,9 @@ onMounted(async () => {
   }
 
   // Get applicant address
-  if (!localFormData.address) {
+  if (!localFormData.applicantAddress) {
     if (grantsStore.formData[6]?.applicantAddress) {
-      localFormData.address = grantsStore.formData[6].applicantAddress;
+      localFormData.applicantAddress = grantsStore.formData[6].applicantAddress;
     } else {
       const step1Data = grantsStore.formData[1];
       if (step1Data) {
@@ -1935,60 +2196,14 @@ onMounted(async () => {
         const address = step1Data.address || '';
 
         if (county || town || village || address) {
-          localFormData.address = `${county}${town}${village}${address}`;
+          localFormData.applicantAddress = `${county}${town}${village}${address}`;
         }
       }
     }
   }
 
-  // Get facility info from previous steps
-  if (!localFormData.facilityLocation) {
-    if (grantsStore.formData[6]?.facilityLocation) {
-      localFormData.facilityLocation = grantsStore.formData[6].facilityLocation;
-    } else if (grantsStore.formData[2]) {
-      const step2Data = grantsStore.formData[2];
-      const county = step2Data.addressCounty || '';
-      const town = step2Data.addressTown || '';
-      const village = step2Data.addressVillage || '';
-
-      if (county || town || village) {
-        localFormData.facilityLocation = `${county}${town}${village}`;
-      }
-    }
-  }
-
-  if (!localFormData.facilityNumber) {
-    if (grantsStore.formData[6]?.facilityNumber) {
-      localFormData.facilityNumber = grantsStore.formData[6].facilityNumber;
-    } else if (grantsStore.formData[2]?.landNumber) {
-      localFormData.facilityNumber = grantsStore.formData[2].landNumber;
-    }
-  }
-
-  if (!localFormData.facilityAreaHa) {
-    if (grantsStore.formData[6]?.facilityAreaHa) {
-      localFormData.facilityAreaHa = grantsStore.formData[6].facilityAreaHa;
-    } else if (grantsStore.formData[2]?.totalLandAreaHa) {
-      localFormData.facilityAreaHa = grantsStore.formData[2].totalFacilityAreaHa;
-    }
-  }
-
-  if (!localFormData.facilityType) {
-    if (grantsStore.formData[6]?.facilityType) {
-      localFormData.facilityType = grantsStore.formData[6].facilityType;
-    } else {
-      // Try to construct from step4 data
-      const step4Data = grantsStore.formData[4];
-      if (step4Data) {
-        const installationType = step4Data.installationType || '';
-        const irrigationType = step4Data.irrigationType || '';
-
-        if (installationType || irrigationType) {
-          localFormData.facilityType = `${installationType}${irrigationType}系統`;
-        }
-      }
-    }
-  }
+  // 💡 獲取設施資訊 - 確保在 domicileStore 載入後執行
+  await initializeFacilityInfo();
 
   // Set default completion information
   if (!localFormData.completionDate) {
