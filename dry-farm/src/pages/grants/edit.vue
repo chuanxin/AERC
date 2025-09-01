@@ -245,10 +245,10 @@
                         @click="handleGoBack"
                       >
                         <v-icon>mdi-arrow-left</v-icon>
-                        
+
                         <!-- 禁用狀態提示 -->
-                        <v-tooltip 
-                          v-if="!canGoToPreviousStep && navigationBlockingReason" 
+                        <v-tooltip
+                          v-if="!canGoToPreviousStep && navigationBlockingReason"
                           activator="parent"
                           location="top"
                         >
@@ -265,10 +265,10 @@
                         @click="goToNextStep"
                       >
                         <v-icon>mdi-arrow-right</v-icon>
-                        
+
                         <!-- 禁用狀態提示 -->
-                        <v-tooltip 
-                          v-if="!canGoToNextStep && navigationBlockingReason" 
+                        <v-tooltip
+                          v-if="!canGoToNextStep && navigationBlockingReason"
                           activator="parent"
                           location="top"
                         >
@@ -456,17 +456,17 @@
                       :ripple="false"
                       @click="handleGoBack"
                     >
-                      <v-icon 
+                      <v-icon
                         start
                         :color="canGoToPreviousStep ? 'primary' : 'grey'"
                       >
                         mdi-arrow-left
                       </v-icon>
                       上一步
-                      
+
                       <!-- 禁用狀態提示 -->
-                      <v-tooltip 
-                        v-if="!canGoToPreviousStep && navigationBlockingReason" 
+                      <v-tooltip
+                        v-if="!canGoToPreviousStep && navigationBlockingReason"
                         activator="parent"
                         location="top"
                       >
@@ -521,10 +521,10 @@
                       >
                         mdi-arrow-right
                       </v-icon>
-                      
+
                       <!-- 禁用狀態提示 -->
-                      <v-tooltip 
-                        v-if="!canGoToNextStep && navigationBlockingReason" 
+                      <v-tooltip
+                        v-if="!canGoToNextStep && navigationBlockingReason"
                         activator="parent"
                         location="top"
                       >
@@ -561,7 +561,7 @@
       </v-card>
     </v-dialog>
 
-    <!-- 🆕 統一的成功/錯誤回饋 Snackbar -->  
+    <!-- 🆕 統一的成功/錯誤回饋 Snackbar -->
     <v-snackbar
       v-model="showNotification"
       :color="notificationConfig.color"
@@ -743,7 +743,7 @@
               </span>
             </v-alert>
           </div>
-          
+
           <div class="text-body-1 mb-2">
             您確定要重置當前步驟的資料嗎？
           </div>
@@ -874,7 +874,7 @@ const notificationConfig = ref({
 // 🆕 錯誤類型定義 - 簡潔但完整
 enum DesignChangeErrorType {
   NETWORK_ERROR = 'network',
-  SAVE_ERROR = 'save', 
+  SAVE_ERROR = 'save',
   API_ERROR = 'api',
   VALIDATION_ERROR = 'validation',
   UNKNOWN_ERROR = 'unknown'
@@ -911,9 +911,9 @@ const drawerWidth = ref(280)
 const steps = [
   { title: '申請人資料', value: 1, subtitle: '申請人資料' },
   { title: '土地資料', value: 2, subtitle: '請填寫土地資料' },
-  { title: '灌溉調控設施', value: 3, subtitle: '請填寫灌溉調控設施' },
-  { title: '田間管路', value: 4, subtitle: '請填寫田間管路' },
-  { title: '現場勘查', value: 5, subtitle: '請填寫現場勘查' },
+  { title: '現場勘查', value: 3, subtitle: '請填寫現場勘查' },
+  { title: '灌溉調控設施', value: 4, subtitle: '請填寫灌溉調控設施' },
+  { title: '田間管路', value: 5, subtitle: '請填寫田間管路' },
   { title: '文件列印及完成申報', value: 6, subtitle: '請填寫補助申請資料' },
   { title: '功能測試', value: 7, subtitle: '請填寫結案申報' },
   { title: '佐證及相關文件上傳', value: 8, subtitle: '請上傳佐證及相關文件' },
@@ -928,8 +928,8 @@ const formatDate = (dateString?: string) => {
 
 // 🆕 統一的通知顯示函數
 const showNotificationMessage = (
-  title: string, 
-  message: string = '', 
+  title: string,
+  message: string = '',
   type: 'success' | 'error' | 'warning' = 'success'
 ) => {
   const configs = {
@@ -940,7 +940,7 @@ const showNotificationMessage = (
       timeout: 4000
     },
     error: {
-      color: 'error', 
+      color: 'error',
       icon: 'mdi-alert-circle',
       iconColor: 'white',
       timeout: 6000
@@ -948,7 +948,7 @@ const showNotificationMessage = (
     warning: {
       color: 'warning',
       icon: 'mdi-alert',
-      iconColor: 'white', 
+      iconColor: 'white',
       timeout: 5000
     }
   }
@@ -967,7 +967,7 @@ const classifyError = (error: any): DesignChangeErrorType => {
   if (!navigator.onLine || error.code === 'NETWORK_ERROR') {
     return DesignChangeErrorType.NETWORK_ERROR
   }
-  
+
   // HTTP 狀態碼錯誤
   if (error.response) {
     const status = error.response.status
@@ -978,12 +978,12 @@ const classifyError = (error: any): DesignChangeErrorType => {
       return DesignChangeErrorType.API_ERROR
     }
   }
-  
+
   // 儲存相關錯誤
   if (error.message?.includes('save') || error.message?.includes('storage')) {
     return DesignChangeErrorType.SAVE_ERROR
   }
-  
+
   return DesignChangeErrorType.UNKNOWN_ERROR
 }
 
@@ -1101,7 +1101,7 @@ const handleNavigationStateChanged = (eventData: {
   reason?: string;
 }) => {
   console.log(`🎛️ edit.vue: Navigation state changed for step ${eventData.step}:`, eventData)
-  
+
   // 更新對應步驟的導航狀態
   navigationStates.value[eventData.step] = {
     canNavigate: eventData.canNavigate,
@@ -1165,15 +1165,15 @@ const executeDesignChange = async (comment?: string) => {
 
     // 2. 收集所有步驟資料 - 修復資料結構污染問題
     console.log('🔄 Implementing version inheritance for design change')
-    
+
     // 先取得前一版本的完整資料
     const { getCurrentVersionData } = await import('../../services/grantsService')
     const previousVersionData = await getCurrentVersionData(grantsStore.currentGrant.case_number)
-    
+
     // 🔥 Linus式修復：確保資料格式統一，避免前後端格式混合
     // 提取前一版本中的 steps 格式資料（後端正確格式）
     const previousStepsData = previousVersionData.steps || {}
-    
+
     // 將當前編輯的資料轉換為 steps 格式
     const currentStepsData: Record<string, any> = {}
     Object.entries(grantsStore.formData).forEach(([stepKey, stepData]) => {
@@ -1181,7 +1181,7 @@ const executeDesignChange = async (comment?: string) => {
         currentStepsData[stepKey] = stepData
       }
     })
-    
+
     // 合併資料：使用統一的 steps 格式
     const allStepsData = {
       steps: {
@@ -1189,7 +1189,7 @@ const executeDesignChange = async (comment?: string) => {
         ...currentStepsData     // 當前修改的步驟資料
       }
     }
-    
+
     console.log('📋 Previous version steps:', Object.keys(previousStepsData))
     console.log('✏️ Current editing steps:', Object.keys(currentStepsData))
     console.log('🔄 Final merged structure:', Object.keys(allStepsData))
@@ -1210,7 +1210,7 @@ const executeDesignChange = async (comment?: string) => {
 
     // 5. 觸發版本比較資料的重新載入
     await nextTick()
-    
+
     // 6. 統一成功回饋
     showNotificationMessage(
       '變更設計成功',
@@ -1247,16 +1247,16 @@ const handleResetStepData = async () => {
   try {
     // 清空當前步驟的資料
     const emptyData = getDefaultStepData(currentStep.value)
-    
+
     // 使用現有 API 更新步驟資料為空值
     await grantsStore.saveStepData(currentStep.value, emptyData)
-    
+
     // 清除 store 中的該步驟資料
     grantsStore.formData[currentStep.value] = {}
-    
+
     // 觸發當前步驟組件重新載入
     await nextTick()
-    
+
     showNotificationMessage(
       '重置成功',
       `步驟 ${currentStep.value} 的資料已清除`,
@@ -1266,7 +1266,7 @@ const handleResetStepData = async () => {
   } catch (error) {
     console.error('Reset step data failed:', error)
     showNotificationMessage(
-      '重置失敗', 
+      '重置失敗',
       '清除步驟資料時發生錯誤',
       'error'
     )
@@ -1282,7 +1282,7 @@ const getDefaultStepData = (step: number): Record<string, unknown> => {
   switch (step) {
     case 1:
       return { valid: true }
-    case 2: 
+    case 2:
       return { valid: true }
     case 3:
       return { facilities: [], valid: true }
@@ -1878,7 +1878,7 @@ onBeforeRouteLeave((to, from, next) => {
 .navigation-blocked {
   position: relative;
   transition: all 0.3s ease;
-  
+
   &::after {
     content: '';
     position: absolute;
@@ -1890,7 +1890,7 @@ onBeforeRouteLeave((to, from, next) => {
     border-radius: inherit;
     pointer-events: none;
   }
-  
+
   /* 禁用時的視覺回饋 */
   &:hover {
     transform: none !important;
@@ -1925,18 +1925,18 @@ onBeforeRouteLeave((to, from, next) => {
   .v-chip {
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   }
-  
+
   .editing-pulse {
     animation: editingPulse 2s ease-in-out infinite;
   }
 }
 
 @keyframes editingPulse {
-  0%, 100% { 
-    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); 
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4);
   }
-  50% { 
-    box-shadow: 0 0 0 8px rgba(255, 193, 7, 0); 
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 193, 7, 0);
   }
 }
 
