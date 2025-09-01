@@ -389,7 +389,7 @@
                     穿孔管系統配置
                   </div>
 
-                  <div class="d-flex flex-wrap">
+                  <div class="d-flex flex-wrap perforated-pipe-config">
                     <!-- 穿孔管出水方向 -->
                     <v-select
                       v-model="localFormData.perforatedPipeDirection"
@@ -400,14 +400,14 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
-                      style="width: 160px"
+                      style="width: 100px"
                       @update:model-value="onEndFacilityParamsChange"
                     />
 
                     <!-- 支管行距(SL) -->
                     <div class="me-3 mb-2">
                       <div class="text-body-2 mb-1">
-                        支管行距(SL)
+                        行距(SL)
                       </div>
                       <div class="d-flex align-center">
                         <v-text-field
@@ -415,7 +415,7 @@
                           variant="outlined"
                           density="comfortable"
                           type="number"
-                          style="width: 80px"
+                          style="width: 100px"
                           class="me-1"
                           @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
                         />
@@ -424,7 +424,7 @@
                     </div>
 
                     <!-- 支管變徑規格 -->
-                    <v-select
+                    <!-- <v-select
                       v-model="localFormData.changeBranchSpecId"
                       :items="pipeDiameterOptions"
                       item-title="name"
@@ -436,7 +436,7 @@
                       style="width: 150px"
                       clearable
                       hint="若不變徑則不選"
-                    />
+                    /> -->
                   </div>
 
                   <div class="d-flex flex-wrap mt-2">
@@ -446,7 +446,7 @@
                       :items="endFacilityDiameterOptions"
                       item-title="name"
                       item-value="id"
-                      label="末端設施規格"
+                      label="管徑（吋）"
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
@@ -459,7 +459,7 @@
                       :items="filteredEndFacilityPipeFittings"
                       item-title="displayName"
                       item-value="pomno"
-                      label="末端設施名稱"
+                      label="管材名稱"
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
@@ -547,7 +547,7 @@
                     />
                   </div>
 
-                  <div class="d-flex flex-wrap mt-2">
+                  <div class="d-flex flex-wrap mt-2 sprinkler-system-config">
                     <!-- 支管行距與間距 -->
                     <div class="me-3 mb-2">
                       <div class="text-body-2 mb-1">
@@ -920,14 +920,14 @@
                     />
                   </div>
 
-                  <div class="d-flex flex-wrap mt-2">
-                    <!-- 支管材質和規格 -->
+                  <div class="d-flex flex-wrap mt-2 drip-system-config">
+                    <!-- 支管材質和規格以及行距 -->
                     <v-select
                       v-model="localFormData.branchPipeMaterialId"
                       :items="pipeMaterialOptions"
                       item-title="name"
                       item-value="id"
-                      label="支管材質"
+                      label="滴水管材質"
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
@@ -940,20 +940,18 @@
                       :items="pipeDiameterOptions"
                       item-title="name"
                       item-value="id"
-                      label="支管規格"
+                      label="滴水管規格"
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
                       style="width: 150px"
                       @update:model-value="updateFormData"
                     />
-                  </div>
 
-                  <div class="d-flex flex-wrap mt-2">
-                    <!-- 支管行距和間距 -->
+                    <!-- 滴水管行距 -->
                     <div class="me-3 mb-2">
                       <div class="text-body-2 mb-1">
-                        支管行距(SL)
+                        滴水管行距(SL)
                       </div>
                       <div class="d-flex align-center">
                         <v-text-field
@@ -968,8 +966,16 @@
                         <span>M</span>
                       </div>
                     </div>
+                  </div>
 
-                    <div class="me-3 mb-2">
+                  <div class="d-flex flex-wrap mt-2 drip-system-config">
+                    <!-- 噴頭間距、末端管徑和末端管材 -->
+
+                    <!-- 噴頭間距：只有滴嘴滴灌系統(ID=7)才需要顯示 -->
+                    <div
+                      v-if="localFormData.dripperSubtypeId === 7"
+                      class="me-3 mb-2"
+                    >
                       <div class="text-body-2 mb-1">
                         噴頭間距(SS)
                       </div>
@@ -987,30 +993,13 @@
                       </div>
                     </div>
 
-                    <!-- 支管變徑規格 -->
-                    <v-select
-                      v-model="localFormData.changeBranchSpecId"
-                      :items="pipeDiameterOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="支管變徑規格"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      clearable
-                      hint="若不變徑則不選"
-                    />
-                  </div>
-
-                  <div class="d-flex flex-wrap mt-2">
-                    <!-- 末端設施規格和名稱 -->
+                    <!-- 末端管徑 -->
                     <v-select
                       v-model="localFormData.endFacilitySpecId"
                       :items="endFacilityDiameterOptions"
                       item-title="name"
                       item-value="id"
-                      label="末端設施規格"
+                      label="末端管徑（吋）"
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
@@ -1018,12 +1007,13 @@
                       @update:model-value="onEndFacilitySpecChange"
                     />
 
+                    <!-- 末端管材名稱 -->
                     <v-autocomplete
                       v-model="localFormData.endFacilityPomno"
                       :items="filteredEndFacilityPipeFittings"
                       item-title="displayName"
                       item-value="pomno"
-                      label="末端設施名稱"
+                      label="末端管材名稱"
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
@@ -1039,7 +1029,23 @@
                         />
                       </template>
                     </v-autocomplete>
+
+                    <!-- 支管變徑規格 -->
+                    <!-- <v-select
+                      v-model="localFormData.changeBranchSpecId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="滴水管變徑規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      clearable
+                      hint="若不變徑則不選"
+                    /> -->
                   </div>
+
                 </div>
               </v-sheet>
             </v-card-text>
@@ -3068,10 +3074,16 @@ const canAutoFillMaterials = computed(() => {
   }
   // 滴灌系統 (irrigationTypeId === 4)
   else if (localFormData.irrigationTypeId === 4) {
+    // 滴嘴滴灌系統(7)需要噴頭間距，滴水管滴灌系統(8)不需要
+    const needsSprinklerSpacing = localFormData.dripperSubtypeId === 7;
+    const sprinklerSpacingCondition = needsSprinklerSpacing ?
+      (localFormData.sprinklerSpacing_SS !== null && localFormData.sprinklerSpacing_SS > 0) : true;
+
     irrigationTypeSpecificConditions =
       !!localFormData.dripperSubtypeId &&
       !!localFormData.facilityTypeId &&
       (localFormData.branchPipeSpacing_SL !== null && localFormData.branchPipeSpacing_SL > 0) &&
+      sprinklerSpacingCondition &&
       !!localFormData.branchPipeMaterialId &&
       !!localFormData.branchPipeDiameterId &&
       !!localFormData.endFacilitySpecId &&
@@ -3884,9 +3896,22 @@ const autoFillMaterials = async () => {
       if (!localFormData.facilityTypeId) {
         errorMessage += '- 設施型式\n';
       }
+
+      // 條件性檢查行距和間距
+      const needsSprinklerSpacing = localFormData.dripperSubtypeId === 7;
+      const missingFields: string[] = [];
+
       if (localFormData.branchPipeSpacing_SL === null) {
-        errorMessage += '- 支管行距(SL)\n';
+        missingFields.push('滴水管行距(SL)');
       }
+      if (needsSprinklerSpacing && localFormData.sprinklerSpacing_SS === null) {
+        missingFields.push('噴頭間距(SS)');
+      }
+
+      if (missingFields.length > 0) {
+        errorMessage += `- ${missingFields.join('和')}\n`;
+      }
+
       if (!localFormData.branchPipeMaterialId || !localFormData.branchPipeDiameterId) {
         errorMessage += '- 支管材質和規格\n';
       }
@@ -4235,6 +4260,9 @@ const showMissingFieldsInfo = () => {
       'endFacilityPomno': !!localFormData.endFacilityPomno ? '✓' : '✗'
     };
   } else if (irrigationType === 4) { // 滴灌系統
+    // 只有滴嘴滴灌系統 (ID=7) 才需要檢查噴頭間距
+    const needsSprinklerSpacing = localFormData.dripperSubtypeId === 7;
+
     typeSpecificStatus = {
       'dripperSubtypeId': !!localFormData.dripperSubtypeId ? '✓' : '✗',
       'facilityTypeId': !!localFormData.facilityTypeId ? '✓' : '✗',
@@ -4244,6 +4272,11 @@ const showMissingFieldsInfo = () => {
       'endFacilitySpecId': !!localFormData.endFacilitySpecId ? '✓' : '✗',
       'endFacilityPomno': !!localFormData.endFacilityPomno ? '✓' : '✗'
     };
+
+    // 條件性地添加 sprinklerSpacing_SS 檢查
+    if (needsSprinklerSpacing) {
+      typeSpecificStatus['sprinklerSpacing_SS'] = (localFormData.sprinklerSpacing_SS !== null) ? '✓' : '✗';
+    }
   } else {
     typeSpecificStatus = { '灌溉型式': '未選擇或不支援的類型' };
   }
@@ -5834,7 +5867,7 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matamount: Math.floor(data.BranchAmt * 2),
+    matamount: Math.floor(data.BranchAmt), // 原 *2
     description: '滴水帶首端接頭',
     order: 3,
     group: 4
@@ -6208,6 +6241,66 @@ const addMaterialToList = async () => {
 
 .bg-light-blue-lighten-4 {
   background-color: #B3E5FC !important;
+}
+
+/* 穿孔管系統配置組件高度統一 */
+.perforated-pipe-config {
+  align-items: flex-end; /* 將所有組件底部對齊 */
+}
+
+.perforated-pipe-config .v-select,
+.perforated-pipe-config .v-autocomplete {
+  height: 56px; /* 統一高度為 56px (Vuetify 標準高度) */
+}
+
+.perforated-pipe-config .v-field {
+  height: 56px !important;
+}
+
+.perforated-pipe-config .v-field__field {
+  height: 56px !important;
+}
+
+/* 自定義的行距(SL) div 結構對齊調整 */
+.perforated-pipe-config .me-3.mb-2 {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end; /* 讓內容向底部對齊 */
+  height: 80px; /* 給足夠空間容納 label + input */
+}
+
+.perforated-pipe-config .me-3.mb-2 .v-text-field {
+  margin-top: auto; /* 將 text-field 推到底部 */
+}
+
+/* 滴灌系統配置組件高度統一 */
+.drip-system-config {
+  align-items: flex-end; /* 將所有組件底部對齊 */
+}
+
+.drip-system-config .v-select,
+.drip-system-config .v-autocomplete {
+  height: 56px; /* 統一高度為 56px (Vuetify 標準高度) */
+}
+
+.drip-system-config .v-field {
+  height: 56px !important;
+}
+
+.drip-system-config .v-field__field {
+  height: 56px !important;
+}
+
+/* 自定義的滴水管行距(SL) div 結構對齊調整 */
+.drip-system-config .me-3.mb-2 {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end; /* 讓內容向底部對齊 */
+  height: 80px; /* 給足夠空間容納 label + input */
+}
+
+.drip-system-config .me-3.mb-2 .v-text-field {
+  margin-top: auto; /* 將 text-field 推到底部 */
 }
 
 .border {

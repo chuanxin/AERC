@@ -125,7 +125,7 @@
                     :key="`control-${index}`"
                   >
                     <td>  {{ item.name }}</td>
-                    <td />
+                    <td>{{ item.facilityName }}</td>
                     <td class="text-center">
                       {{ item.unit }}
                     </td>
@@ -667,6 +667,7 @@ const controlFacilities = computed(() => {
   const facilities = step3Data.facilities as any[];
   return facilities.map((f: any) => ({
     name: f.typeLabel || f.name,
+    facilityName: f.name, // 真正的設施名稱
     specification: '',
     quantity: f.quantity,
     unitPrice: typeof f.unitPrice === 'number' ? f.unitPrice.toLocaleString() : f.unitPrice,

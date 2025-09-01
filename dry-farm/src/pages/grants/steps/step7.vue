@@ -1058,7 +1058,8 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick } from 'vue';
+import { nextTick, computed, watch, watchEffect } from 'vue';
+import { useRoute } from 'vue-router';
 import { useGrantsStore } from '@/stores/grants';
 // 🆕 導入版本比較相關服務
 import {
@@ -1087,6 +1088,7 @@ const emit = defineEmits(['update:formData', 'validated', 'go-back', 'save-for-i
 
 // Access the grants store
 const grantsStore = useGrantsStore();
+const route = useRoute();
 
 // 🆕 版本比較相關狀態
 const versionComparisonLoading = ref(false);
@@ -1613,6 +1615,224 @@ const calculateDifference = () => {
   updateFormData();
 };
 
+// 智慧資料來源選擇器：透過案件號比對確保 formData 歸屬正確（參考 Step6）
+const getStepDataSafely = (step: number) => {
+  const currentCaseNumber = route.query.id as string;
+  console.log(`🔍 Step7: getStepDataSafely(${step}) - 案件編號:`, currentCaseNumber);
+
+  // 確保只處理當前案件的資料
+  if (!currentCaseNumber) {
+    console.log('❌ Step7: 沒有案件編號');
+    return null;
+  }
+
+  const formData = grantsStore.formData[step];
+  const allStepsData = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.[step.toString()];
+
+  console.log(`🔍 Step7: step ${step} - formData:`, formData);
+  console.log(`🔍 Step7: step ${step} - allStepsData:`, allStepsData);
+
+  // 檢查 formData 是否屬於當前案件（透過 _caseNumber 欄位比對）
+  const formDataCaseNumber = formData?._caseNumber;
+  const isFormDataValid = formDataCaseNumber === currentCaseNumber;
+
+  console.log(`🔍 Step7: step ${step} - formDataCaseNumber: ${formDataCaseNumber}, isValid: ${isFormDataValid}`);
+
+  if (isFormDataValid && formData && Object.keys(formData).length > 1) { // >1 因為至少有 _caseNumber
+    console.log(`✅ Step7: Using formData for step ${step} (case: ${formDataCaseNumber})`);
+    return formData; // 使用 formData（即時同步）
+  }
+
+  // 否則使用 all_steps_data（持久化資料）
+  if (allStepsData && Object.keys(allStepsData).length > 0) {
+    console.log(`📚 Step7: Using all_steps_data for step ${step} (formData case: ${formDataCaseNumber}, current: ${currentCaseNumber})`);
+    return allStepsData;
+  }
+
+  console.log(`❌ Step7: step ${step} 沒有可用資料`);
+  return null;
+};
+
+// 計算田間管路設施補助總額（參考 Step6 邏輯）
+const calculatePipeLineSubsidy = () => {
+  const step4Data = getStepDataSafely(4);
+  console.log('🔍 Step7: calculatePipeLineSubsidy - step4Data:', step4Data);
+
+  if (!step4Data || Object.keys(step4Data).length === 0) {
+    console.log('❌ Step7: step4Data 為空或不存在');
+    return 0;
+  }
+
+  let pipelineTotal = 0;
+  let irrigationTotal = 0;
+
+  // 主管計算
+  if (step4Data.mainPipeQuantity && step4Data.mainPipeUnitPrice) {
+    const quantity = parseInt(step4Data.mainPipeQuantity as string || '0');
+    const unitPrice = parseFloat(step4Data.mainPipeUnitPrice as string || '0');
+    pipelineTotal += quantity * unitPrice;
+    console.log('🔍 Step7: 主管1計算:', { quantity, unitPrice, subtotal: quantity * unitPrice });
+  }
+
+  if (step4Data.mainPipe2Enabled && step4Data.mainPipe2Quantity && step4Data.mainPipe2UnitPrice) {
+    const quantity = parseInt(step4Data.mainPipe2Quantity as string || '0');
+    const unitPrice = parseFloat(step4Data.mainPipe2UnitPrice as string || '0');
+    pipelineTotal += quantity * unitPrice;
+    console.log('🔍 Step7: 主管2計算:', { quantity, unitPrice, subtotal: quantity * unitPrice });
+  }
+
+  // 灌溉系統計算
+  if (step4Data.pipes && Array.isArray(step4Data.pipes)) {
+    console.log('🔍 Step7: pipes 資料:', step4Data.pipes);
+    const filteredPipes = step4Data.pipes.filter((p: any) => {
+      if ([2, 3, 4, 5, 6, 7, 8].includes(p.groupId)) return true;
+      if (p.groupId === 1) return p.module !== '主管';
+      return false;
+    });
+
+    console.log('🔍 Step7: 篩選後的 pipes:', filteredPipes);
+
+    irrigationTotal = filteredPipes.reduce((sum: number, pipe: any) => {
+      const price = typeof pipe.totalPrice === 'number' ? pipe.totalPrice : parseInt(pipe.totalPrice || '0');
+      console.log('🔍 Step7: pipe 價格:', { module: pipe.module, totalPrice: pipe.totalPrice, parsed: price });
+      return sum + price;
+    }, 0);
+  }
+
+  const total = pipelineTotal + irrigationTotal;
+  console.log('🔍 Step7: calculatePipeLineSubsidy 結果:', { pipelineTotal, irrigationTotal, total });
+  return total;
+};
+
+// 計算灌溉調控設施補助總額（參考 Step6 邏輯）
+const calculateFacilitySubsidy = () => {
+  const step3Data = getStepDataSafely(3);
+  console.log('🔍 Step7: calculateFacilitySubsidy - step3Data:', step3Data);
+
+  if (!step3Data || Object.keys(step3Data).length === 0 || !step3Data?.facilities || !Array.isArray(step3Data.facilities)) {
+    console.log('❌ Step7: step3Data.facilities 為空或不存在');
+    return 0;
+  }
+
+  console.log('🔍 Step7: facilities 資料:', step3Data.facilities);
+
+  const total = step3Data.facilities.reduce((sum: number, facility: any) => {
+    const price = typeof facility.totalPrice === 'number'
+                 ? facility.totalPrice
+                 : parseInt(facility.totalPrice || '0');
+    console.log('🔍 Step7: facility 計算:', {
+      name: facility.name,
+      totalPrice: facility.totalPrice,
+      parsed: price
+    });
+    return sum + price;
+  }, 0);
+
+  console.log('🔍 Step7: calculateFacilitySubsidy 結果:', total);
+  return total;
+};
+
+// 計算設計費（參考 Step6 邏輯）
+const calculateDesignFee = (pipeLineSubsidy: number) => {
+  return Math.round(pipeLineSubsidy * 0.02);
+};
+
+// 計算總補助預算（參考 Step6 邏輯）
+const calculateTotalBudget = () => {
+  const pipelineValue = calculatePipeLineSubsidy();
+  const facilityValue = calculateFacilitySubsidy();
+  const designValue = calculateDesignFee(pipelineValue);
+  const total = pipelineValue + facilityValue + designValue;
+
+  console.log('💰 Step7: 計算補助金額:', {
+    pipelineValue,
+    facilityValue,
+    designValue,
+    total
+  });
+
+  return total;
+};
+
+// 響應式計算補助金額 - 當 Step3/Step4 資料變化時自動重新計算
+const computedTotalBudget = computed(() => {
+  console.log('🔄 Step7: computedTotalBudget 正在計算...');
+
+  // 明確監聽這些數據源，讓 Vue 知道需要響應它們的變化
+  const step3FormData = grantsStore.formData[3];
+  const step4FormData = grantsStore.formData[4];
+  const step3AllStepsData = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['3'];
+  const step4AllStepsData = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['4'];
+
+  console.log('🔍 Step7: 數據源監聽狀態:', {
+    step3FormData: step3FormData ? Object.keys(step3FormData).length : 0,
+    step4FormData: step4FormData ? Object.keys(step4FormData).length : 0,
+    step3AllStepsData: step3AllStepsData ? Object.keys(step3AllStepsData).length : 0,
+    step4AllStepsData: step4AllStepsData ? Object.keys(step4AllStepsData).length : 0
+  });
+
+  const pipelineValue = calculatePipeLineSubsidy();
+  const facilityValue = calculateFacilitySubsidy();
+  const designValue = calculateDesignFee(pipelineValue);
+  const total = pipelineValue + facilityValue + designValue;
+
+  console.log('💰 Step7: computedTotalBudget 計算結果:', {
+    pipelineValue,
+    facilityValue,
+    designValue,
+    total,
+    formatted: total > 0 ? total.toLocaleString() : '0'
+  });
+
+  return {
+    pipelineValue,
+    facilityValue,
+    designValue,
+    total,
+    formatted: total > 0 ? total.toLocaleString() : '0'
+  };
+});
+
+// 監聽計算結果變化並自動更新 localFormData
+watch(computedTotalBudget, (newBudget, oldBudget) => {
+  // 只有當金額真的有變化且大於 0 時才更新
+  if (newBudget.total !== oldBudget?.total && newBudget.total > 0) {
+    console.log('💰 Step7: 響應式補助金額更新', {
+      舊金額: oldBudget?.formatted || '0',
+      新金額: newBudget.formatted,
+      計算詳情: {
+        pipelineValue: newBudget.pipelineValue,
+        facilityValue: newBudget.facilityValue,
+        designValue: newBudget.designValue
+      }
+    });
+
+    // 更新 originalPayment
+    localFormData.originalPayment = newBudget.formatted;
+
+    // 如果是原補助款發放模式，同時更新實際發放金額
+    if (localFormData.testResult === 'original') {
+      localFormData.actualPayment = newBudget.formatted;
+    }
+    // 如果是調整模式，重新計算實際發放金額
+    else if (localFormData.testResult === 'adjusted' && localFormData.increasedDecreasedAmount) {
+      try {
+        const original = newBudget.total;
+        const adjustment = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
+        if (!isNaN(adjustment)) {
+          const actual = original + adjustment;
+          localFormData.actualPayment = actual.toLocaleString();
+        }
+      } catch (e) {
+        console.error('重新計算調整後金額失敗:', e);
+      }
+    }
+
+    // 更新父組件
+    updateFormData();
+  }
+}, { immediate: false });
+
 // 更新父組件數據
 const updateFormData = () => {
   emit('update:formData', {
@@ -1807,25 +2027,20 @@ onMounted(async () => {
   // Set default payment info
   if (!localFormData.originalPayment && localFormData.testResult === 'original') {
     console.log('=== Step7 onMounted originalPayment 初始化調試 ===');
-    console.log('grantsStore.formData[6]?.totalBudget:', grantsStore.formData[6]?.totalBudget);
-    
-    if (grantsStore.formData[6]?.totalBudget) {
-      const totalBudget = grantsStore.formData[6].totalBudget;
-      localFormData.originalPayment = typeof totalBudget === 'string' ? totalBudget : totalBudget.toString();
-      console.log('✅ onMounted 設置 originalPayment:', localFormData.originalPayment);
+
+    // 🔄 使用新的計算邏輯來獲取補助金額
+    const calculatedBudget = calculateTotalBudget();
+
+    if (calculatedBudget > 0) {
+      localFormData.originalPayment = calculatedBudget.toLocaleString();
+      console.log('✅ onMounted 使用計算邏輯設置 originalPayment:', localFormData.originalPayment);
     } else {
-      console.log('❌ onMounted totalBudget 不存在，嘗試計算...');
-      // 嘗試從其他步驟獲取預算資料
-      if (grantsStore.formData[6]?.pipeLineSubsidy || grantsStore.formData[6]?.facilitySubsidy) {
-        const pipelineSubsidy = parseInt(((grantsStore.formData[6].pipeLineSubsidy as string) || '0').replace(/,/g, ''));
-        const facilitySubsidy = parseInt(((grantsStore.formData[6].facilitySubsidy as string) || '0').replace(/,/g, ''));
-        const designFee = parseInt(((grantsStore.formData[6].designFee as string) || '0').replace(/,/g, ''));
-        const calculatedTotal = pipelineSubsidy + facilitySubsidy + designFee;
-        
-        if (calculatedTotal > 0) {
-          localFormData.originalPayment = calculatedTotal.toLocaleString();
-          console.log('🔄 onMounted 從子項目計算 originalPayment:', localFormData.originalPayment);
-        }
+      console.log('❌ onMounted 計算結果為 0，嘗試其他方法...');
+      // 備用：嘗試從 grantsStore.formData[6] 取得
+      if (grantsStore.formData[6]?.totalBudget) {
+        const totalBudget = grantsStore.formData[6].totalBudget;
+        localFormData.originalPayment = typeof totalBudget === 'string' ? totalBudget : totalBudget.toString();
+        console.log('✅ onMounted 從 formData 設置 originalPayment:', localFormData.originalPayment);
       }
     }
 
@@ -1880,32 +2095,21 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
 
   if (newValue === 'original') {
     // 如果是 "依核定補助款發放"，則自動設置相關金額
-    // 確保每次都重新設置原補助款金額
     console.log('=== Step7 originalPayment 設置調試 ===');
-    console.log('grantsStore.formData[6]:', grantsStore.formData[6]);
-    console.log('grantsStore.formData[6]?.totalBudget:', grantsStore.formData[6]?.totalBudget);
-    console.log('typeof totalBudget:', typeof grantsStore.formData[6]?.totalBudget);
-    
-    if (grantsStore.formData[6]?.totalBudget) {
-      // 確保資料型別正確 - 如果是字串就直接使用，如果是數字就轉為字串
-      const totalBudget = grantsStore.formData[6].totalBudget;
-      localFormData.originalPayment = typeof totalBudget === 'string' ? totalBudget : totalBudget.toString();
-      console.log('✅ 從 grantsStore 設置 originalPayment:', localFormData.originalPayment);
+
+    // 🔄 使用新的計算邏輯來獲取補助金額
+    const calculatedBudget = calculateTotalBudget();
+
+    if (calculatedBudget > 0) {
+      localFormData.originalPayment = calculatedBudget.toLocaleString();
+      console.log('✅ 從計算邏輯設置 originalPayment:', localFormData.originalPayment);
     } else {
-      console.log('❌ grantsStore.formData[6].totalBudget 不存在或為空');
-      // 嘗試從其他步驟獲取預算資料
-      if (grantsStore.formData[6]?.pipeLineSubsidy || grantsStore.formData[6]?.facilitySubsidy) {
-        const pipelineSubsidy = parseInt(((grantsStore.formData[6].pipeLineSubsidy as string) || '0').replace(/,/g, ''));
-        const facilitySubsidy = parseInt(((grantsStore.formData[6].facilitySubsidy as string) || '0').replace(/,/g, ''));
-        const designFee = parseInt(((grantsStore.formData[6].designFee as string) || '0').replace(/,/g, ''));
-        const calculatedTotal = pipelineSubsidy + facilitySubsidy + designFee;
-        
-        if (calculatedTotal > 0) {
-          localFormData.originalPayment = calculatedTotal.toLocaleString();
-          console.log('🔄 從子項目計算 originalPayment:', localFormData.originalPayment);
-        } else if (!localFormData.originalPayment) {
-          console.log('⚠️ 無法取得總預算，保持現有值');
-        }
+      console.log('❌ 計算結果為 0，嘗試其他方法...');
+      // 備用：嘗試從 grantsStore.formData[6] 取得
+      if (grantsStore.formData[6]?.totalBudget) {
+        const totalBudget = grantsStore.formData[6].totalBudget;
+        localFormData.originalPayment = typeof totalBudget === 'string' ? totalBudget : totalBudget.toString();
+        console.log('✅ 從 formData 設置 originalPayment:', localFormData.originalPayment);
       }
     }
 
@@ -1923,12 +2127,17 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
   } else if (newValue === 'adjusted') {
     // 如果是 "依核定補助款增減列"，則設置金額欄位
     console.log('=== Step7 adjusted originalPayment 設置調試 ===');
-    console.log('grantsStore.formData[6]?.totalBudget:', grantsStore.formData[6]?.totalBudget);
-    
-    if (grantsStore.formData[6]?.totalBudget) {
+
+    // 🔄 使用新的計算邏輯來獲取補助金額
+    const calculatedBudget = calculateTotalBudget();
+
+    if (calculatedBudget > 0) {
+      localFormData.originalPayment = calculatedBudget.toLocaleString();
+      console.log('✅ adjusted: 從計算邏輯設置 originalPayment:', localFormData.originalPayment);
+    } else if (grantsStore.formData[6]?.totalBudget) {
       const totalBudget = grantsStore.formData[6].totalBudget;
       localFormData.originalPayment = typeof totalBudget === 'string' ? totalBudget : totalBudget.toString();
-      console.log('✅ 從 grantsStore 設置 adjusted originalPayment:', localFormData.originalPayment);
+      console.log('✅ adjusted: 從 formData 設置 originalPayment:', localFormData.originalPayment);
     } else {
       console.log('❌ totalBudget 不存在，嘗試計算...');
       // 嘗試從其他步驟獲取預算資料
@@ -1937,7 +2146,7 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
         const facilitySubsidy = parseInt(((grantsStore.formData[6].facilitySubsidy as string) || '0').replace(/,/g, ''));
         const designFee = parseInt(((grantsStore.formData[6].designFee as string) || '0').replace(/,/g, ''));
         const calculatedTotal = pipelineSubsidy + facilitySubsidy + designFee;
-        
+
         if (calculatedTotal > 0) {
           localFormData.originalPayment = calculatedTotal.toLocaleString();
           console.log('🔄 從子項目計算 adjusted originalPayment:', localFormData.originalPayment);
@@ -1951,6 +2160,7 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
       }
     }
 
+    // 設置預設減列金額並立即計算實際發放金額
     if (!localFormData.increasedDecreasedAmount) {
       localFormData.increasedDecreasedAmount = '-1,000';
     }
@@ -1966,6 +2176,7 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
     } catch (e) {
       console.error('計算實際發放金額時出錯', e);
     }
+
     console.log('設置 adjusted 金額:', {
       originalPayment: localFormData.originalPayment,
       increasedDecreasedAmount: localFormData.increasedDecreasedAmount,
@@ -2194,6 +2405,115 @@ watch(() => grantsStore.currentGrant?.case_number, (newCaseNumber, oldCaseNumber
   if (newCaseNumber && newCaseNumber !== oldCaseNumber) {
     console.log('🔄 案件變更，重新載入版本比較:', newCaseNumber);
     loadVersionComparison();
+  }
+});
+
+// 🆕 監聽 Step3 和 Step4 資料變化，自動更新補助金額
+watch(
+  [
+    () => grantsStore.formData[3],
+    () => grantsStore.formData[4],
+    () => (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['3'],
+    () => (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['4']
+  ],
+  (newValues, oldValues) => {
+    console.log('🔍 Step7: watch 被觸發，檢查變化:', {
+      step3FormDataKeys: newValues[0] ? Object.keys(newValues[0]) : [],
+      step4FormDataKeys: newValues[1] ? Object.keys(newValues[1]) : [],
+      step3AllStepsDataKeys: newValues[2] ? Object.keys(newValues[2]) : [],
+      step4AllStepsDataKeys: newValues[3] ? Object.keys(newValues[3]) : [],
+      step3CaseNumber: newValues[0]?._caseNumber,
+      step4CaseNumber: newValues[1]?._caseNumber,
+      currentCaseNumber: route.query.id
+    });
+
+    // 檢查是否有實際的資料變化
+    const hasChanges = newValues.some((newVal, index) => {
+      const oldVal = oldValues?.[index];
+      const hasChange = JSON.stringify(newVal) !== JSON.stringify(oldVal);
+      if (hasChange) {
+        console.log(`🔍 Step7: 資料源 ${index} 有變化:`, {
+          dataType: index === 0 ? 'step3FormData' :
+                   index === 1 ? 'step4FormData' :
+                   index === 2 ? 'step3AllStepsData' : 'step4AllStepsData',
+          newKeys: newVal ? Object.keys(newVal) : [],
+          oldKeys: oldVal ? Object.keys(oldVal) : []
+        });
+      }
+      return hasChange;
+    });
+
+    if (hasChanges) {
+      console.log('🔄 Step7: 偵測到 Step3 或 Step4 資料變化，重新計算補助金額');
+
+      // 重新計算補助金額
+      const calculatedBudget = calculateTotalBudget();
+
+      if (calculatedBudget > 0) {
+        const newAmount = calculatedBudget.toLocaleString();
+
+        // 只有當金額真的有變化時才更新
+        if (localFormData.originalPayment !== newAmount) {
+          console.log('💰 Step7: 補助金額更新', {
+            原金額: localFormData.originalPayment,
+            新金額: newAmount,
+            計算詳情: {
+              pipelineValue: calculatePipeLineSubsidy(),
+              facilityValue: calculateFacilitySubsidy(),
+              designValue: calculateDesignFee(calculatePipeLineSubsidy())
+            }
+          });
+
+          // 更新補助金額
+          localFormData.originalPayment = newAmount;
+
+          // 如果是原補助款發放模式，同時更新實際發放金額
+          if (localFormData.testResult === 'original') {
+            localFormData.actualPayment = newAmount;
+          }
+
+          // 更新父組件
+          updateFormData();
+        }
+      }
+    }
+  },
+  {
+    deep: true, // 深度監聽物件屬性變化
+    flush: 'post' // 在 DOM 更新後觸發
+  }
+);
+
+// 🆕 額外的 watchEffect 用於更強的響應式監聽
+watchEffect(() => {
+  // 只有在正確的頁面和步驟時才運行
+  const currentCaseNumber = route.query.id as string;
+  if (!currentCaseNumber || route.query.step !== '7') return;
+
+  // 訪問資料源以建立響應式依賴
+  const step3Data = grantsStore.formData[3];
+  const step4Data = grantsStore.formData[4];
+  const step3AllSteps = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['3'];
+  const step4AllSteps = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['4'];
+
+  // 檢查是否有有效的資料變化
+  const hasValidStep3Data = (step3Data?._caseNumber === currentCaseNumber && Object.keys(step3Data).length > 1) ||
+                           (step3AllSteps && Object.keys(step3AllSteps).length > 0);
+
+  const hasValidStep4Data = (step4Data?._caseNumber === currentCaseNumber && Object.keys(step4Data).length > 1) ||
+                           (step4AllSteps && Object.keys(step4AllSteps).length > 0);
+
+  if (hasValidStep3Data || hasValidStep4Data) {
+    console.log('🔥 Step7: watchEffect 偵測到有效的資料變化，觸發重新計算:', {
+      hasValidStep3Data,
+      hasValidStep4Data,
+      step3Keys: step3Data ? Object.keys(step3Data) : [],
+      step4Keys: step4Data ? Object.keys(step4Data) : []
+    });
+
+    // 觸發 computedTotalBudget 重新計算
+    const newBudget = computedTotalBudget.value;
+    console.log('🔥 Step7: watchEffect 計算結果:', newBudget);
   }
 });
 
