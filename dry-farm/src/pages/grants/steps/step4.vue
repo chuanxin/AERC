@@ -5946,7 +5946,7 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
 // });
 
 // 統一的資料載入函數
-const loadDataFromProps = (propsData: any) => {
+const loadDataFromProps = (propsData: Record<string, unknown>) => {
   console.log('📥 loadDataFromProps called with:', propsData);
 
   if (!propsData || Object.keys(propsData).length === 0) {
@@ -5959,6 +5959,9 @@ const loadDataFromProps = (propsData: any) => {
     console.log('⚠️ Already updating, skipping loadDataFromProps');
     return;
   }
+
+  // 🔥 修復 race condition：在函數內部設置狀態
+  isUpdating.value = true;
 
   let loadedCount = 0;
   Object.keys(localFormData).forEach(key => {
@@ -5992,15 +5995,21 @@ const loadDataFromProps = (propsData: any) => {
   if (loadedCount > 0) {
     calculateWidth();
   }
+
+  // 🔥 修復 race condition：函數結束後重置狀態
+  isUpdating.value = false;
 };
 
 onMounted(async () => {
   isUpdating.value = true;
 
-  if (grantsStore.currentStep !== 4) {
-    console.warn(`⚠️ Step4 component mounted but currentStep is ${grantsStore.currentStep}, not 4`)
+  // 🔥 修復：使用三層映射架構 - step4.vue 現在對應 UI step 5
+  // 根據三層映射：UI step 5 → Component step4.vue → Data step 4
+  const expectedUIStep = 5; // step4.vue 現在對應 UI step 5 (田間管路)
+  if (grantsStore.currentStep !== expectedUIStep) {
+    console.warn(`⚠️ Step4 component mounted but currentStep is ${grantsStore.currentStep}, expected ${expectedUIStep} (田間管路)`)
     // 可以發出事件通知父組件，但不直接修改
-    // emit('step-mismatch', { expected: 4, actual: grantsStore.currentStep })
+    // emit('step-mismatch', { expected: expectedUIStep, actual: grantsStore.currentStep })
   }
 
   await loadDropdownOptions();
@@ -6072,9 +6081,8 @@ watch(() => props.formData, (newVal, oldVal) => {
 
   // 只有當真的有新數據時才載入
   if (newVal && Object.keys(newVal).length > 0 && newVal !== oldVal) {
-    isUpdating.value = true;
+    // 🔥 修復 race condition：在 loadDataFromProps 內部設置 isUpdating
     loadDataFromProps(newVal);
-    isUpdating.value = false;
   }
 }, { deep: true });
 

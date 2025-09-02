@@ -1125,7 +1125,7 @@ const handleCaseArchived = async (eventData: {
 
     // 1. 保存歸檔資料
     await grantsStore.updateFormData(eventData.step, eventData.data)
-    await grantsStore.saveAllChanges()
+    await grantsStore.saveAllChanges(eventData.step)  // 🔥 使用正確的 dataStep
 
     // 2. 更新案件狀態為已歸檔
     if (grantsStore.currentGrant) {
@@ -1516,7 +1516,7 @@ const handleFormDataUpdate = (dataStep: number, data: Record<string, unknown>) =
     console.log('⏰ Setting up autosave timer (3 seconds)');
     autoSaveTimer.value = window.setTimeout(async () => {
       console.log('💾 Autosave triggered for current dataStep', dataStep);
-      await saveAllChanges()
+      await grantsStore.saveAllChanges(dataStep)  // 🔥 傳遞正確的 dataStep
       autoSaveTimer.value = null
     }, 3000) // Autosave after 3 seconds of inactivity
   } else if (grantsStore.hasUnsavedChanges) {
@@ -1573,13 +1573,13 @@ const handleStepReadyToProceed = async (eventData: { step: number, data: Record<
 }
 
 // Save all unsaved changes
-const saveAllChanges = async () => {
+const saveAllChanges = async (targetDataStep?: number) => {
   if (autoSaveTimer.value) {
     clearTimeout(autoSaveTimer.value)
     autoSaveTimer.value = null
   }
 
-  return grantsStore.saveAllChanges()
+  return grantsStore.saveAllChanges(targetDataStep)
 }
 
 // Step click handler with improved error handling
