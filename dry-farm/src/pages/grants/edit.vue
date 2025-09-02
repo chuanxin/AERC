@@ -381,28 +381,28 @@
                         @go-back-requested="handleGoBack"
                         @navigation-state-changed="handleNavigationStateChanged"
                       />
-                      <step3
+                      <step5
                         v-if="currentStep === 3"
+                        :form-data="grantsStore.formData[5]"
+                        :current-step="currentStep"
+                        @update:form-data="(data) => handleFormDataUpdate(5, data)"
+                        @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
+                        @go-back="handleGoBack"
+                      />
+                      <step3
+                        v-if="currentStep === 4"
                         :form-data="grantsStore.formData[3]"
                         :current-step="currentStep"
-                        @update:form-data="handleFormDataUpdate(3, $event)"
-                        @validated="handleStepValidated"
+                        @update:form-data="(data) => handleFormDataUpdate(3, data)"
+                        @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                         @go-back="handleGoBack"
                       />
                       <step4
-                        v-if="currentStep === 4"
+                        v-if="currentStep === 5"
                         :form-data="grantsStore.formData[4]"
                         :current-step="currentStep"
-                        @update:form-data="handleFormDataUpdate(4, $event)"
-                        @validated="handleStepValidated"
-                        @go-back="handleGoBack"
-                      />
-                      <step5
-                        v-if="currentStep === 5"
-                        :form-data="grantsStore.formData[5]"
-                        :current-step="currentStep"
-                        @update:form-data="handleFormDataUpdate(5, $event)"
-                        @validated="handleStepValidated"
+                        @update:form-data="(data) => handleFormDataUpdate(4, data)"
+                        @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                         @go-back="handleGoBack"
                       />
                       <step6
@@ -907,13 +907,13 @@ const drawerOpen = ref(true)
 const isRailMode = ref(false) // Default to expanded
 const drawerWidth = ref(280)
 
-// Step definitions
+// Step definitions - 將現場勘查插入到 step2 與 step3 之間
 const steps = [
   { title: '申請人資料', value: 1, subtitle: '申請人資料' },
   { title: '土地資料', value: 2, subtitle: '請填寫土地資料' },
-  { title: '現場勘查', value: 3, subtitle: '請填寫現場勘查' },
-  { title: '灌溉調控設施', value: 4, subtitle: '請填寫灌溉調控設施' },
-  { title: '田間管路', value: 5, subtitle: '請填寫田間管路' },
+  { title: '現場勘查', value: 3, subtitle: '請填寫現場勘查' }, // 顯示step5內容但位置在第3步
+  { title: '灌溉調控設施', value: 4, subtitle: '請填寫灌溉調控設施' }, // 顯示step3內容但位置在第4步
+  { title: '田間管路', value: 5, subtitle: '請填寫田間管路' }, // 顯示step4內容但位置在第5步
   { title: '文件列印及完成申報', value: 6, subtitle: '請填寫補助申請資料' },
   { title: '功能測試', value: 7, subtitle: '請填寫結案申報' },
   { title: '佐證及相關文件上傳', value: 8, subtitle: '請上傳佐證及相關文件' },
@@ -1401,45 +1401,24 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
   }
 }
 
-// Handle form data updates from step components
-const handleFormDataUpdate = (step: number, data: Record<string, unknown>) => {
-  console.log(`🔄 edit.vue handleFormDataUpdate called for step ${step}`);
+// Handle form data updates from step components - 修復無限循環問題
+const handleFormDataUpdate = (dataStep: number, data: Record<string, unknown>) => {
+  console.log(`🔄 edit.vue handleFormDataUpdate called for dataStep ${dataStep}`);
   console.log('📤 Received data keys:', Object.keys(data));
-  console.log('📤 Received data sample:', {
-    fieldLength: data.fieldLength,
-    fieldWidth: data.fieldWidth,
-    facilityArea: data.facilityArea,
-    fundingSourceId: data.fundingSourceId
-  });
-
-  // 確保 grantsStore.currentStep 與接收到的 step 一致
-  if (grantsStore.currentStep !== step) {
-    console.log(`🔧 edit.vue: Correcting grantsStore.currentStep from ${grantsStore.currentStep} to ${step}`);
-    grantsStore.updateCurrentStep(step);
-  }
-
-  // 同時更新本地的 currentStep ref
-  if (currentStep.value !== step) {
-    console.log(`🔧 edit.vue: Correcting local currentStep from ${currentStep.value} to ${step}`);
-    currentStep.value = step;
-  }
-
-  grantsStore.updateFormData(step, data)
+  
+  // 🔥 關鍵修復：不修改 currentStep，只更新對應 dataStep 的資料
+  // currentStep 表示 UI 顯示的步驟，dataStep 表示資料儲存的步驟
+  grantsStore.updateFormData(dataStep, data)
 
   console.log('📊 After updateFormData - grantsStore.hasUnsavedChanges:', grantsStore.hasUnsavedChanges);
-  console.log('📊 grantsStore.currentStep:', grantsStore.currentStep);
-  console.log('📊 local currentStep.value:', currentStep.value);
-  console.log('📊 grantsStore.formData[' + step + '] sample:', {
-    fieldLength: grantsStore.formData[step]?.fieldLength,
-    fieldWidth: grantsStore.formData[step]?.fieldWidth,
-    facilityArea: grantsStore.formData[step]?.facilityArea
-  });
+  console.log('📊 Updated formData for dataStep:', dataStep);
+  console.log('📊 UI currentStep remains:', currentStep.value);
 
   // Setup autosave if changes are made
   if (grantsStore.hasUnsavedChanges && !autoSaveTimer.value) {
     console.log('⏰ Setting up autosave timer (3 seconds)');
     autoSaveTimer.value = window.setTimeout(async () => {
-      console.log('💾 Autosave triggered for step', grantsStore.currentStep);
+      console.log('💾 Autosave triggered for current dataStep', dataStep);
       await saveAllChanges()
       autoSaveTimer.value = null
     }, 3000) // Autosave after 3 seconds of inactivity
@@ -1589,6 +1568,17 @@ const ensureCorrectStep = (expectedStep: number) => {
   }
 }
 
+// 獲取當前步驟對應的資料步驟 - 簡化映射
+const getDataStepForCurrentStep = (currentStepValue: number): number => {
+  // 直接映射：step3→5, step4→3, step5→4, 其他保持不變
+  const mapping: Record<number, number> = {
+    3: 5, // 現場勘查使用 step5 的資料
+    4: 3, // 灌溉調控設施使用 step3 的資料
+    5: 4  // 田間管路使用 step4 的資料
+  }
+  return mapping[currentStepValue] || currentStepValue
+}
+
 // Improved data loading with race condition prevention
 let isLoadingData = false
 const loadStepData = async (step: number) => {
@@ -1605,18 +1595,22 @@ const loadStepData = async (step: number) => {
     return;
   }
 
+  // 🔥 修復步驟重組邏輯：根據直接映射載入正確的資料
+  const dataStep = getDataStepForCurrentStep(step)
+  console.log(`[edit.vue loadStepData] Step ${step} maps to dataStep ${dataStep}`)
+
   isLoadingData = true;
   const caseNum = route.query.id as string;
   submitting.value = true; // This seems more like an isLoadingData flag
   isDataLoaded.value = false; // Indicate data for the new step is not yet loaded
-  console.log(`[edit.vue loadStepData] Attempting to load data for step: ${step}, caseNumber: ${caseNum}`);
+  console.log(`[edit.vue loadStepData] Attempting to load data for step: ${step} (dataStep: ${dataStep}), caseNumber: ${caseNum}`);
 
   try {
-    await grantsStore.loadStepData(caseNum, step);
-    console.log(`[edit.vue loadStepData] grantsStore.loadStepData for step ${step} successful. Form data for step ${step}:`, JSON.stringify(grantsStore.formData[step], null, 2));
+    await grantsStore.loadStepData(caseNum, dataStep);
+    console.log(`[edit.vue loadStepData] grantsStore.loadStepData for dataStep ${dataStep} successful. Form data for dataStep ${dataStep}:`, JSON.stringify(grantsStore.formData[dataStep], null, 2));
     isDataLoaded.value = true;
   } catch (error) {
-    console.error(`[edit.vue loadStepData] Failed to load data for step ${step}:`, error);
+    console.error(`[edit.vue loadStepData] Failed to load data for dataStep ${dataStep}:`, error);
   } finally {
     submitting.value = false; // Reset the flag
     isLoadingData = false;
