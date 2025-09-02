@@ -165,10 +165,10 @@
                         value="notComply"
                         label="不符合"
                       />
-                      <v-radio
+                      <!-- <v-radio
                         value="other"
                         label="其他"
-                      />
+                      /> -->
                     </v-radio-group>
                   </div>
                 </v-col>
@@ -430,7 +430,14 @@ const props = defineProps({
 });
 
 // Event emitters - using expected event names from edit.vue
-const emit = defineEmits(['update:formData', 'validated', 'go-back']);
+const emit = defineEmits([
+  'update:formData',
+  'validated',
+  'go-back',
+  'case-archived',
+  'navigation-state-changed',
+  'button-config-changed'
+]);
 
 // Access grants store
 const grantsStore = useGrantsStore();
@@ -438,6 +445,35 @@ const grantsStore = useGrantsStore();
 // Form ref and validation state
 const form = ref(null);
 const localValid = ref(true);
+
+// 新增：導航狀態管理
+const navigationState = reactive({
+  canNavigate: true,
+  isEditing: true,
+  reason: ''
+});
+
+// 新增：按鈕配置管理
+const buttonConfig = computed(() => {
+  if (localFormData.inspectionResult === 'notComply') {
+    return {
+      text: '不受理',
+      color: 'warning',
+      icon: 'mdi-archive-outline',
+      action: 'archive',
+      disabled: false
+    };
+  }
+
+  // 預設正常流程
+  return {
+    text: '下一步',
+    color: '#3ea0a3',
+    icon: 'mdi-arrow-right',
+    action: 'proceed',
+    disabled: false
+  };
+});
 
 // 本地表單數據
 const localFormData = reactive({
@@ -456,13 +492,129 @@ const localFormData = reactive({
 // 驗證規則
 const reasonRules = computed(() => {
   if (localFormData.inspectionResult === 'notComply' || localFormData.inspectionResult === 'other') {
-    return [(v: any) => !!v || '請填寫原因說明'];
+    return [(v: string | undefined | null) => !!v || '請填寫原因說明'];
   }
   return [];
 });
 
+// 新增：處理不受理案件歸檔
+const handleArchiveCase = async () => {
+  console.log('📦 [step5] Processing case archive - inspection not compliant');
+
+  try {
+    // 1. 驗證必填欄位
+    if (!localFormData.inspector || !localFormData.inspectionDate || !localFormData.reason) {
+      alert('請填寫完整的勘查資訊和不符合原因');
+      return;
+    }
+
+    // 2. 更新案件狀態為不受理
+    const archiveData = {
+      ...localFormData,
+      status: 'rejected',
+      archived: true,
+      archiveReason: localFormData.reason,
+      archiveDate: new Date().toISOString(),
+      finalStep: 5, // 標記最終停留在第5步
+      valid: true
+    };
+
+    // 3. 發送歸檔事件給父組件
+    emit('case-archived', {
+      step: props.currentStep,
+      data: archiveData,
+      reason: localFormData.reason
+    });
+
+    // 4. 禁用進一步編輯
+    navigationState.canNavigate = false;
+    navigationState.isEditing = false;
+    navigationState.reason = '案件已歸檔：勘查結果不符合';
+
+    // 5. 發送導航狀態變更事件
+    emit('navigation-state-changed', {
+      step: props.currentStep,
+      canNavigate: false,
+      isEditing: false,
+      reason: '案件已歸檔：勘查結果不符合'
+    });
+
+    console.log('✅ [step5] Case archived successfully');
+
+  } catch (error) {
+    console.error('❌ [step5] Failed to archive case:', error);
+    alert('歸檔失敗，請稍後再試');
+  }
+};
+
+// 新增：處理正常進入下一步
+const handleProceedToNext = () => {
+  console.log('➡️ [step5] Proceeding to next step');
+
+  // 驗證表單
+  if (!validateForm()) {
+    return;
+  }
+
+  // 發送驗證成功事件
+  emit('validated', {
+    valid: true,
+    step: props.currentStep + 1
+  });
+};
+
+// 新增：表單驗證函數
+const validateForm = () => {
+  // 基本必填欄位檢查
+  if (!localFormData.inspector) {
+    alert('請填寫勘查人員');
+    return false;
+  }
+
+  if (!localFormData.inspectionDate) {
+    alert('請選擇勘查日期');
+    return false;
+  }
+
+  if (!localFormData.inspectionResult) {
+    alert('請選擇勘查結果');
+    return false;
+  }
+
+  // 照片檢查
+  if (localFormData.beforePhotoPreviews.length === 0) {
+    alert('請至少上傳1張施工前照片');
+    return false;
+  }
+
+  // 不符合時必須填寫原因
+  if (localFormData.inspectionResult === 'notComply' && !localFormData.reason) {
+    alert('請填寫不符合的原因說明');
+    return false;
+  }
+
+  return true;
+};
+
+// 新增：處理按鈕動作請求（來自父組件）
+const handleActionRequest = (action: string) => {
+  console.log(`🎯 [step5] handleActionRequest called with action: ${action}`);
+
+  if (action === 'archive') {
+    handleArchiveCase();
+  } else if (action === 'proceed') {
+    handleProceedToNext();
+  }
+};
+
+// 暴露方法給父組件調用
+defineExpose({
+  handleActionRequest,
+  validateForm
+});
+
 const photoRules = [
-  (v: any) => {
+  (v: File[] | null | undefined) => {
     if (!v || (Array.isArray(v) && v.length === 0)) {
       return '請至少上傳1張照片';
     }
@@ -720,10 +872,11 @@ onMounted(() => {
 
   // 從父組件接收數據
   if (props.formData) {
-    // 設置基本屬性
-    Object.keys(localFormData).forEach(key => {
+    // 設置基本屬性，使用類型安全的方式
+    const formDataKeys = Object.keys(localFormData) as Array<keyof typeof localFormData>;
+    formDataKeys.forEach(key => {
       if (props.formData[key] !== undefined) {
-        localFormData[key] = props.formData[key];
+        (localFormData as any)[key] = props.formData[key];
       }
     });
   }
@@ -738,32 +891,23 @@ onMounted(() => {
     localFormData.inspectionDate = `${year}-${month}-${day}`;
   }
 
-  // Set example data for demo
-  if (!localFormData.inspector) {
-    // localFormData.inspector = '張工程師';
-  }
-
-  if (!localFormData.inspectionResult) {
-    // localFormData.inspectionResult = 'comply';
-  }
-
-  if (!localFormData.remarks) {
-    // localFormData.remarks = '設施符合規定，農地平整，排水良好。';
-  }
-
-  // 不再設置 mock 照片預覽，讓使用者自己上傳
-
   // Initial update to parent
   updateFormData();
+
+  // 初始發送按鈕配置
+  nextTick(() => {
+    emit('button-config-changed', buttonConfig.value);
+  });
 });
 
 // 監聽父組件數據變化
 watch(() => props.formData, (newVal) => {
   if (newVal) {
-    Object.keys(localFormData).forEach(key => {
+    const formDataKeys = Object.keys(localFormData) as Array<keyof typeof localFormData>;
+    formDataKeys.forEach(key => {
       if (newVal[key] !== undefined &&
-          JSON.stringify(newVal[key]) !== JSON.stringify(localFormData[key])) {
-        localFormData[key] = newVal[key];
+          JSON.stringify(newVal[key]) !== JSON.stringify((localFormData as any)[key])) {
+        (localFormData as any)[key] = newVal[key];
       }
     });
   }
@@ -779,6 +923,34 @@ watch(localValid, (newVal) => {
   if (props.formData?.valid !== newVal) {
     updateFormData();
   }
+});
+
+// 新增：監聽勘查結果變化，動態調整導航狀態和按鈕配置
+watch(() => localFormData.inspectionResult, (newValue, oldValue) => {
+  console.log(`🔄 [step5] Inspection result changed: ${oldValue} → ${newValue}`);
+
+  if (newValue === 'notComply') {
+    // 不符合時，仍允許編輯以填寫原因，但改變按鈕行為
+    navigationState.canNavigate = true;
+    navigationState.isEditing = true;
+    navigationState.reason = '需要填寫不符合原因';
+  } else if (newValue === 'comply') {
+    // 符合時，恢復正常導航
+    navigationState.canNavigate = true;
+    navigationState.isEditing = true;
+    navigationState.reason = '';
+  }
+
+  // 發送按鈕配置變更事件給父組件
+  emit('button-config-changed', buttonConfig.value);
+
+  // 發送導航狀態變更事件
+  emit('navigation-state-changed', {
+    step: props.currentStep,
+    canNavigate: navigationState.canNavigate,
+    isEditing: navigationState.isEditing,
+    reason: navigationState.reason
+  });
 });
 
 // 清理預覽資源的函數

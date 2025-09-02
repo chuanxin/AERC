@@ -383,11 +383,15 @@
                       />
                       <step5
                         v-if="currentStep === 3"
+                        ref="step5Ref"
                         :form-data="grantsStore.formData[5]"
                         :current-step="currentStep"
                         @update:form-data="(data) => handleFormDataUpdate(5, data)"
                         @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                         @go-back="handleGoBack"
+                        @case-archived="handleCaseArchived"
+                        @navigation-state-changed="handleNavigationStateChanged"
+                        @button-config-changed="handleStep5ButtonConfigChanged"
                       />
                       <step3
                         v-if="currentStep === 4"
@@ -477,7 +481,7 @@
                     <v-btn
                       :disabled="isNavigating || !canGoToNextStep"
                       :class="{ 'navigation-blocked': !canGoToNextStep }"
-                      :color="currentStep === 7 ? step7ButtonConfig.color : '#3ea0a3'"
+                      :color="getButtonColor()"
                       class="mr-6 pl-6 next-btn"
                       size="x-large"
                       variant="outlined"
@@ -496,6 +500,9 @@
                       <template v-else-if="currentStep === 6">
                         完成申報
                       </template>
+                      <template v-else-if="currentStep === 3">
+                        {{ step5ButtonConfig.text }}
+                      </template>
                       <template v-else>
                         下一步
                       </template>
@@ -513,6 +520,13 @@
                         :color="canGoToNextStep ? 'white' : 'grey'"
                       >
                         {{ step7ButtonConfig.icon }}
+                      </v-icon>
+                      <v-icon
+                        v-else-if="currentStep === 3"
+                        end
+                        :color="canGoToNextStep ? 'white' : 'grey'"
+                      >
+                        {{ step5ButtonConfig.icon }}
                       </v-icon>
                       <v-icon
                         v-else
@@ -850,8 +864,19 @@ const step7ButtonConfig = ref({
   action: 'proceed'
 })
 
+// 新增：Step5 按鈕配置
+const step5ButtonConfig = ref({
+  text: '下一步',
+  color: '#3ea0a3',
+  icon: 'mdi-arrow-right',
+  action: 'proceed'
+})
+
 // Step7 組件引用
 const step7Ref = ref<{ handleActionRequest: (action: string) => void } | null>(null)
+
+// 新增：Step5 組件引用
+const step5Ref = ref<{ handleActionRequest: (action: string) => void; validateForm: () => boolean } | null>(null)
 
 // 🆕 變更設計相關狀態
 const designChangeLoading = ref(false)
@@ -1017,6 +1042,16 @@ const getErrorMessage = (errorType: DesignChangeErrorType, originalError: any) =
 
 // 🗑️ 移除舊的變更設計功能 - 已被 executeDesignChange 取代
 
+// 新增：計算按鈕顏色
+const getButtonColor = () => {
+  if (currentStep.value === 3) {
+    return step5ButtonConfig.value.color
+  } else if (currentStep.value === 7) {
+    return step7ButtonConfig.value.color
+  }
+  return '#3ea0a3'
+}
+
 // Step icon and color logic
 const getStepIcon = (stepValue: number): string => {
   if (submitting.value && currentStep.value === stepValue) return 'mdi-loading mdi-spin'
@@ -1071,6 +1106,59 @@ const handleStep7ButtonConfigChanged = (buttonConfig: { text: string; color: str
   step7ButtonConfig.value = buttonConfig
 }
 
+// 新增：處理 Step5 按鈕配置變化
+const handleStep5ButtonConfigChanged = (buttonConfig: { text: string; color: string; icon: string; action: string }) => {
+  console.log('Step5 按鈕配置變化:', buttonConfig)
+  step5ButtonConfig.value = buttonConfig
+}
+
+// 新增：處理案件歸檔事件
+const handleCaseArchived = async (eventData: {
+  step: number;
+  data: Record<string, unknown>;
+  reason: string;
+}) => {
+  console.log('📦 [edit.vue] Handling case archived:', eventData)
+
+  try {
+    submitting.value = true
+
+    // 1. 保存歸檔資料
+    await grantsStore.updateFormData(eventData.step, eventData.data)
+    await grantsStore.saveAllChanges()
+
+    // 2. 更新案件狀態為已歸檔
+    if (grantsStore.currentGrant) {
+      // 這裡可以調用 API 更新案件狀態
+      console.log('案件已歸檔，原因：', eventData.reason)
+    }
+
+    // 3. 顯示歸檔成功提示
+    showNotificationMessage(
+      '案件已歸檔',
+      `勘查結果不符合，案件已留存歸檔`,
+      'warning'
+    )
+
+    // 4. 禁用後續編輯功能
+    navigationStates.value[eventData.step] = {
+      canNavigate: false,
+      isEditing: false,
+      reason: '案件已歸檔：勘查結果不符合'
+    }
+
+  } catch (error) {
+    console.error('❌ [edit.vue] Failed to archive case:', error)
+    showNotificationMessage(
+      '歸檔失敗',
+      '案件歸檔過程中發生錯誤',
+      'error'
+    )
+  } finally {
+    submitting.value = false
+  }
+}
+
 // 處理存檔功能（限期改善）
 const handleSaveForImprovement = async () => {
   console.log('處理存檔功能：現場勘查未通過驗收，將於改善後複驗')
@@ -1114,10 +1202,19 @@ const handleNavigationStateChanged = (eventData: {
 const handleMainButtonClick = () => {
   console.log('主按鈕點擊:', {
     currentStep: currentStep.value,
-    buttonConfig: step7ButtonConfig.value
+    step5ButtonConfig: step5ButtonConfig.value,
+    step7ButtonConfig: step7ButtonConfig.value
   })
 
-  if (currentStep.value === 7) {
+  if (currentStep.value === 3) {
+    // 處理 step5（現場勘查）的按鈕點擊
+    console.log('委派給 step5 組件處理動作:', step5ButtonConfig.value.action)
+    if (step5Ref.value && step5Ref.value.handleActionRequest) {
+      step5Ref.value.handleActionRequest(step5ButtonConfig.value.action)
+    } else {
+      console.error('step5Ref 或 handleActionRequest 方法不存在')
+    }
+  } else if (currentStep.value === 7) {
     // 委派給 step7 組件處理對應的動作
     console.log('委派給 step7 組件處理動作:', step7ButtonConfig.value.action)
     if (step7Ref.value && step7Ref.value.handleActionRequest) {
@@ -1405,7 +1502,7 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
 const handleFormDataUpdate = (dataStep: number, data: Record<string, unknown>) => {
   console.log(`🔄 edit.vue handleFormDataUpdate called for dataStep ${dataStep}`);
   console.log('📤 Received data keys:', Object.keys(data));
-  
+
   // 🔥 關鍵修復：不修改 currentStep，只更新對應 dataStep 的資料
   // currentStep 表示 UI 顯示的步驟，dataStep 表示資料儲存的步驟
   grantsStore.updateFormData(dataStep, data)
