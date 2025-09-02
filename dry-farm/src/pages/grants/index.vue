@@ -570,42 +570,61 @@ const statusMapping = {
   1: '處理中',
   2: '完成申請人資料',
   3: '完成土地資料',
-  4: '完成灌溉調控設施',
-  5: '完成田間管路',
-  6: '完成現場勘查',
+  4: '完成現場勘查',
+  5: '完成灌溉調控設施',
+  6: '完成田間管路',
   7: '完成補助申請資料',
   8: '完成結案申報',
 }
 
+// 整合後端 GrantStatus 枚舉的狀態映射表
+const grantStatusMapping = {
+  'draft': '草稿',
+  'submitted': '已提交',
+  'under_review': '審查中',
+  'approved': '核准',
+  'rejected': '駁回',
+  'withdrawn': '撤銷',
+  'cross_year': '跨年度案件',
+  'completed': '已結案',
+  'deleted': '已刪除'
+} as const
+
 const getStatusText = (currentStep: number, isLegacy?: boolean, status?: string): string => {
+  // 處理特殊狀態 - 優先使用後端 GrantStatus 枚舉
   if (isLegacy) {
     return '歷史案件'
   }
 
-  // 處理特殊狀態
-  if (status === 'cross_year') {
-    return '跨年度案件'
-  }
-  if (status === 'completed') {
-    return '已結案'
-  }
-  if (status === 'deleted') {
-    return '已刪除'
-  }
+  // TODO：使用後端 GrantStatus 枚舉狀態
+  // if (status && status in grantStatusMapping) {
+  //   return grantStatusMapping[status as keyof typeof grantStatusMapping]
+  // }
 
+  // 預設使用基於步驟的狀態映射
   return statusMapping[currentStep as keyof typeof statusMapping] || '處理中'
 }
 
-const getStatusColor = (currentStep: number, status?: string) => {
-  // 處理特殊狀態的顏色
-  if (status === 'cross_year') {
-    return 'orange-lighten-4' // 跨年度案件使用橙色
-  }
-  if (status === 'completed') {
-    return 'green-lighten-4' // 已結案使用綠色
-  }
+// 整合後端 GrantStatus 枚舉的顏色映射表
+const grantStatusColorMapping = {
+  'draft': 'grey-lighten-4',           // 草稿 - 灰色
+  'submitted': 'blue-lighten-4',       // 已提交 - 藍色
+  'under_review': 'amber-lighten-4',   // 審查中 - 琥珀色
+  'approved': 'green-lighten-4',       // 核准 - 綠色
+  'rejected': 'red-lighten-4',         // 駁回 - 紅色
+  'withdrawn': 'purple-lighten-4',     // 撤銷 - 紫色
+  'cross_year': 'orange-lighten-4',    // 跨年度案件 - 橙色
+  'completed': 'green-lighten-4',      // 已結案 - 綠色
+  'deleted': 'red-lighten-5'           // 已刪除 - 淡紅色
+} as const
 
-  // 根據步驟返回顏色
+const getStatusColor = (currentStep: number, status?: string) => {
+  // TODO：優先使用後端 GrantStatus 枚舉狀態顏色
+  // if (status && status in grantStatusColorMapping) {
+  //   return grantStatusColorMapping[status as keyof typeof grantStatusColorMapping]
+  // }
+
+  // 預設根據步驟返回顏色
   if (currentStep <= 2) return 'blue-lighten-5'
   if (currentStep <= 4) return 'amber-lighten-5'
   if (currentStep <= 6) return 'light-green-lighten-5'
@@ -835,15 +854,15 @@ const deleteItem = async (item: GrantListItem) => {
   if (confirm(confirmMessage)) {
     try {
       console.log(`📋 [deleteItem] 開始刪除案件: ${item.case_number} (ID: ${item.id})`)
-      
+
       await grantsStore.deleteGrantFromList(item)
-      
+
       console.log(`📋 [deleteItem] 案件 ${item.case_number} 已成功刪除`)
       alert(`案件 ${item.case_number} 已成功刪除`)
-      
+
     } catch (error) {
       console.error(`📋 [deleteItem] 刪除案件 ${item.case_number} 失敗:`, error)
-      
+
       // 提供更詳細的錯誤信息
       let errorMessage = '刪除案件失敗'
       if (error instanceof Error) {
@@ -857,7 +876,7 @@ const deleteItem = async (item: GrantListItem) => {
           errorMessage = `刪除失敗：${error.message}`
         }
       }
-      
+
       alert(errorMessage)
     }
   }
