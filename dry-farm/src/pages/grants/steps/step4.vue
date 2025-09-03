@@ -5906,6 +5906,11 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
       const branchPipeMaterial = branchPipeMatch.matchedData?.material?.name || selectedBranchPipe?.materialName || 'PE';
       const branchPipeSpec = branchPipeMatch.matchedData?.diameter1?.name || selectedBranchPipe?.specName || branchSpecName;
 
+      // 計算管材數量：總長度除以標準長度，當length欄位為空值時固定除4
+      const materialLength = branchPipeMatch.matchedData?.length || 4;
+      const totalLength = data.BranchAmt * data.width;
+      const materialQuantity = Math.ceil(totalLength / materialLength);
+
       addMaterial(materials, localFormData.branchPipePomno, branchPipeSpec, branchPipeMaterial, '', {
         module: '滴灌管',
         matname: branchPipeName,
@@ -5914,15 +5919,19 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
         spec1: branchPipeSpec,
         spec2: '',
         spec3: '',
-        itemunit: 'm',
-        matamount: Math.ceil(data.BranchAmt * data.width), // 管材用無條件進位
-        description: '滴灌管材',
+        itemunit: `${materialLength}m`,
+        matamount: materialQuantity,
+        description: `滴灌管材`,
         order: 1,
         group: 4
       });
     }
   } else {
-    // 其他情況：使用原有邏輯
+    // 其他情況：使用原有邏輯，預設長度為4m計價
+    const defaultMaterialLength = 4;
+    const totalLength = data.BranchAmt * data.width;
+    const materialQuantity = Math.ceil(totalLength / defaultMaterialLength);
+
     addMaterial(materials, 12, branchSpecName, branchMaterialName, '', {
       module: '滴灌管',
       matname: `滴灌管 ${branchSpecName}`,
@@ -5931,9 +5940,9 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
       spec1: branchSpecName,
       spec2: '',
       spec3: '',
-      itemunit: 'm',
-      matamount: Math.ceil(data.BranchAmt * data.width), // 管材用無條件進位
-      description: '滴灌管材',
+      itemunit: `${defaultMaterialLength}m`,
+      matamount: materialQuantity,
+      description: `滴灌管材`,
       order: 1,
       group: 4
     });
@@ -6076,6 +6085,11 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
       const endFacilityMaterial = endFacilityMatch.matchedData?.material?.name || selectedEndFacility?.materialName || 'PE';
       const endFacilitySpec = endFacilityMatch.matchedData?.diameter1?.name || selectedEndFacility?.specName || branchSpecName;
 
+      // 計算管材數量：總長度除以標準長度，當length欄位為空值時固定除4
+      const materialLength = endFacilityMatch.matchedData?.length || 4;
+      const totalLength = data.BranchAmt * data.width;
+      const materialQuantity = Math.ceil(totalLength / materialLength);
+
       addMaterial(materials, localFormData.endFacilityPomno, endFacilitySpec, endFacilityMaterial, '', {
         module: '滴灌管',
         matname: endFacilityName,
@@ -6084,9 +6098,9 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
         spec1: endFacilitySpec,
         spec2: '',
         spec3: '',
-        itemunit: 'm',
-        matamount: Math.ceil(data.BranchAmt * data.width), // 使用與滴水帶相同的計算公式（管材用無條件進位）
-        description: '滴灌管材',
+        itemunit: `${materialLength}m`,
+        matamount: materialQuantity,
+        description: `滴灌管材`,
         order: 1,
         group: 4
       });
@@ -6239,8 +6253,8 @@ const loadDataFromProps = (propsData: Record<string, unknown>) => {
       let newValue = propsData[key];
 
       // 🔥 如果正在清除末端設施，跳過相關欄位的載入
-      if (isClearingEndFacility.value && 
-          (key === 'endFacilitySpecId' || key === 'endFacilityPomno' || 
+      if (isClearingEndFacility.value &&
+          (key === 'endFacilitySpecId' || key === 'endFacilityPomno' ||
            key === 'endFacilityDiameter' || key === 'endFacilityMaterial')) {
         console.log(`⏸️ Skipping ${key} loading during end facility clearing`);
         return;
@@ -6410,33 +6424,33 @@ watch(
   [() => localFormData.dripperSubtypeId, () => localFormData.branchPipeDiameterId],
   ([newDripperSubtypeId, newBranchPipeDiameterId], [oldDripperSubtypeId]) => {
     // 當切換 ID=7 或 ID=8 時，清除末端管徑選取內容並重新載入選項
-    if (newDripperSubtypeId !== oldDripperSubtypeId && 
+    if (newDripperSubtypeId !== oldDripperSubtypeId &&
         (newDripperSubtypeId === 7 || newDripperSubtypeId === 8 || oldDripperSubtypeId === 7 || oldDripperSubtypeId === 8)) {
       console.log(`🔄 Switching between ID=7/8, clearing end facility spec: ${oldDripperSubtypeId} → ${newDripperSubtypeId}`);
-      
+
       // 設置清除狀態，阻止 loadDataFromProps 重新載入這些欄位
       isClearingEndFacility.value = true;
-      
+
       // 直接清除相關欄位，不調用函數以避免不必要的更新
       localFormData.endFacilitySpecId = null;
       localFormData.endFacilityPomno = null;
       localFormData.endFacilityDiameter = '';
       localFormData.endFacilityMaterial = '';
-      
+
       console.log('🧹 Directly cleared end facility fields:', {
         endFacilitySpecId: localFormData.endFacilitySpecId,
         endFacilityPomno: localFormData.endFacilityPomno,
         endFacilityDiameter: localFormData.endFacilityDiameter,
         endFacilityMaterial: localFormData.endFacilityMaterial
       });
-      
+
       // 立即更新父組件數據，防止 loadDataFromProps 重新載入舊數據
       updateFormData();
-      
+
       // 重新載入末端設施選項，確保選項列表與新的滴頭類型匹配
       nextTick(async () => {
         await loadEndFacilityOptions();
-        
+
         // 清除完成後解除阻止狀態
         setTimeout(() => {
           isClearingEndFacility.value = false;
