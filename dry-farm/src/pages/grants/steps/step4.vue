@@ -3262,7 +3262,7 @@ const filteredMaterialOptions = computed(() => {
   const uniqueFittings = pipeFittingsStore.pipeFittings.reduce((acc, fitting) => {
     // 使用 pomno 作為唯一鍵，確保沒有重複材料
     if (!acc.has(fitting.pomno)) {
-      // 建構完整的搜尋文字，包含規格（管徑）資訊
+      // 建構完整的搜尋文字，包含規格（管徑）資訊 - 不去重，顯示所有口徑
       const diameters = [
         fitting.diameter1?.name,
         fitting.diameter1?.value,
@@ -4537,7 +4537,7 @@ const showMissingFieldsInfo = () => {
   if (missingFields.length > 0) {
     message = `缺少以下必填欄位:\n${missingFields.map(f => `• ${f}`).join('\n')}`;
   } else {
-    message = '所有必填欄位皆已填寫，但可能有其他條件未滿足。請檢查控制台以獲取更多信息。';
+    message = '所有必填欄位皆已填寫，但可能有其他條件未滿足。請檢查控制台以獲取更多訊息。';
   }
 
   // 使用 alert 顯示訊息 (或可以改用其他 UI 元件)
@@ -5991,7 +5991,7 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matamount: Math.floor(data.BranchAmt * 2),
+    matamount: Math.floor(data.BranchAmt), // 原為 *2
     description: '滴灌管首端接頭',
     order: 3,
     group: 4
@@ -6150,7 +6150,7 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
     spec2: '',
     spec3: '',
     itemunit: '個',
-    matamount: Math.floor(data.BranchAmt), // 原 *2
+    matamount: Math.floor(data.BranchAmt), // 原為 *2
     description: '滴灌管首端接頭',
     order: 3,
     group: 4
@@ -6503,14 +6503,14 @@ const getDiameterDisplay = (item: any) => {
   // 收集所有可用的管徑資訊
   const diameters = [];
 
-  // 檢查 diameter1, diameter2, diameter3
+  // 檢查 diameter1, diameter2, diameter3 - 不去重，顯示所有口徑
   if (item.diameter1?.name) {
     diameters.push(item.diameter1.name);
   }
-  if (item.diameter2?.name && item.diameter2.name !== item.diameter1?.name) {
+  if (item.diameter2?.name) {
     diameters.push(item.diameter2.name);
   }
-  if (item.diameter3?.name && item.diameter3.name !== item.diameter1?.name && item.diameter3.name !== item.diameter2?.name) {
+  if (item.diameter3?.name) {
     diameters.push(item.diameter3.name);
   }
 
