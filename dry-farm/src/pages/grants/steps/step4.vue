@@ -921,51 +921,114 @@
                   </div>
 
                   <div class="d-flex flex-wrap mt-2 drip-system-config">
-                    <!-- 支管材質和規格以及行距 -->
-                    <v-select
-                      v-model="localFormData.branchPipeMaterialId"
-                      :items="pipeMaterialOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="滴水管材質"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      @update:model-value="updateFormData"
-                    />
-
-                    <v-select
-                      v-model="localFormData.branchPipeDiameterId"
-                      :items="pipeDiameterOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="滴水管規格"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      @update:model-value="updateFormData"
-                    />
-
-                    <!-- 滴水管行距 -->
-                    <div class="me-3 mb-2">
-                      <div class="text-body-2 mb-1">
-                        滴水管行距(SL)
+                    <!-- ID=7滴嘴滴灌系統的特殊配置：使用與ID=8相同的資料來源 -->
+                    <template v-if="localFormData.dripperSubtypeId === 7">
+                      <!-- 滴灌管行距(SL) - 移至滴水管規格前方 -->
+                      <div class="me-3 mb-2">
+                        <div class="text-body-2 mb-1">
+                          滴灌管行距(SL)
+                        </div>
+                        <div class="d-flex align-center">
+                          <v-text-field
+                            v-model.number="localFormData.branchPipeSpacing_SL"
+                            variant="outlined"
+                            density="comfortable"
+                            type="number"
+                            style="width: 80px"
+                            class="me-1"
+                            @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
+                          />
+                          <span>M</span>
+                        </div>
                       </div>
-                      <div class="d-flex align-center">
-                        <v-text-field
-                          v-model.number="localFormData.branchPipeSpacing_SL"
-                          variant="outlined"
-                          density="comfortable"
-                          type="number"
-                          style="width: 80px"
-                          class="me-1"
-                          @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
-                        />
-                        <span>M</span>
+
+                      <!-- 滴水管規格 - 使用與ID=8相同的pipeDrip資料來源 -->
+                      <v-select
+                        v-model="localFormData.branchPipeDiameterId"
+                        :items="branchPipeSpecOptionsForId7"
+                        item-title="name"
+                        item-value="id"
+                        label="滴灌管規格"
+                        variant="outlined"
+                        density="comfortable"
+                        class="me-3 mb-2"
+                        style="width: 150px"
+                        @update:model-value="onBranchPipeSpecChangeForId7"
+                      />
+
+                      <!-- 滴水管名稱 - 替換原本的滴水管材質，使用與ID=8相同的pipeDrip資料來源 -->
+                      <v-autocomplete
+                        v-model="localFormData.branchPipePomno"
+                        :items="filteredBranchPipeFittings"
+                        item-title="displayName"
+                        item-value="pomno"
+                        label="滴灌管名稱"
+                        variant="outlined"
+                        density="comfortable"
+                        class="me-3 mb-2"
+                        style="width: 250px"
+                        clearable
+                        @update:model-value="onSelectedBranchPipeChangeForId7"
+                      >
+                        <template #item="{ props: itemProps, item }">
+                          <v-list-item
+                            v-bind="itemProps"
+                            :title="item.raw.displayName"
+                            :subtitle="`材質: ${item.raw.materialName}`"
+                          />
+                        </template>
+                      </v-autocomplete>
+                    </template>
+
+                    <!-- 其他滴灌系統(ID=8等)：不再需要滴水管材質+滴水管規格 -->
+                    <!-- ID=8時，滴灌管行距(SL)已移至末端管徑同一列，此處不顯示任何欄位 -->
+                    <!-- 其他ID時保持原有邏輯 -->
+                    <template v-else-if="localFormData.dripperSubtypeId !== 8">
+                      <v-select
+                        v-model="localFormData.branchPipeMaterialId"
+                        :items="pipeMaterialOptions"
+                        item-title="name"
+                        item-value="id"
+                        label="滴水管材質"
+                        variant="outlined"
+                        density="comfortable"
+                        class="me-3 mb-2"
+                        style="width: 150px"
+                        @update:model-value="updateFormData"
+                      />
+
+                      <v-select
+                        v-model="localFormData.branchPipeDiameterId"
+                        :items="pipeDiameterOptions"
+                        item-title="name"
+                        item-value="id"
+                        label="滴水管規格"
+                        variant="outlined"
+                        density="comfortable"
+                        class="me-3 mb-2"
+                        style="width: 150px"
+                        @update:model-value="updateFormData"
+                      />
+
+                      <!-- 滴灌管行距(SL) - 其他ID時保持在原位 -->
+                      <div class="me-3 mb-2">
+                        <div class="text-body-2 mb-1">
+                          滴灌管行距(SL)
+                        </div>
+                        <div class="d-flex align-center">
+                          <v-text-field
+                            v-model.number="localFormData.branchPipeSpacing_SL"
+                            variant="outlined"
+                            density="comfortable"
+                            type="number"
+                            style="width: 80px"
+                            class="me-1"
+                            @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
+                          />
+                          <span>M</span>
+                        </div>
                       </div>
-                    </div>
+                    </template>
                   </div>
 
                   <div class="d-flex flex-wrap mt-2 drip-system-config">
@@ -993,42 +1056,108 @@
                       </div>
                     </div>
 
-                    <!-- 末端管徑 -->
-                    <v-select
-                      v-model="localFormData.endFacilitySpecId"
-                      :items="endFacilityDiameterOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="末端管徑（吋）"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      @update:model-value="onEndFacilitySpecChange"
-                    />
+                    <!-- ID=8時：滴灌管行距(SL) + 末端管徑 + 末端管材名稱 在同一列 -->
+                    <template v-if="localFormData.dripperSubtypeId === 8">
+                      <!-- 滴灌管行距(SL) -->
+                      <div class="me-3 mb-2">
+                        <div class="text-body-2 mb-1">
+                          滴灌管行距(SL)
+                        </div>
+                        <div class="d-flex align-center">
+                          <v-text-field
+                            v-model.number="localFormData.branchPipeSpacing_SL"
+                            variant="outlined"
+                            density="comfortable"
+                            type="number"
+                            style="width: 80px"
+                            class="me-1"
+                            @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
+                          />
+                          <span>M</span>
+                        </div>
+                      </div>
 
-                    <!-- 末端管材名稱 -->
-                    <v-autocomplete
-                      v-model="localFormData.endFacilityPomno"
-                      :items="filteredEndFacilityPipeFittings"
-                      item-title="displayName"
-                      item-value="pomno"
-                      label="末端管材名稱"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 250px"
-                      clearable
-                      @update:model-value="onSelectedEndFacilityChange"
-                    >
-                      <template #item="{ props, item }">
-                        <v-list-item
-                          v-bind="props"
-                          :title="item.raw.displayName"
-                          :subtitle="`材質: ${item.raw.materialName}`"
-                        />
-                      </template>
-                    </v-autocomplete>
+                      <!-- 末端管徑 -->
+                      <v-select
+                        :key="`end-facility-spec-${localFormData.dripperSubtypeId}`"
+                        v-model="localFormData.endFacilitySpecId"
+                        :items="endFacilityDiameterOptions"
+                        item-title="name"
+                        item-value="id"
+                        label="末端管徑（吋）"
+                        variant="outlined"
+                        density="comfortable"
+                        class="me-3 mb-2"
+                        style="width: 150px"
+                        @update:model-value="onEndFacilitySpecChange"
+                      />
+
+                      <!-- 末端管材名稱 -->
+                      <v-autocomplete
+                        :key="`end-facility-pomno-${localFormData.dripperSubtypeId}`"
+                        v-model="localFormData.endFacilityPomno"
+                        :items="filteredEndFacilityPipeFittings"
+                        item-title="displayName"
+                        item-value="pomno"
+                        label="末端管材名稱"
+                        variant="outlined"
+                        density="comfortable"
+                        class="me-3 mb-2"
+                        style="width: 250px"
+                        clearable
+                        @update:model-value="onSelectedEndFacilityChange"
+                      >
+                        <template #item="{ props: itemProps, item }">
+                          <v-list-item
+                            v-bind="itemProps"
+                            :title="item.raw.displayName"
+                            :subtitle="`材質: ${item.raw.materialName}`"
+                          />
+                        </template>
+                      </v-autocomplete>
+                    </template>
+
+                    <!-- 其他ID時：保持原有的末端管徑+末端管材名稱佈局 -->
+                    <template v-else>
+                      <!-- 末端管徑 -->
+                      <v-select
+                        :key="`end-facility-spec-${localFormData.dripperSubtypeId}`"
+                        v-model="localFormData.endFacilitySpecId"
+                        :items="endFacilityDiameterOptions"
+                        item-title="name"
+                        item-value="id"
+                        label="末端管徑（吋）"
+                        variant="outlined"
+                        density="comfortable"
+                        class="me-3 mb-2"
+                        style="width: 150px"
+                        @update:model-value="onEndFacilitySpecChange"
+                      />
+
+                      <!-- 末端管材名稱 -->
+                      <v-autocomplete
+                        :key="`end-facility-pomno-${localFormData.dripperSubtypeId}`"
+                        v-model="localFormData.endFacilityPomno"
+                        :items="filteredEndFacilityPipeFittings"
+                        item-title="displayName"
+                        item-value="pomno"
+                        label="末端管材名稱"
+                        variant="outlined"
+                        density="comfortable"
+                        class="me-3 mb-2"
+                        style="width: 250px"
+                        clearable
+                        @update:model-value="onSelectedEndFacilityChange"
+                      >
+                        <template #item="{ props: itemProps2, item }">
+                          <v-list-item
+                            v-bind="itemProps2"
+                            :title="item.raw.displayName"
+                            :subtitle="`材質: ${item.raw.materialName}`"
+                          />
+                        </template>
+                      </v-autocomplete>
+                    </template>
 
                     <!-- 支管變徑規格 -->
                     <!-- <v-select
@@ -2139,6 +2268,7 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick } from 'vue'
 import { useGrantsStore } from '@/stores/grants';
 import { useOfficesStore } from '@/stores/offices'
 import { usePipeFittingsStore } from '@/stores/pipeFittingsStore'
@@ -2388,6 +2518,7 @@ const materialSearchQuery = ref('');
 const isAddingMaterial = ref(false);
 const isCalculatingSubsidy = ref(false);
 const isUpdating = ref(false);
+const isClearingEndFacility = ref(false);
 
 
 // 除錯資訊相關
@@ -2431,6 +2562,7 @@ const localFormData = reactive({
   changeBranchSpecId: null as number | null, // 變徑規格ID (原 variantType/Adjustable)
   branchPipeMaterialId: null as number | null, // 支管主要材質ID
   branchPipeDiameterId: null as number | null, // 支管主要管徑ID
+  branchPipePomno: null as number | null, // 滴水管件POMNO (ID=7時使用)
 
   // Legacy properties for backward compatibility
   variantType: '',
@@ -2533,6 +2665,9 @@ const dripperTypeOptions = computed(() => {
 })
 // 末端設施的選項列表 (動態載入)
 const filteredEndFacilityPipeFittings = ref<EndFacilityPipeFitting[]>([]);
+
+// ID=7滴水管件的選項列表 (使用與ID=8相同的資料來源)
+const filteredBranchPipeFittings = ref<EndFacilityPipeFitting[]>([]);
 
 // --- 模擬API獲取下拉選單數據 (您需要用真實的API呼叫替換) ---
 const loadDropdownOptions = async () => {
@@ -2652,6 +2787,11 @@ const endFacilityDiameterOptions = computed(() => {
 
   // 默認返回所有管徑選項
   return pipeDiameterOptions.value;
+});
+
+// ID=7滴水管規格選項 (使用與ID=8相同的pipeDrip資料來源)
+const branchPipeSpecOptionsForId7 = computed(() => {
+  return convertToSelectOptions(filteredPipeFittingsByModule.value.pipeDrip || []);
 });
 
 // 輔助函數：將管件數據轉換為下拉選項格式
@@ -2960,7 +3100,7 @@ const groupedPipes = computed(() => {
     1: '主管組',
     2: '支管組',
     3: '穿孔管組', // 穿孔管末端
-    4: '滴水管組',   // 滴灌末端
+    4: '滴灌系統組',   // 滴灌末端
     5: '豎管組',
     6: '固定設施組',
     7: '消耗性材料',
@@ -3079,13 +3219,26 @@ const canAutoFillMaterials = computed(() => {
     const sprinklerSpacingCondition = needsSprinklerSpacing ?
       (localFormData.sprinklerSpacing_SS !== null && localFormData.sprinklerSpacing_SS > 0) : true;
 
+    // ID=7 (滴嘴滴灌系統) 需要檢查滴水管規格和名稱
+    // ID=8 (滴水管滴灌系統) 不再需要檢查支管材質和規格，因為已移除這些欄位
+    let branchPipeConditions = true;
+    if (localFormData.dripperSubtypeId === 7) {
+      // ID=7：檢查滴水管規格和名稱
+      branchPipeConditions = !!localFormData.branchPipeDiameterId && !!localFormData.branchPipePomno;
+    } else if (localFormData.dripperSubtypeId === 8) {
+      // ID=8：不需要檢查支管材質和規格，因為這些欄位已移除
+      branchPipeConditions = true;
+    } else {
+      // 其他滴灌系統類型：保持原有邏輯
+      branchPipeConditions = !!localFormData.branchPipeMaterialId && !!localFormData.branchPipeDiameterId;
+    }
+
     irrigationTypeSpecificConditions =
       !!localFormData.dripperSubtypeId &&
       !!localFormData.facilityTypeId &&
       (localFormData.branchPipeSpacing_SL !== null && localFormData.branchPipeSpacing_SL > 0) &&
       sprinklerSpacingCondition &&
-      !!localFormData.branchPipeMaterialId &&
-      !!localFormData.branchPipeDiameterId &&
+      branchPipeConditions &&
       !!localFormData.endFacilitySpecId &&
       !!localFormData.endFacilityPomno;
   }
@@ -3210,7 +3363,7 @@ const materialGroupOptions = computed(() => [
   { id: 1, name: '主管組' },
   { id: 2, name: '支管組' },
   { id: 3, name: '穿孔管組' },
-  { id: 4, name: '滴水管組' },
+  { id: 4, name: '滴灌系統組' },
   { id: 5, name: '豎管組' },
   { id: 6, name: '固定設施組' },
   { id: 7, name: '消耗性材料' },
@@ -3512,6 +3665,63 @@ const onSelectedEndFacilityChange = (selectedPomno: number | null) => {
         localFormData.endFacilitySpecId = null;
     }
     updateFormData();
+};
+
+// ID=7滴水管規格變更處理
+const onBranchPipeSpecChangeForId7 = () => {
+  updateBranchPipeFittingsForId7();
+};
+
+// 更新ID=7滴水管件選項 (使用與ID=8相同的pipeDrip資料來源)
+const updateBranchPipeFittingsForId7 = () => {
+  const branchPipeSpec = localFormData.branchPipeDiameterId;
+
+  // 從pipeDrip模組中篩選管件 (與ID=8使用相同來源)
+  let fittings = filteredPipeFittingsByModule.value.pipeDrip || [];
+
+  // 根據選擇的規格進一步篩選
+  if (branchPipeSpec) {
+    fittings = fittings.filter(f => f.diameter1_id === branchPipeSpec);
+  }
+
+  // 轉換為滴水管件選項格式
+  const newFittings = fittings.map(fitting => ({
+    pomno: fitting.pomno,
+    displayName: fitting.name || `${fitting.material_name || ''} ${fitting.diameter1_name || ''}`.trim(),
+    materialName: fitting.material.name || '',
+    specName: fitting.diameter1_name || '',
+    specId: fitting.diameter1_id
+  }));
+
+  // 去重複
+  const uniqueFittings = newFittings.reduce((acc, current) => {
+    const exists = acc.find(item => item.pomno === current.pomno);
+    if (!exists) {
+      acc.push(current);
+    }
+    return acc;
+  }, [] as EndFacilityPipeFitting[]);
+
+  filteredBranchPipeFittings.value = uniqueFittings;
+};
+
+// ID=7滴水管件名稱變更處理
+const onSelectedBranchPipeChangeForId7 = (selectedPomno: number | null) => {
+  if (selectedPomno) {
+    const selectedFitting = filteredBranchPipeFittings.value.find(f => f.pomno === selectedPomno);
+    if (selectedFitting) {
+      // 將規格同步回主要欄位
+      localFormData.branchPipeDiameterId = selectedFitting.specId || null;
+      // 可以從POMNO獲取對應的材質資訊
+    }
+  } else {
+    // 清空時同時清除滴灌管規格和POMNO，與末端管材名稱的清除邏輯保持一致
+    localFormData.branchPipePomno = null;
+    localFormData.branchPipeDiameterId = null;
+    // 清空管件選項
+    filteredBranchPipeFittings.value = [];
+  }
+  updateFormData();
 };
 
 // 設施類型變更
@@ -5683,21 +5893,51 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
   const branchSpecName = pipeDiameterOptions.value.find(d => d.id === data.BranchSpec)?.name || '16mm';
   const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name || '1"';
 
-  // 滴灌管
-  addMaterial(materials, 12, branchSpecName, branchMaterialName, '', {
-    module: '滴灌管',
-    matname: `滴灌管 ${branchSpecName}`,
-    module_id: 12,
-    mattype: branchMaterialName,
-    spec1: branchSpecName,
-    spec2: '',
-    spec3: '',
-    itemunit: 'm',
-    matamount: Math.ceil(data.BranchAmt * data.width), // 管材用無條件進位
-    description: '滴灌管材',
-    order: 1,
-    group: 4
-  });
+  // 滴灌管 - 當ID=7時，使用選擇的滴水管名稱和規格
+  if (localFormData.dripperSubtypeId === 7 && localFormData.branchPipePomno) {
+    // ID=7：使用選擇的滴水管件（來源與ID=8相同）
+    const branchPipeMatch = matchMaterialByPomno(localFormData.branchPipePomno);
+    const selectedBranchPipe = filteredBranchPipeFittings.value.find(
+      fitting => fitting.pomno === localFormData.branchPipePomno
+    );
+
+    if (branchPipeMatch.matchedData || selectedBranchPipe) {
+      const branchPipeName = branchPipeMatch.matchedData?.name || selectedBranchPipe?.displayName || '滴灌管';
+      const branchPipeMaterial = branchPipeMatch.matchedData?.material?.name || selectedBranchPipe?.materialName || 'PE';
+      const branchPipeSpec = branchPipeMatch.matchedData?.diameter1?.name || selectedBranchPipe?.specName || branchSpecName;
+
+      addMaterial(materials, localFormData.branchPipePomno, branchPipeSpec, branchPipeMaterial, '', {
+        module: '滴灌管',
+        matname: branchPipeName,
+        module_id: 12,
+        mattype: branchPipeMaterial,
+        spec1: branchPipeSpec,
+        spec2: '',
+        spec3: '',
+        itemunit: 'm',
+        matamount: Math.ceil(data.BranchAmt * data.width), // 管材用無條件進位
+        description: '滴灌管材',
+        order: 1,
+        group: 4
+      });
+    }
+  } else {
+    // 其他情況：使用原有邏輯
+    addMaterial(materials, 12, branchSpecName, branchMaterialName, '', {
+      module: '滴灌管',
+      matname: `滴灌管 ${branchSpecName}`,
+      module_id: 12,
+      mattype: branchMaterialName,
+      spec1: branchSpecName,
+      spec2: '',
+      spec3: '',
+      itemunit: 'm',
+      matamount: Math.ceil(data.BranchAmt * data.width), // 管材用無條件進位
+      description: '滴灌管材',
+      order: 1,
+      group: 4
+    });
+  }
 
   // 三通
   const dripTeeSpec = `${mainSpecName}×${branchSpecName}`;
@@ -5809,25 +6049,54 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
   const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name || '1"';
 
   // 滴水帶 - 管材用無條件進位
-  addMaterial(materials, 12, branchSpecName, 'PE', '', {
-    module: '滴水帶',
-    matname: `滴水帶 ${branchSpecName}`,
-    module_id: 12,
-    mattype: 'PE',
-    spec1: branchSpecName,
-    spec2: '',
-    spec3: '',
-    itemunit: 'm',
-    matamount: Math.ceil(data.BranchAmt * data.width), // 管材用無條件進位
-    description: '滴水帶材料',
-    order: 1,
-    group: 4
-  });
+  // addMaterial(materials, 12, branchSpecName, 'PE', '', {
+  //   module: '滴水帶',
+  //   matname: `滴水帶 ${branchSpecName}`,
+  //   module_id: 12,
+  //   mattype: 'PE',
+  //   spec1: branchSpecName,
+  //   spec2: '',
+  //   spec3: '',
+  //   itemunit: 'm',
+  //   matamount: Math.ceil(data.BranchAmt * data.width), // 管材用無條件進位
+  //   description: '滴水帶材料',
+  //   order: 1,
+  //   group: 4
+  // });
+
+  // 末端管材 - 使用與滴水帶相同的計算公式（管材類：無條件進位）
+  if (localFormData.endFacilityPomno) {
+    const endFacilityMatch = matchMaterialByPomno(localFormData.endFacilityPomno);
+    const selectedEndFacility = filteredEndFacilityPipeFittings.value.find(
+      fitting => fitting.pomno === localFormData.endFacilityPomno
+    );
+
+    if (endFacilityMatch.matchedData || selectedEndFacility) {
+      const endFacilityName = endFacilityMatch.matchedData?.name || selectedEndFacility?.displayName || '末端管材';
+      const endFacilityMaterial = endFacilityMatch.matchedData?.material?.name || selectedEndFacility?.materialName || 'PE';
+      const endFacilitySpec = endFacilityMatch.matchedData?.diameter1?.name || selectedEndFacility?.specName || branchSpecName;
+
+      addMaterial(materials, localFormData.endFacilityPomno, endFacilitySpec, endFacilityMaterial, '', {
+        module: '滴灌管',
+        matname: endFacilityName,
+        module_id: 12, // 使用與滴水帶相同的模組ID，表示管材類
+        mattype: endFacilityMaterial,
+        spec1: endFacilitySpec,
+        spec2: '',
+        spec3: '',
+        itemunit: 'm',
+        matamount: Math.ceil(data.BranchAmt * data.width), // 使用與滴水帶相同的計算公式（管材用無條件進位）
+        description: '滴灌管材',
+        order: 1,
+        group: 4
+      });
+    }
+  }
 
   // 三通 - 配件用無條件捨去
   const dripTapeTeeSpec = `${mainSpecName}×${branchSpecName}`;
   addMaterial(materials, 2, dripTapeTeeSpec, '', '三通', {
-    module: '滴水帶配件',
+    module: '滴灌配件',
     matname: '三通',
     module_id: 2,
     mattype: 'PVC',
@@ -5836,7 +6105,7 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
     spec3: '',
     itemunit: '個',
     matamount: Math.floor(data.BranchAmt),
-    description: '主管轉滴水帶三通',
+    description: '主管轉滴灌管三通',
     order: 2,
     group: 4
   });
@@ -5859,7 +6128,7 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
 
   // 管首接頭 - 配件用無條件捨去
   addMaterial(materials, 2, branchSpecName, '', '管首接頭', {
-    module: '滴水帶配件',
+    module: '滴灌配件',
     matname: '管首接頭',
     module_id: 2,
     mattype: 'PE',
@@ -5868,14 +6137,14 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
     spec3: '',
     itemunit: '個',
     matamount: Math.floor(data.BranchAmt), // 原 *2
-    description: '滴水帶首端接頭',
+    description: '滴灌管首端接頭',
     order: 3,
     group: 4
   });
 
   // 管尾束 - 配件用無條件捨去
   addMaterial(materials, 2, branchSpecName, '', '管尾束', {
-    module: '滴水帶配件',
+    module: '滴灌配件',
     matname: '管尾束',
     module_id: 2,
     mattype: 'PE',
@@ -5884,14 +6153,14 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
     spec3: '',
     itemunit: '個',
     matamount: Math.floor(data.BranchAmt),
-    description: '滴水帶末端束扣',
+    description: '滴灌管末端束扣',
     order: 4,
     group: 4
   });
 
   return {
     GroupNo: 4,
-    GroupName: '滴水帶系統組',
+    GroupName: '滴灌系統組',
     List: materials
   };
 };
@@ -5968,6 +6237,14 @@ const loadDataFromProps = (propsData: Record<string, unknown>) => {
     if (propsData[key] !== undefined) {
       const oldValue = localFormData[key];
       let newValue = propsData[key];
+
+      // 🔥 如果正在清除末端設施，跳過相關欄位的載入
+      if (isClearingEndFacility.value && 
+          (key === 'endFacilitySpecId' || key === 'endFacilityPomno' || 
+           key === 'endFacilityDiameter' || key === 'endFacilityMaterial')) {
+        console.log(`⏸️ Skipping ${key} loading during end facility clearing`);
+        return;
+      }
 
       // 特殊處理：主管材質未設定時預設為 1 (PVC)
       if (key === 'mainPipeMaterialId' || key === 'mainPipe2MaterialId') {
@@ -6058,6 +6335,12 @@ onMounted(async () => {
     await loadEndFacilityOptions();
   }
 
+  // 6. 初始化 ID=7 滴水管名稱選項 (如果已選擇了滴水管規格)
+  if (localFormData.dripperSubtypeId === 7 && localFormData.branchPipeDiameterId) {
+    console.log('🔄 Initializing ID=7 branch pipe fittings in onMounted');
+    updateBranchPipeFittingsForId7();
+  }
+
   // 如果有管路設施，計算補助金額
   if (localFormData.pipes && localFormData.pipes.length > 0) {
     await calculateSubsidy();
@@ -6121,6 +6404,59 @@ watch(pipeMaterialOptions, (newOptions) => {
     console.warn('No pipe material options found, using defaults');
   }
 });
+
+// 監聽 ID=7 相關欄位變化，自動更新滴水管名稱選項
+watch(
+  [() => localFormData.dripperSubtypeId, () => localFormData.branchPipeDiameterId],
+  ([newDripperSubtypeId, newBranchPipeDiameterId], [oldDripperSubtypeId]) => {
+    // 當切換 ID=7 或 ID=8 時，清除末端管徑選取內容並重新載入選項
+    if (newDripperSubtypeId !== oldDripperSubtypeId && 
+        (newDripperSubtypeId === 7 || newDripperSubtypeId === 8 || oldDripperSubtypeId === 7 || oldDripperSubtypeId === 8)) {
+      console.log(`🔄 Switching between ID=7/8, clearing end facility spec: ${oldDripperSubtypeId} → ${newDripperSubtypeId}`);
+      
+      // 設置清除狀態，阻止 loadDataFromProps 重新載入這些欄位
+      isClearingEndFacility.value = true;
+      
+      // 直接清除相關欄位，不調用函數以避免不必要的更新
+      localFormData.endFacilitySpecId = null;
+      localFormData.endFacilityPomno = null;
+      localFormData.endFacilityDiameter = '';
+      localFormData.endFacilityMaterial = '';
+      
+      console.log('🧹 Directly cleared end facility fields:', {
+        endFacilitySpecId: localFormData.endFacilitySpecId,
+        endFacilityPomno: localFormData.endFacilityPomno,
+        endFacilityDiameter: localFormData.endFacilityDiameter,
+        endFacilityMaterial: localFormData.endFacilityMaterial
+      });
+      
+      // 立即更新父組件數據，防止 loadDataFromProps 重新載入舊數據
+      updateFormData();
+      
+      // 重新載入末端設施選項，確保選項列表與新的滴頭類型匹配
+      nextTick(async () => {
+        await loadEndFacilityOptions();
+        
+        // 清除完成後解除阻止狀態
+        setTimeout(() => {
+          isClearingEndFacility.value = false;
+          console.log('✅ End facility clearing completed, re-enabling data loading');
+        }, 100);
+      });
+    }
+
+    // 當切換到 ID=7 或滴水管規格改變時，更新滴水管名稱選項
+    if (newDripperSubtypeId === 7 && newBranchPipeDiameterId) {
+      console.log('🔄 ID=7 branch pipe diameter changed, updating pipe fittings options');
+      updateBranchPipeFittingsForId7();
+    } else if (newDripperSubtypeId !== 7 && oldDripperSubtypeId === 7) {
+      // 從 ID=7 切換到其他選項時，清空 branchPipePomno
+      console.log('🔄 Switched away from ID=7, clearing branchPipePomno');
+      onSelectedBranchPipeChangeForId7(null);
+    }
+  },
+  { immediate: false }
+);
 
 // 手動新增材料相關方法
 const openManualAddDialog = (preselectedGroupId?: number) => {
