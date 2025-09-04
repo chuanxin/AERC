@@ -543,9 +543,10 @@ export const useGrantsStore = defineStore('grants', () => {
 
   /**
    * Save all unsaved changes with enhanced tracking and grant_versions support
+   * @param {number} [targetDataStep] - Optional specific dataStep to save (for three-layer mapping)
    * @returns {Promise<boolean>} Whether the save was successful
    */
-  const saveAllChanges = async (): Promise<boolean> => {
+  const saveAllChanges = async (targetDataStep?: number): Promise<boolean> => {
     // console.log('💾 grantsStore.saveAllChanges called');
     // console.log('📊 currentGrant.case_number:', currentGrant.value?.case_number);
     // console.log('📊 hasUnsavedChanges:', hasUnsavedChanges.value);
@@ -560,9 +561,12 @@ export const useGrantsStore = defineStore('grants', () => {
       isSaving.value = true
       // console.log('💾 Starting to save step data...');
 
-      const step = currentStep.value
+      // 🔥 修復三層映射：使用 targetDataStep 或回退到 currentStep
+      const step = targetDataStep || currentStep.value
       const stepData = formData[step]
       const caseNumber = currentGrant.value.case_number
+      
+      console.log(`💾 saveAllChanges: saving dataStep ${step} ${targetDataStep ? '(targeted)' : '(current)'}`)
 
       // 準備追蹤資訊
       const sessionId = generateSessionId()
