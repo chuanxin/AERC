@@ -1300,13 +1300,13 @@
                       class="text-center px-2"
                       style="width: 80px; min-width: 30px;"
                     >
-                      排序
+                      刪除
                     </th>
                     <th
                       class="text-center px-2"
                       style="width: 80px; min-width: 30px;"
                     >
-                      刪除
+                      排序
                     </th>
                   </tr>
                 </thead>
@@ -1417,6 +1417,19 @@
                         </div>
                       </td>
                       <td class="text-center px-1">
+                        <v-btn
+                          icon
+                          size="x-small"
+                          color="error"
+                          variant="text"
+                          @click="removePipe(group.groupNo, pipeIndex)"
+                        >
+                          <v-icon size="small">
+                            mdi-close
+                          </v-icon>
+                        </v-btn>
+                      </td>
+                      <td class="text-center px-1">
                         <div class="d-flex flex-column align-center ga-1">
                           <v-btn
                             icon
@@ -1443,19 +1456,6 @@
                             </v-icon>
                           </v-btn>
                         </div>
-                      </td>
-                      <td class="text-center px-1">
-                        <v-btn
-                          icon
-                          size="x-small"
-                          color="error"
-                          variant="text"
-                          @click="removePipe(group.groupNo, pipeIndex)"
-                        >
-                          <v-icon size="small">
-                            mdi-close
-                          </v-icon>
-                        </v-btn>
                       </td>
                     </tr>
                   </template>
@@ -2622,7 +2622,7 @@ const pipeDiameterOptions = computed(() => {
       const diameterInfo = pfDiametersStore.diameters.find(d => d.id === id);
       allDiameters.push({
         id,
-        name: diameterInfo?.name || `直径ID: ${id}`,
+        name: diameterInfo?.name || `直徑ID: ${id}`,
         value: diameterInfo?.value ?? 0,
         isFiltered: materialDiameterFiltered.includes(id) ||
                     id === localFormData.mainPipeDiameterId ||
