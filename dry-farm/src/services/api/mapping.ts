@@ -1,4 +1,4 @@
-import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES,GIS } from './endpoints';
+import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, GIS, QUALIFICATION } from './endpoints';
 
 // 取得當前的 API 版本前綴
 const API_BASE_URL = import.meta.env.FAST_API_BASE_URL || '';
@@ -95,6 +95,12 @@ export const BACKEND_PATHS = {
     POINTS: '/gis/points',
     STATS: '/gis/stats',
     SEARCH: '/gis/search',
+  },
+  QUALIFICATION: {
+    SEARCH: '/qualification/search',
+    HEALTH: '/qualification/health',
+    INDIGENOUS_CHECK: '/qualification/indigenous-check',
+    SLOPE_AREA_CHECK: '/qualification/slope-area-check',
   }
 };
 
@@ -121,6 +127,10 @@ export const API_MAPPING: Record<string, string> = {
   [GIS.POINTS]: BACKEND_PATHS.GIS.POINTS,
   [GIS.STATS]: BACKEND_PATHS.GIS.STATS,
   [GIS.SEARCH]: BACKEND_PATHS.GIS.SEARCH,
+  [QUALIFICATION.SEARCH]: BACKEND_PATHS.QUALIFICATION.SEARCH,
+  [QUALIFICATION.HEALTH]: BACKEND_PATHS.QUALIFICATION.HEALTH,
+  [QUALIFICATION.INDIGENOUS_CHECK]: BACKEND_PATHS.QUALIFICATION.INDIGENOUS_CHECK,
+  [QUALIFICATION.SLOPE_AREA_CHECK]: BACKEND_PATHS.QUALIFICATION.SLOPE_AREA_CHECK,
 }
 
 // 動態參數路徑匹配規則
@@ -244,71 +254,3 @@ export function mapApiPath(frontendPath: string): string {
   console.debug(`[mapApiPath] Final mapped output for ${frontendPath}: ${mappedBasePath}`);
   return mappedBasePath;
 }
-
-// /**
-//  * 將前端 API 路徑映射為後端實際路徑
-//  * @param path 前端 API 路徑
-//  * @returns 對應的後端實際路徑
-//  */
-// export function mapApiPath(path: string): string {
-//   console.log('[mapApiPath] Input path:', path);
-//   // Split the path from the query parameters
-//   const [basePath, queryString] = path.split('?');
-
-//   // 1. Map the base path using static mappings
-//   let mappedPath = API_MAPPING[basePath] || basePath;
-//   // let mappedBasePath = API_MAPPING[basePathFromFrontend];
-//   // console.log('[mapApiPath] Static mapping lookup for', basePathFromFrontend, 'resulted in:', mappedBasePath);
-
-//   // 2. Check for dynamic mappings if no static mapping found
-//   if (!API_MAPPING[basePath]) {
-//     // 2.1 First try specific grant patterns
-//     const caseNumberMatch = basePath.match(/\/grants\/case\/([^\/]+)$/);
-//     if (caseNumberMatch) {
-//       const caseNumber = caseNumberMatch[1];
-//       mappedPath = BACKEND_PATHS.GRANTS.BY_CASE_NUMBER(caseNumber);
-//     } else {
-//       // 2.2 Check for grant step pattern
-//       const stepMatch = basePath.match(/\/grants\/case\/([^\/]+)\/step\/(\d+)$/);
-//       if (stepMatch) {
-//         const caseNumber = stepMatch[1];
-//         const step = parseInt(stepMatch[2], 10);
-//         mappedPath = BACKEND_PATHS.GRANTS.STEP(caseNumber, step);
-//       } else {
-//         // 2.3 Fall back to other dynamic pattern rules
-//         for (const { pattern, transform } of DYNAMIC_PATH_PATTERNS) {
-//           if (!pattern) continue;
-
-//           const matches = basePath.match(pattern);
-//           if (matches && transform) {
-//             mappedPath = transform(matches);
-//             break;
-//           }
-//         }
-//       }
-//     }
-//   }
-
-//   // If no mapping occurred (neither static nor dynamic), mappedPath will be undefined here.
-//   // We should then probably use the original basePath, or decide if this is an error.
-//   // Your original code defaulted to basePath if API_MAPPING[basePath] was null.
-//   // Let's ensure mappedPath has a value. If it's still undefined after dynamic checks,
-//   // it means the original basePath didn't get transformed.
-//   if (!mappedPath) {
-//       mappedPath = basePath; // Fallback to original basePath if no rules applied
-//                            // This is what would cause the /api/v1 duplication if basePath still has it.
-//                            // The goal of the mappings is to REMOVE /api/v1 if present in basePath.
-//                            // So, if a path is not mapped, it's an issue.
-//                            // For now, this matches your previous fallback.
-//   }
-
-//   // 3. Reattach query parameters if they exist
-//   if (queryString) {
-//     mappedPath = `${mappedPath}?${queryString}`;
-//   }
-
-//   // 4. Log for debugging
-//   console.debug(`Mapped API path: ${path} -> ${mappedPath}`);
-
-//   return mappedPath;
-// }

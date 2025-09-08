@@ -40,10 +40,10 @@ class CaseType(str, Enum):
 
 class LocationParams(BaseModel):
     """地區查詢參數"""
-    county: str = Field(..., min_length=1, description="縣市名稱")
-    town: str = Field(..., min_length=1, description="鄉鎮名稱")
-    section: Optional[str] = Field(None, description="地段名稱(原民鄉/山坡地查詢可選)")
-    land_number: Optional[str] = Field(None, description="地號(一般查詢必填)")
+    county: Optional[str] = Field(None, description="縣市名稱(可選)")
+    town: Optional[str] = Field(None, description="鄉鎮名稱(可選)")
+    section: Optional[str] = Field(None, description="地段名稱(可選)")
+    land_number: Optional[str] = Field(None, description="地號")
 
     @validator('land_number')
     def validate_land_number_for_general(cls, v, values):
@@ -54,9 +54,18 @@ class LocationParams(BaseModel):
 
 class QueryOptions(BaseModel):
     """查詢選項"""
-    years: List[str] = Field(default=["114", "113", "112"], description="查詢年度清單")
+    years: Optional[List[str]] = Field(default=None, description="查詢年度清單(空值代表查詢所有年度)")
     include_statistics: bool = Field(default=True, description="是否包含面積統計")
     max_results: int = Field(default=1000, le=1000, description="最大回傳結果數")
+
+    @validator('years')
+    def validate_years(cls, v):
+        """驗證年度列表，過濾掉無效值"""
+        if v is None:
+            return v
+        # 過濾掉 None 和空字串
+        valid_years = [year for year in v if year is not None and isinstance(year, str) and year.strip()]
+        return valid_years if valid_years else None
 
 
 class QualificationSearchRequest(BaseModel):
@@ -64,6 +73,13 @@ class QualificationSearchRequest(BaseModel):
     query_type: QualificationQueryType = Field(..., description="查詢類型")
     params: LocationParams = Field(..., description="地區查詢參數")
     options: Optional[QueryOptions] = Field(default_factory=QueryOptions, description="查詢選項")
+
+    @validator('params')
+    def validate_search_params(cls, v, values):
+        """驗證查詢參數 - 至少需要地號或完整地址"""
+        if not v.land_number and not (v.county and v.town):
+            raise ValueError("必須提供地號，或者提供完整的縣市鄉鎮資訊")
+        return v
 
     @validator('params')
     def validate_params_by_query_type(cls, v, values):

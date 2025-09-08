@@ -3,24 +3,21 @@ Qualification 重複案件查詢系統的 CRUD 操作
 基於現有的 GrantLocations 實現查詢邏輯
 """
 
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict
 from decimal import Decimal
 import hashlib
-import json
 from datetime import datetime
 
 from tortoise.exceptions import DoesNotExist
 from tortoise import timezone
 from tortoise.expressions import Q
-from tortoise.queryset import QuerySet
 
 from ..database.geo_models import GrantLocations
 from ..database.models import QualificationQuery, QualificationQueryType, Towns, Counties
 from ..schemas.qualification import (
     QualificationSearchRequest, GrantCaseItem, AreaStatistics,
     QueryInfo, ResponseMetadata, QualificationResponse,
-    AreaCheckRequest, AreaCheckResponse,
-    LegacyMetaData, NewAercMetaData
+    AreaCheckRequest, AreaCheckResponse
 )
 
 
@@ -30,7 +27,7 @@ class QualificationCRUD:
     @staticmethod
     def generate_query_hash(request: QualificationSearchRequest) -> str:
         """生成查詢參數雜湊值用於快取"""
-        query_str = f"{request.query_type}_{request.params.dict()}_{request.options.dict() if request.options else ''}"
+        query_str = f"{request.query_type}_{request.params.model_dump()}_{request.options.model_dump() if request.options else ''}"
         return hashlib.sha256(query_str.encode()).hexdigest()[:16]
 
     @staticmethod
@@ -64,11 +61,24 @@ class QualificationCRUD:
         end_time = datetime.now()
         response_time_ms = int((end_time - start_time).total_seconds() * 1000)
         
+        # 建立已搜尋年度列表
+        if request.options and request.options.years:
+            # 過濾有效年度
+            years_searched = [
+                year for year in request.options.years 
+                if year is not None and isinstance(year, str) and year.strip()
+            ]
+            if not years_searched:  # 如果過濾後為空，代表查詢所有年度
+                years_searched = await QualificationCRUD._get_available_years()
+        else:
+            # 未指定年度時查詢所有年度
+            years_searched = await QualificationCRUD._get_available_years()
+            
         query_info = QueryInfo(
             query_type=request.query_type,
             location_description=QualificationCRUD._build_location_description(request),
-            search_params=request.params.dict(),
-            years_searched=request.options.years if request.options else ["114", "113", "112"]
+            search_params=request.params.model_dump(),
+            years_searched=years_searched
         )
         
         metadata = ResponseMetadata(
@@ -93,21 +103,36 @@ class QualificationCRUD:
         """建構查詢條件 - 統一處理邏輯"""
         conditions = Q()
         
-        # 年度過濾 - 所有查詢類型共通
-        if request.options and request.options.years:
-            year_list = [int(year) for year in request.options.years]
-            conditions &= Q(apply_year__in=year_list)
+        # 年度過濾 - 所有查詢類型共通 (只有指定年度時才過濾)
+        if request.options and request.options.years and len(request.options.years) > 0:
+            # 過濾掉 None 值和空字串，只處理有效的年度字串
+            valid_years = [
+                year for year in request.options.years 
+                if year is not None and isinstance(year, str) and year.strip()
+            ]
+            if valid_years:
+                year_list = [int(year) for year in valid_years]
+                conditions &= Q(apply_year__in=year_list)
+        # 未指定年度或年度列表為空時查詢所有年度 (97-114年)
         
         # 地區過濾 - 根據查詢類型統一處理
         if request.query_type == QualificationQueryType.GENERAL:
-            # 一般查詢: 精確地號匹配
-            if request.params.section:
-                conditions &= Q(land_section__icontains=request.params.section)
+            # 一般查詢: 優先使用地號查詢，縣市鄉鎮為輔助篩選
             if request.params.land_number:
                 conditions &= Q(land_number__iexact=request.params.land_number)
+            
+            # 可選的地區篩選條件 (當用戶有提供時才使用)
+            if request.params.county:
+                # 這裡需要與地址欄位比對，或者建立縣市對應關係
+                pass  # 暫時跳過，因為 GrantLocations 中沒有直接的縣市欄位
+            
+            if request.params.section:
+                conditions &= Q(land_section__icontains=request.params.section)
                 
         elif request.query_type in [QualificationQueryType.INDIGENOUS, QualificationQueryType.SLOPE]:
             # 原民鄉/山坡地查詢: 地段名稱模糊搜尋
+            if request.params.land_number:
+                conditions &= Q(land_number__iexact=request.params.land_number)
             if request.params.section:
                 conditions &= Q(land_section__icontains=request.params.section)
         
@@ -222,14 +247,19 @@ class QualificationCRUD:
     def _build_location_description(request: QualificationSearchRequest) -> str:
         """建立地區描述文字"""
         params = request.params
-        parts = [params.county, params.town]
+        parts = []
         
+        # 只添加非 None 的值到描述中
+        if params.county:
+            parts.append(params.county)
+        if params.town:
+            parts.append(params.town)
         if params.section:
             parts.append(params.section)
         if params.land_number:
             parts.append(params.land_number)
             
-        return " ".join(parts)
+        return " ".join(parts) if parts else "未指定地區"
 
     @staticmethod
     async def _save_query_record(
@@ -242,10 +272,10 @@ class QualificationCRUD:
         try:
             await QualificationQuery.create(
                 query_type=request.query_type,
-                location_data=request.params.dict(),
-                query_options=request.options.dict() if request.options else {},
-                search_results=[item.dict() for item in results[:10]],  # 只儲存前10筆避免資料過大
-                area_statistics=statistics.dict() if statistics else None,
+                location_data=request.params.model_dump(),
+                query_options=request.options.model_dump() if request.options else {},
+                search_results=[item.model_dump() for item in results[:10]],  # 只儲存前10筆避免資料過大
+                area_statistics=statistics.model_dump() if statistics else None,
                 result_count=metadata.total_records,
                 query_hash=metadata.query_hash,
                 response_time_ms=metadata.response_time_ms
@@ -308,6 +338,37 @@ class QualificationCRUD:
             } if is_slope else None
         )
 
+    # === 輔助方法 ===
+    
+    @staticmethod
+    async def _get_available_years() -> List[str]:
+        """動態獲取資料庫中實際存在的年度範圍"""
+        try:
+            # 查詢資料庫中實際存在的年度範圍
+            years_data = await GrantLocations.all().distinct().values_list('apply_year', flat=True)
+            
+            # 過濾掉 None 值並轉換為字串，然後排序
+            available_years = sorted([
+                str(year) for year in years_data 
+                if year is not None and isinstance(year, int)
+            ], reverse=True)  # 降序排列，最新年度在前
+            
+            # 如果資料庫沒有資料，回退到預設範圍
+            if not available_years:
+                # 動態計算：從97年到當前民國年
+                from datetime import datetime
+                current_roc_year = datetime.now().year - 1911
+                available_years = [str(i) for i in range(current_roc_year, 96, -1)]  # 倒序
+                
+            return available_years
+            
+        except Exception as e:
+            # 查詢失敗時的回退策略：使用動態計算的預設範圍
+            print(f"Failed to get available years from database: {e}")
+            from datetime import datetime
+            current_roc_year = datetime.now().year - 1911
+            return [str(i) for i in range(current_roc_year, 96, -1)]  # 97年到當前年度，倒序
+    
     # === 查詢優化相關方法 ===
     
     @staticmethod

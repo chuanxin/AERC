@@ -60,6 +60,92 @@
                 </v-col>
               </v-row>
 
+              <!-- 年度選擇 -->
+              <v-row dense>
+                <v-col
+                  cols="12"
+                  md="2"
+                  class="d-flex align-center pt-2"
+                >
+                  <span class="text-body-2 font-weight-medium">查詢年度</span>
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="10"
+                >
+                  <div class="d-flex flex-wrap align-center gap-2">
+                    <v-chip-group
+                      v-model="selectedYears"
+                      multiple
+                      color="primary"
+                      class="mb-2"
+                    >
+                      <v-chip
+                        v-for="year in availableYears"
+                        :key="year"
+                        :value="year"
+                        size="small"
+                        filter
+                        variant="outlined"
+                      >
+                        {{ year }}年
+                      </v-chip>
+                    </v-chip-group>
+                    
+                    <v-btn
+                      size="small"
+                      variant="text"
+                      color="primary"
+                      @click="clearYearSelection"
+                    >
+                      清除選擇
+                    </v-btn>
+                    
+                    <v-btn
+                      size="small"
+                      variant="text"
+                      color="primary"
+                      @click="selectRecentYears"
+                    >
+                      近3年
+                    </v-btn>
+                  </div>
+                  
+                  <div class="text-caption text-grey-darken-1 mt-1">
+                    未選擇年度時將查詢所有年度 (97-114年) 的案件
+                  </div>
+                </v-col>
+              </v-row>
+
+              <!-- 錯誤提示 -->
+              <v-row 
+                v-if="error"
+                dense
+              >
+                <v-col
+                  cols="12"
+                  md="2"
+                />
+                <v-col
+                  cols="12"
+                  md="10"
+                >
+                  <v-alert
+                    type="error"
+                    variant="tonal"
+                    color="error"
+                    class="mt-2"
+                    border="start"
+                    density="compact"
+                    icon="mdi-alert-circle"
+                    closable
+                    @click:close="qualificationStore.clearErrors"
+                  >
+                    {{ error }}
+                  </v-alert>
+                </v-col>
+              </v-row>
+
               <v-expand-transition>
                 <div v-if="queryType === 'general'">
                   <v-row dense>
@@ -130,12 +216,13 @@
                       <div class="d-flex align-center">
                         <v-text-field
                           v-model="searchParams.landNumber"
-                          label="範例：1-1 或 1"
+                          label="輸入地號即可查詢，例：0570-0000"
                           variant="outlined"
                           density="compact"
                           hide-details
                           class="me-2"
-                          style="max-width: 200px"
+                          style="max-width: 250px"
+                          hint="縣市、鄉鎮為選填，僅地號即可查詢全台資料"
                         />
 
                         <v-btn
@@ -171,15 +258,15 @@
                       md="10"
                     >
                       <v-alert
-                        type="warning"
+                        type="info"
                         variant="tonal"
-                        color="red"
+                        color="blue"
                         class="mt-2"
                         border="start"
                         density="compact"
-                        icon="mdi-alert-circle"
+                        icon="mdi-information"
                       >
-                        包含農田水利署及農村發展及水土保持署之案件皆會篩選，是否重複申請。
+                        輸入地號即可查詢全台所有相關案件，包含農田水利署及農村發展及水土保持署之申請紀錄。
                       </v-alert>
                     </v-col>
                   </v-row>
@@ -316,7 +403,15 @@
                 class="px-1"
               >
                 <v-list-item-title class="text-body-2">
-                  查詢前請確認地段與地號資訊
+                  只需輸入地號即可查詢全台資料
+                </v-list-item-title>
+              </v-list-item>
+              <v-list-item
+                prepend-icon="mdi-check-circle"
+                class="px-1"
+              >
+                <v-list-item-title class="text-body-2">
+                  縣市、鄉鎮、地段為選填項目
                 </v-list-item-title>
               </v-list-item>
               <v-list-item
@@ -414,30 +509,27 @@
           >
             <div
               v-for="(result, index) in searchResults"
-              :key="index"
+              :key="result.id"
               class="mb-2"
             >
               <div class="text-body-2">
-                <span class="font-weight-medium">{{ result.year }}年度</span>
-                【{{ result.department }}】申請補助
-                <span class="font-weight-medium">案號【{{ result.caseNumber }}】</span>
+                <span class="font-weight-medium">{{ result.application_year }}年度</span>
+                <span v-if="result.department">【{{ result.department }}】</span>申請補助
+                <span class="font-weight-medium" v-if="result.case_number">案號【{{ result.case_number }}】</span>
                 申請人【{{ result.applicant }}】
               </div>
               <div class="d-flex justify-space-between text-body-2 mb-2">
                 <div>
-                  <span
-                    v-if="result.waterUsage"
-                    class="me-4"
-                  >灌水設備{{ result.waterUsage }}㎡</span>
-                  <span
-                    v-if="result.powerEquipment"
-                    class="me-4"
-                  >動力設備{{ result.powerEquipment }}㎡</span>
-                  <span
-                    v-if="result.fieldPipeline"
-                    class="me-4"
-                  >田間管路{{ result.fieldPipeline }}㎡</span>
+                  <span class="me-4">{{ result.case_type }}{{ result.approved_area }}㎡</span>
+                  <span v-if="result.land_section" class="me-4 text-grey-darken-1">地段: {{ result.land_section }}</span>
+                  <span v-if="result.land_number" class="me-4 text-grey-darken-1">地號: {{ result.land_number }}</span>
+                  <span v-if="result.source_system" class="me-4 text-caption">
+                    來源: {{ result.source_system === 'legacy_farmdata' ? '歷史資料' : '新系統' }}
+                  </span>
                 </div>
+              </div>
+              <div v-if="result.crops && result.crops.length > 0" class="text-caption text-grey-darken-1 mb-2">
+                作物：{{ result.crops.map(crop => crop.name || crop.category).join('、') }}
               </div>
               <v-divider
                 v-if="index < searchResults.length - 1"
@@ -669,58 +761,66 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, reactive } from 'vue';
-import { useRouter } from 'vue-router';
+import { useQualificationStore } from '@/stores/qualification';
+import type { QualificationSearchParams, IndigenousSearchParams, RecentSearch } from '@/types/qualification';
 
-const router = useRouter();
+const qualificationStore = useQualificationStore();
+
 const queryType = ref('general');
-
-// 控制載入狀態
-const isLoading = ref(false);
-const isIndigenousLoading = ref(false);
-const showAlert = ref(true);
 const indigenousDialog = ref(false);
-const isIndigenousAreaChecked = ref(false);
-const showNoResultMessage = ref(false);
 
 // 地段查詢參數
-const searchParams = reactive({
+const searchParams = reactive<QualificationSearchParams>({
   county: '',
   town: '',
   section: '',
   landNumber: ''
 });
 
-// 原民區域查詢參數
-const indigenousParams = reactive({
+// 原民區域查詢參數  
+const indigenousParams = reactive<IndigenousSearchParams>({
   county: '',
   town: ''
 });
 
-// 最近查詢紀錄
-const recentSearches = ref([
-  {
-    county: '嘉義縣',
-    town: '竹崎鄉',
-    section: '瓦厝埔段',
-    landNumber: '1-1',
-    searchTime: new Date(2025, 2, 8, 15, 30)
-  },
-  {
-    county: '高雄市',
-    town: '美濃區',
-    landNumber: '996-1',
-    searchTime: new Date(2025, 2, 7, 10, 15)
-  },
-  {
-    county: '屏東縣',
-    town: '春日鄉',
-    searchTime: new Date(2025, 2, 6, 14, 45)
-  }
-]);
+// 年度選擇 - 不設置預設值代表查詢所有年度
+const selectedYears = ref<string[]>([]);
 
-// 是否可以查詢
+// 可選年度範圍 (97年至114年)
+const availableYears = Array.from({ length: 18 }, (_, i) => (114 - i).toString());
+
+// 年度選擇相關方法
+const clearYearSelection = () => {
+  selectedYears.value = [];
+};
+
+const selectRecentYears = () => {
+  selectedYears.value = ['114', '113', '112'];
+};
+
+// 使用 Store 的狀態
+const isLoading = computed(() => qualificationStore.isLoading);
+const isIndigenousLoading = computed(() => qualificationStore.isIndigenousLoading);
+const showAlert = computed(() => qualificationStore.showAlert);
+const error = computed(() => qualificationStore.error);
+const searchResults = computed(() => qualificationStore.searchResults);
+const recentSearches = computed(() => qualificationStore.recentSearches);
+const showNoResultMessage = computed(() => qualificationStore.showNoResultMessage);
+const isIndigenousArea = computed(() => qualificationStore.isIndigenousArea);
+const isIndigenousAreaChecked = computed(() => qualificationStore.isIndigenousAreaChecked);
+
+// 面積統計計算屬性
+const landTotalArea = computed(() => qualificationStore.landTotalArea);
+const usedArea = computed(() => qualificationStore.usedArea);
+const remainingArea = computed(() => qualificationStore.remainingArea);
+const microIrrigationArea = computed(() => qualificationStore.microIrrigationArea);
+const remainingMicroArea = computed(() => qualificationStore.remainingMicroArea);
+const sprinklerArea = computed(() => qualificationStore.sprinklerArea);
+const remainingSprinklerArea = computed(() => qualificationStore.remainingSprinklerArea);
+
+// 是否可以查詢 - 只要有地號就可以查詢
 const canSearch = computed(() => {
-  return !!searchParams.county && !!searchParams.town && !!searchParams.landNumber;
+  return !!searchParams.landNumber;
 });
 
 // 是否可以進行原民區域查詢
@@ -736,7 +836,7 @@ const counties = [
 ];
 
 // 鄉鎮市區資料 (這裡僅做示範，實際應該根據選擇的縣市動態獲取)
-const townsMap = {
+const townsMap: Record<string, string[]> = {
   '嘉義縣': ['太保市', '朴子市', '布袋鎮', '大林鎮', '民雄鄉', '溪口鄉', '新港鄉', '六腳鄉', '東石鄉', '義竹鄉', '鹿草鄉', '水上鄉', '中埔鄉', '竹崎鄉', '梅山鄉', '番路鄉', '大埔鄉', '阿里山鄉'],
   '高雄市': ['楠梓區', '左營區', '鼓山區', '三民區', '鹽埕區', '前金區', '新興區', '苓雅區', '前鎮區', '旗津區', '小港區', '鳳山區', '大寮區', '鳥松區', '林園區', '仁武區', '大樹區', '大社區', '岡山區', '路竹區', '橋頭區', '梓官區', '彌陀區', '永安區', '燕巢區', '田寮區', '阿蓮區', '茄萣區', '湖內區', '旗山區', '美濃區', '內門區', '杉林區', '甲仙區', '六龜區', '茂林區', '桃源區', '那瑪夏區'],
   '屏東縣': ['屏東市', '潮州鎮', '東港鎮', '恆春鎮', '萬丹鄉', '長治鄉', '麟洛鄉', '九如鄉', '里港鄉', '鹽埔鄉', '高樹鄉', '萬巒鄉', '內埔鄉', '竹田鄉', '新埤鄉', '枋寮鄉', '新園鄉', '崁頂鄉', '林邊鄉', '南州鄉', '佳冬鄉', '琉球鄉', '車城鄉', '滿州鄉', '枋山鄉', '霧臺鄉', '瑪家鄉', '泰武鄉', '來義鄉', '春日鄉', '獅子鄉', '牡丹鄉', '三地門鄉']
@@ -744,7 +844,7 @@ const townsMap = {
 };
 
 // 地段資料 (示範用)
-const sectionsMap = {
+const sectionsMap: Record<string, string[]> = {
   '竹崎鄉': ['瓦厝埔段', '龍山段', '灣橋段'],
   // 其他地段資料...
 };
@@ -767,20 +867,6 @@ const indigenousTowns = computed(() => {
   return townsMap[indigenousParams.county] || [];
 });
 
-// 是否為原民區域
-const isIndigenousArea = ref(false);
-
-// 模擬查詢結果
-const searchResults = ref([]);
-
-// 模擬土地面積統計資料
-const landTotalArea = ref('2370');
-const usedArea = ref('2370');
-const remainingArea = ref('0');
-const microIrrigationArea = ref('2370');
-const remainingMicroArea = ref('0');
-const sprinklerArea = ref('1580');
-const remainingSprinklerArea = ref('790');
 
 // 格式化日期
 const formatDate = (date: Date): string => {
@@ -809,194 +895,69 @@ const onTownChange = () => {
 // 原民區縣市變更事件處理
 const onIndigenousCountyChange = () => {
   indigenousParams.town = '';
-  isIndigenousArea.value = false;
-  isIndigenousAreaChecked.value = false;
+  qualificationStore.clearIndigenousCheck();
 };
 
-// 載入最近查詢記錄
-const loadRecentSearch = (item: any) => {
-  if (item.section) {
-    // 一般區域查詢
-    queryType.value = 'general';
-    searchParams.county = item.county;
-    searchParams.town = item.town;
-    searchParams.section = item.section;
-    searchParams.landNumber = item.landNumber || '';
-  } else if (item.landNumber) {
-    // 一般區域查詢，但沒有地段
-    queryType.value = 'general';
-    searchParams.county = item.county;
-    searchParams.town = item.town;
-    searchParams.landNumber = item.landNumber;
-  } else {
-    // 原民區域查詢
-    queryType.value = 'indigenous';
-    indigenousParams.county = item.county;
-    indigenousParams.town = item.town;
-  }
-};
 
-// 地段查詢方法
+// 地段查詢方法 - 使用真實的 API
 const searchLand = async () => {
   // 檢查必填欄位
   if (!canSearch.value) {
     return;
   }
 
-  isLoading.value = true;
-  showNoResultMessage.value = false;
-  searchResults.value = [];
-
   try {
-    // 模擬 API 請求
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    // 判斷是否有查詢結果 (隨機模擬)
-    const hasResults = Math.random() > 0.3; // 70% 機率有結果
-
-    if (hasResults) {
-      // 模擬查詢結果
-      searchResults.value = [
-        {
-          year: '111',
-          department: '農業部農田水利署林管理處',
-          caseNumber: '1111158',
-          applicant: '張樣會',
-          waterUsage: '2370',
-          powerEquipment: null,
-          fieldPipeline: null
-        },
-        {
-          year: '111',
-          department: '農業部農田水利署林管理處',
-          caseNumber: '1111157',
-          applicant: '張樣會',
-          waterUsage: null,
-          powerEquipment: null,
-          fieldPipeline: '790'
-        },
-        {
-          year: '111',
-          department: '農業部農田水利署林管理處',
-          caseNumber: '1111156',
-          applicant: '張樣會',
-          waterUsage: null,
-          powerEquipment: '1580',
-          fieldPipeline: '1580'
-        }
-      ];
-
-      // 更新面積統計資料 (在實際應用中，這些數據應該從 API 返回)
-      landTotalArea.value = '2370';
-      usedArea.value = '2370';
-      remainingArea.value = '0';
-      microIrrigationArea.value = '2370';
-      remainingMicroArea.value = '0';
-      sprinklerArea.value = '1580';
-      remainingSprinklerArea.value = '790';
-
-      // 添加到最近查詢記錄
-      addToRecentSearches({
-        county: searchParams.county,
-        town: searchParams.town,
-        section: searchParams.section,
-        landNumber: searchParams.landNumber,
-        searchTime: new Date()
-      });
-    } else {
-      // 清空查詢結果
-      searchResults.value = [];
-      // 顯示無結果提示
-      showNoResultMessage.value = true;
-
-      // 仍然添加到最近查詢記錄
-      addToRecentSearches({
-        county: searchParams.county,
-        town: searchParams.town,
-        section: searchParams.section,
-        landNumber: searchParams.landNumber,
-        searchTime: new Date()
-      });
-    }
+    await qualificationStore.search('general', searchParams, selectedYears.value);
   } catch (error) {
     console.error('查詢失敗:', error);
-  } finally {
-    isLoading.value = false;
+    // 錯誤處理已在 store 中統一處理
   }
 };
 
-// 原民區域查詢方法
+// 原民區域查詢方法 - 使用真實的 API
 const searchIndigenous = async () => {
   // 檢查必填欄位
   if (!canSearchIndigenous.value) {
     return;
   }
 
-  isIndigenousLoading.value = true;
-  searchResults.value = [];
-  showNoResultMessage.value = false;
-
   try {
-    // 模擬 API 請求
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    // 檢查是否為原民鄉 (這裡只是示範，實際應該從 API 獲取)
-    const indigenousTowns = [
-      // 山地鄉
-      '茂林區', '桃源區', '那瑪夏區', '烏來區', '大同鄉', '南澳鄉', '復興區', '尖石鄉', '五峰鄉', '泰安鄉',
-      '和平區', '信義鄉', '仁愛鄉', '阿里山鄉', '三地門鄉', '霧臺鄉', '瑪家鄉', '泰武鄉', '來義鄉', '春日鄉',
-      '獅子鄉', '牡丹鄉', '秀林鄉', '萬榮鄉', '卓溪鄉', '延平鄉', '海端鄉', '達仁鄉', '金峰鄉', '蘭嶼鄉',
-      // 平地鄉
-      '關西鎮', '南庄鄉', '獅潭鄉', '魚池鄉', '滿州鄉', '花蓮市', '光復鄉', '玉里鎮', '新城鄉', '吉安鄉',
-      '壽豐鄉', '鳳林鎮', '豐濱鄉', '瑞穗鄉', '富里鄉', '台東市', '成功鎮', '關山鎮', '東河鄉', '太麻里鄉',
-      '大武鄉', '卑南鄉', '長濱鄉', '鹿野鄉', '池上鄉'
-    ];
-
-    isIndigenousArea.value = indigenousTowns.includes(indigenousParams.town);
-    isIndigenousAreaChecked.value = true;
-
-    // 添加到最近查詢記錄
-    addToRecentSearches({
-      county: indigenousParams.county,
-      town: indigenousParams.town,
-      searchTime: new Date()
-    });
-
+    await qualificationStore.checkIndigenousArea(indigenousParams);
   } catch (error) {
-    console.error('查詢失敗:', error);
-  } finally {
-    isIndigenousLoading.value = false;
+    console.error('原民鄉查詢失敗:', error);
+    // 錯誤處理已在 store 中統一處理
   }
 };
 
-// 添加到最近查詢記錄
-const addToRecentSearches = (search: any) => {
-  // 檢查是否已存在相同查詢
-  const existingIndex = recentSearches.value.findIndex(item =>
-    item.county === search.county &&
-    item.town === search.town &&
-    (item.section === search.section || (!item.section && !search.section)) &&
-    (item.landNumber === search.landNumber || (!item.landNumber && !search.landNumber))
-  );
-
-  // 如果已存在，則移除舊記錄
-  if (existingIndex !== -1) {
-    recentSearches.value.splice(existingIndex, 1);
-  }
-
-  // 添加到最近查詢列表的開頭
-  recentSearches.value.unshift(search);
-
-  // 限制列表最多顯示5筆
-  if (recentSearches.value.length > 5) {
-    recentSearches.value = recentSearches.value.slice(0, 5);
+// 載入最近查詢記錄 - 整合 store 方法
+const loadRecentSearch = (item: RecentSearch) => {
+  const search = qualificationStore.loadFromHistory(item);
+  
+  if (search.section) {
+    // 一般區域查詢
+    queryType.value = 'general';
+    searchParams.county = search.county;
+    searchParams.town = search.town;
+    searchParams.section = search.section || '';
+    searchParams.landNumber = search.landNumber || '';
+  } else if (search.landNumber) {
+    // 一般區域查詢，但沒有地段
+    queryType.value = 'general';
+    searchParams.county = search.county;
+    searchParams.town = search.town;
+    searchParams.landNumber = search.landNumber;
+  } else {
+    // 原民區域查詢
+    queryType.value = 'indigenous';
+    indigenousParams.county = search.county;
+    indigenousParams.town = search.town;
   }
 };
 
 // 切換標籤頁時清除查詢結果
 watch(queryType, () => {
-  searchResults.value = [];
-  showNoResultMessage.value = false;
+  qualificationStore.clearResults();
+  qualificationStore.clearIndigenousCheck();
 });
 </script>
 
