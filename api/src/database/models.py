@@ -718,3 +718,41 @@ class GrantPapers(models.Model):
     def __str__(self):
         """返回文件的簡要描述"""
         return f"{self.version.grant.case_number} - {self.document_type.value} - v{self.version.version}"
+
+
+# === Qualification 重複案件查詢系統相關模型 ===
+
+class QualificationQueryType(str, Enum):
+    """查詢類型枚舉 - 統一處理三種查詢模式"""
+    GENERAL = "general"        # 一般區域查詢
+    INDIGENOUS = "indigenous"  # 原住民鄉查詢
+    SLOPE = "slope"           # 山坡地查詢
+
+
+class QualificationQuery(models.Model):
+    """重複案件查詢記錄表 - 統一查詢介面的核心"""
+    id = fields.IntField(pk=True)
+    query_type = fields.CharEnumField(QualificationQueryType, description="查詢類型")
+    
+    # 地區參數 - 使用 JSONField 統一存儲不同查詢類型的參數
+    location_data = fields.JSONField(description="地區查詢參數: {county, town, section?, landNumber?}")
+    
+    # 查詢選項
+    query_options = fields.JSONField(null=True, description="查詢選項: {years, includeStatistics}")
+    
+    # 查詢結果快取 - 提升效能
+    search_results = fields.JSONField(null=True, description="查詢結果快取")
+    area_statistics = fields.JSONField(null=True, description="面積統計結果快取")
+    
+    # 查詢元資料
+    result_count = fields.IntField(default=0, description="查詢結果數量")
+    query_hash = fields.CharField(max_length=64, null=True, description="查詢參數雜湊值(用於快取)")
+    response_time_ms = fields.IntField(null=True, description="查詢響應時間(毫秒)")
+    
+    # 時間戳記
+    created_at = fields.DatetimeField(auto_now_add=True, description="查詢時間")
+    updated_at = fields.DatetimeField(auto_now=True, description="更新時間")
+    
+    class Meta:
+        table = "qualification_queries"
+        table_description = "重複案件查詢記錄表"
