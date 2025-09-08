@@ -501,180 +501,356 @@
         </v-card-title>
 
         <v-card-text class="pa-4">
-          <!-- 有查詢結果 -->
-          <v-sheet
+          <!-- 查詢結果總覽 -->
+          <div
             v-if="searchResults.length > 0"
-            class="rounded pa-3 mb-4"
-            color="blue-lighten-5"
+            class="mb-4"
           >
-            <div
-              v-for="(result, index) in searchResults"
-              :key="result.id"
-              class="mb-2"
-            >
-              <div class="text-body-2">
-                <span class="font-weight-medium">{{ result.application_year }}年度</span>
-                <span v-if="result.department">【{{ result.department }}】</span>申請補助
-                <span class="font-weight-medium" v-if="result.case_number">案號【{{ result.case_number }}】</span>
-                申請人【{{ result.applicant }}】
-              </div>
-              <div class="d-flex justify-space-between text-body-2 mb-2">
-                <div>
-                  <span class="me-4">{{ result.case_type }}{{ result.approved_area }}㎡</span>
-                  <span v-if="result.land_section" class="me-4 text-grey-darken-1">地段: {{ result.land_section }}</span>
-                  <span v-if="result.land_number" class="me-4 text-grey-darken-1">地號: {{ result.land_number }}</span>
-                  <span v-if="result.source_system" class="me-4 text-caption">
-                    來源: {{ result.source_system === 'legacy_farmdata' ? '歷史資料' : '新系統' }}
-                  </span>
-                </div>
-              </div>
-              <div v-if="result.crops && result.crops.length > 0" class="text-caption text-grey-darken-1 mb-2">
-                作物：{{ result.crops.map(crop => crop.name || crop.category).join('、') }}
-              </div>
-              <v-divider
-                v-if="index < searchResults.length - 1"
-                class="mb-2"
-              />
+            <div class="d-flex align-center mb-3">
+              <v-icon
+                color="primary"
+                class="me-2"
+              >
+                mdi-map-marker
+              </v-icon>
+              <span class="text-h6">查詢結果：{{ landLocationDescription }} {{ searchResults[0].land_number }}</span>
             </div>
+            
+            <!-- 土地基本資訊卡片 -->
+            <v-card
+              class="mb-4"
+              variant="tonal"
+              color="blue"
+            >
+              <v-card-text class="pa-3">
+                <v-row dense>
+                  <v-col
+                    cols="12"
+                    sm="3"
+                  >
+                    <div class="d-flex align-center">
+                      <v-icon
+                        color="primary"
+                        size="small"
+                        class="me-1"
+                      >
+                        mdi-chart-pie
+                      </v-icon>
+                      <span class="text-caption text-grey-darken-1">總設施面積</span>
+                    </div>
+                    <div class="text-h6 font-weight-bold text-primary">
+                      {{ totalApprovedArea.toLocaleString() }}
+                    </div>
+                    <div class="text-caption">
+                      ㎡
+                    </div>
+                  </v-col>
+                  <v-col
+                    cols="12"
+                    sm="3"
+                  >
+                    <div class="d-flex align-center">
+                      <v-icon
+                        color="success"
+                        size="small"
+                        class="me-1"
+                      >
+                        mdi-account-check
+                      </v-icon>
+                      <span class="text-caption text-grey-darken-1">申請人</span>
+                    </div>
+                    <div class="text-body-1 font-weight-medium">
+                      {{ uniqueApplicants.join('、') }}
+                    </div>
+                  </v-col>
+                  <v-col
+                    cols="12"
+                    sm="3"
+                  >
+                    <div class="d-flex align-center">
+                      <v-icon
+                        color="info"
+                        size="small"
+                        class="me-1"
+                      >
+                        mdi-calendar-range
+                      </v-icon>
+                      <span class="text-caption text-grey-darken-1">年度範圍</span>
+                    </div>
+                    <div class="text-body-1 font-weight-medium">
+                      {{ yearRange }}
+                    </div>
+                  </v-col>
+                  <v-col
+                    cols="12"
+                    sm="3"
+                  >
+                    <div class="d-flex align-center">
+                      <v-icon
+                        color="warning"
+                        size="small"
+                        class="me-1"
+                      >
+                        mdi-file-document-multiple
+                      </v-icon>
+                      <span class="text-caption text-grey-darken-1">案件數量</span>
+                    </div>
+                    <div class="text-body-1 font-weight-medium">
+                      {{ searchResults.length }} 件
+                    </div>
+                  </v-col>
+                </v-row>
+              </v-card-text>
+            </v-card>
 
-            <!-- 土地面積統計區域 -->
-            <v-divider class="mb-3 mt-2" />
+            <!-- 按年度分組展示 -->
+            <div
+              v-for="yearGroup in groupedByYear"
+              :key="yearGroup.year"
+              class="mb-4"
+            >
+              <!-- 年度標題 -->
+              <v-card variant="outlined">
+                <v-card-title class="pa-3 bg-blue-lighten-5">
+                  <div class="d-flex align-center">
+                    <v-chip
+                      :color="getYearChipColor(yearGroup.year)"
+                      size="small"
+                      class="me-2"
+                    >
+                      {{ yearGroup.year }}年度
+                    </v-chip>
+                    <span class="text-body-1">{{ yearGroup.cases.length }} 筆案件</span>
+                    <v-spacer />
+                    <span class="text-caption text-grey-darken-1">
+                      總面積：{{ yearGroup.totalArea.toLocaleString() }}㎡
+                    </span>
+                  </div>
+                </v-card-title>
 
-            <v-row dense>
-              <v-col
-                cols="12"
-                sm="6"
-                md="4"
+                <v-card-text class="pa-3">
+                  <!-- 按設施類型分組 -->
+                  <div
+                    v-for="facilityGroup in yearGroup.facilities"
+                    :key="facilityGroup.type"
+                    class="mb-3"
+                  >
+                    <div class="d-flex align-center mb-2">
+                      <v-icon
+                        :color="getFacilityIcon(facilityGroup.type).color"
+                        class="me-2"
+                      >
+                        {{ getFacilityIcon(facilityGroup.type).icon }}
+                      </v-icon>
+                      <span class="text-subtitle-2 font-weight-medium">{{ facilityGroup.type }}</span>
+                      <v-spacer />
+                      <v-chip
+                        :color="getStatusColor(facilityGroup.totalArea)"
+                        size="small"
+                        class="me-2"
+                      >
+                        {{ formatAreaStatus(facilityGroup.totalArea) }}
+                      </v-chip>
+                      <span class="text-body-2 font-weight-medium">
+                        {{ facilityGroup.totalArea.toLocaleString() }} ㎡
+                      </span>
+                    </div>
+
+                    <!-- 該設施類型的案件明細 -->
+                    <div class="ms-8">
+                      <div
+                        v-for="caseItem in facilityGroup.cases"
+                        :key="caseItem.id"
+                        class="mb-2 pa-2 rounded bg-grey-lighten-4"
+                      >
+                        <div class="d-flex justify-space-between align-start">
+                          <div>
+                            <div class="text-body-2 mb-1">
+                              <span class="font-weight-medium">案號：{{ caseItem.case_number || '未提供' }}</span>
+                              <span class="mx-2">|</span>
+                              <span>申請人：{{ caseItem.applicant }}</span>
+                              <span
+                                v-if="caseItem.department"
+                                class="mx-2"
+                              >|</span>
+                              <span
+                                v-if="caseItem.department"
+                                class="text-grey-darken-1"
+                              >{{ caseItem.department }}</span>
+                            </div>
+                            
+                            <div class="text-caption text-grey-darken-1">
+                              <span v-if="caseItem.land_section">地段：{{ caseItem.land_section }}</span>
+                              <span
+                                v-if="caseItem.land_section && caseItem.land_number"
+                                class="mx-1"
+                              >|</span>
+                              <span v-if="caseItem.land_number">地號：{{ caseItem.land_number }}</span>
+                              
+                              <span
+                                v-if="caseItem.crops && caseItem.crops.length > 0"
+                                class="mx-1"
+                              >|</span>
+                              <span v-if="caseItem.crops && caseItem.crops.length > 0">
+                                作物：{{ caseItem.crops.map(crop => crop.name || crop.category).join('、') }}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div class="text-end">
+                            <div class="text-h6 font-weight-bold text-primary">
+                              {{ Number(caseItem.approved_area).toLocaleString() }}
+                            </div>
+                            <div class="text-caption">
+                              ㎡
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </v-card-text>
+              </v-card>
+            </div>
+          </div>
+
+          <!-- 土地面積統計區域 -->
+          <v-divider class="mb-3 mt-2" />
+
+          <v-row dense>
+            <v-col
+              cols="12"
+              sm="6"
+              md="4"
+            >
+              <v-card
+                flat
+                color="transparent"
+                class="px-2 py-1"
               >
-                <v-card
-                  flat
-                  color="transparent"
-                  class="px-2 py-1"
-                >
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">
-                    設查詢地號總面積
-                  </v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
-                    {{ landTotalArea }} ㎡
-                  </v-card-text>
-                </v-card>
-              </v-col>
+                <v-card-subtitle class="pa-0 pb-1 text-caption">
+                  設查詢地號總面積
+                </v-card-subtitle>
+                <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                  {{ landTotalArea }} ㎡
+                </v-card-text>
+              </v-card>
+            </v-col>
 
-              <v-col
-                cols="12"
-                sm="6"
-                md="4"
+            <v-col
+              cols="12"
+              sm="6"
+              md="4"
+            >
+              <v-card
+                flat
+                color="transparent"
+                class="px-2 py-1"
               >
-                <v-card
-                  flat
-                  color="transparent"
-                  class="px-2 py-1"
-                >
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">
-                    已經補助申請設施面積
-                  </v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
-                    {{ usedArea }} ㎡
-                  </v-card-text>
-                </v-card>
-              </v-col>
+                <v-card-subtitle class="pa-0 pb-1 text-caption">
+                  已經補助申請設施面積
+                </v-card-subtitle>
+                <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                  {{ usedArea }} ㎡
+                </v-card-text>
+              </v-card>
+            </v-col>
 
-              <v-col
-                cols="12"
-                sm="6"
-                md="4"
+            <v-col
+              cols="12"
+              sm="6"
+              md="4"
+            >
+              <v-card
+                flat
+                color="transparent"
+                class="px-2 py-1"
               >
-                <v-card
-                  flat
-                  color="transparent"
-                  class="px-2 py-1"
-                >
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">
-                    剩餘申請面積
-                  </v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
-                    {{ remainingArea }} ㎡
-                  </v-card-text>
-                </v-card>
-              </v-col>
+                <v-card-subtitle class="pa-0 pb-1 text-caption">
+                  剩餘申請面積
+                </v-card-subtitle>
+                <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                  {{ remainingArea }} ㎡
+                </v-card-text>
+              </v-card>
+            </v-col>
 
-              <v-col
-                cols="12"
-                sm="6"
-                md="4"
+            <v-col
+              cols="12"
+              sm="6"
+              md="4"
+            >
+              <v-card
+                flat
+                color="transparent"
+                class="px-2 py-1"
               >
-                <v-card
-                  flat
-                  color="transparent"
-                  class="px-2 py-1"
-                >
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">
-                    已經補助微灌設施面積
-                  </v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
-                    {{ microIrrigationArea }} ㎡
-                  </v-card-text>
-                </v-card>
-              </v-col>
+                <v-card-subtitle class="pa-0 pb-1 text-caption">
+                  已經補助微灌設施面積
+                </v-card-subtitle>
+                <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                  {{ microIrrigationArea }} ㎡
+                </v-card-text>
+              </v-card>
+            </v-col>
 
-              <v-col
-                cols="12"
-                sm="6"
-                md="4"
+            <v-col
+              cols="12"
+              sm="6"
+              md="4"
+            >
+              <v-card
+                flat
+                color="transparent"
+                class="px-2 py-1"
               >
-                <v-card
-                  flat
-                  color="transparent"
-                  class="px-2 py-1"
-                >
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">
-                    剩餘申請面積
-                  </v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
-                    {{ remainingMicroArea }} ㎡
-                  </v-card-text>
-                </v-card>
-              </v-col>
+                <v-card-subtitle class="pa-0 pb-1 text-caption">
+                  剩餘申請面積
+                </v-card-subtitle>
+                <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                  {{ remainingMicroArea }} ㎡
+                </v-card-text>
+              </v-card>
+            </v-col>
 
-              <v-col
-                cols="12"
-                sm="6"
-                md="4"
+            <v-col
+              cols="12"
+              sm="6"
+              md="4"
+            >
+              <v-card
+                flat
+                color="transparent"
+                class="px-2 py-1"
               >
-                <v-card
-                  flat
-                  color="transparent"
-                  class="px-2 py-1"
-                >
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">
-                    已經補助噴水設施面積
-                  </v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
-                    {{ sprinklerArea }} ㎡
-                  </v-card-text>
-                </v-card>
-              </v-col>
+                <v-card-subtitle class="pa-0 pb-1 text-caption">
+                  已經補助噴水設施面積
+                </v-card-subtitle>
+                <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                  {{ sprinklerArea }} ㎡
+                </v-card-text>
+              </v-card>
+            </v-col>
 
-              <v-col
-                cols="12"
-                sm="6"
-                md="4"
+            <v-col
+              cols="12"
+              sm="6"
+              md="4"
+            >
+              <v-card
+                flat
+                color="transparent"
+                class="px-2 py-1"
               >
-                <v-card
-                  flat
-                  color="transparent"
-                  class="px-2 py-1"
-                >
-                  <v-card-subtitle class="pa-0 pb-1 text-caption">
-                    剩餘申請面積
-                  </v-card-subtitle>
-                  <v-card-text class="pa-0 text-body-1 font-weight-medium">
-                    {{ remainingSprinklerArea }} ㎡
-                  </v-card-text>
-                </v-card>
-              </v-col>
-            </v-row>
-          </v-sheet>
+                <v-card-subtitle class="pa-0 pb-1 text-caption">
+                  剩餘申請面積
+                </v-card-subtitle>
+                <v-card-text class="pa-0 text-body-1 font-weight-medium">
+                  {{ remainingSprinklerArea }} ㎡
+                </v-card-text>
+              </v-card>
+            </v-col>
+          </v-row>
 
           <!-- 無查詢結果提示 -->
           <v-alert
@@ -952,6 +1128,120 @@ const loadRecentSearch = (item: RecentSearch) => {
     indigenousParams.county = search.county;
     indigenousParams.town = search.town;
   }
+};
+
+// === 新增的計算屬性和方法 ===
+
+// 土地位置描述
+const landLocationDescription = computed(() => {
+  if (searchResults.value.length === 0) return '';
+  const first = searchResults.value[0];
+  const parts = [];
+  if (first.land_section) parts.push(first.land_section);
+  return parts.join(' ') || '查詢地號';
+});
+
+// 總核定面積
+const totalApprovedArea = computed(() => {
+  return searchResults.value.reduce((sum, item) => sum + Number(item.approved_area), 0);
+});
+
+// 唯一申請人列表
+const uniqueApplicants = computed(() => {
+  const applicants = new Set(searchResults.value.map(item => item.applicant));
+  return Array.from(applicants);
+});
+
+// 年度範圍
+const yearRange = computed(() => {
+  if (searchResults.value.length === 0) return '';
+  const years = searchResults.value.map(item => item.application_year).sort((a, b) => b - a);
+  const minYear = Math.min(...years);
+  const maxYear = Math.max(...years);
+  return minYear === maxYear ? `${maxYear}年` : `${minYear}-${maxYear}年`;
+});
+
+// 按年度分組
+const groupedByYear = computed(() => {
+  if (searchResults.value.length === 0) return [];
+  
+  const groups = new Map();
+  
+  searchResults.value.forEach(item => {
+    const year = item.application_year;
+    if (!groups.has(year)) {
+      groups.set(year, {
+        year,
+        cases: [],
+        totalArea: 0,
+        facilities: new Map()
+      });
+    }
+    
+    const yearGroup = groups.get(year);
+    yearGroup.cases.push(item);
+    yearGroup.totalArea += Number(item.approved_area);
+    
+    // 按設施類型分組
+    const facilityType = item.case_type || '一般設施';
+    if (!yearGroup.facilities.has(facilityType)) {
+      yearGroup.facilities.set(facilityType, {
+        type: facilityType,
+        cases: [],
+        totalArea: 0
+      });
+    }
+    
+    const facilityGroup = yearGroup.facilities.get(facilityType);
+    facilityGroup.cases.push(item);
+    facilityGroup.totalArea += Number(item.approved_area);
+  });
+  
+  // 轉換為陣列並排序
+  return Array.from(groups.values())
+    .sort((a: any, b: any) => b.year - a.year)
+    .map(yearGroup => ({
+      ...yearGroup,
+      facilities: Array.from(yearGroup.facilities.values())
+        .sort((a: any, b: any) => b.totalArea - a.totalArea)
+    }));
+});
+
+// 年度標籤顏色
+const getYearChipColor = (year: number) => {
+  const currentYear = new Date().getFullYear() - 1911; // 轉換為民國年
+  if (year >= currentYear - 1) return 'success'; // 近兩年
+  if (year >= currentYear - 3) return 'info'; // 近三年
+  return 'grey'; // 較舊年度
+};
+
+// 設施圖示
+const getFacilityIcon = (facilityType: string) => {
+  const iconMap: Record<string, { icon: string, color: string }> = {
+    '節水設備': { icon: 'mdi-water', color: 'blue' },
+    '田間管路': { icon: 'mdi-pipe', color: 'green' },
+    '調蓄設施': { icon: 'mdi-storage-tank', color: 'orange' },
+    '灌控設施': { icon: 'mdi-valve', color: 'purple' },
+    '動力設備': { icon: 'mdi-engine', color: 'red' },
+    '一般設施': { icon: 'mdi-tools', color: 'grey' },
+    '歷史案件': { icon: 'mdi-history', color: 'brown' }
+  };
+  
+  return iconMap[facilityType] || iconMap['一般設施'];
+};
+
+// 狀態顏色
+const getStatusColor = (area: number) => {
+  if (area >= 5000) return 'success';
+  if (area >= 1000) return 'warning';
+  return 'info';
+};
+
+// 面積狀態格式化
+const formatAreaStatus = (area: number) => {
+  if (area >= 5000) return '大型設施';
+  if (area >= 1000) return '中型設施';
+  return '小型設施';
 };
 
 // 切換標籤頁時清除查詢結果
