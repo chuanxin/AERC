@@ -143,6 +143,7 @@ class GrantCaseItem(BaseModel):
     
     # 面積資訊
     approved_area: Decimal = Field(..., description="核准面積(㎡)")
+    land_registered_area: Optional[Decimal] = Field(None, description="地籍登記面積(㎡) - 來源於meta_data")
     
     # 額外資訊
     crops: Optional[List[Dict[str, str]]] = Field(None, description="作物資訊")

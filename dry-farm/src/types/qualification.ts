@@ -26,6 +26,7 @@ export interface QualificationSearchRequest {
 export interface GrantCaseItem {
   id: number
   source_system: string
+  source_id?: number
   grant_id: string
   case_number?: string
   case_type: string
@@ -36,6 +37,7 @@ export interface GrantCaseItem {
   applicant: string
   department?: string
   approved_area: string // Decimal as string
+  land_registered_area?: string // Decimal as string - 地籍登記面積
   crops?: Array<{
     category?: string
     name?: string
@@ -46,7 +48,7 @@ export interface GrantCaseItem {
 
 export interface AreaStatistics {
   land_total_area: string      // Decimal as string
-  used_area: string           // Decimal as string  
+  used_area: string           // Decimal as string
   remaining_area: string      // Decimal as string
   micro_irrigation_area: string     // Decimal as string
   remaining_micro_area: string      // Decimal as string
@@ -57,7 +59,7 @@ export interface AreaStatistics {
 export interface QueryInfo {
   query_type: QualificationQueryType
   location_description: string
-  search_params: Record<string, any>
+  search_params: Record<string, unknown>
   years_searched: string[]
 }
 
@@ -83,7 +85,7 @@ export interface AreaCheckRequest {
 export interface AreaCheckResponse {
   is_qualified: boolean
   area_type: 'indigenous' | 'slope' | 'general'
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 }
 
 export interface HealthCheckResponse {
@@ -99,6 +101,8 @@ export interface QualificationSearchParams {
   town: string
   section?: string
   landNumber?: string
+  parentLandNumber?: string
+  childLandNumber?: string
 }
 
 export interface IndigenousSearchParams {

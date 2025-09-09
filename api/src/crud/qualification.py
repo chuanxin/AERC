@@ -146,6 +146,7 @@ class QualificationCRUD:
         """將 GrantLocations 轉換為統一的 GrantCaseItem 格式"""
         # 解析 meta_data 獲取面積資訊
         approved_area = Decimal('0.00')
+        land_registered_area = None
         crops = None
         is_aboriginal_area = None
         case_type = "一般設施"  # 預設值
@@ -154,12 +155,20 @@ class QualificationCRUD:
             if location.source_system == "legacy_farmdata":
                 # 歷史資料格式
                 approved_area = Decimal(str(location.meta_data.get('finalarea', 0)))
+                # 地籍登記面積來源：farmarea
+                farmarea = location.meta_data.get('farmarea')
+                if farmarea is not None:
+                    land_registered_area = Decimal(str(farmarea))
                 case_type = "歷史案件"
                 
             elif location.source_system == "new_aerc":
                 # 新系統資料格式
                 facility_area = location.meta_data.get('facility_area', '0')
                 approved_area = Decimal(str(facility_area))
+                # 地籍登記面積來源：land_area
+                land_area = location.meta_data.get('land_area')
+                if land_area is not None:
+                    land_registered_area = Decimal(str(land_area))
                 crops = location.meta_data.get('crops', [])
                 is_aboriginal_area = location.meta_data.get('is_aboriginal_area')
                 case_type = QualificationCRUD._infer_case_type_from_crops(crops)
@@ -177,6 +186,7 @@ class QualificationCRUD:
             applicant=location.applicant_name or "",
             department=None,  # GrantLocations 中沒有此欄位
             approved_area=approved_area,
+            land_registered_area=land_registered_area,
             crops=crops,
             is_aboriginal_area=is_aboriginal_area
         )
