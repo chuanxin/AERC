@@ -355,25 +355,6 @@
                         </v-btn>
                       </div>
 
-                      <div
-                        v-if="isIndigenousAreaChecked"
-                        class="mb-4"
-                      >
-                        <div class="d-flex align-center">
-                          <v-chip
-                            :color="isIndigenousArea ? '#3ea0a3' : 'grey'"
-                            :text-color="isIndigenousArea ? 'white' : ''"
-                            size="small"
-                            class="me-2"
-                          >
-                            {{ isIndigenousArea ? '是' : '非' }} 原民鄉
-                          </v-chip>
-
-                          <span class="text-body-2">
-                            {{ indigenousParams.county || '___' }} {{ indigenousParams.town || '___' }}
-                          </span>
-                        </div>
-                      </div>
                     </div>
                   </v-expand-transition>
 
@@ -538,13 +519,102 @@
             md="9"
             lg="9"
           >
+            <!-- 原民區域查詢結果顯示 -->
+            <v-expand-transition>
+              <div
+                v-if="isIndigenousAreaChecked && queryType === 'indigenous'"
+                class="section-wrapper mb-4"
+              >
+                <v-card
+                  class="mx-auto section-card pa-4"
+                  variant="outlined"
+                  rounded="lg"
+                >
+                  <v-card-item class="custom-title">
+                    <v-card-title class="text-h5 font-weight-black">
+                      原民區域查詢結果
+                    </v-card-title>
+                  </v-card-item>
+
+                  <v-card-text>
+                    <v-card
+                      class="table-card"
+                      rounded="lg"
+                      elevation="0"
+                    >
+                      <v-card-text class="pa-0">
+                        <div class="d-flex align-center justify-left">
+                          <v-chip
+                            :color="isIndigenousArea ? '#3ea0a3' : 'grey'"
+                            :text-color="isIndigenousArea ? 'white' : ''"
+                            size="large"
+                            class="me-4"
+                          >
+                            <v-icon
+                              :icon="isIndigenousArea ? 'mdi-check-circle' : 'mdi-close-circle'"
+                              class="me-2"
+                            />
+                            {{ isIndigenousArea ? '是' : '非' }} 原民區域
+                          </v-chip>
+
+                          <div class="text-body-1">
+                            <strong>{{ indigenousParams.county || '___' }}</strong>
+                            <span class="mx-2">•</span>
+                            <strong>{{ indigenousParams.town || '___' }}</strong>
+                          </div>
+                        </div>
+
+                        <div
+                          v-if="isIndigenousArea"
+                          class="mt-4 pa-3 bg-light-green-lighten-5 rounded"
+                        >
+                          <div class="d-flex align-center mb-2">
+                            <v-icon
+                              color="success"
+                              size="small"
+                              class="me-2"
+                            >
+                              mdi-information
+                            </v-icon>
+                            <span class="text-body-2 font-weight-medium">此地區為原民區域</span>
+                          </div>
+                          <div class="text-caption text-grey-darken-1">
+                            申請案件將適用原民區域相關法規與補助規範
+                          </div>
+                        </div>
+
+                        <div
+                          v-else
+                          class="mt-4 pa-3 bg-grey-lighten-4 rounded"
+                        >
+                          <div class="d-flex align-center mb-2">
+                            <v-icon
+                              color="grey-darken-1"
+                              size="small"
+                              class="me-2"
+                            >
+                              mdi-information
+                            </v-icon>
+                            <span class="text-body-2 font-weight-medium">此地區非原民區域</span>
+                          </div>
+                          <div class="text-caption text-grey-darken-1">
+                            申請案件將適用一般法規與補助規範
+                          </div>
+                        </div>
+                      </v-card-text>
+                    </v-card>
+                  </v-card-text>
+                </v-card>
+              </div>
+            </v-expand-transition>
+
             <!-- 預設顯示查詢說明 -->
             <div
-              v-if="searchResults.length === 0 && !showNoResultMessage"
+              v-if="searchResults.length === 0 && !showNoResultMessage && (!isIndigenousAreaChecked || queryType !== 'indigenous')"
               class="section-wrapper"
             >
               <v-card
-                class="mx-auto section-card pa-4"
+                class="mx-auto section-card pa-0"
                 variant="outlined"
                 rounded="lg"
               >
@@ -647,7 +717,7 @@
                               v-if="searchResults.length > filteredLegacyResults.length"
                               class="text-caption text-warning mb-2"
                             >
-                              ⚠️ 已過濾顯示與最新案件地段 ({{ filteredLegacyResults[0].land_section }}) 相關的 {{ filteredLegacyResults.length }} 筆記錄 (總共 {{ searchResults.length }} 筆)
+                              ⚠️ 已過濾僅顯示與最新案件地段 ({{ filteredLegacyResults[0].land_section }}) 相關的 {{ filteredLegacyResults.length }} 筆記錄 (包含其它地段的記錄總共 {{ searchResults.length }} 筆)
                             </div>
 
                             <!-- 頂部統計資訊 - 橫向排列 -->
@@ -1116,7 +1186,7 @@ const searchIndigenous = async () => {
   try {
     await qualificationStore.checkIndigenousArea(indigenousParams);
   } catch (error) {
-    console.error('原民鄉查詢失敗:', error);
+    console.error('原民區域查詢失敗:', error);
     // 錯誤處理已在 store 中統一處理
   }
 };
@@ -1259,7 +1329,7 @@ const queryInstructions = computed(() => {
         title: '原民區域查詢說明',
         items: [
           {
-            text: '此功能用於確認指定縣市與鄉鎮是否屬於原民區域，查詢結果將顯示該地區是否為原住民族地區及相關訊息',
+            text: '此功能用於確認指定縣市與鄉鎮是否屬於原民區域，並顯示相關訊息',
             icon: 'mdi-information',
             color: '#FF6B35'
           },
@@ -1295,7 +1365,7 @@ const queryInstructions = computed(() => {
         title: '山坡地查詢說明',
         items: [
           {
-            text: '由於提供山坡地資料的API服務已停止更新，本系統無法在取得即時資料，請直接點選下方連結進行查詢。',
+            text: '由於提供山坡地資料的API服務已停止更新，本系統無法在取得即時資料，請直接點選下方連結進行查詢：',
             icon: 'mdi-information',
             color: '#8BC34A'
           },
