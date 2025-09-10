@@ -79,7 +79,7 @@
                         size="small"
                         class="text-body-2 flex-grow-1"
                       >
-                        一般區域
+                        歷史申請案件
                       </v-btn>
                       <v-btn
                         value="indigenous"
@@ -265,9 +265,6 @@
                             @blur="formatChildLandNumber('searchParams')"
                           />
                         </div>
-                        <!-- <div class="text-caption text-medium-emphasis mb-3">
-                          例：母地號 570，子地號 0 → 查詢地號 0570-0000
-                        </div> -->
 
                         <v-btn
                           color="#3ea0a3"
@@ -322,7 +319,6 @@
                             hide-details
                             class="flex-grow-1"
                             bg-color="white"
-                            rounded="lg"
                             @update:model-value="onIndigenousCountyChange"
                           />
 
@@ -336,39 +332,7 @@
                             class="flex-grow-1 ml-3"
                             :disabled="!indigenousParams.county"
                             bg-color="white"
-                            rounded="lg"
                           />
-                        </div>
-
-                        <!-- 原民鄉清單按鈕與API狀態 -->
-                        <div class="d-flex align-center gap-3">
-                          <v-btn
-                            variant="outlined"
-                            color="#3ea0a3"
-                            size="small"
-                            rounded="lg"
-                            @click="indigenousDialog = true"
-                          >
-                            原民鄉清單
-                          </v-btn>
-
-                          <v-spacer />
-
-                          <!-- API連線狀態 -->
-                          <div class="d-flex align-center gap-2">
-                            <v-chip
-                              :color="apiStatus.isOnline ? 'success' : 'error'"
-                              size="small"
-                              variant="flat"
-                            >
-                              <v-icon
-                                :icon="apiStatus.isOnline ? 'mdi-check-circle' : 'mdi-close-circle'"
-                                size="small"
-                                class="me-1"
-                              />
-                              {{ apiStatus.isOnline ? '線上' : '離線' }}
-                            </v-chip>
-                          </div>
                         </div>
 
                         <v-btn
@@ -430,7 +394,6 @@
                             hide-details
                             class="flex-grow-1"
                             bg-color="white"
-                            rounded="lg"
                             @update:model-value="onHillsideCountyChange"
                           />
 
@@ -444,7 +407,6 @@
                             class="flex-grow-1 ml-3"
                             :disabled="!hillsideParams.county"
                             bg-color="white"
-                            rounded="lg"
                             @update:model-value="onHillsideTownChange"
                           />
                         </div>
@@ -461,15 +423,14 @@
                             class="flex-grow-1"
                             :disabled="!hillsideParams.town"
                             bg-color="white"
-                            rounded="lg"
                           />
 
                           <!-- API連線狀態 -->
-                          <div class="d-flex align-center gap-2">
+                          <div class="d-flex align-center ml-2">
                             <v-chip
                               :color="apiStatus.isOnline ? 'success' : 'error'"
                               size="small"
-                              variant="flat"
+                              variant="outlined"
                             >
                               <v-icon
                                 :icon="apiStatus.isOnline ? 'mdi-check-circle' : 'mdi-close-circle'"
@@ -483,40 +444,6 @@
                       </div>
 
                       <div class="mb-4">
-                        <div class="text-body-2 font-weight-medium mb-2">
-                          地號
-                        </div>
-                        <div class="d-flex align-center gap-2 mb-3">
-                          <v-text-field
-                            v-model="hillsideParams.parentLandNumber"
-                            label="母地號 (必填)"
-                            variant="outlined"
-                            density="compact"
-                            hide-details
-                            bg-color="white"
-                            rounded="lg"
-                            maxlength="4"
-                            style="flex: 1"
-                            @blur="formatParentLandNumber('hillsideParams')"
-                          />
-                          <span class="text-h6 mx-2">-</span>
-                          <v-text-field
-                            v-model="hillsideParams.childLandNumber"
-                            label="子地號 (選填)"
-                            variant="outlined"
-                            density="compact"
-                            hide-details
-                            bg-color="white"
-                            rounded="lg"
-                            maxlength="4"
-                            style="flex: 1"
-                            @blur="formatChildLandNumber('hillsideParams')"
-                          />
-                        </div>
-                        <div class="text-caption text-medium-emphasis mb-3">
-                          例：母地號 570，子地號 0 → 查詢地號 0570-0000
-                        </div>
-
                         <v-btn
                           color="#3ea0a3"
                           variant="flat"
@@ -623,7 +550,7 @@
               >
                 <v-card-item class="custom-title">
                   <v-card-title class="text-h5 font-weight-black">
-                    歸檔記錄查詢說明
+                    {{ queryInstructions.title }}
                   </v-card-title>
                 </v-card-item>
 
@@ -638,69 +565,43 @@
                         density="compact"
                         class="bg-transparent pa-0"
                       >
-                        <v-list-item class="px-1">
+                        <v-list-item
+                          v-for="(instruction, index) in queryInstructions.items"
+                          :key="index"
+                          class="px-1"
+                        >
                           <template #prepend>
                             <v-icon
-                              color="#3ea0a3"
+                              :color="instruction.color || '#3ea0a3'"
                               size="small"
                             >
-                              mdi-check-circle
+                              {{ instruction.icon || 'mdi-check-circle' }}
                             </v-icon>
                           </template>
-                          <v-list-item-title class="text-body-2">
-                            只需輸入母地號即可查詢歷史歸檔記錄
-                          </v-list-item-title>
-                        </v-list-item>
-                        <v-list-item class="px-1">
-                          <template #prepend>
-                            <v-icon
-                              color="#3ea0a3"
-                              size="small"
+                          <v-list-item-title
+                            :class="[
+                              instruction.isHeader ? 'text-body-1 font-weight-bold' : 'text-body-2',
+                              instruction.isContent ? 'text-caption text-wrap' : ''
+                            ]"
+                          >
+                            <span v-if="!instruction.url">{{ instruction.text }}</span>
+                            <a
+                              v-else
+                              :href="instruction.url"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="text-decoration-none"
+                              :style="{ color: instruction.color || '#3ea0a3' }"
                             >
-                              mdi-check-circle
-                            </v-icon>
-                          </template>
-                          <v-list-item-title class="text-body-2">
-                            縣市、鄉鎮、地段為選填項目
-                          </v-list-item-title>
-                        </v-list-item>
-                        <v-list-item class="px-1">
-                          <template #prepend>
-                            <v-icon
-                              color="#3ea0a3"
-                              size="small"
-                            >
-                              mdi-check-circle
-                            </v-icon>
-                          </template>
-                          <v-list-item-title class="text-body-2">
-                            可查詢該地號是否已有歷史補助申請紀錄（母-子地號格式）
-                          </v-list-item-title>
-                        </v-list-item>
-                        <v-list-item class="px-1">
-                          <template #prepend>
-                            <v-icon
-                              color="#3ea0a3"
-                              size="small"
-                            >
-                              mdi-check-circle
-                            </v-icon>
-                          </template>
-                          <v-list-item-title class="text-body-2">
-                            若為原民區域請選擇原民區域查詢
-                          </v-list-item-title>
-                        </v-list-item>
-                        <v-list-item class="px-1">
-                          <template #prepend>
-                            <v-icon
-                              color="#3ea0a3"
-                              size="small"
-                            >
-                              mdi-check-circle
-                            </v-icon>
-                          </template>
-                          <v-list-item-title class="text-body-2">
-                            查詢結果會顯示歷史申請案件與相關資料
+                              {{ instruction.text }}
+                              <v-icon
+                                size="small"
+                                class="ml-1"
+                                :color="instruction.color || '#3ea0a3'"
+                              >
+                                mdi-open-in-new
+                              </v-icon>
+                            </a>
                           </v-list-item-title>
                         </v-list-item>
                       </v-list>
@@ -732,7 +633,7 @@
                         rounded="lg"
                         elevation="0"
                       >
-                        <v-card-text class="pa-4">
+                        <v-card-text class="pa-0">
                           <!-- 查詢結果標題 -->
                           <div
                             v-if="filteredLegacyResults.length > 0"
@@ -769,63 +670,6 @@
                                   ㎡
                                 </div>
                               </div>
-
-                              <!-- <div class="text-center">
-                                <div class="d-flex align-center mb-1">
-                                  <v-icon
-                                    color="green"
-                                    size="small"
-                                    class="me-1"
-                                  >
-                                    mdi-account-group
-                                  </v-icon>
-                                  <span class="text-caption">管理類型</span>
-                                </div>
-                                <div class="text-body-1 font-weight-bold text-green">
-                                  {{ uniqueApplicants.length }}
-                                </div>
-                                <div class="text-caption">
-                                  申請人
-                                </div>
-                              </div>
-
-                              <div class="text-center">
-                                <div class="d-flex align-center mb-1">
-                                  <v-icon
-                                    color="orange"
-                                    size="small"
-                                    class="me-1"
-                                  >
-                                    mdi-calendar
-                                  </v-icon>
-                                  <span class="text-caption">工程分區</span>
-                                </div>
-                                <div class="text-body-1 font-weight-bold text-orange">
-                                  {{ yearRange }}
-                                </div>
-                                <div class="text-caption">
-                                  年度
-                                </div>
-                              </div>
-
-                              <div class="text-center">
-                                <div class="d-flex align-center mb-1">
-                                  <v-icon
-                                    color="purple"
-                                    size="small"
-                                    class="me-1"
-                                  >
-                                    mdi-file-multiple
-                                  </v-icon>
-                                  <span class="text-caption">設施小組</span>
-                                </div>
-                                <div class="text-body-1 font-weight-bold text-purple">
-                                  {{ searchResults.length }}
-                                </div>
-                                <div class="text-caption">
-                                  件數
-                                </div>
-                              </div> -->
                             </div>
                           </div>
 
@@ -906,7 +750,7 @@
                                         <span class="text-caption">㎡</span>
                                       </div>
                                       <v-chip
-                                        :color="getStatusColor(facilityGroup.appliedArea || 0)"
+                                        :color="getStatusColor(facilityGroup.appliedArea || 0, facilityGroup.landRegisteredArea || 0)"
                                         size="small"
                                         variant="flat"
                                       >
@@ -953,72 +797,21 @@
             </v-expand-transition>
           </v-col>
         </v-row>
-
-        <!-- 原民鄉對話框 -->
-        <v-dialog
-          v-model="indigenousDialog"
-          max-width="700px"
-        >
-          <v-card>
-            <v-card-title class="bg-light-blue-lighten-4 py-3 px-4">
-              <span class="text-subtitle-1 font-weight-medium">原民鄉清單</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <div class="mb-4">
-                <div class="font-weight-medium mb-2">
-                  山地鄉(30個)
-                </div>
-                <div class="text-body-2 text-wrap">
-                  臺灣市茂林區、臺灣市桃源區、臺灣市那瑪夏區、新北市烏來區、宜蘭縣大同鄉、
-                  宜蘭縣南澳鄉、桃園市復興區、新竹縣尖石鄉、新竹縣五峰鄉、苗栗縣泰安鄉、
-                  臺中市和平區、南投縣信義鄉、南投縣仁愛鄉、嘉義縣阿里山鄉、屏東縣三地門鄉、
-                  屏東縣霧臺鄉、屏東縣瑪家鄉、屏東縣泰武鄉、屏東縣來義鄉、屏東縣春日鄉、
-                  屏東縣獅子鄉、屏東縣牡丹鄉、花蓮縣秀林鄉、花蓮縣萬榮鄉、花蓮縣卓溪鄉、
-                  臺東縣延平鄉、臺東縣海端鄉、臺東縣達仁鄉、臺東縣金峰鄉、臺東縣蘭嶼鄉
-                </div>
-              </div>
-
-              <div class="mb-4">
-                <div class="font-weight-medium mb-2">
-                  平地鄉(25個)
-                </div>
-                <div class="text-body-2 text-wrap">
-                  新竹縣關西鎮、苗栗縣南庄鄉、苗栗縣獅潭鄉、南投縣魚池鄉、屏東縣滿州鄉、
-                  花蓮縣花蓮市、花蓮縣光復鄉、花蓮縣玉里鎮、花蓮縣新城鄉、花蓮縣吉安鄉、
-                  花蓮縣壽豐鄉、花蓮縣鳳林鎮、花蓮縣豐濱鄉、花蓮縣瑞穗鄉、花蓮縣富里鄉、
-                  臺東縣台東市、臺東縣成功鎮、臺東縣關山鎮、臺東縣東河鄉、臺東縣太麻里鄉、
-                  臺東縣大武鄉、臺東縣卑南鄉、臺東縣長濱鄉、臺東縣鹿野鄉、臺東縣池上鄉
-                </div>
-              </div>
-            </v-card-text>
-
-            <v-card-actions class="pa-4">
-              <v-spacer />
-              <v-btn
-                color="primary"
-                variant="elevated"
-                @click="indigenousDialog = false"
-              >
-                確定
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
       </v-col>
     </v-row>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, reactive } from 'vue';
+import { ref, computed, watch, reactive, onMounted } from 'vue';
 import { useQualificationStore } from '@/stores/qualification';
+import { useDomicileStore } from '@/stores/domicile';
 import type { QualificationSearchParams, IndigenousSearchParams, RecentSearch } from '@/types/qualification';
 
 const qualificationStore = useQualificationStore();
+const domicileStore = useDomicileStore();
 
 const queryType = ref('general');
-const indigenousDialog = ref(false);
 
 // API連線狀態
 const apiStatus = ref({
@@ -1101,55 +894,80 @@ const canSearchHillside = computed(() => {
 const isHillsideLoading = ref(false);
 const showHillsideAlert = computed(() => hillsideParams.landNumber && hillsideParams.landNumber.length > 0);
 
-// 地區資料
-const counties = [
-  '臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '苗栗縣',
-  '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '臺南市',
-  '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣'
-];
-
-// 鄉鎮市區資料 (這裡僅做示範，實際應該根據選擇的縣市動態獲取)
-const townsMap: Record<string, string[]> = {
-  '嘉義縣': ['太保市', '朴子市', '布袋鎮', '大林鎮', '民雄鄉', '溪口鄉', '新港鄉', '六腳鄉', '東石鄉', '義竹鄉', '鹿草鄉', '水上鄉', '中埔鄉', '竹崎鄉', '梅山鄉', '番路鄉', '大埔鄉', '阿里山鄉'],
-  '高雄市': ['楠梓區', '左營區', '鼓山區', '三民區', '鹽埕區', '前金區', '新興區', '苓雅區', '前鎮區', '旗津區', '小港區', '鳳山區', '大寮區', '鳥松區', '林園區', '仁武區', '大樹區', '大社區', '岡山區', '路竹區', '橋頭區', '梓官區', '彌陀區', '永安區', '燕巢區', '田寮區', '阿蓮區', '茄萣區', '湖內區', '旗山區', '美濃區', '內門區', '杉林區', '甲仙區', '六龜區', '茂林區', '桃源區', '那瑪夏區'],
-  '屏東縣': ['屏東市', '潮州鎮', '東港鎮', '恆春鎮', '萬丹鄉', '長治鄉', '麟洛鄉', '九如鄉', '里港鄉', '鹽埔鄉', '高樹鄉', '萬巒鄉', '內埔鄉', '竹田鄉', '新埤鄉', '枋寮鄉', '新園鄉', '崁頂鄉', '林邊鄉', '南州鄉', '佳冬鄉', '琉球鄉', '車城鄉', '滿州鄉', '枋山鄉', '霧臺鄉', '瑪家鄉', '泰武鄉', '來義鄉', '春日鄉', '獅子鄉', '牡丹鄉', '三地門鄉']
-  // 其他縣市資料...
-};
-
-// 地段資料 (示範用)
-const sectionsMap: Record<string, string[]> = {
-  '竹崎鄉': ['瓦厝埔段', '龍山段', '灣橋段'],
-  // 其他地段資料...
-};
+// 地區資料 - 使用 domicileStore 的動態資料
+const counties = computed(() => {
+  return domicileStore.countyOptions.map(county => ({
+    title: county.title,
+    value: county.title // 使用 title 作為 value 以配合現有的字串類型
+  }));
+});
 
 // 動態獲取鄉鎮選項
 const towns = computed(() => {
   if (!searchParams.county) return [];
-  return townsMap[searchParams.county] || [];
+  // 找到對應的縣市 ID
+  const county = domicileStore.countyOptions.find(c => c.title === searchParams.county);
+  if (!county) return [];
+
+  return domicileStore.getTownsForCountyId(county.value).map(town => ({
+    title: town.title,
+    value: town.title
+  }));
 });
 
 // 動態獲取地段選項
 const sections = computed(() => {
   if (!searchParams.town) return [];
-  return sectionsMap[searchParams.town] || [];
+  // 找到對應的鄉鎮 ID
+  const county = domicileStore.countyOptions.find(c => c.title === searchParams.county);
+  if (!county) return [];
+
+  const town = domicileStore.getTownsForCountyId(county.value).find(t => t.title === searchParams.town);
+  if (!town) return [];
+
+  return domicileStore.getLandSectionsForTownId(town.value).map(section => ({
+    title: section.title,
+    value: section.title
+  }));
 });
 
 // 動態獲取原民區查詢的鄉鎮選項
 const indigenousTowns = computed(() => {
   if (!indigenousParams.county) return [];
-  return townsMap[indigenousParams.county] || [];
+  const county = domicileStore.countyOptions.find(c => c.title === indigenousParams.county);
+  if (!county) return [];
+
+  return domicileStore.getTownsForCountyId(county.value).map(town => ({
+    title: town.title,
+    value: town.title
+  }));
 });
 
 // 動態獲取山坡地查詢的鄉鎮選項
 const hillsideTowns = computed(() => {
   if (!hillsideParams.county) return [];
-  return townsMap[hillsideParams.county] || [];
+  const county = domicileStore.countyOptions.find(c => c.title === hillsideParams.county);
+  if (!county) return [];
+
+  return domicileStore.getTownsForCountyId(county.value).map(town => ({
+    title: town.title,
+    value: town.title
+  }));
 });
 
 // 動態獲取山坡地查詢的地段選項
 const hillsideSections = computed(() => {
   if (!hillsideParams.town) return [];
-  return sectionsMap[hillsideParams.town] || [];
+  const county = domicileStore.countyOptions.find(c => c.title === hillsideParams.county);
+  if (!county) return [];
+
+  const town = domicileStore.getTownsForCountyId(county.value).find(t => t.title === hillsideParams.town);
+  if (!town) return [];
+
+  return domicileStore.getLandSectionsForTownId(town.value).map(section => ({
+    title: section.title,
+    value: section.title
+  }));
 });
 
 
@@ -1167,20 +985,41 @@ const formatDate = (date: Date): string => {
 };
 
 // 縣市變更事件處理
-const onCountyChange = () => {
+const onCountyChange = async (newCounty: string) => {
   searchParams.town = '';
   searchParams.section = '';
+
+  // 載入該縣市的鄉鎮資料
+  const county = domicileStore.countyOptions.find(c => c.title === newCounty);
+  if (county) {
+    await domicileStore.loadTownsByCountyId(county.value);
+  }
 };
 
 // 鄉鎮變更事件處理
-const onTownChange = () => {
+const onTownChange = async (newTown: string) => {
   searchParams.section = '';
+
+  // 載入該鄉鎮的地段資料
+  const county = domicileStore.countyOptions.find(c => c.title === searchParams.county);
+  if (county) {
+    const town = domicileStore.getTownsForCountyId(county.value).find(t => t.title === newTown);
+    if (town) {
+      await domicileStore.loadLandSectionsByTownId(town.value);
+    }
+  }
 };
 
 // 原民區縣市變更事件處理
-const onIndigenousCountyChange = () => {
+const onIndigenousCountyChange = async (newCounty: string) => {
   indigenousParams.town = '';
   qualificationStore.clearIndigenousCheck();
+
+  // 載入該縣市的鄉鎮資料
+  const county = domicileStore.countyOptions.find(c => c.title === newCounty);
+  if (county) {
+    await domicileStore.loadTownsByCountyId(county.value);
+  }
 };
 
 // 山坡地縣市變更事件處理
@@ -1390,20 +1229,107 @@ const totalApprovedArea = computed(() => {
   return Number(latestRecord?.land_registered_area || latestRecord?.approved_area || '0');
 });
 
-// 唯一申請人列表
-const uniqueApplicants = computed(() => {
-  const applicants = new Set(filteredLegacyResults.value.map(item => item.applicant));
-  return Array.from(applicants);
+// 動態查詢說明內容
+const queryInstructions = computed(() => {
+  switch (queryType.value) {
+    case 'general':
+      return {
+        title: '歷史申請案件查詢說明',
+        items: [
+          {
+            text: '目前只需輸入母地號即可查詢歷史歸檔記錄（縣市、鄉鎮、地段為選填項目）',
+            icon: 'mdi-check-circle',
+            color: '#3ea0a3'
+          },
+          {
+            text: '若為確認地段是否為原民區域，請選擇原民區域查詢',
+            icon: 'mdi-check-circle',
+            color: '#3ea0a3'
+          },
+          {
+            text: '查詢結果會顯示歷史申請案件與相關資料',
+            icon: 'mdi-check-circle',
+            color: '#3ea0a3'
+          }
+        ]
+      };
+
+    case 'indigenous':
+      return {
+        title: '原民區域查詢說明',
+        items: [
+          {
+            text: '此功能用於確認指定縣市與鄉鎮是否屬於原民區域，查詢結果將顯示該地區是否為原住民族地區及相關訊息',
+            icon: 'mdi-information',
+            color: '#FF6B35'
+          },
+          {
+            text: '山地鄉(30個)',
+            icon: 'mdi-image-filter-hdr',
+            color: '#FF6B35',
+            isHeader: true
+          },
+          {
+            text: '高雄市茂林區、高雄市桃源區、高雄市那瑪夏區、新北市烏來區、宜蘭縣大同鄉、宜蘭縣南澳鄉、桃園市復興區、新竹縣尖石鄉、新竹縣五峰鄉、苗栗縣泰安鄉、臺中市和平區、南投縣信義鄉、南投縣仁愛鄉、嘉義縣阿里山鄉、屏東縣三地門鄉、屏東縣霧臺鄉、屏東縣瑪家鄉、屏東縣泰武鄉、屏東縣來義鄉、屏東縣春日鄉、屏東縣獅子鄉、屏東縣牡丹鄉、花蓮縣秀林鄉、花蓮縣萬榮鄉、花蓮縣卓溪鄉、臺東縣延平鄉、臺東縣海端鄉、臺東縣達仁鄉、臺東縣金峰鄉、臺東縣蘭嶼鄉',
+            icon: 'mdi-format-list-bulleted',
+            color: '#757575',
+            isContent: true
+          },
+          {
+            text: '平地鄉(25個)',
+            icon: 'mdi-home-group',
+            color: '#FF6B35',
+            isHeader: true
+          },
+          {
+            text: '新竹縣關西鎮、苗栗縣南庄鄉、苗栗縣獅潭鄉、南投縣魚池鄉、屏東縣滿州鄉、花蓮縣花蓮市、花蓮縣光復鄉、花蓮縣玉里鎮、花蓮縣新城鄉、花蓮縣吉安鄉、花蓮縣壽豐鄉、花蓮縣鳳林鎮、花蓮縣豐濱鄉、花蓮縣瑞穗鄉、花蓮縣富里鄉、臺東縣台東市、臺東縣成功鎮、臺東縣關山鎮、臺東縣東河鄉、臺東縣太麻里鄉、臺東縣大武鄉、臺東縣卑南鄉、臺東縣長濱鄉、臺東縣鹿野鄉、臺東縣池上鄉',
+            icon: 'mdi-format-list-bulleted',
+            color: '#757575',
+            isContent: true
+          }
+        ]
+      };
+
+    case 'slope':
+      return {
+        title: '山坡地查詢說明',
+        items: [
+          {
+            text: '由於提供山坡地資料的API服務已停止更新，本系統無法在取得即時資料，請直接點選下方連結進行查詢。',
+            icon: 'mdi-information',
+            color: '#8BC34A'
+          },
+          {
+            text: '直轄市政府山坡地查詢',
+            icon: 'mdi-earth',
+            color: '#8BC34A',
+            url: 'https://serv.ardswc.gov.tw/B/#BLinkMain'
+          },
+          {
+            text: '行動水保服務網',
+            icon: 'mdi-earth',
+            color: '#8BC34A',
+            url: 'https://serv.ardswc.gov.tw/B/'
+          }
+        ]
+      };
+
+    default:
+      return {
+        title: '查詢說明',
+        items: [
+          {
+            text: '請從左側選擇適當的查詢類型',
+            icon: 'mdi-help-circle',
+            color: '#757575'
+          }
+        ]
+      };
+  }
 });
 
-// 年度範圍
-const yearRange = computed(() => {
-  if (filteredLegacyResults.value.length === 0) return '';
-  const years = filteredLegacyResults.value.map(item => item.application_year).sort((a, b) => b - a);
-  const minYear = Math.min(...years);
-  const maxYear = Math.max(...years);
-  return minYear === maxYear ? `${maxYear}年` : `${minYear}-${maxYear}年`;
-});
+// 移除未使用的計算屬性以清理 ESLint 警告
+// 這些計算屬性之前用於統計信息顯示，但目前已被註釋掉
 
 // 歷史記錄過濾 - 只顯示與最新案件地段相關的資料
 const filteredLegacyResults = computed(() => {
@@ -1545,19 +1471,17 @@ const getFacilityIcon = (facilityType: string) => {
   return iconMap[facilityType] || iconMap['一般設施'];
 };
 
-// 狀態顏色
-const getStatusColor = (area: number) => {
-  if (area >= 5000) return 'success';
-  if (area >= 1000) return 'warning';
-  return 'info';
+// 狀態顏色 - 基於狀態文字而非面積
+const getStatusColor = (appliedArea: number, landRegisteredArea: number) => {
+  const statusText = getFacilityStatusText(appliedArea, landRegisteredArea);
+
+  if (statusText === '尚未申請') return 'info';
+  if (statusText === '已全部申請') return 'grey';
+  return 'warning'; // 尚有面積的情況
 };
 
-// 面積狀態格式化
-const formatAreaStatus = (area: number) => {
-  if (area >= 5000) return '已完成';
-  if (area >= 1000) return '超過1,000㎡';
-  return '進行中';
-};
+// 移除未使用的面積狀態格式化函數
+// 此函數已被 getFacilityStatusText 和狀態文字邏輯取代
 
 // 設施狀態文字計算
 const getFacilityStatusText = (appliedArea: number, landRegisteredArea: number) => {
@@ -1591,13 +1515,30 @@ const getFacilityColorHex = (facilityType: string) => {
 
 // 格式化分組中的申請人
 const formatApplicantsInGroup = (cases: Array<{ applicant: string }>) => {
-  const applicants = [...new Set(cases.map(c => c.applicant))];
-  if (applicants.length === 1) {
-    return applicants[0];
+  // 過濾掉空的或undefined的申請人
+  const validApplicants = [...new Set(cases.map(c => c.applicant).filter(applicant => applicant && applicant.trim()))];
+
+  if (validApplicants.length === 0) {
+    return '無申請紀錄';
+  } else if (validApplicants.length === 1) {
+    return validApplicants[0];
   } else {
-    return `${applicants[0]} 等 ${applicants.length} 人`;
+    return `${validApplicants[0]} 等 ${validApplicants.length} 人`;
   }
 };
+
+// 組件掛載時初始化
+onMounted(async () => {
+  console.log('Qualification page mounted');
+
+  // 初始化 domicile store - 載入縣市資料
+  try {
+    await domicileStore.loadCounties();
+    console.log('Counties loaded successfully');
+  } catch (error) {
+    console.error('Failed to load counties:', error);
+  }
+});
 
 // 切換標籤頁時清除查詢結果
 watch(queryType, () => {
