@@ -49,7 +49,7 @@
             cols="12"
             md="3"
             lg="3"
-            class="pt-0"
+            class="pt-0 mt-0"
           >
             <v-card
               class="table-card mb-3"
@@ -354,7 +354,6 @@
                           查詢
                         </v-btn>
                       </div>
-
                     </div>
                   </v-expand-transition>
 
@@ -722,6 +721,7 @@
 
                             <!-- 頂部統計資訊 - 橫向排列 -->
                             <div class="d-flex flex-wrap gap-4 pa-4 bg-grey-lighten-5 rounded mb-4">
+                              <!-- 地籍登記面積 -->
                               <div class="text-center">
                                 <div class="d-flex align-center mb-1">
                                   <v-icon
@@ -738,6 +738,60 @@
                                 </div>
                                 <div class="text-caption">
                                   ㎡
+                                </div>
+                              </div>
+
+                              <v-divider
+                                class="mx-4"
+                                vertical
+                              />
+
+                              <!-- 農田水利管轄區域資訊 -->
+                              <div
+                                v-if="allOfficeBoundaries && allOfficeBoundaries.length > 0"
+                                class="flex-grow-1"
+                              >
+                                <div class="d-flex align-center mb-2">
+                                  <v-icon
+                                    color="teal"
+                                    size="small"
+                                    class="me-1"
+                                  >
+                                    mdi-domain
+                                  </v-icon>
+                                  <span class="text-caption font-weight-medium">農田水利管轄區域</span>
+                                </div>
+                                
+                                <!-- 詳細管轄層級資訊 -->
+                                <div class="d-flex flex-column gap-2">
+                                  <div 
+                                    v-for="boundary in allOfficeBoundaries.slice(0, 2)"
+                                    :key="boundary.gid"
+                                    class="text-body-2"
+                                  >
+                                    <span class="font-weight-bold text-teal">{{ boundary.ia_name || '未知' }}管理處</span>
+                                    <template v-if="boundary.mng_name">
+                                      <span class="mx-2 text-grey-darken-1">></span>
+                                      <span>{{ boundary.mng_name }}分處</span>
+                                    </template>
+                                    <span class="mx-2 text-grey-darken-1">></span>
+                                    <span>{{ boundary.stn_name || '未知工作站' }}</span>
+                                    <span 
+                                      v-if="boundary.grp_name"
+                                      class="mx-2 text-grey-darken-1"
+                                    >></span>
+                                    <span 
+                                      v-if="boundary.grp_name"
+                                      class="text-blue-grey-darken-1"
+                                    >{{ boundary.grp_name }}</span>
+                                  </div>
+                                  
+                                  <div
+                                    v-if="allOfficeBoundaries.length > 2"
+                                    class="text-body-2 text-grey-darken-1 mt-1"
+                                  >
+                                    另有 {{ allOfficeBoundaries.length - 2 }} 個管轄區域
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1547,7 +1601,7 @@ const getStatusColor = (appliedArea: number, landRegisteredArea: number) => {
 
   if (statusText === '尚未申請') return 'info';
   if (statusText === '已全部申請') return 'grey';
-  return 'warning'; // 尚有面積的情況
+  return 'teal'; // 尚有面積的情況 - 使用青色避免與調蓄設施橘色衝突
 };
 
 // 移除未使用的面積狀態格式化函數
@@ -1596,6 +1650,40 @@ const formatApplicantsInGroup = (cases: Array<{ applicant: string }>) => {
     return `${validApplicants[0]} 等 ${validApplicants.length} 人`;
   }
 };
+
+// 計算過濾後結果對應的 office_boundaries
+const allOfficeBoundaries = computed(() => {
+  // 只取與過濾後結果相同 land_section + land_number 組合的 office_boundaries
+  if (filteredLegacyResults.value.length === 0) return [];
+
+  // 取得過濾後結果的 land_section (所有記錄應該有相同的 land_section)
+  const targetLandSection = filteredLegacyResults.value[0].land_section;
+  const targetLandNumber = filteredLegacyResults.value[0].land_number;
+
+  const boundaries = [];
+
+  // 遍歷所有查詢結果，找到匹配的地段+地號組合
+  for (const result of searchResults.value) {
+    if (result.land_section === targetLandSection &&
+        result.land_number === targetLandNumber &&
+        result.office_boundaries &&
+        result.office_boundaries.length > 0) {
+      boundaries.push(...result.office_boundaries);
+    }
+  }
+
+  // 去重複 (根據 gid)
+  const seen = new Set();
+  return boundaries.filter(boundary => {
+    if (seen.has(boundary.gid)) {
+      return false;
+    }
+    seen.add(boundary.gid);
+    return true;
+  });
+});
+
+// 移除 uniqueManagementOffices，直接在模板中顯示完整層級資訊
 
 // 組件掛載時初始化
 onMounted(async () => {

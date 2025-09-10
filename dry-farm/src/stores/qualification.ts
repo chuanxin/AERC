@@ -119,6 +119,7 @@ export const useQualificationStore = defineStore('qualification', () => {
       searchParams.town,   // 可選
       searchParams.section,
       true, // 包含面積統計
+      true, // 包含水利工作站界限資訊
       years && years.length > 0 ? years : undefined // 空數組時傳 undefined 代表查詢所有年度
     )
 

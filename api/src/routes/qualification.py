@@ -227,6 +227,7 @@ async def rebuild_cache(
         raise HTTPException(status_code=500, detail="快取重建失敗")
 
 
+
 @router.get("/admin/performance-metrics")
 async def get_performance_metrics(
     current_user = Depends(get_current_user)  # 這裡應該檢查管理員權限

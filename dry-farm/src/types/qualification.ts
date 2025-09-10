@@ -14,6 +14,7 @@ export interface LocationParams {
 
 export interface QueryOptions {
   include_statistics?: boolean
+  include_office_boundaries?: boolean
   years?: string[]
 }
 
@@ -44,6 +45,7 @@ export interface GrantCaseItem {
     area?: string
   }>
   is_aboriginal_area?: boolean
+  office_boundaries?: OfficeBoundaryInfo[]
 }
 
 export interface AreaStatistics {
@@ -68,6 +70,23 @@ export interface ResponseMetadata {
   search_time: string
   query_hash: string
   response_time_ms: number
+}
+
+export interface OfficeBoundaryInfo {
+  gid: number
+  ia_code?: string
+  ia_name?: string
+  mng_code?: string
+  mng_name?: string
+  stn_code?: string
+  stn_name?: string
+  grp_code?: string
+  grp_name?: string
+  area?: number
+  record_date?: string
+  sg?: string
+  stngrp?: string
+  part?: string
 }
 
 export interface QualificationResponse {
