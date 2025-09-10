@@ -133,8 +133,11 @@ export const REPORTS = {
 
 // qualification related endpoints
 export const QUALIFICATION = {
-  CHECK: `${BASE}/qualification/check`,
-  INDIGENOUS: `${BASE}/qualification/indigenous`,
+  BASE: `${BASE}/qualification`,
+  SEARCH: `${BASE}/qualification/search`,
+  HEALTH: `${BASE}/qualification/health`,
+  INDIGENOUS_CHECK: `${BASE}/qualification/indigenous-check`,
+  SLOPE_AREA_CHECK: `${BASE}/qualification/slope-area-check`,
 }
 
 export const OFFICES = {
@@ -157,40 +160,3 @@ export const IRRIGATION_TYPES = {
   OPTIONS: `${BASE}/irrigation_types/options`,
   DETAIL: (id: number | string) => `${BASE}/irrigation_types/${id}`,
 }
-
-// export const API_MAPPING = {
-//   [`${BASE}/auth/login`]: BACKEND_PATHS.AUTH.LOGIN,
-//   [`${BASE}/auth/register`]: BACKEND_PATHS.AUTH.REGISTER,
-//   [`${BASE}/auth/me`]: BACKEND_PATHS.AUTH.WHO_AM_I,
-//   [`${BASE}/users`]: BACKEND_PATHS.USERS.LIST,
-//   [`${BASE}/notes`]: BACKEND_PATHS.NOTES.LIST,
-//   [`${BASE}/notes/create`]: BACKEND_PATHS.NOTES.CREATE
-// }
-
-// export const mapApiPath = (path: string): string => {
-//   // 直接映射
-//   if (API_MAPPING[path]) {
-//     return API_MAPPING[path]
-//   }
-
-//   // 處理動態路徑映射
-//   // 如 /api/v1/users/123 -> /user/123
-
-//   // 用戶詳情
-//   const userDetailRegex = new RegExp(`^${BASE}/users/(\\d+)$`);
-//   if (userDetailRegex.test(path)) {
-//     const id = path.match(userDetailRegex)?.[1]
-//     return BACKEND_PATHS.USERS.DETAIL(id as string)
-//   }
-
-//   // 筆記詳情
-//   const noteDetailRegex = new RegExp(`^${BASE}/notes/(\\d+)$`)
-//   if (noteDetailRegex.test(path)) {
-//     const id = path.match(noteDetailRegex)?.[1]
-//     return BACKEND_PATHS.NOTES.DETAIL(id as string)
-//   }
-
-//   // 如果沒有映射規則，返回原路徑
-//   return path
-// }
-// other related endpoints
