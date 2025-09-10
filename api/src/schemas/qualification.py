@@ -56,6 +56,7 @@ class QueryOptions(BaseModel):
     """查詢選項"""
     years: Optional[List[str]] = Field(default=None, description="查詢年度清單(空值代表查詢所有年度)")
     include_statistics: bool = Field(default=True, description="是否包含面積統計")
+    include_office_boundaries: bool = Field(default=False, description="是否包含水利工作站界限交集資訊")
     max_results: int = Field(default=1000, le=1000, description="最大回傳結果數")
 
     @validator('years')
@@ -148,6 +149,7 @@ class GrantCaseItem(BaseModel):
     # 額外資訊
     crops: Optional[List[Dict[str, str]]] = Field(None, description="作物資訊")
     is_aboriginal_area: Optional[bool] = Field(None, description="是否原民區域")
+    office_boundaries: Optional[List[Dict[str, Any]]] = Field(None, description="水利工作站界限交集資訊")
     
     class Config:
         json_encoders = {

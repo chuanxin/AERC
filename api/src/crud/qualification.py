@@ -3,7 +3,7 @@ Qualification 重複案件查詢系統的 CRUD 操作
 基於現有的 GrantLocations 實現查詢邏輯
 """
 
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from decimal import Decimal
 import hashlib
 from datetime import datetime
@@ -62,7 +62,10 @@ class QualificationCRUD:
         for group_key, locations_group in grouped_locations.items():
             # 選擇代表記錄（取最新的或者有最多資料的）
             representative_location = QualificationCRUD._select_representative_location(locations_group)
-            case_item = await QualificationCRUD._convert_to_case_item(representative_location)
+            case_item = await QualificationCRUD._convert_to_case_item(
+                representative_location, 
+                include_office_boundaries=(request.options and request.options.include_office_boundaries)
+            )
             case_items.append(case_item)
         
         # 4. 計算面積統計
@@ -70,7 +73,9 @@ class QualificationCRUD:
         if request.options and request.options.include_statistics:
             statistics = QualificationCRUD._calculate_area_statistics(case_items)
         
-        # 5. 建立回應
+        # 5. office_boundaries 已經在 _convert_to_case_item 中處理
+        
+        # 6. 建立回應
         end_time = datetime.now()
         response_time_ms = int((end_time - start_time).total_seconds() * 1000)
         
@@ -101,7 +106,7 @@ class QualificationCRUD:
             response_time_ms=response_time_ms
         )
         
-        # 6. 儲存查詢記錄 (可選的快取機制)
+        # 7. 儲存查詢記錄 (可選的快取機制)
         await QualificationCRUD._save_query_record(request, case_items, statistics, metadata)
         
         return QualificationResponse(
@@ -155,7 +160,7 @@ class QualificationCRUD:
         return conditions
 
     @staticmethod
-    async def _convert_to_case_item(location: GrantLocations) -> GrantCaseItem:
+    async def _convert_to_case_item(location: GrantLocations, include_office_boundaries: bool = False) -> GrantCaseItem:
         """將 GrantLocations 轉換為統一的 GrantCaseItem 格式"""
         # 解析 meta_data 獲取面積資訊
         approved_area = Decimal('0.00')
@@ -195,11 +200,19 @@ class QualificationCRUD:
         elif location.source_system == "legacy_farmdata":
             # 歷史資料：通過 source_id 查找 grant_versions，取得 grant_id
             try:
-                grant_version = await GrantVersions.get(version=location.source_id).prefetch_related('grant')
-                grant_id = str(grant_version.grant.id)
-            except DoesNotExist:
+                grant_version = await GrantVersions.filter(version=location.source_id).prefetch_related('grant').first()
+                if grant_version:
+                    grant_id = str(grant_version.grant.id)
+                else:
+                    grant_id = str(location.source_id)
+            except Exception:
                 # 如果找不到對應的 grant_version，使用 source_id 作為後備
                 grant_id = str(location.source_id)
+
+        # 查詢 office_boundaries (如果需要)
+        office_boundaries_data = None
+        if include_office_boundaries:
+            office_boundaries_data = await QualificationCRUD._query_office_boundaries_for_location(location)
 
         return GrantCaseItem(
             id=location.id,
@@ -216,7 +229,8 @@ class QualificationCRUD:
             approved_area=approved_area,
             land_registered_area=land_registered_area,
             crops=crops,
-            is_aboriginal_area=is_aboriginal_area
+            is_aboriginal_area=is_aboriginal_area,
+            office_boundaries=office_boundaries_data
         )
 
     @staticmethod
@@ -270,8 +284,8 @@ class QualificationCRUD:
     async def _infer_legacy_case_type(source_id: str) -> str:
         """從 grant_versions.all_steps_data.pay_detail 推斷歷史案件類型（包含所有有金額的項目）"""
         try:
-            grant_version = await GrantVersions.get(version=source_id)
-            if grant_version.all_steps_data and isinstance(grant_version.all_steps_data, dict):
+            grant_version = await GrantVersions.filter(version=source_id).first()
+            if grant_version and grant_version.all_steps_data and isinstance(grant_version.all_steps_data, dict):
                 pay_detail = grant_version.all_steps_data.get('pay_detail', {})
                 
                 # 收集所有有金額的設施類型
@@ -380,6 +394,61 @@ class QualificationCRUD:
         return " ".join(parts) if parts else "未指定地區"
 
     @staticmethod
+    async def _query_office_boundaries_for_location(location: GrantLocations) -> Optional[List[Dict[str, Any]]]:
+        """
+        根據單一地號資訊查詢 office_boundaries 交集
+        使用 PostGIS 空間查詢功能
+        """
+        try:
+            from tortoise import connections
+            
+            # 使用原生 SQL 直接查詢 grant_locations.geom 欄位進行空間交集
+            connection = connections.get("default")
+            
+            # PostGIS 空間交集查詢：grant_locations.geom 與 office_boundaries.geom
+            # 需要坐標系統轉換：4326 (WGS84) -> 3824 (TWD97 TM2)
+            sql_query = """
+            SELECT ob.gid, ob.ia_code, ob.ia_name, ob.mng_code, ob.mng_name, 
+                   ob.stn_code, ob.stn_name, ob.grp_code, ob.grp_name, 
+                   ob.area, ob.record_date, ob.sg, ob.stngrp, ob.part
+            FROM office_boundaries ob, grant_locations gl
+            WHERE gl.id = $1 
+              AND gl.geom IS NOT NULL
+              AND ST_Intersects(ST_Transform(gl.geom, 3824), ob.geom)
+            ORDER BY ob.ia_code, ob.stn_code, ob.grp_code
+            """
+            
+            results = await connection.execute_query(sql_query, [location.id])
+            
+            # 轉換查詢結果
+            boundaries = []
+            for row in results[1]:  # results[1] 是資料行
+                boundary_data = {
+                    'gid': row[0],
+                    'ia_code': row[1],
+                    'ia_name': row[2],
+                    'mng_code': row[3],
+                    'mng_name': row[4],
+                    'stn_code': row[5],
+                    'stn_name': row[6],
+                    'grp_code': row[7],
+                    'grp_name': row[8],
+                    'area': row[9],
+                    'record_date': row[10].isoformat() if row[10] else None,
+                    'sg': row[11],
+                    'stngrp': row[12],
+                    'part': row[13]
+                }
+                boundaries.append(boundary_data)
+            
+            return boundaries if boundaries else None
+            
+        except Exception as e:
+            # 記錄錯誤但不中斷主要查詢流程
+            print(f"Office boundaries query failed for location {location.id}: {e}")
+            return None
+
+    @staticmethod
     async def _save_query_record(
         request: QualificationSearchRequest,
         results: List[GrantCaseItem],
@@ -392,8 +461,22 @@ class QualificationCRUD:
                 query_type=request.query_type,
                 location_data=request.params.model_dump(),
                 query_options=request.options.model_dump() if request.options else {},
-                search_results=[item.model_dump() for item in results[:10]],  # 只儲存前10筆避免資料過大
-                area_statistics=statistics.model_dump() if statistics else None,
+                search_results=[
+                    {**item.model_dump(), 
+                     'approved_area': float(item.approved_area),
+                     'land_registered_area': float(item.land_registered_area) if item.land_registered_area else None}
+                    for item in results[:10]
+                ],  # 只儲存前10筆避免資料過大，並轉換 Decimal 為 float
+                area_statistics={
+                    **statistics.model_dump(),
+                    'land_total_area': float(statistics.land_total_area),
+                    'used_area': float(statistics.used_area),
+                    'remaining_area': float(statistics.remaining_area),
+                    'micro_irrigation_area': float(statistics.micro_irrigation_area),
+                    'remaining_micro_area': float(statistics.remaining_micro_area),
+                    'sprinkler_area': float(statistics.sprinkler_area),
+                    'remaining_sprinkler_area': float(statistics.remaining_sprinkler_area)
+                } if statistics else None,
                 result_count=metadata.total_records,
                 query_hash=metadata.query_hash,
                 response_time_ms=metadata.response_time_ms
@@ -409,14 +492,19 @@ class QualificationCRUD:
         """檢查是否為原住民鄉 - 使用現有的 Towns 模型"""
         try:
             # 先查找縣市
-            county = await Counties.get(name=request.county)
+            county = await Counties.filter(name=request.county).first()
+            if not county:
+                return AreaCheckResponse(is_qualified=False, area_type='general')
             
             # 查找原住民鄉鎮
-            town = await Towns.get(
+            town = await Towns.filter(
                 county=county,
                 name=request.town,
                 is_indigenous=True
-            )
+            ).first()
+            
+            if not town:
+                return AreaCheckResponse(is_qualified=False, area_type='general')
             
             # 判斷原民鄉類型
             indigenous_type = "mountain" if town.indigenous_type == "1" else "plain"
@@ -493,7 +581,10 @@ class QualificationCRUD:
     async def get_cached_query(query_hash: str) -> Optional[QualificationResponse]:
         """獲取快取的查詢結果"""
         try:
-            cached_query = await QualificationQuery.get(query_hash=query_hash)
+            cached_query = await QualificationQuery.filter(query_hash=query_hash).order_by('-created_at').first()
+            
+            if not cached_query:
+                return None
             
             # 檢查快取是否過期 (例如: 10分鐘)
             cache_age = (timezone.now() - cached_query.created_at).total_seconds()

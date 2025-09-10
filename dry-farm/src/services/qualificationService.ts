@@ -148,6 +148,7 @@ export const qualificationService = {
    * @param town 鄉鎮 (可選)
    * @param section 地段 (可選)
    * @param includeStatistics 是否包含面積統計
+   * @param includeOfficeBoundaries 是否包含水利工作站界限資訊
    * @param years 查詢年度範圍
    * @returns 查詢請求物件
    */
@@ -158,6 +159,7 @@ export const qualificationService = {
     town?: string,
     section?: string,
     includeStatistics: boolean = true,
+    includeOfficeBoundaries: boolean = false,
     years?: string[]
   ): QualificationSearchRequest {
     return {
@@ -170,6 +172,7 @@ export const qualificationService = {
       },
       options: {
         include_statistics: includeStatistics,
+        include_office_boundaries: includeOfficeBoundaries,
         years: years && years.length > 0 ? years.filter(y => y && y.trim()) : undefined // 過濾空值和空字串
       }
     }
