@@ -13,7 +13,7 @@ from tortoise import timezone
 from tortoise.expressions import Q
 
 from ..database.geo_models import GrantLocations
-from ..database.models import QualificationQuery, QualificationQueryType, Towns, Counties
+from ..database.models import QualificationQuery, QualificationQueryType, Towns, Counties, GrantVersions
 from ..schemas.qualification import (
     QualificationSearchRequest, GrantCaseItem, AreaStatistics,
     QueryInfo, ResponseMetadata, QualificationResponse,
@@ -46,10 +46,23 @@ class QualificationCRUD:
         # 2. 執行資料庫查詢
         grant_locations = await GrantLocations.filter(query_conditions).all()
         
-        # 3. 轉換為統一格式
-        case_items = []
+        # 3. 轉換為統一格式並合併重複記錄
+        # 先按 source_id + land_section + land_number 分組
+        grouped_locations = {}
         for location in grant_locations:
-            case_item = await QualificationCRUD._convert_to_case_item(location)
+            # 建立唯一鍵：source_id + land_section + land_number
+            group_key = f"{location.source_id}_{location.land_section or ''}_{location.land_number or ''}"
+            
+            if group_key not in grouped_locations:
+                grouped_locations[group_key] = []
+            grouped_locations[group_key].append(location)
+        
+        # 為每個分組選擇代表記錄並轉換
+        case_items = []
+        for group_key, locations_group in grouped_locations.items():
+            # 選擇代表記錄（取最新的或者有最多資料的）
+            representative_location = QualificationCRUD._select_representative_location(locations_group)
+            case_item = await QualificationCRUD._convert_to_case_item(representative_location)
             case_items.append(case_item)
         
         # 4. 計算面積統計
@@ -159,7 +172,8 @@ class QualificationCRUD:
                 farmarea = location.meta_data.get('farmarea')
                 if farmarea is not None:
                     land_registered_area = Decimal(str(farmarea))
-                case_type = "歷史案件"
+                # 從 grant_versions.all_steps_data.pay_detail 判斷設施類型
+                case_type = await QualificationCRUD._infer_legacy_case_type(location.source_id)
                 
             elif location.source_system == "new_aerc":
                 # 新系統資料格式
@@ -173,10 +187,24 @@ class QualificationCRUD:
                 is_aboriginal_area = location.meta_data.get('is_aboriginal_area')
                 case_type = QualificationCRUD._infer_case_type_from_crops(crops)
         
+        # 根據 source_system 決定 grant_id 的取得方式
+        grant_id = ""
+        if location.source_system == "new_aerc":
+            # 新系統：直接使用 source_id
+            grant_id = str(location.source_id)
+        elif location.source_system == "legacy_farmdata":
+            # 歷史資料：通過 source_id 查找 grant_versions，取得 grant_id
+            try:
+                grant_version = await GrantVersions.get(version=location.source_id).prefetch_related('grant')
+                grant_id = str(grant_version.grant.id)
+            except DoesNotExist:
+                # 如果找不到對應的 grant_version，使用 source_id 作為後備
+                grant_id = str(location.source_id)
+
         return GrantCaseItem(
             id=location.id,
             source_system=location.source_system,
-            grant_id=str(location.source_id),
+            grant_id=grant_id,
             case_number=location.case_number,
             case_type=case_type,
             status=location.case_status,
@@ -190,6 +218,86 @@ class QualificationCRUD:
             crops=crops,
             is_aboriginal_area=is_aboriginal_area
         )
+
+    @staticmethod
+    def _select_representative_location(locations: List[GrantLocations]) -> GrantLocations:
+        """從同一組 (source_id + land_section + land_number) 的記錄中選擇代表記錄"""
+        if len(locations) == 1:
+            return locations[0]
+        
+        # 選擇策略：優先選擇有更多 meta_data 資訊的記錄
+        best_location = locations[0]
+        best_score = 0
+        
+        for location in locations:
+            score = 0
+            
+            # meta_data 資訊完整性評分
+            if location.meta_data:
+                score += len(location.meta_data) * 2  # meta_data 鍵值數量
+                
+                # 特別重要的欄位給予額外分數
+                if location.meta_data.get('finalarea'):
+                    score += 10
+                if location.meta_data.get('farmarea'):
+                    score += 10
+                if location.meta_data.get('facility_area'):
+                    score += 10
+                if location.meta_data.get('land_area'):
+                    score += 10
+            
+            # 其他欄位完整性評分
+            if location.case_number:
+                score += 5
+            if location.applicant_name:
+                score += 5
+            if location.case_status:
+                score += 3
+            if location.comment:
+                score += 2
+            
+            # 更新時間越新得分越高（以秒為單位的微調）
+            if location.updated_at:
+                score += location.updated_at.timestamp() / 1000000  # 微調分數
+            
+            if score > best_score:
+                best_score = score
+                best_location = location
+        
+        return best_location
+
+    @staticmethod
+    async def _infer_legacy_case_type(source_id: str) -> str:
+        """從 grant_versions.all_steps_data.pay_detail 推斷歷史案件類型（包含所有有金額的項目）"""
+        try:
+            grant_version = await GrantVersions.get(version=source_id)
+            if grant_version.all_steps_data and isinstance(grant_version.all_steps_data, dict):
+                pay_detail = grant_version.all_steps_data.get('pay_detail', {})
+                
+                # 收集所有有金額的設施類型
+                facility_types = []
+                
+                if pay_detail.get('pipe_facility') and pay_detail['pipe_facility'] > 0:
+                    facility_types.append("田間管路")
+                if pay_detail.get('power_facility') and pay_detail['power_facility'] > 0:
+                    facility_types.append("動力設備")
+                if pay_detail.get('control_facility') and pay_detail['control_facility'] > 0:
+                    facility_types.append("調控設施")
+                if pay_detail.get('storage_facility') and pay_detail['storage_facility'] > 0:
+                    facility_types.append("調蓄設施")
+                
+                # 如果有找到設施類型，用逗號連接返回
+                if facility_types:
+                    return ", ".join(facility_types)
+                
+        except DoesNotExist:
+            pass
+        except Exception:
+            # 任何其他異常都回傳預設值
+            pass
+        
+        # 如果無法判斷或發生錯誤，回傳歷史案件作為預設值
+        return "歷史案件"
 
     @staticmethod
     def _infer_case_type_from_crops(crops: Optional[List[Dict[str, str]]]) -> str:

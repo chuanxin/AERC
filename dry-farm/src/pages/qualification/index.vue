@@ -770,7 +770,7 @@
                                 </div>
                               </div>
 
-                              <div class="text-center">
+                              <!-- <div class="text-center">
                                 <div class="d-flex align-center mb-1">
                                   <v-icon
                                     color="green"
@@ -825,7 +825,7 @@
                                 <div class="text-caption">
                                   件數
                                 </div>
-                              </div>
+                              </div> -->
                             </div>
                           </div>
 
@@ -902,15 +902,15 @@
                                     <!-- 右側：面積和狀態 -->
                                     <div class="text-end">
                                       <div class="text-h6 font-weight-bold text-primary mb-1">
-                                        {{ facilityGroup.totalArea.toLocaleString() }}
+                                        {{ (facilityGroup.appliedArea || 0).toLocaleString() }}
                                         <span class="text-caption">㎡</span>
                                       </div>
                                       <v-chip
-                                        :color="getStatusColor(facilityGroup.totalArea)"
+                                        :color="getStatusColor(facilityGroup.appliedArea || 0)"
                                         size="small"
                                         variant="flat"
                                       >
-                                        {{ formatAreaStatus(facilityGroup.totalArea) }}
+                                        {{ facilityGroup.statusText }}
                                       </v-chip>
                                     </div>
                                   </div>
@@ -1353,21 +1353,41 @@ const clearAllResults = () => {
 
 // === 新增的計算屬性和方法 ===
 
-// 土地位置描述
+// 土地位置描述（使用過濾後的結果）
 const landLocationDescription = computed(() => {
-  if (searchResults.value.length === 0) return '';
-  const first = searchResults.value[0];
+  if (filteredLegacyResults.value.length === 0) return '';
+  const first = filteredLegacyResults.value[0];
   const parts = [];
   if (first.land_section) parts.push(first.land_section);
   return parts.join(' ') || '查詢地號';
 });
 
-// 地籍登記總面積
+// 地籍登記總面積 - 取自最新案件的farmarea
 const totalApprovedArea = computed(() => {
-  return filteredLegacyResults.value.reduce((sum, item) => {
-    const landArea = item.land_registered_area || item.approved_area || '0';
-    return sum + Number(landArea);
-  }, 0);
+  if (searchResults.value.length === 0) return 0;
+
+  // 只處理歸檔記錄 (source_system = "legacy_farmdata")
+  const legacyRecords = searchResults.value.filter(item => item.source_system === "legacy_farmdata");
+
+  if (legacyRecords.length === 0) {
+    // 如果沒有歸檔記錄，使用一般記錄的第一筆
+    const firstRecord = searchResults.value[0];
+    return Number(firstRecord?.land_registered_area || firstRecord?.approved_area || '0');
+  }
+
+  // 找出最新案件：最新年度，該年度中最大的 source_id
+  const latestYear = Math.max(...legacyRecords.map(item => item.application_year));
+  const latestYearRecords = legacyRecords.filter(item => item.application_year === latestYear);
+
+  // 將字串 source_id 轉換為數字進行比較
+  const sourceIds = latestYearRecords.map(item => parseInt(String(item.source_id || 0), 10));
+  const latestSourceId = Math.max(...sourceIds);
+
+  // 找到具有最大 source_id 的記錄
+  const latestRecord = latestYearRecords.find(item => parseInt(String(item.source_id || 0), 10) === latestSourceId);
+
+  // 回傳最新案件的地籍登記面積
+  return Number(latestRecord?.land_registered_area || latestRecord?.approved_area || '0');
 });
 
 // 唯一申請人列表
@@ -1399,11 +1419,11 @@ const filteredLegacyResults = computed(() => {
   // 找出最新案件：最新年度，該年度中最大的 source_id
   const latestYear = Math.max(...legacyRecords.map(item => item.application_year));
   const latestYearRecords = legacyRecords.filter(item => item.application_year === latestYear);
-  
+
   // 將字串 source_id 轉換為數字進行比較
   const sourceIds = latestYearRecords.map(item => parseInt(String(item.source_id || 0), 10));
   const latestSourceId = Math.max(...sourceIds);
-  
+
   // 找到具有最大 source_id 的記錄
   const latestRecord = latestYearRecords.find(item => parseInt(String(item.source_id || 0), 10) === latestSourceId);
 
@@ -1423,6 +1443,8 @@ const groupedByYear = computed(() => {
   if (filteredLegacyResults.value.length === 0) return [];
 
   const groups = new Map();
+  // 固定的四個設施類型
+  const fixedFacilityTypes = ['田間管路', '調蓄設施', '調控設施', '動力設備'];
 
   filteredLegacyResults.value.forEach(item => {
     const year = item.application_year;
@@ -1431,7 +1453,8 @@ const groupedByYear = computed(() => {
         year,
         cases: [],
         totalArea: 0,
-        facilities: new Map()
+        facilities: new Map(),
+        landRegisteredArea: Number(item.land_registered_area || item.approved_area || 0) // 地籍登記面積
       });
     }
 
@@ -1439,19 +1462,48 @@ const groupedByYear = computed(() => {
     yearGroup.cases.push(item);
     yearGroup.totalArea += Number(item.approved_area);
 
-    // 按設施類型分組
-    const facilityType = item.case_type || '一般設施';
-    if (!yearGroup.facilities.has(facilityType)) {
-      yearGroup.facilities.set(facilityType, {
-        type: facilityType,
-        cases: [],
-        totalArea: 0
-      });
+    // 更新地籍登記面積（取最大值作為該年度的地籍登記面積）
+    const currentLandArea = Number(item.land_registered_area || item.approved_area || 0);
+    if (currentLandArea > yearGroup.landRegisteredArea) {
+      yearGroup.landRegisteredArea = currentLandArea;
     }
 
-    const facilityGroup = yearGroup.facilities.get(facilityType);
-    facilityGroup.cases.push(item);
-    facilityGroup.totalArea += Number(item.approved_area);
+    // 處理該記錄已申請的設施類型
+    const appliedFacilityTypes = item.case_type ? item.case_type.split(', ').map(type => type.trim()) : [];
+
+    appliedFacilityTypes.forEach(facilityType => {
+      if (fixedFacilityTypes.includes(facilityType)) {
+        if (!yearGroup.facilities.has(facilityType)) {
+          yearGroup.facilities.set(facilityType, {
+            type: facilityType,
+            cases: [],
+            appliedArea: 0,
+            landRegisteredArea: yearGroup.landRegisteredArea,
+            status: 'applied'
+          });
+        }
+
+        const facilityGroup = yearGroup.facilities.get(facilityType);
+        facilityGroup.cases.push(item);
+        facilityGroup.appliedArea += Number(item.approved_area);
+        facilityGroup.landRegisteredArea = yearGroup.landRegisteredArea;
+      }
+    });
+  });
+
+  // 為每個年度補充未申請的設施類型
+  groups.forEach(yearGroup => {
+    fixedFacilityTypes.forEach(facilityType => {
+      if (!yearGroup.facilities.has(facilityType)) {
+        yearGroup.facilities.set(facilityType, {
+          type: facilityType,
+          cases: [],
+          appliedArea: 0,
+          landRegisteredArea: yearGroup.landRegisteredArea,
+          status: 'not_applied'
+        });
+      }
+    });
   });
 
   // 轉換為陣列並排序
@@ -1459,8 +1511,14 @@ const groupedByYear = computed(() => {
     .sort((a, b) => (b as { year: number }).year - (a as { year: number }).year)
     .map(yearGroup => ({
       ...yearGroup,
-      facilities: Array.from((yearGroup as { facilities: Map<string, { totalArea: number }> }).facilities.values())
-        .sort((a, b) => b.totalArea - a.totalArea)
+      facilities: fixedFacilityTypes.map(facilityType => {
+        const facility = (yearGroup as { facilities: Map<string, { type: string; cases: unknown[]; appliedArea: number; landRegisteredArea: number; status: string }> }).facilities.get(facilityType);
+        return {
+          ...facility,
+          statusText: getFacilityStatusText(facility!.appliedArea || 0, facility!.landRegisteredArea || 0),
+          remainingArea: Math.max(0, (facility!.landRegisteredArea || 0) - (facility!.appliedArea || 0))
+        };
+      })
     }));
 });
 
@@ -1475,13 +1533,13 @@ const getYearChipColor = (year: number) => {
 // 設施圖示
 const getFacilityIcon = (facilityType: string) => {
   const iconMap: Record<string, { icon: string, color: string }> = {
-    '節水設備': { icon: 'mdi-water', color: 'blue' },
+    // '節水設備': { icon: 'mdi-water', color: 'blue' },
     '田間管路': { icon: 'mdi-pipe', color: 'green' },
     '調蓄設施': { icon: 'mdi-storage-tank', color: 'orange' },
-    '灌控設施': { icon: 'mdi-valve', color: 'purple' },
+    '調控設施': { icon: 'mdi-valve', color: 'purple' },
     '動力設備': { icon: 'mdi-engine', color: 'red' },
-    '一般設施': { icon: 'mdi-tools', color: 'grey' },
-    '歷史案件': { icon: 'mdi-history', color: 'brown' }
+    // '一般設施': { icon: 'mdi-tools', color: 'grey' },
+    // '歷史案件': { icon: 'mdi-history', color: 'brown' }
   };
 
   return iconMap[facilityType] || iconMap['一般設施'];
@@ -1501,19 +1559,34 @@ const formatAreaStatus = (area: number) => {
   return '進行中';
 };
 
+// 設施狀態文字計算
+const getFacilityStatusText = (appliedArea: number, landRegisteredArea: number) => {
+  const applied = appliedArea || 0;
+  const registered = landRegisteredArea || 0;
+
+  if (applied === 0) {
+    return '尚未申請';
+  } else if (applied >= registered) {
+    return '已全部申請';
+  } else {
+    const remainingArea = registered - applied;
+    return `尚有${remainingArea.toLocaleString()}㎡`;
+  }
+};
+
 // 設施顏色十六進制值
 const getFacilityColorHex = (facilityType: string) => {
   const colorMap: Record<string, string> = {
-    '節水設備': '#2196F3',  // blue
+    // '節水設備': '#2196F3',  // blue
     '田間管路': '#4CAF50',  // green
     '調蓄設施': '#FF9800',  // orange
-    '灌控設施': '#9C27B0',  // purple
+    '調控設施': '#9C27B0',  // purple
     '動力設備': '#F44336',  // red
-    '一般設施': '#757575',  // grey
-    '歷史案件': '#795548'   // brown
+    // '一般設施': '#757575',  // grey
+    // '歷史案件': '#795548'   // brown
   };
 
-  return colorMap[facilityType] || colorMap['一般設施'];
+  return colorMap[facilityType] || '#757575'; // 預設為灰色
 };
 
 // 格式化分組中的申請人
