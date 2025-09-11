@@ -460,6 +460,7 @@
                                 :rules="[v => !!v || '請輸入主地號']"
                                 @focus="landNumberMainFocused = true"
                                 @blur="landNumberMainFocused = false"
+                                @input="onLandNumberMainInput"
                               />
                             </div>
 
@@ -491,6 +492,7 @@
                                 placeholder="0000"
                                 @focus="landNumberSubFocused = true"
                                 @blur="landNumberSubFocused = false"
+                                @input="onLandNumberSubInput"
                               />
                             </div>
 
@@ -1651,13 +1653,13 @@
           >
             <tbody>
               <tr>
-                <td
+                <!-- <td
                   class="bg-grey-lighten-4 font-weight-medium"
                   width="15%"
                 >
                   補助資訊
                 </td>
-                <td>{{ landInfo.subsidyInfo }}</td>
+                <td>{{ landInfo.subsidyInfo }}</td> -->
                 <td
                   class="bg-grey-lighten-4 font-weight-medium"
                   width="15%"
@@ -1665,8 +1667,6 @@
                   縣市
                 </td>
                 <td>{{ landInfo.county }}</td>
-              </tr>
-              <tr>
                 <td class="bg-grey-lighten-4 font-weight-medium">
                   水利小組
                 </td>
@@ -1714,11 +1714,13 @@
                     查無相關事業區域資訊
                   </div>
                 </td>
-                <!-- <td class="bg-grey-lighten-4 font-weight-medium">
+              </tr>
+              <!-- <tr>
+                <td class="bg-grey-lighten-4 font-weight-medium">
                   特殊地
                 </td>
-                <td>{{ landInfo.specialLand ? '是' : '否' }}</td> -->
-              </tr>
+                <td>{{ landInfo.specialLand ? '是' : '否' }}</td>
+              </tr> -->
             </tbody>
           </v-table>
         </v-card-text>
@@ -2312,6 +2314,8 @@ const landUtils = {
 
     // 暫時標記為載入模式，防止級聯重置
     initGuard.isInitializing = true
+    // 同時設定地號更新為程式碼模式，防止清空坐標和面積
+    isLandNumberUpdateProgrammatic.value = true
 
     try {
       // 確保資料類型正確轉換
@@ -2349,15 +2353,22 @@ const landUtils = {
         owners: [...land.owners]
       })
 
+      // Update previous values for tracking
+      previousLandNumberMain.value = land.landNumberMain || '';
+      previousLandNumberSub.value = land.landNumberSub || '';
+
       console.log('🔧 loadLandToCurrentForm - Data loaded:')
       console.log('  landCounty:', localFormData.landCounty, typeof localFormData.landCounty)
       console.log('  landTown:', localFormData.landTown, typeof localFormData.landTown)
       console.log('  landSec:', localFormData.landSec, typeof localFormData.landSec)
+      console.log('  landNumberMain:', localFormData.landNumberMain)
+      console.log('  landNumberSub:', localFormData.landNumberSub)
 
     } finally {
       // 使用 nextTick 確保 Vue 響應性更新完成後再開啟級聯重置
       nextTick(() => {
         initGuard.isInitializing = false
+        isLandNumberUpdateProgrammatic.value = false
         console.log('✅ loadLandToCurrentForm - Cascade reset protection disabled')
       })
     }
@@ -2568,6 +2579,80 @@ const dayOptions = computed(() => {
 
 // Event handlers
 // Formatted land number with 4 digits (main)
+// Flag to track if land number changes are programmatic (not user input)
+const isLandNumberUpdateProgrammatic = ref(false);
+
+// Debug initialization log (can be removed in production)
+// console.log('🚀 STEP2 LAND NUMBER CLEAR FUNCTIONALITY INITIALIZED');
+
+// Watch the flag for debugging (can be removed in production)
+// watch(isLandNumberUpdateProgrammatic, (newValue, oldValue) => {
+//   console.log('🔧 isLandNumberUpdateProgrammatic changed:', { from: oldValue, to: newValue });
+// }, { immediate: true });
+
+// Watch direct changes to landNumberMain and landNumberSub
+watch(() => localFormData.landNumberMain, (newValue, oldValue) => {
+  if (oldValue !== newValue && oldValue !== undefined && !isLandNumberUpdateProgrammatic.value) {
+    clearLocationAndAreaInfo();
+  }
+
+  // Update tracked previous value
+  if (!isLandNumberUpdateProgrammatic.value) {
+    previousLandNumberMain.value = newValue;
+  }
+});
+
+watch(() => localFormData.landNumberSub, (newValue, oldValue) => {
+  if (oldValue !== newValue && oldValue !== undefined && !isLandNumberUpdateProgrammatic.value) {
+    clearLocationAndAreaInfo();
+  }
+
+  // Update tracked previous value
+  if (!isLandNumberUpdateProgrammatic.value) {
+    previousLandNumberSub.value = newValue;
+  }
+});
+
+// Function to clear coordinate and area information when land number is manually changed
+const clearLocationAndAreaInfo = () => {
+  localFormData.longitude = '';
+  localFormData.latitude = '';
+  localFormData.landArea = '';
+  localFormData.landAreaHa = '';
+  localFormData.facilityArea = '';
+  localFormData.facilityAreaHa = '';
+  localFormData.isIrrigationArea = false;
+};
+
+// Previous values to track manual changes
+const previousLandNumberMain = ref(localFormData.landNumberMain);
+const previousLandNumberSub = ref(localFormData.landNumberSub);
+
+// Input handlers for manual land number changes (backup mechanism)
+const onLandNumberMainInput = () => {
+  if (!isLandNumberUpdateProgrammatic.value) {
+    // Use setTimeout to ensure the v-model has been updated
+    setTimeout(() => {
+      if (previousLandNumberMain.value !== localFormData.landNumberMain) {
+        clearLocationAndAreaInfo();
+        previousLandNumberMain.value = localFormData.landNumberMain;
+      }
+    }, 0);
+  }
+};
+
+const onLandNumberSubInput = () => {
+  if (!isLandNumberUpdateProgrammatic.value) {
+    // Use setTimeout to ensure the v-model has been updated
+    setTimeout(() => {
+      if (previousLandNumberSub.value !== localFormData.landNumberSub) {
+        clearLocationAndAreaInfo();
+        previousLandNumberSub.value = localFormData.landNumberSub;
+      }
+    }, 0);
+  }
+};
+
 const formattedLandNumberMain = computed({
   get: () => {
     // When focused, show the raw value
@@ -2579,8 +2664,22 @@ const formattedLandNumberMain = computed({
     return localFormData.landNumberMain.toString().padStart(4, '0')
   },
   set: (val) => {
+    const previousValue = localFormData.landNumberMain;
     // Store numeric value (remove leading zeros)
-    localFormData.landNumberMain = val ? val.replace(/^0+/, '') || '0' : ''
+    const newValue = val ? val.replace(/^0+/, '') || '0' : '';
+    localFormData.landNumberMain = newValue;
+
+    // Debug logging (can be removed in production)
+    // console.log('🔄 LandNumberMain setter:', {
+    //   previousValue, newValue, valueChanged: previousValue !== newValue,
+    //   isProgrammatic: isLandNumberUpdateProgrammatic.value
+    // });
+
+    // Clear coordinate and area info if the value actually changed and it's a manual user input
+    if (previousValue !== newValue && !isLandNumberUpdateProgrammatic.value) {
+      clearLocationAndAreaInfo();
+    }
+
     updateLandNumber()
   }
 });
@@ -2595,8 +2694,22 @@ const formattedLandNumberSub = computed({
     return localFormData.landNumberSub.toString().padStart(4, '0');
   },
   set: (val) => {
+    const previousValue = localFormData.landNumberSub;
     // Store numeric value (remove leading zeros)
-    localFormData.landNumberSub = val ? val.replace(/^0+/, '') || '0' : '';
+    const newValue = val ? val.replace(/^0+/, '') || '0' : '';
+    localFormData.landNumberSub = newValue;
+
+    // Debug logging (can be removed in production)
+    // console.log('🔄 LandNumberSub setter:', {
+    //   previousValue, newValue, valueChanged: previousValue !== newValue,
+    //   isProgrammatic: isLandNumberUpdateProgrammatic.value
+    // });
+
+    // Clear coordinate and area info if the value actually changed and it's a manual user input
+    if (previousValue !== newValue && !isLandNumberUpdateProgrammatic.value) {
+      clearLocationAndAreaInfo();
+    }
+
     updateLandNumber();
   }
 });
@@ -3232,6 +3345,10 @@ const initializeStep2WithCascadeData = async () => {
     // 5. 如果有單筆土地資料，同時更新向後相容的欄位
     if (lands.length === 1) {
       const land = lands[0]
+
+      // Set programmatic flag to prevent clearing coordinate/area info during initialization
+      isLandNumberUpdateProgrammatic.value = true;
+
       Object.assign(localFormData, {
         landCounty: land.landCounty,
         landTown: land.landTown,
@@ -3241,6 +3358,15 @@ const initializeStep2WithCascadeData = async () => {
         landNumberSub: land.landNumberSub,
         // ... 其他欄位保持原有邏輯
       })
+
+      // Update previous values for tracking
+      previousLandNumberMain.value = land.landNumberMain || '';
+      previousLandNumberSub.value = land.landNumberSub || '';
+
+      // Reset the flag after initialization
+      setTimeout(() => {
+        isLandNumberUpdateProgrammatic.value = false;
+      }, 100); // Use a bit longer delay for initialization
     }
 
     // 完成初始化
@@ -3741,6 +3867,9 @@ const useSelectedFeature = () => {
     if (selectedFeatureInfo.value.Land_no) {
       const landNo = selectedFeatureInfo.value.Land_no;
 
+      // Set flag to indicate this is a programmatic update
+      isLandNumberUpdateProgrammatic.value = true;
+
       // Check if the Land_no contains a dash (main-sub format)
       if (landNo.includes('-')) {
         const [main, sub] = landNo.split('-');
@@ -3756,6 +3885,15 @@ const useSelectedFeature = () => {
       localFormData.landNumber = localFormData.landNumberSub
         ? `${localFormData.landNumberMain}-${localFormData.landNumberSub}`
         : localFormData.landNumberMain;
+
+      // Update previous values for tracking
+      previousLandNumberMain.value = localFormData.landNumberMain;
+      previousLandNumberSub.value = localFormData.landNumberSub;
+
+      // Reset the flag after the update
+      setTimeout(() => {
+        isLandNumberUpdateProgrammatic.value = false;
+      }, 0);
     }
 
     // If the feature has an area, update the area fields
@@ -3791,6 +3929,15 @@ const useSelectedFeature = () => {
 
         console.log(`Updated coordinates to center of polygon: ${localFormData.longitude}, ${localFormData.latitude}`);
       }
+    }
+
+    // Check if the land is within irrigation district and update isIrrigationArea
+    if (landInfo.irrigationDistrictInfo && landInfo.irrigationDistrictInfo.length > 0) {
+      localFormData.isIrrigationArea = true;
+      console.log('Land is within irrigation district, set isIrrigationArea to true');
+    } else {
+      localFormData.isIrrigationArea = false;
+      console.log('Land is not within irrigation district, set isIrrigationArea to false');
     }
 
     // Hide the feature info popup
