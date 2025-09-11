@@ -1,4 +1,4 @@
-import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, GIS, QUALIFICATION } from './endpoints';
+import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, GIS, QUALIFICATION, SPATIAL } from './endpoints';
 
 // 取得當前的 API 版本前綴
 const API_BASE_URL = import.meta.env.FAST_API_BASE_URL || '';
@@ -33,14 +33,6 @@ export const BACKEND_PATHS = {
     DETAIL: (id: number | string) => `/user/${id}`,
     DELETE: (id: number | string) => `/user/${id}`
   },
-  // // 筆記相關
-  // NOTES: {
-  //   LIST: '/notes',
-  //   CREATE: '/notes',
-  //   DETAIL: (id: number | string) => `/note/${id}`,
-  //   UPDATE: (id: number | string) => `/note/${id}`,
-  //   DELETE: (id: number | string) => `/note/${id}`
-  // },
   OFFICES: {
     LIST: '/offices',
   },
@@ -101,6 +93,10 @@ export const BACKEND_PATHS = {
     HEALTH: '/qualification/health',
     INDIGENOUS_CHECK: '/qualification/indigenous-check',
     SLOPE_AREA_CHECK: '/qualification/slope-area-check',
+  },
+  SPATIAL: {
+    OFFICE: '/spatial/office',
+    COUNTY: '/spatial/county',
   }
 };
 
@@ -131,6 +127,8 @@ export const API_MAPPING: Record<string, string> = {
   [QUALIFICATION.HEALTH]: BACKEND_PATHS.QUALIFICATION.HEALTH,
   [QUALIFICATION.INDIGENOUS_CHECK]: BACKEND_PATHS.QUALIFICATION.INDIGENOUS_CHECK,
   [QUALIFICATION.SLOPE_AREA_CHECK]: BACKEND_PATHS.QUALIFICATION.SLOPE_AREA_CHECK,
+  [SPATIAL.COUNTY]: BACKEND_PATHS.SPATIAL.COUNTY,
+  [SPATIAL.OFFICE]: BACKEND_PATHS.SPATIAL.OFFICE,
 }
 
 // 動態參數路徑匹配規則

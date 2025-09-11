@@ -524,7 +524,7 @@
                                 >
                                   mdi-account-check
                                 </v-icon>
-                                申請資格查詢
+                                申請資格預查
                               </v-btn>
                             </div>
                           </div>
@@ -1670,7 +1670,50 @@
                 <td class="bg-grey-lighten-4 font-weight-medium">
                   水利小組
                 </td>
-                <td>{{ landInfo.waterResourceGroup }}</td>
+                <td>
+                  <!-- 詳細事業區層級資訊 -->
+                  <div
+                    v-if="landInfo.irrigationDistrictInfo && landInfo.irrigationDistrictInfo.length > 0"
+                    class="d-flex flex-column gap-1"
+                  >
+                    <div
+                      v-for="boundary in landInfo.irrigationDistrictInfo.slice(0, 2)"
+                      :key="boundary.gid"
+                      class="text-body-2"
+                    >
+                      <span class="font-weight-bold text-teal">{{ boundary.ia_name || '未知' }}</span>
+                      <template v-if="boundary.mng_name">
+                        <span class="mx-1 text-grey-darken-1">></span>
+                        <span>{{ boundary.mng_name }}</span>
+                      </template>
+                      <span class="mx-1 text-grey-darken-1">></span>
+                      <span>{{ boundary.stn_name || '未知工作站' }}</span>
+                      <span
+                        v-if="boundary.grp_name"
+                        class="mx-1 text-grey-darken-1"
+                      >></span>
+                      <span
+                        v-if="boundary.grp_name"
+                        class="text-blue-grey-darken-1"
+                      >{{ boundary.grp_name }}</span>
+                    </div>
+
+                    <div
+                      v-if="landInfo.irrigationDistrictInfo.length > 2"
+                      class="text-caption text-grey-darken-1 mt-1"
+                    >
+                      另有 {{ landInfo.irrigationDistrictInfo.length - 2 }} 個事業區域
+                    </div>
+                  </div>
+
+                  <!-- 無事業區域資訊時的顯示 -->
+                  <div
+                    v-else
+                    class="text-grey-darken-1"
+                  >
+                    查無相關事業區域資訊
+                  </div>
+                </td>
                 <!-- <td class="bg-grey-lighten-4 font-weight-medium">
                   特殊地
                 </td>
@@ -1705,6 +1748,7 @@ import { getArea } from 'ol/sphere';
 import { debounce } from 'lodash-es';
 import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
+import { queryOfficeBoundaries, queryCountyBoundaries } from '@/services/spatialService';
 
 // Define type for selected feature info
 interface SelectedFeatureInfo {
@@ -2265,12 +2309,12 @@ const landUtils = {
   // 🔥 修復：防止載入時觸發級聯重置的土地資料載入
   loadLandToCurrentForm: (land: LandData): void => {
     console.log('🔧 loadLandToCurrentForm - Starting land data load...')
-    
+
     // 暫時標記為載入模式，防止級聯重置
     initGuard.isInitializing = true
-    
+
     try {
-      // 確保資料類型正確轉換  
+      // 確保資料類型正確轉換
       Object.assign(localFormData, {
         landCounty: typeof land.landCounty === 'string' ? parseInt(land.landCounty) || land.landCounty : land.landCounty,
         landTown: typeof land.landTown === 'string' ? parseInt(land.landTown) || land.landTown : land.landTown,
@@ -2304,12 +2348,12 @@ const landUtils = {
         ownerArea: land.ownerArea,
         owners: [...land.owners]
       })
-      
+
       console.log('🔧 loadLandToCurrentForm - Data loaded:')
       console.log('  landCounty:', localFormData.landCounty, typeof localFormData.landCounty)
       console.log('  landTown:', localFormData.landTown, typeof localFormData.landTown)
       console.log('  landSec:', localFormData.landSec, typeof localFormData.landSec)
-      
+
     } finally {
       // 使用 nextTick 確保 Vue 響應性更新完成後再開啟級聯重置
       nextTick(() => {
@@ -2365,7 +2409,7 @@ const landInfo = reactive({
   number: '996-1',
   managementOffice: '瑠公管理處',
   workstation: '嘉義工作站',
-  waterResourceGroup: '第三水利小組',
+  irrigationDistrictInfo: [] as any[], // 儲存完整的事業區階層資訊陣列
   specialLand: false
 });
 
@@ -2677,13 +2721,13 @@ const getLandNumber = (land: LandData): string => {
   if (land.landNumber) {
     return land.landNumber
   }
-  
+
   if (land.landNumberMain) {
-    return land.landNumberSub 
+    return land.landNumberSub
       ? `${land.landNumberMain}-${land.landNumberSub}`
       : land.landNumberMain
   }
-  
+
   return '未設定'
 }
 
@@ -2786,7 +2830,7 @@ const getAreaSourceDisplay = (featureInfo: any) => {
   if (!featureInfo || !featureInfo.areaSource) {
     return '未知';
   }
-  
+
   switch (featureInfo.areaSource) {
     case 'cadastral':
       return '地籍登記面積 (Desc_area)';
@@ -3054,7 +3098,7 @@ defineExpose({
 // 簡化的級聯資料預載 - 消除複雜的保護機制
 const preloadCascadeDataForLands = async (lands: LandData[]) => {
   console.log('🔧 [P0 Fix] Preloading cascade data for lands...')
-  
+
   try {
     // 1. 確保縣市資料已載入
     if (!domicileStore.countyOptions.length) {
@@ -3065,7 +3109,7 @@ const preloadCascadeDataForLands = async (lands: LandData[]) => {
     // 2. 收集所有需要的縣市和鄉鎮ID
     const countyIds = new Set<number>()
     const townIds = new Set<number>()
-    
+
     lands.forEach(land => {
       if (land.landCounty && typeof land.landCounty === 'number') {
         countyIds.add(land.landCounty)
@@ -3087,7 +3131,7 @@ const preloadCascadeDataForLands = async (lands: LandData[]) => {
 
     await Promise.all(townPromises)
 
-    // 4. 平行載入所有需要的地段資料  
+    // 4. 平行載入所有需要的地段資料
     const sectionPromises = Array.from(townIds).map(async (townId) => {
       console.log(`📍 Loading sections for town ${townId}...`)
       try {
@@ -3098,7 +3142,7 @@ const preloadCascadeDataForLands = async (lands: LandData[]) => {
     })
 
     await Promise.all(sectionPromises)
-    
+
     console.log('✅ [P0 Fix] Cascade data preloading completed')
   } catch (error) {
     console.error('❌ [P0 Fix] Cascade data preloading failed:', error)
@@ -3108,11 +3152,11 @@ const preloadCascadeDataForLands = async (lands: LandData[]) => {
 // 修復初始化邏輯 - 去除過度複雜的保護機制
 const initializeStep2WithCascadeData = async () => {
   console.log('🎯 [P0 Fix] Initializing Step2 with proper cascade loading...')
-  
+
   try {
     // 標記開始初始化
     initGuard.isInitializing = true
-    
+
     // 1. 首先載入步驟資料
     const caseNumber = grantsStore.caseNumber
     if (!caseNumber) {
@@ -3122,10 +3166,10 @@ const initializeStep2WithCascadeData = async () => {
 
     console.log(`📦 Loading step data for case: ${caseNumber}`)
     const stepData = await grantsStore.loadStepData(caseNumber, 2)
-    
+
     // 2. 處理土地資料 - 向後相容
     let lands: LandData[] = []
-    
+
     if (stepData?.lands?.length) {
       // 新版多筆土地資料
       lands = stepData.lands as LandData[]
@@ -3135,7 +3179,7 @@ const initializeStep2WithCascadeData = async () => {
       const legacyLand = {
         id: 'legacy_land_1',
         landCounty: stepData.landCounty,
-        landTown: stepData.landTown, 
+        landTown: stepData.landTown,
         landSec: stepData.landSec,
         landNumber: stepData.landNumber || '',
         landNumberMain: stepData.landNumberMain || '',
@@ -3166,7 +3210,7 @@ const initializeStep2WithCascadeData = async () => {
         ownerArea: stepData.ownerArea || '',
         owners: stepData.owners || []
       } as LandData
-      
+
       lands = [legacyLand]
       console.log('🔄 Converted legacy single land data')
     }
@@ -3184,7 +3228,7 @@ const initializeStep2WithCascadeData = async () => {
     // 4. 更新元件狀態
     landManagement.lands = lands
     localFormData.lands = lands
-    
+
     // 5. 如果有單筆土地資料，同時更新向後相容的欄位
     if (lands.length === 1) {
       const land = lands[0]
@@ -3198,13 +3242,13 @@ const initializeStep2WithCascadeData = async () => {
         // ... 其他欄位保持原有邏輯
       })
     }
-    
+
     // 完成初始化
     initGuard.isInitialized = true
     initGuard.isInitializing = false
-    
+
     console.log('✅ [P0 Fix] Step2 initialization completed successfully')
-    
+
   } catch (error) {
     console.error('❌ [P0 Fix] Step2 initialization failed:', error)
     initGuard.isInitializing = false
@@ -3222,7 +3266,7 @@ const initializeStep2WithCascadeData = async () => {
 // 生命週期管理 - 使用修復後的邏輯
 onMounted(async () => {
   window.addEventListener('beforeunload', beforeUnloadHandler)
-  
+
   // 🔥 P0 修復：使用新的初始化邏輯
   await initializeStep2WithCascadeData()
 })
@@ -3587,7 +3631,7 @@ const handleFeatureSelect = (e: { selected: Feature<Geometry>[]; deselected: Fea
         areaValue = parseFloat(properties.Desc_area);
         areaSource = 'cadastral';
         console.log(`Using cadastral area (Desc_area): ${areaValue} m²`);
-      } 
+      }
       // Priority 2: Use Map_area from GeoJSON properties (survey area)
       else if (properties.Map_area && !isNaN(parseFloat(properties.Map_area))) {
         areaValue = parseFloat(properties.Map_area);
@@ -3616,6 +3660,11 @@ const handleFeatureSelect = (e: { selected: Feature<Geometry>[]; deselected: Fea
         areaSource: areaSource
       };
 
+      // Perform spatial queries to get office boundaries and county information
+      if (geometry) {
+        performSpatialQueries(feature);
+      }
+
       // You can show a popup with feature info including the area
       selectedFeatureInfo.value = updatedProperties;
       featureInfoVisible.value = true;
@@ -3636,6 +3685,53 @@ const handleFeatureSelect = (e: { selected: Feature<Geometry>[]; deselected: Fea
 // Hide feature info popup
 const hideFeatureInfo = () => {
   featureInfoVisible.value = false;
+};
+
+// Perform spatial queries with the selected feature geometry
+const performSpatialQueries = async (feature: Feature<Geometry>) => {
+  try {
+    // Convert OpenLayers geometry to GeoJSON format
+    const geoJSONFormat = new GeoJSON();
+    const geoJSONFeature = geoJSONFormat.writeFeatureObject(feature, {
+      featureProjection: 'EPSG:3857',
+      dataProjection: 'EPSG:4326'
+    });
+
+    const geometryData = geoJSONFeature.geometry;
+
+    // Perform both spatial queries in parallel
+    const [officeResult, countyResult] = await Promise.all([
+      queryOfficeBoundaries(geometryData).catch(error => {
+        console.error('Office boundaries query failed:', error);
+        return null;
+      }),
+      queryCountyBoundaries(geometryData).catch(error => {
+        console.error('County boundaries query failed:', error);
+        return null;
+      })
+    ]);
+
+    // Update landInfo with spatial query results
+    if (officeResult && officeResult.office_boundaries && officeResult.office_boundaries.length > 0) {
+      landInfo.irrigationDistrictInfo = officeResult.office_boundaries;
+      console.log('Irrigation district info found:', officeResult.office_boundaries.length, 'boundaries');
+    } else {
+      landInfo.irrigationDistrictInfo = [];
+    }
+
+    if (countyResult && countyResult.county_boundaries && countyResult.county_boundaries.length > 0) {
+      const county = countyResult.county_boundaries[0];
+      landInfo.county = county.countyname || '未知縣市';
+      console.log('County found:', county.countyname);
+    } else {
+      landInfo.county = '查無相關縣市';
+    }
+
+  } catch (error) {
+    console.error('Spatial queries failed:', error);
+    landInfo.irrigationDistrictInfo = [];
+    landInfo.county = '空間查詢失敗';
+  }
 };
 
 // Function to use selected feature data
@@ -4093,6 +4189,61 @@ watch(() => localFormData.ownerTown, stepManager.createProtectedWatch(async (...
     await domicileStore.loadVillagesByTownId(townId);
   }
 }));
+
+// 申請資格預查功能 - 在新分頁開啟 qualification 頁面並傳遞地段地號資訊
+const openQualificationQuery = () => {
+  // 從當前表單資料獲取地段和地號資訊
+  const county = localFormData.landCounty
+  const town = localFormData.landTown
+  const section = localFormData.landSec
+  const parentLandNumber = localFormData.landNumberMain
+  const childLandNumber = localFormData.landNumberSub
+
+  // 建構 URL 參數
+  const params = new URLSearchParams()
+
+  if (county) {
+    // 如果是數字 ID，需要轉換為縣市名稱
+    const countyName = typeof county === 'number'
+      ? domicileStore.countyOptions.find(c => c.value === county)?.title || ''
+      : county
+    if (countyName) params.set('county', countyName.toString())
+  }
+
+  if (town) {
+    // 如果是數字 ID，需要轉換為鄉鎮名稱
+    const townName = typeof town === 'number'
+      ? domicileStore.getTownById(town)?.name || ''
+      : town
+    if (townName) params.set('town', townName.toString())
+  }
+
+  if (section) {
+    // 如果是數字 ID，需要轉換為地段名稱
+    const sectionName = typeof section === 'number'
+      ? domicileStore.getLandSectionsForTownId(typeof town === 'number' ? town : parseInt(town?.toString() || '0')).find(s => s.value === section)?.title || ''
+      : section
+    if (sectionName) params.set('section', sectionName.toString())
+  }
+
+  if (parentLandNumber) {
+    params.set('parentLandNumber', parentLandNumber.toString())
+  }
+
+  if (childLandNumber) {
+    params.set('childLandNumber', childLandNumber.toString())
+  }
+
+  // 構建完整的 URL
+  const baseUrl = `${window.location.origin}/qualification`
+  const fullUrl = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl
+
+  // 在新分頁開啟 qualification 頁面
+  window.open(fullUrl, '_blank')
+}
+
+// 修正按鈕點擊事件名稱
+const showEligibilityDialog = openQualificationQuery
 
 // Clean up resources when component is unmounted
 onUnmounted(() => {

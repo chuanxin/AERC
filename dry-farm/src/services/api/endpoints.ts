@@ -4,28 +4,6 @@ const API_VERSION = import.meta.env.FAST_API_VERSION || ''
 // base URL for the API
 const BASE = `${import.meta.env.FAST_API_BASE_URL || ''}/${API_VERSION}`
 
-// // path for the backend API
-// const BACKEND_PATHS = {
-//   AUTH: {
-//     LOGIN: '/login',
-//     REGISTER: '/register',
-//     WHO_AM_I: '/users/whoami',
-//     LOGOUT: '/logout'
-//   },
-//   USERS: {
-//     LIST: '/users',
-//     DETAIL: (id: number | string) => `/user/${id}`,
-//     DELETE: (id: number | string) => `/user/${id}`
-//   },
-//   NOTES: {
-//     LIST: '/notes',
-//     CREATE: '/notes',
-//     DETAIL: (id: number | string) => `/note/${id}`,
-//     UPDATE: (id: number | string) => `/note/${id}`,
-//     DELETE: (id: number | string) => `/note/${id}`
-//   }
-// }
-
 // authentication related endpoints
 export const AUTH = {
   REGISTER: `${BASE}/auth/register`,
@@ -153,6 +131,11 @@ export const DOMICILE = {
   TOWNS_LIST: `${BASE}/domicile/towns`,
   VILLAGES_LIST: `${BASE}/domicile/villages`,
   SECTIONS_LIST: `${BASE}/domicile/sections`,
+}
+
+export const SPATIAL = {
+  OFFICE: `${BASE}/spatial/office`,
+  COUNTY: `${BASE}/spatial/county`,
 }
 
 export const IRRIGATION_TYPES = {
