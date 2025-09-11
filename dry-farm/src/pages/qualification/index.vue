@@ -704,16 +704,22 @@
                       >
                         <v-card-text class="pa-0">
                           <!-- 查詢結果標題 -->
-                          <div
-                            v-if="filteredLegacyResults.length > 0"
-                            class="mb-4"
-                          >
-                            <div class="text-h6 font-weight-bold mb-2">
+                          <div class="mb-4">
+                            <div
+                              v-if="filteredLegacyResults.length > 0"
+                              class="text-h6 font-weight-bold mb-2"
+                            >
                               歸檔記錄查詢結果：{{ landLocationDescription }} {{ filteredLegacyResults[0].land_number }}
+                            </div>
+                            <div
+                              v-else
+                              class="text-h6 font-weight-bold mb-2"
+                            >
+                              查詢結果
                             </div>
 
                             <div
-                              v-if="searchResults.length > filteredLegacyResults.length"
+                              v-if="searchResults.length > filteredLegacyResults.length && filteredLegacyResults.length > 0"
                               class="text-caption text-warning mb-2"
                             >
                               ⚠️ 已過濾僅顯示與最新案件地段 ({{ filteredLegacyResults[0].land_section }}) 相關的 {{ filteredLegacyResults.length }} 筆記錄 (包含其它地段的記錄總共 {{ searchResults.length }} 筆)
@@ -734,7 +740,7 @@
                                   <span class="text-caption">地籍登記面積</span>
                                 </div>
                                 <div class="text-h5 font-weight-bold text-blue">
-                                  {{ totalApprovedArea.toLocaleString() }}
+                                  {{ filteredLegacyResults.length > 0 ? totalApprovedArea.toLocaleString() : '-' }}
                                 </div>
                                 <div class="text-caption">
                                   ㎡
@@ -746,11 +752,8 @@
                                 vertical
                               />
 
-                              <!-- 農田水利管轄區域資訊 -->
-                              <div
-                                v-if="allOfficeBoundaries && allOfficeBoundaries.length > 0"
-                                class="flex-grow-1"
-                              >
+                              <!-- 農田水利事業區域資訊 -->
+                              <div class="flex-grow-1">
                                 <div class="d-flex align-center mb-2">
                                   <v-icon
                                     color="teal"
@@ -759,12 +762,15 @@
                                   >
                                     mdi-domain
                                   </v-icon>
-                                  <span class="text-caption font-weight-medium">農田水利管轄區域</span>
+                                  <span class="text-caption font-weight-medium">農田水利事業區域</span>
                                 </div>
-                                
-                                <!-- 詳細管轄層級資訊 -->
-                                <div class="d-flex flex-column gap-2">
-                                  <div 
+
+                                <!-- 詳細事業區層級資訊 -->
+                                <div
+                                  v-if="allOfficeBoundaries && allOfficeBoundaries.length > 0"
+                                  class="d-flex flex-column gap-2"
+                                >
+                                  <div
                                     v-for="boundary in allOfficeBoundaries.slice(0, 2)"
                                     :key="boundary.gid"
                                     class="text-body-2"
@@ -772,26 +778,44 @@
                                     <span class="font-weight-bold text-teal">{{ boundary.ia_name || '未知' }}管理處</span>
                                     <template v-if="boundary.mng_name">
                                       <span class="mx-2 text-grey-darken-1">></span>
-                                      <span>{{ boundary.mng_name }}分處</span>
+                                      <span>{{ boundary.mng_name }}</span>
                                     </template>
                                     <span class="mx-2 text-grey-darken-1">></span>
                                     <span>{{ boundary.stn_name || '未知工作站' }}</span>
-                                    <span 
+                                    <span
                                       v-if="boundary.grp_name"
                                       class="mx-2 text-grey-darken-1"
                                     >></span>
-                                    <span 
+                                    <span
                                       v-if="boundary.grp_name"
                                       class="text-blue-grey-darken-1"
                                     >{{ boundary.grp_name }}</span>
                                   </div>
-                                  
+
                                   <div
                                     v-if="allOfficeBoundaries.length > 2"
                                     class="text-body-2 text-grey-darken-1 mt-1"
                                   >
-                                    另有 {{ allOfficeBoundaries.length - 2 }} 個管轄區域
+                                    另有 {{ allOfficeBoundaries.length - 2 }} 個事業區域
                                   </div>
+                                </div>
+
+                                <!-- 無事業區域資訊時的顯示 -->
+                                <div
+                                  v-else
+                                  class="d-flex align-center justify-center pa-3 rounded"
+                                  style="background-color: #f8f9fa; border: 1px dashed #dee2e6;"
+                                >
+                                  <v-icon
+                                    color="grey-darken-1"
+                                    size="small"
+                                    class="me-2"
+                                  >
+                                    mdi-information-outline
+                                  </v-icon>
+                                  <span class="text-body-2 text-grey-darken-1 font-weight-medium">
+                                    暫無事業區域資料
+                                  </span>
                                 </div>
                               </div>
                             </div>
@@ -900,7 +924,7 @@
                   icon="mdi-information"
                 >
                   <div class="d-flex align-center justify-space-between">
-                    <span>查詢無結果，此地號尚未有歷史補助申請紀錄。</span>
+                    <span>無查詢結果，此地號尚未有歷史補助申請紀錄。</span>
                     <v-btn
                       variant="text"
                       color="primary"
