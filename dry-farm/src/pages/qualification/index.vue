@@ -952,12 +952,14 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, reactive, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { useQualificationStore } from '@/stores/qualification';
 import { useDomicileStore } from '@/stores/domicile';
 import type { QualificationSearchParams, IndigenousSearchParams, RecentSearch } from '@/types/qualification';
 
 const qualificationStore = useQualificationStore();
 const domicileStore = useDomicileStore();
+const route = useRoute();
 
 const queryType = ref('general');
 
@@ -1719,6 +1721,79 @@ onMounted(async () => {
     console.log('Counties loaded successfully');
   } catch (error) {
     console.error('Failed to load counties:', error);
+  }
+
+  // 處理來自 step2.vue 的 URL 參數並預填表單
+  const urlParams = route.query;
+  if (urlParams.county || urlParams.town || urlParams.section || urlParams.parentLandNumber) {
+    console.log('Processing URL parameters:', urlParams);
+    
+    // 設定查詢類型為一般區域查詢
+    queryType.value = 'general';
+    
+    // 預填縣市
+    if (urlParams.county) {
+      const countyName = urlParams.county as string;
+      const county = domicileStore.countyOptions.find(c => c.title === countyName);
+      if (county) {
+        searchParams.county = county.title;
+        // 載入鄉鎮資料
+        await domicileStore.loadTownsByCountyId(county.value);
+      }
+    }
+    
+    // 預填鄉鎮
+    if (urlParams.town && searchParams.county) {
+      const townName = urlParams.town as string;
+      const county = domicileStore.countyOptions.find(c => c.title === searchParams.county);
+      if (county) {
+        const towns = domicileStore.getTownsForCountyId(county.value);
+        const town = towns.find(t => t.title === townName);
+        if (town) {
+          searchParams.town = town.title;
+          // 載入地段資料
+          await domicileStore.loadLandSectionsByTownId(town.value);
+        }
+      }
+    }
+    
+    // 預填地段
+    if (urlParams.section && searchParams.town) {
+      const sectionName = urlParams.section as string;
+      const county = domicileStore.countyOptions.find(c => c.title === searchParams.county);
+      const town = county ? domicileStore.getTownsForCountyId(county.value).find(t => t.title === searchParams.town) : null;
+      if (town) {
+        const sections = domicileStore.getLandSectionsForTownId(town.value);
+        const section = sections.find(s => s.title === sectionName);
+        if (section) {
+          searchParams.section = section.title;
+        }
+      }
+    }
+    
+    // 預填地號
+    if (urlParams.parentLandNumber) {
+      searchParams.parentLandNumber = urlParams.parentLandNumber as string;
+    }
+    
+    if (urlParams.childLandNumber) {
+      searchParams.childLandNumber = urlParams.childLandNumber as string;
+    }
+
+    console.log('URL parameters processed, form pre-filled:', searchParams);
+    
+    // 如果有母地號，自動執行查詢
+    if (searchParams.parentLandNumber) {
+      console.log('Auto-executing search with pre-filled data...');
+      // 使用 nextTick 確保 DOM 更新完成後再執行查詢
+      await new Promise(resolve => setTimeout(resolve, 100)); // 短暫延遲確保表單渲染完成
+      try {
+        await searchLand();
+        console.log('Auto-search completed successfully');
+      } catch (error) {
+        console.error('Auto-search failed:', error);
+      }
+    }
   }
 });
 
