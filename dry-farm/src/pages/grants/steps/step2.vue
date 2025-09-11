@@ -1670,7 +1670,50 @@
                 <td class="bg-grey-lighten-4 font-weight-medium">
                   水利小組
                 </td>
-                <td>{{ landInfo.waterResourceGroup }}</td>
+                <td>
+                  <!-- 詳細事業區層級資訊 -->
+                  <div
+                    v-if="landInfo.irrigationDistrictInfo && landInfo.irrigationDistrictInfo.length > 0"
+                    class="d-flex flex-column gap-1"
+                  >
+                    <div
+                      v-for="boundary in landInfo.irrigationDistrictInfo.slice(0, 2)"
+                      :key="boundary.gid"
+                      class="text-body-2"
+                    >
+                      <span class="font-weight-bold text-teal">{{ boundary.ia_name || '未知' }}</span>
+                      <template v-if="boundary.mng_name">
+                        <span class="mx-1 text-grey-darken-1">></span>
+                        <span>{{ boundary.mng_name }}</span>
+                      </template>
+                      <span class="mx-1 text-grey-darken-1">></span>
+                      <span>{{ boundary.stn_name || '未知工作站' }}</span>
+                      <span
+                        v-if="boundary.grp_name"
+                        class="mx-1 text-grey-darken-1"
+                      >></span>
+                      <span
+                        v-if="boundary.grp_name"
+                        class="text-blue-grey-darken-1"
+                      >{{ boundary.grp_name }}</span>
+                    </div>
+
+                    <div
+                      v-if="landInfo.irrigationDistrictInfo.length > 2"
+                      class="text-caption text-grey-darken-1 mt-1"
+                    >
+                      另有 {{ landInfo.irrigationDistrictInfo.length - 2 }} 個事業區域
+                    </div>
+                  </div>
+
+                  <!-- 無事業區域資訊時的顯示 -->
+                  <div
+                    v-else
+                    class="text-grey-darken-1"
+                  >
+                    查無相關事業區域資訊
+                  </div>
+                </td>
                 <!-- <td class="bg-grey-lighten-4 font-weight-medium">
                   特殊地
                 </td>
@@ -1705,6 +1748,7 @@ import { getArea } from 'ol/sphere';
 import { debounce } from 'lodash-es';
 import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
+import { queryOfficeBoundaries, queryCountyBoundaries } from '@/services/spatialService';
 
 // Define type for selected feature info
 interface SelectedFeatureInfo {
@@ -2365,7 +2409,7 @@ const landInfo = reactive({
   number: '996-1',
   managementOffice: '瑠公管理處',
   workstation: '嘉義工作站',
-  waterResourceGroup: '第三水利小組',
+  irrigationDistrictInfo: [] as any[], // 儲存完整的事業區階層資訊陣列
   specialLand: false
 });
 
@@ -3616,6 +3660,11 @@ const handleFeatureSelect = (e: { selected: Feature<Geometry>[]; deselected: Fea
         areaSource: areaSource
       };
 
+      // Perform spatial queries to get office boundaries and county information
+      if (geometry) {
+        performSpatialQueries(feature);
+      }
+
       // You can show a popup with feature info including the area
       selectedFeatureInfo.value = updatedProperties;
       featureInfoVisible.value = true;
@@ -3636,6 +3685,53 @@ const handleFeatureSelect = (e: { selected: Feature<Geometry>[]; deselected: Fea
 // Hide feature info popup
 const hideFeatureInfo = () => {
   featureInfoVisible.value = false;
+};
+
+// Perform spatial queries with the selected feature geometry
+const performSpatialQueries = async (feature: Feature<Geometry>) => {
+  try {
+    // Convert OpenLayers geometry to GeoJSON format
+    const geoJSONFormat = new GeoJSON();
+    const geoJSONFeature = geoJSONFormat.writeFeatureObject(feature, {
+      featureProjection: 'EPSG:3857',
+      dataProjection: 'EPSG:4326'
+    });
+
+    const geometryData = geoJSONFeature.geometry;
+
+    // Perform both spatial queries in parallel
+    const [officeResult, countyResult] = await Promise.all([
+      queryOfficeBoundaries(geometryData).catch(error => {
+        console.error('Office boundaries query failed:', error);
+        return null;
+      }),
+      queryCountyBoundaries(geometryData).catch(error => {
+        console.error('County boundaries query failed:', error);
+        return null;
+      })
+    ]);
+
+    // Update landInfo with spatial query results
+    if (officeResult && officeResult.office_boundaries && officeResult.office_boundaries.length > 0) {
+      landInfo.irrigationDistrictInfo = officeResult.office_boundaries;
+      console.log('Irrigation district info found:', officeResult.office_boundaries.length, 'boundaries');
+    } else {
+      landInfo.irrigationDistrictInfo = [];
+    }
+
+    if (countyResult && countyResult.county_boundaries && countyResult.county_boundaries.length > 0) {
+      const county = countyResult.county_boundaries[0];
+      landInfo.county = county.countyname || '未知縣市';
+      console.log('County found:', county.countyname);
+    } else {
+      landInfo.county = '查無相關縣市';
+    }
+
+  } catch (error) {
+    console.error('Spatial queries failed:', error);
+    landInfo.irrigationDistrictInfo = [];
+    landInfo.county = '空間查詢失敗';
+  }
 };
 
 // Function to use selected feature data

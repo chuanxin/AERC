@@ -3,7 +3,7 @@ from tortoise import fields
 
 class OfficeBoundaries(Model):
     """
-    水利工作站界限資料表 - 外部管理的空間資料表
+    農田水利事業區域資料表 - 外部管理的空間資料表
     此資料表由 PostGIS 直接管理，不透過 Tortoise migration
     """
     gid = fields.IntField(pk=True)
@@ -25,6 +25,25 @@ class OfficeBoundaries(Model):
 
     class Meta:
         table = "office_boundaries"
+        managed = False  # 告訴 Tortoise 不要管理此資料表的 schema
+
+
+class CountyMOI1090820(Model):
+    """
+    縣市界線資料表 - 外部管理的空間資料表  
+    此資料表由 PostGIS 直接管理，不透過 Tortoise migration
+    資料來源：內政部縣市界線圖資 (MOI 109/08/20)
+    """
+    gid = fields.IntField(pk=True)
+    # 使用 TextField 來處理 PostGIS geometry 欄位
+    geom = fields.TextField(description="MultiPolygon geometry in SRID 3824")
+    countyid = fields.CharField(max_length=255, null=True, description="縣市ID")
+    countycode = fields.CharField(max_length=255, null=True, description="縣市代碼")
+    countyname = fields.CharField(max_length=255, null=True, description="縣市名稱")
+    countyeng = fields.CharField(max_length=255, null=True, description="縣市英文名稱")
+
+    class Meta:
+        table = "county_moi_1090820"
         managed = False  # 告訴 Tortoise 不要管理此資料表的 schema
 
 
