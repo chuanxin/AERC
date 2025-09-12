@@ -21,12 +21,13 @@ declare module 'vue-router/auto-routes' {
     '/': RouteRecordInfo<'/', '/', Record<never, never>, Record<never, never>>,
     '/budget/': RouteRecordInfo<'/budget/', '/budget', Record<never, never>, Record<never, never>>,
     '/budget/index_alt': RouteRecordInfo<'/budget/index_alt', '/budget/index_alt', Record<never, never>, Record<never, never>>,
-    '/config/': RouteRecordInfo<'/config/', '/config', Record<never, never>, Record<never, never>>,
     '/dev/EventDrivenTestPanel': RouteRecordInfo<'/dev/EventDrivenTestPanel', '/dev/EventDrivenTestPanel', Record<never, never>, Record<never, never>>,
     '/dev/FieldMappingDebugger': RouteRecordInfo<'/dev/FieldMappingDebugger', '/dev/FieldMappingDebugger', Record<never, never>, Record<never, never>>,
+    '/downloads/': RouteRecordInfo<'/downloads/', '/downloads', Record<never, never>, Record<never, never>>,
     '/grants/': RouteRecordInfo<'/grants/', '/grants', Record<never, never>, Record<never, never>>,
     '/grants/edit': RouteRecordInfo<'/grants/edit', '/grants/edit', Record<never, never>, Record<never, never>>,
     '/grants/new': RouteRecordInfo<'/grants/new', '/grants/new', Record<never, never>, Record<never, never>>,
+    '/grants/query': RouteRecordInfo<'/grants/query', '/grants/query', Record<never, never>, Record<never, never>>,
     '/grants/statements': RouteRecordInfo<'/grants/statements', '/grants/statements', Record<never, never>, Record<never, never>>,
     '/grants/steps/guide': RouteRecordInfo<'/grants/steps/guide', '/grants/steps/guide', Record<never, never>, Record<never, never>>,
     '/grants/steps/step0': RouteRecordInfo<'/grants/steps/step0', '/grants/steps/step0', Record<never, never>, Record<never, never>>,
@@ -42,6 +43,10 @@ declare module 'vue-router/auto-routes' {
     '/maps/': RouteRecordInfo<'/maps/', '/maps', Record<never, never>, Record<never, never>>,
     '/qualification/': RouteRecordInfo<'/qualification/', '/qualification', Record<never, never>, Record<never, never>>,
     '/statistics/': RouteRecordInfo<'/statistics/', '/statistics', Record<never, never>, Record<never, never>>,
+    '/supplies/': RouteRecordInfo<'/supplies/', '/supplies', Record<never, never>, Record<never, never>>,
+  }
+}
+er>, Record<never, never>>,
     '/supplies/': RouteRecordInfo<'/supplies/', '/supplies', Record<never, never>, Record<never, never>>,
   }
 }

@@ -308,7 +308,10 @@
                   補助上限 ${{ totalControlSubsidyLimit.toLocaleString() }} |
                   已申請 ${{ totalControlSubsidy.toLocaleString() }} |
                   剩餘額度 ${{ availableControlSubsidy.toLocaleString() }}
-                  <span v-if="overallControlSubsidyRatio > 0" class="ms-2">
+                  <span
+                    v-if="overallControlSubsidyRatio > 0"
+                    class="ms-2"
+                  >
                     (整體補助比例: {{ (overallControlSubsidyRatio * 100).toFixed(1) }}%)
                   </span>
                 </div>
@@ -335,7 +338,6 @@
                 class="pa-3 rounded"
                 color="grey-lighten-5"
               >
-
                 <!-- 第一行：調蓄控制設施選擇和設施名稱 -->
                 <div class="d-flex align-center flex-wrap mb-3">
                   <v-select

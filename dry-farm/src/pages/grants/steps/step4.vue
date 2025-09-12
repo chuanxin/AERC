@@ -587,44 +587,6 @@
                   </div>
 
                   <div class="d-flex flex-wrap mt-2">
-                    <!-- 末端設施規格和名稱 -->
-                    <v-select
-                      v-model="localFormData.endFacilitySpecId"
-                      :items="endFacilityDiameterOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="末端設施規格"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      @update:model-value="onEndFacilitySpecChange"
-                    />
-
-                    <v-autocomplete
-                      v-model="localFormData.endFacilityPomno"
-                      :items="filteredEndFacilityPipeFittings"
-                      item-title="displayName"
-                      item-value="pomno"
-                      label="末端設施名稱"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 250px"
-                      clearable
-                      @update:model-value="onSelectedEndFacilityChange"
-                    >
-                      <template #item="{ props, item }">
-                        <v-list-item
-                          v-bind="props"
-                          :title="item.raw.displayName"
-                          :subtitle="`材質: ${item.raw.materialName}`"
-                        />
-                      </template>
-                    </v-autocomplete>
-                  </div>
-
-                  <div class="d-flex flex-wrap mt-2">
                     <!-- 豎管相關配置 -->
                     <div class="me-3 mb-2">
                       <div class="text-body-2 mb-1">
@@ -668,6 +630,44 @@
                       style="width: 150px"
                       clearable
                     />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2 mb-0">
+                    <!-- 末端設施規格和名稱 -->
+                    <v-select
+                      v-model="localFormData.endFacilitySpecId"
+                      :items="endFacilityDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="末端設施規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3"
+                      style="width: 150px"
+                      @update:model-value="onEndFacilitySpecChange"
+                    />
+
+                    <v-autocomplete
+                      v-model="localFormData.endFacilityPomno"
+                      :items="filteredEndFacilityPipeFittings"
+                      item-title="displayName"
+                      item-value="pomno"
+                      label="末端設施名稱"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3"
+                      style="width: 250px"
+                      clearable
+                      @update:model-value="onSelectedEndFacilityChange"
+                    >
+                      <template #item="{ props, item }">
+                        <v-list-item
+                          v-bind="props"
+                          :title="item.raw.displayName"
+                          :subtitle="`材質: ${item.raw.materialName}`"
+                        />
+                      </template>
+                    </v-autocomplete>
                   </div>
                 </div>
 
@@ -781,44 +781,6 @@
                   </div>
 
                   <div class="d-flex flex-wrap mt-2">
-                    <!-- 末端設施規格和名稱 -->
-                    <v-select
-                      v-model="localFormData.endFacilitySpecId"
-                      :items="endFacilityDiameterOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="末端設施規格"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      @update:model-value="onEndFacilitySpecChange"
-                    />
-
-                    <v-autocomplete
-                      v-model="localFormData.endFacilityPomno"
-                      :items="filteredEndFacilityPipeFittings"
-                      item-title="displayName"
-                      item-value="pomno"
-                      label="末端設施名稱"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 250px"
-                      clearable
-                      @update:model-value="onSelectedEndFacilityChange"
-                    >
-                      <template #item="{ props, item }">
-                        <v-list-item
-                          v-bind="props"
-                          :title="item.raw.displayName"
-                          :subtitle="`材質: ${item.raw.materialName}`"
-                        />
-                      </template>
-                    </v-autocomplete>
-                  </div>
-
-                  <div class="d-flex flex-wrap mt-2">
                     <!-- 豎管相關配置 -->
                     <div class="me-3 mb-2">
                       <div class="text-body-2 mb-1">
@@ -862,6 +824,44 @@
                       style="width: 150px"
                       clearable
                     />
+                  </div>
+
+                  <div class="d-flex flex-wrap mt-2 mb-0 pb-0">
+                    <!-- 末端設施規格和名稱 -->
+                    <v-select
+                      v-model="localFormData.endFacilitySpecId"
+                      :items="endFacilityDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="末端設施規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3"
+                      style="width: 150px"
+                      @update:model-value="onEndFacilitySpecChange"
+                    />
+
+                    <v-autocomplete
+                      v-model="localFormData.endFacilityPomno"
+                      :items="filteredEndFacilityPipeFittings"
+                      item-title="displayName"
+                      item-value="pomno"
+                      label="末端設施名稱"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3"
+                      style="width: 250px"
+                      clearable
+                      @update:model-value="onSelectedEndFacilityChange"
+                    >
+                      <template #item="{ props, item }">
+                        <v-list-item
+                          v-bind="props"
+                          :title="item.raw.displayName"
+                          :subtitle="`材質: ${item.raw.materialName}`"
+                        />
+                      </template>
+                    </v-autocomplete>
                   </div>
                 </div>
 
@@ -1798,7 +1798,10 @@
     scrollable
   >
     <v-card>
-      <v-card-title class="text-h6 d-flex align-center pa-4" style="color: #2d8c8f; background-color: #f8f9fa;">
+      <v-card-title
+        class="text-h6 d-flex align-center pa-4"
+        style="color: #2d8c8f; background-color: #f8f9fa;"
+      >
         <v-icon
           color="#3ea0a3"
           class="me-3"
@@ -1814,23 +1817,33 @@
           size="small"
           @click="closeManualAddDialog"
         >
-          <v-icon color="#666">mdi-close</v-icon>
+          <v-icon color="#666">
+            mdi-close
+          </v-icon>
         </v-btn>
       </v-card-title>
 
       <v-divider />
 
       <v-card-text class="pa-0">
-        <v-container fluid class="pa-6">
-          <v-form ref="manualAddForm" v-model="manualAddFormValid">
-
+        <v-container
+          fluid
+          class="pa-6"
+        >
+          <v-form
+            ref="manualAddForm"
+            v-model="manualAddFormValid"
+          >
             <!-- 材料搜尋與選擇區塊 -->
             <v-card
               variant="outlined"
               class="mb-4"
               rounded="lg"
             >
-              <v-card-title class="d-flex align-center py-3 px-4" style="background-color: #f8f9fa; color: #2d8c8f;">
+              <v-card-title
+                class="d-flex align-center py-3 px-4"
+                style="background-color: #f8f9fa; color: #2d8c8f;"
+              >
                 <v-icon
                   color="#3ea0a3"
                   class="me-2"
@@ -1949,7 +1962,11 @@
                     <v-list-item class="text-center py-4">
                       <template #title>
                         <div class="text-grey-darken-1">
-                          <v-icon size="large" color="grey-darken-1" class="mb-2">
+                          <v-icon
+                            size="large"
+                            color="grey-darken-1"
+                            class="mb-2"
+                          >
                             {{ materialSearchQuery ? 'mdi-magnify-close' : 'mdi-magnify' }}
                           </v-icon>
                           <div>{{ materialSearchQuery ? '沒有找到相符的材料' : '請輸入關鍵字開始搜尋' }}</div>
