@@ -1738,6 +1738,8 @@ import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import { fromLonLat, transform } from 'ol/proj';
 import Point from 'ol/geom/Point';
+import Polygon from 'ol/geom/Polygon';
+import MultiPolygon from 'ol/geom/MultiPolygon';
 import { Vector as VectorLayer } from 'ol/layer';
 import { Vector as VectorSource } from 'ol/source';
 import { Style, Icon, Stroke, Fill } from 'ol/style';
@@ -3915,19 +3917,56 @@ const useSelectedFeature = () => {
       const geometry = feature.getGeometry();
 
       if (geometry) {
-        // Get the extent (bounding box) of the geometry
+        // Calculate center point that is guaranteed to be within the geometry bounds
         const extent = geometry.getExtent();
-        // Calculate the center of the extent
-        const center = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+        let center = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2]; // Default to extent center
+
+        try {
+          // For Polygon/MultiPolygon, try to find a better interior point
+          if (geometry instanceof Polygon || geometry instanceof MultiPolygon) {
+            // Check if the extent center is within the geometry
+            if (geometry.intersectsCoordinate(center)) {
+              // Extent center is already inside, use it
+              console.log('Using extent center as it is within the geometry');
+            } else {
+              // If extent center is outside, try to find a point inside
+              // Use a simple grid search within the extent
+              const stepX = (extent[2] - extent[0]) / 10;
+              const stepY = (extent[3] - extent[1]) / 10;
+              let foundInteriorPoint = false;
+
+              for (let i = 1; i <= 9 && !foundInteriorPoint; i++) {
+                for (let j = 1; j <= 9 && !foundInteriorPoint; j++) {
+                  const testPoint = [
+                    extent[0] + i * stepX,
+                    extent[1] + j * stepY
+                  ];
+                  if (geometry.intersectsCoordinate(testPoint)) {
+                    center = testPoint;
+                    foundInteriorPoint = true;
+                    console.log('Found interior point using grid search');
+                  }
+                }
+              }
+
+              if (!foundInteriorPoint) {
+                console.log('No interior point found, using extent center as fallback');
+              }
+            }
+          }
+        } catch (error) {
+          // If any method fails, center is already set to extent center
+          console.warn('Interior point calculation failed, using extent center:', error);
+        }
 
         // Transform from the map projection (EPSG:3857) to WGS84 (EPSG:4326)
         const transformedCenter = transform(center, 'EPSG:3857', 'EPSG:4326');
 
-        // Update the form with the center coordinates (rounded to 6 decimal places)
+        // Update the form with the calculated coordinates (rounded to 6 decimal places)
         localFormData.longitude = transformedCenter[0].toFixed(6);
         localFormData.latitude = transformedCenter[1].toFixed(6);
 
-        console.log(`Updated coordinates to center of polygon: ${localFormData.longitude}, ${localFormData.latitude}`);
+        console.log(`Updated coordinates to interior point of polygon: ${localFormData.longitude}, ${localFormData.latitude}`);
       }
     }
 
