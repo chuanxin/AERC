@@ -83,6 +83,7 @@
       '/config': '系統管理',
       '/bug-report': '回報問題',
       '/budget': '預算執行即時資訊',
+      '/downloads': '文件下載',
     }
 
     // Split the current path into segments and build breadcrumbs

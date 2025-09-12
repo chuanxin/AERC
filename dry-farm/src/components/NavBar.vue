@@ -343,9 +343,9 @@
           icon: 'mdi-map-legend'
         },
         {
-          title: '首頁管理',
-          value: 'config-home',
-          to: { path: '/config/home' },
+          title: '公告管理',
+          value: 'config-announcements',
+          to: { path: '/config/announcements' },
           icon: 'mdi-home-edit'
         }
       ]
