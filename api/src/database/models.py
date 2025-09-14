@@ -321,6 +321,7 @@ class Counties(models.Model):
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=10, unique=True, description="縣市名稱")
     code = fields.CharField(max_length=10, unique=True, description="縣市代碼")
+    land_code = fields.CharField(max_length=10, null=True, description="地政代碼")
     
     class Meta:
         table = "counties"
@@ -335,6 +336,7 @@ class Towns(models.Model):
     county = fields.ForeignKeyField("models.Counties", related_name="town", description="所屬縣市")
     name = fields.CharField(max_length=20, description="鄉鎮市區名稱")
     code = fields.CharField(max_length=10, description="鄉鎮市區代碼")
+    land_code = fields.CharField(max_length=10, null=True, description="地政代碼")
     is_indigenous = fields.BooleanField(default=False, description="是否為原民區域")
     indigenous_type = fields.CharField(max_length=10, null=True, description="原民區域類型(1:山地鄉 2:平地鄉)")
     
