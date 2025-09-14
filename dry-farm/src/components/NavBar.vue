@@ -95,8 +95,7 @@
               <v-list-item
                 v-for="child in item.children"
                 :key="child.value"
-                :to="child.to"
-                link
+                @click="navigateToChild(child.to)"
               >
                 <template #prepend>
                   <v-icon :icon="child.icon" />
@@ -174,9 +173,7 @@
     </v-list>
 
     <v-divider />
-    <v-list
-      v-model:selected="activeTab"
-    >
+    <v-list>
       <!-- 按照 navigationItems 原始順序渲染所有項目 -->
       <template
         v-for="item in navigationItems"
@@ -260,6 +257,10 @@
     } catch (error) {
       console.error('Logout failed:', error)
     }
+  }
+
+  const navigateToChild = (to: { path: string }) => {
+    router.push(to.path)
   }
   // Navigation items configuration
   const navigationItems = [
@@ -419,14 +420,25 @@
         activeTab.value = 'index'
       } else {
         const mainPath = newPath.split('/')[1]
-        activeTab.value = mainPath
 
         // 檢查是否是子路徑
         if (mainPath === 'config') {
           const subPath = newPath.split('/')[2]
           if (subPath) {
             activeTab.value = `config-${subPath}`
+          } else {
+            activeTab.value = mainPath
           }
+        } else if (mainPath === 'grants') {
+          const subPath = newPath.split('/')[2]
+          if (subPath === 'query') {
+            activeTab.value = 'grants-query'
+          } else {
+            // 對於 /grants 主路徑，設定為 grants-application
+            activeTab.value = 'grants-application'
+          }
+        } else {
+          activeTab.value = mainPath
         }
       }
     },
@@ -441,12 +453,6 @@
   color: white;
 }
 
-.app-title {
-  /* font-weight: 900 !important; */
-  /* letter-spacing: -0.5px; */
-  /* text-shadow: 1px 0 0 currentColor; */
-}
-
 h1.app-title {
   font-size: 1.8rem !important;
 }
@@ -455,12 +461,51 @@ h4.app-title {
   font-size: 1.2rem !important;
 }
 
-/* 下拉選單樣式 */
-:deep(.v-list-item--active) {
-  background-color: rgba(91, 194, 193, 0.1);
+/* 下拉選單樣式 - 使用更強的選擇器 */
+:deep(.v-list-item--active),
+:deep(.v-list-item--selected) {
+  background-color: transparent !important;
+  background: transparent !important;
 }
 
 :deep(.v-list-group__header.v-list-item--active) {
-  background-color: rgba(90, 67, 103, 0.1);
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* 移除子選單項目的 hover 和 active 狀態背景色 */
+:deep(.v-list .v-list-item:hover) {
+  background-color: rgba(91, 194, 193, 0.05) !important;
+}
+
+:deep(.v-list .v-list-item--active:hover) {
+  background-color: transparent !important;
+}
+
+/* 特別針對下拉選單中的項目，移除所有 active 和 selected 狀態 */
+:deep(.v-menu .v-list .v-list-item--active),
+:deep(.v-menu .v-list .v-list-item--selected) {
+  background-color: transparent !important;
+  background: transparent !important;
+  color: inherit !important;
+}
+
+/* 移動端導航抽屜中的項目也移除 active 狀態 */
+:deep(.v-navigation-drawer .v-list .v-list-item--active),
+:deep(.v-navigation-drawer .v-list .v-list-item--selected) {
+  background-color: transparent !important;
+  background: transparent !important;
+  color: inherit !important;
+}
+
+/* 針對 Vuetify 的 overlay 背景 */
+:deep(.v-list-item .v-list-item__overlay) {
+  opacity: 0 !important;
+}
+
+/* 強制移除所有可能的背景效果 */
+:deep(.v-list-item::before),
+:deep(.v-list-item::after) {
+  opacity: 0 !important;
 }
 </style>
