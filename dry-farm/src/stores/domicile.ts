@@ -19,6 +19,7 @@ export const useDomicileStore = defineStore('domicile', () => {
       title: county.name,
       value: county.id,
       code: county.code,
+      land_code: county.land_code,
       hasData: townsByCountyId.value.has(county.id)
     }))
   })
@@ -204,6 +205,7 @@ export const useDomicileStore = defineStore('domicile', () => {
       title: town.name,
       value: town.id,
       code: town.code,
+      land_code: town.land_code,
       countyId: town.county_id,
       hasData: villagesByTownId.value.has(town.id)
     }))

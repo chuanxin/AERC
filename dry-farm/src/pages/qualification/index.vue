@@ -98,7 +98,7 @@
                     </v-btn-toggle>
                   </div>
 
-                  <!-- 年度選擇 - 僅在一般區域查詢時顯示 -->
+                  <!-- 年度選擇 - 僅在歷史申請案件查詢時顯示 -->
                   <div
                     v-if="queryType === 'general'"
                     class="mb-4"
@@ -190,7 +190,9 @@
                             @update:model-value="onCountyChange"
                           />
 
+                          <!-- 只有非特殊城市才顯示鄉鎮市區選單 -->
                           <v-select
+                            v-if="!['新竹市', '嘉義市'].includes(searchParams.county)"
                             v-model="searchParams.town"
                             :items="towns"
                             label="鄉鎮市區"
@@ -202,21 +204,65 @@
                             bg-color="white"
                             @update:model-value="onTownChange"
                           />
+
+                          <!-- 特殊城市顯示固定的地政分區資訊 -->
+                          <v-text-field
+                            v-else-if="searchParams.county"
+                            :model-value="getSpecialCityDisplayText()"
+                            label="鄉政市區"
+                            variant="outlined"
+                            density="compact"
+                            hide-details
+                            readonly
+                            class="flex-grow-1 ml-3"
+                            bg-color="grey-lighten-4"
+                          />
                         </div>
 
                         <!-- 地段與API狀態 - 第二排 -->
                         <div class="d-flex align-center">
-                          <v-select
+                          <v-autocomplete
+                            :key="sectionSelectKey"
                             v-model="searchParams.section"
                             :items="sections"
+                            :item-title="item => item.title"
+                            item-value="value"
                             label="地段"
                             variant="outlined"
                             density="compact"
                             hide-details
                             class="flex-grow-1"
-                            :disabled="!searchParams.town"
                             bg-color="white"
-                          />
+                            clearable
+                            :placeholder="sections.length > 0 ? '搜尋地段名稱或代碼...' : '請先選擇鄉鎮市區'"
+                            :disabled="!searchParams.town && !['新竹市', '嘉義市'].includes(searchParams.county)"
+                            :loading="loadingSections"
+                            :no-data-text="'沒有找到相符的地段'"
+                            :custom-filter="sectionCustomFilter"
+                            :menu-props="{ closeOnContentClick: true }"
+                            :auto-select-first="false"
+                          >
+                            <template #item="{ props, item }">
+                              <v-list-item
+                                v-bind="props"
+                                class="px-3 py-2"
+                              >
+                                <template #title>
+                                  <div class="text-body-2 font-weight-medium text-grey-darken-3">
+                                    {{ item.raw.value }}
+                                  </div>
+                                </template>
+
+                                <template #subtitle>
+                                  <div class="d-flex align-center mt-1">
+                                    <span class="text-caption text-grey-darken-1">
+                                      段號: {{ item.raw.code || '無' }}
+                                    </span>
+                                  </div>
+                                </template>
+                              </v-list-item>
+                            </template>
+                          </v-autocomplete>
 
                           <!-- API連線狀態 -->
                           <div class="d-flex align-center ml-2">
@@ -233,6 +279,22 @@
                               {{ apiStatus.isOnline ? '線上' : '離線' }}
                             </v-chip>
                           </div>
+                        </div>
+
+                        <!-- 特殊城市提示 -->
+                        <div
+                          v-if="['新竹市', '嘉義市'].includes(searchParams.county)"
+                          class="mt-2"
+                        >
+                          <v-alert
+                            type="info"
+                            variant="tonal"
+                            density="compact"
+                            icon="mdi-information"
+                            class="text-caption"
+                          >
+                            {{ searchParams.county }}適用單一地政分區
+                          </v-alert>
                         </div>
                       </div>
 
@@ -359,6 +421,22 @@
 
                   <v-expand-transition>
                     <div v-if="queryType === 'slope'">
+                      <!-- 山坡地服務離線警告 -->
+                      <!-- <v-alert
+                        type="warning"
+                        variant="outlined"
+                        class="mb-4"
+                        density="compact"
+                      >
+                        <template #prepend>
+                          <v-icon>mdi-alert-circle</v-icon>
+                        </template>
+                        <div class="text-body-2">
+                          <strong>山坡地查詢服務目前離線</strong><br>
+                          此功能暫時無法使用，請稍後再試或聯繫系統管理員。
+                        </div>
+                      </v-alert> -->
+
                       <div class="mb-4">
                         <div class="text-body-2 font-weight-medium mb-2">
                           地段
@@ -374,6 +452,7 @@
                             hide-details
                             class="flex-grow-1"
                             bg-color="white"
+                            disabled
                             @update:model-value="onHillsideCountyChange"
                           />
 
@@ -385,7 +464,7 @@
                             density="compact"
                             hide-details
                             class="flex-grow-1 ml-3"
-                            :disabled="!hillsideParams.county"
+                            disabled
                             bg-color="white"
                             @update:model-value="onHillsideTownChange"
                           />
@@ -401,23 +480,23 @@
                             density="compact"
                             hide-details
                             class="flex-grow-1"
-                            :disabled="!hillsideParams.town"
+                            disabled
                             bg-color="white"
                           />
 
                           <!-- API連線狀態 -->
                           <div class="d-flex align-center ml-2">
                             <v-chip
-                              :color="apiStatus.isOnline ? 'success' : 'error'"
+                              color="error"
                               size="small"
                               variant="outlined"
                             >
                               <v-icon
-                                :icon="apiStatus.isOnline ? 'mdi-check-circle' : 'mdi-close-circle'"
+                                icon="mdi-close-circle"
                                 size="small"
                                 class="me-1"
                               />
-                              {{ apiStatus.isOnline ? '線上' : '離線' }}
+                              離線
                             </v-chip>
                           </div>
                         </div>
@@ -429,7 +508,7 @@
                           variant="flat"
                           size="large"
                           :loading="isHillsideLoading"
-                          :disabled="!canSearchHillside"
+                          disabled
                           rounded="lg"
                           block
                           @click="searchHillside"
@@ -951,10 +1030,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, reactive, onMounted } from 'vue';
+import { ref, computed, watch, reactive, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useQualificationStore } from '@/stores/qualification';
 import { useDomicileStore } from '@/stores/domicile';
+import { fetchLandSectionsByLandCodes, checkNlscApiHealth, type LandSection } from '@/services/landSectionNlscService';
 import type { QualificationSearchParams, IndigenousSearchParams, RecentSearch } from '@/types/qualification';
 
 const qualificationStore = useQualificationStore();
@@ -969,11 +1049,18 @@ const apiStatus = ref({
   lastChecked: null as Date | null
 });
 
+// NLSC 地段資料
+const nlscSections = ref<LandSection[]>([]);
+const loadingSections = ref(false);
+
+// 用於強制重新渲染地段選單的 key
+const sectionSelectKey = ref(0);
+
 // 地段查詢參數
 const searchParams = reactive<QualificationSearchParams>({
   county: '',
   town: '',
-  section: '',
+  section: null,
   landNumber: '',
   parentLandNumber: '',
   childLandNumber: ''
@@ -1046,40 +1133,126 @@ const showHillsideAlert = computed(() => hillsideParams.landNumber && hillsidePa
 
 // 地區資料 - 使用 domicileStore 的動態資料
 const counties = computed(() => {
-  return domicileStore.countyOptions.map(county => ({
-    title: county.title,
-    value: county.title // 使用 title 作為 value 以配合現有的字串類型
-  }));
+  return domicileStore.countyOptions
+    .map(county => ({
+      title: county.title,
+      value: county.title, // 使用 title 作為 value 以配合現有的字串類型
+      code: county.code,
+      land_code: county.land_code
+    }))
+    .sort((a, b) => {
+      // 優先按 land_code 排序，如果沒有則按 code 排序，最後按名稱排序
+      if (a.land_code && b.land_code) {
+        return a.land_code.localeCompare(b.land_code);
+      }
+      if (a.code && b.code) {
+        return a.code.localeCompare(b.code);
+      }
+      return a.title.localeCompare(b.title);
+    });
 });
 
-// 動態獲取鄉鎮選項
+// 動態獲取鄉鎮選項（僅非特殊城市使用）
 const towns = computed(() => {
-  if (!searchParams.county) return [];
+  if (!searchParams.county || ['新竹市', '嘉義市'].includes(searchParams.county)) return [];
+
   // 找到對應的縣市 ID
   const county = domicileStore.countyOptions.find(c => c.title === searchParams.county);
   if (!county) return [];
 
-  return domicileStore.getTownsForCountyId(county.value).map(town => ({
-    title: town.title,
-    value: town.title
-  }));
+  return domicileStore.getTownsForCountyId(county.value)
+    .map(town => ({
+      title: town.title,
+      value: town.title,
+      code: town.code,
+      land_code: town.land_code
+    }))
+    .sort((a, b) => {
+      // 優先按 land_code 排序，如果沒有則按 code 排序，最後按名稱排序
+      if (a.land_code && b.land_code) {
+        return a.land_code.localeCompare(b.land_code);
+      }
+      if (a.code && b.code) {
+        return a.code.localeCompare(b.code);
+      }
+      return a.title.localeCompare(b.title);
+    });
 });
 
-// 動態獲取地段選項
+// 動態獲取地段選項 - 使用 NLSC API
 const sections = computed(() => {
-  if (!searchParams.town) return [];
-  // 找到對應的鄉鎮 ID
-  const county = domicileStore.countyOptions.find(c => c.title === searchParams.county);
-  if (!county) return [];
-
-  const town = domicileStore.getTownsForCountyId(county.value).find(t => t.title === searchParams.town);
-  if (!town) return [];
-
-  return domicileStore.getLandSectionsForTownId(town.value).map(section => ({
-    title: section.title,
-    value: section.title
-  }));
+  return nlscSections.value
+    .map(section => ({
+      title: section.name,  // 選中後顯示的文字，只有地段名稱
+      value: section.name,
+      code: section.code,
+      // 用於搜尋的文字，包含名稱和代碼
+      searchText: `${section.name} ${section.code || ''}`.toLowerCase()
+    }))
+    .sort((a, b) => {
+      // 優先按地段代碼排序，如果沒有代碼則按名稱排序
+      if (a.code && b.code) {
+        return a.code.localeCompare(b.code);
+      }
+      return a.title.localeCompare(b.title);
+    });
 });
+
+// 自定義過濾器函數 - 支援地段名稱和代碼搜尋
+const sectionCustomFilter = (item: any, queryText: string, itemText: any) => {
+  if (!queryText) return true;
+
+  const query = queryText.toLowerCase().trim();
+
+  // 嘗試從不同地方獲取完整的物件資料
+  let sectionData = null;
+
+  if (itemText && typeof itemText === 'object') {
+    sectionData = itemText.raw || itemText;
+  }
+
+  if (!sectionData) {
+    // 如果無法從 itemText 獲取，嘗試在 sections 中找到對應的項目
+    sectionData = sections.value.find(section =>
+      section.title === item || section.value === item
+    );
+  }
+
+  if (!sectionData) {
+    // 如果找不到完整資料，只能按地段名稱搜尋
+    return typeof item === 'string' && item.toLowerCase().includes(query);
+  }
+
+  // 搜尋地段名稱
+  if (sectionData.title && sectionData.title.toLowerCase().includes(query)) {
+    return true;
+  }
+
+  // 搜尋地段代碼 - 支援多種格式
+  if (sectionData.code) {
+    const codeStr = sectionData.code.toString().toLowerCase();
+
+    // 直接匹配
+    if (codeStr.includes(query)) {
+      return true;
+    }
+    // 去除前導零匹配（如 0001 -> 1）
+    if (codeStr.replace(/^0+/, '').includes(query)) {
+      return true;
+    }
+    // 補前導零匹配（如 1 -> 0001）
+    if (query.match(/^\d+$/) && codeStr.includes(query.padStart(4, '0'))) {
+      return true;
+    }
+  }
+
+  // 使用完整的搜尋文字
+  if (sectionData.searchText && sectionData.searchText.includes(query)) {
+    return true;
+  }
+
+  return false;
+};
 
 // 動態獲取原民區查詢的鄉鎮選項
 const indigenousTowns = computed(() => {
@@ -1136,26 +1309,107 @@ const formatDate = (date: Date): string => {
 
 // 縣市變更事件處理
 const onCountyChange = async (newCounty: string) => {
-  searchParams.town = '';
-  searchParams.section = '';
+  // 重置地段選擇和資料
+  searchParams.section = null;
+  nlscSections.value = [];
+
+  // 強制重新渲染地段選單
+  sectionSelectKey.value++;
+
+  // 使用 nextTick 確保重置生效
+  await nextTick();
 
   // 載入該縣市的鄉鎮資料
   const county = domicileStore.countyOptions.find(c => c.title === newCounty);
   if (county) {
     await domicileStore.loadTownsByCountyId(county.value);
+
+    // 如果是特殊城市，設定虛擬town並自動載入地段資料
+    if (specialCities[newCounty] && county.land_code) {
+      // 為特殊城市設定一個虛擬的town值，確保API請求正常運作
+      searchParams.town = 'SPECIAL_CITY_AUTO';
+
+      const specialCode = specialCities[newCounty].code;
+      loadingSections.value = true;
+      try {
+        nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, specialCode);
+        console.log(`已自動載入 ${newCounty} 的地段資料 (${specialCode}):`, nlscSections.value.length);
+      } catch (error) {
+        console.error('Failed to load land sections for special city:', error);
+        nlscSections.value = [];
+      } finally {
+        loadingSections.value = false;
+      }
+    } else {
+      // 一般縣市清空town選擇
+      searchParams.town = '';
+    }
   }
 };
 
 // 鄉鎮變更事件處理
-const onTownChange = async (newTown: string) => {
-  searchParams.section = '';
+// 特殊城市配置
+const specialCities: Record<string, { code: string; name: string }> = {
+  '新竹市': { code: 'O01', name: '新竹市' },
+  '嘉義市': { code: 'I01', name: '嘉義市' }
+};
 
-  // 載入該鄉鎮的地段資料
+// 取得特殊城市的顯示文字
+const getSpecialCityDisplayText = (): string => {
+  if (!searchParams.county) return '';
+  const cityInfo = specialCities[searchParams.county];
+  return cityInfo ? `${cityInfo.name}` : '';
+};
+
+// 地政代碼對應表 - 處理戶政/地政資料不一致的問題
+const getLandCodeForNlsc = (countyName: string, townLandCode: string | null | undefined): string | null => {
+  // 如果是特殊城市，統一使用固定的地政代碼
+  if (specialCities[countyName]) {
+    return specialCities[countyName].code;
+  }
+
+  // 其他縣市使用原始的 land_code
+  return townLandCode || null;
+};
+
+const onTownChange = async (newTown: string) => {
+  // 重置地段選擇和資料
+  searchParams.section = null;
+  nlscSections.value = [];
+
+  // 強制重新渲染地段選單
+  sectionSelectKey.value++;
+
+  // 使用 nextTick 確保重置生效
+  await nextTick();
+
+  // 如果是特殊城市的虛擬town值，跳過處理（地段資料已在縣市變更時載入）
+  if (newTown === 'SPECIAL_CITY_AUTO') {
+    return;
+  }
+
+  // 載入該鄉鎮的地段資料 - 使用 NLSC API
   const county = domicileStore.countyOptions.find(c => c.title === searchParams.county);
-  if (county) {
+  if (county && county.land_code) {
     const town = domicileStore.getTownsForCountyId(county.value).find(t => t.title === newTown);
     if (town) {
-      await domicileStore.loadLandSectionsByTownId(town.value);
+      // 獲取適用於 NLSC API 的地政代碼
+      const nlscLandCode = getLandCodeForNlsc(searchParams.county, town.land_code);
+
+      if (nlscLandCode) {
+        loadingSections.value = true;
+        try {
+          nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, nlscLandCode);
+          console.log(`載入 ${searchParams.county} ${newTown} 的地段資料 (${nlscLandCode}):`, nlscSections.value.length);
+        } catch (error) {
+          console.error('Failed to load land sections:', error);
+          nlscSections.value = [];
+        } finally {
+          loadingSections.value = false;
+        }
+      } else {
+        console.warn('No valid land_code found for', searchParams.county, newTown);
+      }
     }
   }
 };
@@ -1249,6 +1503,16 @@ const searchLand = async () => {
       landNumber: formattedLandNumber
     };
 
+    // 如果是特殊城市，使用實際的通用town名稱而不是虛擬值
+    if (specialCities[searchParams.county] && searchParams.town === 'SPECIAL_CITY_AUTO') {
+      // 對於特殊城市，在API請求中使用統一的代表性鄉鎮名稱
+      // 這樣後端API可以正確處理並使用對應的通用land_code
+      const representativeTown = specialCities[searchParams.county].name; // 例如：'新竹市' 或 '嘉義市'
+      queryParams.town = representativeTown;
+
+      console.log(`特殊城市查詢：${searchParams.county} 使用代表性鄉鎮名稱: ${representativeTown}`);
+    }
+
     await qualificationStore.search('general', queryParams, selectedYears.value);
   } catch (error) {
     console.error('查詢失敗:', error);
@@ -1308,7 +1572,7 @@ const loadRecentSearch = (item: RecentSearch) => {
     queryType.value = 'general';
     searchParams.county = search.county;
     searchParams.town = search.town;
-    searchParams.section = search.section || '';
+    searchParams.section = search.section || null;
     searchParams.landNumber = search.landNumber || '';
   } else if (search.landNumber) {
     // 判斷是否為山坡地查詢（這裡可以根據實際業務邏輯調整）
@@ -1387,7 +1651,7 @@ const queryInstructions = computed(() => {
         title: '歷史申請案件查詢說明',
         items: [
           {
-            text: '目前只需輸入母地號即可查詢歷史歸檔記錄（縣市、鄉鎮、地段為選填項目）',
+            text: '目前只需輸入母地號即可查詢歷史歸檔記錄（地段為選填項目）',
             icon: 'mdi-check-circle',
             color: '#3ea0a3'
           },
@@ -1723,14 +1987,26 @@ onMounted(async () => {
     console.error('Failed to load counties:', error);
   }
 
+  // 檢查 NLSC API 健康狀態
+  try {
+    const healthStatus = await checkNlscApiHealth();
+    apiStatus.value.isOnline = healthStatus.nlsc_api_status === 'online';
+    apiStatus.value.lastChecked = new Date();
+    console.log('NLSC API health status:', healthStatus);
+  } catch (error) {
+    console.error('Failed to check NLSC API health:', error);
+    apiStatus.value.isOnline = false;
+    apiStatus.value.lastChecked = new Date();
+  }
+
   // 處理來自 step2.vue 的 URL 參數並預填表單
   const urlParams = route.query;
   if (urlParams.county || urlParams.town || urlParams.section || urlParams.parentLandNumber) {
     console.log('Processing URL parameters:', urlParams);
-    
+
     // 設定查詢類型為一般區域查詢
     queryType.value = 'general';
-    
+
     // 預填縣市
     if (urlParams.county) {
       const countyName = urlParams.county as string;
@@ -1741,7 +2017,7 @@ onMounted(async () => {
         await domicileStore.loadTownsByCountyId(county.value);
       }
     }
-    
+
     // 預填鄉鎮
     if (urlParams.town && searchParams.county) {
       const townName = urlParams.town as string;
@@ -1756,7 +2032,7 @@ onMounted(async () => {
         }
       }
     }
-    
+
     // 預填地段
     if (urlParams.section && searchParams.town) {
       const sectionName = urlParams.section as string;
@@ -1770,18 +2046,18 @@ onMounted(async () => {
         }
       }
     }
-    
+
     // 預填地號
     if (urlParams.parentLandNumber) {
       searchParams.parentLandNumber = urlParams.parentLandNumber as string;
     }
-    
+
     if (urlParams.childLandNumber) {
       searchParams.childLandNumber = urlParams.childLandNumber as string;
     }
 
     console.log('URL parameters processed, form pre-filled:', searchParams);
-    
+
     // 如果有母地號，自動執行查詢
     if (searchParams.parentLandNumber) {
       console.log('Auto-executing search with pre-filled data...');

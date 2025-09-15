@@ -15,10 +15,11 @@ class TownSchema(BaseModel):
     id: int
     name: str
     code: str
+    land_code: Optional[str] = None
     is_indigenous: bool
     indigenous_type: Optional[str] = None
     county_id: int  # We'll include just the ID
-    
+
     # Optional fields from County that we want to include
     county_name: Optional[str] = None
     

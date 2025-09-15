@@ -50,6 +50,7 @@ async def get_towns(county_id: Optional[int] = None) -> List[Towns]:
             "id": town.id,
             "name": town.name,
             "code": town.code,
+            "land_code": town.land_code,
             "is_indigenous": town.is_indigenous,
             "indigenous_type": town.indigenous_type,
             "county_id": town.county_id,

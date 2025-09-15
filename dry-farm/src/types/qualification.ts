@@ -118,7 +118,7 @@ export interface HealthCheckResponse {
 export interface QualificationSearchParams {
   county: string
   town: string
-  section?: string
+  section?: string | null
   landNumber?: string
   parentLandNumber?: string
   childLandNumber?: string

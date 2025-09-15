@@ -7,12 +7,14 @@ export interface County {
   id: number
   name: string
   code: string
+  land_code?: string
 }
 
 export interface Town {
   id: number
   name: string
   code: string
+  land_code?: string
   is_indigenous: boolean
   indigenous_type?: string
   county_id: number
