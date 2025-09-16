@@ -786,7 +786,13 @@
                           <!-- 查詢結果標題 -->
                           <div class="mb-4">
                             <div
-                              v-if="filteredLegacyResults.length > 0"
+                              v-if="filteredLegacyResults.length > 0 && Object.keys(lastSearchParams).length > 0"
+                              class="text-h6 font-weight-bold mb-2"
+                            >
+                              歸檔記錄查詢結果：{{ landLocationDescription }} {{ completeLandNumber }}
+                            </div>
+                            <div
+                              v-else-if="filteredLegacyResults.length === 0 && Object.keys(lastSearchParams).length > 0"
                               class="text-h6 font-weight-bold mb-2"
                             >
                               歸檔記錄查詢結果：{{ landLocationDescription }} {{ completeLandNumber }}
@@ -795,7 +801,7 @@
                               v-else
                               class="text-h6 font-weight-bold mb-2"
                             >
-                              歸檔記錄查詢結果：{{ landLocationDescription }} {{ completeLandNumber }}
+                              查詢結果
                             </div>
 
                             <!-- 地段過濾警告信息 - 已關閉地段過濾功能，故註解此警告 -->
@@ -1091,6 +1097,15 @@ const selectedYears = ref<string[]>([]);
 
 // Tab 選擇的年度
 const selectedYearTab = ref<number>();
+
+// 保存實際執行查詢時的條件
+const lastSearchParams = ref<{
+  county?: string;
+  town?: string | null;
+  section?: string | null;
+  parentLandNumber?: string;
+  childLandNumber?: string;
+}>({});
 
 // 可選年度範圍 (97年至114年)
 const availableYears = Array.from({ length: 18 }, (_, i) => (114 - i).toString());
@@ -1499,6 +1514,15 @@ const searchLand = async () => {
   }
 
   try {
+    // 保存執行查詢時的條件
+    lastSearchParams.value = {
+      county: searchParams.county,
+      town: searchParams.town,
+      section: searchParams.section,
+      parentLandNumber: searchParams.parentLandNumber,
+      childLandNumber: searchParams.childLandNumber
+    };
+
     // 格式化地號
     const formattedLandNumber = formatLandNumber(searchParams.parentLandNumber || '', searchParams.childLandNumber || '');
 
@@ -1611,24 +1635,24 @@ const clearAllResults = () => {
 
 // === 新增的計算屬性和方法 ===
 
-// 完整查詢條件描述
+// 完整查詢條件描述 - 使用實際執行查詢時的條件
 const landLocationDescription = computed(() => {
   const parts = [];
 
   // 縣市名稱
-  if (searchParams.county) {
-    parts.push(searchParams.county);
+  if (lastSearchParams.value.county) {
+    parts.push(lastSearchParams.value.county);
   }
 
   // 鄉鎮市區名稱
-  if (searchParams.town && searchParams.town !== 'SPECIAL_CITY_AUTO') {
-    parts.push(searchParams.town);
+  if (lastSearchParams.value.town && lastSearchParams.value.town !== 'SPECIAL_CITY_AUTO') {
+    parts.push(lastSearchParams.value.town);
   }
 
   // 地段名稱（需要從段號轉換為地段名稱）
-  if (searchParams.section) {
+  if (lastSearchParams.value.section) {
     // 從 sections 中找到對應的地段名稱
-    const selectedSection = sections.value.find(section => section.code === searchParams.section);
+    const selectedSection = sections.value.find(section => section.code === lastSearchParams.value.section);
     if (selectedSection) {
       parts.push(selectedSection.name || selectedSection.title);
     } else {
@@ -1645,9 +1669,9 @@ const landLocationDescription = computed(() => {
   return parts.join(' ') || '查詢條件';
 });
 
-// 完整地號格式
+// 完整地號格式 - 使用實際執行查詢時的條件
 const completeLandNumber = computed(() => {
-  return formatLandNumber(searchParams.parentLandNumber || '', searchParams.childLandNumber || '');
+  return formatLandNumber(lastSearchParams.value.parentLandNumber || '', lastSearchParams.value.childLandNumber || '');
 });
 
 // 地籍登記總面積 - 取自最新案件的farmarea
