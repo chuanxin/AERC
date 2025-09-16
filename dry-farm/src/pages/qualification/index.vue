@@ -795,7 +795,7 @@
                               v-else
                               class="text-h6 font-weight-bold mb-2"
                             >
-                              查詢結果
+                              歸檔記錄查詢結果：{{ landLocationDescription }} {{ completeLandNumber }}
                             </div>
 
                             <!-- 地段過濾警告信息 - 已關閉地段過濾功能，故註解此警告 -->
@@ -823,7 +823,7 @@
                                   <span class="text-caption">地籍登記面積</span>
                                 </div>
                                 <div class="text-h5 font-weight-bold text-blue">
-                                  {{ filteredLegacyResults.length > 0 ? totalApprovedArea.toLocaleString() : '-' }}
+                                  {{ filteredLegacyResults.length > 0 ? selectedYearTotalApprovedArea.toLocaleString() : '-' }}
                                 </div>
                                 <div class="text-caption">
                                   ㎡
@@ -850,11 +850,11 @@
 
                                 <!-- 詳細事業區層級資訊 -->
                                 <div
-                                  v-if="allOfficeBoundaries && allOfficeBoundaries.length > 0"
+                                  v-if="selectedYearOfficeBoundaries && selectedYearOfficeBoundaries.length > 0"
                                   class="d-flex flex-column gap-2"
                                 >
                                   <div
-                                    v-for="boundary in allOfficeBoundaries.slice(0, 2)"
+                                    v-for="boundary in selectedYearOfficeBoundaries.slice(0, 2)"
                                     :key="boundary.gid"
                                     class="text-body-2"
                                   >
@@ -876,10 +876,10 @@
                                   </div>
 
                                   <div
-                                    v-if="allOfficeBoundaries.length > 2"
+                                    v-if="selectedYearOfficeBoundaries.length > 2"
                                     class="text-body-2 text-grey-darken-1 mt-1"
                                   >
-                                    另有 {{ allOfficeBoundaries.length - 2 }} 個事業區域
+                                    另有 {{ selectedYearOfficeBoundaries.length - 2 }} 個事業區域
                                   </div>
                                 </div>
 
@@ -1678,6 +1678,72 @@ const totalApprovedArea = computed(() => {
   return Number(latestRecord?.land_registered_area || latestRecord?.approved_area || '0');
 });
 
+// 根據選中年度計算地籍登記面積
+const selectedYearTotalApprovedArea = computed(() => {
+  if (filteredLegacyResults.value.length === 0 || selectedYearTab.value === undefined) {
+    return totalApprovedArea.value; // fallback 到原邏輯
+  }
+
+  // 找到選中年度的案件
+  const selectedYearRecords = filteredLegacyResults.value.filter(
+    item => item.application_year === selectedYearTab.value
+  );
+
+  if (selectedYearRecords.length === 0) {
+    return 0;
+  }
+
+  // 找到該年度中最大的 source_id 記錄
+  const sourceIds = selectedYearRecords.map(item => parseInt(String(item.source_id || 0), 10));
+  const latestSourceId = Math.max(...sourceIds);
+  const latestRecord = selectedYearRecords.find(item => parseInt(String(item.source_id || 0), 10) === latestSourceId);
+
+  return Number(latestRecord?.land_registered_area || latestRecord?.approved_area || '0');
+});
+
+// 根據選中年度計算農田水利事業區域
+const selectedYearOfficeBoundaries = computed(() => {
+  if (filteredLegacyResults.value.length === 0 || selectedYearTab.value === undefined) {
+    return allOfficeBoundaries.value; // fallback 到原邏輯
+  }
+
+  // 找到選中年度的案件
+  const selectedYearRecords = filteredLegacyResults.value.filter(
+    item => item.application_year === selectedYearTab.value
+  );
+
+  if (selectedYearRecords.length === 0) {
+    return [];
+  }
+
+  // 取得該年度案件的 land_section 和 land_number
+  const targetLandSection = selectedYearRecords[0].land_section;
+  const targetLandNumber = selectedYearRecords[0].land_number;
+
+  const boundaries = [];
+
+  // 遍歷所有查詢結果，找到匹配的地段+地號組合且為選中年度的記錄
+  for (const result of searchResults.value) {
+    if (result.land_section === targetLandSection &&
+        result.land_number === targetLandNumber &&
+        result.application_year === selectedYearTab.value &&
+        result.office_boundaries &&
+        result.office_boundaries.length > 0) {
+      boundaries.push(...result.office_boundaries);
+    }
+  }
+
+  // 去重複 (根據 gid)
+  const seen = new Set();
+  return boundaries.filter(boundary => {
+    if (seen.has(boundary.gid)) {
+      return false;
+    }
+    seen.add(boundary.gid);
+    return true;
+  });
+});
+
 // 動態查詢說明內容
 const queryInstructions = computed(() => {
   switch (queryType.value) {
@@ -1686,7 +1752,7 @@ const queryInstructions = computed(() => {
         title: '歷史申請案件查詢說明',
         items: [
           {
-            text: '目前只需輸入母地號即可查詢歷史歸檔記錄（縣市、鄉鎮、地段為選填項目）',
+            text: '目前只需輸入母地號即可查詢歷史歸檔記錄（地段為選填項目）',
             icon: 'mdi-check-circle',
             color: '#3ea0a3'
           },
