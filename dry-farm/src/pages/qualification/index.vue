@@ -198,10 +198,11 @@
                             label="鄉鎮市區"
                             variant="outlined"
                             density="compact"
-                            hide-details
                             class="flex-grow-1 ml-3"
-                            :disabled="!searchParams.county"
                             bg-color="white"
+                            :disabled="!searchParams.county"
+                            hide-details
+                            clearable
                             @update:model-value="onTownChange"
                           />
 
@@ -209,13 +210,13 @@
                           <v-text-field
                             v-else-if="searchParams.county"
                             :model-value="getSpecialCityDisplayText()"
+                            class="flex-grow-1 ml-3"
+                            bg-color="grey-lighten-4"
                             label="鄉政市區"
                             variant="outlined"
                             density="compact"
                             hide-details
                             readonly
-                            class="flex-grow-1 ml-3"
-                            bg-color="grey-lighten-4"
                           />
                         </div>
 
@@ -226,7 +227,7 @@
                             v-model="searchParams.section"
                             :items="sections"
                             :item-title="item => item.title"
-                            item-value="value"
+                            item-value="code"
                             label="地段"
                             variant="outlined"
                             density="compact"
@@ -249,7 +250,7 @@
                               >
                                 <template #title>
                                   <div class="text-body-2 font-weight-medium text-grey-darken-3">
-                                    {{ item.raw.value }}
+                                    {{ item.raw.name || item.raw.title }}
                                   </div>
                                 </template>
 
@@ -788,7 +789,7 @@
                               v-if="filteredLegacyResults.length > 0"
                               class="text-h6 font-weight-bold mb-2"
                             >
-                              歸檔記錄查詢結果：{{ landLocationDescription }} {{ filteredLegacyResults[0].land_number }}
+                              歸檔記錄查詢結果：{{ landLocationDescription }} {{ completeLandNumber }}
                             </div>
                             <div
                               v-else
@@ -797,12 +798,15 @@
                               查詢結果
                             </div>
 
+                            <!-- 地段過濾警告信息 - 已關閉地段過濾功能，故註解此警告 -->
+                            <!--
                             <div
                               v-if="searchResults.length > filteredLegacyResults.length && filteredLegacyResults.length > 0"
                               class="text-caption text-warning mb-2"
                             >
                               ⚠️ 已過濾僅顯示與最新案件地段 ({{ filteredLegacyResults[0].land_section }}) 相關的 {{ filteredLegacyResults.length }} 筆記錄 (包含其它地段的記錄總共 {{ searchResults.length }} 筆)
                             </div>
+                            -->
 
                             <!-- 頂部統計資訊 - 橫向排列 -->
                             <div class="d-flex flex-wrap gap-4 pa-4 bg-grey-lighten-5 rounded mb-4">
@@ -1059,7 +1063,7 @@ const sectionSelectKey = ref(0);
 // 地段查詢參數
 const searchParams = reactive<QualificationSearchParams>({
   county: '',
-  town: '',
+  town: null,
   section: null,
   landNumber: '',
   parentLandNumber: '',
@@ -1184,8 +1188,9 @@ const sections = computed(() => {
   return nlscSections.value
     .map(section => ({
       title: section.name,  // 選中後顯示的文字，只有地段名稱
-      value: section.name,
+      value: section.code,   // 實際存儲的值，使用段號
       code: section.code,
+      name: section.name,    // 保留名稱供搜尋使用
       // 用於搜尋的文字，包含名稱和代碼
       searchText: `${section.name} ${section.code || ''}`.toLowerCase()
     }))
@@ -1214,7 +1219,7 @@ const sectionCustomFilter = (item: any, queryText: string, itemText: any) => {
   if (!sectionData) {
     // 如果無法從 itemText 獲取，嘗試在 sections 中找到對應的項目
     sectionData = sections.value.find(section =>
-      section.title === item || section.value === item
+      section.title === item || section.value === item || section.name === item
     );
   }
 
@@ -1342,7 +1347,7 @@ const onCountyChange = async (newCounty: string) => {
       }
     } else {
       // 一般縣市清空town選擇
-      searchParams.town = '';
+      searchParams.town = null;
     }
   }
 };
@@ -1606,13 +1611,43 @@ const clearAllResults = () => {
 
 // === 新增的計算屬性和方法 ===
 
-// 土地位置描述（使用過濾後的結果）
+// 完整查詢條件描述
 const landLocationDescription = computed(() => {
-  if (filteredLegacyResults.value.length === 0) return '';
-  const first = filteredLegacyResults.value[0];
   const parts = [];
-  if (first.land_section) parts.push(first.land_section);
-  return parts.join(' ') || '查詢地號';
+
+  // 縣市名稱
+  if (searchParams.county) {
+    parts.push(searchParams.county);
+  }
+
+  // 鄉鎮市區名稱
+  if (searchParams.town && searchParams.town !== 'SPECIAL_CITY_AUTO') {
+    parts.push(searchParams.town);
+  }
+
+  // 地段名稱（需要從段號轉換為地段名稱）
+  if (searchParams.section) {
+    // 從 sections 中找到對應的地段名稱
+    const selectedSection = sections.value.find(section => section.code === searchParams.section);
+    if (selectedSection) {
+      parts.push(selectedSection.name || selectedSection.title);
+    } else {
+      // 如果找不到，可能是舊資料或直接輸入的段號，嘗試從結果中取得
+      if (filteredLegacyResults.value.length > 0) {
+        const first = filteredLegacyResults.value[0];
+        if (first.land_section) {
+          parts.push(first.land_section);
+        }
+      }
+    }
+  }
+
+  return parts.join(' ') || '查詢條件';
+});
+
+// 完整地號格式
+const completeLandNumber = computed(() => {
+  return formatLandNumber(searchParams.parentLandNumber || '', searchParams.childLandNumber || '');
 });
 
 // 地籍登記總面積 - 取自最新案件的farmarea
@@ -1651,7 +1686,7 @@ const queryInstructions = computed(() => {
         title: '歷史申請案件查詢說明',
         items: [
           {
-            text: '目前只需輸入母地號即可查詢歷史歸檔記錄（地段為選填項目）',
+            text: '目前只需輸入母地號即可查詢歷史歸檔記錄（縣市、鄉鎮、地段為選填項目）',
             icon: 'mdi-check-circle',
             color: '#3ea0a3'
           },
@@ -1745,37 +1780,42 @@ const queryInstructions = computed(() => {
 // 移除未使用的計算屬性以清理 ESLint 警告
 // 這些計算屬性之前用於統計信息顯示，但目前已被註釋掉
 
-// 歷史記錄過濾 - 只顯示與最新案件地段相關的資料
+// 歷史記錄處理 - 已關閉最新案件地段過濾
 const filteredLegacyResults = computed(() => {
   if (searchResults.value.length === 0) return [];
 
-  // 只處理歸檔記錄 (source_system = "legacy_farmdata")
-  const legacyRecords = searchResults.value.filter(item => item.source_system === "legacy_farmdata");
+  // === 以下是原有的地段過濾邏輯，已註解關閉 ===
+  // // 只處理歸檔記錄 (source_system = "legacy_farmdata")
+  // const legacyRecords = searchResults.value.filter(item => item.source_system === "legacy_farmdata");
 
-  if (legacyRecords.length === 0) {
-    return searchResults.value;
-  }
+  // if (legacyRecords.length === 0) {
+  //   return searchResults.value;
+  // }
 
-  // 找出最新案件：最新年度，該年度中最大的 source_id
-  const latestYear = Math.max(...legacyRecords.map(item => item.application_year));
-  const latestYearRecords = legacyRecords.filter(item => item.application_year === latestYear);
+  // // 找出最新案件：最新年度，該年度中最大的 source_id
+  // const latestYear = Math.max(...legacyRecords.map(item => item.application_year));
+  // const latestYearRecords = legacyRecords.filter(item => item.application_year === latestYear);
 
-  // 將字串 source_id 轉換為數字進行比較
-  const sourceIds = latestYearRecords.map(item => parseInt(String(item.source_id || 0), 10));
-  const latestSourceId = Math.max(...sourceIds);
+  // // 將字串 source_id 轉換為數字進行比較
+  // const sourceIds = latestYearRecords.map(item => parseInt(String(item.source_id || 0), 10));
+  // const latestSourceId = Math.max(...sourceIds);
 
-  // 找到具有最大 source_id 的記錄
-  const latestRecord = latestYearRecords.find(item => parseInt(String(item.source_id || 0), 10) === latestSourceId);
+  // // 找到具有最大 source_id 的記錄
+  // const latestRecord = latestYearRecords.find(item => parseInt(String(item.source_id || 0), 10) === latestSourceId);
 
-  if (!latestRecord?.land_section) {
-    return legacyRecords;
-  }
+  // if (!latestRecord?.land_section) {
+  //   return legacyRecords;
+  // }
 
-  // 使用最新記錄的地段號碼來過濾所有歸檔記錄
-  const targetLandSection = latestRecord.land_section;
-  const filteredResults = legacyRecords.filter(item => item.land_section === targetLandSection);
+  // // 使用最新記錄的地段號碼來過濾所有歸檔記錄
+  // const targetLandSection = latestRecord.land_section;
+  // const filteredResults = legacyRecords.filter(item => item.land_section === targetLandSection);
 
-  return filteredResults;
+  // return filteredResults;
+  // === 地段過濾邏輯結束 ===
+
+  // 直接返回所有搜尋結果，不進行地段過濾
+  return searchResults.value;
 });
 
 // 按年度分組
@@ -1915,13 +1955,10 @@ const getFacilityStatusText = (appliedArea: number, landRegisteredArea: number) 
 // 設施顏色十六進制值
 const getFacilityColorHex = (facilityType: string) => {
   const colorMap: Record<string, string> = {
-    // '節水設備': '#2196F3',  // blue
     '田間管路': '#4CAF50',  // green
     '調蓄設施': '#FF9800',  // orange
     '調控設施': '#9C27B0',  // purple
     '動力設備': '#F44336',  // red
-    // '一般設施': '#757575',  // grey
-    // '歷史案件': '#795548'   // brown
   };
 
   return colorMap[facilityType] || '#757575'; // 預設為灰色

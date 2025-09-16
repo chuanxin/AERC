@@ -117,7 +117,7 @@ export interface HealthCheckResponse {
 // 前端特有的類型定義
 export interface QualificationSearchParams {
   county: string
-  town: string
+  town: string | null
   section?: string | null
   landNumber?: string
   parentLandNumber?: string
