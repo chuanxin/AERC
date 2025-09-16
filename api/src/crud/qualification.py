@@ -42,11 +42,15 @@ class QualificationCRUD:
         
         # 1. 建構查詢條件 - 統一邏輯，無特殊情況
         query_conditions = await QualificationCRUD._build_query_conditions(request)
-        
+
         # 2. 執行資料庫查詢
         grant_locations = await GrantLocations.filter(query_conditions).all()
-        
-        # 3. 轉換為統一格式並合併重複記錄
+
+        # 3. 根據縣市和鄉鎮資訊過濾 meta_data - 在有搜尋結果的情況下
+        if grant_locations and (request.params.county or request.params.town):
+            grant_locations = QualificationCRUD._filter_by_county_town(grant_locations, request.params.county, request.params.town)
+
+        # 4. 轉換為統一格式並合併重複記錄
         # 先按 source_id + land_section + land_number 分組
         grouped_locations = {}
         for location in grant_locations:
@@ -68,14 +72,14 @@ class QualificationCRUD:
             )
             case_items.append(case_item)
         
-        # 4. 計算面積統計
+        # 5. 計算面積統計
         statistics = None
         if request.options and request.options.include_statistics:
             statistics = QualificationCRUD._calculate_area_statistics(case_items)
-        
-        # 5. office_boundaries 已經在 _convert_to_case_item 中處理
-        
-        # 6. 建立回應
+
+        # 6. office_boundaries 已經在 _convert_to_case_item 中處理
+
+        # 7. 建立回應
         end_time = datetime.now()
         response_time_ms = int((end_time - start_time).total_seconds() * 1000)
         
@@ -106,7 +110,7 @@ class QualificationCRUD:
             response_time_ms=response_time_ms
         )
         
-        # 7. 儲存查詢記錄 (可選的快取機制)
+        # 8. 儲存查詢記錄 (可選的快取機制)
         await QualificationCRUD._save_query_record(request, case_items, statistics, metadata)
         
         return QualificationResponse(
@@ -120,43 +124,38 @@ class QualificationCRUD:
     async def _build_query_conditions(request: QualificationSearchRequest) -> Q:
         """建構查詢條件 - 統一處理邏輯"""
         conditions = Q()
-        
+
         # 年度過濾 - 所有查詢類型共通 (只有指定年度時才過濾)
         if request.options and request.options.years and len(request.options.years) > 0:
             # 過濾掉 None 值和空字串，只處理有效的年度字串
             valid_years = [
-                year for year in request.options.years 
+                year for year in request.options.years
                 if year is not None and isinstance(year, str) and year.strip()
             ]
             if valid_years:
                 year_list = [int(year) for year in valid_years]
                 conditions &= Q(apply_year__in=year_list)
         # 未指定年度或年度列表為空時查詢所有年度 (97-114年)
-        
+
         # 地區過濾 - 根據查詢類型統一處理
         if request.query_type == QualificationQueryType.GENERAL:
-            # 一般查詢: 優先使用地號查詢，縣市鄉鎮為輔助篩選
+            # 一般查詢: 優先使用地號查詢，地段為輔助篩選
             if request.params.land_number:
                 conditions &= Q(land_number__iexact=request.params.land_number)
-            
-            # 可選的地區篩選條件 (當用戶有提供時才使用)
-            if request.params.county:
-                # 這裡需要與地址欄位比對，或者建立縣市對應關係
-                pass  # 暫時跳過，因為 GrantLocations 中沒有直接的縣市欄位
-            
+
             if request.params.section:
                 conditions &= Q(land_section__icontains=request.params.section)
-                
+
         elif request.query_type in [QualificationQueryType.INDIGENOUS, QualificationQueryType.SLOPE]:
             # 原民鄉/山坡地查詢: 地段名稱模糊搜尋
             if request.params.land_number:
                 conditions &= Q(land_number__iexact=request.params.land_number)
             if request.params.section:
                 conditions &= Q(land_section__icontains=request.params.section)
-        
+
         # 排除草稿狀態(可能不完整) - 所有查詢共通邏輯
         conditions &= ~Q(case_status="draft")
-        
+
         return conditions
 
     @staticmethod
@@ -598,3 +597,56 @@ class QualificationCRUD:
             
         except DoesNotExist:
             return None
+
+    @staticmethod
+    def _filter_by_county_town(locations: List[GrantLocations], county: Optional[str], town: Optional[str]) -> List[GrantLocations]:
+        """
+        根據縣市和鄉鎮資訊過濾查詢結果
+        檢查 meta_data 中的縣市和鄉鎮資訊
+        """
+        if not locations or (not county and not town):
+            return locations
+
+        filtered_locations = []
+
+        for location in locations:
+            if not location.meta_data:
+                # 如果沒有 meta_data，保留此記錄（向後相容）
+                filtered_locations.append(location)
+                continue
+
+            # 檢查 meta_data 中的縣市和鄉鎮資訊
+            meta_county = location.meta_data.get('county')
+            meta_town = location.meta_data.get('town')
+
+            # 縣市比對
+            county_match = True
+            if county:
+                if meta_county:
+                    # 支援部分匹配，例如 "台中市" 可以匹配 "臺中市"
+                    county_normalized = county.replace('台', '臺')
+                    meta_county_normalized = str(meta_county).replace('台', '臺')
+                    county_match = (county_normalized in meta_county_normalized or
+                                  meta_county_normalized in county_normalized)
+                else:
+                    # meta_data 中沒有縣市資訊，保守處理：保留此記錄
+                    county_match = True
+
+            # 鄉鎮比對
+            town_match = True
+            if town:
+                if meta_town:
+                    # 正規化鄉鎮名稱：處理台/臺的字元差異
+                    town_normalized = town.replace('台', '臺')
+                    meta_town_normalized = str(meta_town).replace('台', '臺')
+                    town_match = (town_normalized in meta_town_normalized or
+                                meta_town_normalized in town_normalized)
+                else:
+                    # meta_data 中沒有鄉鎮資訊，保守處理：保留此記錄
+                    town_match = True
+
+            # 同時滿足縣市和鄉鎮條件才保留
+            if county_match and town_match:
+                filtered_locations.append(location)
+
+        return filtered_locations
