@@ -391,6 +391,7 @@
                     bg-color="white"
                     hide-details
                     clearable
+                    autocomplete="off"
                     :placeholder="sections.length > 0 ? '搜尋地段名稱或代碼...' : '請先選擇鄉鎮市區'"
                     :disabled="!localFormData.landTown"
                     :loading="loadingSections"
@@ -502,6 +503,7 @@
                                 style="width: 90px"
                                 hide-details
                                 placeholder="0000"
+                                autocomplete="off"
                                 :rules="[v => !!v || '請輸入主地號']"
                                 @focus="landNumberMainFocused = true"
                                 @blur="landNumberMainFocused = false"
@@ -535,6 +537,7 @@
                                 style="width: 90px"
                                 hide-details
                                 placeholder="0000"
+                                autocomplete="off"
                                 @focus="landNumberSubFocused = true"
                                 @blur="landNumberSubFocused = false"
                                 @input="onLandNumberSubInput"
