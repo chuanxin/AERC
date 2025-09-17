@@ -225,6 +225,7 @@
                           <v-autocomplete
                             :key="sectionSelectKey"
                             v-model="searchParams.section"
+                            v-model:search="sectionSearchText"
                             :items="sections"
                             :item-title="item => item.title"
                             item-value="code"
@@ -239,18 +240,27 @@
                             :disabled="!searchParams.town && !['新竹市', '嘉義市'].includes(searchParams.county)"
                             :loading="loadingSections"
                             :no-data-text="'沒有找到相符的地段'"
-                            :custom-filter="sectionCustomFilter"
                             :menu-props="{ closeOnContentClick: true }"
                             :auto-select-first="false"
+                            aria-label="選擇地段"
+                            @update:search="onSectionSearchUpdate"
+                            @blur="onSectionBlur"
                           >
+                            <!-- 自定義選中項的顯示方式 - 只顯示地段名稱 -->
+                            <template #selection="{ item }">
+                              <template v-if="item.raw">
+                                {{ item.raw.displayName || item.raw.name }}
+                              </template>
+                              <template v-else>
+                                {{ item }}
+                              </template>
+                            </template>
+
                             <template #item="{ props, item }">
-                              <v-list-item
-                                v-bind="props"
-                                class="px-3 py-2"
-                              >
+                              <v-list-item v-bind="props">
                                 <template #title>
-                                  <div class="text-body-2 font-weight-medium text-grey-darken-3">
-                                    {{ item.raw.name || item.raw.title }}
+                                  <div>
+                                    {{ item.raw.displayName || item.raw.name }}
                                   </div>
                                 </template>
 
@@ -1152,23 +1162,14 @@ const showHillsideAlert = computed(() => hillsideParams.landNumber && hillsidePa
 
 // 地區資料 - 使用 domicileStore 的動態資料
 const counties = computed(() => {
+  // 後端已排序，直接使用
   return domicileStore.countyOptions
     .map(county => ({
       title: county.title,
       value: county.title, // 使用 title 作為 value 以配合現有的字串類型
       code: county.code,
       land_code: county.land_code
-    }))
-    .sort((a, b) => {
-      // 優先按 land_code 排序，如果沒有則按 code 排序，最後按名稱排序
-      if (a.land_code && b.land_code) {
-        return a.land_code.localeCompare(b.land_code);
-      }
-      if (a.code && b.code) {
-        return a.code.localeCompare(b.code);
-      }
-      return a.title.localeCompare(b.title);
-    });
+    }));
 });
 
 // 動態獲取鄉鎮選項（僅非特殊城市使用）
@@ -1179,99 +1180,57 @@ const towns = computed(() => {
   const county = domicileStore.countyOptions.find(c => c.title === searchParams.county);
   if (!county) return [];
 
+  // 後端已排序，直接使用
   return domicileStore.getTownsForCountyId(county.value)
     .map(town => ({
       title: town.title,
       value: town.title,
       code: town.code,
       land_code: town.land_code
-    }))
-    .sort((a, b) => {
-      // 優先按 land_code 排序，如果沒有則按 code 排序，最後按名稱排序
-      if (a.land_code && b.land_code) {
-        return a.land_code.localeCompare(b.land_code);
-      }
-      if (a.code && b.code) {
-        return a.code.localeCompare(b.code);
-      }
-      return a.title.localeCompare(b.title);
-    });
+    }));
 });
 
-// 動態獲取地段選項 - 使用 NLSC API
+// 動態獲取地段選項 - 使用 NLSC API，優化搜尋支援
 const sections = computed(() => {
-  return nlscSections.value
+  const result = nlscSections.value
     .map(section => ({
-      title: section.name,  // 選中後顯示的文字，只有地段名稱
-      value: section.code,   // 實際存儲的值，使用段號
-      code: section.code,
-      name: section.name,    // 保留名稱供搜尋使用
-      // 用於搜尋的文字，包含名稱和代碼
-      searchText: `${section.name} ${section.code || ''}`.toLowerCase()
+      // title 包含地段名稱和代碼，供 v-autocomplete 預設搜尋使用
+      title: `${section.name} ${section.code || ''}`,
+      displayName: section.name,  // 純地段名稱，供顯示使用
+      value: section.code,        // 實際存儲的值，使用 API 原始格式
+      code: section.code,         // 保持 API 原始格式（如 "0446"）
+      name: section.name,         // 保留名稱
+      office: section.office
     }))
     .sort((a, b) => {
       // 優先按地段代碼排序，如果沒有代碼則按名稱排序
       if (a.code && b.code) {
         return a.code.localeCompare(b.code);
       }
-      return a.title.localeCompare(b.title);
+      return a.name.localeCompare(b.name);
     });
+
+  // Debug: 檢查資料結構
+  // if (result.length > 0) {
+  //   console.log('🔍 [Qualification] sections 資料結構範例:', result[0]);
+  //   console.log('🔍 [Qualification] 預設搜尋將搜尋 title 欄位:', result[0].title);
+  // }
+
+  return result;
 });
 
-// 自定義過濾器函數 - 支援地段名稱和代碼搜尋
-const sectionCustomFilter = (item: any, queryText: string, itemText: any) => {
-  if (!queryText) return true;
+// 地段搜尋狀態管理
+const sectionSearchText = ref('');
 
-  const query = queryText.toLowerCase().trim();
+// 地段搜尋事件處理函數
+const onSectionSearchUpdate = (searchValue: string) => {
+  sectionSearchText.value = searchValue;
+};
 
-  // 嘗試從不同地方獲取完整的物件資料
-  let sectionData = null;
-
-  if (itemText && typeof itemText === 'object') {
-    sectionData = itemText.raw || itemText;
-  }
-
-  if (!sectionData) {
-    // 如果無法從 itemText 獲取，嘗試在 sections 中找到對應的項目
-    sectionData = sections.value.find(section =>
-      section.title === item || section.value === item || section.name === item
-    );
-  }
-
-  if (!sectionData) {
-    // 如果找不到完整資料，只能按地段名稱搜尋
-    return typeof item === 'string' && item.toLowerCase().includes(query);
-  }
-
-  // 搜尋地段名稱
-  if (sectionData.title && sectionData.title.toLowerCase().includes(query)) {
-    return true;
-  }
-
-  // 搜尋地段代碼 - 支援多種格式
-  if (sectionData.code) {
-    const codeStr = sectionData.code.toString().toLowerCase();
-
-    // 直接匹配
-    if (codeStr.includes(query)) {
-      return true;
-    }
-    // 去除前導零匹配（如 0001 -> 1）
-    if (codeStr.replace(/^0+/, '').includes(query)) {
-      return true;
-    }
-    // 補前導零匹配（如 1 -> 0001）
-    if (query.match(/^\d+$/) && codeStr.includes(query.padStart(4, '0'))) {
-      return true;
-    }
-  }
-
-  // 使用完整的搜尋文字
-  if (sectionData.searchText && sectionData.searchText.includes(query)) {
-    return true;
-  }
-
-  return false;
+// 地段選單失焦事件處理函數
+const onSectionBlur = () => {
+  // 當失焦時清空搜尋文字，避免影響下次搜尋
+  sectionSearchText.value = '';
 };
 
 // 動態獲取原民區查詢的鄉鎮選項
@@ -2155,22 +2114,52 @@ onMounted(async () => {
         if (town) {
           searchParams.town = town.title;
           // 載入地段資料
-          await domicileStore.loadLandSectionsByTownId(town.value);
+          // await domicileStore.loadLandSectionsByTownId(town.value);
         }
       }
     }
 
-    // 預填地段
-    if (urlParams.section && searchParams.town) {
-      const sectionName = urlParams.section as string;
-      const county = domicileStore.countyOptions.find(c => c.title === searchParams.county);
-      const town = county ? domicileStore.getTownsForCountyId(county.value).find(t => t.title === searchParams.town) : null;
-      if (town) {
-        const sections = domicileStore.getLandSectionsForTownId(town.value);
-        const section = sections.find(s => s.title === sectionName);
-        if (section) {
-          searchParams.section = section.title;
+    // 處理特殊縣市：如果有 section 但沒有 town，檢查是否為特殊縣市
+    if (urlParams.section && !urlParams.town && searchParams.county) {
+      if (specialCities[searchParams.county]) {
+        // 為特殊縣市設定虛擬 town 值，以便後續地段載入邏輯正常執行
+        searchParams.town = 'SPECIAL_CITY_AUTO';
+        console.log(`檢測到特殊縣市 ${searchParams.county}，設定虛擬鄉鎮值`);
+      }
+    }
+
+    // 預填地段 - 使用 NLSC API 載入地段資料
+    if (urlParams.section && (searchParams.town || specialCities[searchParams.county])) {
+      const sectionCode = urlParams.section as string;
+      // console.log('🎯 準備預填地段:', sectionCode);
+
+      // 需要先載入地段資料才能進行預填
+      try {
+        // 對於特殊縣市，直接觸發縣市變更來載入地段資料；對於一般縣市，觸發鄉鎮變更
+        if (specialCities[searchParams.county] && searchParams.town === 'SPECIAL_CITY_AUTO') {
+          // 特殊縣市：觸發縣市變更來載入地段資料
+          await onCountyChange(searchParams.county);
+        } else if (searchParams.town) {
+          // 一般縣市：觸發鄉鎮變更來載入地段資料
+          await onTownChange(searchParams.town);
         }
+
+        // 載入完成後，嘗試從 NLSC 資料中找到對應的地段
+        const matchedSection = sections.value.find(s =>
+          s.code === sectionCode ||
+          s.value === sectionCode ||
+          s.displayName === sectionCode ||
+          s.name === sectionCode
+        );
+
+        if (matchedSection) {
+          searchParams.section = matchedSection.code;
+          // console.log('✅ 地段預填成功:', { code: matchedSection.code, name: matchedSection.displayName || matchedSection.name });
+        } else {
+          console.warn('⚠️ 未找到匹配的地段:', sectionCode);
+        }
+      } catch (error) {
+        console.error('❌ 載入地段資料失敗:', error);
       }
     }
 
