@@ -366,7 +366,7 @@
                     color="#3ea0a3"
                     bg-color="white"
                     :rules="[v => !!v || '請選擇鄉鎮市區']"
-                    :disabled="!localFormData.landCounty"
+                    :disabled="!localFormData.landCounty || isSpecialCity"
                     @update:model-value="onTownChange"
                   >
                     <template #label>
@@ -378,20 +378,65 @@
                   cols="12"
                   md="4"
                 >
-                  <v-select
+                  <v-autocomplete
+                    :key="sectionSelectKey"
                     v-model="localFormData.landSec"
-                    :items="villages"
+                    v-model:search="sectionSearchText"
+                    :items="sections"
+                    :item-title="item => item.title"
+                    :item-value="item => item.code"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
-                    :rules="[v => !!v || '請選擇地段']"
+                    hide-details
+                    clearable
+                    :placeholder="sections.length > 0 ? '搜尋地段名稱或代碼...' : '請先選擇鄉鎮市區'"
                     :disabled="!localFormData.landTown"
+                    :loading="loadingSections"
+                    :no-data-text="'沒有找到相符的地段'"
+                    :menu-props="{ closeOnContentClick: true }"
+                    :auto-select-first="false"
+                    :rules="[v => !!v || '請選擇地段']"
+                    aria-label="選擇地段"
+                    @update:search="onSectionSearchUpdate"
+                    @blur="onSectionBlur"
+                    @update:model-value="onSectionChange"
                   >
                     <template #label>
                       地段
                     </template>
-                  </v-select>
+
+                    <!-- 自定義選中項的顯示方式 - 使用 Vuetify 預設樣式 -->
+                    <template #selection="{ item }">
+                      <template v-if="item.raw">
+                        {{ item.raw.displayName || item.raw.name }}
+                      </template>
+                      <template v-else>
+                        {{ currentSelectedSection?.displayName || currentSelectedSection?.name || localFormData.landSec }}
+                      </template>
+                    </template>
+
+                    <template #item="{ props, item }">
+                      <v-list-item
+                        v-bind="props"
+                      >
+                        <template #title>
+                          <div>
+                            {{ item.raw.displayName || item.raw.name }}
+                          </div>
+                        </template>
+
+                        <template #subtitle>
+                          <div class="d-flex align-center mt-1">
+                            <span class="text-caption text-grey-darken-1">
+                              段號: {{ item.raw.code || '無' }}
+                            </span>
+                          </div>
+                        </template>
+                      </v-list-item>
+                    </template>
+                  </v-autocomplete>
                 </v-col>
               </v-row>
             </v-sheet>
@@ -1769,6 +1814,7 @@ interface LandData {
   landCounty: string | number;
   landTown: string | number;
   landSec: string | number;
+  landSecName?: string;  // 地段名稱，選擇地段時自動儲存
 
   // 地號資訊
   landNumber: string;
@@ -1829,6 +1875,8 @@ interface LandManagementState {
 import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
 import { useRoute } from 'vue-router';
+import { fetchLandSectionsByLandCodes, type LandSection } from '@/services/landSectionNlscService';
+import { nextTick } from 'vue';
 
 // 事件驅動架構：定義事件類型
 interface Step2Events {
@@ -2040,9 +2088,12 @@ const createCascadeSelectManager = (
         await loadTownsForCounty(formData.landCounty as string | number)
 
         if (formData.landTown) {
-          console.log('📍 Loading villages for landTown:', formData.landTown)
-          const townId = typeof formData.landTown === 'number' ? formData.landTown : parseInt(formData.landTown as string)
-          await loadVillagesForTown(townId)
+          console.log('📍 Loading sections for landTown:', formData.landTown)
+          // 檢查是否為特殊城市代碼，如果是則跳過
+          const isSpecialCityCode = formData.landTown === 'O01' || formData.landTown === 'I01';
+          if (!isSpecialCityCode) {
+            await loadLandSections(true); // 保留選擇
+          }
         }
       }
 
@@ -2213,6 +2264,7 @@ const createInitialFormData = () => ({
   landCounty: '',
   landTown: '',
   landSec: '',
+  landSecName: '',  // 地段名稱
   landNumber: '',
   landNumberMain: '',
   landNumberSub: '',
@@ -2280,6 +2332,7 @@ const landUtils = {
     landCounty: localFormData.landCounty,
     landTown: localFormData.landTown,
     landSec: localFormData.landSec,
+    landSecName: localFormData.landSecName,
     landNumber: localFormData.landNumber,
     landNumberMain: localFormData.landNumberMain,
     landNumberSub: localFormData.landNumberSub,
@@ -2325,6 +2378,7 @@ const landUtils = {
         landCounty: typeof land.landCounty === 'string' ? parseInt(land.landCounty) || land.landCounty : land.landCounty,
         landTown: typeof land.landTown === 'string' ? parseInt(land.landTown) || land.landTown : land.landTown,
         landSec: typeof land.landSec === 'string' ? parseInt(land.landSec) || land.landSec : land.landSec,
+        landSecName: land.landSecName || '',
         landNumber: land.landNumber,
         landNumberMain: land.landNumberMain,
         landNumberSub: land.landNumberSub,
@@ -2453,9 +2507,7 @@ const loadTownsForCounty = async (countyValue: number | string) => {
   }
 };
 
-const loadVillagesForTown = async (townValue: number) => {
-  await domicileStore.loadLandSectionsByTownId(townValue);
-};
+// 已移除 loadVillagesForTown 函數，改用 loadLandSections 處理 NLSC API
 
 // Crop data
 const cropCategoriesData = {
@@ -2472,12 +2524,145 @@ const cropCategories = Object.keys(cropCategoriesData);
 // Computed properties for reactive filtering
 const towns = computed(() => {
   if (!localFormData.landCounty) return [];
+
   const countyId = typeof localFormData.landCounty === 'number'
     ? localFormData.landCounty
     : parseInt(localFormData.landCounty);
+  const county = domicileStore.countyOptions.find(c => c.value === countyId);
+
+  // 如果是特殊城市，返回對應的單一選項
+  if (county && isSpecialCity.value) {
+    const cityInfo = specialCities[county.title];
+    return cityInfo ? [{
+      title: cityInfo.name,
+      value: cityInfo.code,
+      code: cityInfo.code
+    }] : [];
+  }
+
+  // 一般縣市返回正常的鄉鎮清單
   return domicileStore.getTownsForCountyId(countyId);
 });
 
+// 動態獲取地段選項 - 使用 NLSC API 原始格式，優化搜尋支援
+const sections = computed(() => {
+  const result = nlscSections.value
+    .map(section => ({
+      // title 包含地段名稱和代碼，供 v-autocomplete 預設搜尋使用
+      title: `${section.name} ${section.code || ''}`,
+      displayName: section.name,  // 純地段名稱，供顯示使用
+      value: section.code,        // 實際存儲的值，使用 API 原始格式
+      code: section.code,         // 保持 API 原始格式（如 "0446"）
+      name: section.name,         // 保留名稱
+      office: section.office
+    }))
+    .sort((a, b) => {
+      // 優先按地段代碼排序，如果沒有代碼則按名稱排序
+      if (a.code && b.code) {
+        return a.code.localeCompare(b.code);
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+  // Debug: 檢查資料結構
+  if (result.length > 0) {
+    console.log('🔍 sections 資料結構範例:', result[0]);
+    console.log('🔍 預設搜尋將搜尋 title 欄位:', result[0].title);
+  }
+
+  return result;
+});
+
+// 當前選中的地段資訊 - 智能匹配
+const currentSelectedSection = computed(() => {
+  const currentCode = localFormData.landSec;
+  if (!currentCode || sections.value.length === 0) return null;
+
+  const currentCodeStr = currentCode.toString();
+
+  console.log('🔍 尋找地段匹配:', {
+    currentCode,
+    currentCodeStr,
+    currentCodeType: typeof currentCode,
+    sectionsCount: sections.value.length,
+    firstFewSections: sections.value.slice(0, 3).map(s => ({ code: s.code, name: s.name }))
+  });
+
+  // 嘗試多種匹配方式以處理歷史資料
+  const found = sections.value.find(s => {
+    // 直接匹配
+    if (s.code === currentCode || s.code === currentCodeStr) {
+      return true;
+    }
+
+    // 數值匹配（處理 446 vs "0446" 的情況）
+    try {
+      return parseInt(s.code) === parseInt(currentCodeStr);
+    } catch {
+      return false;
+    }
+  });
+
+  console.log('🎯 匹配結果:', found ? { code: found.code, name: found.name } : '未找到');
+  return found || null;
+});
+
+// 地段搜尋事件處理函數
+const onSectionSearchUpdate = (searchValue: string) => {
+  sectionSearchText.value = searchValue;
+};
+
+// 地段選單失焦事件處理函數
+const onSectionBlur = () => {
+  // 當失焦時清空搜尋文字，避免影響下次搜尋
+  sectionSearchText.value = '';
+};
+
+// 地段選擇變更事件處理函數 - 同時儲存代碼和名稱
+const onSectionChange = (sectionCode: string | number) => {
+  if (sectionCode) {
+    // 從 sections 資料中找到對應的地段資訊
+    const selectedSection = sections.value.find(s => s.code === sectionCode || s.value === sectionCode);
+    if (selectedSection) {
+      // 同時儲存地段名稱
+      localFormData.landSecName = selectedSection.displayName || selectedSection.name;
+      // console.log('🏷️ 地段選擇:', { code: sectionCode, name: localFormData.landSecName });
+    }
+  } else {
+    // 清空時也清空名稱
+    localFormData.landSecName = '';
+  }
+};
+
+// 特殊城市配置 - 與 qualification/index.vue 保持一致
+const specialCities: Record<string, { code: string; name: string }> = {
+  '新竹市': { code: 'O01', name: '新竹市' },
+  '嘉義市': { code: 'I01', name: '嘉義市' }
+};
+
+// 檢查是否為特殊城市
+const isSpecialCity = computed(() => {
+  if (!localFormData.landCounty) return false;
+  const countyId = typeof localFormData.landCounty === 'number'
+    ? localFormData.landCounty
+    : parseInt(localFormData.landCounty);
+  const county = domicileStore.countyOptions.find(c => c.value === countyId);
+  return county ? specialCities.hasOwnProperty(county.title) : false;
+});
+
+// 取得特殊城市的顯示文字
+const getSpecialCityDisplayText = (): string => {
+  if (!localFormData.landCounty) return '';
+  const countyId = typeof localFormData.landCounty === 'number'
+    ? localFormData.landCounty
+    : parseInt(localFormData.landCounty);
+  const county = domicileStore.countyOptions.find(c => c.value === countyId);
+  if (!county) return '';
+  const cityInfo = specialCities[county.title];
+  return cityInfo ? cityInfo.name : '';
+};
+
+// 保留原本的 villages 計算屬性供其他功能使用
 const villages = computed(() => {
   if (!localFormData.landTown) return [];
   const townId = typeof localFormData.landTown === 'number'
@@ -2531,6 +2716,15 @@ const canAddOwner = computed(() => {
 
 const landNumberMainFocused = ref(false);
 const landNumberSubFocused = ref(false);
+
+// NLSC 地段資料
+const nlscSections = ref<LandSection[]>([]);
+const loadingSections = ref(false);
+// 地段搜尋文字
+const sectionSearchText = ref('');
+
+// 用於強制重新渲染地段選單的 key
+const sectionSelectKey = ref(0);
 const showDatePicker = ref(false);
 
 // 證明書日期格式化計算屬性
@@ -2796,34 +2990,64 @@ const getLandLocationText = (land: LandData): string => {
   const parts = []
 
   // 縣市
+  let countyName = ''
   if (land.landCounty) {
     if (typeof land.landCounty === 'number') {
       const county = counties.value.find(c => c.value === land.landCounty)
-      if (county) parts.push(county.title)
+      if (county) {
+        countyName = county.title
+        parts.push(county.title)
+      }
     } else {
+      countyName = land.landCounty
       parts.push(land.landCounty)
     }
   }
 
-  // 鄉鎮
-  if (land.landTown) {
+  // 特殊城市配置 - 與其他地方保持一致
+  const specialCities = ['新竹市', '嘉義市']
+
+  // 鄉鎮 - 特殊城市跳過鄉鎮市區顯示
+  if (land.landTown && !specialCities.includes(countyName)) {
     if (typeof land.landTown === 'number') {
       const town = domicileStore.getTownsForCountyId(land.landCounty as number)
         .find(t => t.value === land.landTown)
       if (town) parts.push(town.title)
     } else {
-      parts.push(land.landTown)
+      // 對於字串值，只有不是特殊城市代碼才顯示
+      if (land.landTown !== 'O01' && land.landTown !== 'I01') {
+        parts.push(land.landTown)
+      }
     }
   }
 
-  // 地段
+  // 地段 - 優先使用儲存的地段名稱，提高效能和可靠性
   if (land.landSec) {
-    if (typeof land.landSec === 'number') {
-      const section = domicileStore.getLandSectionsForTownId(land.landTown as number)
-        .find(s => s.value === land.landSec)
-      if (section) parts.push(section.title)
+    // 第一優先：使用已儲存的地段名稱
+    if (land.landSecName) {
+      parts.push(land.landSecName)
     } else {
-      parts.push(land.landSec)
+      // 第二優先：從 NLSC sections 資料中查找地段名稱
+      const section = sections.value.find(s => s.code === land.landSec || s.value === land.landSec)
+      if (section) {
+        parts.push(section.displayName || section.name)
+      } else {
+        // 第三優先：回退到 domicileStore 查找（向後相容）
+        if (typeof land.landSec === 'number') {
+          const legacySection = domicileStore.getLandSectionsForTownId(land.landTown as number)
+            .find(s => s.value === land.landSec)
+          if (legacySection) parts.push(legacySection.title)
+        } else {
+          // 如果是字串代碼，嘗試從 NLSC 資料中找到對應名稱
+          const nlscSection = sections.value.find(s => s.code === land.landSec)
+          if (nlscSection) {
+            parts.push(nlscSection.displayName || nlscSection.name)
+          } else {
+            // 最後回退：直接顯示代碼（不理想但確保有內容顯示）
+            parts.push(land.landSec)
+          }
+        }
+      }
     }
   }
 
@@ -2863,12 +3087,151 @@ const updateLandNumber = stepManager.createProtectedHandler(() => {
   }
 });
 
-const onCountyChange = stepManager.createCascadeHandler(() => {
+const onCountyChange = stepManager.createCascadeHandler(async () => {
   cascadeManager.resetCascadeSelections('county');
+
+  // 重置地段選擇和資料
+  localFormData.landSec = '';
+  localFormData.landSecName = '';
+  nlscSections.value = [];
+
+  // 強制重新渲染地段選單
+  sectionSelectKey.value++;
+
+  if (localFormData.landCounty) {
+    const countyId = typeof localFormData.landCounty === 'number'
+      ? localFormData.landCounty
+      : parseInt(localFormData.landCounty);
+    const county = domicileStore.countyOptions.find(c => c.value === countyId);
+
+    if (county) {
+      await domicileStore.loadTownsByCountyId(county.value);
+
+      // 如果是特殊城市，自動設定對應的鄉鎮代碼並載入地段資料
+      if (specialCities[county.title] && county.land_code) {
+        console.log(`檢測到特殊城市 ${county.title}，自動設定鄉鎮代碼並載入地段資料`);
+        const specialCode = specialCities[county.title].code;
+        // 設定對應的鄉鎮代碼
+        localFormData.landTown = specialCode;
+        loadingSections.value = true;
+        try {
+          nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, specialCode);
+          console.log(`已自動載入 ${county.title} 的地段資料 (${specialCode}):`, nlscSections.value.length);
+        } catch (error) {
+          console.error('Failed to load land sections for special city:', error);
+          nlscSections.value = [];
+        } finally {
+          loadingSections.value = false;
+        }
+      } else {
+        // 一般縣市清空town選擇
+        localFormData.landTown = '';
+      }
+    }
+  }
 });
 
-const onTownChange = stepManager.createCascadeHandler(() => {
+// 載入 NLSC 地段資料的函數
+const loadLandSections = async (preserveSelection = false) => {
+  // 保存當前的地段選擇（如果需要保留）
+  const currentSelection = preserveSelection ? localFormData.landSec : '';
+
+  // 重置地段選擇和資料（除非要保留選擇）
+  if (!preserveSelection) {
+    localFormData.landSec = '';
+  }
+  nlscSections.value = [];
+
+  // 強制重新渲染地段選單
+  sectionSelectKey.value++;
+
+  // 使用 nextTick 確保重置生效
+  await nextTick();
+
+  if (!localFormData.landCounty || !localFormData.landTown) {
+    console.log('缺少縣市或鄉鎮資料，跳過地段載入');
+    return;
+  }
+
+  // 取得縣市資料 - 在 step2 中 landCounty 是 ID
+  const countyId = typeof localFormData.landCounty === 'number'
+    ? localFormData.landCounty
+    : parseInt(localFormData.landCounty);
+  const county = domicileStore.countyOptions.find(c => c.value === countyId);
+
+  if (!county || !county.land_code) {
+    console.log('找不到縣市資料或缺少地政代碼');
+    return;
+  }
+
+  // 特殊城市處理 - 使用縣市名稱判斷，與全域配置保持一致
+  const specialCityCodes: Record<string, string> = {
+    '新竹市': 'O01',
+    '嘉義市': 'I01'
+  };
+
+  try {
+    loadingSections.value = true;
+
+    if (specialCityCodes[county.title]) {
+      // 特殊城市，直接使用縣市的 land_code 和特殊代碼
+      const specialCode = specialCityCodes[county.title];
+      console.log(`開始載入特殊城市地段資料: ${county.title} (${county.land_code}/${specialCode})`);
+      nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, specialCode);
+      console.log(`載入 ${county.title} 的地段資料 (${specialCode}):`, nlscSections.value.length);
+    } else {
+      // 一般鄉鎮，取得鄉鎮資料 - 在 step2 中 landTown 是 ID
+      const townId = typeof localFormData.landTown === 'number'
+        ? localFormData.landTown
+        : parseInt(localFormData.landTown);
+      const town = domicileStore.getTownsForCountyId(countyId).find(t => t.value === townId);
+
+      if (!town || !town.land_code) {
+        console.log('找不到鄉鎮資料或缺少地政代碼');
+        return;
+      }
+
+      // 一般鄉鎮，使用縣市和鄉鎮的 land_code
+      console.log(`開始載入地段資料: ${county.title} ${town.title} (${county.land_code}/${town.land_code})`);
+      nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, town.land_code);
+      console.log(`載入 ${county.title} ${town.title} 的地段資料 (${town.land_code}):`, nlscSections.value.length);
+    }
+  } catch (error) {
+    console.error('Failed to load land sections:', error);
+    nlscSections.value = [];
+  } finally {
+    loadingSections.value = false;
+
+    // 如果要保留選擇且有資料載入成功，恢復原本的選擇
+    if (preserveSelection && currentSelection && nlscSections.value.length > 0) {
+      // 嘗試在新載入的 sections 中找到匹配的項目
+      const matchingSection = nlscSections.value.find(section => {
+        // 數值匹配（舊格式 446 vs 新格式 "0446"）
+        return parseInt(section.code) === parseInt(currentSelection.toString());
+      });
+
+      if (matchingSection) {
+        // 使用找到的項目的原始代碼格式
+        localFormData.landSec = matchingSection.code;
+        console.log('🔄 恢復地段選擇:', {
+          original: currentSelection,
+          matched: matchingSection.code,
+          name: matchingSection.name
+        });
+      } else {
+        // 如果找不到匹配項，保持原始選擇
+        localFormData.landSec = currentSelection;
+        console.log('⚠️ 無法找到匹配的地段，保持原始選擇:', currentSelection);
+      }
+    }
+  }
+};
+
+const onTownChange = stepManager.createCascadeHandler(async () => {
   cascadeManager.resetCascadeSelections('town');
+
+  // 載入 NLSC 地段資料
+  await loadLandSections();
 });
 
 const onOwnerCountyChange = stepManager.createProtectedHandler(() => {
@@ -3074,6 +3437,24 @@ const editLand = async (landId: string) => {
   // 載入土地資料到當前表單（修復後的版本包含類型轉換）
   landUtils.loadLandToCurrentForm(land)
 
+  // 如果該土地有地段資料，載入對應的 NLSC 地段選項
+  if (land.landCounty && land.landTown && land.landSec) {
+    console.log('🎯 載入編輯土地的地段資料:', {
+      county: land.landCounty,
+      town: land.landTown,
+      section: land.landSec
+    });
+
+    try {
+      // 等待一下確保表單資料已載入
+      await nextTick();
+      await loadLandSections(true); // 保留現有的地段選擇
+      console.log('✅ 編輯模式地段資料載入完成');
+    } catch (error) {
+      console.warn('⚠️ 編輯模式地段資料載入失敗:', error);
+    }
+  }
+
   // 設置為編輯模式
   landManagement.currentEditingLandId = landId
   landManagement.isEditingMode = true
@@ -3247,18 +3628,18 @@ const preloadCascadeDataForLands = async (lands: LandData[]) => {
     await Promise.all(townPromises)
 
     // 4. 平行載入所有需要的地段資料
-    const sectionPromises = Array.from(townIds).map(async (townId) => {
-      console.log(`📍 Loading sections for town ${townId}...`)
-      try {
-        await domicileStore.loadLandSectionsByTownId(townId)
-      } catch (error) {
-        console.warn(`⚠️ Failed to load sections for town ${townId}:`, error)
-      }
-    })
+    // const sectionPromises = Array.from(townIds).map(async (townId) => {
+    //   console.log(`📍 Loading sections for town ${townId}...`)
+    //   try {
+    //     await domicileStore.loadLandSectionsByTownId(townId)
+    //   } catch (error) {
+    //     console.warn(`⚠️ Failed to load sections for town ${townId}:`, error)
+    //   }
+    // })
 
-    await Promise.all(sectionPromises)
+    // await Promise.all(sectionPromises)
 
-    console.log('✅ [P0 Fix] Cascade data preloading completed')
+    // console.log('✅ [P0 Fix] Cascade data preloading completed')
   } catch (error) {
     console.error('❌ [P0 Fix] Cascade data preloading failed:', error)
   }
@@ -4265,6 +4646,16 @@ const loadStepData = async () => {
         // 初始驗證（現在有保護機制）
         validateForm();
 
+        // 如果有已儲存的地段資料，載入對應的 NLSC 地段資料
+        if (localFormData.landCounty && localFormData.landTown && localFormData.landSec) {
+          console.log('🎯 檢測到已儲存的地段資料，載入 NLSC 地段選項');
+          loadLandSections(true).then(() => { // 保留現有的地段選擇
+            console.log('✅ 地段資料載入完成，地段選單應正確顯示名稱');
+          }).catch(error => {
+            console.warn('⚠️ 地段資料載入失敗:', error);
+          });
+        }
+
         console.log('🎉 step2.vue: Initialization completed, events now enabled');
       }, 100); // 100ms 延遲確保所有副作用完成
     });
@@ -4351,10 +4742,15 @@ watch(() => localFormData.landCounty as string | number, stepManager.createProte
 watch(() => localFormData.landTown, stepManager.createProtectedWatch(async (...args: unknown[]) => {
   const newTown = args[0] as string | number;
   if (newTown) {
-    localFormData.landSec = '';
     const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
-    await loadVillagesForTown(townId);
-    checkAndUpdateIndigenousArea(townId);
+
+    // 檢查是否為特殊城市的代碼，如果是則跳過處理
+    const isSpecialCityCode = newTown === 'O01' || newTown === 'I01';
+    if (!isSpecialCityCode) {
+      // 一般鄉鎮才載入地段資料
+      await loadLandSections();
+      checkAndUpdateIndigenousArea(townId);
+    }
   }
 }));
 
@@ -4388,28 +4784,40 @@ const openQualificationQuery = () => {
   // 建構 URL 參數
   const params = new URLSearchParams()
 
+  // 獲取縣市名稱，用於判斷是否為特殊城市
+  const countyName = typeof county === 'number'
+    ? domicileStore.countyOptions.find(c => c.value === county)?.title || ''
+    : county
+
   if (county) {
-    // 如果是數字 ID，需要轉換為縣市名稱
-    const countyName = typeof county === 'number'
-      ? domicileStore.countyOptions.find(c => c.value === county)?.title || ''
-      : county
     if (countyName) params.set('county', countyName.toString())
   }
 
   if (town) {
-    // 如果是數字 ID，需要轉換為鄉鎮名稱
-    const townName = typeof town === 'number'
-      ? domicileStore.getTownById(town)?.name || ''
-      : town
-    if (townName) params.set('town', townName.toString())
+    // 特殊城市不需要傳送 town 參數
+    if (!specialCities[countyName as string]) {
+      // 如果是數字 ID，需要轉換為鄉鎮名稱
+      const townName = typeof town === 'number'
+        ? domicileStore.getTownById(town)?.name || ''
+        : town
+      if (townName) params.set('town', townName.toString())
+    }
   }
 
   if (section) {
-    // 如果是數字 ID，需要轉換為地段名稱
-    const sectionName = typeof section === 'number'
-      ? domicileStore.getLandSectionsForTownId(typeof town === 'number' ? town : parseInt(town?.toString() || '0')).find(s => s.value === section)?.title || ''
-      : section
-    if (sectionName) params.set('section', sectionName.toString())
+    let sectionName = ''
+
+    if (specialCities[countyName as string]) {
+      // 特殊縣市：section 是代碼值，直接使用
+      sectionName = section.toString()
+    } else {
+      // 一般縣市：section 是數字 ID，從 domicile store 查找
+      sectionName = typeof section === 'number'
+        ? domicileStore.getLandSectionsForTownId(typeof town === 'number' ? town : parseInt(town?.toString() || '0')).find(s => s.value === section)?.title || ''
+        : section.toString()
+    }
+
+    if (sectionName) params.set('section', sectionName)
   }
 
   if (parentLandNumber) {
@@ -4614,13 +5022,13 @@ onUnmounted(() => {
   border-top-right-radius: 12px;
 }
 
-/* 日期預覽 alert 樣式 */
-/* Removed empty rule for .v-alert--variant-tonal */
-
-/* 日期選擇器下拉選單樣式 */
-:deep(.v-select .v-field__input) {
+/* 下拉選單樣式 */
+/* :deep(.v-select .v-field__input) {
   font-weight: 500;
 }
+:deep(.v-autocomplete .v-field__input) {
+  font-weight: 500;
+}*/
 
 /* 確定按鈕增強樣式 */
 :deep(.v-btn--variant-flat) {

@@ -6,8 +6,8 @@ from src.database.models import Counties, Towns, Villages
 
 # Counties CRUD
 async def get_counties() -> List[Counties]:
-    """Get all counties"""
-    return await Counties.all()
+    """Get all counties ordered by land_code, code, then name"""
+    return await Counties.all().order_by('land_code', 'code', 'name')
 
 async def get_county(county_id: int) -> Counties:
     """Get county by ID"""
@@ -35,12 +35,14 @@ async def delete_county(county_id: int) -> None:
 
 # Towns CRUD
 async def get_towns(county_id: Optional[int] = None) -> List[Towns]:
-    """Get all towns, optionally filtered by county"""
+    """Get all towns, optionally filtered by county, ordered by land_code, code, then name"""
     query = Towns.all().prefetch_related("county")
-    
+
     if county_id:
         query = query.filter(county_id=county_id)
-    
+
+    # Apply database-level sorting
+    query = query.order_by('land_code', 'code', 'name')
     towns = await query
     
     # Convert to our schema format
@@ -92,12 +94,14 @@ async def delete_town(town_id: int) -> None:
 
 # Villages CRUD
 async def get_villages(town_id: Optional[int] = None) -> List[dict]:
-    """Get all villages, optionally filtered by town"""
+    """Get all villages, optionally filtered by town, ordered by code then name"""
     query = Villages.all().prefetch_related("town__county")
-    
+
     if town_id:
         query = query.filter(town_id=town_id)
-    
+
+    # Apply database-level sorting
+    query = query.order_by('code', 'name')
     villages = await query
     
     # Convert to our schema format
