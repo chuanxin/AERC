@@ -236,6 +236,7 @@
                             class="flex-grow-1"
                             bg-color="white"
                             clearable
+                            autocomplete="off"
                             :placeholder="sections.length > 0 ? '搜尋地段名稱或代碼...' : '請先選擇鄉鎮市區'"
                             :disabled="!searchParams.town && !['新竹市', '嘉義市'].includes(searchParams.county)"
                             :loading="loadingSections"
@@ -323,6 +324,7 @@
                             bg-color="white"
                             maxlength="4"
                             style="flex: 1"
+                            autocomplete="off"
                             @blur="formatParentLandNumber('searchParams')"
                           />
                           <span class="text-h6 mx-2">-</span>
@@ -335,6 +337,7 @@
                             bg-color="white"
                             maxlength="4"
                             style="flex: 1"
+                            autocomplete="off"
                             @blur="formatChildLandNumber('searchParams')"
                           />
                         </div>
