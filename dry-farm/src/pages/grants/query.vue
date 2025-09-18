@@ -35,7 +35,11 @@
                 </div>
 
                 <v-row class="query-fields">
-                  <v-col cols="12" md="6" class="query-field">
+                  <v-col
+                    cols="12"
+                    md="6"
+                    class="query-field"
+                  >
                     <div class="field-layout">
                       <div class="field-label">
                         查詢年度 *
@@ -56,7 +60,11 @@
                     </div>
                   </v-col>
 
-                  <v-col cols="12" md="6" class="query-field">
+                  <v-col
+                    cols="12"
+                    md="6"
+                    class="query-field"
+                  >
                     <div class="field-layout">
                       <div class="field-label">
                         案件編號範圍
@@ -97,66 +105,66 @@
                     選擇要下載的檔案類型
                   </h3>
                   <div class="section-hint text-caption text-medium-emphasis ml-auto">
-                    請選擇一種檔案類型，系統將收集所有符合條件案件的該檔案
+                    請選擇一種檔案類型，系統將收集所有符合條件的案件檔案
                   </div>
                 </div>
 
+                <!-- 優雅的檔案選擇區域 -->
                 <v-radio-group
                   v-model="selectedFileType"
-                  class="file-radio-group"
+                  class="elegant-file-selection"
                 >
-                  <div
-                    v-for="category in fileCategories"
-                    :key="category.name"
-                    class="category-section mb-6"
+                  <v-row
+                    class="file-categories-row"
+                    no-gutters
                   >
-                    <!-- 類別標題 -->
-                    <div class="category-header mb-3">
-                      <v-icon
-                        :color="category.color"
-                        size="20"
-                        class="mr-2"
-                      >
-                        {{ category.icon }}
-                      </v-icon>
-                      <h4 class="category-title">{{ category.name }}</h4>
-                      <v-chip
-                        size="small"
-                        :color="category.color"
-                        variant="tonal"
-                        class="ml-2"
-                      >
-                        {{ category.files.length }}
-                      </v-chip>
-                    </div>
-
-                    <!-- 檔案列表 -->
-                    <div class="file-list">
-                      <v-radio
-                        v-for="file in category.files"
-                        :key="file.id"
-                        :value="file.id"
-                        :label="file.title"
-                        color="#3ea0a3"
-                        class="file-radio-item"
-                        hide-details
-                      >
-                        <template #label>
-                          <div class="file-label d-flex align-center justify-space-between w-100">
-                            <span class="file-name">{{ file.title }}</span>
-                            <v-chip
-                              size="x-small"
-                              :color="file.formatColor"
-                              variant="flat"
-                              class="ml-2"
-                            >
-                              {{ file.format }}
-                            </v-chip>
+                    <v-col
+                      v-for="category in fileCategories"
+                      :key="category.name"
+                      cols="12"
+                      sm="6"
+                      md="3"
+                    >
+                      <div class="category-card-elegant">
+                        <!-- 類別標題 -->
+                        <div class="category-header-elegant">
+                          <div class="category-title-elegant">
+                            {{ category.name }}
                           </div>
-                        </template>
-                      </v-radio>
-                    </div>
-                  </div>
+                        </div>
+
+                        <!-- 檔案選項 -->
+                        <div class="file-options-elegant">
+                          <div
+                            v-for="file in category.files"
+                            :key="file.id"
+                            :class="['file-tile-elegant', { 'selected': selectedFileType === file.id }]"
+                            @click="selectedFileType = file.id"
+                          >
+                            <v-radio
+                              :value="file.id"
+                              color="#3ea0a3"
+                              class="file-radio-hidden"
+                              hide-details
+                            />
+                            <div class="file-content-tile">
+                              <div class="file-name-tile">
+                                {{ file.title }}
+                              </div>
+                              <div class="file-badge-tile">
+                                <span
+                                  class="format-tag-tile"
+                                  :class="file.format.toLowerCase()"
+                                >
+                                  {{ file.format }}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </v-col>
+                  </v-row>
                 </v-radio-group>
               </div>
 
@@ -173,7 +181,10 @@
                     :loading="downloading"
                     @click="handleDownload"
                   >
-                    <v-icon left class="mr-2">
+                    <v-icon
+                      left
+                      class="mr-2"
+                    >
                       mdi-download
                     </v-icon>
                     下載檔案
@@ -182,12 +193,18 @@
 
                 <!-- 選取資訊提示 -->
                 <div class="selection-info mt-4 text-center">
-                  <div v-if="selectedFileType && searchFilters.year" class="text-body-2 text-medium-emphasis">
+                  <div
+                    v-if="selectedFileType && searchFilters.year"
+                    class="text-body-2 text-medium-emphasis"
+                  >
                     將下載：<strong>{{ getSelectedFileName() }}</strong>
                     <span>· {{ getYearDisplay(searchFilters.year) }}</span>
                     <span v-if="getCaseNumberRange()">· 案號範圍：{{ getCaseNumberRange() }}</span>
                   </div>
-                  <div v-else class="text-body-2 text-medium-emphasis">
+                  <div
+                    v-else
+                    class="text-body-2 text-medium-emphasis"
+                  >
                     請選擇查詢年度和檔案類型
                   </div>
                 </div>
@@ -235,7 +252,6 @@
         </v-card-text>
       </v-card>
     </v-dialog>
-
   </v-container>
 </template>
 
@@ -290,26 +306,26 @@ interface FileCategory {
 // 所有檔案選項
 const allFiles = ref<FileOption[]>([
   // A. 勘查審查類
-  { id: 'survey_record', title: '現場勘查紀錄表', category: 'A. 勘查審查類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/files/survey-record' },
-  { id: 'photo_log', title: '外出攜帶照片攝帶表', category: 'A. 勘查審查類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/files/photo-log' },
+  // { id: 'survey_record', title: '現場勘查紀錄表', category: 'A. 勘查審查類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/files/survey-record' },
+  { id: 'photograph_carry_form', title: '外出拍攝照片攜帶表', category: 'A. 勘查審查類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/files/photograph-carry-form' },
   { id: 'construction_photos', title: '施工前後照片', category: 'A. 勘查審查類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/files/construction-photos' },
   { id: 'review_form', title: '書面審查表', category: 'A. 勘查審查類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/files/review-form' },
-  { id: 'test_report', title: '功能測試現場勘查報告書', category: 'A. 勘查審查類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/files/test-report' },
+  { id: 'site_investigation_report', title: '功能測試現地勘查報告書', category: 'A. 勘查審查類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/files/site-investigation-report' },
 
   // B. 經費與預算類
   { id: 'budget_book', title: '工程預算書', category: 'B. 經費與預算類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/files/budget-book' },
-  { id: 'subsidy_details', title: '管路補助金額明細表', category: 'B. 經費與預算類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/files/subsidy-details' },
-  { id: 'receipt_list', title: '印領清單', category: 'B. 經費與預算類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/files/receipt-list' },
+  { id: 'subsidy_details_list', title: '管路補助金額明細表', category: 'B. 經費與預算類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/files/subsidy-details-list' },
+  { id: 'subsidy_list', title: '印領清冊', category: 'B. 經費與預算類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/files/subsidy-list' },
   { id: 'payment_receipt', title: '領款收據', category: 'B. 經費與預算類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/files/payment-receipt' },
 
   // C. 設計與地籍類
-  { id: 'irrigation_plan', title: '管路灌溉系統設施計畫', category: 'C. 設計與地籍類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/files/irrigation-plan' },
-  { id: 'land_list', title: '土地清冊', category: 'C. 設計與地籍類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/files/land-list' },
+  { id: 'system_facility_design_drawings', title: '管路灌溉系統設施設計表', category: 'C. 設計與地籍類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/files/system-facility-design-drawings' },
+  { id: 'farm_lands_list', title: '土地清冊', category: 'C. 設計與地籍類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/files/farm-lands-list' },
 
   // D. 其他
   { id: 'address_labels', title: '住址標籤', category: 'D. 其他', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/files/address-labels' },
   { id: 'cover_page', title: '封面', category: 'D. 其他', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/files/cover-page' },
-  { id: 'documents_package', title: '切結書、收據、結案申請書', category: 'D. 其他', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/files/documents-package' }
+  { id: 'documents_package', title: '切結書、收據、結案申報書', category: 'D. 其他', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/files/documents-package' }
 ])
 
 // 按類別分組的檔案
@@ -566,70 +582,143 @@ onMounted(() => {
   font-style: italic;
 }
 
-.file-radio-group {
-  margin-top: 1rem;
+/* 優雅檔案選擇設計 */
+.elegant-file-selection {
+  margin-top: 1.5rem;
 }
 
-/* 類別區域 */
-.category-section {
-  border: 1px solid #e9ecef;
-  border-radius: 8px;
-  background-color: rgba(255, 255, 255, 0.8);
-  padding: 1rem;
-}
-
-.category-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #f1f3f4;
-}
-
-.category-title {
-  color: #2c3e50;
-  font-size: 1rem;
-  font-weight: 600;
+.file-categories-row {
+  gap: 1rem;
   margin: 0;
 }
 
-/* 檔案列表 */
-.file-list {
+.category-card-elegant {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  overflow: hidden;
+  margin: 0.5rem;
 }
 
-.file-radio-item {
-  margin: 0;
-  padding: 0.5rem 0;
-  border-radius: 6px;
-  transition: background-color 0.2s ease;
+.category-card-elegant:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(62, 160, 163, 0.15);
 }
 
-.file-radio-item:hover {
-  background-color: rgba(62, 160, 163, 0.05);
+/* 類別標題區域 */
+.category-header-elegant {
+  background: linear-gradient(135deg, #3ea0a3 0%, #2d8c8f 100%);
+  color: white;
+  padding: 1rem;
+  text-align: center;
+  position: relative;
 }
 
-.file-radio-item :deep(.v-selection-control) {
-  min-height: auto;
-}
-
-.file-radio-item :deep(.v-selection-control__wrapper) {
-  height: 20px;
-  margin-right: 8px;
-}
-
-.file-label {
-  flex: 1;
-  padding-right: 8px;
-}
-
-.file-name {
-  color: #2c3e50;
+.category-title-elegant {
   font-size: 0.9rem;
-  line-height: 1.2;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+/* 檔案選項區域 */
+.file-options-elegant {
+  padding: 1rem;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* 檔案瓷磚設計 */
+.file-tile-elegant {
+  position: relative;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-color: rgba(248, 249, 250, 0.6);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+}
+
+.file-tile-elegant:hover {
+  background-color: rgba(62, 160, 163, 0.08);
+  border-color: rgba(62, 160, 163, 0.3);
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(62, 160, 163, 0.15);
+}
+
+.file-tile-elegant.selected {
+  background: linear-gradient(135deg, rgba(62, 160, 163, 0.1) 0%, rgba(62, 160, 163, 0.05) 100%);
+  border-color: #3ea0a3;
+  box-shadow: 0 2px 12px rgba(62, 160, 163, 0.2);
+}
+
+.file-tile-elegant.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(to bottom, #3ea0a3, #2d8c8f);
+  border-radius: 0 4px 4px 0;
+}
+
+/* 隱藏的 radio 按鈕 */
+.file-radio-hidden {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 檔案內容 */
+.file-content-tile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding-left: 1rem;
+}
+
+.file-name-tile {
+  color: #2c3e50;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  font-weight: 500;
+  flex: 1;
+}
+
+.file-badge-tile {
+  margin-left: 0.5rem;
+}
+
+.format-tag-tile {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.format-tag-tile.xls {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+}
+
+.format-tag-tile.pdf {
+  background: linear-gradient(135deg, #f44336, #e53935);
+  color: white;
 }
 
 .file-info {
@@ -684,14 +773,30 @@ onMounted(() => {
     text-align: center;
   }
 
-  .category-section {
-    margin-bottom: 1.5rem;
+  .file-categories-row {
+    gap: 0.5rem;
   }
 
-  .file-label {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
+  .category-card-elegant {
+    margin: 0.25rem;
+  }
+
+  .category-header-elegant {
+    padding: 0.75rem;
+  }
+
+  .file-options-elegant {
+    padding: 0.75rem;
+    gap: 0.4rem;
+  }
+
+  .file-tile-elegant {
+    padding: 0.6rem;
+    min-height: 60px;
+  }
+
+  .file-content-tile {
+    padding-left: 0.5rem;
   }
 }
 
@@ -704,20 +809,40 @@ onMounted(() => {
     min-width: 200px;
   }
 
-  .file-radio-group {
-    gap: 0.5rem;
+  .elegant-file-selection {
+    margin-top: 1rem;
   }
 
-  .category-section {
-    padding: 0.75rem;
+  .category-card-elegant {
+    margin: 0.125rem;
   }
 
-  .category-title {
-    font-size: 0.9rem;
+  .category-title-elegant {
+    font-size: 0.8rem;
   }
 
-  .file-name {
-    font-size: 0.85rem;
+  .file-name-elegant {
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+
+  .file-options-elegant {
+    padding: 0.5rem;
+    gap: 0.3rem;
+  }
+
+  .file-tile-elegant {
+    padding: 0.5rem;
+    min-height: 50px;
+  }
+
+  .file-name-tile {
+    font-size: 0.75rem;
+  }
+
+  .format-tag-tile {
+    font-size: 0.6rem;
+    padding: 2px 6px;
   }
 }
 
