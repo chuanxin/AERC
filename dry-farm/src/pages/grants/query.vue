@@ -503,14 +503,14 @@ const yearOptions = [
 const caseNumberExamples = ref([
   {
     type: '新系統 - 全部',
-    start: '11401001',
-    end: '11499999',
+    start: '114010001',
+    end: '114999999',
     description: '114年度所有單位'
   },
   {
     type: '新系統 - 各管理處案件',
-    start: '11401001',
-    end: '11401999',
+    start: '114010001',
+    end: '114019999',
     description: '114年度宜蘭管理處案件'
   },
   {
@@ -701,8 +701,8 @@ const getCaseNumberFormatHint = () => {
 
   // 檢查格式一致性
   if (start && end) {
-    const startIsNewFormat = /^\d{8}$/.test(start) // 8位數字格式
-    const endIsNewFormat = /^\d{8}$/.test(end)
+    const startIsNewFormat = /^\d{9}$/.test(start) // 9位數字格式
+    const endIsNewFormat = /^\d{9}$/.test(end)
 
     if (startIsNewFormat && endIsNewFormat) {
       const startYear = start.substring(0, 3)
@@ -756,21 +756,16 @@ const handleDownload = async () => {
   downloadStatus.value = '準備下載...'
 
   try {
-    const progressSteps = [
-      { progress: 20, status: '查詢案件資料...' },
-      { progress: 40, status: '篩選符合條件的案件...' },
-      { progress: 60, status: `收集 ${fileName} 檔案...` },
-      { progress: 80, status: '產生下載檔案...' },
-      { progress: 100, status: '下載完成！' }
-    ]
+    // 第一階段：準備工作（快速進度）
+    downloadProgress.value = 20
+    downloadStatus.value = '查詢案件資料...'
+    await new Promise(resolve => setTimeout(resolve, 300))
 
-    for (const step of progressSteps) {
-      await new Promise(resolve => setTimeout(resolve, 800))
-      downloadProgress.value = step.progress
-      downloadStatus.value = step.status
-    }
+    downloadProgress.value = 40
+    downloadStatus.value = '篩選符合條件的案件...'
+    await new Promise(resolve => setTimeout(resolve, 300))
 
-    // 呼叫專屬 API 端點
+    // 準備下載參數
     const downloadParams = {
       year: searchFilters.value.year,
       caseNumberStart: searchFilters.value.caseNumberStart || null,
@@ -780,7 +775,6 @@ const handleDownload = async () => {
 
     console.log(`下載 ${fileName}:`, apiEndpoint, downloadParams)
 
-    // 準備下載參數
     const downloadRequest: DownloadRequest = {
       year: downloadParams.year,
       case_number_start: downloadParams.caseNumberStart,
@@ -788,6 +782,10 @@ const handleDownload = async () => {
       file_type: downloadParams.fileType,
       enable_pagination: true // 預設啟用分頁
     }
+
+    // 第二階段：實際API調用
+    downloadProgress.value = 60
+    downloadStatus.value = `正在生成 ${fileName} 檔案...`
 
     // 根據檔案類型調用對應的服務方法
     switch (selectedFileType.value) {
@@ -800,6 +798,15 @@ const handleDownload = async () => {
       default:
         throw new Error(`尚未支援的檔案類型: ${selectedFileType.value}`)
     }
+
+    // 第三階段：檔案已生成並觸發瀏覽器下載
+    downloadProgress.value = 90
+    downloadStatus.value = '檔案已生成，正在啟動下載...'
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // 第四階段：完成
+    downloadProgress.value = 100
+    downloadStatus.value = '檔案已送至瀏覽器，請查看下載資料夾'
 
   } catch (error) {
     console.error('下載失敗:', error)
