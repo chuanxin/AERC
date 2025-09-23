@@ -40,13 +40,14 @@ class UploadMappingsConfig:
         self.uploads_dir = self.data_root / "uploads"
         self.backups_dir = self.data_root / "backups"
         self.temp_dir = self.data_root / "temp"
+        self.templates_dir = self.data_root / "templates"
         
         # 確保目錄存在
         self._ensure_directories()
     
     def _ensure_directories(self):
         """確保目錄存在"""
-        for directory in [self.uploads_dir, self.backups_dir, self.temp_dir]:
+        for directory in [self.uploads_dir, self.backups_dir, self.temp_dir, self.templates_dir]:
             directory.mkdir(parents=True, exist_ok=True)
     
     def _setup_file_settings(self):
@@ -66,6 +67,11 @@ class UploadMappingsConfig:
         # 將Unix風格路徑分隔符轉換為當前系統適用的格式
         normalized_path = relative_path.replace('/', os.sep)
         return self.data_root / normalized_path
+
+    def get_template_path(self, template_name: str) -> Path:
+        """取得範本檔案的絕對路徑 - 跨平台相容"""
+        template_path = self.templates_dir / template_name
+        return template_path
 
 # 全域配置實例
 settings = UploadMappingsConfig()
