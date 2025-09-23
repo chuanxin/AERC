@@ -37,7 +37,7 @@
                 <v-row class="query-fields">
                   <v-col
                     cols="12"
-                    md="6"
+                    md="4"
                     class="query-field"
                   >
                     <div class="field-layout">
@@ -62,12 +62,40 @@
 
                   <v-col
                     cols="12"
-                    md="6"
+                    md="8"
                     class="query-field"
                   >
                     <div class="field-layout">
-                      <div class="field-label">
-                        案件編號範圍
+                      <div class="field-label-with-icon">
+                        <span class="field-label">案件編號範圍</span>
+                        <v-tooltip
+                          location="top"
+                          max-width="320"
+                        >
+                          <template #activator="{ props }">
+                            <v-icon
+                              v-bind="props"
+                              icon="mdi-help-circle-outline"
+                              size="18"
+                              color="grey-darken-1"
+                              class="ml-1"
+                            />
+                          </template>
+                          <div class="case-number-tooltip">
+                            <div class="tooltip-title">案件編號格式說明</div>
+                            <div class="tooltip-section">
+                              <strong>新系統格式：</strong>年度+單位代碼+流水號
+                              <br>例：11401001, 11402015
+                            </div>
+                            <div class="tooltip-section">
+                              <strong>舊系統格式：</strong>純流水號
+                              <br>例：1, 100, 923
+                            </div>
+                            <div class="tooltip-note">
+                              💡 系統使用數值區間查詢，純數字編號按數值大小排序
+                            </div>
+                          </div>
+                        </v-tooltip>
                       </div>
                       <div class="field-control">
                         <div class="d-flex gap-2 align-center">
@@ -75,21 +103,81 @@
                             v-model="searchFilters.caseNumberStart"
                             density="comfortable"
                             variant="outlined"
-                            hide-details
+                            hide-details="auto"
                             placeholder="起始編號"
                             bg-color="white"
                             rounded="lg"
-                          />
+                            autocomplete="off"
+                            :rules="caseNumberRules"
+                          >
+                            <template #append-inner>
+                              <v-menu
+                                v-model="showCaseNumberExamples"
+                                :close-on-content-click="false"
+                                location="bottom"
+                              >
+                                <template #activator="{ props }">
+                                  <v-btn
+                                    v-bind="props"
+                                    icon="mdi-lightbulb-outline"
+                                    size="small"
+                                    variant="text"
+                                    color="grey-darken-1"
+                                  />
+                                </template>
+                                <v-card
+                                  class="case-number-examples-card"
+                                  max-width="280"
+                                >
+                                  <v-card-title class="text-subtitle-1 pa-3 pb-2">
+                                    常見編號範例
+                                  </v-card-title>
+                                  <v-card-text class="pa-3 pt-0">
+                                    <div class="examples-list">
+                                      <div
+                                        v-for="example in caseNumberExamples"
+                                        :key="example.type"
+                                        class="example-item"
+                                        @click="applyCaseNumberExample(example)"
+                                      >
+                                        <div class="example-type">{{ example.type }}</div>
+                                        <div class="example-range">{{ example.start }} ~ {{ example.end }}</div>
+                                        <div class="example-desc">{{ example.description }}</div>
+                                      </div>
+                                    </div>
+                                  </v-card-text>
+                                </v-card>
+                              </v-menu>
+                            </template>
+                          </v-text-field>
                           <span class="text-body-2 text-medium-emphasis">~</span>
                           <v-text-field
                             v-model="searchFilters.caseNumberEnd"
                             density="comfortable"
                             variant="outlined"
-                            hide-details
+                            hide-details="auto"
                             placeholder="結束編號"
                             bg-color="white"
                             rounded="lg"
+                            autocomplete="off"
+                            :rules="caseNumberRules"
                           />
+                        </div>
+
+                        <!-- 範圍輸入提示 -->
+                        <div
+                          v-if="getCaseNumberFormatHint()"
+                          class="case-number-hint mt-2"
+                        >
+                          <v-icon
+                            icon="mdi-information-outline"
+                            size="14"
+                            :color="getCaseNumberHintColor()"
+                            class="mr-1"
+                          />
+                          <span :class="getCaseNumberHintClass()">
+                            {{ getCaseNumberFormatHint() }}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -216,8 +304,8 @@
                     variant="flat"
                     rounded="lg"
                     min-width="160"
-                    :disabled="!selectedFileType || !searchFilters.year"
-                    :loading="downloading"
+                    :disabled="isDownloadDisabled()"
+                    :loading="downloading || checkingData"
                     @click="handleDownload"
                   >
                     <v-icon
@@ -246,6 +334,38 @@
                   >
                     請選擇查詢年度和檔案類型
                   </div>
+
+                  <!-- 資料可用性狀態 -->
+                  <div
+                    v-if="dataAvailability"
+                    class="data-status mt-2"
+                  >
+                    <div
+                      v-if="dataAvailability.has_data"
+                      class="text-caption text-success"
+                    >
+                      ✓ 找到 {{ dataAvailability.total_count }} 筆符合條件的案件
+                    </div>
+                    <div
+                      v-else
+                      class="text-caption text-warning"
+                    >
+                      ⚠ {{ dataAvailability.message }}
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="checkingData"
+                    class="text-caption text-medium-emphasis mt-2"
+                  >
+                    <v-progress-circular
+                      size="12"
+                      width="2"
+                      indeterminate
+                      class="mr-1"
+                    />
+                    檢查資料中...
+                  </div>
                 </div>
               </div>
             </v-card-text>
@@ -258,44 +378,83 @@
     <v-dialog
       v-model="downloadDialog"
       max-width="500px"
-      persistent
+      :persistent="downloading"
     >
       <v-card rounded="lg">
         <v-card-title class="text-h6 pa-6 pb-2">
           <v-icon
-            icon="mdi-download"
-            color="#3ea0a3"
+            :icon="downloading ? 'mdi-download' : (downloadProgress === 100 ? 'mdi-check-circle' : 'mdi-alert-circle')"
+            :color="downloading ? '#3ea0a3' : (downloadProgress === 100 ? 'success' : 'error')"
             class="mr-2"
           />
-          檔案下載中
+          {{ downloading ? '檔案下載中' : (downloadProgress === 100 ? '下載完成' : '下載失敗') }}
         </v-card-title>
 
         <v-card-text class="pa-6">
           <div class="text-center">
             <v-progress-circular
+              v-if="downloading || downloadProgress === 100"
               :model-value="downloadProgress"
               size="64"
               width="4"
-              color="#3ea0a3"
+              :color="downloadProgress === 100 ? 'success' : '#3ea0a3'"
               class="mb-4"
             >
               {{ Math.round(downloadProgress) }}%
             </v-progress-circular>
+
+            <v-icon
+              v-else
+              icon="mdi-alert-circle-outline"
+              color="error"
+              size="64"
+              class="mb-4"
+            />
+
             <div class="text-body-1 mb-2">
               {{ downloadStatus }}
             </div>
-            <div class="text-caption text-medium-emphasis">
+
+            <div
+              v-if="downloading"
+              class="text-caption text-medium-emphasis"
+            >
               正在準備 {{ getSelectedFileName() }} 檔案...
             </div>
           </div>
         </v-card-text>
+
+        <!-- 操作按鈕 -->
+        <v-card-actions
+          v-if="!downloading"
+          class="pa-6 pt-0"
+        >
+          <v-spacer />
+          <v-btn
+            v-if="downloadProgress !== 100"
+            color="#3ea0a3"
+            variant="flat"
+            @click="handleDownload"
+          >
+            重新下載
+          </v-btn>
+          <v-btn
+            color="grey-darken-1"
+            variant="text"
+            @click="downloadDialog = false"
+          >
+            關閉
+          </v-btn>
+        </v-card-actions>
       </v-card>
     </v-dialog>
   </v-container>
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { downloadsService } from '@/services/downloadsService'
+import type { DownloadRequest, DataCheckResponse } from '@/services/downloadsService'
 
 // 定義檔案項目介面
 interface FileOption {
@@ -312,6 +471,9 @@ const downloading = ref(false)
 const downloadDialog = ref(false)
 const downloadProgress = ref(0)
 const downloadStatus = ref('')
+const dataAvailability = ref<DataCheckResponse | null>(null)
+const checkingData = ref(false)
+const showCaseNumberExamples = ref(false)
 
 // 檔案選擇區域展開狀態
 const isFileSelectionExpanded = ref(false)
@@ -335,6 +497,40 @@ const yearOptions = [
   { title: '112', value: '112' },
   { title: '111', value: '111' },
   { title: '110', value: '110' },
+]
+
+// 案件編號範例
+const caseNumberExamples = ref([
+  {
+    type: '新系統 - 全部',
+    start: '11401001',
+    end: '11499999',
+    description: '114年度所有單位'
+  },
+  {
+    type: '新系統 - 各管理處案件',
+    start: '11401001',
+    end: '11401999',
+    description: '114年度宜蘭管理處案件'
+  },
+  {
+    type: '舊系統 - 流水號表示方式',
+    start: '1',
+    end: '199999999',
+    description: '編號1到199999999'
+  }
+])
+
+// 案件編號驗證規則
+const caseNumberRules = [
+  (value: string) => {
+    if (!value) return true // 允許空值
+    // 基本格式檢查：允許數字、字母、連字號
+    if (!/^[A-Za-z0-9-]+$/.test(value)) {
+      return '案件編號只能包含英文字母、數字和連字號'
+    }
+    return true
+  }
 ]
 
 // 定義檔案分類介面
@@ -437,6 +633,114 @@ const toggleFileSelectionExpansion = () => {
   isFileSelectionExpanded.value = !isFileSelectionExpanded.value
 }
 
+// 檢查資料可用性
+const checkDataAvailability = async () => {
+  if (!selectedFileType.value || !searchFilters.value.year) {
+    dataAvailability.value = null
+    return
+  }
+
+  checkingData.value = true
+  try {
+    const params = {
+      year: searchFilters.value.year,
+      case_number_start: searchFilters.value.caseNumberStart || null,
+      case_number_end: searchFilters.value.caseNumberEnd || null,
+      file_type: selectedFileType.value
+    }
+
+    console.log('檢查資料可用性 - 請求參數:', params)
+    dataAvailability.value = await downloadsService.checkDataAvailability(params)
+    console.log('檢查資料可用性 - 回應:', dataAvailability.value)
+  } catch (error) {
+    console.error('檢查資料可用性失敗 - 詳細錯誤:', error)
+    console.error('錯誤類型:', typeof error)
+    console.error('錯誤內容:', error)
+
+    // 提供更詳細的錯誤訊息
+    let errorMessage = '無法檢查資料狀態'
+    if (error && typeof error === 'object') {
+      if ('message' in error) {
+        errorMessage = `檢查失敗: ${error.message}`
+      } else if ('response' in error && error.response) {
+        errorMessage = `API 錯誤: ${error.response.status} ${error.response.statusText || ''}`
+      }
+    }
+
+    dataAvailability.value = {
+      has_data: false,
+      total_count: 0,
+      message: errorMessage
+    }
+  } finally {
+    checkingData.value = false
+  }
+}
+
+// 計算下載按鈕是否應該禁用
+const isDownloadDisabled = () => {
+  if (!selectedFileType.value || !searchFilters.value.year) return true
+  if (checkingData.value) return true
+  if (dataAvailability.value === null) return true
+  return !dataAvailability.value.has_data
+}
+
+// 應用案件編號範例
+const applyCaseNumberExample = (example: typeof caseNumberExamples.value[0]) => {
+  searchFilters.value.caseNumberStart = example.start
+  searchFilters.value.caseNumberEnd = example.end
+  showCaseNumberExamples.value = false
+}
+
+// 取得案件編號格式提示
+const getCaseNumberFormatHint = () => {
+  const start = searchFilters.value.caseNumberStart
+  const end = searchFilters.value.caseNumberEnd
+
+  if (!start && !end) return ''
+
+  // 檢查格式一致性
+  if (start && end) {
+    const startIsNewFormat = /^\d{8}$/.test(start) // 8位數字格式
+    const endIsNewFormat = /^\d{8}$/.test(end)
+
+    if (startIsNewFormat && endIsNewFormat) {
+      const startYear = start.substring(0, 3)
+      const endYear = end.substring(0, 3)
+      if (startYear !== endYear) {
+        return '⚠️ 起始和結束編號的年度不一致'
+      }
+      return '✓ 新系統格式，將依案件編號範圍查詢'
+    } else if (!startIsNewFormat && !endIsNewFormat) {
+      return '✓ 舊系統格式，將依案件流水編號範圍查詢'
+    } else {
+      return '⚠️ 起始和結束編號格式不一致，建議使用相同格式'
+    }
+  } else if (start || end) {
+    return '💡 請設置完整的起始和結束範圍'
+  }
+
+  return ''
+}
+
+// 取得案件編號提示顏色
+const getCaseNumberHintColor = () => {
+  const hint = getCaseNumberFormatHint()
+  if (hint.includes('⚠️')) return '#ff9800' // 橙色警告
+  if (hint.includes('✓')) return '#4caf50'   // 綠色成功
+  if (hint.includes('💡')) return '#2196f3'  // 藍色資訊
+  return '#666666' // 預設灰色
+}
+
+// 取得案件編號提示樣式類別
+const getCaseNumberHintClass = () => {
+  const hint = getCaseNumberFormatHint()
+  if (hint.includes('⚠️')) return 'case-number-hint-warning'
+  if (hint.includes('✓')) return 'case-number-hint-success'
+  if (hint.includes('💡')) return 'case-number-hint-info'
+  return 'case-number-hint-default'
+}
+
 // 事件處理：執行下載
 const handleDownload = async () => {
   if (!selectedFileType.value || !searchFilters.value.year) {
@@ -476,29 +780,41 @@ const handleDownload = async () => {
 
     console.log(`下載 ${fileName}:`, apiEndpoint, downloadParams)
 
-    // TODO: 實際 API 呼叫
-    // const response = await fetch(apiEndpoint, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(downloadParams)
-    // })
-    // 處理下載響應...
+    // 準備下載參數
+    const downloadRequest: DownloadRequest = {
+      year: downloadParams.year,
+      case_number_start: downloadParams.caseNumberStart,
+      case_number_end: downloadParams.caseNumberEnd,
+      file_type: downloadParams.fileType,
+      enable_pagination: true // 預設啟用分頁
+    }
 
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // 根據檔案類型調用對應的服務方法
+    switch (selectedFileType.value) {
+      case 'photograph_carry_form':
+        await downloadsService.downloadPhotographCarryForm(downloadRequest)
+        break
+      default:
+        throw new Error(`尚未支援的檔案類型: ${selectedFileType.value}`)
+    }
 
   } catch (error) {
     console.error('下載失敗:', error)
     downloadStatus.value = '下載失敗，請稍後再試'
+    downloadProgress.value = 0
+    // 不關閉對話框，讓用戶看到錯誤訊息
   } finally {
     downloading.value = false
-    downloadDialog.value = false
   }
 }
 
-// 組件載入時初始化
-onMounted(() => {
-  console.log('申請案件查詢與列印頁面已載入')
-})
+// 監聽查詢條件改變，自動檢查資料可用性
+watch([selectedFileType, () => searchFilters.value.year, () => searchFilters.value.caseNumberStart, () => searchFilters.value.caseNumberEnd],
+  () => {
+    checkDataAvailability()
+  },
+  { immediate: true }
+)
 
 // 組件載入時初始化
 onMounted(() => {
@@ -605,7 +921,7 @@ onMounted(() => {
 
 .field-layout {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
 }
 
@@ -616,8 +932,128 @@ onMounted(() => {
   text-align: right;
 }
 
+.field-label-with-icon {
+  min-width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: right;
+}
+
 .field-control {
   flex: 1;
+}
+
+/* 案件編號相關樣式 */
+.case-number-tooltip {
+  padding: 12px;
+}
+
+.tooltip-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  color: #1a1a1a;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 6px;
+}
+
+.tooltip-section {
+  margin-bottom: 10px;
+  line-height: 1.5;
+  color: #424242;
+  font-size: 0.9rem;
+}
+
+.tooltip-section strong {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.tooltip-note {
+  padding: 8px 12px;
+  background-color: rgba(33, 150, 243, 0.12);
+  border-left: 3px solid #2196f3;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: #1565c0;
+  margin-top: 8px;
+}
+
+.case-number-examples-card {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.examples-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.example-item {
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.example-item:hover {
+  background-color: rgba(62, 160, 163, 0.08);
+  border-color: #3ea0a3;
+}
+
+.example-type {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.85rem;
+}
+
+.example-range {
+  font-family: monospace;
+  color: #3ea0a3;
+  font-size: 0.9rem;
+  margin: 2px 0;
+}
+
+.example-desc {
+  color: #666;
+  font-size: 0.8rem;
+}
+
+.case-number-hint {
+  display: flex;
+  align-items: center;
+}
+
+/* 案件編號提示文字樣式 */
+.case-number-hint-success {
+  color: #2e7d32 !important;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.case-number-hint-warning {
+  color: #f57c00 !important;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.case-number-hint-info {
+  color: #1976d2 !important;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.case-number-hint-default {
+  color: #424242 !important;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.v-tooltip> ::v-deep(.v-overlay__content) {
+  background: white;
+  color: transparent;
 }
 
 /* 檔案下載區域樣式 */

@@ -7,6 +7,7 @@ from src.auth.jwthandler import get_current_user
 from src.services.excel_generator import ExcelGeneratorService
 import os
 import tempfile
+import re
 
 router = APIRouter(prefix="/download", tags=["File Downloads"])
 
@@ -31,15 +32,27 @@ async def download_photograph_carry_form(
         # 建構查詢條件
         query = Grants.filter(year=int(request.year))
 
-        # 案件編號範圍篩選
-        if request.case_number_start:
-            query = query.filter(case_number__gte=request.case_number_start)
+        # 先取得所有該年度的案件
+        all_grants = await query.select_related("active_version").all()
 
-        if request.case_number_end:
-            query = query.filter(case_number__lte=request.case_number_end)
+        # 在 Python 中進行案件編號範圍篩選
+        grants = all_grants
+        if request.case_number_start or request.case_number_end:
+            grants = []
+            for grant in all_grants:
+                case_num = grant.case_number
+                if case_num and case_num.isdigit():
+                    case_num_int = int(case_num)
 
-        # 查詢符合條件的案件
-        grants = await query.select_related("active_version").all()
+                    # 檢查範圍
+                    in_range = True
+                    if request.case_number_start and case_num_int < int(request.case_number_start):
+                        in_range = False
+                    if request.case_number_end and case_num_int > int(request.case_number_end):
+                        in_range = False
+
+                    if in_range:
+                        grants.append(grant)
 
         # 輸出資料庫查詢結果統計
         print(f"=== 資料庫查詢結果 ===")
@@ -94,6 +107,63 @@ async def download_photograph_carry_form(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成檔案失敗: {str(e)}")
+
+@router.post("/check-data")
+async def check_data_availability(
+    request: DownloadRequest,
+    current_user: Users = Depends(get_current_user)
+):
+    """檢查指定條件下是否有可下載的資料"""
+    try:
+        # 驗證參數
+        if not request.year:
+            raise HTTPException(status_code=400, detail="年度參數為必填")
+
+        # 建構查詢條件（與實際下載邏輯相同）
+        query = Grants.filter(year=int(request.year))
+
+        # 先取得所有該年度的案件
+        all_grants = await query.all()
+
+        # 在 Python 中進行案件編號範圍篩選
+        filtered_grants = all_grants
+        if request.case_number_start or request.case_number_end:
+            filtered_grants = []
+            for grant in all_grants:
+                case_num = grant.case_number
+                if case_num and case_num.isdigit():
+                    case_num_int = int(case_num)
+
+                    # 檢查範圍
+                    in_range = True
+                    if request.case_number_start and case_num_int < int(request.case_number_start):
+                        in_range = False
+                    if request.case_number_end and case_num_int > int(request.case_number_end):
+                        in_range = False
+
+                    if in_range:
+                        filtered_grants.append(grant)
+
+        # 計算符合條件的案件數量
+        total_count = len(filtered_grants)
+
+        if total_count > 0:
+            return {
+                "has_data": True,
+                "total_count": total_count,
+                "message": f"找到 {total_count} 筆符合條件的案件"
+            }
+        else:
+            return {
+                "has_data": False,
+                "total_count": 0,
+                "message": "未找到符合條件的案件資料"
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"檢查資料失敗: {str(e)}")
 
 @router.get("/test")
 async def test_download_endpoint():

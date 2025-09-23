@@ -143,3 +143,11 @@ export const IRRIGATION_TYPES = {
   OPTIONS: `${BASE}/irrigation_types/options`,
   DETAIL: (id: number | string) => `${BASE}/irrigation_types/${id}`,
 }
+
+// downloads related endpoints
+export const DOWNLOADS = {
+  BASE: `${BASE}/download`,
+  PHOTOGRAPH_CARRY_FORM: `${BASE}/download/photograph-carry-form`,
+  CHECK_DATA: `${BASE}/download/check-data`,
+  TEST: `${BASE}/download/test`,
+}
