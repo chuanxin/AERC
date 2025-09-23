@@ -50,6 +50,28 @@ class DownloadsService {
   }
 
   /**
+   * 下載工程預算書PDF
+   * @param params 下載參數
+   * @returns Promise<Blob>
+   */
+  async downloadBudgetBook(params: DownloadRequest): Promise<Blob> {
+    try {
+      // 不傳入檔名，讓後端的 Content-Disposition header 決定檔名和副檔名
+      // 這樣可以正確處理單檔PDF和多檔ZIP的情況
+      const blob = await apiService.downloadPost(
+        DOWNLOADS.BUDGET_BOOK,
+        params as Record<string, unknown>
+        // 不傳入filename參數，讓apiService從Content-Disposition header提取
+      )
+
+      return blob
+    } catch (error) {
+      console.error('下載工程預算書失敗:', error)
+      throw error
+    }
+  }
+
+  /**
    * 測試下載端點
    * @returns Promise<any>
    */
