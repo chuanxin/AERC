@@ -5,6 +5,7 @@ import tempfile
 from datetime import datetime
 from typing import List, Dict, Any
 from pathlib import Path
+from src.config.upload_mappings import settings
 
 class ExcelGeneratorService:
     """Excel 文件生成服務 - 基於範本驅動架構生成 .xlsx 檔案"""
@@ -40,11 +41,11 @@ class ExcelGeneratorService:
         Returns:
             str: 生成的 Excel 檔案路徑
         """
-        # 範本檔案必須存在
-        template_path = Path(__file__).parent.parent.parent / "data" / "templates" / "photograph_carry_form_template.xlsx"
+        # 使用環境配置取得範本檔案路徑 - 跨平台相容
+        template_path = settings.get_template_path("photograph_carry_form_template.xlsx")
 
         if not template_path.exists():
-            raise FileNotFoundError(f"範本檔案不存在: {template_path}")
+            raise FileNotFoundError(f"範本檔案不存在: {template_path}\n環境: {settings.environment}\n根目錄: {settings.data_root}")
 
         # 載入範本檔案
         from openpyxl import load_workbook
