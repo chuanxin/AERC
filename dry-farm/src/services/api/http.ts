@@ -187,7 +187,7 @@ const apiService = {
   },
 
   /**
-   * send download request
+   * send download request (GET)
    * @param url request URL or path defined in endpoints
    * @param params query parameters
    * @param filename download filename
@@ -195,6 +195,49 @@ const apiService = {
   async download(url: string, params?: Record<string, unknown>, filename?: string): Promise<Blob> {
     const response = await api.get(url, {
       params,
+      responseType: 'blob'
+    })
+
+    // Create a blob URL for the response data
+    // and create a link element to trigger the download
+    const blob = new Blob([response.data])
+    const downloadUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+
+    // Set the download attribute to specify the filename
+    // If filename is not provided, try to extract it from the response headers
+    const contentDisposition = response.headers['content-disposition']
+    let downloadFilename = filename
+
+    if (!downloadFilename && contentDisposition) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+      const matches = filenameRegex.exec(contentDisposition)
+      if (matches != null && matches[1]) {
+        downloadFilename = matches[1].replace(/['"]/g, '')
+      }
+    }
+
+    if (downloadFilename) {
+      link.setAttribute('download', downloadFilename)
+    }
+
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(downloadUrl)
+
+    return blob
+  },
+
+  /**
+   * send download request (POST)
+   * @param url request URL or path defined in endpoints
+   * @param data request body data
+   * @param filename download filename
+   */
+  async downloadPost(url: string, data?: Record<string, unknown>, filename?: string): Promise<Blob> {
+    const response = await api.post(url, data, {
       responseType: 'blob'
     })
 
