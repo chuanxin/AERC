@@ -545,23 +545,23 @@ interface FileCategory {
 const allFiles = ref<FileOption[]>([
   // A. 勘查審查類
   // { id: 'survey_record', title: '現場勘查紀錄表', category: 'A. 勘查審查類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/download/survey-record' },
-  { id: 'photograph_carry_form', title: '外出拍攝照片攜帶表', category: 'A. 勘查審查類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/download/photograph-carry-form' },
+  { id: 'photograph_carry_form', title: '外出拍攝照片攜帶表', category: 'A. 勘查審查類', format: 'XLSX', formatColor: '#4CAF50', apiEndpoint: '/api/download/photograph-carry-form' },
   { id: 'construction_photos', title: '施工前後照片', category: 'A. 勘查審查類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/construction-photos' },
   { id: 'review_form', title: '書面審查表', category: 'A. 勘查審查類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/review-form' },
   { id: 'site_investigation_report', title: '功能測試現地勘查報告書', category: 'A. 勘查審查類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/site-investigation-report' },
 
   // B. 經費與預算類
   { id: 'budget_book', title: '工程預算書', category: 'B. 經費與預算類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/budget-book' },
-  { id: 'subsidy_details_list', title: '管路補助金額明細表', category: 'B. 經費與預算類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/download/subsidy-details-list' },
-  { id: 'subsidy_list', title: '印領清冊', category: 'B. 經費與預算類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/subsidy-list' },
+  { id: 'subsidy_details_list', title: '管路補助金額明細表', category: 'B. 經費與預算類', format: 'XLSX', formatColor: '#4CAF50', apiEndpoint: '/api/download/subsidy-details-list' },
+  { id: 'subsidy_list', title: '印領清冊', category: 'B. 經費與預算類', format: 'XLSX', formatColor: '#4CAF50', apiEndpoint: '/api/download/subsidy-list' },
   { id: 'payment_receipt', title: '領款收據', category: 'B. 經費與預算類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/payment-receipt' },
 
   // C. 設計與地籍類
-  { id: 'system_facility_design_drawings', title: '管路灌溉系統設施設計表', category: 'C. 設計與地籍類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/download/system-facility-design-drawings' },
-  { id: 'farm_lands_list', title: '土地清冊', category: 'C. 設計與地籍類', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/download/farm-lands-list' },
+  { id: 'system_facility_design_drawings', title: '管路灌溉系統設施設計表', category: 'C. 設計與地籍類', format: 'XLSX', formatColor: '#4CAF50', apiEndpoint: '/api/download/system-facility-design-drawings' },
+  { id: 'farm_lands_list', title: '土地清冊', category: 'C. 設計與地籍類', format: 'XLSX', formatColor: '#4CAF50', apiEndpoint: '/api/download/farm-lands-list' },
 
   // D. 其他
-  { id: 'address_labels', title: '住址標籤', category: 'D. 其他', format: 'XLS', formatColor: '#4CAF50', apiEndpoint: '/api/download/address-labels' },
+  { id: 'address_labels', title: '住址標籤', category: 'D. 其他', format: 'XLSX', formatColor: '#4CAF50', apiEndpoint: '/api/download/address-labels' },
   { id: 'cover_page', title: '封面', category: 'D. 其他', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/cover-page' },
   { id: 'documents_package', title: '切結書、收據、結案申報書', category: 'D. 其他', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/documents-package' }
 ])
@@ -793,6 +793,9 @@ const handleDownload = async () => {
     switch (selectedFileType.value) {
       case 'photograph_carry_form':
         await downloadsService.downloadPhotographCarryForm(downloadRequest)
+        break
+      case 'budget_book':
+        await downloadsService.downloadBudgetBook(downloadRequest)
         break
       default:
         throw new Error(`尚未支援的檔案類型: ${selectedFileType.value}`)

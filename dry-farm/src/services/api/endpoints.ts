@@ -148,6 +148,7 @@ export const IRRIGATION_TYPES = {
 export const DOWNLOADS = {
   BASE: `${BASE}/download`,
   PHOTOGRAPH_CARRY_FORM: `${BASE}/download/photograph-carry-form`,
+  BUDGET_BOOK: `${BASE}/download/budget-book`,
   CHECK_DATA: `${BASE}/download/check-data`,
   TEST: `${BASE}/download/test`,
 }
