@@ -230,6 +230,81 @@
         </div>
       </v-col>
     </v-row>
+
+    <!-- 下載進度對話框 -->
+    <v-dialog
+      v-model="downloadDialog"
+      max-width="500px"
+      :persistent="downloading"
+    >
+      <v-card rounded="lg">
+        <v-card-title class="text-h6 pa-6 pb-2">
+          <v-icon
+            :icon="downloading ? 'mdi-download' : (downloadProgress === 100 ? 'mdi-check-circle' : 'mdi-alert-circle')"
+            :color="downloading ? '#3ea0a3' : (downloadProgress === 100 ? 'success' : 'error')"
+            class="mr-2"
+          />
+          {{ downloading ? '檔案下載中' : (downloadProgress === 100 ? '下載完成' : '下載失敗') }}
+        </v-card-title>
+
+        <v-card-text class="pa-6">
+          <div class="text-center">
+            <v-progress-circular
+              v-if="downloading || downloadProgress === 100"
+              :model-value="downloadProgress"
+              size="64"
+              width="4"
+              :color="downloadProgress === 100 ? 'success' : '#3ea0a3'"
+              class="mb-4"
+            >
+              {{ Math.round(downloadProgress) }}%
+            </v-progress-circular>
+
+            <v-icon
+              v-else
+              icon="mdi-alert-circle-outline"
+              color="error"
+              size="64"
+              class="mb-4"
+            />
+
+            <div class="text-body-1 mb-2">
+              {{ downloadStatus }}
+            </div>
+
+            <div
+              v-if="downloading && currentDownloadFile"
+              class="text-caption text-medium-emphasis"
+            >
+              正在準備 {{ currentDownloadFile.filename }} 檔案...
+            </div>
+          </div>
+        </v-card-text>
+
+        <!-- 操作按鈕 -->
+        <v-card-actions
+          v-if="!downloading"
+          class="pa-6 pt-0"
+        >
+          <v-spacer />
+          <v-btn
+            v-if="downloadProgress !== 100"
+            color="#3ea0a3"
+            variant="flat"
+            @click="retryDownload"
+          >
+            重新下載
+          </v-btn>
+          <v-btn
+            color="grey-darken-1"
+            variant="text"
+            @click="downloadDialog = false"
+          >
+            關閉
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -266,7 +341,12 @@ const error = ref('')
 const searchKeyword = ref('')
 const downloadingFiles = ref<string[]>([])
 
-// 移除預覽相關變數
+// 下載進度對話框相關變數
+const downloading = ref(false)
+const downloadDialog = ref(false)
+const downloadProgress = ref(0)
+const downloadStatus = ref('')
+const currentDownloadFile = ref<DownloadFile | null>(null)
 
 // 檔案清單資料
 const files = ref<DownloadFile[]>([])
@@ -402,15 +482,56 @@ const applyFilters = async () => {
 const downloadFile = async (file: DownloadFile) => {
   if (downloadingFiles.value.includes(file.id)) return
 
+  // 設定當前下載檔案和開啟對話框
+  currentDownloadFile.value = file
+  downloading.value = true
+  downloadDialog.value = true
+  downloadProgress.value = 0
+  downloadStatus.value = '準備下載...'
+
   downloadingFiles.value.push(file.id)
+
   try {
+    // 第一階段：準備工作
+    downloadProgress.value = 20
+    downloadStatus.value = '正在驗證檔案...'
+    await new Promise(resolve => setTimeout(resolve, 300))
+
+    downloadProgress.value = 40
+    downloadStatus.value = '建立下載連線...'
+    await new Promise(resolve => setTimeout(resolve, 300))
+
+    downloadProgress.value = 60
+    downloadStatus.value = `正在下載 ${file.filename}...`
+    await new Promise(resolve => setTimeout(resolve, 200))
+
+    // 實際下載
     await downloadsService.downloadStaticFile(file.id, file.filename)
-    console.log('下載檔案:', file.filename)
+
+    // 下載完成
+    downloadProgress.value = 90
+    downloadStatus.value = '檔案已生成，正在啟動下載...'
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    downloadProgress.value = 100
+    downloadStatus.value = '檔案已送至瀏覽器，請查看下載管理器'
+
+    console.log('下載檔案成功:', file.filename)
   } catch (downloadError) {
-    error.value = `下載檔案 ${file.filename} 失敗`
     console.error('下載檔案失敗:', downloadError)
+    downloadStatus.value = `下載 ${file.filename} 失敗，請稍後再試`
+    downloadProgress.value = 0
+    // 保持對話框開啟，讓用戶看到錯誤訊息
   } finally {
+    downloading.value = false
     downloadingFiles.value = downloadingFiles.value.filter(id => id !== file.id)
+  }
+}
+
+// 重新下載功能
+const retryDownload = async () => {
+  if (currentDownloadFile.value) {
+    await downloadFile(currentDownloadFile.value)
   }
 }
 
@@ -550,5 +671,12 @@ onMounted(async () => {
 .format-chip:disabled {
   cursor: not-allowed !important;
   opacity: 0.5 !important;
+}
+
+/* 下載進度對話框樣式 */
+.v-dialog .v-card {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
 }
 </style>
