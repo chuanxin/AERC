@@ -1,4 +1,4 @@
-from src.config.upload_mappings import settings
+from src.config.folder_mappings import settings
 from pathlib import Path
 import uuid
 

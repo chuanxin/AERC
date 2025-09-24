@@ -5,7 +5,7 @@ import tempfile
 from datetime import datetime
 from typing import List, Dict, Any
 from pathlib import Path
-from src.config.upload_mappings import settings
+from src.config.folder_mappings import settings
 
 class ExcelGeneratorService:
     """Excel 文件生成服務 - 基於範本驅動架構生成 .xlsx 檔案"""
