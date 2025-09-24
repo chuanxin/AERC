@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
 
-class UploadMappingsConfig:
-    """環境配置 - 統一路徑管理"""
+class FolderMappingsConfig:
+    """資料夾配置 - 統一路徑管理"""
     
     def __init__(self):
         self.environment = self._detect_environment()
@@ -22,7 +22,7 @@ class UploadMappingsConfig:
         """根據環境設置路徑"""
         if self.environment == "production":
             # Windows 部署環境
-            current_file = Path(__file__)  # api/src/config/upload_mappings.py
+            current_file = Path(__file__)  # api/src/config/folder_mappings.py
             api_dir = current_file.parent.parent.parent  # api/
             app_dir = api_dir.parent  # app/
             deploy_root = app_dir.parent  # AERC-Deploy/
@@ -38,6 +38,7 @@ class UploadMappingsConfig:
         
         # 統一的子目錄結構
         self.uploads_dir = self.data_root / "uploads"
+        self.downloads_dir = self.data_root / "downloads"
         self.backups_dir = self.data_root / "backups"
         self.temp_dir = self.data_root / "temp"
         self.templates_dir = self.data_root / "templates"
@@ -47,7 +48,7 @@ class UploadMappingsConfig:
     
     def _ensure_directories(self):
         """確保目錄存在"""
-        for directory in [self.uploads_dir, self.backups_dir, self.temp_dir, self.templates_dir]:
+        for directory in [self.uploads_dir, self.downloads_dir, self.backups_dir, self.temp_dir, self.templates_dir]:
             directory.mkdir(parents=True, exist_ok=True)
     
     def _setup_file_settings(self):
@@ -74,4 +75,4 @@ class UploadMappingsConfig:
         return template_path
 
 # 全域配置實例
-settings = UploadMappingsConfig()
+settings = FolderMappingsConfig()

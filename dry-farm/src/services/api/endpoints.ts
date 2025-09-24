@@ -151,4 +151,8 @@ export const DOWNLOADS = {
   BUDGET_BOOK: `${BASE}/download/budget-book`,
   CHECK_DATA: `${BASE}/download/check-data`,
   TEST: `${BASE}/download/test`,
+  // 靜態檔案下載端點
+  STATIC_FILES_LIST: `${BASE}/download/static-files`,
+  STATIC_FILE_DOWNLOAD: (fileId: string) => `${BASE}/download/static-file/${fileId}`,
+  STATIC_FILES_BATCH: `${BASE}/download/static-files/batch`,
 }
