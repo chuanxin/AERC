@@ -6,9 +6,24 @@ from src.database.models import Grants, GrantVersions, Users
 from src.auth.jwthandler import get_current_user
 from src.services.excel_generator import ExcelGeneratorService
 from src.services.budget_pdf_generator import BudgetPDFGenerator, extract_grant_budget_data
+from src.schemas.static_downloads import (
+    StaticDownloadsListResponse,
+    StaticDownloadsFilterRequest,
+    FileGroup,
+    StaticFileInfo,
+    BatchDownloadRequest
+)
+from src.config.folder_mappings import settings
 import os
 import tempfile
 import re
+import hashlib
+from urllib.parse import quote
+from datetime import datetime
+from pathlib import Path
+import mimetypes
+import zipfile
+from collections import defaultdict
 
 router = APIRouter(prefix="/download", tags=["File Downloads"])
 
@@ -97,11 +112,14 @@ async def download_photograph_carry_form(
         filename = f"photograph_carry_form_{request.year}.xlsx"
 
         # 返回檔案
+        # 正確的中文檔名編碼處理
+        encoded_filename = quote(filename, safe='')
+
         return FileResponse(
             path=excel_file_path,
             filename=filename,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
         )
 
     except HTTPException:
@@ -230,12 +248,15 @@ async def download_budget_book(
             # 生成下載檔名
             filename = f"budget_book_{grant_data['case_number']}_{request.year}.pdf"
 
+            # 正確的中文檔名編碼處理
+            encoded_filename = quote(filename, safe='')
+
             # 返回檔案
             return FileResponse(
                 path=pdf_file_path,
                 filename=filename,
                 media_type="application/pdf",
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
+                headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
             )
 
         else:
@@ -273,12 +294,15 @@ async def download_budget_book(
                 if request.case_number_start or request.case_number_end:
                     zip_filename = f"budget_books_{request.year}_{request.case_number_start or 'start'}-{request.case_number_end or 'end'}.zip"
 
+                # 正確的中文檔名編碼處理
+                encoded_zip_filename = quote(zip_filename, safe='')
+
                 # 返回ZIP檔案
                 return FileResponse(
                     path=temp_zip.name,
                     filename=zip_filename,
                     media_type="application/zip",
-                    headers={"Content-Disposition": f"attachment; filename={zip_filename}"}
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_zip_filename}"}
                 )
 
             finally:
@@ -295,4 +319,357 @@ async def download_budget_book(
 @router.get("/test")
 async def test_download_endpoint():
     """測試下載端點是否正常"""
-    return {"message": "下載服務正常運作", "available_types": ["photograph-carry-form", "budget-book"]}
+    return {"message": "下載服務正常運作", "available_types": ["photograph-carry-form", "budget-book", "static-files"]}
+
+# === 靜態檔案下載 API ===
+
+# 格式優先級排序（全域常數）
+FORMAT_PRIORITY = {
+    'csv': 1, 'doc': 2, 'docx': 3, 'odt': 4, 'pdf': 5, 'ppt': 6, 'pptx': 7,
+    'txt': 8, 'xls': 9, 'xlsx': 10, 'zip': 11, 'rar': 12, 'jpg': 13,
+    'jpeg': 14, 'png': 15, 'gif': 16, 'mp4': 17, 'avi': 18
+}
+
+def _get_format_sort_key(file_info):
+    """取得格式排序鍵值"""
+    format_lower = file_info["format"].lower()
+    return (FORMAT_PRIORITY.get(format_lower, 999), format_lower)
+
+def _scan_downloads_directory() -> dict:
+    """掃描 downloads 目錄並分析檔案結構"""
+    downloads_path = Path(settings.downloads_dir)
+
+    if not downloads_path.exists():
+        return {"files": [], "file_groups": {}}
+
+    files = []
+    file_groups = defaultdict(list)
+
+    # 掃描所有檔案
+    for file_path in downloads_path.rglob("*"):
+        if file_path.is_file():
+            try:
+                stat_info = file_path.stat()
+                base_name = file_path.stem
+                format_ext = file_path.suffix.lower().lstrip('.')
+
+                # 生成檔案ID（基於檔案路徑的hash）
+                file_id = hashlib.md5(str(file_path.relative_to(downloads_path)).encode()).hexdigest()
+
+                # 推測檔案類型
+                category = _categorize_file(file_path.name, format_ext)
+
+                file_info = {
+                    "id": file_id,
+                    "base_name": base_name,
+                    "filename": file_path.name,
+                    "format": format_ext,
+                    "size": stat_info.st_size,
+                    "created_at": datetime.fromtimestamp(stat_info.st_ctime),
+                    "modified_at": datetime.fromtimestamp(stat_info.st_mtime),
+                    "category": category,
+                    "description": None,
+                    "download_url": f"/download/static-file/{file_id}",
+                    "file_path": file_path  # 內部使用
+                }
+
+                files.append(file_info)
+                file_groups[base_name].append(file_info)
+
+            except Exception as e:
+                print(f"掃描檔案失敗 {file_path}: {e}")
+                continue
+
+    # 對每個群組內的檔案進行排序
+    for base_name, group_files in file_groups.items():
+        group_files.sort(key=_get_format_sort_key)
+
+    return {"files": files, "file_groups": file_groups}
+
+def _categorize_file(filename: str, format_ext: str) -> str:
+    """根據檔名和格式推測檔案類型"""
+    filename_lower = filename.lower()
+
+    # 根據檔名關鍵字分類
+    if any(keyword in filename_lower for keyword in ['統計', '報表', 'report', 'statistics']):
+        return '統計報表'
+    elif any(keyword in filename_lower for keyword in ['材料', 'material', '清單', 'list']):
+        return '材料清單'
+    elif any(keyword in filename_lower for keyword in ['表單', '範本', 'form', 'template']):
+        return '表單範本'
+    elif any(keyword in filename_lower for keyword in ['gis', '地圖', 'map', '圖層']):
+        return 'GIS資料'
+    elif any(keyword in filename_lower for keyword in ['系統', 'system', '文件', 'document']):
+        return '系統文件'
+    elif any(keyword in filename_lower for keyword in ['說明', 'manual', '手冊', 'guide']):
+        return '說明文件'
+
+    # 根據格式分類
+    if format_ext in ['pdf']:
+        return '文件資料'
+    elif format_ext in ['xlsx', 'xls', 'csv']:
+        return '表格資料'
+    elif format_ext in ['doc', 'docx']:
+        return '文字文件'
+    elif format_ext in ['zip', 'rar']:
+        return '壓縮檔案'
+    elif format_ext in ['jpg', 'jpeg', 'png', 'gif']:
+        return '圖像檔案'
+
+    return '其他檔案'
+
+@router.post("/static-files")
+async def list_static_files(
+    filter_request: StaticDownloadsFilterRequest,
+    current_user: Users = Depends(get_current_user)
+):
+    """取得靜態下載檔案清單"""
+    try:
+        scan_result = _scan_downloads_directory()
+        files = scan_result["files"]
+        file_groups_dict = scan_result["file_groups"]
+
+        # 建構檔案群組
+        file_groups = []
+        for base_name, group_files in file_groups_dict.items():
+            # 排序檔案（使用全域格式優先級）
+            group_files.sort(key=_get_format_sort_key)
+
+            # 找出最新修改時間（用於 latest_modified）
+            latest_modified = max(group_files, key=lambda x: x["modified_at"])["modified_at"]
+
+            # 建立群組
+            group = FileGroup(
+                base_name=base_name,
+                display_name=base_name,
+                formats=[StaticFileInfo(**file_info) for file_info in group_files],
+                category=group_files[0]["category"],  # 使用第一個檔案的分類
+                description=None,
+                total_files=len(group_files),
+                latest_modified=latest_modified
+            )
+            file_groups.append(group)
+
+        # 套用篩選
+        filtered_groups = file_groups
+
+        # 類型篩選
+        if filter_request.category:
+            filtered_groups = [g for g in filtered_groups if g.category == filter_request.category]
+
+        # 格式篩選
+        if filter_request.format:
+            filtered_groups = [g for g in filtered_groups
+                             if any(f.format == filter_request.format for f in g.formats)]
+
+        # 關鍵字搜尋
+        if filter_request.search_keyword:
+            keyword = filter_request.search_keyword.lower()
+            filtered_groups = [g for g in filtered_groups
+                             if keyword in g.base_name.lower() or
+                                keyword in (g.description or "").lower() or
+                                keyword in g.category.lower()]
+
+        # TODO: 實作時間範圍篩選
+        if filter_request.date_range:
+            pass  # 暫時跳過時間篩選實作
+
+        # 排序（按最新修改時間）
+        filtered_groups.sort(key=lambda x: x.latest_modified, reverse=True)
+
+        # 收集所有類型
+        categories = list(set(group.category for group in file_groups if group.category))
+        categories.sort()
+
+        return StaticDownloadsListResponse(
+            file_groups=filtered_groups,
+            total_groups=len(filtered_groups),
+            total_files=sum(group.total_files for group in filtered_groups),
+            categories=categories
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"掃描檔案失敗: {str(e)}")
+
+def _validate_file_security(file_path: Path) -> bool:
+    """檔案安全性驗證"""
+    try:
+        downloads_path = Path(settings.downloads_dir).resolve()
+        file_path_resolved = file_path.resolve()
+
+        # 確保檔案路徑在 downloads_dir 範圍內（防止路徑遍歷攻擊）
+        if not str(file_path_resolved).startswith(str(downloads_path)):
+            return False
+
+        # 確保檔案存在且為一般檔案
+        if not file_path_resolved.exists() or not file_path_resolved.is_file():
+            return False
+
+        # 檔案大小限制（100MB）
+        max_size = 100 * 1024 * 1024
+        if file_path_resolved.stat().st_size > max_size:
+            return False
+
+        return True
+    except Exception:
+        return False
+
+@router.get("/static-file/{file_id}")
+async def download_static_file(
+    file_id: str,
+    current_user: Users = Depends(get_current_user)
+):
+    """下載靜態檔案"""
+    try:
+        # 輸入驗證
+        if not file_id or len(file_id) != 32 or not file_id.isalnum():
+            raise HTTPException(status_code=400, detail="無效的檔案識別碼")
+
+        scan_result = _scan_downloads_directory()
+        files = scan_result["files"]
+
+        # 尋找對應檔案
+        target_file = None
+        for file_info in files:
+            if file_info["id"] == file_id:
+                target_file = file_info
+                break
+
+        if not target_file:
+            raise HTTPException(status_code=404, detail="檔案不存在")
+
+        file_path = target_file["file_path"]
+
+        # 安全性檢查
+        if not _validate_file_security(file_path):
+            raise HTTPException(status_code=403, detail="檔案存取被拒絕")
+
+        # 獲取安全的 MIME 類型
+        mime_type = mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
+
+        # 防止執行檔下載
+        dangerous_mimetypes = [
+            'application/x-executable',
+            'application/x-msdos-program',
+            'application/x-msdownload',
+            'application/x-bat'
+        ]
+        if mime_type in dangerous_mimetypes:
+            raise HTTPException(status_code=403, detail="不允許下載此類型檔案")
+
+        # 安全的檔案名稱處理
+        safe_filename = target_file["filename"].replace('../', '').replace('..\\', '')
+
+        # 正確的中文檔名編碼處理
+        encoded_filename = quote(safe_filename, safe='')
+
+        return FileResponse(
+            path=str(file_path),
+            filename=safe_filename,
+            media_type=mime_type,
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}",
+                "X-Content-Type-Options": "nosniff",
+                "X-Frame-Options": "DENY",
+                "Cache-Control": "no-cache, no-store, must-revalidate"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"下載檔案錯誤: {str(e)}")
+        raise HTTPException(status_code=500, detail="下載檔案失敗")
+
+@router.post("/static-files/batch")
+async def batch_download_static_files(
+    request: BatchDownloadRequest,
+    current_user: Users = Depends(get_current_user)
+):
+    """批量下載靜態檔案"""
+    try:
+        # 輸入驗證
+        if not request.file_ids:
+            raise HTTPException(status_code=400, detail="未指定要下載的檔案")
+
+        if len(request.file_ids) > 50:
+            raise HTTPException(status_code=400, detail="一次最多只能下載50個檔案")
+
+        # 驗證所有檔案ID格式
+        for file_id in request.file_ids:
+            if not file_id or len(file_id) != 32 or not file_id.isalnum():
+                raise HTTPException(status_code=400, detail="無效的檔案識別碼")
+
+        scan_result = _scan_downloads_directory()
+        files = scan_result["files"]
+
+        # 尋找對應檔案並進行安全性檢查
+        target_files = []
+        total_size = 0
+        max_total_size = 500 * 1024 * 1024  # 500MB 總限制
+
+        for file_info in files:
+            if file_info["id"] in request.file_ids:
+                file_path = file_info["file_path"]
+
+                # 安全性檢查
+                if not _validate_file_security(file_path):
+                    continue
+
+                target_files.append(file_info)
+                total_size += file_info["size"]
+
+                # 檢查總檔案大小限制
+                if total_size > max_total_size:
+                    raise HTTPException(status_code=413, detail="選取檔案總大小超出限制")
+
+        if not target_files:
+            raise HTTPException(status_code=404, detail="找不到可下載的檔案")
+
+        # 建立臨時ZIP檔案
+        temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip', prefix='aerc_batch_')
+        temp_zip.close()
+
+        try:
+            with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for file_info in target_files:
+                    file_path = file_info["file_path"]
+                    # 安全的檔案名稱處理
+                    safe_filename = file_info["filename"].replace('../', '').replace('..\\', '')
+                    zip_file.write(str(file_path), safe_filename)
+
+            # 安全的下載檔名處理
+            download_name = request.download_name or f"batch_download_{len(target_files)}files"
+            download_name = download_name.replace('../', '').replace('..\\', '')
+            if not download_name.endswith('.zip'):
+                download_name += '.zip'
+
+            # 正確的中文檔名編碼處理
+            encoded_download_name = quote(download_name, safe='')
+
+            return FileResponse(
+                path=temp_zip.name,
+                filename=download_name,
+                media_type="application/zip",
+                headers={
+                    "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_download_name}",
+                    "X-Content-Type-Options": "nosniff",
+                    "X-Frame-Options": "DENY",
+                    "Cache-Control": "no-cache, no-store, must-revalidate"
+                }
+            )
+
+        except Exception as e:
+            # 清理臨時檔案
+            if os.path.exists(temp_zip.name):
+                try:
+                    os.unlink(temp_zip.name)
+                except Exception:
+                    pass
+            raise e
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"批量下載錯誤: {str(e)}")
+        raise HTTPException(status_code=500, detail="批量下載失敗")

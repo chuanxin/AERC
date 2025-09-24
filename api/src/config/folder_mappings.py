@@ -38,6 +38,7 @@ class FolderMappingsConfig:
         
         # 統一的子目錄結構
         self.uploads_dir = self.data_root / "uploads"
+        self.downloads_dir = self.data_root / "downloads"
         self.backups_dir = self.data_root / "backups"
         self.temp_dir = self.data_root / "temp"
         self.templates_dir = self.data_root / "templates"
@@ -47,7 +48,7 @@ class FolderMappingsConfig:
     
     def _ensure_directories(self):
         """確保目錄存在"""
-        for directory in [self.uploads_dir, self.backups_dir, self.temp_dir, self.templates_dir]:
+        for directory in [self.uploads_dir, self.downloads_dir, self.backups_dir, self.temp_dir, self.templates_dir]:
             directory.mkdir(parents=True, exist_ok=True)
     
     def _setup_file_settings(self):

@@ -101,6 +101,9 @@ export const BACKEND_PATHS = {
     PHOTOGRAPH_CARRY_FORM: '/download/photograph-carry-form',
     BUDGET_BOOK: '/download/budget-book',
     CHECK_DATA: '/download/check-data',
+    STATIC_FILES_LIST: '/download/static-files',
+    STATIC_FILE_DOWNLOAD: (fileId: string) => `/download/static-file/${fileId}`,
+    STATIC_FILES_BATCH: '/download/static-files/batch',
     TEST: '/download/test',
   }
 };
@@ -138,6 +141,8 @@ export const API_MAPPING: Record<string, string> = {
   [DOWNLOADS.PHOTOGRAPH_CARRY_FORM]: BACKEND_PATHS.DOWNLOADS.PHOTOGRAPH_CARRY_FORM,
   [DOWNLOADS.BUDGET_BOOK]: BACKEND_PATHS.DOWNLOADS.BUDGET_BOOK,
   [DOWNLOADS.CHECK_DATA]: BACKEND_PATHS.DOWNLOADS.CHECK_DATA,
+  [DOWNLOADS.STATIC_FILES_LIST]: BACKEND_PATHS.DOWNLOADS.STATIC_FILES_LIST,
+  [DOWNLOADS.STATIC_FILES_BATCH]: BACKEND_PATHS.DOWNLOADS.STATIC_FILES_BATCH,
   [DOWNLOADS.TEST]: BACKEND_PATHS.DOWNLOADS.TEST,
 }
 
@@ -169,6 +174,11 @@ export const DYNAMIC_PATH_PATTERNS = [
   {
     pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PF_ANNUAL_PRICES.DETAIL(matches[1])
+  },
+  {
+    // 匹配靜態檔案下載路徑 {API_PREFIX}/download/static-file/{fileId}
+    pattern: new RegExp(`^${DOWNLOADS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/static-file/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.DOWNLOADS.STATIC_FILE_DOWNLOAD(matches[1])
   }
 ];
 

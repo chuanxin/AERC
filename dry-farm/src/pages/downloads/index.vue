@@ -1,7 +1,7 @@
 <template>
   <v-container
     fluid
-    class="downloads-container px-6 pb-0 pt-0"
+    class="downloads-container px-6 pb-0 pt-11"
     style="background-color: white"
   >
     <!-- 標題區域 -->
@@ -16,7 +16,7 @@
         <div class="d-flex flex-wrap align-center pr-2">
           <v-spacer />
           <div class="d-flex gap-2">
-            <v-btn
+            <!-- <v-btn
               class="action-btn"
               color="#3ea0a3"
               prepend-icon="mdi-refresh"
@@ -40,7 +40,7 @@
               @click="batchDownload"
             >
               批量下載 {{ selectedFiles.length > 0 ? `(${selectedFiles.length})` : '' }}
-            </v-btn>
+            </v-btn> -->
           </div>
         </div>
         <div class="section-wrapper">
@@ -51,7 +51,7 @@
           >
             <v-card-item class="custom-title">
               <v-card-title class="text-h5 font-weight-black">
-                文件下載中心
+                文件清單
               </v-card-title>
             </v-card-item>
 
@@ -76,7 +76,7 @@
 
                   <!-- 篩選區域 -->
                   <div class="d-flex flex-wrap">
-                    <v-select
+                    <!-- <v-select
                       v-model="selectedCategory"
                       :items="categoryOptions"
                       label="文件類型"
@@ -117,7 +117,7 @@
                       bg-color="white"
                       rounded="lg"
                       @update:model-value="applyFilters"
-                    />
+                    /> -->
                     <v-text-field
                       v-model="searchKeyword"
                       density="comfortable"
@@ -142,7 +142,6 @@
                 elevation="0"
               >
                 <v-data-table-virtual
-                  v-model:selected="selectedFiles"
                   fixed-header
                   :headers="headers"
                   :items="filteredFiles"
@@ -150,16 +149,8 @@
                   :height="500"
                   density="comfortable"
                   item-value="id"
-                  show-select
                   class="downloads-table rounded-lg"
                 >
-                  <!-- 自定義表頭：選取欄 -->
-                  <template #[`header.data-table-select`]>
-                    <div class="d-flex align-center">
-                      <span class="ml-2 text-subtitle-2 font-weight-medium">選取</span>
-                    </div>
-                  </template>
-
                   <!-- 檔案名稱欄位 -->
                   <template #[`item.filename`]="{ item }">
                     <div class="d-flex align-center">
@@ -173,82 +164,42 @@
                     </div>
                   </template>
 
-                  <!-- 文件類型欄位 -->
-                  <template #[`item.category`]="{ item }">
-                    <v-chip
-                      :color="getCategoryColor(item.category)"
-                      variant="flat"
-                      size="small"
-                      label
-                      class="font-weight-medium"
-                    >
-                      {{ item.category }}
-                    </v-chip>
+                  <!-- 可用格式欄位 (可點擊下載) -->
+                  <template #[`item.formats`]="{ item }">
+                    <div class="d-flex flex-wrap justify-center">
+                      <v-chip
+                        v-for="format in (item.availableFormats || [])"
+                        :key="format.id"
+                        variant="outlined"
+                        label
+                        class="font-weight-medium format-chip mx-2"
+                        :color="getFileIconColor(format.format)"
+                        :loading="downloadingFiles.includes(format.id)"
+                        :disabled="downloadingFiles.includes(format.id)"
+                        @click="downloadFile({...item, id: format.id, filename: format.filename, format: format.format})"
+                      >
+                        <v-icon
+                          :icon="getFileIcon(format.format)"
+                          size="x-small"
+                          class="mr-1"
+                        />
+                        {{ format.format.toUpperCase() }}
+                        <span class="text-caption ml-1">({{ formatFileSize(format.size) }})</span>
+                      </v-chip>
+                    </div>
                   </template>
 
-                  <!-- 檔案大小欄位 -->
-                  <template #[`item.size`]="{ item }">
-                    <span class="text-body-2">{{ formatFileSize(item.size) }}</span>
-                  </template>
-
-                  <!-- 建立時間欄位 -->
+                  <!-- 最後更新時間欄位 -->
                   <template #[`item.createdAt`]="{ item }">
                     <span class="text-body-2">{{ formatDateTime(item.createdAt) }}</span>
                   </template>
 
-                  <!-- 狀態欄位 -->
-                  <template #[`item.status`]="{ item }">
-                    <v-chip
-                      :color="getStatusColor(item.status)"
-                      variant="flat"
-                      size="small"
-                      label
-                      class="font-weight-medium"
-                    >
-                      {{ item.status }}
-                    </v-chip>
-                  </template>
-
-                  <!-- 操作按鈕 -->
-                  <template #[`item.actions`]="{ item }">
-                    <div class="ma-0 pa-0 d-flex gap-2 justify-end">
-                      <v-btn
-                        icon="mdi-eye"
-                        size="small"
-                        color="#3ea0a3"
-                        variant="text"
-                        title="預覽檔案"
-                        :disabled="!canPreview(item.format)"
-                        @click="handlePreviewFile(item)"
-                      />
-                      <v-btn
-                        icon="mdi-download"
-                        size="small"
-                        color="success"
-                        variant="text"
-                        title="下載檔案"
-                        :loading="downloadingFiles.includes(item.id)"
-                        @click="downloadFile(item)"
-                      />
-                      <v-btn
-                        icon="mdi-delete"
-                        size="small"
-                        color="error"
-                        variant="text"
-                        title="刪除檔案"
-                        @click="deleteFile(item)"
-                      />
-                    </div>
-                  </template>
 
                   <!-- 表格底部 -->
                   <template #bottom>
                     <div class="d-flex align-center pa-3">
                       <span class="text-body-2 text-medium-emphasis">
-                        共 {{ filteredFiles.length }} 筆檔案
-                        <span v-if="selectedFiles.length > 0">
-                          （已選取 {{ selectedFiles.length }} 筆）
-                        </span>
+                        共 {{ filteredFiles.length }} 個檔案
                       </span>
                       <v-spacer />
                       <div
@@ -271,7 +222,7 @@
                   size="small"
                 />
                 <span class="text-caption text-medium-emphasis">
-                  點擊「預覽」按鈕可查看檔案內容（限支援格式），「下載」按鈕可下載單一檔案，「刪除」按鈕將永久移除檔案
+                  直接點擊格式標籤進行下載
                 </span>
               </div>
             </v-card-text>
@@ -279,125 +230,20 @@
         </div>
       </v-col>
     </v-row>
-
-    <!-- 檔案預覽對話框 -->
-    <v-dialog
-      v-model="previewDialog"
-      max-width="800px"
-      persistent
-    >
-      <v-card rounded="lg">
-        <v-card-title class="text-h5 pa-6 pb-2">
-          <v-icon
-            icon="mdi-eye"
-            color="#3ea0a3"
-            class="mr-2"
-          />
-          檔案預覽
-          <v-spacer />
-          <v-btn
-            icon="mdi-close"
-            variant="text"
-            @click="previewDialog = false"
-          />
-        </v-card-title>
-
-        <v-card-text class="pa-6">
-          <div
-            v-if="currentPreviewFile"
-            class="mb-4"
-          >
-            <div class="d-flex align-center mb-3">
-              <v-icon
-                :icon="getFileIcon(currentPreviewFile.format)"
-                :color="getFileIconColor(currentPreviewFile.format)"
-                class="mr-2"
-              />
-              <div>
-                <div class="text-subtitle-1 font-weight-bold">
-                  {{ currentPreviewFile.filename }}
-                </div>
-                <div class="text-caption text-medium-emphasis">
-                  {{ formatFileSize(currentPreviewFile.size) }} • {{ currentPreviewFile.format }} • {{ formatDateTime(currentPreviewFile.createdAt) }}
-                </div>
-              </div>
-            </div>
-
-            <!-- 預覽內容區域 -->
-            <div
-              class="preview-content"
-              style="min-height: 300px; border: 1px solid #e0e0e0; border-radius: 4px; padding: 16px;"
-            >
-              <div
-                v-if="previewLoading"
-                class="d-flex justify-center align-center"
-                style="height: 300px;"
-              >
-                <v-progress-circular
-                  indeterminate
-                  color="#3ea0a3"
-                />
-                <span class="ml-2">載入預覽中...</span>
-              </div>
-              <div
-                v-else-if="previewError"
-                class="d-flex justify-center align-center"
-                style="height: 300px;"
-              >
-                <div class="text-center">
-                  <v-icon
-                    icon="mdi-alert-circle"
-                    color="error"
-                    size="large"
-                    class="mb-2"
-                  />
-                  <div class="text-body-1">
-                    無法預覽此檔案
-                  </div>
-                  <div class="text-caption text-medium-emphasis">
-                    {{ previewError }}
-                  </div>
-                </div>
-              </div>
-              <div
-                v-else
-                class="preview-display"
-              >
-                <!-- 這裡可以根據檔案類型顯示不同的預覽內容 -->
-                <div class="text-body-2">
-                  預覽內容將在此顯示...
-                </div>
-              </div>
-            </div>
-          </div>
-        </v-card-text>
-
-        <v-card-actions class="pa-6 pt-0">
-          <v-spacer />
-          <v-btn
-            variant="outlined"
-            @click="previewDialog = false"
-          >
-            關閉
-          </v-btn>
-          <v-btn
-            color="#3ea0a3"
-            variant="flat"
-            prepend-icon="mdi-download"
-            @click="currentPreviewFile && downloadFile(currentPreviewFile)"
-          >
-            下載檔案
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </v-container>
 </template>
 
 <script lang="ts" setup>
 import { ref, computed, onMounted } from 'vue'
 
-// 定義檔案資料介面
+// 引入整合的下載服務
+import downloadsService, {
+  type FileGroup,
+  type StaticFileInfo,
+  type StaticDownloadsFilterRequest
+} from '@/services/downloadsService'
+
+// 定義檔案資料介面（適配前端顯示）
 interface DownloadFile {
   id: string
   filename: string
@@ -408,135 +254,53 @@ interface DownloadFile {
   status: string
   downloadUrl: string
   description?: string
+  // 新增格式相關欄位
+  baseFileName: string
+  availableFormats?: StaticFileInfo[]
+  fileGroup?: FileGroup
 }
 
 // 響應式資料
 const loading = ref(false)
-const refreshing = ref(false)
-const batchDownloading = ref(false)
 const error = ref('')
 const searchKeyword = ref('')
-const selectedCategory = ref<string | null>(null)
-const selectedFormat = ref<string | null>(null)
-const selectedDateRange = ref<string | null>(null)
-const selectedFiles = ref<string[]>([])
 const downloadingFiles = ref<string[]>([])
 
-// 預覽對話框相關
-const previewDialog = ref(false)
-const currentPreviewFile = ref<DownloadFile | null>(null)
-const previewLoading = ref(false)
-const previewError = ref('')
+// 移除預覽相關變數
 
 // 檔案清單資料
-const files = ref<DownloadFile[]>([
-  {
-    id: '1',
-    filename: '申請案件統計報表_113年.xlsx',
-    category: '統計報表',
-    format: 'xlsx',
-    size: 1024000,
-    createdAt: '2024-03-15 14:30:00',
-    status: '可下載',
-    downloadUrl: '/api/downloads/1'
-  },
-  {
-    id: '2',
-    filename: '管路灌溉材料清單.pdf',
-    category: '材料清單',
-    format: 'pdf',
-    size: 512000,
-    createdAt: '2024-03-14 10:15:00',
-    status: '可下載',
-    downloadUrl: '/api/downloads/2'
-  },
-  {
-    id: '3',
-    filename: '補助申請表單範本.doc',
-    category: '表單範本',
-    format: 'doc',
-    size: 256000,
-    createdAt: '2024-03-13 16:45:00',
-    status: '可下載',
-    downloadUrl: '/api/downloads/3'
-  },
-  {
-    id: '4',
-    filename: 'GIS圖層資料_北區.zip',
-    category: 'GIS資料',
-    format: 'zip',
-    size: 5120000,
-    createdAt: '2024-03-12 09:20:00',
-    status: '處理中',
-    downloadUrl: '/api/downloads/4'
-  },
-])
+const files = ref<DownloadFile[]>([])
+const fileGroups = ref<FileGroup[]>([])
+const availableCategories = ref<string[]>([])
 
-// 篩選選項
-const categoryOptions = [
-  { title: '統計報表', value: '統計報表' },
-  { title: '材料清單', value: '材料清單' },
-  { title: '表單範本', value: '表單範本' },
-  { title: 'GIS資料', value: 'GIS資料' },
-  { title: '系統文件', value: '系統文件' },
-]
+// 靜態下載篩選請求
+const filterRequest = ref<StaticDownloadsFilterRequest>({
+  category: null,
+  format: null,
+  search_keyword: null,
+  date_range: null
+})
 
-const formatOptions = [
-  { title: 'PDF', value: 'pdf' },
-  { title: 'Excel', value: 'xlsx' },
-  { title: 'Word', value: 'doc' },
-  { title: 'ZIP', value: 'zip' },
-  { title: 'CSV', value: 'csv' },
-]
-
-const dateRangeOptions = [
-  { title: '今天', value: 'today' },
-  { title: '本週', value: 'week' },
-  { title: '本月', value: 'month' },
-  { title: '本季', value: 'quarter' },
-  { title: '本年', value: 'year' },
-]
+// 移除不再使用的篩選選項
 
 // 表格標題
 const headers = ref([
   { title: '檔案名稱', key: 'filename', align: 'start' as const },
-  { title: '文件類型', key: 'category', align: 'center' as const },
-  { title: '格式', key: 'format', align: 'center' as const },
-  { title: '檔案大小', key: 'size', align: 'end' as const },
-  { title: '建立時間', key: 'createdAt', align: 'center' as const },
-  { title: '狀態', key: 'status', align: 'center' as const },
-  { title: '操作', key: 'actions', align: 'center' as const, sortable: false },
+  { title: '下載格式', key: 'formats', align: 'center' as const },
+  { title: '最後更新', key: 'createdAt', align: 'center' as const },
 ])
 
-// 計算屬性：過濾後的檔案清單
+// 計算屬性：過濾後的檔案清單（主要是關鍵字搜尋）
 const filteredFiles = computed(() => {
   let result = files.value
-
-  // 依類型篩選
-  if (selectedCategory.value) {
-    result = result.filter(file => file.category === selectedCategory.value)
-  }
-
-  // 依格式篩選
-  if (selectedFormat.value) {
-    result = result.filter(file => file.format === selectedFormat.value)
-  }
-
-  // 依時間範圍篩選
-  if (selectedDateRange.value) {
-    // TODO: 實作時間範圍篩選邏輯
-    // 這裡可以實作具體的時間範圍篩選邏輯
-    result = result.filter(() => {
-      return true
-    })
-  }
 
   // 依關鍵字搜尋
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase()
     result = result.filter(file =>
       file.filename.toLowerCase().includes(keyword) ||
-      file.category.toLowerCase().includes(keyword) ||
+      file.baseFileName.toLowerCase().includes(keyword) ||
+      file.category?.toLowerCase().includes(keyword) ||
       file.description?.toLowerCase().includes(keyword)
     )
   }
@@ -544,153 +308,95 @@ const filteredFiles = computed(() => {
   return result
 })
 
-// 工具函數：取得檔案圖示
-const getFileIcon = (format: string) => {
-  const iconMap: Record<string, string> = {
-    'pdf': 'mdi-file-pdf-box',
-    'xlsx': 'mdi-file-excel',
-    'xls': 'mdi-file-excel',
-    'doc': 'mdi-file-word',
-    'docx': 'mdi-file-word',
-    'zip': 'mdi-folder-zip',
-    'csv': 'mdi-file-delimited',
-    'txt': 'mdi-file-document',
-    'jpg': 'mdi-file-image',
-    'jpeg': 'mdi-file-image',
-    'png': 'mdi-file-image',
+// 資料轉換：將 FileGroup 轉換為前端顯示格式（每個群組只產生一筆記錄）
+const convertFileGroupsToFiles = (groups: FileGroup[]): DownloadFile[] => {
+  const convertedFiles: DownloadFile[] = []
+
+  // 定義格式優先級順序（與後端保持一致）
+  const FORMAT_PRIORITY: Record<string, number> = {
+    'csv': 1, 'doc': 2, 'docx': 3, 'odt': 19, 'ods': 20, 'pdf': 5, 'ppt': 6, 'pptx': 7,
+    'txt': 8, 'xls': 9, 'xlsx': 10, 'zip': 11, 'rar': 12, 'jpg': 13,
+    'jpeg': 14, 'png': 15, 'gif': 16, 'mp4': 17, 'avi': 18
   }
-  return iconMap[format.toLowerCase()] || 'mdi-file'
-}
 
-// 工具函數：取得檔案圖示顏色
-const getFileIconColor = (format: string) => {
-  const colorMap: Record<string, string> = {
-    'pdf': 'red',
-    'xlsx': 'green',
-    'xls': 'green',
-    'doc': 'blue',
-    'docx': 'blue',
-    'zip': 'orange',
-    'csv': 'teal',
-    'txt': 'grey',
-    'jpg': 'purple',
-    'jpeg': 'purple',
-    'png': 'purple',
-  }
-  return colorMap[format.toLowerCase()] || 'grey'
-}
+  groups.forEach(group => {
+    // 取最新的檔案作為主要檔案資訊
+    const latestFile = group.formats.sort((a, b) =>
+      new Date(b.modified_at).getTime() - new Date(a.modified_at).getTime()
+    )[0]
 
-// 工具函數：取得類型顏色
-const getCategoryColor = (category: string) => {
-  const colorMap: Record<string, string> = {
-    '統計報表': 'blue-lighten-4',
-    '材料清單': 'green-lighten-4',
-    '表單範本': 'orange-lighten-4',
-    'GIS資料': 'purple-lighten-4',
-    '系統文件': 'grey-lighten-4',
-  }
-  return colorMap[category] || 'grey-lighten-4'
-}
+    // 對格式進行統一排序
+    const sortedFormats = [...group.formats].sort((a, b) => {
+      const priorityA = FORMAT_PRIORITY[a.format.toLowerCase()] || 999
+      const priorityB = FORMAT_PRIORITY[b.format.toLowerCase()] || 999
+      return priorityA - priorityB
+    })
 
-// 工具函數：取得狀態顏色
-const getStatusColor = (status: string) => {
-  const colorMap: Record<string, string> = {
-    '可下載': 'green-lighten-4',
-    '處理中': 'orange-lighten-4',
-    '已過期': 'red-lighten-4',
-    '暫停下載': 'grey-lighten-4',
-  }
-  return colorMap[status] || 'grey-lighten-4'
-}
-
-// 工具函數：格式化檔案大小
-const formatFileSize = (bytes: number) => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-// 工具函數：格式化日期時間
-const formatDateTime = (dateString: string) => {
-  const date = new Date(dateString)
-  return date.toLocaleString('zh-TW', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
+    convertedFiles.push({
+      id: group.base_name, // 使用 base_name 作為 ID
+      filename: group.display_name || group.base_name,
+      category: group.category || '未分類',
+      format: group.formats.map(f => f.format).join(', '), // 顯示所有格式
+      size: 0, // 不再使用檔案大小欄位
+      createdAt: group.latest_modified,
+      status: '可下載',
+      downloadUrl: latestFile.download_url,
+      description: group.description || undefined,
+      baseFileName: group.base_name,
+      availableFormats: sortedFormats,
+      fileGroup: group
+    })
   })
+
+  return convertedFiles
 }
 
-// 工具函數：檢查是否可預覽
-const canPreview = (format: string) => {
-  const previewableFormats = ['pdf', 'txt', 'csv', 'jpg', 'jpeg', 'png']
-  return previewableFormats.includes(format.toLowerCase())
-}
+// 工具函數：使用整合的下載服務
+const getFileIcon = downloadsService.getFileIcon.bind(downloadsService)
+const getFileIconColor = downloadsService.getFileIconColor.bind(downloadsService)
+const formatFileSize = downloadsService.formatFileSize.bind(downloadsService)
+const formatDateTime = downloadsService.formatDateTime.bind(downloadsService)
 
-// 事件處理：重新整理
-const refreshDownloads = async () => {
-  refreshing.value = true
+// 移除不再使用的工具函數
+
+// 載入靜態檔案清單
+const loadStaticFiles = async () => {
   try {
-    // TODO: 實際呼叫 API 重新載入檔案清單
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log('重新整理檔案清單')
-  } catch (refreshError) {
-    error.value = '重新整理失敗，請稍後再試'
-    console.error('重新整理失敗:', refreshError)
+    loading.value = true
+    error.value = ''
+
+    // 同步篩選條件
+    filterRequest.value = {
+      category: null,
+      format: null,
+      search_keyword: searchKeyword.value,
+      date_range: null
+    }
+
+    const response = await downloadsService.getStaticFilesList(filterRequest.value)
+    fileGroups.value = response.file_groups
+    availableCategories.value = response.categories
+    files.value = convertFileGroupsToFiles(response.file_groups)
+
+    console.log(`載入 ${response.total_groups} 個檔案群組，${response.total_files} 個檔案`)
+  } catch (loadError) {
+    error.value = '載入檔案清單失敗，請稍後再試'
+    console.error('載入靜態檔案失敗:', loadError)
   } finally {
-    refreshing.value = false
+    loading.value = false
   }
 }
 
-// 事件處理：批量下載
-const batchDownload = async () => {
-  if (selectedFiles.value.length === 0) return
-
-  batchDownloading.value = true
-  try {
-    // TODO: 實際呼叫批量下載 API
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    console.log('批量下載檔案:', selectedFiles.value)
-
-    // 清除選取狀態
-    selectedFiles.value = []
-  } catch (batchError) {
-    error.value = '批量下載失敗，請稍後再試'
-    console.error('批量下載失敗:', batchError)
-  } finally {
-    batchDownloading.value = false
-  }
-}
+// 移除不再使用的批量下載功能
 
 // 事件處理：套用篩選
-const applyFilters = () => {
-  // 篩選邏輯已在 computed 中處理
+const applyFilters = async () => {
+  // 重新載入資料以套用篩選
+  await loadStaticFiles()
   console.log('套用篩選條件')
 }
 
-// 事件處理：預覽檔案
-const handlePreviewFile = async (file: DownloadFile) => {
-  if (!canPreview(file.format)) return
-
-  currentPreviewFile.value = file
-  previewDialog.value = true
-  previewLoading.value = true
-  previewError.value = ''
-
-  try {
-    // TODO: 實際呼叫 API 獲取預覽內容
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    console.log('預覽檔案:', file.filename)
-  } catch (error) {
-    previewError.value = '無法載入檔案預覽'
-    console.error('預覽檔案失敗:', error)
-  } finally {
-    previewLoading.value = false
-  }
-}
+// 移除預覽相關函數
 
 // 事件處理：下載檔案
 const downloadFile = async (file: DownloadFile) => {
@@ -698,17 +404,8 @@ const downloadFile = async (file: DownloadFile) => {
 
   downloadingFiles.value.push(file.id)
   try {
-    // TODO: 實際下載檔案邏輯
+    await downloadsService.downloadStaticFile(file.id, file.filename)
     console.log('下載檔案:', file.filename)
-
-    // 模擬下載
-    const link = document.createElement('a')
-    link.href = file.downloadUrl
-    link.download = file.filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
   } catch (downloadError) {
     error.value = `下載檔案 ${file.filename} 失敗`
     console.error('下載檔案失敗:', downloadError)
@@ -717,40 +414,12 @@ const downloadFile = async (file: DownloadFile) => {
   }
 }
 
-// 事件處理：刪除檔案
-const deleteFile = async (file: DownloadFile) => {
-  const confirmMessage = `確定要刪除檔案「${file.filename}」嗎？此操作無法撤銷。`
-
-  if (confirm(confirmMessage)) {
-    try {
-      // TODO: 實際呼叫刪除 API
-      console.log('刪除檔案:', file.filename)
-
-      // 從清單中移除
-      const index = files.value.findIndex(f => f.id === file.id)
-      if (index > -1) {
-        files.value.splice(index, 1)
-      }
-    } catch (deleteError) {
-      error.value = `刪除檔案 ${file.filename} 失敗`
-      console.error('刪除檔案失敗:', deleteError)
-    }
-  }
-}
+// 靜態檔案系統不支援刪除功能
+// const deleteFile = async (file: DownloadFile) => { ... }
 
 // 組件載入時初始化
 onMounted(async () => {
-  loading.value = true
-  try {
-    // TODO: 實際載入檔案清單 API
-    await new Promise(resolve => setTimeout(resolve, 500))
-    console.log('載入檔案清單完成')
-  } catch (loadError) {
-    error.value = '載入檔案清單失敗'
-    console.error('載入檔案清單失敗:', loadError)
-  } finally {
-    loading.value = false
-  }
+  await loadStaticFiles()
 })
 </script>
 
@@ -861,15 +530,25 @@ onMounted(async () => {
   }
 }
 
-/* 預覽內容樣式 */
-.preview-content {
-  background-color: #fafafa;
+/* 格式標籤樣式 */
+.format-chip {
+  cursor: pointer !important;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.preview-display {
-  font-family: monospace;
-  white-space: pre-wrap;
-  overflow-y: auto;
-  max-height: 400px;
+.format-chip:hover {
+  transform: translateY(-1px);
+  /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important; */
+  /* opacity: 0.9; */
+}
+
+.format-chip:active {
+  transform: translateY(0);
+}
+
+.format-chip:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.5 !important;
 }
 </style>
