@@ -806,7 +806,7 @@ const handleDownload = async () => {
 
     // 第四階段：完成
     downloadProgress.value = 100
-    downloadStatus.value = '檔案已送至瀏覽器，請查看下載管理器'
+    downloadStatus.value = '檔案已送出，請查看瀏覽器的下載紀錄'
 
   } catch (error) {
     console.error('下載失敗:', error)
