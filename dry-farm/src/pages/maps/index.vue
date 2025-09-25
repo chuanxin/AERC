@@ -927,9 +927,6 @@ const handleFilterChange = (event: { criteria: FilterCriteria; results: GeoJsonF
   // 更新地圖顯示
   updateLayersWithFilteredData();
 
-  // 更新 GIS store
-  gisStore.updateFeatures(event.results);
-
   // 顯示篩選結果提示
   if (event.criteria.quickFilter) {
     const message = `快速篩選「${event.criteria.quickFilter}」找到 ${event.resultCount} 筆結果`;
@@ -989,8 +986,9 @@ const toggleFluid = () => {
   });
 };
 
-const toggleLayers = () => {
+const toggleLayers = async () => {
   showLayersPanel.value = !showLayersPanel.value;
+  await nextTick();
 };
 
 const toggleSearchPanel = async () => {
@@ -1460,7 +1458,7 @@ const resetFilters = () => {
 const updateLayersWithFilteredData = () => {
   console.log('使用篩選後的資料更新圖層顯示');
 
-  if (!grantPointsLayer.value || !grantHeatmapLayer.value) {
+  if (!grantPointsLayer.value) {
     console.warn('圖層尚未初始化');
     return;
   }
