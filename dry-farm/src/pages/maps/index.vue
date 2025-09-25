@@ -34,7 +34,19 @@
         <!-- 地圖容器 -->
 
         <!-- 左上方篩選工具欄 -->
-        <div class="filter-toolbar-container">
+        <FilterToolbar
+          :all-features="allLoadedFeatures"
+          :statistics="statistics"
+          :loading="gisLoading"
+          :initial-criteria="getInitialFilterCriteria()"
+          :initial-expanded="false"
+          @filter-change="handleFilterChange"
+          @expanded-change="handleFilterExpanded"
+          @criteria-reset="handleFilterReset"
+        />
+
+        <!-- 舊版篩選工具欄（暫時保留作為備份） -->
+        <div class="filter-toolbar-container" style="display: none;">
           <v-expansion-panels
             v-model="expandedPanel"
             class="filter-expansion-panels"
@@ -930,6 +942,7 @@ import {
   getInitialOverlayLoadingParams as getInitialParams,
   type FilterCriteria
 } from '@/utils/frontendFilters';
+import FilterToolbar from './FilterToolbar.vue';
 
 // 定義圖層介面
 interface MapLayer {
@@ -1174,6 +1187,61 @@ const isProgrammaticZoom = ref(false);
 // 用於追蹤已載入的原始資料，供前端篩選使用
 const allLoadedFeatures = ref<GeoJsonFeature[]>([]);
 const filteredFeatures = ref<GeoJsonFeature[]>([]);
+
+// === FilterToolbar 事件處理 ===
+// 處理篩選變更事件
+const handleFilterChange = (event: { criteria: FilterCriteria; results: GeoJsonFeature[]; resultCount: number }) => {
+  // 更新篩選結果
+  filteredFeatures.value = event.results;
+
+  // 更新地圖顯示
+  updateLayersWithFilteredData();
+
+  // 更新 GIS store
+  gisStore.updateFeatures(event.results);
+
+  // 顯示篩選結果提示
+  if (event.criteria.quickFilter) {
+    const message = `快速篩選「${event.criteria.quickFilter}」找到 ${event.resultCount} 筆結果`;
+    showSnackbar.value = true;
+    snackbarMessage.value = message;
+  }
+};
+
+// 處理篩選面板展開/收合事件
+const handleFilterExpanded = (expanded: boolean) => {
+  // 可以在這裡處理面板狀態變更邏輯
+  console.log('篩選面板展開狀態:', expanded);
+};
+
+// 處理篩選重置事件
+const handleFilterReset = () => {
+  // 重新載入原始資料
+  if (allLoadedFeatures.value.length > 0) {
+    filteredFeatures.value = allLoadedFeatures.value;
+    updateLayersWithFilteredData();
+    gisStore.updateFeatures(allLoadedFeatures.value);
+  }
+
+  showSnackbar.value = true;
+  snackbarMessage.value = '篩選條件已重置';
+};
+
+// 獲取初始篩選條件
+const getInitialFilterCriteria = (): FilterCriteria => {
+  const initialParams = getInitialParams();
+  const currentYear = new Date().getFullYear() - 1911;
+
+  return {
+    applicantName: '',
+    landSection: '',
+    landNumber: '',
+    caseNumber: '',
+    sourceSystem: null,
+    yearStart: initialParams.apply_year_min || currentYear,
+    yearEnd: initialParams.apply_year_max || currentYear
+  };
+};
 
 // 切換 fluid 狀態的方法
 const toggleFluid = () => {
