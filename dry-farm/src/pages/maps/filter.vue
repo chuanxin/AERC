@@ -4,8 +4,7 @@
     <v-expansion-panels
       v-model="expandedPanel"
       class="filter-expansion-panels"
-      color="surface-light"
-      elevation="8"
+      elevation="0"
       rounded="lg"
       variant="accordion"
     >
@@ -15,7 +14,7 @@
         rounded="lg"
       >
         <!-- 面板標題 - 包含主要篩選控制 -->
-        <v-expansion-panel-title class="filter-panel-title pa-3">
+        <v-expansion-panel-title class="filter-panel-title pa-0 ma-0">
           <template #default>
             <div class="d-flex align-center w-100">
               <!-- 主篩選輸入框 -->
@@ -28,6 +27,7 @@
                 density="compact"
                 variant="solo"
                 hide-details
+                autocomplete="off"
                 single-line
                 @click.stop
                 @focus="onFilterFocus"
@@ -75,6 +75,7 @@
             <v-icon
               :icon="expanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"
               color="primary"
+              class="mr-4"
             />
           </template>
         </v-expansion-panel-title>
@@ -83,12 +84,12 @@
         <v-expansion-panel-text class="filter-panel-content pa-0 ma-0">
           <v-container
             fluid
-            class="pa-0"
+            class="pa-0 ma-0"
           >
             <v-row dense>
               <!-- 詳細篩選欄位 -->
               <v-col cols="12">
-                <div class="d-flex align-center mb-3">
+                <div class="d-flex align-center">
                   <v-icon
                     size="small"
                     class="me-2"
@@ -305,7 +306,7 @@ const emit = defineEmits<{
 }>()
 
 // 內部狀態
-const expandedPanel = ref<string[]>(props.initialExpanded ? ['filter'] : [])
+const expandedPanel = ref<string | undefined>(props.initialExpanded ? 'filter' : undefined)
 const quickFilter = ref('')
 
 // 獲取當前年度（民國年）
@@ -363,8 +364,8 @@ const hasActiveFilters = computed(() => {
 // 篩選工具欄事件處理
 const onFilterFocus = () => {
   // 當快速篩選獲得焦點時，自動展開面板
-  if (!expandedPanel.value.includes('filter')) {
-    expandedPanel.value = ['filter']
+  if (expandedPanel.value !== 'filter') {
+    expandedPanel.value = 'filter'
   }
 }
 
@@ -430,9 +431,9 @@ const resetFilters = () => {
 
 // 監聽面板展開狀態變化
 watch(expandedPanel, (newValue) => {
-  const isExpanded = newValue.includes('filter')
+  const isExpanded = newValue === 'filter'
   emit('expanded-change', isExpanded)
-}, { deep: true })
+})
 
 // 監聽 props 變化
 watch(() => props.allFeatures, () => {
@@ -446,9 +447,9 @@ watch(() => props.allFeatures, () => {
 /* 篩選工具欄樣式 - 從原組件複製 */
 .filter-toolbar-container {
   position: absolute;
-  top: 20px;
+  top: 10px;
   left: 20px;
-  z-index: 1200;
+  z-index: 200;
   max-width: 600px;
   width: auto;
   min-width: 450px;
@@ -456,10 +457,10 @@ watch(() => props.allFeatures, () => {
 
 .filter-expansion-panels {
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
+  /* backdrop-filter: blur(5px); */
+  /* border-radius: 10px !important; */
+  /* box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); */
+  /* overflow: hidden; */
 }
 
 .filter-expansion-panel {
@@ -469,7 +470,7 @@ watch(() => props.allFeatures, () => {
 
 .filter-expansion-panel .v-expansion-panel-title {
   min-height: auto !important;
-  padding: 12px 16px !important;
+  padding: 0px 0px !important;
 }
 
 .filter-expansion-panel .v-expansion-panel-text {
@@ -502,11 +503,6 @@ watch(() => props.allFeatures, () => {
 .filter-input :deep(.v-field__input) {
   font-size: 14px;
   min-height: 32px;
-}
-
-.filter-panel-content .v-container {
-  padding: 16px !important;
-  background: rgba(248, 249, 250, 0.9);
 }
 
 .year-range-inputs {

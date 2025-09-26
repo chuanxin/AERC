@@ -1,30 +1,6 @@
 <template>
   <div class="fill-height d-flex flex-column">
     <v-card class="flex-grow-1 d-flex flex-column">
-      <!-- <v-card-title class="d-flex align-center pe-2">
-        <v-icon icon="mdi-map-marker-path" />
-        &nbsp; AERC 補助案件 GIS 圖台
-        <v-spacer />
-        <v-btn
-          density="compact"
-          variant="text"
-          prepend-icon="mdi-magnify"
-          class="me-2"
-          @click="toggleSearchPanel"
-        >
-          搜尋案件
-        </v-btn>
-        <v-btn
-          density="compact"
-          variant="text"
-          prepend-icon="mdi-link"
-          class="me-2"
-          @click="copyMapLink"
-        >
-          複製地圖連結
-        </v-btn>
-      </v-card-title> -->
-      <v-divider />
       <div
         id="map"
         ref="mapContainer"
@@ -44,215 +20,6 @@
           @expanded-change="handleFilterExpanded"
           @criteria-reset="handleFilterReset"
         />
-
-
-        <!-- 搜尋面板 -->
-        <div
-          v-if="showSearchPanel"
-          class="search-panel"
-          :style="{
-            left: searchPanelPosition.x + 'px',
-            top: searchPanelPosition.y + 'px'
-          }"
-        >
-          <v-card
-            class="search-control-panel"
-            elevation="8"
-            rounded="lg"
-          >
-            <v-card-title class="d-flex align-center justify-space-between pa-3">
-              <div class="d-flex align-center">
-                <v-icon
-                  size="small"
-                  class="me-2"
-                >
-                  mdi-magnify
-                </v-icon>
-                <span class="text-h6">案件搜尋</span>
-              </div>
-              <v-btn
-                icon
-                variant="text"
-                size="small"
-                @click="toggleSearchPanel"
-              >
-                <v-icon>mdi-close</v-icon>
-              </v-btn>
-            </v-card-title>
-            <v-divider />
-            <v-card-text class="pa-3">
-              <v-form @submit.prevent="searchCases">
-                <v-row dense>
-                  <v-col cols="12">
-                    <v-text-field
-                      v-model="searchCriteria.applicantName"
-                      label="申請人姓名"
-                      prepend-icon="mdi-account"
-                      density="compact"
-                      clearable
-                      @input="debouncedSearch"
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-text-field
-                      v-model="searchCriteria.landSection"
-                      label="地段"
-                      prepend-icon="mdi-map-marker"
-                      density="compact"
-                      clearable
-                      @input="debouncedSearch"
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-text-field
-                      v-model="searchCriteria.caseNumber"
-                      label="案件編號"
-                      prepend-icon="mdi-file-document"
-                      density="compact"
-                      clearable
-                      @input="debouncedSearch"
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-select
-                      v-model="searchCriteria.sourceSystem"
-                      :items="availableSourceSystems"
-                      label="資料來源"
-                      prepend-icon="mdi-database"
-                      density="compact"
-                      clearable
-                      @update:model-value="refreshLayerData"
-                    />
-                  </v-col>
-                  <v-col cols="12">
-                    <v-btn
-                      color="primary"
-                      :loading="gisLoading"
-                      block
-                      @click="refreshLayerData"
-                    >
-                      <v-icon>mdi-magnify</v-icon>
-                      搜尋
-                    </v-btn>
-                  </v-col>
-                </v-row>
-              </v-form>
-
-              <!-- 顯示模式切換 -->
-              <v-divider class="my-3" />
-              <v-chip-group
-                v-model="displayMode"
-                mandatory
-                selected-class="text-primary"
-                class="mb-3"
-              >
-                <v-chip
-                  value="grid"
-                  size="small"
-                >
-                  <v-icon
-                    left
-                    size="small"
-                  >
-                    mdi-grid
-                  </v-icon>
-                  格網統計圖
-                </v-chip>
-                <v-chip
-                  value="points"
-                  size="small"
-                >
-                  <v-icon
-                    left
-                    size="small"
-                  >
-                    mdi-circle
-                  </v-icon>
-                  點位圖
-                </v-chip>
-              </v-chip-group>
-
-              <!-- 年度區間篩選 -->
-              <div class="mb-3">
-                <div class="d-flex align-center mb-2">
-                  <v-icon
-                    size="small"
-                    class="me-2"
-                  >
-                    mdi-calendar-range
-                  </v-icon>
-                  <span class="text-body-2">申請年度篩選</span>
-                </div>
-                <v-range-slider
-                  v-model="yearRange.current"
-                  :min="yearRange.min"
-                  :max="yearRange.max"
-                  :step="1"
-                  thumb-label="always"
-                  density="compact"
-                  class="mb-2"
-                  @update:model-value="onYearRangeChange"
-                >
-                  <template #thumb-label="{ modelValue }">
-                    民國{{ modelValue }}年
-                  </template>
-                </v-range-slider>
-                <div class="d-flex justify-space-between text-caption text-grey">
-                  <span>民國{{ yearRange.current[0] }}年</span>
-                  <span>民國{{ yearRange.current[1] }}年</span>
-                </div>
-              </div>
-
-              <!-- 統計資訊 -->
-              <v-divider class="my-3" />
-              <div v-if="statistics">
-                <v-chip
-                  color="info"
-                  text-color="white"
-                  size="small"
-                  class="me-2 mb-2"
-                >
-                  <v-icon
-                    left
-                    size="small"
-                  >
-                    mdi-chart-line
-                  </v-icon>
-                  {{ statistics.total_points?.toLocaleString() }} 筆資料
-                </v-chip>
-                <v-chip
-                  v-if="currentPointCount"
-                  color="success"
-                  text-color="white"
-                  size="small"
-                  class="mb-2"
-                >
-                  <v-icon
-                    left
-                    size="small"
-                  >
-                    mdi-eye
-                  </v-icon>
-                  顯示 {{ currentPointCount }} 點位
-                </v-chip>
-                <v-chip
-                  color="orange"
-                  text-color="white"
-                  size="small"
-                  class="mb-2"
-                >
-                  <v-icon
-                    left
-                    size="small"
-                  >
-                    mdi-eye-settings
-                  </v-icon>
-                  {{ displayMode === 'grid' ? '格網統計模式' : '點位模式' }}
-                </v-chip>
-              </div>
-            </v-card-text>
-          </v-card>
-        </div>
 
         <!-- 圖層管理面板 -->
         <div
@@ -672,7 +439,8 @@ import {
   getInitialOverlayLoadingParams as getInitialParams,
   type FilterCriteria
 } from '@/utils/frontendFilters';
-import FilterToolbar from './FilterToolbar.vue';
+
+import FilterToolbar from './filter.vue';
 
 // 定義圖層介面
 interface MapLayer {
@@ -842,8 +610,7 @@ const searchCriteria = ref({
 const getInitialOverlayLoadingParams = getInitialParams
 
 // === 新增：篩選工具欄相關變數 ===
-// 篩選工具欄狀態
-const expandedPanel = ref<string[]>([]);
+// 注意：這些變數已由 FilterToolbar 組件內部管理，此處保留用於相容性
 const quickFilter = ref('');
 
 // 獲取當前年度（民國年）
@@ -861,27 +628,6 @@ const filterCriteria = ref({
   yearStart: 114, // 預設值，onMounted 時會更新
   yearEnd: 114
 });
-
-// 年度輸入驗證規則
-const yearStartValidation = (value: number) => {
-  if (!value) return '請輸入起始年度';
-  if (value < 97) return '年度不可小於民國97年';
-  if (value > getCurrentYear()) return `年度不可大於民國${getCurrentYear()}年`;
-  if (filterCriteria.value.yearEnd && value > filterCriteria.value.yearEnd) {
-    return '起始年度不可大於結束年度';
-  }
-  return true;
-};
-
-const yearEndValidation = (value: number) => {
-  if (!value) return '請輸入結束年度';
-  if (value < 97) return '年度不可小於民國97年';
-  if (value > getCurrentYear()) return `年度不可大於民國${getCurrentYear()}年`;
-  if (filterCriteria.value.yearStart && value < filterCriteria.value.yearStart) {
-    return '結束年度不可小於起始年度';
-  }
-  return true;
-};
 
 // 資料來源選項
 const filterSourceOptions = [
@@ -968,22 +714,6 @@ const getInitialFilterCriteria = (): FilterCriteria => {
     yearStart: initialParams.apply_year_min || currentYear,
     yearEnd: initialParams.apply_year_max || currentYear
   };
-};
-
-// 切換 fluid 狀態的方法
-const toggleFluid = () => {
-  isFluid.value = !isFluid.value;
-  // 保存用戶偏好到 localStorage
-  localStorage.setItem('preferFluid', String(isFluid.value));
-
-  // 在布局變化後更新地圖大小
-  nextTick(() => {
-    setTimeout(() => {
-      if (map) {
-        map.updateSize();
-      }
-    }, 100);
-  });
 };
 
 const toggleLayers = async () => {
@@ -1258,53 +988,8 @@ const showError = (message: string) => {
   showSnackbar.value = true;
 };
 
-// === 新增：篩選工具欄方法 ===
-
-// 篩選工具欄 Focus 事件
-const onFilterFocus = () => {
-  // 當快速篩選獲得焦點時，自動展開面板
-  if (!expandedPanel.value.includes('filter')) {
-    expandedPanel.value = ['filter'];
-  }
-};
-
-// 篩選工具欄 Blur 事件
-const onFilterBlur = () => {
-  // 不自動收合，讓用戶手動控制
-};
-
-// 快速篩選變更處理(前端篩選)
-const onQuickFilterChange = () => {
-  console.log('快速篩選變更:', quickFilter.value);
-
-  // 使用防抖機制
-  clearTimeout(filterTimeout);
-  filterTimeout = setTimeout(() => {
-    applyFrontendFilter();
-  }, 300); // 更短的延遲時間，提升使用者體驗
-};
-
-// 年度輸入變更處理
-const onYearInputChange = () => {
-  // 確保年度值是有效的數字
-  if (filterCriteria.value.yearStart && filterCriteria.value.yearEnd) {
-    // 如果起始年度大於結束年度，自動調整結束年度
-    if (filterCriteria.value.yearStart > filterCriteria.value.yearEnd) {
-      filterCriteria.value.yearEnd = filterCriteria.value.yearStart;
-    }
-  }
-
-  // 確保年度值在有效範圍內
-  const currentYear = getCurrentYear();
-  if (filterCriteria.value.yearStart) {
-    filterCriteria.value.yearStart = Math.max(97, Math.min(currentYear, filterCriteria.value.yearStart));
-  }
-  if (filterCriteria.value.yearEnd) {
-    filterCriteria.value.yearEnd = Math.max(97, Math.min(currentYear, filterCriteria.value.yearEnd));
-  }
-
-  debouncedFilterUpdate();
-};
+// === FilterToolbar 組件事件處理 ===
+// 注意：篩選邏輯現在由 FilterToolbar 組件處理
 
 // 前端篩選處理函數
 const applyFrontendFilter = () => {
@@ -2789,13 +2474,6 @@ const refreshLayerData = () => {
   min-height: 0; /* 移除 min-height: 100vh */
   overflow: hidden;
 }
-
-/* 針對不同螢幕尺寸調整 NavBar 高度 */
-/* @media (max-width: 960px) {
-  .container-full-height {
-    height: calc(100vh - 103px);
-  }
-} */
 
 /* 自定義地圖控制按鈕樣式 */
 .map-controls {
