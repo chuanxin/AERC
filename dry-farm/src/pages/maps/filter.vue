@@ -14,7 +14,7 @@
         rounded="lg"
       >
         <!-- 面板標題 - 包含主要篩選控制 -->
-        <v-expansion-panel-title class="filter-panel-title pa-0 ma-0">
+        <v-expansion-panel-title class="filter-panel-title my-0">
           <template #default>
             <div class="d-flex align-center w-100">
               <!-- 主篩選輸入框 -->
@@ -24,7 +24,7 @@
                 prepend-inner-icon="mdi-filter-variant"
                 class="filter-input me-3"
                 clearable
-                density="compact"
+                density="comfortable"
                 variant="solo"
                 hide-details
                 autocomplete="off"
@@ -75,7 +75,7 @@
             <v-icon
               :icon="expanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"
               color="primary"
-              class="mr-4"
+              class="mr-3"
             />
           </template>
         </v-expansion-panel-title>
@@ -363,10 +363,7 @@ const hasActiveFilters = computed(() => {
 
 // 篩選工具欄事件處理
 const onFilterFocus = () => {
-  // 當快速篩選獲得焦點時，自動展開面板
-  if (expandedPanel.value !== 'filter') {
-    expandedPanel.value = 'filter'
-  }
+  // 快速篩選獲得焦點時，不自動展開面板，由用戶手動控制
 }
 
 const onFilterBlur = () => {

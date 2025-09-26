@@ -1,409 +1,444 @@
 <template>
   <div class="fill-height d-flex flex-column">
-    <v-card class="flex-grow-1 d-flex flex-column">
-      <div
-        id="map"
-        ref="mapContainer"
-        class="map-container"
-        style="min-height: 0;"
+    <div class="d-flex flex-grow-1">
+      <!-- 主要地圖區域 -->
+      <v-card
+        class="flex-grow-1 d-flex flex-column"
       >
-        <!-- 地圖容器 -->
-
-        <!-- 左上方篩選工具欄 -->
-        <FilterToolbar
-          :all-features="allLoadedFeatures"
-          :statistics="statistics"
-          :loading="gisLoading"
-          :initial-criteria="getInitialFilterCriteria()"
-          :initial-expanded="false"
-          @filter-change="handleFilterChange"
-          @expanded-change="handleFilterExpanded"
-          @criteria-reset="handleFilterReset"
-        />
-
-        <!-- 圖層管理面板 -->
         <div
-          v-if="showLayersPanel"
-          class="layers-panel"
-          :style="{
-            left: panelPosition.x + 'px',
-            top: panelPosition.y + 'px',
-            maxWidth: layerPanelMaxWidth
-          }"
+          id="map"
+          ref="mapContainer"
+          class="map-container"
+          style="min-height: 0;"
         >
-          <v-card
-            class="layer-control-panel"
-            :class="{ 'dragging': isDragging }"
-            elevation="8"
-            rounded="lg"
-            :max-height="layerPanelMaxHeight"
-            :min-height="layerPanelMinHeight"
-            height="auto"
+          <!-- 地圖容器 -->
+
+          <!-- 左上方篩選工具欄 -->
+          <FilterToolbar
+            :all-features="allLoadedFeatures"
+            :statistics="statistics"
+            :loading="gisLoading"
+            :initial-criteria="getInitialFilterCriteria()"
+            :initial-expanded="false"
+            @filter-change="handleFilterChange"
+            @expanded-change="handleFilterExpanded"
+            @criteria-reset="handleFilterReset"
+          />
+
+          <!-- 展繪工具浮動面板 -->
+          <div
+            v-if="showDrawPanel"
+            class="floating-panel draw-panel"
+            :style="{
+              left: drawPanelPosition.x + 'px',
+              top: drawPanelPosition.y + 'px'
+            }"
           >
-            <v-card-title
-              class="d-flex align-center justify-space-between pa-0 draggable-header"
-              @mousedown="startDrag"
+            <v-card
+              class="tool-panel"
+              :class="{ 'dragging': isDraggingDraw }"
+              elevation="8"
+              rounded="lg"
+              width="300"
             >
-              <div class="d-flex align-center">
-                <v-icon
-                  size="small"
-                  class="me-2 drag-handle"
-                >
-                  mdi-drag
-                </v-icon>
-                <span class="text-h6">圖層管理</span>
-              </div>
-              <v-btn
-                icon
-                variant="text"
-                size="small"
-                @click="toggleLayers"
+              <v-card-title
+                class="d-flex align-center justify-space-between pa-0 draggable-header"
+                @mousedown="startDrawDrag"
               >
-                <v-icon>mdi-close</v-icon>
-              </v-btn>
-            </v-card-title>
-            <v-divider />
-            <v-card-text
-              class="pa-0"
-              :style="{ maxHeight: layerPanelContentMaxHeight, overflowY: 'auto' }"
-            >
-              <v-list
-                density="compact"
-                :max-height="layerPanelContentMaxHeight"
-                style="overflow-y: auto;"
-              >
-                <!-- 底圖圖層區塊 -->
-                <v-list-subheader class="text-primary font-weight-bold">
-                  底圖圖層
-                </v-list-subheader>
-                <v-radio-group
-                  class="px-1"
-                  :model-value="getSelectedBaseLayer()"
-                  @update:model-value="selectBaseLayer"
-                >
-                  <div
-                    v-for="(layer, index) in mapLayers.filter(l => l.category === 'baselayer')"
-                    :key="`baselayer-${index}`"
+                <div class="d-flex align-center">
+                  <v-icon
+                    size="small"
+                    class="me-2 drag-handle"
                   >
-                    <v-list-item class="px-0 py-2">
-                      <template #prepend>
-                        <v-radio
-                          :value="layer.name"
-                          color="primary"
-                          class="pr-5"
-                          density="compact"
-                          hide-details
-                        />
-                      </template>
-
-                      <v-list-item-title class="text-body-2 font-weight-medium">
-                        {{ layer.name }}
-                      </v-list-item-title>
-                    </v-list-item>
-
-                    <!-- 透明度控制滑桿 - 放在圖層名稱下方 -->
-                    <div
-                      v-if="layer.visible"
-                      class="opacity-control-section px-0 pb-2"
-                    >
-                      <div class="d-flex align-center">
-                        <span class="opacity-label me-2">透明度:</span>
-                        <v-slider
-                          v-model="layer.opacity"
-                          class="opacity-slider flex-grow-1"
-                          :min="0"
-                          :max="1"
-                          :step="0.01"
-                          thumb-label
-                          density="compact"
-                          hide-details
-                          @update:model-value="updateLayerOpacity(layer)"
-                        >
-                          <template #thumb-label="{ modelValue }">
-                            {{ Math.round(modelValue * 100) }}%
-                          </template>
-                        </v-slider>
-                      </div>
-                    </div>
-                  </div>
-                </v-radio-group>
-
-                <v-divider class="my-2" />
-
-                <!-- 疊加圖層區塊 -->
-                <v-list-subheader class="text-secondary font-weight-bold">
-                  疊加圖層
-                </v-list-subheader>
-                <div
-                  v-for="(layer, index) in mapLayers.filter(l => l.category === 'overlay')"
-                  :key="`overlay-${index}`"
-                >
-                  <v-list-item class="px-3 py-2">
-                    <template #prepend>
-                      <v-switch
-                        v-model="layer.visible"
-                        color="primary"
-                        class="pr-5"
-                        density="compact"
-                        hide-details
-                        @update:model-value="toggleLayerVisibility(layer)"
-                      />
-                    </template>
-
-                    <v-list-item-title class="text-body-2 font-weight-medium">
-                      {{ layer.name }}
-                    </v-list-item-title>
-                  </v-list-item>
-
-                  <!-- 透明度控制滑桿 - 放在圖層名稱下方 -->
-                  <div
-                    v-if="layer.visible"
-                    class="opacity-control-section px-0 pb-2"
-                  >
-                    <div class="d-flex align-center">
-                      <span class="opacity-label me-2">透明度:</span>
-                      <v-slider
-                        v-model="layer.opacity"
-                        class="opacity-slider flex-grow-1"
-                        :min="0"
-                        :max="1"
-                        :step="0.01"
-                        thumb-label
-                        density="compact"
-                        hide-details
-                        @update:model-value="updateLayerOpacity(layer)"
-                      >
-                        <template #thumb-label="{ modelValue }">
-                          {{ Math.round(modelValue * 100) }}%
-                        </template>
-                      </v-slider>
-                    </div>
-                  </div>
-
-                  <!-- 分隔線 -->
-                  <v-divider
-                    v-if="index < mapLayers.filter(l => l.category === 'overlay').length - 1"
-                  />
+                    mdi-drag
+                  </v-icon>
+                  <span class="text-h6">展繪工具</span>
                 </div>
-              </v-list>
-            </v-card-text>
-          </v-card>
-        </div>
-
-        <div class="map-controls">
-          <v-card
-            class="map-control-panel"
-            elevation="3"
-            rounded="lg"
-          >
-            <!-- 圖層按鈕 -->
-            <v-row class="ma-0">
-              <v-col class="pa-0 text-center">
                 <v-btn
-                  :title="'圖層管理'"
-                  class="control-btn-vertical"
-                  size="large"
+                  icon
                   variant="text"
-                  rounded="lg"
-                  @click="toggleLayers"
-                >
-                  <template #default>
-                    <div class="d-flex flex-column align-center">
-                      <v-icon
-                        size="40"
-                        class="mb-0"
-                      >
-                        mdi-layers
-                      </v-icon>
-                      <span class="btn-text">圖層</span>
-                    </div>
-                  </template>
-                </v-btn>
-              </v-col>
-            </v-row>
-            <v-divider />
-
-            <!-- 定位按鈕 -->
-            <v-row class="ma-0">
-              <v-col class="pa-0 text-center">
-                <v-btn
-                  :title="'我的位置'"
-                  class="control-btn-vertical"
-                  size="large"
-                  variant="text"
-                  rounded="lg"
-                  @click="getCurrentLocation"
-                >
-                  <template #default>
-                    <div class="d-flex flex-column align-center">
-                      <v-icon
-                        size="40"
-                        class="mb-0"
-                      >
-                        mdi-crosshairs-gps
-                      </v-icon>
-                      <span class="btn-text">定位</span>
-                    </div>
-                  </template>
-                </v-btn>
-              </v-col>
-            </v-row>
-            <v-divider />
-
-            <!-- 展繪按鈕 -->
-            <v-row class="ma-0">
-              <v-col class="pa-0 text-center">
-                <v-btn
-                  :title="'繪圖工具'"
-                  class="control-btn-vertical"
-                  size="large"
-                  variant="text"
-                  rounded="lg"
-                  :color="isDrawing ? 'primary' : ''"
+                  size="small"
                   @click="toggleDraw"
                 >
-                  <template #default>
-                    <div class="d-flex flex-column align-center">
-                      <v-icon
-                        size="40"
-                        class="mb-0"
-                      >
-                        mdi-draw
-                      </v-icon>
-                      <span class="btn-text">展繪</span>
-                    </div>
-                  </template>
+                  <v-icon>mdi-close</v-icon>
                 </v-btn>
-              </v-col>
-            </v-row>
-            <v-divider />
+              </v-card-title>
+              <v-divider />
+              <v-card-text class="pa-3">
+                <v-list density="compact">
+                  <v-list-item>
+                    <v-btn
+                      variant="outlined"
+                      color="primary"
+                      block
+                      class="mb-2"
+                    >
+                      <v-icon class="me-2">mdi-vector-point</v-icon>
+                      點標記
+                    </v-btn>
+                  </v-list-item>
+                  <v-list-item>
+                    <v-btn
+                      variant="outlined"
+                      color="primary"
+                      block
+                      class="mb-2"
+                    >
+                      <v-icon class="me-2">mdi-vector-line</v-icon>
+                      線條
+                    </v-btn>
+                  </v-list-item>
+                  <v-list-item>
+                    <v-btn
+                      variant="outlined"
+                      color="primary"
+                      block
+                      class="mb-2"
+                    >
+                      <v-icon class="me-2">mdi-vector-polygon</v-icon>
+                      多邊形
+                    </v-btn>
+                  </v-list-item>
+                  <v-list-item>
+                    <v-btn
+                      variant="outlined"
+                      color="error"
+                      block
+                    >
+                      <v-icon class="me-2">mdi-delete</v-icon>
+                      清除全部
+                    </v-btn>
+                  </v-list-item>
+                </v-list>
+              </v-card-text>
+            </v-card>
+          </div>
 
-            <!-- 量測按鈕 -->
-            <v-row class="ma-0">
-              <v-col class="pa-0 text-center">
+          <!-- 量測工具浮動面板 -->
+          <div
+            v-if="showMeasurePanel"
+            class="floating-panel measure-panel"
+            :style="{
+              left: measurePanelPosition.x + 'px',
+              top: measurePanelPosition.y + 'px'
+            }"
+          >
+            <v-card
+              class="tool-panel"
+              :class="{ 'dragging': isDraggingMeasure }"
+              elevation="8"
+              rounded="lg"
+              width="300"
+            >
+              <v-card-title
+                class="d-flex align-center justify-space-between pa-0 draggable-header"
+                @mousedown="startMeasureDrag"
+              >
+                <div class="d-flex align-center">
+                  <v-icon
+                    size="small"
+                    class="me-2 drag-handle"
+                  >
+                    mdi-drag
+                  </v-icon>
+                  <span class="text-h6">量測工具</span>
+                </div>
                 <v-btn
-                  :title="'測量工具'"
-                  class="control-btn-vertical"
-                  size="large"
+                  icon
                   variant="text"
-                  rounded="lg"
-                  :color="isMeasuring ? 'primary' : ''"
+                  size="small"
                   @click="toggleMeasure"
                 >
-                  <template #default>
-                    <div class="d-flex flex-column align-center">
-                      <v-icon
-                        size="40"
-                        class="mb-0"
-                      >
-                        mdi-ruler
-                      </v-icon>
-                      <span class="btn-text">量測</span>
-                    </div>
-                  </template>
+                  <v-icon>mdi-close</v-icon>
                 </v-btn>
-              </v-col>
-            </v-row>
-            <v-divider />
+              </v-card-title>
+              <v-divider />
+              <v-card-text class="pa-3">
+                <v-list density="compact">
+                  <v-list-item>
+                    <v-btn
+                      variant="outlined"
+                      color="primary"
+                      block
+                      class="mb-2"
+                    >
+                      <v-icon class="me-2">mdi-ruler</v-icon>
+                      測量距離
+                    </v-btn>
+                  </v-list-item>
+                  <v-list-item>
+                    <v-btn
+                      variant="outlined"
+                      color="primary"
+                      block
+                      class="mb-2"
+                    >
+                      <v-icon class="me-2">mdi-vector-square</v-icon>
+                      測量面積
+                    </v-btn>
+                  </v-list-item>
+                  <v-list-item>
+                    <v-btn
+                      variant="outlined"
+                      color="error"
+                      block
+                    >
+                      <v-icon class="me-2">mdi-delete</v-icon>
+                      清除測量
+                    </v-btn>
+                  </v-list-item>
+                </v-list>
 
-            <!-- 放大按鈕 -->
-            <v-row class="ma-0">
-              <v-col class="pa-0 text-center">
-                <v-btn
-                  :title="'放大'"
-                  class="control-btn-vertical"
-                  size="large"
-                  variant="text"
-                  rounded="lg"
-                  @click="zoomIn"
-                >
-                  <template #default>
-                    <div class="d-flex flex-column align-center">
-                      <v-icon
-                        size="40"
-                        class="mb-0"
-                      >
-                        mdi-plus
-                      </v-icon>
-                      <span class="btn-text">放大</span>
-                    </div>
-                  </template>
-                </v-btn>
-              </v-col>
-            </v-row>
-            <v-divider />
+                <!-- 測量結果顯示區域 -->
+                <v-divider class="my-3" />
+                <div class="measure-results">
+                  <v-card
+                    variant="tonal"
+                    color="info"
+                    class="pa-2"
+                  >
+                    <v-card-subtitle class="pa-0 text-caption">
+                      測量結果
+                    </v-card-subtitle>
+                    <v-card-text class="pa-1">
+                      <div class="text-body-2">
+                        距離: -- 公尺<br>
+                        面積: -- 平方公尺
+                      </div>
+                    </v-card-text>
+                  </v-card>
+                </div>
+              </v-card-text>
+            </v-card>
+          </div>
 
-            <!-- 縮小按鈕 -->
-            <v-row class="ma-0">
-              <v-col class="pa-0 text-center">
-                <v-btn
-                  :title="'縮小'"
-                  class="control-btn-vertical"
-                  size="large"
-                  variant="text"
-                  rounded="lg"
-                  @click="zoomOut"
-                >
-                  <template #default>
-                    <div class="d-flex flex-column align-center">
-                      <v-icon
-                        size="40"
-                        class="mb-0"
-                      >
-                        mdi-minus
-                      </v-icon>
-                      <span class="btn-text">縮小</span>
-                    </div>
-                  </template>
-                </v-btn>
-              </v-col>
-            </v-row>
-            <v-divider />
+          <div class="map-controls">
+            <v-card
+              class="map-control-panel"
+              elevation="3"
+              rounded="lg"
+            >
+              <!-- 圖層按鈕 -->
+              <v-row class="ma-0">
+                <v-col class="pa-0 text-center">
+                  <v-btn
+                    :title="'圖層管理'"
+                    class="control-btn-vertical"
+                    size="large"
+                    variant="text"
+                    rounded="lg"
+                    @click="toggleLayers"
+                  >
+                    <template #default>
+                      <div class="d-flex flex-column align-center">
+                        <v-icon
+                          size="40"
+                          class="mb-0"
+                        >
+                          mdi-layers
+                        </v-icon>
+                        <span class="btn-text">圖層</span>
+                      </div>
+                    </template>
+                  </v-btn>
+                </v-col>
+              </v-row>
+              <v-divider />
 
-            <!-- 首頁按鈕 -->
-            <v-row class="ma-0">
-              <v-col class="pa-0 text-center">
-                <v-btn
-                  :title="'回到原始視圖'"
-                  class="control-btn-vertical"
-                  size="large"
-                  variant="text"
-                  rounded="lg"
-                  @click="resetView"
-                >
-                  <template #default>
-                    <div class="d-flex flex-column align-center">
-                      <v-icon
-                        size="40"
-                        class="mb-0"
-                      >
-                        mdi-home
-                      </v-icon>
-                      <span class="btn-text">重置</span>
-                    </div>
-                  </template>
-                </v-btn>
-              </v-col>
-            </v-row>
-          </v-card>
-        </div>
+              <!-- 定位按鈕 -->
+              <v-row class="ma-0">
+                <v-col class="pa-0 text-center">
+                  <v-btn
+                    :title="'我的位置'"
+                    class="control-btn-vertical"
+                    size="large"
+                    variant="text"
+                    rounded="lg"
+                    @click="getCurrentLocation"
+                  >
+                    <template #default>
+                      <div class="d-flex flex-column align-center">
+                        <v-icon
+                          size="40"
+                          class="mb-0"
+                        >
+                          mdi-crosshairs-gps
+                        </v-icon>
+                        <span class="btn-text">定位</span>
+                      </div>
+                    </template>
+                  </v-btn>
+                </v-col>
+              </v-row>
+              <v-divider />
 
-        <!-- 版權資訊 -->
-        <div class="copyright-info">
-          <div class="copyright-text">
-            <div>版權所有：農業部農田水利署、系統開發：財團法人農業工程研究中心</div>
+              <!-- 展繪按鈕 -->
+              <v-row class="ma-0">
+                <v-col class="pa-0 text-center">
+                  <v-btn
+                    :title="'繪圖工具'"
+                    class="control-btn-vertical"
+                    size="large"
+                    variant="text"
+                    rounded="lg"
+                    :color="isDrawing ? 'primary' : ''"
+                    @click="toggleDraw"
+                  >
+                    <template #default>
+                      <div class="d-flex flex-column align-center">
+                        <v-icon
+                          size="40"
+                          class="mb-0"
+                        >
+                          mdi-draw
+                        </v-icon>
+                        <span class="btn-text">展繪</span>
+                      </div>
+                    </template>
+                  </v-btn>
+                </v-col>
+              </v-row>
+              <v-divider />
+
+              <!-- 量測按鈕 -->
+              <v-row class="ma-0">
+                <v-col class="pa-0 text-center">
+                  <v-btn
+                    :title="'測量工具'"
+                    class="control-btn-vertical"
+                    size="large"
+                    variant="text"
+                    rounded="lg"
+                    :color="isMeasuring ? 'primary' : ''"
+                    @click="toggleMeasure"
+                  >
+                    <template #default>
+                      <div class="d-flex flex-column align-center">
+                        <v-icon
+                          size="40"
+                          class="mb-0"
+                        >
+                          mdi-ruler
+                        </v-icon>
+                        <span class="btn-text">量測</span>
+                      </div>
+                    </template>
+                  </v-btn>
+                </v-col>
+              </v-row>
+              <v-divider />
+
+              <!-- 放大按鈕 -->
+              <v-row class="ma-0">
+                <v-col class="pa-0 text-center">
+                  <v-btn
+                    :title="'放大'"
+                    class="control-btn-vertical"
+                    size="large"
+                    variant="text"
+                    rounded="lg"
+                    @click="zoomIn"
+                  >
+                    <template #default>
+                      <div class="d-flex flex-column align-center">
+                        <v-icon
+                          size="40"
+                          class="mb-0"
+                        >
+                          mdi-plus
+                        </v-icon>
+                        <span class="btn-text">放大</span>
+                      </div>
+                    </template>
+                  </v-btn>
+                </v-col>
+              </v-row>
+              <v-divider />
+
+              <!-- 縮小按鈕 -->
+              <v-row class="ma-0">
+                <v-col class="pa-0 text-center">
+                  <v-btn
+                    :title="'縮小'"
+                    class="control-btn-vertical"
+                    size="large"
+                    variant="text"
+                    rounded="lg"
+                    @click="zoomOut"
+                  >
+                    <template #default>
+                      <div class="d-flex flex-column align-center">
+                        <v-icon
+                          size="40"
+                          class="mb-0"
+                        >
+                          mdi-minus
+                        </v-icon>
+                        <span class="btn-text">縮小</span>
+                      </div>
+                    </template>
+                  </v-btn>
+                </v-col>
+              </v-row>
+              <v-divider />
+
+              <!-- 首頁按鈕 -->
+              <v-row class="ma-0">
+                <v-col class="pa-0 text-center">
+                  <v-btn
+                    :title="'回到原始視圖'"
+                    class="control-btn-vertical"
+                    size="large"
+                    variant="text"
+                    rounded="lg"
+                    @click="resetView"
+                  >
+                    <template #default>
+                      <div class="d-flex flex-column align-center">
+                        <v-icon
+                          size="40"
+                          class="mb-0"
+                        >
+                          mdi-home
+                        </v-icon>
+                        <span class="btn-text">重置</span>
+                      </div>
+                    </template>
+                  </v-btn>
+                </v-col>
+              </v-row>
+            </v-card>
+          </div>
+
+          <!-- 版權資訊 -->
+          <div class="copyright-info">
+            <div class="copyright-text">
+              <div>版權所有：農業部農田水利署、系統開發：財團法人農業工程研究中心</div>
+            </div>
           </div>
         </div>
-      </div>
-    </v-card>
-    <!-- 顯示成功訊息的Snackbar -->
-    <v-snackbar
-      v-model="showSnackbar"
-      :timeout="2000"
-      color="success"
-    >
-      {{ snackbarMessage }}
-    </v-snackbar>
+      </v-card>
+      <!-- 顯示成功訊息的Snackbar -->
+      <v-snackbar
+        v-model="showSnackbar"
+        :timeout="2000"
+        color="success"
+      >
+        {{ snackbarMessage }}
+      </v-snackbar>
+
+      <!-- 圖層管理組件 -->
+      <LayerManagement
+        v-model:visible="showLayersPanel"
+        :map-layers="mapLayers"
+        :display-mode="displayMode"
+        @close="toggleLayers"
+        @layer-visibility-changed="handleLayerVisibilityChanged"
+        @layer-opacity-changed="handleLayerOpacityChanged"
+        @base-layer-selected="handleBaseLayerSelected"
+        @display-mode-changed="handleDisplayModeChanged"
+      />
+    </div>
   </div>
 </template>
 
@@ -441,6 +476,7 @@ import {
 } from '@/utils/frontendFilters';
 
 import FilterToolbar from './filter.vue';
+import LayerManagement from './layers.vue';
 
 // 定義圖層介面
 interface MapLayer {
@@ -475,9 +511,33 @@ const isDrawing = ref(false);
 const isMeasuring = ref(false);
 const showLayersPanel = ref(false);
 
+// 工具面板顯示狀態
+const showDrawPanel = ref(false);
+const showMeasurePanel = ref(false);
+
 // 圖層面板拖拽相關
 const isDragging = ref(false);
 const dragOffset = ref({ x: 0, y: 0 });
+
+// 工具面板初始位置計算
+const getInitialToolPanelPosition = (offsetY = 0) => {
+  const rightMargin = 100; // 右邊距
+  const topMargin = 10; // 上邊距
+  const panelWidth = 300; // 面板寬度
+
+  return {
+    x: Math.max(window.innerWidth - panelWidth - rightMargin, rightMargin),
+    y: topMargin + offsetY
+  };
+};
+
+// 工具面板拖拽相關
+const drawPanelPosition = ref(getInitialToolPanelPosition());
+const measurePanelPosition = ref(getInitialToolPanelPosition()); // 與展繪面板相同位置
+const isDraggingDraw = ref(false);
+const isDraggingMeasure = ref(false);
+const drawPanelDragOffset = ref({ x: 0, y: 0 });
+const measurePanelDragOffset = ref({ x: 0, y: 0 });
 
 // 從 localStorage 讀取保存的面板位置，如果沒有則使用默認位置
 const getSavedPanelPosition = () => {
@@ -492,59 +552,6 @@ const getSavedPanelPosition = () => {
 };
 
 const panelPosition = ref(getSavedPanelPosition());
-
-// 圖層面板高度控制 - 使用 computed 屬性實現響應式
-const layerPanelMaxHeight = computed(() => {
-  if (typeof window === 'undefined') return '400px';
-
-  const viewportHeight = window.innerHeight;
-  const safeMargin = 120;
-  const maxHeight = Math.min(viewportHeight - safeMargin, 600);
-
-  return `${maxHeight}px`;
-});
-
-const layerPanelMinHeight = computed(() => {
-  if (typeof window === 'undefined') return '200px';
-
-  const viewportHeight = window.innerHeight;
-
-  // 根據視窗高度調整最小高度
-  if (viewportHeight < 600) {
-    return '150px';
-  } else if (viewportHeight < 800) {
-    return '200px';
-  } else {
-    return '250px';
-  }
-});
-
-// 圖層面板內容區域最大高度
-const layerPanelContentMaxHeight = computed(() => {
-  if (typeof window === 'undefined') return '300px';
-
-  const viewportHeight = window.innerHeight;
-  const safeMargin = 180; // 包含標題欄和按鈕的高度
-  const maxHeight = Math.min(viewportHeight - safeMargin, 500);
-
-  return `${maxHeight}px`;
-});
-
-// 圖層面板最大寬度
-const layerPanelMaxWidth = computed(() => {
-  if (typeof window === 'undefined') return '350px';
-
-  const viewportWidth = window.innerWidth;
-
-  // 根據視窗寬度調整面板寬度
-  if (viewportWidth < 768) {
-    return `${Math.min(viewportWidth - 40, 300)}px`;
-  } else if (viewportWidth < 1024) {
-    return '320px';
-  } else {
-    return '350px';
-  }
-});
 
 // 圖層管理相關
 const mapLayers = ref<MapLayer[]>([
@@ -777,50 +784,92 @@ const stopDrag = () => {
   document.removeEventListener('mouseup', stopDrag);
 };
 
-// 圖層可見性切換 (僅處理疊加圖層)
-const toggleLayerVisibility = (layer: MapLayer) => {
-  console.log('切換疊加圖層:', layer.name, '可見性:', layer.visible);
+// 展繪面板拖曳功能
+const startDrawDrag = (event: MouseEvent) => {
+  isDraggingDraw.value = true;
 
-  // 只處理疊加圖層，底圖圖層有專門的函數處理
-  if (layer.category === 'overlay') {
-    // 處理補助案件圖層的特殊邏輯
-    if (layer.name === '補助案件格網統計圖') {
-      // 切換到格網統計模式
-      if (layer.visible) {
-        displayMode.value = 'grid';
-        mapLayers.value[4].visible = false; // 關閉點位圖層
-      }
-    } else if (layer.name === '補助案件點位') {
-      // 切換到點位模式
-      if (layer.visible) {
-        displayMode.value = 'points';
-        mapLayers.value[3].visible = false; // 關閉格網圖層
-      }
-    }
+  // 計算滑鼠相對於面板當前位置的偏移量
+  drawPanelDragOffset.value = {
+    x: event.clientX - drawPanelPosition.value.x,
+    y: event.clientY - drawPanelPosition.value.y
+  };
 
-    // 更新圖層可見性
-    updateLayerVisibility();
+  // 添加全局監聽器
+  document.addEventListener('mousemove', onDrawDrag);
+  document.addEventListener('mouseup', stopDrawDrag);
 
-    console.log('疊加圖層', layer.name, '已設置為:', layer.visible ? '可見' : '隱藏');
-  } else {
-    console.warn('toggleLayerVisibility 僅用於疊加圖層，底圖圖層請使用 selectBaseLayer');
-  }
+  // 防止文字選擇
+  event.preventDefault();
 };
 
-// 更新圖層透明度
-const updateLayerOpacity = (layer: MapLayer) => {
-  if (layer.layer) {
-    layer.layer.setOpacity(layer.opacity);
-  }
+const onDrawDrag = (event: MouseEvent) => {
+  if (!isDraggingDraw.value) return;
+
+  // 計算新位置
+  const newX = event.clientX - drawPanelDragOffset.value.x;
+  const newY = event.clientY - drawPanelDragOffset.value.y;
+
+  // 確保面板不會超出邊界
+  const maxX = window.innerWidth - 300; // 面板寬度
+  const maxY = window.innerHeight - 200; // 面板最小高度
+
+  drawPanelPosition.value = {
+    x: Math.max(0, Math.min(newX, maxX)),
+    y: Math.max(0, Math.min(newY, maxY))
+  };
 };
 
-// 獲取當前選中的底圖圖層名稱
-const getSelectedBaseLayer = (): string => {
-  const selectedLayer = mapLayers.value.find(layer =>
-    layer.category === 'baselayer' && layer.visible
-  );
-  return selectedLayer ? selectedLayer.name : '';
+const stopDrawDrag = () => {
+  isDraggingDraw.value = false;
+
+  // 移除全局監聽器
+  document.removeEventListener('mousemove', onDrawDrag);
+  document.removeEventListener('mouseup', stopDrawDrag);
 };
+
+// 量測面板拖曳功能
+const startMeasureDrag = (event: MouseEvent) => {
+  isDraggingMeasure.value = true;
+
+  // 計算滑鼠相對於面板當前位置的偏移量
+  measurePanelDragOffset.value = {
+    x: event.clientX - measurePanelPosition.value.x,
+    y: event.clientY - measurePanelPosition.value.y
+  };
+
+  // 添加全局監聽器
+  document.addEventListener('mousemove', onMeasureDrag);
+  document.addEventListener('mouseup', stopMeasureDrag);
+
+  // 防止文字選擇
+  event.preventDefault();
+};
+
+const onMeasureDrag = (event: MouseEvent) => {
+  if (!isDraggingMeasure.value) return;
+
+  // 計算新位置
+  const newX = event.clientX - measurePanelDragOffset.value.x;
+  const newY = event.clientY - measurePanelDragOffset.value.y;
+
+  // 確保面板不會超出邊界
+  const maxX = window.innerWidth - 300; // 面板寬度
+  const maxY = window.innerHeight - 200; // 面板最小高度
+
+  measurePanelPosition.value = {
+    x: Math.max(0, Math.min(newX, maxX)),
+    y: Math.max(0, Math.min(newY, maxY))
+  };
+};
+
+const stopMeasureDrag = () => {
+  isDraggingMeasure.value = false;
+
+  // 移除全局監聽器
+  document.removeEventListener('mousemove', onMeasureDrag);
+  document.removeEventListener('mouseup', stopMeasureDrag);
+};
+
 
 // 選擇底圖圖層 (單選模式)
 const selectBaseLayer = (layerName: string | null) => {
@@ -864,6 +913,34 @@ const toggleBaseLayer = (selectedLayer: MapLayer) => {
   selectBaseLayer(selectedLayer.name);
 };
 
+// LayerManagement 組件事件處理函數
+const handleLayerVisibilityChanged = (layer: MapLayer) => {
+  // 直接調用現有的圖層可見性處理邏輯
+  if (layer.layer) {
+    layer.layer.setVisible(layer.visible);
+  }
+  console.log('圖層可見性已更新:', layer.name, '可見:', layer.visible);
+};
+
+const handleLayerOpacityChanged = (layer: MapLayer) => {
+  // 直接調用現有的透明度處理邏輯
+  if (layer.layer) {
+    layer.layer.setOpacity(layer.opacity);
+  }
+  console.log('圖層透明度已更新:', layer.name, '透明度:', layer.opacity);
+};
+
+const handleBaseLayerSelected = (layerName: string) => {
+  // 直接調用現有的底圖選擇邏輯
+  selectBaseLayer(layerName);
+};
+
+const handleDisplayModeChanged = (mode: string) => {
+  // 更新顯示模式，使用 gisStore 的方法
+  gisStore.updateDisplayMode(mode as 'points' | 'grid');
+  console.log('顯示模式已更改:', mode);
+};
+
 // 定位功能
 const getCurrentLocation = () => {
   if (!navigator.geolocation) {
@@ -904,8 +981,11 @@ const getCurrentLocation = () => {
 // 展繪功能
 const toggleDraw = () => {
   isDrawing.value = !isDrawing.value;
+  showDrawPanel.value = isDrawing.value;
+
   if (isMeasuring.value) {
     isMeasuring.value = false;
+    showMeasurePanel.value = false;
   }
 
   console.log('展繪工具:', isDrawing.value ? '啟用' : '停用');
@@ -918,8 +998,11 @@ const toggleDraw = () => {
 // 量測功能
 const toggleMeasure = () => {
   isMeasuring.value = !isMeasuring.value;
+  showMeasurePanel.value = isMeasuring.value;
+
   if (isDrawing.value) {
     isDrawing.value = false;
+    showDrawPanel.value = false;
   }
 
   console.log('量測工具:', isMeasuring.value ? '啟用' : '停用');
@@ -1032,14 +1115,6 @@ const applyFrontendFilter = () => {
     snackbarMessage.value = message;
     showSnackbar.value = true;
   }
-};
-
-// 防抖篩選更新
-const debouncedFilterUpdate = () => {
-  clearTimeout(filterTimeout);
-  filterTimeout = setTimeout(() => {
-    applyFrontendFilter();
-  }, 300);
 };
 
 // 套用篩選（混合模式：詳細篩選仍使用後端API，快速篩選使用前端）
@@ -1617,6 +1692,37 @@ const handleResize = () => {
       panelPosition.value = {
         x: Math.max(0, Math.min(panelPosition.value.x, maxX)),
         y: Math.max(0, Math.min(panelPosition.value.y, maxY))
+      };
+    }
+  }
+
+  // 檢查工具面板位置是否需要調整
+  const toolPanelWidth = 300;
+  const toolPanelHeight = 250;
+  const rightMargin = 20;
+
+  // 調整展繪面板位置
+  if (showDrawPanel.value) {
+    const maxX = window.innerWidth - toolPanelWidth - rightMargin;
+    const maxY = window.innerHeight - toolPanelHeight;
+
+    if (drawPanelPosition.value.x > maxX || drawPanelPosition.value.y > maxY) {
+      drawPanelPosition.value = {
+        x: Math.max(rightMargin, Math.min(drawPanelPosition.value.x, maxX)),
+        y: Math.max(10, Math.min(drawPanelPosition.value.y, maxY))
+      };
+    }
+  }
+
+  // 調整量測面板位置
+  if (showMeasurePanel.value) {
+    const maxX = window.innerWidth - toolPanelWidth - rightMargin;
+    const maxY = window.innerHeight - toolPanelHeight;
+
+    if (measurePanelPosition.value.x > maxX || measurePanelPosition.value.y > maxY) {
+      measurePanelPosition.value = {
+        x: Math.max(rightMargin, Math.min(measurePanelPosition.value.x, maxX)),
+        y: Math.max(10, Math.min(measurePanelPosition.value.y, maxY))
       };
     }
   }
@@ -2416,8 +2522,6 @@ const refreshLayerData = () => {
     clusterSource?.getSource()?.refresh() // Cluster source 需要兩層
   }
 }
-
-// === 以下是原有的 GIS 補助案件相關功能（保持向後兼容） ===
 </script>
 
 <style>
@@ -2491,6 +2595,50 @@ const refreshLayerData = () => {
   min-width: 250px;
   width: auto; /* 讓寬度根據內容調整 */
   transition: none; /* 取消過渡動畫，以便拖拽更流暢 */
+}
+
+/* 浮動工具面板樣式 */
+.floating-panel {
+  position: absolute;
+  z-index: 1002;
+  transition: none; /* 取消過渡動畫，以便拖拽更流暢 */
+}
+
+.tool-panel {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.tool-panel.dragging {
+  opacity: 0.9;
+  cursor: grabbing;
+}
+
+.tool-panel .draggable-header {
+  cursor: grab;
+  user-select: none;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.tool-panel .draggable-header:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.tool-panel .draggable-header:active {
+  cursor: grabbing;
+}
+
+.tool-panel .drag-handle {
+  color: rgba(0, 0, 0, 0.4);
+  cursor: grab;
+}
+
+
+.measure-results {
+  margin-top: 8px;
 }
 
 .layer-control-panel {
@@ -2853,5 +3001,3 @@ const refreshLayerData = () => {
   }
 }
 </style>
-
-
