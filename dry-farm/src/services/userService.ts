@@ -116,6 +116,20 @@ export const userService = {
   },
 
   /**
+   * 刷新 Token
+   * @returns 新的登入回應
+   */
+  async refreshToken(): Promise<LoginResponse> {
+    try {
+      const response = await apiService.post<LoginResponse>(AUTH.REFRESH, {})
+      return response
+    } catch (error) {
+      console.error('Token 刷新失敗:', error)
+      throw error
+    }
+  },
+
+  /**
    * 删除使用者帳號
    * @param userId 使用者ID
    */

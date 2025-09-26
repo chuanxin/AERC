@@ -68,6 +68,31 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
     return response
 
 
+@router.post("/refresh")
+async def refresh_token(current_user: UserInfoSchema = Depends(get_current_user)):
+    """
+    刷新用戶的 access token
+    """
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = await create_access_token(
+        data={"sub": current_user.username}, expires_delta=access_token_expires
+    )
+    token = jsonable_encoder(access_token)
+    content = {
+        "message": "Token refreshed successfully",
+        "access_token": token,
+    }
+    response = JSONResponse(content=content)
+    response.set_cookie(
+        "Authorization",
+        value=f"Bearer {token}",
+        httponly=True,
+        samesite="Lax",
+        secure=True,
+    )
+    return response
+
+
 @router.get(
     "/users/whoami", response_model=UserInfoSchema, dependencies=[Depends(get_current_user)]
 )

@@ -32,6 +32,17 @@ function isTokenExpired(token: string): boolean {
   const currentTime = Math.floor(Date.now() / 1000)
   return decodedToken.exp < currentTime
 }
+
+// Check if token needs refresh (within 10 minutes of expiration)
+function shouldRefreshToken(token: string): boolean {
+  const decodedToken = parseJwt(token)
+  if (!decodedToken || !decodedToken.exp) return false
+
+  // Check if token expires within 10 minutes (600 seconds)
+  const currentTime = Math.floor(Date.now() / 1000)
+  const refreshThreshold = 300 // 5 minutes in seconds
+  return (decodedToken.exp - currentTime) < refreshThreshold
+}
 /**
  * 用戶管理存儲
  * 處理用戶認證、個人資料管理及相關狀態
@@ -45,6 +56,10 @@ export const useUserStore = defineStore('user', () => {
 
   // Flag to track if an auto-login attempt has been made
   const hasAttemptedAutoLogin = ref(false)
+
+  // 防重複刷新：追蹤正在進行的刷新請求
+  let isRefreshing = false
+  let refreshPromise: Promise<string | null> | null = null
 
   // 計算屬性
   const isAuthenticated = computed(() => {
@@ -168,6 +183,77 @@ export const useUserStore = defineStore('user', () => {
     }
     return true
   }, asyncOptions)
+
+  /**
+   * 刷新 Token（防重複版本）
+   * @returns 新的 Token 或 null（如果刷新失敗）
+   */
+  const refreshToken = async (): Promise<string | null> => {
+    if (!token.value) {
+      throw new Error('無有效 Token 可刷新')
+    }
+
+    // 如果已經在刷新中，返回同一個 Promise
+    if (isRefreshing && refreshPromise) {
+      console.log('[UserStore] Token refresh already in progress, waiting...')
+      return refreshPromise
+    }
+
+    // 標記為正在刷新，並創建刷新 Promise
+    isRefreshing = true
+    refreshPromise = (async () => {
+      try {
+        console.log('[UserStore] Starting token refresh...')
+        const response = await userService.refreshToken()
+
+        if (response?.access_token) {
+          token.value = response.access_token
+          localStorage.setItem('auth_token', response.access_token)
+          console.log('[UserStore] Token refreshed successfully')
+          return response.access_token
+        }
+
+        throw new Error('刷新 Token 失敗')
+      } catch (error) {
+        // 刷新失敗，清除 Token
+        console.warn('[UserStore] Token refresh failed, logging out:', error)
+        token.value = null
+        currentUser.value = null
+        localStorage.removeItem('auth_token')
+        throw error
+      } finally {
+        // 重置刷新狀態
+        isRefreshing = false
+        refreshPromise = null
+      }
+    })()
+
+    return refreshPromise
+  }
+
+  /**
+   * 檢查並自動刷新 Token（如果需要）
+   */
+  const checkAndRefreshToken = async (): Promise<boolean> => {
+    if (!token.value) return false
+
+    if (isTokenExpired(token.value)) {
+      // Token 已過期，無法刷新
+      logout()
+      return false
+    }
+
+    if (shouldRefreshToken(token.value)) {
+      try {
+        await refreshToken()
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    return true // Token 還有效，不需刷新
+  }
 
   /**
    * 更新用戶資料
@@ -331,6 +417,8 @@ export const useUserStore = defineStore('user', () => {
     login,
     register,
     logout,
+    refreshToken,
+    checkAndRefreshToken,
     fetchCurrentUser,
     updateProfile,
     changePassword,

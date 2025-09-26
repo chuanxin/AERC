@@ -38,7 +38,7 @@ export function setupInterceptors(
 
   // 請求攔截器 - 處理 API 路徑映射和認證
   api.interceptors.request.use(
-    (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+    async (config: InternalAxiosRequestConfig): Promise<InternalAxiosRequestConfig> => {
       // 保存原始 URL 以便後續使用
       const originalUrl = config.url;
 
@@ -58,9 +58,35 @@ export function setupInterceptors(
         }
       }
 
-      // 添加授權令牌到請求頭
+      // 自動 Token 刷新邏輯
       const token = localStorage.getItem('auth_token');
-      if (token) {
+
+      // 檢查是否為 refresh 請求（使用原始 URL 檢查）
+      const isRefreshRequest = originalUrl && originalUrl.includes('/auth/refresh');
+
+      if (token && !isRefreshRequest) {
+        // 非 refresh 請求：檢查並自動刷新 Token
+        try {
+          // 動態導入避免循環依賴
+          const { useUserStore } = await import('../../stores/users')
+          const userStore = useUserStore()
+
+          // 檢查並自動刷新 Token
+          await userStore.checkAndRefreshToken()
+
+          // 獲取最新的 Token（可能已經被刷新）
+          const latestToken = localStorage.getItem('auth_token')
+          if (latestToken) {
+            config.headers.set('Authorization', `Bearer ${latestToken}`)
+          }
+        } catch (error) {
+          console.warn('Token refresh check failed:', error)
+          // 如果刷新失敗，使用原有 Token 繼續請求
+          config.headers.set('Authorization', `Bearer ${token}`)
+        }
+      } else if (token) {
+        // 對於 refresh 請求或沒有 Token 的情況，直接使用現有 Token
+        console.log('Refresh request detected, skipping token refresh check')
         config.headers.set('Authorization', `Bearer ${token}`)
       }
 
