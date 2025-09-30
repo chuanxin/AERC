@@ -119,7 +119,7 @@
                   :items="indexedItems"
                   :loading="isLoadingMoreFromStore"
                   :height="500"
-                  density="compact"
+                  density="comfortable"
                   item-value="id"
                   class="materials-table rounded-lg"
                 >
@@ -1021,18 +1021,18 @@ const getDiameterDisplay = (diameterId: number | null) => {
 
 // 新表頭
 const headers = ref<{ title: string; key: string; align?: 'center' | 'end' | 'start'; width?: string }[]>([
-  { title: '項次', key: 'index', align: 'center', width: '60px' },
+  { title: '項次', key: 'index', align: 'center', width: '45px' },
   { title: '模組名稱', key: 'moduleName', align: 'center' },
   { title: '物料名稱', key: 'materialName', align: 'center' },
   { title: '口徑1', key: 'diameter1', align: 'center' },
   { title: '口徑2', key: 'diameter2', align: 'center' },
   { title: '口徑3', key: 'diameter3', align: 'center' },
-  { title: '材質', key: 'material', align: 'center' },
+  { title: '材質', key: 'material', align: 'center', width: '85px'  },
   { title: '長度(m)', key: 'length', align: 'center' },
-  { title: '品項單位', key: 'unit', align: 'center' },
+  { title: '品項單位', key: 'unit', align: 'center', width: '85px'  },
   { title: '目前單價', key: 'currentPrice', align: 'center' },
-  { title: '狀態', key: 'status', align: 'center' },
-  { title: '操作', key: 'actions', align: 'center' },
+  { title: '狀態', key: 'status', align: 'center', width: '15px' },
+  { title: '操作', key: 'actions', align: 'center', width: '15px'  },
 ])
 
 // const { name } = useDisplay()

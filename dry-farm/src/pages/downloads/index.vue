@@ -129,6 +129,7 @@
                       style="min-width: 200px"
                       bg-color="white"
                       rounded="lg"
+                      autocomplete="off"
                       @update:model-value="applyFilters"
                     />
                   </div>
@@ -514,7 +515,7 @@ const downloadFile = async (file: DownloadFile) => {
     await new Promise(resolve => setTimeout(resolve, 500))
 
     downloadProgress.value = 100
-    downloadStatus.value = '檔案已送至瀏覽器，請查看下載管理器'
+    downloadStatus.value = '檔案已送出，請查看瀏覽器的下載紀錄'
 
     console.log('下載檔案成功:', file.filename)
   } catch (downloadError) {

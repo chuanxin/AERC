@@ -13,5 +13,7 @@ declare module 'vue' {
     ReportBugButton: typeof import('./components/ReportBugButton.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    ShapefileUploader: typeof import('./components/ShapefileUploader.vue')['default']
+    TokenExpiryNotification: typeof import('./components/TokenExpiryNotification.vue')['default']
   }
 }

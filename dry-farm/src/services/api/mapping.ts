@@ -25,7 +25,8 @@ export const BACKEND_PATHS = {
     LOGIN: '/login',
     REGISTER: '/register',
     WHO_AM_I: '/users/whoami',
-    LOGOUT: '/logout'
+    LOGOUT: '/logout',
+    REFRESH: '/refresh'
   },
   // 用戶管理相關
   USERS: {
@@ -112,6 +113,7 @@ export const BACKEND_PATHS = {
 export const API_MAPPING: Record<string, string> = {
   [AUTH.LOGIN]: BACKEND_PATHS.AUTH.LOGIN,
   [AUTH.REGISTER]: BACKEND_PATHS.AUTH.REGISTER,
+  [AUTH.REFRESH]: BACKEND_PATHS.AUTH.REFRESH,
   [AUTH.ME]: BACKEND_PATHS.AUTH.WHO_AM_I,
   [USERS.LIST]: BACKEND_PATHS.USERS.LIST,
   [OFFICES.LIST]: BACKEND_PATHS.OFFICES.LIST,
