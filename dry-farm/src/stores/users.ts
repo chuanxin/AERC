@@ -38,9 +38,9 @@ function shouldRefreshToken(token: string): boolean {
   const decodedToken = parseJwt(token)
   if (!decodedToken || !decodedToken.exp) return false
 
-  // Check if token expires within 10 minutes (600 seconds)
+  // Check if token expires within 5 minutes (300 seconds)
   const currentTime = Math.floor(Date.now() / 1000)
-  const refreshThreshold = 300 // 5 minutes in seconds
+  const refreshThreshold = 300
   return (decodedToken.exp - currentTime) < refreshThreshold
 }
 /**
@@ -60,6 +60,11 @@ export const useUserStore = defineStore('user', () => {
   // 防重複刷新：追蹤正在進行的刷新請求
   let isRefreshing = false
   let refreshPromise: Promise<string | null> | null = null
+
+  // 手動提醒相關狀態
+  const showExpiryNotification = ref(false)
+  const notificationExpiresAt = ref(0)
+  let notificationTimer: ReturnType<typeof setTimeout> | null = null
 
   // 計算屬性
   const isAuthenticated = computed(() => {
@@ -131,7 +136,12 @@ export const useUserStore = defineStore('user', () => {
       localStorage.setItem('auth_token', response.access_token)
 
       // 獲取用戶信息
-      return await fetchCurrentUser()
+      const result = await fetchCurrentUser()
+
+      // 登入成功後排程到期提醒
+      scheduleExpiryNotification()
+
+      return result
     }
 
     return null
@@ -180,6 +190,9 @@ export const useUserStore = defineStore('user', () => {
       currentUser.value = null
       token.value = null
       localStorage.removeItem('auth_token')
+
+      // 清除到期提醒
+      dismissNotification()
     }
     return true
   }, asyncOptions)
@@ -210,6 +223,10 @@ export const useUserStore = defineStore('user', () => {
           token.value = response.access_token
           localStorage.setItem('auth_token', response.access_token)
           console.log('[UserStore] Token refreshed successfully')
+
+          // Token 刷新成功後重新排程提醒
+          scheduleExpiryNotification()
+
           return response.access_token
         }
 
@@ -253,6 +270,78 @@ export const useUserStore = defineStore('user', () => {
     }
 
     return true // Token 還有效，不需刷新
+  }
+
+  /**
+   * 排程到期提醒通知
+   */
+  const scheduleExpiryNotification = () => {
+    // 清除現有計時器
+    if (notificationTimer) {
+      clearTimeout(notificationTimer)
+      notificationTimer = null
+    }
+
+    if (!token.value) return
+
+    const decodedToken = parseJwt(token.value)
+    if (!decodedToken || !decodedToken.exp) return
+
+    const currentTime = Math.floor(Date.now() / 1000)
+    const tokenExpiresAt = decodedToken.exp
+
+    // 計算提醒時間：Token 到期前 1 分鐘顯示提醒
+    const notificationAdvance = 60 // 1 minutes in seconds
+    const notificationTime = tokenExpiresAt - notificationAdvance
+    const delayMs = Math.max(0, (notificationTime - currentTime) * 1000)
+
+    console.log(`[UserStore] Scheduling expiry notification in ${Math.floor(delayMs / 1000)} seconds`)
+
+    if (delayMs > 0) {
+      notificationTimer = setTimeout(() => {
+        // 再次檢查 Token 是否仍然有效且需要提醒
+        const latestToken = localStorage.getItem('auth_token')
+        if (latestToken && !isTokenExpired(latestToken)) {
+          const latestDecoded = parseJwt(latestToken)
+          if (latestDecoded && latestDecoded.exp) {
+            notificationExpiresAt.value = latestDecoded.exp
+            showExpiryNotification.value = true
+            console.log('[UserStore] Showing expiry notification')
+          }
+        }
+      }, delayMs)
+    }
+  }
+
+  /**
+   * 處理手動刷新請求（來自提醒彈窗）
+   */
+  const handleManualRefresh = async (): Promise<boolean> => {
+    try {
+      await refreshToken()
+
+      // 刷新成功後，關閉提醒並重新排程
+      dismissNotification()
+      scheduleExpiryNotification()
+
+      return true
+    } catch (error) {
+      console.error('[UserStore] Manual refresh from notification failed:', error)
+      return false
+    }
+  }
+
+  /**
+   * 關閉到期提醒
+   */
+  const dismissNotification = () => {
+    showExpiryNotification.value = false
+    notificationExpiresAt.value = 0
+
+    if (notificationTimer) {
+      clearTimeout(notificationTimer)
+      notificationTimer = null
+    }
   }
 
   /**
@@ -408,6 +497,10 @@ export const useUserStore = defineStore('user', () => {
     error,
     hasAttemptedAutoLogin,
 
+    // 手動提醒相關狀態
+    showExpiryNotification,
+    notificationExpiresAt,
+
     // 計算屬性
     isAuthenticated,
     userFullName,
@@ -425,5 +518,10 @@ export const useUserStore = defineStore('user', () => {
     deleteAccount,
     checkAuth,
     attemptAutoLogin,
+
+    // 手動提醒相關方法
+    scheduleExpiryNotification,
+    handleManualRefresh,
+    dismissNotification,
   }
 })
