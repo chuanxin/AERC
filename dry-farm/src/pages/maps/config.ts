@@ -40,25 +40,26 @@ export interface LayerGroupInfo {
 /**
  * 套疊圖層分組定義
  * 集中管理所有分組 - 新增分組只需在此添加
+ * 注意：order 值決定分組在 OpenLayers 中的 zIndex 基礎層級
+ *      order 值越小，分組在地圖上顯示越靠上層
  */
-export const LAYER_GROUPS = {
+export const LAYER_GROUPS: Record<string, { title: string; icon?: string; order: number }> = {
   'historical-grants': {
     title: '歷史補助案件',
     icon: 'mdi-history',
-    order: 1
+    order: 2
   },
   'auxiliary': {
     title: '輔助圖層',
     icon: 'mdi-layers-triple',
-    order: 2
+    order: 3
+  },
+  'custom': {
+    title: '自訂圖層',
+    icon: 'mdi-water',
+    order: 1
   }
-  // 未來擴展示例：
-  // 'irrigation': {
-  //   title: '灌溉設施圖層',
-  //   icon: 'mdi-water',
-  //   order: 3
-  // }
-} as const
+}
 
 /**
  * 圖層配置 - 單一真實來源
@@ -228,9 +229,19 @@ export const getLayerById = (id: string): MapLayer | undefined => {
 
 /**
  * 獲取所有分組資訊（按順序排列）
+ * order 值越小，在視覺上顯示越靠上方
  */
 export const getLayerGroups = (): LayerGroupInfo[] => {
   return Object.entries(LAYER_GROUPS)
     .map(([id, info]) => ({ id, ...info }))
     .sort((a, b) => a.order - b.order)
+}
+
+/**
+ * 更新分組的順序值
+ */
+export const updateGroupOrder = (groupId: string, newOrder: number): void => {
+  if (LAYER_GROUPS[groupId]) {
+    LAYER_GROUPS[groupId].order = newOrder
+  }
 }

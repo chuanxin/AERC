@@ -7,6 +7,7 @@
     @update:model-value="$emit('update:visible', $event)"
   >
     <v-toolbar
+      border
       color="white"
       density="compact"
     >
@@ -15,15 +16,21 @@
       <v-btn
         icon
         density="compact"
+        :ripple="false"
+        rounded="xl"
         @click="$emit('close')"
       >
         <v-icon>mdi-close</v-icon>
       </v-btn>
     </v-toolbar>
 
-    <v-list density="compact">
+    <v-list
+      density="compact"
+      class="pt-0"
+    >
       <!-- 套疊圖層 TreeView（扁平化顯示各分組） -->
       <v-treeview
+        :key="`overlay-tree-${groupOrderVersion}`"
         v-model:opened="overlayOpenedItems"
         :items="overlayTreeItems"
         density="compact"
@@ -51,6 +58,27 @@
             <span class="font-weight-bold text-primary">
               {{ item.title }}
             </span>
+            <!-- 分組順序調整按鈕 -->
+            <div class="d-flex group-order-buttons ml-2">
+              <v-btn
+                icon
+                size="x-small"
+                variant="text"
+                :disabled="!canMoveGroupUp(item.id)"
+                @click.stop="moveGroupUp(item.id)"
+              >
+                <v-icon size="small">mdi-arrow-up</v-icon>
+              </v-btn>
+              <v-btn
+                icon
+                size="x-small"
+                variant="text"
+                :disabled="!canMoveGroupDown(item.id)"
+                @click.stop="moveGroupDown(item.id)"
+              >
+                <v-icon size="small">mdi-arrow-down</v-icon>
+              </v-btn>
+            </div>
           </div>
           <!-- 套疊圖層項目的完整內容 -->
           <div v-else-if="item.type === 'overlay' && item.layer" class="overlay-item-container">
@@ -85,16 +113,17 @@
                 <v-slider
                   v-model="item.layer.opacity"
                   class="opacity-slider-compact flex-grow-1"
+                  density="compact"
                   :min="0"
                   :max="1"
                   :step="0.1"
                   thumb-label
-                  density="compact"
                   hide-details
+                  track-color="green"
                   @update:model-value="updateLayerOpacity(item.layer)"
                 >
                   <template #thumb-label="{ modelValue }">
-                    {{ Math.round(modelValue * 100) }}%
+                    {{ Math.round((1 - modelValue) * 100) }}%
                   </template>
                 </v-slider>
 
@@ -179,16 +208,17 @@
                 <v-slider
                   v-model="item.layer.opacity"
                   class="opacity-slider-compact flex-grow-1"
+                  density="compact"
                   :min="0"
                   :max="1"
-                  :step="0.01"
+                  :step="0.1"
                   thumb-label
-                  density="compact"
                   hide-details
+                  track-color="green"
                   @update:model-value="updateLayerOpacity(item.layer)"
                 >
                   <template #thumb-label="{ modelValue }">
-                    {{ Math.round(modelValue * 100) }}%
+                    {{ Math.round((1 - modelValue) * 100) }}%
                   </template>
                 </v-slider>
               </div>
@@ -201,7 +231,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, nextTick } from 'vue'
 import { getLayerGroups } from './config'
 import type { MapLayer } from './config'
 
@@ -227,6 +257,9 @@ const props = defineProps<LayerManagementProps>()
 const overlayOpenedItems = ref<string[]>(['historical-grants', 'auxiliary'])
 const baselayerOpenedItems = ref<string[]>(['baselayer'])
 
+// 用於觸發 overlayTreeItems 重新計算的響應式變量
+const groupOrderVersion = ref(0)
+
 // Emits 定義
 const emit = defineEmits<{
   'update:visible': [visible: boolean]
@@ -236,6 +269,7 @@ const emit = defineEmits<{
   'base-layer-selected': [layerName: string]
   'display-mode-changed': [mode: string]
   'layer-order-changed': [layerId: string, direction: 'up' | 'down']
+  'group-order-changed': [groupId: string, direction: 'up' | 'down']
 }>()
 
 // 計算屬性
@@ -249,6 +283,9 @@ const overlayLayers = computed(() =>
 
 // 套疊圖層 TreeView 數據結構（扁平化顯示，直接顯示分組）
 const overlayTreeItems = computed((): TreeItem[] => {
+  // 引入 groupOrderVersion 以追蹤分組順序變更
+  groupOrderVersion.value // eslint-disable-line @typescript-eslint/no-unused-expressions
+
   // 獲取所有分組配置
   const groups = getLayerGroups()
 
@@ -263,8 +300,8 @@ const overlayTreeItems = computed((): TreeItem[] => {
       id: groupInfo.id,
       title: groupInfo.title,
       type: 'category' as const,
-      children: layersInGroup.map((layer, index) => ({
-        id: `${groupInfo.id}-${index}`,
+      children: layersInGroup.map((layer) => ({
+        id: layer.id, // 使用圖層的唯一 ID 而不是 index
         title: layer.name,
         type: 'overlay' as const,
         layer
@@ -328,6 +365,10 @@ const toggleLayerVisibility = (layer: MapLayer) => {
 
 // 更新圖層透明度
 const updateLayerOpacity = (layer: MapLayer) => {
+  // 限制最低透明度為 0.1，避免圖層完全不可見
+  if (layer.opacity < 0.1) {
+    layer.opacity = 0.1
+  }
   emit('layer-opacity-changed', layer)
 }
 
@@ -374,6 +415,55 @@ const canMoveDown = (layer: MapLayer): boolean => {
   const minOrder = Math.min(...layersInGroup.map(l => l.order))
   return layer.order > minOrder
 }
+
+// ===== 分組順序調整相關函數 =====
+
+// 獲取實際渲染的分組（有圖層的分組）
+const getVisibleGroups = () => {
+  const allGroups = getLayerGroups()
+  return allGroups.filter(group => {
+    const hasLayers = overlayLayers.value.some(layer => layer.group === group.id)
+    return hasLayers
+  })
+}
+
+// 判斷分組是否可以上移（order 不是可見分組中的最小值）
+const canMoveGroupUp = (groupId: string): boolean => {
+  const visibleGroups = getVisibleGroups()
+  if (visibleGroups.length <= 1) return false
+  const currentGroup = visibleGroups.find(g => g.id === groupId)
+  if (!currentGroup) return false
+  const minOrder = Math.min(...visibleGroups.map(g => g.order))
+  return currentGroup.order > minOrder
+}
+
+// 判斷分組是否可以下移（order 不是可見分組中的最大值）
+const canMoveGroupDown = (groupId: string): boolean => {
+  const visibleGroups = getVisibleGroups()
+  if (visibleGroups.length <= 1) return false
+  const currentGroup = visibleGroups.find(g => g.id === groupId)
+  if (!currentGroup) return false
+  const maxOrder = Math.max(...visibleGroups.map(g => g.order))
+  return currentGroup.order < maxOrder
+}
+
+// 分組上移
+const moveGroupUp = (groupId: string) => {
+  emit('group-order-changed', groupId, 'up')
+  // 使用 nextTick 延遲觸發重新計算，避免 Vuetify TreeView ID 衝突
+  nextTick(() => {
+    groupOrderVersion.value++
+  })
+}
+
+// 分組下移
+const moveGroupDown = (groupId: string) => {
+  emit('group-order-changed', groupId, 'down')
+  // 使用 nextTick 延遲觸發重新計算，避免 Vuetify TreeView ID 衝突
+  nextTick(() => {
+    groupOrderVersion.value++
+  })
+}
 </script>
 
 <style scoped>
@@ -381,6 +471,24 @@ const canMoveDown = (layer: MapLayer): boolean => {
 .category-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* 分組順序調整按鈕 */
+.group-order-buttons {
+  gap: 2px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.category-header:hover .group-order-buttons {
+  opacity: 1;
+}
+
+.group-order-buttons .v-btn {
+  min-width: 24px;
+  height: 24px;
 }
 
 /* 圖層項目樣式 */
@@ -491,7 +599,7 @@ const canMoveDown = (layer: MapLayer): boolean => {
 
 .opacity-slider-compact :deep(.v-slider-thumb__label) {
   background-color: rgba(0, 0, 0, 0.8);
-  color: white;
+  color: white !important;
   font-size: 0.7rem;
 }
 

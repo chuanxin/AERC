@@ -438,6 +438,7 @@
         @base-layer-selected="handleBaseLayerSelected"
         @display-mode-changed="handleDisplayModeChanged"
         @layer-order-changed="handleLayerOrderChanged"
+        @group-order-changed="handleGroupOrderChanged"
       />
     </div>
   </div>
@@ -484,7 +485,7 @@ import FilterToolbar from './filter.vue';
 import LayerManagement from './layers.vue';
 
 // 從配置檔案導入圖層相關類型和工具
-import { MAP_LAYERS, LAYER_GROUPS } from './config'
+import { MAP_LAYERS, LAYER_GROUPS, updateGroupOrder, getLayerGroups } from './config'
 import type { MapLayer } from './config'
 
 const router = useRouter();
@@ -966,6 +967,31 @@ const handleLayerOrderChanged = (layerId: string, direction: 'up' | 'down') => {
   targetLayer.order = tempOrder
 
   console.log(`圖層 ${layer.name} 已${direction === 'up' ? '上移' : '下移'}（order: ${tempOrder} → ${layer.order}）`)
+
+  // 更新所有圖層的 zIndex
+  updateOverlayLayersZIndex()
+};
+
+// 處理分組順序變更
+const handleGroupOrderChanged = (groupId: string, direction: 'up' | 'down') => {
+  const groups = getLayerGroups().sort((a, b) => a.order - b.order) // 升序排列
+  const currentIndex = groups.findIndex(g => g.id === groupId)
+  if (currentIndex === -1) return
+
+  // up = 向上移動 = order 減少 = 在升序數組中向前移動
+  // down = 向下移動 = order 增加 = 在升序數組中向後移動
+  const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+  if (targetIndex < 0 || targetIndex >= groups.length) return
+
+  // 交換兩個分組的 order 值
+  const currentGroup = groups[currentIndex]
+  const targetGroup = groups[targetIndex]
+  const tempOrder = currentGroup.order
+
+  updateGroupOrder(currentGroup.id, targetGroup.order)
+  updateGroupOrder(targetGroup.id, tempOrder)
+
+  console.log(`分組 ${currentGroup.title} 已${direction === 'up' ? '上移' : '下移'}（order: ${tempOrder} → ${targetGroup.order}）`)
 
   // 更新所有圖層的 zIndex
   updateOverlayLayersZIndex()
