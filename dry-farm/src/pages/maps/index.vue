@@ -429,6 +429,7 @@
 
       <!-- 圖層管理組件 -->
       <LayerManagement
+        ref="layerManagementRef"
         v-model:visible="showLayersPanel"
         :map-layers="mapLayers"
         :display-mode="displayMode"
@@ -437,6 +438,16 @@
         @layer-opacity-changed="handleLayerOpacityChanged"
         @base-layer-selected="handleBaseLayerSelected"
         @display-mode-changed="handleDisplayModeChanged"
+        @layer-order-changed="handleLayerOrderChanged"
+        @group-order-changed="handleGroupOrderChanged"
+        @add-custom-layer="showAddCustomLayerDialog = true"
+      />
+
+      <!-- 新增自訂圖層對話框 -->
+      <AddCustomLayerDialog
+        v-model:visible="showAddCustomLayerDialog"
+        @layers-added="handleCustomLayersAdded"
+        @shapefile-loaded="handleShapefileLoaded"
       />
     </div>
   </div>
@@ -461,6 +472,10 @@ import { Polygon } from 'ol/geom';
 import OSM from 'ol/source/OSM';
 import StadiaMaps from 'ol/source/StadiaMaps';
 import TileWMS from 'ol/source/TileWMS';
+import WMTS from 'ol/source/WMTS';
+import WMTSTileGrid from 'ol/tilegrid/WMTS';
+import { get as getProjection } from 'ol/proj';
+import { getTopLeft, getWidth } from 'ol/extent';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import { Style, Fill, Stroke, Circle, Text } from 'ol/style';
 import { Point } from 'ol/geom';
@@ -477,15 +492,11 @@ import {
 
 import FilterToolbar from './filter.vue';
 import LayerManagement from './layers.vue';
+import AddCustomLayerDialog from './AddCustomLayerDialog.vue';
 
-// 定義圖層介面
-interface MapLayer {
-  name: string;
-  visible: boolean;
-  opacity: number;
-  category: 'baselayer' | 'overlay'; // 新增圖層類別
-  layer: any | null; // OpenLayers 類型過於複雜，暫時使用 any
-}
+// 從配置檔案導入圖層相關類型和工具
+import { MAP_LAYERS, LAYER_GROUPS, updateGroupOrder, getLayerGroups, addCustomLayer } from './config'
+import type { MapLayer, OGCServiceConfig } from './config'
 
 const router = useRouter();
 const route = useRoute();
@@ -510,6 +521,8 @@ const snackbarMessage = ref('');
 const isDrawing = ref(false);
 const isMeasuring = ref(false);
 const showLayersPanel = ref(false);
+const showAddCustomLayerDialog = ref(false);
+const layerManagementRef = ref<InstanceType<typeof LayerManagement> | null>(null);
 
 // 工具面板顯示狀態
 const showDrawPanel = ref(false);
@@ -554,43 +567,8 @@ const getSavedPanelPosition = () => {
 const panelPosition = ref(getSavedPanelPosition());
 
 // 圖層管理相關
-const mapLayers = ref<MapLayer[]>([
-  {
-    name: '臺灣通用電子地圖',
-    visible: true,
-    opacity: 1,
-    category: 'baselayer',
-    layer: null
-  },
-  {
-    name: '開放街圖 (OpenStreetMap)',
-    visible: false,
-    opacity: 1,
-    category: 'baselayer',
-    layer: null
-  },
-  {
-    name: '水彩風格底圖',
-    visible: false,
-    opacity: 1,
-    category: 'baselayer',
-    layer: null
-  },
-  {
-    name: '補助案件格網統計圖',
-    visible: true,
-    opacity: 0.8,
-    category: 'overlay',
-    layer: null
-  },
-  {
-    name: '補助案件點位',
-    visible: false,
-    opacity: 1,
-    category: 'overlay',
-    layer: null
-  },
-]);
+// 創建配置的響應式副本（避免直接修改配置源）
+const mapLayers = ref<MapLayer[]>(MAP_LAYERS.map(layer => ({ ...layer })))
 
 // GIS 補助案件相關
 const showSearchPanel = ref(false);
@@ -920,6 +898,9 @@ const handleLayerVisibilityChanged = (layer: MapLayer) => {
     layer.layer.setVisible(layer.visible);
   }
   console.log('圖層可見性已更新:', layer.name, '可見:', layer.visible);
+
+  // 更新所有圖層的 zIndex（因為可見圖層集合已改變）
+  updateOverlayLayersZIndex();
 };
 
 const handleLayerOpacityChanged = (layer: MapLayer) => {
@@ -940,6 +921,333 @@ const handleDisplayModeChanged = (mode: string) => {
   gisStore.updateDisplayMode(mode as 'points' | 'grid');
   console.log('顯示模式已更改:', mode);
 };
+
+// 更新所有可見套疊圖層的 zIndex
+const updateOverlayLayersZIndex = () => {
+  if (!map) return
+
+  // 獲取所有已開啟的套疊圖層
+  const visibleOverlayLayers = mapLayers.value
+    .filter(l => l.category === 'overlay' && l.layer && l.visible)
+
+  // 按 LAYER_GROUPS 的 group order，然後按 MapLayer 的 order 排序
+  // group order 大的在下層，group order 小的在上層
+  // 同 group 內 order 大的在上層
+  const sortedLayers = visibleOverlayLayers.sort((a, b) => {
+    const groupA = LAYER_GROUPS[a.group as keyof typeof LAYER_GROUPS]
+    const groupB = LAYER_GROUPS[b.group as keyof typeof LAYER_GROUPS]
+
+    // 先按 group order 排序（降序：order 大的在下層）
+    if (groupA.order !== groupB.order) {
+      return groupB.order - groupA.order
+    }
+    // 同 group 內按 layer order 排序（升序：order 小的在下層）
+    return a.order - b.order
+  })
+
+  // 分配 zIndex：從 1 開始，最下層圖層 zIndex = 1，最上層 = visibleCount
+  sortedLayers.forEach((l, index) => {
+    const zIndex = index + 1
+    l.layer.setZIndex(zIndex)
+  })
+
+  console.log('[Debug] 套疊圖層 zIndex 已更新:', sortedLayers.map((l, idx) => `${l.name}(zIndex:${idx + 1})`).join(' -> '))
+}
+
+// 處理圖層順序變更
+const handleLayerOrderChanged = (layerId: string, direction: 'up' | 'down') => {
+  const layer = mapLayers.value.find(l => l.id === layerId)
+  if (!layer || !layer.layer) return
+
+  // 找到同分組的所有套疊圖層，按 order 降序排列（order 大的在上層）
+  const layersInGroup = mapLayers.value
+    .filter(l => l.category === 'overlay' && l.group === layer.group)
+    .sort((a, b) => b.order - a.order) // 降序
+
+  const currentIndex = layersInGroup.findIndex(l => l.id === layerId)
+  if (currentIndex === -1) return
+
+  // up = 向上移動 = order 增加 = 在降序數組中向前移動
+  // down = 向下移動 = order 減少 = 在降序數組中向後移動
+  const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+  if (targetIndex < 0 || targetIndex >= layersInGroup.length) return
+
+  // 找到相鄰圖層並交換 order 值
+  const targetLayer = layersInGroup[targetIndex]
+  const tempOrder = layer.order
+  layer.order = targetLayer.order
+  targetLayer.order = tempOrder
+
+  console.log(`圖層 ${layer.name} 已${direction === 'up' ? '上移' : '下移'}（order: ${tempOrder} → ${layer.order}）`)
+
+  // 更新所有圖層的 zIndex
+  updateOverlayLayersZIndex()
+};
+
+// 處理分組順序變更
+const handleGroupOrderChanged = (groupId: string, direction: 'up' | 'down') => {
+  const groups = getLayerGroups().sort((a, b) => a.order - b.order) // 升序排列
+  const currentIndex = groups.findIndex(g => g.id === groupId)
+  if (currentIndex === -1) return
+
+  // up = 向上移動 = order 減少 = 在升序數組中向前移動
+  // down = 向下移動 = order 增加 = 在升序數組中向後移動
+  const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+  if (targetIndex < 0 || targetIndex >= groups.length) return
+
+  // 交換兩個分組的 order 值
+  const currentGroup = groups[currentIndex]
+  const targetGroup = groups[targetIndex]
+  const tempOrder = currentGroup.order
+
+  updateGroupOrder(currentGroup.id, targetGroup.order)
+  updateGroupOrder(targetGroup.id, tempOrder)
+
+  console.log(`分組 ${currentGroup.title} 已${direction === 'up' ? '上移' : '下移'}（order: ${tempOrder} → ${targetGroup.order}）`)
+
+  // 更新所有圖層的 zIndex
+  updateOverlayLayersZIndex()
+};
+
+// 處理 Shapefile 圖層載入
+const handleShapefileLoaded = (
+  layersData: Array<{ name: string; geoJson: GeoJsonFeatureCollection }>,
+  callback: (success: boolean, error?: string) => void
+) => {
+  if (!map) {
+    callback(false, '地圖未初始化')
+    return
+  }
+
+  try {
+    const addedLayers: MapLayer[] = []
+    let combinedExtent: number[] | null = null
+
+    // 遍歷每個圖層
+    for (const data of layersData) {
+      // 檢查是否有 features
+      if (!data.geoJson.features || data.geoJson.features.length === 0) {
+        console.warn(`[Shapefile] 圖層 ${data.name} 沒有有效的幾何圖形資料，跳過`)
+        continue
+      }
+
+      console.log(`[Shapefile] 載入圖層: ${data.name}`, {
+        featureCount: data.geoJson.features.length
+      })
+
+      // 建立 VectorSource 從 GeoJSON
+      const vectorSource = new VectorSource({
+        features: new GeoJSON().readFeatures(data.geoJson, {
+          dataProjection: 'EPSG:4326',
+          featureProjection: 'EPSG:3857'
+        })
+      })
+
+      const featureCount = vectorSource.getFeatures().length
+
+      // 驗證是否成功讀取 features
+      if (featureCount === 0) {
+        console.warn(`[Shapefile] 無法解析圖層 ${data.name} 的幾何資料，可能缺少坐標系統定義，跳過`)
+        continue
+      }
+
+      // 檢查範圍是否有效
+      const extent = vectorSource.getExtent()
+
+      if (!extent || !extent.every(val => isFinite(val))) {
+        console.warn(`[Shapefile] 圖層 ${data.name} 坐標範圍無效，跳過`)
+        continue
+      }
+
+      // 檢查範圍是否在合理的地球範圍內（EPSG:3857）
+      const [minX, minY, maxX, maxY] = extent
+      const earthBounds = {
+        minX: -20037508.34,
+        maxX: 20037508.34,
+        minY: -20037508.34,
+        maxY: 20037508.34
+      }
+
+      if (minX < earthBounds.minX || maxX > earthBounds.maxX ||
+          minY < earthBounds.minY || maxY > earthBounds.maxY) {
+        console.warn(`[Shapefile] 圖層 ${data.name} 坐標範圍超出地球範圍，跳過`)
+        continue
+      }
+
+      // 建立 VectorLayer
+      const vectorLayer = new VectorLayer({
+        source: vectorSource,
+        style: new Style({
+          stroke: new Stroke({
+            color: '#3399CC',
+            width: 2
+          }),
+          fill: new Fill({
+            color: 'rgba(51, 153, 204, 0.3)'
+          })
+        }),
+        visible: true,
+        opacity: 0.8
+      })
+
+      // 建立圖層配置
+      const layerId = `custom-shapefile-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const newLayer: MapLayer = {
+        id: layerId,
+        name: data.name,
+        category: 'overlay',
+        group: 'custom',
+        visible: true,
+        opacity: 0.8,
+        description: `Shapefile 圖層 (${featureCount} 個特徵)`,
+        order: 0,
+        layer: vectorLayer,
+        isCustom: true
+      }
+
+      // 加入到配置
+      addCustomLayer(newLayer)
+      mapLayers.value.push(newLayer)
+
+      // 加入到地圖
+      map.addLayer(vectorLayer)
+
+      addedLayers.push(newLayer)
+
+      // 更新組合範圍
+      if (!combinedExtent) {
+        combinedExtent = [...extent]
+      } else {
+        combinedExtent = [
+          Math.min(combinedExtent[0], extent[0]),
+          Math.min(combinedExtent[1], extent[1]),
+          Math.max(combinedExtent[2], extent[2]),
+          Math.max(combinedExtent[3], extent[3])
+        ]
+      }
+
+      console.log(`[Shapefile] 已新增圖層: ${data.name} (${featureCount} features)`)
+    }
+
+    // 檢查是否至少成功加載一個圖層
+    if (addedLayers.length === 0) {
+      throw new Error('沒有成功載入任何圖層，請確認 Shapefile 格式是否正確')
+    }
+
+    // 更新 zIndex
+    updateOverlayLayersZIndex()
+
+    // 縮放至所有圖層的組合範圍
+    if (combinedExtent) {
+      map.getView().fit(combinedExtent, {
+        padding: [50, 50, 50, 50],
+        duration: 1000
+      })
+    }
+
+    snackbarMessage.value = `成功載入 ${addedLayers.length} 個 Shapefile 圖層`
+    showSnackbar.value = true
+
+    console.log(`[Shapefile] 批次載入完成: ${addedLayers.length} 個圖層`)
+
+    // 展開自訂圖層分組
+    if (layerManagementRef.value) {
+      layerManagementRef.value.expandCustomGroup()
+    }
+
+    // 通知對話框成功
+    callback(true)
+
+  } catch (error) {
+    const errorMsg = (error as Error).message
+    console.error('[Shapefile] 圖層建立失敗:', error)
+    snackbarMessage.value = `Shapefile 圖層建立失敗: ${errorMsg}`
+    showSnackbar.value = true
+
+    // 通知對話框失敗
+    callback(false, errorMsg)
+  }
+}
+
+// 處理自訂圖層新增
+const handleCustomLayersAdded = (configs: OGCServiceConfig[]) => {
+  if (!map) return
+
+  configs.forEach((config) => {
+    // 生成唯一 ID
+    const layerId = `custom-${config.type.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+    // 建立 OpenLayers 圖層實例
+    let olLayer: TileLayer<TileWMS | WMTS> | null = null
+
+    if (config.type === 'WMS') {
+      olLayer = new TileLayer({
+        source: new TileWMS({
+          url: config.url,
+          params: {
+            LAYERS: config.layerName,
+            VERSION: config.version || '1.3.0',
+            ...config.params
+          },
+          serverType: 'geoserver'
+        }),
+        visible: true,
+        opacity: 0.8
+      })
+    } else if (config.type === 'WMTS') {
+      // WMTS 需要根據 Capabilities 建立，這裡簡化處理
+      console.warn('WMTS 圖層需要完整的 Capabilities 資訊，目前簡化實作')
+      // 可以擴展實作 WMTS 圖層建立邏輯
+      return
+    } else if (config.type === 'WFS') {
+      // WFS 通常用 VectorLayer，這裡暫不實作
+      console.warn('WFS 圖層需要使用 VectorLayer，目前暫不支援')
+      return
+    }
+
+    if (!olLayer) return
+
+    // 建立 MapLayer 配置
+    const newLayer: MapLayer = {
+      id: layerId,
+      name: config.title || config.layerName,
+      category: 'overlay',
+      group: 'custom',
+      visible: true,
+      opacity: 0.8,
+      description: config.abstract,
+      order: 0, // addCustomLayer 會自動計算
+      layer: olLayer,
+      isCustom: true,
+      ogcConfig: config
+    }
+
+    // 加入到全局配置
+    addCustomLayer(newLayer)
+
+    // 直接加入到 mapLayers 響應式陣列(不破壞既有引用)
+    mapLayers.value.push(newLayer)
+
+    // 加入到地圖
+    if (map) {
+      map.addLayer(olLayer)
+    }
+
+    console.log(`已新增自訂圖層: ${newLayer.name} (${config.type})`)
+  })
+
+  // 所有圖層加入完成後,統一重新計算 zIndex
+  updateOverlayLayersZIndex()
+
+  // 展開自訂圖層分組
+  if (layerManagementRef.value) {
+    layerManagementRef.value.expandCustomGroup()
+  }
+
+  // 顯示成功訊息
+  snackbarMessage.value = `成功加入 ${configs.length} 個自訂圖層`
+  showSnackbar.value = true
+}
 
 // 定位功能
 const getCurrentLocation = () => {
@@ -1040,14 +1348,16 @@ watch(displayMode, async (newMode) => {
   }
 });
 
-// 更新圖層可見性
+// 更新圖層可見性（使用 ID 查找）
 const updateLayerVisibility = () => {
-  if (grantPointsLayer.value && grantGridLayer.value) {
+  const gridLayer = mapLayers.value.find(l => l.id === 'grant-grid')
+  const pointsLayer = mapLayers.value.find(l => l.id === 'grant-points')
+
+  if (grantPointsLayer.value && grantGridLayer.value && gridLayer && pointsLayer) {
     if (displayMode.value === 'grid') {
-      grantGridLayer.value.setVisible(mapLayers.value[3].visible);
+      grantGridLayer.value.setVisible(gridLayer.visible);
       grantPointsLayer.value.setVisible(false);
-      mapLayers.value[3].name = '補助案件格網統計圖';
-      mapLayers.value[4].visible = false;
+      pointsLayer.visible = false;
 
       // 確保格網圖層有資料
       const gridSource = grantGridLayer.value.getSource();
@@ -1058,9 +1368,8 @@ const updateLayerVisibility = () => {
       }
     } else {
       grantGridLayer.value.setVisible(false);
-      grantPointsLayer.value.setVisible(mapLayers.value[4].visible);
-      mapLayers.value[4].name = '補助案件點位';
-      mapLayers.value[3].visible = false;
+      grantPointsLayer.value.setVisible(pointsLayer.visible);
+      gridLayer.visible = false;
     }
   }
 };
@@ -1292,21 +1601,26 @@ const updateLayersWithFilteredData = () => {
 };
 
 
-// 搜尋時更新圖層可見性
+// 搜尋時更新圖層可見性（使用 ID 查找）
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const updateLayerVisibilityForSearch = () => {
   console.log('更新搜尋時的圖層可見性');
 
-  // 隱藏熱區圖層，顯示點位圖層
-  if (grantHeatmapLayer.value && grantPointsLayer.value) {
-    grantHeatmapLayer.value.setVisible(false);
+  const gridLayer = mapLayers.value.find(l => l.id === 'grant-grid')
+  const pointsLayer = mapLayers.value.find(l => l.id === 'grant-points')
+
+  // 隱藏格網圖層，顯示點位圖層
+  if (grantPointsLayer.value && gridLayer && pointsLayer) {
+    if (grantGridLayer.value) {
+      grantGridLayer.value.setVisible(false);
+    }
     grantPointsLayer.value.setVisible(true);
 
     // 更新圖層管理面板的狀態
-    mapLayers.value[3].visible = false; // 熱區圖層
-    mapLayers.value[4].visible = true;  // 點位圖層
+    gridLayer.visible = false; // 格網圖層
+    pointsLayer.visible = true;  // 點位圖層
 
-    console.log('圖層可見性已更新：熱區圖層隱藏，點位圖層顯示');
+    console.log('圖層可見性已更新：格網圖層隱藏，點位圖層顯示');
   }
 };
 
@@ -1877,7 +2191,8 @@ async function initMap() {
     // 從 URL 獲取初始地圖參數
     const mapParams = readMapParamsFromUrl();
 
-    // 創建圖層並關聯到 mapLayers
+    // 創建圖層並關聯到 mapLayers（使用 ID 查找）
+    const nlscMapLayer = mapLayers.value.find(l => l.id === 'nlsc-map')!
     const nlscLayer = new TileLayer({
       source: new TileWMS({
         url: 'https://wms.nlsc.gov.tw/wms',
@@ -1890,24 +2205,26 @@ async function initMap() {
         },
         serverType: 'geoserver',
       }),
-      visible: mapLayers.value[0].visible,
-      opacity: mapLayers.value[0].opacity
+      visible: nlscMapLayer.visible,
+      opacity: nlscMapLayer.opacity
     });
 
+    const osmMapLayer = mapLayers.value.find(l => l.id === 'osm-map')!
     const osmLayer = new TileLayer({
       source: new OSM(),
-      visible: mapLayers.value[1].visible,
-      opacity: mapLayers.value[1].opacity
+      visible: osmMapLayer.visible,
+      opacity: osmMapLayer.opacity
     });
 
+    const stamenMapLayer = mapLayers.value.find(l => l.id === 'stamen-watercolor')!
     const stamenLayer = new TileLayer({
       source: new StadiaMaps({
         layer: 'stamen_watercolor',
         retina: false,
         apiKey: 'fb83ebeb-aba3-4c37-ba97-3107a384e553',
       }),
-      visible: mapLayers.value[2].visible,
-      opacity: mapLayers.value[2].opacity
+      visible: stamenMapLayer.visible,
+      opacity: stamenMapLayer.opacity
     });
 
     // 建立補助案件格網統計圖層 - 替代熱區圖
@@ -1935,10 +2252,11 @@ async function initMap() {
       }
     });
 
+    const grantGridMapLayer = mapLayers.value.find(l => l.id === 'grant-grid')!
     const gridLayer = new VectorLayer({
       source: gridVectorSource,
-      visible: mapLayers.value[3].visible,
-      opacity: mapLayers.value[3].opacity
+      visible: grantGridMapLayer.visible,
+      opacity: grantGridMapLayer.opacity
     });
 
     // 註解掉原本的熱區圖層
@@ -2010,27 +2328,141 @@ async function initMap() {
       minDistance: 20, // 最小聚合距離
     });
 
+    const grantPointsMapLayer = mapLayers.value.find(l => l.id === 'grant-points')!
     const grantLayer = new VectorLayer({
       source: clusterSource,
       style: (feature) => {
         return createClusterStyle(feature)
       },
-      visible: mapLayers.value[4].visible,
-      opacity: mapLayers.value[4].opacity
+      visible: grantPointsMapLayer.visible,
+      opacity: grantPointsMapLayer.opacity
     });
 
     // 儲存圖層引用
     grantGridLayer.value = gridLayer;
     grantPointsLayer.value = grantLayer;
 
-    const layers = [nlscLayer, osmLayer, stamenLayer, gridLayer, grantLayer];
+    // 建立國土功能分區圖 WMTS 圖層
+    // 使用自定義的 TileMatrixSet 'functional_zoning_2'（從 GetCapabilities 取得）
+    const projection = getProjection('EPSG:3857')!
 
-    // 關聯圖層到 mapLayers 數據結構
-    mapLayers.value[0].layer = nlscLayer;
-    mapLayers.value[1].layer = osmLayer;
-    mapLayers.value[2].layer = stamenLayer;
-    mapLayers.value[3].layer = gridLayer;
-    mapLayers.value[4].layer = grantLayer;
+    // 從 GetCapabilities 取得的 TileMatrix identifiers（用於 URL 請求）
+    const matrixIds = [
+      '2311166.8394888',
+      '1155583.4197444',
+      '577791.7098722',
+      '288895.8549361',
+      '144447.9274681',
+      '72223.963734',
+      '36111.981867',
+      '18055.9909335',
+      '9027.99546680001',
+      '4513.99773339999',
+      '2256.9988667'
+    ]
+
+    // 對應的 ScaleDenominator 值（用於計算 resolution）
+    const scaleDenominators = [
+      2183915.09386218,
+      1091957.54693109,
+      545978.773465546,
+      272989.386732773,
+      136494.693366434,
+      68247.3466831696,
+      34123.6733415848,
+      17061.8366707924,
+      8530.91833544346,
+      4265.45916772172,
+      2132.72958386086
+    ]
+
+    // 計算解析度：resolution = scaleDenominator × 0.28mm/pixel ÷ 1000
+    const resolutions = scaleDenominators.map(sd => sd * 0.00028)
+
+    // 從 GetCapabilities 取得的 TopLeftCorner
+    const origin: [number, number] = [13132780.1813854, 3058175.99664622]
+
+    const functionalZoneMapLayer = mapLayers.value.find(l => l.id === 'functional-zone-land-designated-use')!
+    const functionalZoneLayer = new TileLayer({
+      source: new WMTS({
+        url: 'https://www.iacloud.ia.gov.tw/ServerGate/SGSGate.ashx/WMTS/functional_zoning_2',
+        layer: 'functional_zoning_2',
+        matrixSet: 'functional_zoning_2',
+        format: 'image/png',
+        projection: projection,
+        tileGrid: new WMTSTileGrid({
+          origin: origin,
+          resolutions: resolutions,
+          matrixIds: matrixIds
+        }),
+        style: 'default',
+        wrapX: false
+      }),
+      visible: functionalZoneMapLayer.visible,
+      opacity: functionalZoneMapLayer.opacity
+    })
+
+    // 建立標準 GoogleMapsCompatible TileGrid（NLSC 圖層共用）
+    const nlscProjection = getProjection('EPSG:3857')!
+    const nlscProjectionExtent = nlscProjection.getExtent()
+    const nlscSize = getWidth(nlscProjectionExtent) / 256
+    const nlscResolutions = new Array(20)
+    const nlscMatrixIds = new Array(20)
+    for (let z = 0; z < 20; ++z) {
+      nlscResolutions[z] = nlscSize / Math.pow(2, z)
+      nlscMatrixIds[z] = z.toString()
+    }
+    const nlscTileGrid = new WMTSTileGrid({
+      origin: getTopLeft(nlscProjectionExtent),
+      resolutions: nlscResolutions,
+      matrixIds: nlscMatrixIds
+    })
+
+    // 建立非都市土地使用分區圖 WMTS 圖層（使用標準 GoogleMapsCompatible）
+    const nonUrbanLandUseMapLayer = mapLayers.value.find(l => l.id === 'non-urban-land-use')!
+    const nonUrbanLandUseLayer = new TileLayer({
+      source: new WMTS({
+        url: 'https://wmts.nlsc.gov.tw/wmts',
+        layer: 'nURBAN1',
+        matrixSet: 'GoogleMapsCompatible',
+        format: 'image/png',
+        projection: nlscProjection,
+        tileGrid: nlscTileGrid,
+        style: 'default',
+        wrapX: false
+      }),
+      visible: nonUrbanLandUseMapLayer.visible,
+      opacity: nonUrbanLandUseMapLayer.opacity
+    })
+
+    // 建立公有土地地籍圖 WMTS 圖層（使用標準 GoogleMapsCompatible）
+    const publicLandMapLayer = mapLayers.value.find(l => l.id === 'public-land')!
+    const publicLandLayer = new TileLayer({
+      source: new WMTS({
+        url: 'https://wmts.nlsc.gov.tw/wmts',
+        layer: 'LAND_OPENDATA',
+        matrixSet: 'GoogleMapsCompatible',
+        format: 'image/png',
+        projection: nlscProjection,
+        tileGrid: nlscTileGrid,
+        style: 'default',
+        wrapX: false
+      }),
+      visible: publicLandMapLayer.visible,
+      opacity: publicLandMapLayer.opacity
+    })
+
+    const layers = [nlscLayer, osmLayer, stamenLayer, gridLayer, grantLayer, functionalZoneLayer, nonUrbanLandUseLayer, publicLandLayer];
+
+    // 關聯圖層到 mapLayers 數據結構（使用 ID 查找）
+    nlscMapLayer.layer = nlscLayer;
+    osmMapLayer.layer = osmLayer;
+    stamenMapLayer.layer = stamenLayer;
+    grantGridMapLayer.layer = gridLayer;
+    grantPointsMapLayer.layer = grantLayer;
+    functionalZoneMapLayer.layer = functionalZoneLayer;
+    nonUrbanLandUseMapLayer.layer = nonUrbanLandUseLayer;
+    publicLandMapLayer.layer = publicLandLayer;
 
     // 設置初始可見性和透明度
     mapLayers.value.forEach((layerInfo) => {
