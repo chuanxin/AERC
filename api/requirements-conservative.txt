@@ -15,7 +15,7 @@ uvicorn==0.34.0
 # PDF 處理套件 (已驗證中文字體支援)
 pillow==11.1.0
 PyMuPDF==1.26.3
-pypdf==5.8.0
+pypdf==6.0.0
 reportlab==4.4.2
 
 # 其他依賴套件
