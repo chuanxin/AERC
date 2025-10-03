@@ -10,7 +10,7 @@ tomlkit==0.13.2
 tortoise-orm==0.25.0
 uvicorn==0.34.0
 reportlab==4.4.2
-pypdf==5.8.0
+pypdf>=6.0.0
 PyMuPDF==1.26.3
 Pillow==11.1.0
 openpyxl==3.1.2

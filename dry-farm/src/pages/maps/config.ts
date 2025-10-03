@@ -4,6 +4,33 @@
  */
 
 /**
+ * OGC 服務類型
+ */
+export type OGCServiceType = 'WMS' | 'WFS' | 'WMTS'
+
+/**
+ * OGC 服務配置
+ */
+export interface OGCServiceConfig {
+  /** 服務類型 */
+  type: OGCServiceType
+  /** 服務 URL */
+  url: string
+  /** 圖層名稱 */
+  layerName: string
+  /** 服務版本 */
+  version?: string
+  /** 圖層標題（從 Capabilities 解析） */
+  title?: string
+  /** 圖層摘要（從 Capabilities 解析） */
+  abstract?: string
+  /** 圖層範圍 */
+  extent?: number[]
+  /** 其他服務參數 */
+  params?: Record<string, any>
+}
+
+/**
  * 圖層類型定義
  */
 export interface MapLayer {
@@ -25,6 +52,10 @@ export interface MapLayer {
   order: number
   /** OpenLayers 圖層實例 */
   layer?: any
+  /** 是否為使用者自訂圖層 */
+  isCustom?: boolean
+  /** OGC 服務配置（僅自訂圖層使用） */
+  ogcConfig?: OGCServiceConfig
 }
 
 /**
@@ -244,4 +275,42 @@ export const updateGroupOrder = (groupId: string, newOrder: number): void => {
   if (LAYER_GROUPS[groupId]) {
     LAYER_GROUPS[groupId].order = newOrder
   }
+}
+
+/**
+ * 新增自訂圖層到 MAP_LAYERS（執行時期動態新增，不持久化）
+ * @param layer 圖層配置
+ */
+export const addCustomLayer = (layer: MapLayer): void => {
+  // 確保圖層標記為自訂且屬於 custom 分組
+  layer.isCustom = true
+  layer.group = 'custom'
+  layer.category = 'overlay'
+
+  // 計算新圖層的 order（custom 分組中最大 order + 1）
+  const customLayers = MAP_LAYERS.filter(l => l.group === 'custom')
+  const maxOrder = customLayers.length > 0
+    ? Math.max(...customLayers.map(l => l.order))
+    : 0
+  layer.order = maxOrder + 1
+
+  MAP_LAYERS.push(layer)
+}
+
+/**
+ * 移除自訂圖層
+ * @param layerId 圖層 ID
+ */
+export const removeCustomLayer = (layerId: string): void => {
+  const index = MAP_LAYERS.findIndex(l => l.id === layerId && l.isCustom)
+  if (index !== -1) {
+    MAP_LAYERS.splice(index, 1)
+  }
+}
+
+/**
+ * 取得所有自訂圖層
+ */
+export const getCustomLayers = (): MapLayer[] => {
+  return MAP_LAYERS.filter(l => l.isCustom && l.group === 'custom')
 }

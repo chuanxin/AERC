@@ -16,6 +16,15 @@
       <v-btn
         icon
         density="compact"
+        color="success"
+        :ripple="false"
+        @click="$emit('add-custom-layer')"
+      >
+        <v-icon>mdi-plus</v-icon>
+      </v-btn>
+      <v-btn
+        icon
+        density="compact"
         :ripple="false"
         rounded="xl"
         @click="$emit('close')"
@@ -257,6 +266,18 @@ const props = defineProps<LayerManagementProps>()
 const overlayOpenedItems = ref<string[]>(['historical-grants', 'auxiliary'])
 const baselayerOpenedItems = ref<string[]>(['baselayer'])
 
+// 暴露給父組件的方法：展開自訂圖層分組
+const expandCustomGroup = () => {
+  if (!overlayOpenedItems.value.includes('custom')) {
+    overlayOpenedItems.value.push('custom')
+  }
+}
+
+// 使用 defineExpose 暴露方法
+defineExpose({
+  expandCustomGroup
+})
+
 // 用於觸發 overlayTreeItems 重新計算的響應式變量
 const groupOrderVersion = ref(0)
 
@@ -270,6 +291,7 @@ const emit = defineEmits<{
   'display-mode-changed': [mode: string]
   'layer-order-changed': [layerId: string, direction: 'up' | 'down']
   'group-order-changed': [groupId: string, direction: 'up' | 'down']
+  'add-custom-layer': []
 }>()
 
 // 計算屬性
@@ -467,6 +489,25 @@ const moveGroupDown = (groupId: string) => {
 </script>
 
 <style scoped>
+/* 固定 toolbar 在頂部 */
+:deep(.v-navigation-drawer__content) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+:deep(.v-toolbar) {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+:deep(.v-list) {
+  flex: 1;
+  overflow-y: auto;
+}
+
 /* TreeView 分類標題樣式 */
 .category-header {
   display: flex;
@@ -496,43 +537,6 @@ const moveGroupDown = (groupId: string) => {
   font-weight: 500;
 }
 
-/* 透明度控制區域 */
-/* .opacity-control-section {
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 8px;
-  padding: 8px 12px;
-  margin: 4px 0 8px 0;
-  width: 200px;
-} */
-
-/* .opacity-label {
-  font-size: 0.875rem;
-  color: rgba(0, 0, 0, 0.6);
-  min-width: 60px;
-  font-weight: 500;
-} */
-
-/* .opacity-slider {
-  margin-left: 8px;
-} */
-
-/* .opacity-slider :deep(.v-slider-thumb__label) {
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
-  font-size: 0.75rem;
-} */
-
-/* TreeView 自定義樣式 */
-
-/* :deep(.v-treeview-item--child) {
-  padding-left: 0px !important;
-} */
-
-/* 調整 TreeView 圖層項目間距 - 貼左顯示 */
-/* :deep(.v-treeview-item__content) {
-  padding: 4px 8px 4px 0px;
-} */
-
 /* 圖層順序調整按鈕 */
 .layer-order-buttons {
   gap: 2px;
@@ -556,23 +560,6 @@ const moveGroupDown = (groupId: string) => {
   margin-left: 5px;
 }
 
-/* 底圖圖層項目容器 - 貼左顯示 */
-/* .baselayer-item-container {
-  width: 100%;
-  padding-left: 0;
-} */
-
-/* 底圖圖層 radio 樣式 - 使用原生對齊 */
-/* .baselayer-radio {
-  margin-bottom: 4px;
-} */
-
-/* 確保 radio 使用原生左對齊 */
-/* :deep(.baselayer-radio .v-selection-control) {
-  align-items: flex-start;
-  justify-content: flex-start;
-} */
-
 :deep(.baselayer-radio .v-label) {
   font-size: 0.875rem;
   font-weight: 500;
@@ -585,66 +572,9 @@ const moveGroupDown = (groupId: string) => {
   margin-left: 5px;
 }
 
-/* 緊湊版透明度標籤 */
-/* .opacity-label-compact {
-  font-size: 0.75rem;
-  color: rgba(0, 0, 0, 0.6);
-  font-weight: 500;
-} */
-
-/* 緊湊版透明度滑桿 */
-/* .opacity-slider-compact {
-  margin-left: 4px;
-} */
-
 .opacity-slider-compact :deep(.v-slider-thumb__label) {
   background-color: rgba(0, 0, 0, 0.8);
   color: white !important;
   font-size: 0.7rem;
 }
-
-/* 移除 TreeView 項目的內建間距 */
-/* :deep(.v-treeview-item__title) {
-  padding: 0;
-  margin: 0;
-} */
-
-/* TreeView 項目完全貼左 */
-/* :deep(.v-treeview-item) {
-  margin-left: 0;
-  padding-left: 0;
-} */
-
-/* 確保內容區域貼左 */
-/* :deep(.v-treeview-item__content) {
-  margin-left: 0 !important;
-  padding-left: 0 !important;
-} */
-
-/* 完全禁用 TreeView 項目的選取狀態視覺效果 */
-/* :deep(.v-treeview-item--selected) {
-  background-color: transparent !important;
-}
-
-:deep(.v-treeview-item--selected .v-treeview-item__content) {
-  background-color: transparent !important;
-  color: inherit !important;
-}
-
-:deep(.v-treeview-item--selected:before) {
-  opacity: 0 !important;
-} */
-
-/* 禁用 hover 和 active 狀態 */
-/* :deep(.v-treeview-item__content:hover) {
-  background-color: transparent !important;
-}
-
-:deep(.v-treeview-item--active) {
-  background-color: transparent !important;
-}
-
-:deep(.v-treeview-item--active .v-treeview-item__content) {
-  background-color: transparent !important;
-} */
 </style>

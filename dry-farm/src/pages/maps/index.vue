@@ -429,6 +429,7 @@
 
       <!-- 圖層管理組件 -->
       <LayerManagement
+        ref="layerManagementRef"
         v-model:visible="showLayersPanel"
         :map-layers="mapLayers"
         :display-mode="displayMode"
@@ -439,6 +440,14 @@
         @display-mode-changed="handleDisplayModeChanged"
         @layer-order-changed="handleLayerOrderChanged"
         @group-order-changed="handleGroupOrderChanged"
+        @add-custom-layer="showAddCustomLayerDialog = true"
+      />
+
+      <!-- 新增自訂圖層對話框 -->
+      <AddCustomLayerDialog
+        v-model:visible="showAddCustomLayerDialog"
+        @layers-added="handleCustomLayersAdded"
+        @shapefile-loaded="handleShapefileLoaded"
       />
     </div>
   </div>
@@ -483,10 +492,11 @@ import {
 
 import FilterToolbar from './filter.vue';
 import LayerManagement from './layers.vue';
+import AddCustomLayerDialog from './AddCustomLayerDialog.vue';
 
 // 從配置檔案導入圖層相關類型和工具
-import { MAP_LAYERS, LAYER_GROUPS, updateGroupOrder, getLayerGroups } from './config'
-import type { MapLayer } from './config'
+import { MAP_LAYERS, LAYER_GROUPS, updateGroupOrder, getLayerGroups, addCustomLayer } from './config'
+import type { MapLayer, OGCServiceConfig } from './config'
 
 const router = useRouter();
 const route = useRoute();
@@ -511,6 +521,8 @@ const snackbarMessage = ref('');
 const isDrawing = ref(false);
 const isMeasuring = ref(false);
 const showLayersPanel = ref(false);
+const showAddCustomLayerDialog = ref(false);
+const layerManagementRef = ref<InstanceType<typeof LayerManagement> | null>(null);
 
 // 工具面板顯示狀態
 const showDrawPanel = ref(false);
@@ -996,6 +1008,246 @@ const handleGroupOrderChanged = (groupId: string, direction: 'up' | 'down') => {
   // 更新所有圖層的 zIndex
   updateOverlayLayersZIndex()
 };
+
+// 處理 Shapefile 圖層載入
+const handleShapefileLoaded = (
+  layersData: Array<{ name: string; geoJson: GeoJsonFeatureCollection }>,
+  callback: (success: boolean, error?: string) => void
+) => {
+  if (!map) {
+    callback(false, '地圖未初始化')
+    return
+  }
+
+  try {
+    const addedLayers: MapLayer[] = []
+    let combinedExtent: number[] | null = null
+
+    // 遍歷每個圖層
+    for (const data of layersData) {
+      // 檢查是否有 features
+      if (!data.geoJson.features || data.geoJson.features.length === 0) {
+        console.warn(`[Shapefile] 圖層 ${data.name} 沒有有效的幾何圖形資料，跳過`)
+        continue
+      }
+
+      console.log(`[Shapefile] 載入圖層: ${data.name}`, {
+        featureCount: data.geoJson.features.length
+      })
+
+      // 建立 VectorSource 從 GeoJSON
+      const vectorSource = new VectorSource({
+        features: new GeoJSON().readFeatures(data.geoJson, {
+          dataProjection: 'EPSG:4326',
+          featureProjection: 'EPSG:3857'
+        })
+      })
+
+      const featureCount = vectorSource.getFeatures().length
+
+      // 驗證是否成功讀取 features
+      if (featureCount === 0) {
+        console.warn(`[Shapefile] 無法解析圖層 ${data.name} 的幾何資料，可能缺少坐標系統定義，跳過`)
+        continue
+      }
+
+      // 檢查範圍是否有效
+      const extent = vectorSource.getExtent()
+
+      if (!extent || !extent.every(val => isFinite(val))) {
+        console.warn(`[Shapefile] 圖層 ${data.name} 坐標範圍無效，跳過`)
+        continue
+      }
+
+      // 檢查範圍是否在合理的地球範圍內（EPSG:3857）
+      const [minX, minY, maxX, maxY] = extent
+      const earthBounds = {
+        minX: -20037508.34,
+        maxX: 20037508.34,
+        minY: -20037508.34,
+        maxY: 20037508.34
+      }
+
+      if (minX < earthBounds.minX || maxX > earthBounds.maxX ||
+          minY < earthBounds.minY || maxY > earthBounds.maxY) {
+        console.warn(`[Shapefile] 圖層 ${data.name} 坐標範圍超出地球範圍，跳過`)
+        continue
+      }
+
+      // 建立 VectorLayer
+      const vectorLayer = new VectorLayer({
+        source: vectorSource,
+        style: new Style({
+          stroke: new Stroke({
+            color: '#3399CC',
+            width: 2
+          }),
+          fill: new Fill({
+            color: 'rgba(51, 153, 204, 0.3)'
+          })
+        }),
+        visible: true,
+        opacity: 0.8
+      })
+
+      // 建立圖層配置
+      const layerId = `custom-shapefile-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const newLayer: MapLayer = {
+        id: layerId,
+        name: data.name,
+        category: 'overlay',
+        group: 'custom',
+        visible: true,
+        opacity: 0.8,
+        description: `Shapefile 圖層 (${featureCount} 個特徵)`,
+        order: 0,
+        layer: vectorLayer,
+        isCustom: true
+      }
+
+      // 加入到配置
+      addCustomLayer(newLayer)
+      mapLayers.value.push(newLayer)
+
+      // 加入到地圖
+      map.addLayer(vectorLayer)
+
+      addedLayers.push(newLayer)
+
+      // 更新組合範圍
+      if (!combinedExtent) {
+        combinedExtent = [...extent]
+      } else {
+        combinedExtent = [
+          Math.min(combinedExtent[0], extent[0]),
+          Math.min(combinedExtent[1], extent[1]),
+          Math.max(combinedExtent[2], extent[2]),
+          Math.max(combinedExtent[3], extent[3])
+        ]
+      }
+
+      console.log(`[Shapefile] 已新增圖層: ${data.name} (${featureCount} features)`)
+    }
+
+    // 檢查是否至少成功加載一個圖層
+    if (addedLayers.length === 0) {
+      throw new Error('沒有成功載入任何圖層，請確認 Shapefile 格式是否正確')
+    }
+
+    // 更新 zIndex
+    updateOverlayLayersZIndex()
+
+    // 縮放至所有圖層的組合範圍
+    if (combinedExtent) {
+      map.getView().fit(combinedExtent, {
+        padding: [50, 50, 50, 50],
+        duration: 1000
+      })
+    }
+
+    snackbarMessage.value = `成功載入 ${addedLayers.length} 個 Shapefile 圖層`
+    showSnackbar.value = true
+
+    console.log(`[Shapefile] 批次載入完成: ${addedLayers.length} 個圖層`)
+
+    // 展開自訂圖層分組
+    if (layerManagementRef.value) {
+      layerManagementRef.value.expandCustomGroup()
+    }
+
+    // 通知對話框成功
+    callback(true)
+
+  } catch (error) {
+    const errorMsg = (error as Error).message
+    console.error('[Shapefile] 圖層建立失敗:', error)
+    snackbarMessage.value = `Shapefile 圖層建立失敗: ${errorMsg}`
+    showSnackbar.value = true
+
+    // 通知對話框失敗
+    callback(false, errorMsg)
+  }
+}
+
+// 處理自訂圖層新增
+const handleCustomLayersAdded = (configs: OGCServiceConfig[]) => {
+  if (!map) return
+
+  configs.forEach((config) => {
+    // 生成唯一 ID
+    const layerId = `custom-${config.type.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+    // 建立 OpenLayers 圖層實例
+    let olLayer: TileLayer<TileWMS | WMTS> | null = null
+
+    if (config.type === 'WMS') {
+      olLayer = new TileLayer({
+        source: new TileWMS({
+          url: config.url,
+          params: {
+            LAYERS: config.layerName,
+            VERSION: config.version || '1.3.0',
+            ...config.params
+          },
+          serverType: 'geoserver'
+        }),
+        visible: true,
+        opacity: 0.8
+      })
+    } else if (config.type === 'WMTS') {
+      // WMTS 需要根據 Capabilities 建立，這裡簡化處理
+      console.warn('WMTS 圖層需要完整的 Capabilities 資訊，目前簡化實作')
+      // 可以擴展實作 WMTS 圖層建立邏輯
+      return
+    } else if (config.type === 'WFS') {
+      // WFS 通常用 VectorLayer，這裡暫不實作
+      console.warn('WFS 圖層需要使用 VectorLayer，目前暫不支援')
+      return
+    }
+
+    if (!olLayer) return
+
+    // 建立 MapLayer 配置
+    const newLayer: MapLayer = {
+      id: layerId,
+      name: config.title || config.layerName,
+      category: 'overlay',
+      group: 'custom',
+      visible: true,
+      opacity: 0.8,
+      description: config.abstract,
+      order: 0, // addCustomLayer 會自動計算
+      layer: olLayer,
+      isCustom: true,
+      ogcConfig: config
+    }
+
+    // 加入到全局配置
+    addCustomLayer(newLayer)
+
+    // 直接加入到 mapLayers 響應式陣列(不破壞既有引用)
+    mapLayers.value.push(newLayer)
+
+    // 加入到地圖
+    if (map) {
+      map.addLayer(olLayer)
+    }
+
+    console.log(`已新增自訂圖層: ${newLayer.name} (${config.type})`)
+  })
+
+  // 所有圖層加入完成後,統一重新計算 zIndex
+  updateOverlayLayersZIndex()
+
+  // 展開自訂圖層分組
+  if (layerManagementRef.value) {
+    layerManagementRef.value.expandCustomGroup()
+  }
+
+  // 顯示成功訊息
+  snackbarMessage.value = `成功加入 ${configs.length} 個自訂圖層`
+  showSnackbar.value = true
+}
 
 // 定位功能
 const getCurrentLocation = () => {
