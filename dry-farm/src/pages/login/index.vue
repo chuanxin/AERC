@@ -40,7 +40,7 @@
       <v-col
         v-if="$vuetify.display.mdAndUp"
         cols="12"
-        md="5"
+        md="7"
         lg="6"
         class="d-flex align-center justify-center"
       >
@@ -218,9 +218,24 @@
 
         <!-- Footer -->
         <div class="small-screen-footer">
-          <p class="footer-text">
-            &copy; 2025 農田水利署. All rights reserved.
-          </p>
+          <div class="d-flex flex-column align-center">
+            <v-chip
+              size="default"
+              color="teal-darken-1"
+              variant="flat"
+              class="text-body-2 font-weight-medium mb-2"
+            >
+              <v-icon
+                start
+                icon="mdi-tag-outline"
+                size="small"
+              />
+              release v.{{ packageInfo.version }}
+            </v-chip>
+            <p class="footer-text">
+              &copy; 2025 農田水利署. All rights reserved.
+            </p>
+          </div>
         </div>
       </v-col>
     </v-row>
@@ -230,9 +245,24 @@
       v-if="$vuetify.display.mdAndUp"
       class="desktop-footer"
     >
-      <p class="footer-text">
-        &copy; 2025 農田水利署. All rights reserved.
-      </p>
+      <div class="d-flex flex-column align-end">
+        <v-chip
+          size="default"
+          color="teal-darken-1"
+          variant="flat"
+          class="text-body-2 font-weight-medium mb-2"
+        >
+          <v-icon
+            start
+            icon="mdi-tag-outline"
+            size="small"
+          />
+          release v.{{ packageInfo.version }}
+        </v-chip>
+        <p class="footer-text">
+          &copy; 2025 農田水利署. All rights reserved.
+        </p>
+      </div>
     </div>
   </v-container>
 </template>
