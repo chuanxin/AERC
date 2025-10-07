@@ -7,6 +7,21 @@
 // Styles
 import '@mdi/font/css/materialdesignicons.css'
 import 'vuetify/styles'
+
+// HunInn Font (粉圓體) - 僅用於 login 頁面
+const style = document.createElement('style')
+style.textContent = `
+  @font-face {
+    font-family: 'HunInn';
+    src: url(https://cdn.jsdelivr.net/gh/marsnow/open-huninn-font@1.1/font/jf-openhuninn.woff2) format('woff2'),
+         url(https://cdn.jsdelivr.net/gh/marsnow/open-huninn-font@1.1/font/jf-openhuninn.woff) format('woff'),
+         url(https://cdn.jsdelivr.net/gh/marsnow/open-huninn-font@1.1/font/jf-openhuninn.ttf) format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+`
+document.head.appendChild(style)
 // import { VStepperVertical } from 'vuetify/labs/VStepperVertical'
 import { VDateInput } from 'vuetify/labs/VDateInput'
 
@@ -42,10 +57,10 @@ export default createVuetify({
           // error: '#F44336',
           // typography: '#212121',
           // iconography: '#757575'
-          primary: '#0B6E99',
+          primary: '#3ea0a3',
           secondary: '#8CC152',
-          'primary-lighten': '#1A8BB2',
-          'primary-darken': '#00796B',
+          'primary-lighten': '#5ebdc0',
+          'primary-darken': '#358b8e',
           'secondary-ighten': '#FFD54F',
           'secondary-darken': '#FFA000',
           background: '#F0F0F0',
