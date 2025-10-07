@@ -1,309 +1,239 @@
 <template>
   <v-container
     fluid
-    class="fill-height pa-0 background"
+    class="fill-height pa-0 login-background"
   >
-    <v-col class="login-content-col">
-      <v-img
-        src="@/assets/logo-xl.png"
-        cover
-        width="350"
-        min-width="350"
-        class="mx-auto mb-5"
-      />
-      <v-sheet
-        class="mx-auto sheet-container"
-        max-width="380"
-        min-width="340"
-
-        rounded="xl"
-        elevation="4"
+    <!-- Desktop: Header with Logo and Title (absolute positioned) -->
+    <v-row
+      v-if="$vuetify.display.mdAndUp"
+      class="desktop-header"
+      no-gutters
+    >
+      <v-col
+        cols="auto"
+        class="header-logo"
       >
-        <v-sheet
-          class="pa-2 pb-0 text-right"
-          rounded="t-xl"
-        >
-          <v-container fluid>
-            <v-row>
-              <v-col
-                cols="12"
-                class="pa-0"
-              >
-                <v-chip
-                  :variant="activeForm === 'login' ? 'outlined' : 'text'"
-                  :color="activeForm === 'login' ? 'primary' : undefined"
-                  class="px-3 mb-2"
-                  rounded="xl"
-                  @click="activeForm = 'login'"
-                >
-                  我要登入
-                </v-chip>
+        <v-img
+          src="@/assets/login/Logo.png"
+          contain
+        />
+      </v-col>
+      <v-spacer />
+      <v-col
+        cols="auto"
+        class="header-title"
+      >
+        <v-img
+          src="@/assets/login/Headline.png"
+          contain
+        />
+      </v-col>
+    </v-row>
 
-                <v-chip
-                  :variant="activeForm === 'register' ? 'outlined' : 'text'"
-                  :color="activeForm === 'register' ? 'primary' : undefined"
-                  class="px-3 mb-2"
-                  rounded="xl"
-                  @click="activeForm = 'register'"
-                >
-                  我要註冊
-                </v-chip>
-              </v-col>
-              <v-col
-                cols="12"
-                class="pa-0 ma-0 text-center"
+    <!-- Main Content -->
+    <v-row
+      class="fill-height"
+      :class="{ 'desktop-layout': $vuetify.display.mdAndUp }"
+      no-gutters
+    >
+      <!-- Desktop/Tablet: Left half for login form -->
+      <v-col
+        v-if="$vuetify.display.mdAndUp"
+        cols="12"
+        md="5"
+        lg="6"
+        class="d-flex align-center justify-center"
+      >
+        <v-responsive :max-width="352">
+          <div class="login-form-wrapper">
+            <h2 class="login-title text-center mb-4">
+              登入
+            </h2>
+
+            <v-form
+              id="loginForm"
+              @submit.prevent="handleLogin"
+            >
+              <v-text-field
+                v-model="loginForm.account"
+                placeholder="帳號"
+                variant="outlined"
+                density="comfortable"
+                size="default"
+                class="login-input mb-2"
+                hide-details
+              />
+
+              <v-text-field
+                v-model="loginForm.password"
+                placeholder="密碼"
+                :type="showPassword ? 'text' : 'password'"
+                variant="outlined"
+                density="comfortable"
+                size="default"
+                class="login-input mb-2"
+                hide-details
+              />
+
+              <v-text-field
+                v-model="userCaptcha"
+                placeholder="驗證碼"
+                variant="outlined"
+                density="comfortable"
+                size="default"
+                class="login-input captcha-input mb-2"
+                hide-details
+                :error="captchaError"
+                :error-messages="captchaError ? '驗證碼不正確' : ''"
               >
-                <div class="text-h5 text-sm-h5">
-                  <strong>推廣管路灌溉設施管理資料庫</strong>
-                </div>
-              </v-col>
-            </v-row>
-          </v-container>
-        </v-sheet>
-        <v-divider class="ma-0" />
-        <div class="px-4">
-          <!-- Form content -->
-          <v-window
-            v-model="activeForm"
-            class="pa-4"
-            direction="vertical"
-            reverse
+                <template #append-inner>
+                  <div class="captcha-display" @click="generateCaptcha">
+                    {{ captcha }}
+                  </div>
+                </template>
+              </v-text-field>
+
+              <v-btn
+                type="submit"
+                color="primary"
+                size="x-large"
+                class="login-button"
+                block
+                :loading="isSubmitting"
+                :disabled="isSubmitting"
+              >
+                登入
+              </v-btn>
+
+              <div class="login-footer-links">
+                <a
+                  href="/password/reset"
+                  class="footer-link"
+                  target="_blank"
+                >忘記密碼?</a>
+                <span class="footer-separator">|</span>
+                <a
+                  href="#"
+                  class="footer-link"
+                >帳號申請</a>
+              </div>
+            </v-form>
+          </div>
+        </v-responsive>
+      </v-col>
+
+      <!-- Small screens: Vertical layout (header - form - footer) -->
+      <v-col
+        v-if="$vuetify.display.smAndDown"
+        cols="12"
+        class="small-screen-layout"
+      >
+        <!-- Header -->
+        <div class="small-screen-header">
+          <img
+            src="@/assets/login/Logo.png"
+            alt="Logo"
+            class="small-screen-logo"
           >
-            <!-- Login form -->
-            <v-window-item value="login">
+        </div>
+
+        <!-- Login Form -->
+        <div class="small-screen-form-wrapper">
+          <v-responsive :max-width="$vuetify.display.smAndDown ? 352 : 352">
+            <div class="login-form-wrapper">
+              <h2 class="login-title text-center mb-4">
+                登入
+              </h2>
+
               <v-form
-                id="loginForm"
+                id="loginFormMobile"
                 @submit.prevent="handleLogin"
               >
                 <v-text-field
                   v-model="loginForm.account"
-                  label="帳號"
-                  prepend-inner-icon="mdi-account"
+                  placeholder="帳號"
                   variant="outlined"
                   density="comfortable"
-                  class="mt-0 mb-n5"
+                  :size="$vuetify.display.xs ? 'small' : 'default'"
+                  class="login-input mb-2"
+                  hide-details
                 />
-                <div class="d-flex justify-end mt-0 pt-0">
-                  <a
-                    class="text-caption text-decoration-none text-blue forgot-password-link"
-                    href="/password/reset"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    忘記密碼?</a>
-                </div>
+
                 <v-text-field
                   v-model="loginForm.password"
-                  label="密碼"
+                  placeholder="密碼"
                   :type="showPassword ? 'text' : 'password'"
-                  prepend-inner-icon="mdi-lock"
-                  :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
                   variant="outlined"
                   density="comfortable"
-                  class="mb-0"
-                  @click:append-inner="showPassword = !showPassword"
+                  :size="$vuetify.display.xs ? 'small' : 'default'"
+                  class="login-input mb-2"
+                  hide-details
                 />
-                <!-- Add CAPTCHA field -->
-                <div class="d-flex align-center mb-0">
-                  <v-text-field
-                    v-model="userCaptcha"
-                    label="驗證碼"
-                    prepend-inner-icon="mdi-shield-check"
-                    variant="outlined"
-                    density="comfortable"
-                    :error="captchaError"
-                    :error-messages="captchaError ? '驗證碼不正確' : ''"
-                    class="flex-grow-1 mb-n2"
-                  >
-                    <template #append>
-                      <v-btn
-                        variant="text"
-                        density="comfortable"
-                        min-width="80"
-                        class="font-weight-bold pa-0 ma-0 text-typography"
-                        style="font-family: monospace;"
-                        @click="generateCaptcha"
-                      >
-                        {{ captcha }}
-                      </v-btn>
-                    </template>
-                  </v-text-field>
-                </div>
 
-                <div class="d-flex align-center justify-space-between ma-0 pa-0">
-                  <v-checkbox
-                    v-model="rememberMe"
-                    label="記住登入資訊"
-                    color="primary"
-                    hide-details
-                    class="mt-0"
-                    density="compact"
-                  />
+                <v-text-field
+                  v-model="userCaptcha"
+                  placeholder="驗證碼"
+                  variant="outlined"
+                  density="comfortable"
+                  :size="$vuetify.display.xs ? 'small' : 'default'"
+                  class="login-input captcha-input mb-0"
+                  :error="captchaError"
+                  :error-messages="captchaError ? '驗證碼不正確' : ''"
+                >
+                  <template #append-inner>
+                    <div class="captcha-display" @click="generateCaptcha">
+                      {{ captcha }}
+                    </div>
+                  </template>
+                </v-text-field>
+
+                <v-btn
+                  type="submit"
+                  color="primary"
+                  :size="$vuetify.display.xs ? 'large' : 'x-large'"
+                  class="login-button"
+                  block
+                  :loading="isSubmitting"
+                  :disabled="isSubmitting"
+                >
+                  登入
+                </v-btn>
+
+                <div class="login-footer-links">
+                  <a
+                    href="/password/reset"
+                    class="footer-link"
+                    target="_blank"
+                  >忘記密碼?</a>
+                  <span class="footer-separator">|</span>
+                  <a
+                    href="#"
+                    class="footer-link"
+                  >帳號申請</a>
                 </div>
               </v-form>
-            </v-window-item>
-
-            <!-- Register form -->
-            <v-window-item value="register">
-              <v-stepper
-                v-model="currentStep"
-                flat
-                class="no-transition"
-              >
-                <v-stepper-header
-                  class="ma-0 pt-0 pl-0 pr-0 elevation-0"
-                >
-                  <v-stepper-item
-                    value="1"
-                    class="pb-0 pt-0 pl-0"
-                  >
-                    帳號設定
-                  </v-stepper-item>
-                  <v-divider />
-                  <v-stepper-item
-                    value="2"
-                    class="pb-0 pt-0 pr-0"
-                  >
-                    基本資料
-                  </v-stepper-item>
-                </v-stepper-header>
-
-                <v-stepper-window
-                  v-model="currentStep"
-                  class="pa-0 ma-0"
-                >
-                  <!-- Step 1 -->
-                  <v-stepper-window-item value="1">
-                    <v-form class="mt-6">
-                      <v-text-field
-                        v-model="registerForm.account"
-                        label="帳號"
-                        prepend-inner-icon="mdi-account"
-                        variant="outlined"
-                        density="comfortable"
-                      />
-                      <v-text-field
-                        v-model="registerForm.password"
-                        label="密碼"
-                        :type="showPassword ? 'text' : 'password'"
-                        prepend-inner-icon="mdi-lock"
-                        :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
-                        variant="outlined"
-                        density="comfortable"
-                        @click:append-inner="showPassword = !showPassword"
-                      />
-                      <v-text-field
-                        v-model="registerForm.confirmPassword"
-                        label="確認密碼"
-                        :type="showConfirmPassword ? 'text' : 'password'"
-                        prepend-inner-icon="mdi-lock-check"
-                        :append-inner-icon="showConfirmPassword ? 'mdi-eye' : 'mdi-eye-off'"
-                        variant="outlined"
-                        density="comfortable"
-                        @click:append-inner="showConfirmPassword = !showConfirmPassword"
-                      />
-                    </v-form>
-                  </v-stepper-window-item>
-
-                  <!-- Step 2 -->
-                  <v-stepper-window-item value="2">
-                    <v-form class="mt-6">
-                      <v-text-field
-                        v-model="registerForm.name"
-                        label="職員姓名"
-                        prepend-inner-icon="mdi-account"
-                        variant="outlined"
-                        density="comfortable"
-                      />
-                      <v-select
-                        v-model="registerForm.department"
-                        :items="departments"
-                        label="單位"
-                        prepend-inner-icon="mdi-office-building"
-                        variant="outlined"
-                        density="comfortable"
-                      >
-                        <template #item="{ props, item }">
-                          <v-list-item
-                            v-bind="props"
-                            :title="item.raw?.title"
-                            :value="item.raw?.value"
-                            :class="{ 'light-blue-text': item.raw?.classification == 2 }"
-                          />
-                        </template>
-                        <!-- item
-                              ├── title      // Extracted from your data for convenience
-                              ├── value      // Extracted from your data for convenience
-                              └── raw        // Your complete original object with all properties
-                                  ├── title
-                                  ├── value
-                                  └── classification  // Your custom property -->
-                      </v-select>
-                    </v-form>
-                  </v-stepper-window-item>
-                </v-stepper-window>
-              </v-stepper>
-            </v-window-item>
-          </v-window>
+            </div>
+          </v-responsive>
         </div>
 
-        <v-divider />
-
-        <div class="pa-0 ma-0">
-          <v-btn
-            v-if="currentStep === '2' && activeForm === 'register'"
-            variant="text"
-            class="mb-2"
-            block
-            @click="handleStep('prev')"
-          >
-            上一步
-          </v-btn>
-          <v-btn
-            :type="activeForm === 'login' ? 'submit' : 'button'"
-            color="#FF9C00"
-            rounded="t-0 b-xl"
-            size="x-large"
-            :text="getButtonText"
-            variant="flat"
-            block
-            :loading="isSubmitting"
-            :disabled="isSubmitting"
-            :form="activeForm === 'login' ? 'loginForm' : undefined"
-            @click="activeForm === 'register' ? handleStep('next') : undefined"
-          />
+        <!-- Footer -->
+        <div class="small-screen-footer">
+          <p class="footer-text">
+            &copy; 2025 農田水利署. All rights reserved.
+          </p>
         </div>
-        <v-alert
-          v-if="errorMessage"
-          type="error"
-          variant="tonal"
-          closable
-          class="mb-4"
-        >
-          {{ errorMessage }}
-        </v-alert>
-      </v-sheet>
+      </v-col>
+    </v-row>
 
-      <!-- Version info container with same width as v-sheet -->
-      <div class="version-container">
-        <div class="version-info-container">
-          <v-chip
-            size="default"
-            color="primary"
-            label
-            rounded="md"
-            class="text-body-2 font-weight-medium version-chip"
-          >
-            <v-icon
-              start
-              icon="mdi-tag-outline"
-              size="small"
-            />
-            release v.{{ packageInfo.version }}
-          </v-chip>
-        </div>
-      </div>
-    </v-col>
+    <!-- Desktop: Footer (bottom right) -->
+    <div
+      v-if="$vuetify.display.mdAndUp"
+      class="desktop-footer"
+    >
+      <p class="footer-text">
+        &copy; 2025 農田水利署. All rights reserved.
+      </p>
+    </div>
   </v-container>
 </template>
 
@@ -564,76 +494,311 @@
 </script>
 
 <style scoped>
-  .background {
-    background-image: url('@/assets/bg_login.svg');
+  /* ============================================== */
+  /* 背景圖響應式設定 */
+  /* ============================================== */
+  .login-background {
+    min-height: 100vh;
     background-size: cover;
-    background-position: fixed;
-    background-color: rgba(255, 255, 255, 1);
-    /* background-blend-mode: overlay; */
+    background-position: top left;
+    background-repeat: no-repeat;
+    transition: background-image 0.3s ease-in-out;
   }
 
-  .login-content-col {
-    margin-bottom: 120px !important; /* 固定底部間距 */
-    padding-bottom: 60px; /* 額外內部間距 */
-  }
-
-  .sheet-container {
-    position: relative; /* 為版本資訊定位提供相對定位基準 */
-  }
-
-  .version-container {
-    width: 390px; /* 與 v-sheet 相同寬度 */
-    margin: 0 auto; /* 置中對齊 */
-    margin-top: 10px; /* 與 v-sheet 間距 */
-  }
-
-  .version-info-container {
-    display: flex;
-    justify-content: flex-end; /* 在容器內靠右對齊 */
-    padding-right: 8px; /* 與 v-sheet 邊界保持一致 */
-  }
-
-  .version-chip {
-    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%) !important;
-    color: white !important;
-    box-shadow: 0 3px 6px rgba(25, 118, 210, 0.3) !important;
-    /* border-radius: 16px !important; */
-    transition: all 0.3s ease;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  }
-
-  .version-chip:hover {
-    /* background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%) !important; */
-    /* box-shadow: 0 4px 12px rgba(25, 118, 210, 0.4) !important; */
-    /* transform: translateY(-2px); */
-  }
-
-  .version-chip .v-icon {
-    margin-right: 4px;
-  }
-  /* Disable all possible stepper transitions */
-  :deep(.v-stepper) {
-    .v-stepper-window__container,
-    .v-window__container,
-    .v-stepper-window-item,
-    .v-window-item,
-    .v-stepper-window-item--active,
-    .v-window-item--active {
-      transition: none !important;
+  /* Desktop/Tablet (≥960px): newlogin_empty.jpg */
+  @media (min-width: 960px) {
+    .login-background {
+      background-image: url('@/assets/login/newlogin_empty.jpg');
     }
   }
-  .forgot-password-link {
-    position: relative;
-    z-index: 999;
-  }
-  /* Add this new style for light blue items */
-  .light-blue-text {
-    color: #90CAF9 !important; /* Light blue color */
+
+  /* Mobile (<960px): Background.png */
+  @media (max-width: 959px) {
+    .login-background {
+      background-image: url('@/assets/login/Background.png');
+    }
   }
 
-  /* Optional: Add hover effect to maintain visibility on hover */
-  .light-blue-text:hover {
-    color: #64B5F6 !important; /* Slightly darker blue on hover */
+  /* ============================================== */
+  /* Desktop Layout */
+  /* ============================================== */
+  .desktop-header {
+    position: absolute;
+    top: 20px;
+    left: 0;
+    right: 0;
+    padding: 5px 150px;
+    z-index: 10;
+  }
+
+  .header-logo {
+    width: 30%;
+  }
+
+  .header-title {
+    width: 45%;
+  }
+
+  /* Tablet (960-1279px): Adjust logo/title sizes and padding */
+  @media (min-width: 960px) and (max-width: 1279px) {
+    .desktop-header {
+      padding: 5px 50px;
+      padding-top: calc((1279px - 100vw) * 0.02);
+    }
+    .header-logo {
+      width: 35%;
+    }
+    .header-title {
+      width: 50%;
+    }
+  }
+
+  .desktop-layout {
+    justify-content: flex-start;
+  }
+
+  .desktop-footer {
+    position: absolute;
+    bottom: 10px;
+    right: 20px;
+    color: #333333;
+  }
+
+  .footer-text {
+    font-family: 'HunInn', sans-serif !important;
+    font-size: 15pt;
+    margin: 0;
+    text-shadow:
+      0 1px 3px rgba(255, 255, 255, 0.9),
+      0 0 10px rgba(255, 255, 255, 0.7),
+      1px 1px 4px rgba(0, 0, 0, 0.2);
+    font-weight: 500;
+  }
+
+  /* ============================================== */
+  /* Small screens Header & Footer (<960px) */
+  /* ============================================== */
+  .small-screen-header {
+    position: relative;
+    background-size: cover;
+    background-position: top left;
+    background-repeat: no-repeat;
+    background-image: url('@/assets/login/Tablet_header.png');
+    padding-bottom: 21.50%;
+  }
+
+  /* <760px 增加 header 高度以容納更大的 Logo */
+  @media (max-width: 759px) {
+    .small-screen-header {
+      padding-bottom: 30%;
+      background-position: top left;
+    }
+  }
+
+  /* Logo 套疊在 header 上,置中顯示 */
+  .small-screen-logo {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(352px, 90vw);
+    max-width: 352px;
+    height: auto;
+    object-fit: contain;
+  }
+
+  .small-screen-footer {
+    background-size: cover;
+    background-position: top center;
+    background-repeat: no-repeat;
+    align-items: flex-end;
+    background-image: url('@/assets/login/Tablet_footer.png');
+    padding-top: 60%;
+  }
+
+  .small-screen-footer .footer-text {
+    font-size: 12pt;
+    margin: 0;
+    color: #333333;
+    text-shadow:
+      0 1px 2px rgba(255, 255, 255, 0.9),
+      0 0 8px rgba(255, 255, 255, 0.7),
+      1px 1px 3px rgba(0, 0, 0, 0.2);
+    font-weight: 500;
+  }
+
+  /* <960px 使用垂直佈局: header - form - footer */
+  @media (max-width: 959px) {
+    /* 單一 column 內垂直排列三個區塊 */
+    .small-screen-layout {
+      display: flex !important;
+      flex-direction: column !important;
+      min-height: 100vh !important;
+      padding: 0 !important;
+    }
+
+    /* Header 區塊 */
+    .small-screen-layout .small-screen-header {
+      flex: 0 0 auto;
+    }
+
+    /* 登入表單區塊 - 佔據剩餘空間並居中 */
+    .small-screen-form-wrapper {
+      flex: 1 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Footer 區塊 */
+    .small-screen-layout .small-screen-footer {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 16px;
+    }
+  }
+
+  /* ============================================== */
+  /* 登入表單樣式 */
+  /* ============================================== */
+  .login-form-wrapper {
+    background-color: transparent;
+    padding: 2rem;
+  }
+
+  /* 登入標題 */
+  .login-title {
+    font-family: 'HunInn', sans-serif !important;
+    color: #000000 !important;
+    font-weight: normal;
+    font-size: 25pt !important;
+  }
+
+  /* ============================================== */
+  /* Input 組件樣式覆寫 */
+  /* ============================================== */
+  :deep(.login-input) {
+    font-family: 'HunInn', sans-serif !important;
+  }
+
+  :deep(.login-input .v-field) {
+    background-color: #ffffff !important;
+    border-radius: 22pt !important;
+  }
+
+  :deep(.login-input .v-field__outline) {
+    border-color: #000000 !important;
+    border-width: 0.5pt !important;
+  }
+
+  :deep(.login-input input) {
+    color: #666666 !important;
+  }
+
+  :deep(.login-input input::placeholder) {
+    font-family: 'HunInn', sans-serif !important;
+    color: #666666 !important;
+    opacity: 1 !important;
+  }
+
+  /* ============================================== */
+  /* Button 組件樣式覆寫 */
+  /* ============================================== */
+  :deep(.login-button) {
+    font-family: 'HunInn', sans-serif !important;
+    color: #ffffff !important;
+    background-color: #3ea0a3 !important;
+    border: 0.5pt solid #000000 !important;
+    border-radius: 22pt !important;
+    box-shadow: none !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    transition: background-color 0.3s ease;
+  }
+
+  :deep(.login-button:hover) {
+    background-color: #358b8e !important;
+  }
+
+  /* ============================================== */
+  /* 登入框下方連結樣式 */
+  /* ============================================== */
+  .login-footer-links {
+    margin-top: 15px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .footer-link,
+  .footer-separator {
+    font-family: 'HunInn', sans-serif !important;
+    font-size: 12pt !important;
+    color: #333333 !important;
+    text-decoration: none;
+    text-shadow:
+      0 1px 2px rgba(255, 255, 255, 0.8),
+      0 0 8px rgba(255, 255, 255, 0.6),
+      1px 1px 3px rgba(0, 0, 0, 0.2);
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+
+  .footer-link:hover {
+    color: #3ea0a3 !important;
+    text-decoration: underline;
+    text-shadow:
+      0 1px 3px rgba(255, 255, 255, 0.9),
+      0 0 10px rgba(255, 255, 255, 0.7),
+      1px 1px 4px rgba(62, 160, 163, 0.3);
+  }
+
+  .footer-separator {
+    margin: 0 5px;
+  }
+
+  /* ============================================== */
+  /* 驗證碼顯示樣式 */
+  /* ============================================== */
+  .captcha-display {
+    font-family: 'HunInn', sans-serif;
+    font-size: 12pt;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 0px 0px 3px rgba(0, 0, 0, 0.5), 1px 1px 1px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(135deg,
+      #3ea0a3 0%,
+      #5bb5b8 25%,
+      #78c9cc 50%,
+      #4da8ab 75%,
+      #3ea0a3 100%);
+    background-size: 200% 200%;
+    animation: captcha-gradient 1.5s ease infinite;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+    letter-spacing: 3px;
+    transition: filter 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    opacity: 0.95;
+  }
+
+  @keyframes captcha-gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .captcha-display:hover {
+    filter: brightness(1.1);
+  }
+
+  /* Adjust input padding for captcha field */
+  :deep(.captcha-input input) {
+    padding-right: 8px !important;
   }
 </style>
 
