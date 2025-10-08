@@ -1,6 +1,7 @@
 <template>
   <v-navigation-drawer
     :model-value="visible"
+    :disable-resize-watcher="true"
     location="end"
     width="300"
     border="0"
