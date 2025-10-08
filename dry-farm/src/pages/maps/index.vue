@@ -276,7 +276,7 @@
               <v-divider />
 
               <!-- 展繪按鈕 -->
-              <v-row class="ma-0">
+              <!-- <v-row class="ma-0">
                 <v-col class="pa-0 text-center">
                   <v-btn
                     :title="'繪圖工具'"
@@ -300,7 +300,7 @@
                     </template>
                   </v-btn>
                 </v-col>
-              </v-row>
+              </v-row> -->
               <v-divider />
 
               <!-- 量測按鈕 -->
@@ -1435,14 +1435,14 @@ const pointerMoveHandler = (evt: any) => {
     return;
   }
 
-  let helpMsg = '點擊開始繪製';
+  let helpMsg = '點擊開始測量';
 
   if (measureSketch.value) {
     const geom = measureSketch.value.getGeometry();
     if (geom instanceof Polygon) {
-      helpMsg = '點擊繼續繪製多邊形';
+      helpMsg = '點擊繼續繪製多邊形，或回到起點結束測量';
     } else if (geom instanceof LineString) {
-      helpMsg = '點擊繼續繪製線段';
+      helpMsg = '點擊繼續繪製線段，或點擊兩下結束測量';
     }
   }
 
