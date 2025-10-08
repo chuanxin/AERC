@@ -158,23 +158,25 @@
                   <v-list-item>
                     <v-btn
                       variant="outlined"
-                      color="primary"
+                      :color="measureType === 'distance' ? 'primary' : 'default'"
                       block
                       class="mb-2"
+                      @click="toggleMeasurementType('distance')"
                     >
                       <v-icon class="me-2">mdi-ruler</v-icon>
-                      測量距離
+                      {{ measureType === 'distance' ? '停止測量距離' : '測量距離' }}
                     </v-btn>
                   </v-list-item>
                   <v-list-item>
                     <v-btn
                       variant="outlined"
-                      color="primary"
+                      :color="measureType === 'area' ? 'primary' : 'default'"
                       block
                       class="mb-2"
+                      @click="toggleMeasurementType('area')"
                     >
                       <v-icon class="me-2">mdi-vector-square</v-icon>
-                      測量面積
+                      {{ measureType === 'area' ? '停止測量面積' : '測量面積' }}
                     </v-btn>
                   </v-list-item>
                   <v-list-item>
@@ -182,9 +184,10 @@
                       variant="outlined"
                       color="error"
                       block
+                      @click="clearMeasurements"
                     >
                       <v-icon class="me-2">mdi-delete</v-icon>
-                      清除測量
+                      清除測量結果
                     </v-btn>
                   </v-list-item>
                 </v-list>
@@ -202,8 +205,8 @@
                     </v-card-subtitle>
                     <v-card-text class="pa-1">
                       <div class="text-body-2">
-                        距離: -- 公尺<br>
-                        面積: -- 平方公尺
+                        距離: {{ measureResults.distance }}<br>
+                        面積: {{ measureResults.area }}
                       </div>
                     </v-card-text>
                   </v-card>
@@ -454,7 +457,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch, onUnmounted, computed, toRaw } from 'vue';
+import { ref, onMounted, nextTick, watch, onUnmounted, computed, toRaw, markRaw } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useGisStore } from '@/stores/gis';
 import { storeToRefs } from 'pinia';
@@ -468,7 +471,11 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
 // import { Heatmap as HeatmapLayer } from 'ol/layer'; // 註解熱區圖
-import { Polygon } from 'ol/geom';
+import { Polygon, LineString } from 'ol/geom';
+import Draw from 'ol/interaction/Draw';
+import Overlay from 'ol/Overlay';
+import { getArea, getLength } from 'ol/sphere';
+import { unByKey } from 'ol/Observable';
 import OSM from 'ol/source/OSM';
 import StadiaMaps from 'ol/source/StadiaMaps';
 import TileWMS from 'ol/source/TileWMS';
@@ -480,6 +487,7 @@ import { fromLonLat, toLonLat } from 'ol/proj';
 import { Style, Fill, Stroke, Circle, Text } from 'ol/style';
 import { Point } from 'ol/geom';
 import { Feature } from 'ol';
+import type { FeatureLike } from 'ol/Feature';
 import GeoJSON from 'ol/format/GeoJSON';
 import type { LocationQueryValue } from 'vue-router';
 import type { GeoJsonFeature, GeoJsonFeatureCollection } from '@/types/gis';
@@ -514,6 +522,13 @@ const {
 
 // 定義地圖變數，使用具體的 Map 型別
 let map: Map | null = null;
+
+// 暴露到全局以便調試（僅開發環境）
+if (import.meta.env.DEV) {
+  (window as any).__MAP__ = null;
+  (window as any).__MEASURE_DRAW__ = null;
+}
+
 const isFluid = ref(false);
 const mapContainer = ref(null);
 const showSnackbar = ref(false);
@@ -528,18 +543,38 @@ const layerManagementRef = ref<InstanceType<typeof LayerManagement> | null>(null
 const showDrawPanel = ref(false);
 const showMeasurePanel = ref(false);
 
+// === 量測工具相關狀態 ===
+const measureType = ref<'distance' | 'area' | null>(null); // 當前量測類型
+const measureSource = ref<any>(null); // 量測圖層資料源
+const measureLayer = ref<any>(null); // 量測圖層
+const measureDraw = ref<any>(null); // Draw interaction
+const measureSketch = ref<any>(null); // 當前繪製的 feature
+const measureTooltipElement = ref<HTMLElement | null>(null); // tooltip DOM 元素
+const measureTooltip = ref<any>(null); // 量測結果 tooltip overlay
+const helpTooltipElement = ref<HTMLElement | null>(null); // 幫助提示 DOM 元素
+const helpTooltip = ref<any>(null); // 幫助提示 tooltip overlay
+const measureListener = ref<any>(null); // geometry change listener
+const measureResults = ref({ distance: '--', area: '--' }); // 量測結果顯示
+
 // 圖層面板拖拽相關
 const isDragging = ref(false);
 const dragOffset = ref({ x: 0, y: 0 });
 
 // 工具面板初始位置計算
 const getInitialToolPanelPosition = (offsetY = 0) => {
-  const rightMargin = 100; // 右邊距
-  const topMargin = 10; // 上邊距
-  const panelWidth = 300; // 面板寬度
+  const mapControlsWidth = 80; // map-controls 工具列寬度（約估）
+  const mapControlsRight = 10; // map-controls 的 right 定位
+  const layersPanelWidth = showLayersPanel.value ? 300 : 0; // 圖層面板寬度（當打開時）
+  const panelPadding = 10; // 面板與相鄰元素之間的間距
+  const panelWidth = 300; // 工具面板寬度
+  const topMargin = 10; // 上邊距，與 map-controls 對齊
+
+  // 計算面板的 x 位置：
+  // 螢幕寬度 - 圖層面板寬度 - map-controls 右邊距 - map-controls 寬度 - 間距 - 面板寬度
+  const x = window.innerWidth - layersPanelWidth - mapControlsRight - mapControlsWidth - panelPadding - panelWidth;
 
   return {
-    x: Math.max(window.innerWidth - panelWidth - rightMargin, rightMargin),
+    x: Math.max(x, 10), // 確保不會超出左邊界
     y: topMargin + offsetY
   };
 };
@@ -704,6 +739,36 @@ const getInitialFilterCriteria = (): FilterCriteria => {
 const toggleLayers = async () => {
   showLayersPanel.value = !showLayersPanel.value;
   await nextTick();
+
+  // 當圖層面板打開時，檢查是否與工具面板重疊
+  if (showLayersPanel.value) {
+    const layersPanelWidth = 300; // 圖層面板寬度
+    const layersPanelRight = window.innerWidth; // 圖層面板從右側邊界開始
+    const layersPanelLeft = layersPanelRight - layersPanelWidth;
+    const buffer = 10; // 緩衝距離
+
+    // 檢查展繪面板是否與圖層面板重疊（含緩衝區）
+    if (showDrawPanel.value) {
+      const drawPanelWidth = 300;
+      const drawPanelRight = drawPanelPosition.value.x + drawPanelWidth;
+
+      // 如果展繪面板右側邊界 + 緩衝 >= 圖層面板左側邊界，則有重疊
+      if (drawPanelRight + buffer >= layersPanelLeft) {
+        drawPanelPosition.value = getInitialToolPanelPosition();
+      }
+    }
+
+    // 檢查量測面板是否與圖層面板重疊（含緩衝區）
+    if (showMeasurePanel.value) {
+      const measurePanelWidth = 300;
+      const measurePanelRight = measurePanelPosition.value.x + measurePanelWidth;
+
+      // 如果量測面板右側邊界 + 緩衝 >= 圖層面板左側邊界，則有重疊
+      if (measurePanelRight + buffer >= layersPanelLeft) {
+        measurePanelPosition.value = getInitialToolPanelPosition();
+      }
+    }
+  }
 };
 
 const toggleSearchPanel = async () => {
@@ -1296,6 +1361,11 @@ const toggleDraw = () => {
     showMeasurePanel.value = false;
   }
 
+  // 重置面板位置到 map-controls 左側
+  if (isDrawing.value) {
+    drawPanelPosition.value = getInitialToolPanelPosition();
+  }
+
   console.log('展繪工具:', isDrawing.value ? '啟用' : '停用');
   snackbarMessage.value = isDrawing.value ? '展繪工具已啟用' : '展繪工具已停用';
   showSnackbar.value = true;
@@ -1303,7 +1373,273 @@ const toggleDraw = () => {
   // TODO: 實作繪圖功能
 };
 
-// 量測功能
+// === 量測工具功能函數 ===
+
+// 格式化距離輸出
+const formatLength = (line: LineString): string => {
+  const length = getLength(line);
+  if (length > 100) {
+    return `${Math.round((length / 1000) * 100) / 100} 公里`;
+  }
+  return `${Math.round(length * 100) / 100} 公尺`;
+};
+
+// 格式化面積輸出
+const formatArea = (polygon: Polygon): string => {
+  const area = getArea(polygon);
+  if (area > 10000) {
+    return `${Math.round((area / 10000) * 100) / 100} 公頃`;
+  }
+  return `${Math.round(area * 100) / 100} 平方公尺`;
+};
+
+// 創建幫助提示 tooltip
+const createHelpTooltip = () => {
+  if (!map) return;
+
+  if (helpTooltipElement.value) {
+    helpTooltipElement.value.parentNode?.removeChild(helpTooltipElement.value);
+  }
+  helpTooltipElement.value = document.createElement('div');
+  helpTooltipElement.value.className = 'ol-tooltip hidden';
+  helpTooltip.value = new Overlay({
+    element: helpTooltipElement.value,
+    offset: [15, 0],
+    positioning: 'center-left',
+  });
+  map.addOverlay(helpTooltip.value);
+};
+
+// 創建量測 tooltip
+const createMeasureTooltip = () => {
+  if (!map) return;
+
+  if (measureTooltipElement.value) {
+    measureTooltipElement.value.parentNode?.removeChild(measureTooltipElement.value);
+  }
+  measureTooltipElement.value = document.createElement('div');
+  measureTooltipElement.value.className = 'ol-tooltip ol-tooltip-measure';
+  measureTooltip.value = new Overlay({
+    element: measureTooltipElement.value,
+    offset: [0, -15],
+    positioning: 'bottom-center',
+    stopEvent: false,
+    insertFirst: false,
+  });
+  map.addOverlay(measureTooltip.value);
+};
+
+// 鼠標移動處理
+const pointerMoveHandler = (evt: any) => {
+  if (evt.dragging) {
+    return;
+  }
+
+  let helpMsg = '點擊開始繪製';
+
+  if (measureSketch.value) {
+    const geom = measureSketch.value.getGeometry();
+    if (geom instanceof Polygon) {
+      helpMsg = '點擊繼續繪製多邊形';
+    } else if (geom instanceof LineString) {
+      helpMsg = '點擊繼續繪製線段';
+    }
+  }
+
+  if (helpTooltipElement.value) {
+    helpTooltipElement.value.innerHTML = helpMsg;
+    helpTooltip.value?.setPosition(evt.coordinate);
+    helpTooltipElement.value.classList.remove('hidden');
+  }
+};
+
+// 切換測量類型（開啟或關閉）
+const toggleMeasurementType = (type: 'distance' | 'area') => {
+  // 如果點擊的是當前正在進行的測量，則停止測量
+  if (measureType.value === type) {
+    stopMeasurement();
+  } else {
+    // 否則切換到新的測量類型
+    startMeasurement(type);
+  }
+};
+
+// 停止當前測量
+const stopMeasurement = () => {
+  if (measureDraw.value && map) {
+    // 重新啟用被禁用的 interactions
+    const disabledList = (measureDraw.value as any)?._disabledInteractions || [];
+    disabledList.forEach((item: { interaction: any; name: string }) => {
+      item.interaction.setActive(true);
+    });
+
+    map.removeInteraction(measureDraw.value);
+    map.un('pointermove', pointerMoveHandler);
+    measureDraw.value = null;
+  }
+
+  // 停止測量時只移除動態 tooltip（保留靜態的測量結果標籤）
+  if (map) {
+    const overlays = map.getOverlays().getArray().slice();
+    overlays.forEach((overlay) => {
+      const element = overlay.getElement();
+      // 只移除動態 tooltip（ol-tooltip-measure 但不是 ol-tooltip-static）和 help tooltip
+      if (element && element.className.includes('ol-tooltip') &&
+          !element.className.includes('ol-tooltip-static')) {
+        map.removeOverlay(overlay);
+      }
+    });
+  }
+
+  // 重置動態 tooltip 引用（但保留已完成的測量結果在地圖上）
+  measureTooltipElement.value = null;
+  measureTooltip.value = null;
+  helpTooltipElement.value = null;
+  helpTooltip.value = null;
+  measureSketch.value = null;
+  if (measureListener.value) {
+    unByKey(measureListener.value);
+    measureListener.value = null;
+  }
+
+  measureType.value = null;
+
+  snackbarMessage.value = '已停止測量';
+  showSnackbar.value = true;
+};
+
+// 開始量測（距離或面積）
+const startMeasurement = (type: 'distance' | 'area') => {
+  if (!map || !measureSource.value) {
+    console.error('地圖或量測圖層尚未初始化');
+    return;
+  }
+
+  // 移除舊的 Draw interaction
+  if (measureDraw.value) {
+    map.removeInteraction(measureDraw.value);
+    map.un('pointermove', pointerMoveHandler);
+  }
+
+  measureType.value = type;
+  const drawType = type === 'distance' ? 'LineString' : 'Polygon';
+
+  // 創建 tooltips
+  createMeasureTooltip();
+  createHelpTooltip();
+
+  // 添加 pointermove 監聽
+  map.on('pointermove', pointerMoveHandler);
+
+  // mouseout 時隱藏 help tooltip
+  map.getViewport().addEventListener('mouseout', () => {
+    if (helpTooltipElement.value) {
+      helpTooltipElement.value.classList.add('hidden');
+    }
+  });
+
+  // 創建 Draw interaction
+  measureDraw.value = new Draw({
+    source: measureSource.value,
+    type: drawType,
+  });
+
+  // drawstart 事件
+  measureDraw.value.on('drawstart', (evt: any) => {
+    measureSketch.value = evt.feature;
+
+    let tooltipCoord = evt.coordinate;
+
+    measureListener.value = measureSketch.value.getGeometry().on('change', (event: any) => {
+      const geom = event.target;
+      let output: string;
+
+      if (geom instanceof Polygon) {
+        output = formatArea(geom);
+        tooltipCoord = geom.getInteriorPoint().getCoordinates();
+        measureResults.value.area = output;
+      } else if (geom instanceof LineString) {
+        output = formatLength(geom);
+        tooltipCoord = geom.getLastCoordinate();
+        measureResults.value.distance = output;
+      }
+
+      if (measureTooltipElement.value) {
+        measureTooltipElement.value.innerHTML = output!;
+        measureTooltip.value?.setPosition(tooltipCoord);
+      }
+    });
+  });
+
+  // drawend 事件
+  measureDraw.value.on('drawend', () => {
+    if (measureTooltipElement.value) {
+      measureTooltipElement.value.className = 'ol-tooltip ol-tooltip-static';
+    }
+    measureTooltip.value?.setOffset([0, -7]);
+    measureSketch.value = null;
+    measureTooltipElement.value = null;
+    createMeasureTooltip();
+    unByKey(measureListener.value);
+  });
+
+  map.addInteraction(measureDraw.value);
+
+  // 禁用其他 interactions 以避免衝突
+  const disabledInteractions: Array<{ interaction: any; name: string }> = [];
+  map.getInteractions().forEach((interaction) => {
+    const name = interaction.constructor.name;
+    if (name !== 'Draw') {
+      interaction.setActive(false);
+      disabledInteractions.push({ interaction, name });
+    }
+  });
+
+  // 保存禁用列表以便後續恢復
+  (measureDraw.value as any)._disabledInteractions = disabledInteractions;
+
+  // 提示用戶
+  const typeText = type === 'distance' ? '距離' : '面積';
+  snackbarMessage.value = `${typeText}量測已啟動，點擊地圖開始繪製`;
+  showSnackbar.value = true;
+};
+
+// 清除所有量測結果（只清除繪製的圖形和結果數字，保留 tooltip）
+const clearMeasurements = () => {
+  // 清除繪製的圖形
+  if (measureSource.value) {
+    measureSource.value.clear();
+  }
+
+  // 只移除靜態的測量結果 tooltip（ol-tooltip-static），保留動態的測量 tooltip
+  if (map) {
+    const overlays = map.getOverlays().getArray().slice();
+    overlays.forEach((overlay) => {
+      const element = overlay.getElement();
+      // 只移除靜態 tooltip（已完成測量的標籤）
+      if (element?.className.includes('ol-tooltip-static')) {
+        map.removeOverlay(overlay);
+      }
+    });
+  }
+
+  // 清除當前正在繪製的 sketch（如果有）
+  if (measureSketch.value) {
+    measureSketch.value = null;
+  }
+  if (measureListener.value) {
+    unByKey(measureListener.value);
+    measureListener.value = null;
+  }
+
+  // 重置量測結果數字
+  measureResults.value = { distance: '--', area: '--' };
+
+  snackbarMessage.value = '已清除所有量測結果';
+  showSnackbar.value = true;
+};
+
+// 切換量測工具開關
 const toggleMeasure = () => {
   isMeasuring.value = !isMeasuring.value;
   showMeasurePanel.value = isMeasuring.value;
@@ -1313,11 +1649,28 @@ const toggleMeasure = () => {
     showDrawPanel.value = false;
   }
 
-  console.log('量測工具:', isMeasuring.value ? '啟用' : '停用');
-  snackbarMessage.value = isMeasuring.value ? '量測工具已啟用' : '量測工具已停用';
-  showSnackbar.value = true;
+  // 重置面板位置到 map-controls 左側
+  if (isMeasuring.value) {
+    measurePanelPosition.value = getInitialToolPanelPosition();
+  } else {
+    // 停用時清除量測
+    if (measureDraw.value && map) {
+      // 重新啟用被禁用的 interactions
+      const disabledList = (measureDraw.value as any)?._disabledInteractions || [];
+      disabledList.forEach((item: { interaction: any; name: string }) => {
+        item.interaction.setActive(true);
+      });
 
-  // TODO: 實作測量功能
+      map.removeInteraction(measureDraw.value);
+      map.un('pointermove', pointerMoveHandler);
+      measureDraw.value = null;
+    }
+    measureType.value = null;
+    clearMeasurements();
+  }
+
+  snackbarMessage.value = isMeasuring.value ? '量測工具已啟用，請點擊「測量距離」或「測量面積」開始' : '量測工具已停用';
+  showSnackbar.value = true;
 };
 
 // === GIS 補助案件相關功能 ===
@@ -2452,7 +2805,30 @@ async function initMap() {
       opacity: publicLandMapLayer.opacity
     })
 
-    const layers = [nlscLayer, osmLayer, stamenLayer, gridLayer, grantLayer, functionalZoneLayer, nonUrbanLandUseLayer, publicLandLayer];
+    // === 創建量測圖層 ===
+    measureSource.value = new VectorSource();
+    measureLayer.value = new VectorLayer({
+      source: measureSource.value,
+      style: new Style({
+        fill: new Fill({
+          color: 'rgba(255, 255, 255, 0.2)',
+        }),
+        stroke: new Stroke({
+          color: '#ffcc33',
+          width: 2,
+        }),
+        image: new Circle({
+          radius: 7,
+          fill: new Fill({
+            color: '#ffcc33',
+          }),
+        }),
+      }),
+      visible: true,
+      zIndex: 1000, // 確保量測圖層在最上層
+    });
+
+    const layers = [nlscLayer, osmLayer, stamenLayer, gridLayer, grantLayer, functionalZoneLayer, nonUrbanLandUseLayer, publicLandLayer, measureLayer.value];
 
     // 關聯圖層到 mapLayers 數據結構（使用 ID 查找）
     nlscMapLayer.layer = nlscLayer;
@@ -2482,8 +2858,8 @@ async function initMap() {
       minWidth: 100
     });
 
-    // 創建地圖
-    map = new Map({
+    // 創建地圖 - 使用 markRaw 防止 Vue reactivity 包裝
+    map = markRaw(new Map({
       target: mapContainer.value,
       layers: layers,
       view: new View({
@@ -2497,15 +2873,32 @@ async function initMap() {
         attribution: true,
         rotate: false
       }).extend([scaleLineControl])
-    });
+    }));
+
+    // 暴露地圖到全局（僅開發環境調試用）
+    if (import.meta.env.DEV) {
+      (window as any).__MAP__ = map;
+      console.log('地圖已暴露到 window.__MAP__');
+    }
 
     // 添加點擊事件處理補助案件點位和格網
-    map.on('singleclick', (event) => {
+    // 注意：使用較低的優先級，讓 Draw interaction 優先處理
+    const handleMapClick = (event: any) => {
+      // 暫時註釋掉，測試是否影響 Draw
+      // if (measureDraw.value || isDrawing.value) {
+      //   return;
+      // }
+
+      // 只在沒有 Draw 時處理 feature 查詢
+      if (measureDraw.value || isDrawing.value) {
+        return;
+      }
+
       const features = map!.getFeaturesAtPixel(event.pixel);
       if (features.length > 0) {
         if (displayMode.value === 'points') {
           // 點位模式：處理聚合點位
-          const feature = features.find(f => {
+          const feature = features.find((f: any) => {
             const layer = f.get('layer');
             return layer === grantLayer || !layer; // 補助案件特徵
           });
@@ -2516,14 +2909,16 @@ async function initMap() {
           }
         } else if (displayMode.value === 'grid') {
           // 格網模式：處理格網統計
-          const gridFeature = features.find(f => f.get('gridKey'));
+          const gridFeature = features.find((f: any) => f.get('gridKey'));
           if (gridFeature) {
             const properties = gridFeature.getProperties();
             showGridPopup(event.coordinate, properties);
           }
         }
       }
-    });
+    };
+
+    map.on('singleclick', handleMapClick);
 
     // 確保地圖正確渲染
     setTimeout(async () => {
@@ -3431,5 +3826,54 @@ const refreshLayerData = () => {
     padding: 5px 8px;
     font-size: 10px;
   }
+}
+
+/* === 量測工具 Tooltip 樣式 === */
+.ol-tooltip {
+  position: relative;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 4px;
+  color: white;
+  padding: 6px 10px;
+  opacity: 0.9;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: default;
+  pointer-events: none;
+}
+
+.ol-tooltip-measure {
+  opacity: 1;
+  font-weight: bold;
+  background: rgba(33, 150, 243, 0.9);
+}
+
+.ol-tooltip-static {
+  background-color: rgba(255, 152, 0, 0.9);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.ol-tooltip-measure:before,
+.ol-tooltip-static:before {
+  border-top: 6px solid rgba(33, 150, 243, 0.9);
+  border-right: 6px solid transparent;
+  border-left: 6px solid transparent;
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  margin-left: -7px;
+  left: 50%;
+}
+
+.ol-tooltip-static:before {
+  border-top-color: rgba(255, 152, 0, 0.9);
+}
+
+.hidden {
+  display: none;
 }
 </style>
