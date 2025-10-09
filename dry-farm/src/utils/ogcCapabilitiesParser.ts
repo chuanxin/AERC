@@ -5,7 +5,7 @@
 
 import WMSCapabilities from 'ol/format/WMSCapabilities'
 import WMTSCapabilities from 'ol/format/WMTSCapabilities'
-import type { OGCServiceType } from '@/pages/maps/config'
+import type { OGCServiceType } from '@/pages/maps/map-config'
 
 /**
  * 解析後的圖層資訊

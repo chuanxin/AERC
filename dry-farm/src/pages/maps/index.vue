@@ -261,7 +261,7 @@
                   density="compact"
                   color="primary"
                   class="mb-3"
-                  grow
+                  fixed-tabs
                 >
                   <v-tab value="personal">個人位置</v-tab>
                   <v-tab value="coordinate">坐標定位</v-tab>
@@ -749,6 +749,7 @@
         @layer-order-changed="handleLayerOrderChanged"
         @group-order-changed="handleGroupOrderChanged"
         @add-custom-layer="showAddCustomLayerDialog = true"
+        @remove-custom-layer="handleRemoveCustomLayer"
       />
 
       <!-- 新增自訂圖層對話框 -->
@@ -786,7 +787,7 @@ import { unByKey } from 'ol/Observable';
 import OSM from 'ol/source/OSM';
 import StadiaMaps from 'ol/source/StadiaMaps';
 import TileWMS from 'ol/source/TileWMS';
-import WMTS from 'ol/source/WMTS';
+import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS';
 import WMTSTileGrid from 'ol/tilegrid/WMTS';
 import { get as getProjection } from 'ol/proj';
 import { getTopLeft, getWidth } from 'ol/extent';
@@ -805,13 +806,13 @@ import {
   type FilterCriteria
 } from '@/utils/frontendFilters';
 
-import FilterToolbar from './filter.vue';
-import LayerManagement from './layers.vue';
-import AddCustomLayerDialog from './AddCustomLayerDialog.vue';
+import FilterToolbar from './filter-toolbar.vue';
+import LayerManagement from './layers-drawer.vue';
+import AddCustomLayerDialog from './custom-layer-dialog.vue';
 
 // 從配置檔案導入圖層相關類型和工具
-import { MAP_LAYERS, LAYER_GROUPS, updateGroupOrder, getLayerGroups, addCustomLayer } from './config'
-import type { MapLayer, OGCServiceConfig } from './config'
+import { MAP_LAYERS, LAYER_GROUPS, updateGroupOrder, getLayerGroups, addCustomLayer, removeCustomLayer } from './map-config'
+import type { MapLayer, OGCServiceConfig } from './map-config'
 
 const router = useRouter();
 const route = useRoute();
@@ -1484,6 +1485,104 @@ const handleGroupOrderChanged = (groupId: string, direction: 'up' | 'down') => {
   updateOverlayLayersZIndex()
 };
 
+// 處理刪除自訂圖層
+const handleRemoveCustomLayer = (layerId: string) => {
+  const layerIndex = mapLayers.value.findIndex(l => l.id === layerId)
+  if (layerIndex === -1) {
+    console.warn(`圖層 ${layerId} 不存在`)
+    return
+  }
+
+  const layerConfig = mapLayers.value[layerIndex]
+  if (!layerConfig.isCustom) {
+    console.warn(`圖層 ${layerId} 不是自訂圖層`)
+    return
+  }
+
+  const layerName = layerConfig.name
+
+  // 從地圖移除 OpenLayers 圖層
+  if (map) {
+    // 從地圖的圖層集合中查找並移除
+    // 使用我們設置的自訂屬性來識別圖層
+    const allLayers = map.getLayers().getArray()
+    const targetLayer = allLayers.find(layer => {
+      return layer.get('customLayerId') === layerId
+    })
+
+    if (targetLayer) {
+      map.removeLayer(targetLayer)
+      console.log(`已從地圖移除圖層: ${layerName} (ID: ${layerId})`)
+    } else {
+      console.warn(`在地圖上找不到圖層 ${layerName} (ID: ${layerId})`)
+    }
+  }
+
+  // 從響應式陣列移除圖層
+  mapLayers.value.splice(layerIndex, 1)
+
+  // 從配置中移除圖層
+  removeCustomLayer(layerId)
+
+  // 重新計算同分組內剩餘圖層的 order 值,確保連續性
+  const customLayers = mapLayers.value.filter(l => l.group === 'custom')
+  customLayers
+    .sort((a, b) => b.order - a.order) // 按 order 降序排列
+    .forEach((layer, index) => {
+      layer.order = customLayers.length - index // 重新分配順序
+    })
+
+  // 重新計算所有套疊圖層的 zIndex
+  updateOverlayLayersZIndex()
+
+  // 顯示提示訊息
+  snackbarMessage.value = `已刪除自訂圖層: ${layerName}`
+  showSnackbar.value = true
+
+  console.log(`已刪除自訂圖層: ${layerName} (ID: ${layerId})`)
+  console.log(`剩餘自訂圖層數量: ${customLayers.length}`)
+}
+
+// 生成隨機顏色（明亮且易於區分的顏色）
+const generateRandomColor = () => {
+  // 使用 HSL 色彩空間生成明亮且飽和的顏色
+  const hue = Math.floor(Math.random() * 360) // 0-360
+  const saturation = 65 + Math.floor(Math.random() * 20) // 65-85% 飽和度
+  const lightness = 45 + Math.floor(Math.random() * 15) // 45-60% 亮度
+
+  // HSL 轉 RGB
+  const h = hue / 360
+  const s = saturation / 100
+  const l = lightness / 100
+
+  const hue2rgb = (p: number, q: number, t: number) => {
+    if (t < 0) t += 1
+    if (t > 1) t -= 1
+    if (t < 1/6) return p + (q - p) * 6 * t
+    if (t < 1/2) return q
+    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6
+    return p
+  }
+
+  let r, g, b
+  if (s === 0) {
+    r = g = b = l // achromatic
+  } else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+    const p = 2 * l - q
+    r = hue2rgb(p, q, h + 1/3)
+    g = hue2rgb(p, q, h)
+    b = hue2rgb(p, q, h - 1/3)
+  }
+
+  const toHex = (x: number) => {
+    const hex = Math.round(x * 255).toString(16)
+    return hex.length === 1 ? '0' + hex : hex
+  }
+
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
 // 處理 Shapefile 圖層載入
 const handleShapefileLoaded = (
   layersData: Array<{ name: string; geoJson: GeoJsonFeatureCollection }>,
@@ -1549,24 +1648,34 @@ const handleShapefileLoaded = (
         continue
       }
 
+      // 建立圖層配置
+      const layerId = `custom-shapefile-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+      // 生成隨機顏色
+      const randomColor = generateRandomColor()
+      const strokeColor = randomColor
+      const fillColor = `${randomColor}4D` // 添加 30% 透明度 (4D = 77/255 ≈ 30%)
+
       // 建立 VectorLayer
       const vectorLayer = new VectorLayer({
         source: vectorSource,
         style: new Style({
           stroke: new Stroke({
-            color: '#3399CC',
+            color: strokeColor,
             width: 2
           }),
           fill: new Fill({
-            color: 'rgba(51, 153, 204, 0.3)'
+            color: fillColor
           })
         }),
         visible: true,
         opacity: 0.8
       })
 
-      // 建立圖層配置
-      const layerId = `custom-shapefile-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      // 在 OpenLayers 圖層上設置自訂屬性以便後續識別
+      vectorLayer.set('customLayerId', layerId)
+      vectorLayer.set('customLayerName', data.name)
+      vectorLayer.set('customLayerColor', randomColor) // 保存顏色以便後續使用
       const newLayer: MapLayer = {
         id: layerId,
         name: data.name,
@@ -1670,10 +1779,37 @@ const handleCustomLayersAdded = (configs: OGCServiceConfig[]) => {
         opacity: 0.8
       })
     } else if (config.type === 'WMTS') {
-      // WMTS 需要根據 Capabilities 建立，這裡簡化處理
-      console.warn('WMTS 圖層需要完整的 Capabilities 資訊，目前簡化實作')
-      // 可以擴展實作 WMTS 圖層建立邏輯
-      return
+      // WMTS 需要 rawCapabilities 來建立 TileMatrixSet
+      if (!config.rawCapabilities) {
+        console.error(`WMTS 圖層 ${config.layerName} 缺少 rawCapabilities`)
+        snackbarMessage.value = `WMTS 圖層 ${config.layerName} 配置不完整`
+        showSnackbar.value = true
+        return
+      }
+
+      try {
+        // 使用 OpenLayers 內建函數生成 WMTS 配置
+        const wmtsOptions = optionsFromCapabilities(config.rawCapabilities, {
+          layer: config.layerName
+        })
+
+        if (!wmtsOptions) {
+          throw new Error(`無法為圖層 ${config.layerName} 生成 WMTS 配置`)
+        }
+
+        olLayer = new TileLayer({
+          source: new WMTS(wmtsOptions),
+          visible: true,
+          opacity: 0.8
+        })
+
+        console.log(`成功建立 WMTS 圖層: ${config.layerName}`)
+      } catch (error) {
+        console.error(`WMTS 圖層建立失敗:`, error)
+        snackbarMessage.value = `WMTS 圖層 ${config.layerName} 建立失敗: ${(error as Error).message}`
+        showSnackbar.value = true
+        return
+      }
     } else if (config.type === 'WFS') {
       // WFS 通常用 VectorLayer，這裡暫不實作
       console.warn('WFS 圖層需要使用 VectorLayer，目前暫不支援')
@@ -1681,6 +1817,10 @@ const handleCustomLayersAdded = (configs: OGCServiceConfig[]) => {
     }
 
     if (!olLayer) return
+
+    // 在 OpenLayers 圖層上設置自訂屬性以便後續識別
+    olLayer.set('customLayerId', layerId)
+    olLayer.set('customLayerName', config.title || config.layerName)
 
     // 建立 MapLayer 配置
     const newLayer: MapLayer = {
