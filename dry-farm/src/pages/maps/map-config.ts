@@ -28,6 +28,8 @@ export interface OGCServiceConfig {
   extent?: number[]
   /** 其他服務參數 */
   params?: Record<string, any>
+  /** 原始 Capabilities 物件（WMTS 必需） */
+  rawCapabilities?: any
 }
 
 /**

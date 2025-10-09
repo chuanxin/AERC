@@ -12,19 +12,24 @@
       color="white"
       density="compact"
     >
-      <v-toolbar-title>圖層管理</v-toolbar-title>
-      <v-spacer />
+      <v-toolbar-title>
+        圖層管理
+      </v-toolbar-title>
       <v-btn
-        icon
+        class="text-none"
+        color="medium-emphasis"
+        min-width="92"
+        variant="outlined"
         density="compact"
-        color="success"
-        :ripple="false"
+        rounded
+        prepend-icon="mdi-plus"
         @click="$emit('add-custom-layer')"
       >
-        <v-icon>mdi-plus</v-icon>
+        新增
       </v-btn>
       <v-btn
         icon
+        class="px-2 ml-2"
         density="compact"
         :ripple="false"
         rounded="xl"
@@ -109,6 +114,18 @@
                   {{ item.title }}
                 </span>
               </div>
+              <!-- 自訂圖層刪除按鈕 -->
+              <v-btn
+                v-if="item.layer.isCustom"
+                icon
+                size="x-small"
+                variant="text"
+                color="error"
+                class="delete-layer-btn"
+                @click.stop="removeLayer(item.layer)"
+              >
+                <v-icon size="small">mdi-close</v-icon>
+              </v-btn>
             </div>
 
             <!-- 透明度控制滑桿和順序調整按鈕（僅在圖層可見時顯示） -->
@@ -242,8 +259,8 @@
 
 <script setup lang="ts">
 import { computed, ref, nextTick } from 'vue'
-import { getLayerGroups } from './config'
-import type { MapLayer } from './config'
+import { getLayerGroups } from './map-config'
+import type { MapLayer } from './map-config'
 
 // TreeView 項目類型定義
 interface TreeItem {
@@ -293,6 +310,7 @@ const emit = defineEmits<{
   'layer-order-changed': [layerId: string, direction: 'up' | 'down']
   'group-order-changed': [groupId: string, direction: 'up' | 'down']
   'add-custom-layer': []
+  'remove-custom-layer': [layerId: string]
 }>()
 
 // 計算屬性
@@ -487,6 +505,13 @@ const moveGroupDown = (groupId: string) => {
     groupOrderVersion.value++
   })
 }
+
+// 刪除自訂圖層
+const removeLayer = (layer: MapLayer) => {
+  if (layer.isCustom) {
+    emit('remove-custom-layer', layer.id)
+  }
+}
 </script>
 
 <style scoped>
@@ -495,6 +520,7 @@ const moveGroupDown = (groupId: string) => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden; /* 防止雙重滾動條 */
 }
 
 :deep(.v-toolbar) {
@@ -507,6 +533,8 @@ const moveGroupDown = (groupId: string) => {
 :deep(.v-list) {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden; /* 防止水平滾動 */
+  min-height: 0; /* 關鍵：允許 flex 子元素正確縮小 */
 }
 
 /* TreeView 分類標題樣式 */
@@ -577,5 +605,15 @@ const moveGroupDown = (groupId: string) => {
   background-color: rgba(0, 0, 0, 0.8);
   color: white !important;
   font-size: 0.7rem;
+}
+
+/* 自訂圖層刪除按鈕 */
+.delete-layer-btn {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.overlay-item-container:hover .delete-layer-btn {
+  opacity: 1;
 }
 </style>
