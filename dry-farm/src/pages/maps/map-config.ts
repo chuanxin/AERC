@@ -33,13 +33,40 @@ export interface OGCServiceConfig {
 }
 
 /**
+ * 填充圖案類型
+ */
+export type FillPatternType =
+  | 'diagonal'        // 斜線 /
+  | 'diagonal-reverse' // 反斜線 \
+  | 'cross-diagonal'  // 交叉斜線 X
+  | 'horizontal'      // 水平線 ≡
+  | 'vertical'        // 垂直線 ‖
+  | 'grid'            // 網格 #
+  | 'dots'            // 點狀 ·
+  | 'dots-dense'      // 密集點狀
+
+/**
  * 圖層圖例項目
  */
 export interface LayerLegendItem {
-  /** 顏色（HEX 或 RGB） */
+  /** 顏色（HEX 或 RGB，填充色） */
   color: string
   /** 標籤文字 */
   label: string
+  /** 圖例方塊內的簡寫文字（可選） */
+  text?: string
+  /** 是否只顯示邊框（不填充顏色） */
+  borderOnly?: boolean
+  /** 邊框顏色（當 borderOnly 為 true 時使用，預設使用 color） */
+  borderColor?: string
+  /** 文字顏色（預設為黑色或白色，根據背景自動判斷） */
+  textColor?: string
+  /** 填充圖案類型 */
+  pattern?: FillPatternType
+  /** 圖案顏色（預設使用 borderColor 或 color） */
+  patternColor?: string
+  /** 圖案背景色（預設為白色或透明） */
+  patternBackgroundColor?: string
 }
 
 /**
@@ -231,7 +258,61 @@ export const MAP_LAYERS: MapLayer[] = [
     visible: false,
     opacity: 0.6,
     description: '都市計畫土地使用分區',
-    order: 9
+    order: 9,
+    legend: [
+      // 住商工行政類
+      { color: 'rgb(255,255,0)', label: '住宅區', borderOnly: true, text: '住' },
+      { color: 'rgb(255,0,63)', label: '商業區', borderOnly: true, text: '商' },
+      { color: 'rgb(127,63,0)', label: '工業區', borderOnly: true, text: '工' },
+      { color: 'rgb(0,127,255)', label: '行政區', borderOnly: true, text: '行' },
+      { color: 'rgb(191,127,255)', label: '文教區', borderOnly: true, text: '文' },
+      { color: 'rgb(76,38,0)', label: '倉儲區', borderOnly: true, text: '倉' },
+      { color: 'rgb(127,255,0)', label: '農業區', borderOnly: true, text: '農' },
+      { color: 'rgb(0,255,0)', label: '風景區', borderOnly: true, text: '風' },
+      { color: 'rgb(127,255,0)', label: '保護區', borderOnly: true, text: '保', pattern: 'dots-dense', patternColor: 'rgb(127,255,0)' },
+      { color: 'rgb(127,255,255)', label: '水岸發展區', borderOnly: true, text: '水', pattern: 'dots-dense', patternColor: 'rgb(127,255,255)' },
+      { color: 'rgb(127,255,0)', label: '宗教專用區', borderOnly: true, text: '宗' },
+      { color: 'rgb(127,255,0)', label: '保存區', borderOnly: true, text: '存' },
+      { color: 'rgb(127,255,255)', label: '河川區', borderOnly: true, text: '河' },
+      // 學校用地類
+      { color: 'rgb(191,127,255)', label: '學校用地', text: '文' },
+      { color: 'rgb(191,127,255)', label: '1.國民小學', text: '文小' },
+      { color: 'rgb(191,127,255)', label: '2.國民中學', text: '文中' },
+      { color: 'rgb(191,127,255)', label: '3.高級中學', text: '文高' },
+      { color: 'rgb(191,127,255)', label: '4.高級職校', text: '文職' },
+      { color: 'rgb(191,127,255)', label: '5.大專院校', text: '文大' },
+      { color: 'rgb(191,127,255)', label: '社教用地', text: '社' },
+      // 公園綠地類
+      { color: 'rgb(0,255,0)', label: '公園（綠地）用地', text: '公(綠)' },
+      { color: 'rgb(0,255,0)', label: '公園（兼供兒童遊樂場）用地', text: '公(兒)' },
+      { color: 'rgb(0,255,0)', label: '體育場所用地', text: '體' },
+      { color: 'rgb(255,0,255)', label: '廣場用地', text: '廣' },
+      { color: 'rgb(0,255,0)', label: '兒童遊樂場用地', text: '兒' },
+      { color: 'rgb(0,255,0)', label: '名勝古蹟紀念性（廟宇）建築用地', text: '古(廟)' },
+      // 市場交通類
+      { color: 'rgb(255,63,0)', label: '批發市場用地', text: '批' },
+      { color: 'rgb(255,63,0)', label: '零售市場用地', text: '市' },
+      { color: 'rgb(255,0,255)', label: '高速公路用地', text: '高公' },
+      { color: 'rgb(0,127,255)', label: '機關用地', text: '機' },
+      // 公用設施類
+      { color: 'rgb(183,183,183)', label: '變電所用地', text: '變' },
+      { color: 'rgb(255,63,0)', label: '停車場用地', text: '停' },
+      { color: 'rgb(255,0,255)', label: '加油站用地', text: '油' },
+      { color: 'rgb(183,183,183)', label: '鐵路用地', text: '鐵' },
+      { color: 'rgb(127,63,0)', label: '港埠用地', text: '港' },
+      { color: 'rgb(0,127,255)', label: '民用航空站用地', text: '航' },
+      { color: 'rgb(183,183,183)', label: '屠宰場用地', text: '屠' },
+      { color: 'rgb(183,183,183)', label: '垃圾處理廠用地', text: '垃' },
+      // 特殊用地類
+      { color: 'rgb(255,255,127)', label: '火葬場用地', text: '葬' },
+      { color: 'rgb(255,255,127)', label: '殯儀館用地', text: '殯' },
+      { color: 'rgb(0,255,0)', label: '墳墓用地', text: '墓', pattern: 'dots-dense', patternColor: 'rgb(0,255,0)' },
+      { color: 'rgb(183,183,183)', label: '污水處理廠用地', text: '污' },
+      { color: 'rgb(183,183,183)', label: '煤氣廠用地', text: '煤' },
+      { color: 'rgb(0,255,0)', label: '園林道路用地', text: '園道' },
+      { color: 'rgb(127,255,255)', label: '海濱浴場用地', text: '海浴' },
+      { color: 'rgb(127,255,255)', label: '河道用地', text: '河道' }
+    ]
   },
   {
     id: 'non-urban-land-use',
