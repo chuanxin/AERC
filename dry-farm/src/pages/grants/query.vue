@@ -82,7 +82,9 @@
                             />
                           </template>
                           <div class="case-number-tooltip">
-                            <div class="tooltip-title">案件編號格式說明</div>
+                            <div class="tooltip-title">
+                              案件編號格式說明
+                            </div>
                             <div class="tooltip-section">
                               <strong>新系統格式：</strong>年度+單位代碼+流水號
                               <br>例：11401001, 11402015
@@ -140,9 +142,15 @@
                                         class="example-item"
                                         @click="applyCaseNumberExample(example)"
                                       >
-                                        <div class="example-type">{{ example.type }}</div>
-                                        <div class="example-range">{{ example.start }} ~ {{ example.end }}</div>
-                                        <div class="example-desc">{{ example.description }}</div>
+                                        <div class="example-type">
+                                          {{ example.type }}
+                                        </div>
+                                        <div class="example-range">
+                                          {{ example.start }} ~ {{ example.end }}
+                                        </div>
+                                        <div class="example-desc">
+                                          {{ example.description }}
+                                        </div>
                                       </div>
                                     </div>
                                   </v-card-text>

@@ -1,7 +1,9 @@
 <template>
   <v-card class="shapefile-uploader">
     <v-card-title class="d-flex align-center">
-      <v-icon class="me-2">mdi-file-upload</v-icon>
+      <v-icon class="me-2">
+        mdi-file-upload
+      </v-icon>
       Shapefile 圖層載入
     </v-card-title>
 
@@ -20,7 +22,10 @@
         />
 
         <!-- 檔案驗證狀態 -->
-        <div v-if="validation" class="mt-2">
+        <div
+          v-if="validation"
+          class="mt-2"
+        >
           <v-alert
             v-if="!validation.isValid"
             type="warning"
@@ -30,7 +35,10 @@
             <div class="text-body-2">
               <div>缺少必要檔案：</div>
               <ul class="ml-4">
-                <li v-for="missing in validation.missingFiles" :key="missing">
+                <li
+                  v-for="missing in validation.missingFiles"
+                  :key="missing"
+                >
                   {{ missing }}
                 </li>
               </ul>

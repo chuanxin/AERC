@@ -237,7 +237,7 @@
                             bg-color="white"
                             clearable
                             autocomplete="off"
-                            :placeholder="sections.length > 0 ? '搜尋地段名稱或代碼...' : '請先選擇鄉鎮市區'"
+                            :placeholder="sections.length > 0 ? '搜尋地段名稱或段號...' : '請先選擇鄉鎮市區'"
                             :disabled="!searchParams.town && !['新竹市', '嘉義市'].includes(searchParams.county)"
                             :loading="loadingSections"
                             :no-data-text="'沒有找到相符的地段'"

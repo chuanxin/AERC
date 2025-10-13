@@ -8,7 +8,10 @@
     <v-card class="pa-0">
       <!-- 標題區域 -->
       <v-card-title class="d-flex align-center bg-warning text-warning-darken-4 pa-4">
-        <v-icon class="me-3" size="28">
+        <v-icon
+          class="me-3"
+          size="28"
+        >
           mdi-clock-alert
         </v-icon>
         <span class="text-h6 font-weight-bold">登入即將逾時</span>
@@ -48,8 +51,8 @@
         <v-btn
           variant="outlined"
           color="grey-darken-1"
-          @click="handleLogout"
           :disabled="isRefreshing"
+          @click="handleLogout"
         >
           <v-icon class="me-2">
             mdi-logout
@@ -62,8 +65,8 @@
         <v-btn
           color="primary"
           variant="flat"
-          @click="handleRefresh"
           :loading="isRefreshing"
+          @click="handleRefresh"
         >
           <v-icon class="me-2">
             mdi-refresh

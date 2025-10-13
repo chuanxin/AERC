@@ -87,7 +87,10 @@
                 :error-messages="captchaError ? '驗證碼不正確' : ''"
               >
                 <template #append-inner>
-                  <div class="captcha-display" @click="generateCaptcha">
+                  <div
+                    class="captcha-display"
+                    @click="generateCaptcha"
+                  >
                     {{ captcha }}
                   </div>
                 </template>
@@ -181,7 +184,10 @@
                   :error-messages="captchaError ? '驗證碼不正確' : ''"
                 >
                   <template #append-inner>
-                    <div class="captcha-display" @click="generateCaptcha">
+                    <div
+                      class="captcha-display"
+                      @click="generateCaptcha"
+                    >
                       {{ captcha }}
                     </div>
                   </template>

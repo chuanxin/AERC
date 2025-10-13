@@ -33,6 +33,16 @@ export interface OGCServiceConfig {
 }
 
 /**
+ * 圖層圖例項目
+ */
+export interface LayerLegendItem {
+  /** 顏色（HEX 或 RGB） */
+  color: string
+  /** 標籤文字 */
+  label: string
+}
+
+/**
  * 圖層類型定義
  */
 export interface MapLayer {
@@ -58,6 +68,8 @@ export interface MapLayer {
   isCustom?: boolean
   /** OGC 服務配置（僅自訂圖層使用） */
   ogcConfig?: OGCServiceConfig
+  /** 圖層圖例資訊 */
+  legend?: LayerLegendItem[]
 }
 
 /**
@@ -229,7 +241,20 @@ export const MAP_LAYERS: MapLayer[] = [
     visible: false,
     opacity: 0.6,
     description: '非都市土地使用分區',
-    order: 10
+    order: 10,
+    legend: [
+      { color: '#D3D3D3', label: '住宅區；保護區；兒童遊樂場；公園；公用事業保留地；商業區；學校、文教區；機關；綠地；綠帶；行政區；道路；道路保留地' },
+      { color: '#FFD700', label: '一般農業區；農業區' },
+      { color: '#8B4513', label: '倉儲區；工業區' },
+      { color: '#E6E6FA', label: '其他使用區；其他保留地；特定專用區' },
+      { color: '#90EE90', label: '山坡地保育區' },
+      { color: '#228B22', label: '森林區' },
+      { color: '#00008B', label: '河川區' },
+      { color: '#FFFF00', label: '特定農業區' },
+      { color: '#FF0000', label: '鄉村區' },
+      { color: '#FF1493', label: '風景區' },
+      { color: '#800080', label: '國家公園分區圖' }
+    ]
   },
   {
     id: 'functional-zone-land-designated-use',

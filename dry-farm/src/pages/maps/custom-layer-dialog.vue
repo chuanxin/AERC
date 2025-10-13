@@ -35,8 +35,12 @@
         color="primary"
         fixed-tabs
       >
-        <v-tab value="url">OGC 服務</v-tab>
-        <v-tab value="shapefile">Shapefile</v-tab>
+        <v-tab value="url">
+          OGC 服務
+        </v-tab>
+        <v-tab value="shapefile">
+          Shapefile
+        </v-tab>
       </v-tabs>
       <v-divider />
 

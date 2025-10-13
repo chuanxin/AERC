@@ -69,7 +69,10 @@
 
         <!-- 自定義標題 -->
         <template #title="{ item }">
-          <div v-if="item.type === 'category'" class="category-header">
+          <div
+            v-if="item.type === 'category'"
+            class="category-header"
+          >
             <span class="font-weight-bold text-primary">
               {{ item.title }}
             </span>
@@ -82,7 +85,9 @@
                 :disabled="!canMoveGroupUp(item.id)"
                 @click.stop="moveGroupUp(item.id)"
               >
-                <v-icon size="small">mdi-arrow-up</v-icon>
+                <v-icon size="small">
+                  mdi-arrow-up
+                </v-icon>
               </v-btn>
               <v-btn
                 icon
@@ -91,12 +96,17 @@
                 :disabled="!canMoveGroupDown(item.id)"
                 @click.stop="moveGroupDown(item.id)"
               >
-                <v-icon size="small">mdi-arrow-down</v-icon>
+                <v-icon size="small">
+                  mdi-arrow-down
+                </v-icon>
               </v-btn>
             </div>
           </div>
           <!-- 套疊圖層項目的完整內容 -->
-          <div v-else-if="item.type === 'overlay' && item.layer" class="overlay-item-container">
+          <div
+            v-else-if="item.type === 'overlay' && item.layer"
+            class="overlay-item-container"
+          >
             <!-- 圖層名稱行 -->
             <div class="d-flex align-center justify-space-between">
               <div class="d-flex align-center flex-grow-1">
@@ -114,6 +124,20 @@
                   {{ item.title }}
                 </span>
               </div>
+              <!-- 圖層資訊按鈕（有圖例的圖層） -->
+              <v-btn
+                v-if="item.layer.legend && item.layer.legend.length > 0"
+                icon
+                size="x-small"
+                variant="text"
+                color="info"
+                class="legend-info-btn ml-1"
+                @click.stop="showLegend(item.layer)"
+              >
+                <v-icon size="small">
+                  mdi-information
+                </v-icon>
+              </v-btn>
               <!-- 自訂圖層刪除按鈕 -->
               <v-btn
                 v-if="item.layer.isCustom"
@@ -124,7 +148,9 @@
                 class="delete-layer-btn"
                 @click.stop="removeLayer(item.layer)"
               >
-                <v-icon size="small">mdi-close</v-icon>
+                <v-icon size="small">
+                  mdi-close
+                </v-icon>
               </v-btn>
             </div>
 
@@ -135,7 +161,9 @@
             >
               <div class="d-flex align-center">
                 <!-- <span class="opacity-label-compact me-0">透明度</span> -->
-                <div class="text-caption">透明度</div>
+                <div class="text-caption">
+                  透明度
+                </div>
 
                 <v-slider
                   v-model="item.layer.opacity"
@@ -163,7 +191,9 @@
                     :disabled="!canMoveUp(item.layer)"
                     @click.stop="moveLayerUp(item.layer)"
                   >
-                    <v-icon size="small">mdi-arrow-up</v-icon>
+                    <v-icon size="small">
+                      mdi-arrow-up
+                    </v-icon>
                   </v-btn>
                   <v-btn
                     icon
@@ -172,7 +202,9 @@
                     :disabled="!canMoveDown(item.layer)"
                     @click.stop="moveLayerDown(item.layer)"
                   >
-                    <v-icon size="small">mdi-arrow-down</v-icon>
+                    <v-icon size="small">
+                      mdi-arrow-down
+                    </v-icon>
                   </v-btn>
                 </div>
               </div>
@@ -199,18 +231,27 @@
       >
         <!-- prepend 圖標：僅為 category 顯示 -->
         <template #prepend="{ item, isOpen }">
-          <v-icon v-if="item.type === 'category'" :icon="isOpen ? 'mdi-folder-open' : 'mdi-folder'"></v-icon>
+          <v-icon
+            v-if="item.type === 'category'"
+            :icon="isOpen ? 'mdi-folder-open' : 'mdi-folder'"
+          />
         </template>
 
         <!-- 自定義根節點標題 -->
         <template #title="{ item }">
-          <div v-if="item.type === 'category'" class="category-header">
+          <div
+            v-if="item.type === 'category'"
+            class="category-header"
+          >
             <span class="font-weight-bold text-primary">
               {{ item.title }}
             </span>
           </div>
           <!-- 底圖圖層項目的完整內容 -->
-          <div v-else-if="item.type === 'baselayer' && item.layer" class="baselayer-item-container">
+          <div
+            v-else-if="item.type === 'baselayer' && item.layer"
+            class="baselayer-item-container"
+          >
             <!-- 圖層名稱行 -->
             <v-radio
               :value="item.layer.name"
@@ -230,7 +271,9 @@
             >
               <div class="d-flex align-center">
                 <!-- <span class="opacity-label-compact me-0">透明度</span> -->
-                <div class="text-caption">透明度</div>
+                <div class="text-caption">
+                  透明度
+                </div>
 
                 <v-slider
                   v-model="item.layer.opacity"
@@ -311,6 +354,7 @@ const emit = defineEmits<{
   'group-order-changed': [groupId: string, direction: 'up' | 'down']
   'add-custom-layer': []
   'remove-custom-layer': [layerId: string]
+  'show-legend': [layer: MapLayer]
 }>()
 
 // 計算屬性
@@ -512,6 +556,13 @@ const removeLayer = (layer: MapLayer) => {
     emit('remove-custom-layer', layer.id)
   }
 }
+
+// ===== 圖層圖例顯示相關函數 =====
+
+// 顯示圖層圖例
+const showLegend = (layer: MapLayer) => {
+  emit('show-legend', layer)
+}
 </script>
 
 <style scoped>
@@ -614,6 +665,16 @@ const removeLayer = (layer: MapLayer) => {
 }
 
 .overlay-item-container:hover .delete-layer-btn {
+  opacity: 1;
+}
+
+/* 圖層資訊按鈕 */
+.legend-info-btn {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.overlay-item-container:hover .legend-info-btn {
   opacity: 1;
 }
 </style>
