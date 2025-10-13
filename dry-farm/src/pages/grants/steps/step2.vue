@@ -1879,7 +1879,7 @@ import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
 import { useRoute } from 'vue-router';
 import { fetchLandSectionsByLandCodes, type LandSection } from '@/services/landSectionNlscService';
-import { nextTick } from 'vue';
+import { nextTick, reactive, markRaw } from 'vue';
 
 // 事件驅動架構：定義事件類型
 interface Step2Events {
@@ -1909,6 +1909,15 @@ const route = useRoute();
 // Reference to map element and map instance
 const mapElement = ref(null);
 let map: Map | null = null;
+
+// 地圖初始化狀態管理
+const mapState = reactive({
+  isInitialized: false,
+  isInitializing: false,
+  initAttempts: 0,
+  maxRetries: 3,
+  key: 0 // 用於強制重新渲染地圖容器
+});
 
 // Form validation references
 const form = ref(null);
@@ -3534,8 +3543,8 @@ const deleteLand = (landId: string) => {
   }
 }
 
-// 編輯狀態監聽與事件發送
-watch(() => landManagement.isEditingMode, (isEditing, wasEditing) => {
+// 編輯狀態監聽與事件發送 + 地圖重建機制
+watch(() => landManagement.isEditingMode, async (isEditing, wasEditing) => {
   // 避免初始化時觸發
   if (isEditing === wasEditing) return
 
@@ -3548,6 +3557,28 @@ watch(() => landManagement.isEditingMode, (isEditing, wasEditing) => {
     isEditing: isEditing,
     reason: isEditing ? '正在編輯土地資料，請先完成或取消編輯' : undefined
   })
+
+  // 🔥 修復：編輯模式切換時重建地圖
+  if (isEditing && landInfoDialog.value) {
+    console.log('🗺️ Reinitializing map for edit mode...');
+
+    // 清理現有地圖
+    cleanupMap();
+
+    // 等待 DOM 更新
+    await nextTick();
+
+    // 強制重新渲染地圖容器
+    mapState.key++;
+
+    // 延遲初始化以確保 DOM 完全準備好
+    await nextTick();
+    setTimeout(() => {
+      if (mapElement.value && landInfoDialog.value) {
+        initMap();
+      }
+    }, 100);
+  }
 }, { immediate: false })
 
 // 向後相容性處理：從舊版單筆土地資料轉換為多筆土地格式
@@ -3943,33 +3974,90 @@ const showLandInfoDialog = () => {
 //   updateFormData();
 // };
 
-// OpenLayers map initialization
-const initMap = () => {
-  if (!mapElement.value || map) return;
+// OpenLayers map initialization - 增強版本
+const initMap = async () => {
+  // 防止重複初始化
+  if (mapState.isInitializing) {
+    console.log('⏳ Map initialization already in progress...');
+    return;
+  }
 
-  // Convert coordinate strings to numbers
-  const lon = parseFloat(localFormData.longitude || '120.5734');
-  const lat = parseFloat(localFormData.latitude || '23.5155');
+  // 檢查 DOM 元素是否存在
+  if (!mapElement.value) {
+    console.warn('⚠️ Map element not found, cannot initialize map');
 
-  // Create map instance
-  map = new Map({
-    target: mapElement.value,
-    layers: [
-      new TileLayer({
-        source: new OSM()
+    // 自動重試機制
+    if (mapState.initAttempts < mapState.maxRetries) {
+      mapState.initAttempts++;
+      console.log(`🔄 Retrying map initialization (attempt ${mapState.initAttempts}/${mapState.maxRetries})...`);
+
+      await nextTick();
+      setTimeout(() => {
+        initMap();
+      }, 300 * mapState.initAttempts); // 遞增延遲
+    } else {
+      console.error('❌ Map initialization failed after multiple attempts');
+    }
+    return;
+  }
+
+  try {
+    mapState.isInitializing = true;
+    console.log('🗺️ Initializing OpenLayers map...');
+
+    // 如果地圖已存在，先清理
+    if (map) {
+      console.log('🧹 Cleaning up existing map instance...');
+      cleanupMap();
+      await nextTick();
+    }
+
+    // Convert coordinate strings to numbers
+    const lon = parseFloat(localFormData.longitude || '120.5734');
+    const lat = parseFloat(localFormData.latitude || '23.5155');
+
+    // 創建地圖 - 使用 markRaw 防止 Vue reactivity 包裝
+    map = markRaw(new Map({
+      target: mapElement.value,
+      layers: [
+        new TileLayer({
+          source: new OSM()
+        })
+      ],
+      view: new View({
+        center: fromLonLat([lon, lat]),
+        zoom: 16
       })
-    ],
-    view: new View({
-      center: fromLonLat([lon, lat]),
-      zoom: 16
-    })
-  });
+    }));
 
-  // Add selection interaction
-  addSelectInteraction();
+    // 確保地圖正確渲染
+    await nextTick();
+    map.updateSize();
 
-  // Load GeoJSON layer
-  loadGeoJSONFile();
+    // Add selection interaction
+    addSelectInteraction();
+
+    // Load GeoJSON layer
+    loadGeoJSONFile();
+
+    mapState.isInitialized = true;
+    mapState.initAttempts = 0; // 重置重試計數
+    console.log('✅ Map initialized successfully');
+
+  } catch (error) {
+    console.error('❌ Error initializing map:', error);
+
+    // 重試機制
+    if (mapState.initAttempts < mapState.maxRetries) {
+      mapState.initAttempts++;
+      console.log(`🔄 Retrying after error (attempt ${mapState.initAttempts}/${mapState.maxRetries})...`);
+      setTimeout(() => {
+        initMap();
+      }, 500);
+    }
+  } finally {
+    mapState.isInitializing = false;
+  }
 };
 
 // const addMarker = (lon, lat) => {
@@ -4535,19 +4623,48 @@ const selectFeature = (feature: Feature<Geometry>) => {
   }
 };
 
-// Clean up interactions when map is destroyed
+// Clean up interactions when map is destroyed - 增強版本
 const cleanupMap = () => {
-  if (select && selectedFeatureKey) {
-    unByKey(selectedFeatureKey);
-  }
+  console.log('🧹 Cleaning up map resources...');
 
-  if (modify && modifyFeatureKey) {
-    unByKey(modifyFeatureKey);
-  }
+  try {
+    // 清理選擇交互
+    if (select && selectedFeatureKey) {
+      unByKey(selectedFeatureKey);
+      selectedFeatureKey = null;
+    }
 
-  if (map) {
-    map.setTarget(undefined);
-    map = null;
+    // 清理修改交互
+    if (modify && modifyFeatureKey) {
+      unByKey(modifyFeatureKey);
+      modifyFeatureKey = null;
+    }
+
+    // 清理地圖實例
+    if (map) {
+      // 移除所有圖層
+      map.getLayers().clear();
+
+      // 移除所有交互
+      map.getInteractions().clear();
+
+      // 解除目標元素綁定
+      map.setTarget(undefined);
+
+      map = null;
+    }
+
+    // 重置選擇狀態
+    select = null;
+    modify = null;
+    featureInfoVisible.value = false;
+    selectedFeatureInfo.value = {};
+
+    mapState.isInitialized = false;
+    console.log('✅ Map cleanup completed');
+
+  } catch (error) {
+    console.error('❌ Error during map cleanup:', error);
   }
 };
 
@@ -4681,14 +4798,38 @@ watch(localFormData, stepManager.createProtectedWatch(() => {
   updateFormData();
 }), { deep: true });
 
-// Watch for dialog open/close to initialize/cleanup map
-watch(landInfoDialog, (isOpen) => {
+// Watch for dialog open/close to initialize/cleanup map - 增強版本
+watch(landInfoDialog, async (isOpen, wasOpen) => {
+  // 避免重複觸發
+  if (isOpen === wasOpen) return;
+
   if (isOpen) {
-    // Initialize map when dialog opens
-    nextTick(() => {
-      initMap();
-    });
+    console.log('📖 Land info dialog opened, initializing map...');
+
+    // 確保之前的地圖已清理
+    if (map) {
+      cleanupMap();
+    }
+
+    // 重置初始化狀態
+    mapState.initAttempts = 0;
+    mapState.key++;
+
+    // 等待對話框 DOM 完全渲染
+    await nextTick();
+
+    // 延遲初始化以確保容器可見且大小正確
+    setTimeout(() => {
+      if (landInfoDialog.value && mapElement.value) {
+        console.log('🎯 Starting map initialization...');
+        initMap();
+      } else {
+        console.warn('⚠️ Map element or dialog not ready');
+      }
+    }, 150);
+
   } else {
+    console.log('📕 Land info dialog closed, cleaning up map...');
     // Clean up map when dialog closes
     cleanupMap();
   }
@@ -4716,6 +4857,25 @@ watch([() => localFormData.longitude, () => localFormData.latitude], () => {
         }
       }
     }
+  }
+});
+
+// 🔥 新增：監聽地圖容器可見性變化，確保地圖正確渲染
+watch(() => landInfoDialog.value, async (isVisible) => {
+  if (isVisible && map && mapState.isInitialized) {
+    // 等待 DOM 更新和動畫完成
+    await nextTick();
+    setTimeout(() => {
+      if (map && mapElement.value) {
+        console.log('🔄 Updating map size after dialog visibility change...');
+        try {
+          map.updateSize();
+          console.log('✅ Map size updated');
+        } catch (error) {
+          console.error('❌ Error updating map size:', error);
+        }
+      }
+    }, 200);
   }
 });
 

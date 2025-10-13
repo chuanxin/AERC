@@ -843,7 +843,7 @@
                         class="legend-color-box"
                         :style="{
                           width: item.text ? '36px' : '16px',
-                          height: item.text ? '24px' : '16px',
+                          height: item.text ? '16px' : '16px',
                           backgroundColor: item.pattern
                             ? 'transparent'
                             : (item.borderOnly ? 'transparent' : item.color),
