@@ -1796,7 +1796,7 @@ const queryInstructions = computed(() => {
         title: '山坡地查詢說明',
         items: [
           {
-            text: '由於提供山坡地資料的API服務已停止更新，本系統無法在取得即時資料，請直接點選下方連結進行查詢：',
+            text: '由於提供山坡地資料的API服務已停止更新，本系統無法再取得即時資料，請直接點選下方連結進行查詢：',
             icon: 'mdi-information',
             color: '#8BC34A'
           },

@@ -70,7 +70,7 @@ export const SUBSIDY_STANDARDS: SubsidyStandards = {
     }
   },
 
-  // 調蓄控制設施補助上限（元/公頃）
+  // 調節控制設施補助上限（元/公頃）
   controlEquipment: {
     general: 230000,
     indigenous: 253000
@@ -88,7 +88,7 @@ export const calculateSubsidyAmount = (
   tonnage?: number,
   area?: number
 ): number => {
-  
+
   switch (facilityType) {
     case 'power': {
       const unitSubsidy = SUBSIDY_STANDARDS.powerEquipment[region][equipment];
@@ -102,7 +102,7 @@ export const calculateSubsidyAmount = (
     case 'storage': {
       const [material] = equipment.split('-');
       const materialStandards = SUBSIDY_STANDARDS.storageEquipment[region][material];
-      
+
       if (!materialStandards || !tonnage) {
         console.warn(`未找到調蓄設施 "${material}-${tonnage}噸" 在 ${region} 地區的補助標準`);
         return 0;
@@ -163,7 +163,7 @@ export const validateStorageFacility = (material: string, tonnage: number, area?
       console.warn(`調蓄設施面積不足: ${area}公頃（最低要求0.1公頃）`);
       return false;
     }
-    
+
     // 檢查容量限制：面積0.1-0.3公頃最大50噸，0.3公頃以上最大100噸
     const maxCapacity = getStorageCapacityLimit(area);
     if (tonnage > maxCapacity) {
@@ -230,14 +230,14 @@ export const canAddStorageFacility = (
 ): boolean => {
   const availableCapacity = getAvailableStorageCapacity(area, existingCapacity);
   const requiredCapacity = newTonnage * newQuantity;
-  
+
   console.log(`[容量檢查] 面積:${area}公頃, 已用:${existingCapacity}噸, 可用:${availableCapacity}噸, 需要:${requiredCapacity}噸`);
-  
+
   return requiredCapacity <= availableCapacity;
 };
 
 /**
- * 計算已新增設施列表中的調蓄控制設施累積補助金額
+ * 計算已新增設施列表中的調節控制設施累積補助金額
  */
 export const calculateExistingControlSubsidy = (facilities: Array<{
   type: string;
@@ -251,7 +251,7 @@ export const calculateExistingControlSubsidy = (facilities: Array<{
 };
 
 /**
- * 根據面積和地區類型計算調蓄控制設施的總補助上限
+ * 根據面積和地區類型計算調節控制設施的總補助上限
  */
 export const getControlSubsidyLimit = (area: number, region: 'general' | 'indigenous'): number => {
   const unitSubsidy = SUBSIDY_STANDARDS.controlEquipment[region];
@@ -262,7 +262,7 @@ export const getControlSubsidyLimit = (area: number, region: 'general' | 'indige
  * 根據面積和已有補助金額計算剩餘可申請補助額度
  */
 export const getAvailableControlSubsidy = (
-  area: number, 
+  area: number,
   region: 'general' | 'indigenous',
   existingSubsidy: number
 ): number => {
@@ -271,7 +271,7 @@ export const getAvailableControlSubsidy = (
 };
 
 /**
- * 計算調蓄控制設施的實際可獲得補助金額
+ * 計算調節控制設施的實際可獲得補助金額
  * 需要考慮已有設施的累積補助金額，確保不超過每公頃補助上限
  */
 export const calculateControlActualSubsidy = (
@@ -282,14 +282,14 @@ export const calculateControlActualSubsidy = (
 ): number => {
   const availableSubsidy = getAvailableControlSubsidy(area, region, existingSubsidy);
   const actualSubsidy = Math.min(newFacilityCost, availableSubsidy);
-  
-  console.log(`[調蓄控制設施補助計算] 面積:${area}公頃, 地區:${region}, 已用補助:${existingSubsidy}, 剩餘額度:${availableSubsidy}, 設施成本:${newFacilityCost}, 實際補助:${actualSubsidy}`);
-  
+
+  console.log(`[調節控制設施補助計算] 面積:${area}公頃, 地區:${region}, 已用補助:${existingSubsidy}, 剩餘額度:${availableSubsidy}, 設施成本:${newFacilityCost}, 實際補助:${actualSubsidy}`);
+
   return actualSubsidy;
 };
 
 /**
- * 調蓄控制設施整體分配結果介面
+ * 調節控制設施整體分配結果介面
  */
 export interface ControlSubsidyAllocation {
   facilityIndex: number;
@@ -300,8 +300,8 @@ export interface ControlSubsidyAllocation {
 }
 
 /**
- * 🔥 Linus式修復：調蓄控制設施整體性補助分配
- * 計算所有調蓄控制設施的總成本，然後按比例分配補助金額
+ * 調節控制設施整體性補助分配
+ * 計算所有調節控制設施的總成本，然後按比例分配補助金額
  */
 export const calculateControlFacilitiesAllocation = (
   area: number,
@@ -311,24 +311,24 @@ export const calculateControlFacilitiesAllocation = (
     quantity: number;
   }>
 ): ControlSubsidyAllocation[] => {
-  // 1. 計算所有調蓄控制設施的總成本
+  // 1. 計算所有調節控制設施的總成本
   const totalCost = controlFacilities.reduce((sum, facility) => sum + (facility.totalPrice || 0), 0);
-  
+
   // 2. 計算補助上限
   const subsidyLimit = getControlSubsidyLimit(area, region);
-  
+
   // 3. 計算實際總補助金額（不超過上限）
   const totalActualSubsidy = Math.min(totalCost, subsidyLimit);
-  
+
   // 4. 計算整體補助比例
   const overallSubsidyRatio = totalCost > 0 ? totalActualSubsidy / totalCost : 0;
-  
+
   // 5. 按比例分配給每個設施
   const allocations: ControlSubsidyAllocation[] = controlFacilities.map((facility, index) => {
     const facilityCost = facility.totalPrice || 0;
     const facilitySubsidy = facilityCost * overallSubsidyRatio;
     const facilitySelfPaid = facilityCost - facilitySubsidy;
-    
+
     return {
       facilityIndex: index,
       totalCost: facilityCost,
@@ -337,14 +337,14 @@ export const calculateControlFacilitiesAllocation = (
       subsidyRatio: overallSubsidyRatio
     };
   });
-  
-  console.log(`[調蓄控制設施整體分配] 面積:${area}公頃, 地區:${region}, 總成本:${totalCost}, 補助上限:${subsidyLimit}, 實際補助:${totalActualSubsidy}, 補助比例:${(overallSubsidyRatio * 100).toFixed(1)}%`);
-  
+
+  console.log(`[調節控制設施整體分配] 面積:${area}公頃, 地區:${region}, 總成本:${totalCost}, 補助上限:${subsidyLimit}, 實際補助:${totalActualSubsidy}, 補助比例:${(overallSubsidyRatio * 100).toFixed(1)}%`);
+
   return allocations;
 };
 
 /**
- * 計算調蓄控制設施的總成本（包括預覽中的新設施）
+ * 計算調節控制設施的總成本（包括預覽中的新設施）
  */
 export const calculateControlTotalCost = (
   facilities: Array<{
@@ -356,6 +356,6 @@ export const calculateControlTotalCost = (
   const existingCost = facilities
     .filter(facility => facility.type === 'control')
     .reduce((sum, facility) => sum + (facility.totalPrice || 0), 0);
-  
+
   return existingCost + (previewCost || 0);
 };
