@@ -73,7 +73,9 @@
                       block
                       class="mb-2"
                     >
-                      <v-icon class="me-2">mdi-vector-point</v-icon>
+                      <v-icon class="me-2">
+                        mdi-vector-point
+                      </v-icon>
                       點標記
                     </v-btn>
                   </v-list-item>
@@ -84,7 +86,9 @@
                       block
                       class="mb-2"
                     >
-                      <v-icon class="me-2">mdi-vector-line</v-icon>
+                      <v-icon class="me-2">
+                        mdi-vector-line
+                      </v-icon>
                       線條
                     </v-btn>
                   </v-list-item>
@@ -95,7 +99,9 @@
                       block
                       class="mb-2"
                     >
-                      <v-icon class="me-2">mdi-vector-polygon</v-icon>
+                      <v-icon class="me-2">
+                        mdi-vector-polygon
+                      </v-icon>
                       多邊形
                     </v-btn>
                   </v-list-item>
@@ -105,7 +111,9 @@
                       color="error"
                       block
                     >
-                      <v-icon class="me-2">mdi-delete</v-icon>
+                      <v-icon class="me-2">
+                        mdi-delete
+                      </v-icon>
                       清除全部
                     </v-btn>
                   </v-list-item>
@@ -163,7 +171,9 @@
                       class="mb-2"
                       @click="toggleMeasurementType('distance')"
                     >
-                      <v-icon class="me-2">mdi-ruler</v-icon>
+                      <v-icon class="me-2">
+                        mdi-ruler
+                      </v-icon>
                       {{ measureType === 'distance' ? '停止測量距離' : '測量距離' }}
                     </v-btn>
                   </v-list-item>
@@ -175,7 +185,9 @@
                       class="mb-2"
                       @click="toggleMeasurementType('area')"
                     >
-                      <v-icon class="me-2">mdi-vector-square</v-icon>
+                      <v-icon class="me-2">
+                        mdi-vector-square
+                      </v-icon>
                       {{ measureType === 'area' ? '停止測量面積' : '測量面積' }}
                     </v-btn>
                   </v-list-item>
@@ -186,7 +198,9 @@
                       block
                       @click="clearMeasurements"
                     >
-                      <v-icon class="me-2">mdi-delete</v-icon>
+                      <v-icon class="me-2">
+                        mdi-delete
+                      </v-icon>
                       清除測量結果
                     </v-btn>
                   </v-list-item>
@@ -263,16 +277,25 @@
                   class="mb-3"
                   fixed-tabs
                 >
-                  <v-tab value="personal">個人位置</v-tab>
-                  <v-tab value="coordinate">坐標定位</v-tab>
-                  <v-tab value="landNumber">地籍定位</v-tab>
+                  <v-tab value="personal">
+                    個人位置
+                  </v-tab>
+                  <v-tab value="coordinate">
+                    坐標定位
+                  </v-tab>
+                  <v-tab value="landNumber">
+                    地籍定位
+                  </v-tab>
                 </v-tabs>
 
                 <!-- 個人位置定位 -->
                 <v-window v-model="locationType">
                   <v-window-item value="personal">
                     <v-row class="ma-0">
-                      <v-col cols="4" class="pa-0 pe-1">
+                      <v-col
+                        cols="4"
+                        class="pa-0 pe-1"
+                      >
                         <v-btn
                           variant="outlined"
                           color="error"
@@ -283,14 +306,19 @@
                           <v-icon>mdi-delete</v-icon>
                         </v-btn>
                       </v-col>
-                      <v-col cols="8" class="pa-0 ps-1">
+                      <v-col
+                        cols="8"
+                        class="pa-0 ps-1"
+                      >
                         <v-btn
                           variant="outlined"
                           color="primary"
                           block
                           @click="getCurrentLocation"
                         >
-                          <v-icon class="me-2">mdi-crosshairs-gps</v-icon>
+                          <v-icon class="me-2">
+                            mdi-crosshairs-gps
+                          </v-icon>
                           定位我的位置
                         </v-btn>
                       </v-col>
@@ -308,10 +336,18 @@
                       divided
                       style="width: 100%"
                     >
-                      <v-btn value="wgs84" size="small" style="flex: 1">
+                      <v-btn
+                        value="wgs84"
+                        size="small"
+                        style="flex: 1"
+                      >
                         經緯度 (WGS84)
                       </v-btn>
-                      <v-btn value="tw97" size="small" style="flex: 1">
+                      <v-btn
+                        value="tw97"
+                        size="small"
+                        style="flex: 1"
+                      >
                         TW97 (TWD97)
                       </v-btn>
                     </v-btn-toggle>
@@ -363,7 +399,10 @@
                     </div>
 
                     <v-row class="ma-0">
-                      <v-col cols="4" class="pa-0 pe-1">
+                      <v-col
+                        cols="4"
+                        class="pa-0 pe-1"
+                      >
                         <v-btn
                           variant="outlined"
                           color="error"
@@ -374,14 +413,19 @@
                           <v-icon>mdi-delete</v-icon>
                         </v-btn>
                       </v-col>
-                      <v-col cols="8" class="pa-0 ps-1">
+                      <v-col
+                        cols="8"
+                        class="pa-0 ps-1"
+                      >
                         <v-btn
                           variant="outlined"
                           color="primary"
                           block
                           @click="locateByCoordinate"
                         >
-                          <v-icon class="me-2">mdi-map-marker</v-icon>
+                          <v-icon class="me-2">
+                            mdi-map-marker
+                          </v-icon>
                           定位到坐標
                         </v-btn>
                       </v-col>
@@ -391,7 +435,10 @@
                   <!-- 地號定位 -->
                   <v-window-item value="landNumber">
                     <v-row class="ma-0 mb-2 pt-2 pb-2">
-                      <v-col cols="6" class="pa-0 pe-1">
+                      <v-col
+                        cols="6"
+                        class="pa-0 pe-1"
+                      >
                         <v-select
                           v-model="landNumberInput.county"
                           :items="countyOptions"
@@ -402,7 +449,10 @@
                           @update:model-value="onCountyChange"
                         />
                       </v-col>
-                      <v-col cols="6" class="pa-0 ps-1">
+                      <v-col
+                        cols="6"
+                        class="pa-0 ps-1"
+                      >
                         <v-select
                           v-if="!['新竹市', '嘉義市'].includes(landNumberInput.county)"
                           v-model="landNumberInput.town"
@@ -480,7 +530,10 @@
                     </div>
 
                     <v-row class="ma-0 mb-2">
-                      <v-col cols="4" class="pa-0 pe-1">
+                      <v-col
+                        cols="4"
+                        class="pa-0 pe-1"
+                      >
                         <v-btn
                           variant="outlined"
                           color="error"
@@ -491,7 +544,10 @@
                           <v-icon>mdi-delete</v-icon>
                         </v-btn>
                       </v-col>
-                      <v-col cols="8" class="pa-0 ps-1">
+                      <v-col
+                        cols="8"
+                        class="pa-0 ps-1"
+                      >
                         <v-btn
                           variant="outlined"
                           color="primary"
@@ -499,7 +555,9 @@
                           :disabled="!landNumberInput.section || !landNumberInput.motherNumber"
                           @click="locateByLandNumber"
                         >
-                          <v-icon class="me-2">mdi-map-search</v-icon>
+                          <v-icon class="me-2">
+                            mdi-map-search
+                          </v-icon>
                           定位到地號
                         </v-btn>
                       </v-col>
@@ -724,6 +782,86 @@
               <div>版權所有：農業部農田水利署、系統開發：財團法人農業工程研究中心</div>
             </div>
           </div>
+
+          <!-- 圖層圖例 Navigation Drawer -->
+          <v-navigation-drawer
+            v-model="showLegendSnackbar"
+            height="30"
+            border="sm"
+            rounded="xs"
+            location="bottom"
+            elevation="8"
+            class="legend-drawer"
+            disable-route-watcher
+            persistent
+            sticky
+            temporary
+            :scrim="false"
+          >
+            <div class="px-3">
+              <!-- 標題列 -->
+              <div class="d-flex align-center justify-space-between mb-0">
+                <div class="d-flex align-center">
+                  <v-icon
+                    color="primary"
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-information
+                  </v-icon>
+                  <span class="text-subtitle-2 font-weight-bold text-primary">
+                    {{ selectedLegendLayer?.name }} - 圖例說明
+                  </span>
+                </div>
+                <v-btn
+                  icon
+                  size="small"
+                  variant="text"
+                  @click="showLegendSnackbar = false"
+                >
+                  <v-icon size="small">
+                    mdi-close
+                  </v-icon>
+                </v-btn>
+              </div>
+
+              <!-- 圖例項目容器 - 自動換行 + 垂直滾動 -->
+              <div
+                v-if="selectedLegendLayer?.legend && selectedLegendLayer.legend.length > 0"
+                class="legend-items-container"
+              >
+                <div class="d-flex flex-wrap ga-2">
+                  <v-chip
+                    v-for="(item, index) in selectedLegendLayer.legend"
+                    :key="index"
+                    size="small"
+                    variant="outlined"
+                    label
+                  >
+                    <template #prepend>
+                      <div
+                        :style="{
+                          width: '16px',
+                          height: '16px',
+                          backgroundColor: item.color,
+                          borderRadius: '2px',
+                          border: '1px solid rgba(0,0,0,0.2)',
+                          marginRight: '6px'
+                        }"
+                      />
+                    </template>
+                    <span class="text-caption">{{ item.label }}</span>
+                  </v-chip>
+                </div>
+              </div>
+              <div
+                v-else
+                class="text-center text-body-2 text-grey py-3"
+              >
+                此圖層無圖例資訊
+              </div>
+            </div>
+          </v-navigation-drawer>
         </div>
       </v-card>
       <!-- 顯示成功訊息的Snackbar -->
@@ -750,6 +888,7 @@
         @group-order-changed="handleGroupOrderChanged"
         @add-custom-layer="showAddCustomLayerDialog = true"
         @remove-custom-layer="handleRemoveCustomLayer"
+        @show-legend="handleShowLegend"
       />
 
       <!-- 新增自訂圖層對話框 -->
@@ -849,6 +988,10 @@ const isMeasuring = ref(false);
 const showLayersPanel = ref(false);
 const showAddCustomLayerDialog = ref(false);
 const layerManagementRef = ref<InstanceType<typeof LayerManagement> | null>(null);
+
+// 圖層圖例顯示狀態
+const showLegendSnackbar = ref(false);
+const selectedLegendLayer = ref<MapLayer | null>(null);
 
 // 工具面板顯示狀態
 const showDrawPanel = ref(false);
@@ -1541,6 +1684,13 @@ const handleRemoveCustomLayer = (layerId: string) => {
 
   console.log(`已刪除自訂圖層: ${layerName} (ID: ${layerId})`)
   console.log(`剩餘自訂圖層數量: ${customLayers.length}`)
+}
+
+// 處理顯示圖層圖例
+const handleShowLegend = (layer: MapLayer) => {
+  selectedLegendLayer.value = layer
+  showLegendSnackbar.value = true
+  console.log(`顯示圖層圖例: ${layer.name}`, layer.legend)
 }
 
 // 生成隨機顏色（明亮且易於區分的顏色）
@@ -4228,6 +4378,13 @@ const refreshLayerData = () => {
 </script>
 
 <style>
+/* 圖例 Snackbar 全寬度樣式 */
+.legend-snackbar-content {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
 .ol-zoom {
   display: none !important;
 }
@@ -4751,5 +4908,52 @@ const refreshLayerData = () => {
 
 .hidden {
   display: none;
+}
+
+/* === 圖例 Drawer 樣式 === */
+.legend-drawer {
+  position: absolute !important;
+  max-height: 120px;
+  z-index: 1000;
+}
+
+.legend-drawer :deep(.v-navigation-drawer__content) {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.legend-items-container {
+  max-height: 150px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.legend-items-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.legend-items-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.legend-items-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.legend-items-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 響應式調整 */
+@media (max-width: 768px) {
+  .legend-drawer {
+    max-height: 150px;
+  }
+
+  .legend-items-container {
+    max-height: 100px;
+  }
 }
 </style>
