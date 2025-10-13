@@ -798,7 +798,7 @@
             temporary
             :scrim="false"
           >
-            <div class="px-3">
+            <div class="pl-3">
               <!-- 標題列 -->
               <div class="d-flex align-center justify-space-between mb-0">
                 <div class="d-flex align-center">
@@ -828,7 +828,7 @@
               <!-- 圖例項目容器 - 自動換行 + 垂直滾動 -->
               <div
                 v-if="selectedLegendLayer?.legend && selectedLegendLayer.legend.length > 0"
-                class="legend-items-container"
+                class="legend-items-container pr-3"
               >
                 <div class="d-flex flex-wrap ga-2">
                   <v-chip
@@ -840,15 +840,32 @@
                   >
                     <template #prepend>
                       <div
+                        class="legend-color-box"
                         :style="{
-                          width: '16px',
-                          height: '16px',
-                          backgroundColor: item.color,
+                          width: item.text ? '36px' : '16px',
+                          height: item.text ? '24px' : '16px',
+                          backgroundColor: item.pattern
+                            ? 'transparent'
+                            : (item.borderOnly ? 'transparent' : item.color),
                           borderRadius: '2px',
-                          border: '1px solid rgba(0,0,0,0.2)',
-                          marginRight: '6px'
+                          border: (item.borderOnly || item.pattern)
+                            ? `2px solid ${item.borderColor || item.color}`
+                            : '1px solid rgba(0,0,0,0.2)',
+                          marginRight: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: item.textColor || getLegendTextColor(item),
+                          fontSize: '10px',
+                          fontWeight: 'bold',
+                          lineHeight: '1',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          ...getPatternStyle(item)
                         }"
-                      />
+                      >
+                        {{ item.text || '' }}
+                      </div>
                     </template>
                     <span class="text-caption">{{ item.label }}</span>
                   </v-chip>
@@ -992,6 +1009,140 @@ const layerManagementRef = ref<InstanceType<typeof LayerManagement> | null>(null
 // 圖層圖例顯示狀態
 const showLegendSnackbar = ref(false);
 const selectedLegendLayer = ref<MapLayer | null>(null);
+
+// 計算圖例文字顏色（根據背景顏色自動判斷）
+const getLegendTextColor = (item: any) => {
+  // 如果只顯示邊框或有圖案，返回深灰色（因為背景可能是透明的）
+  if (item.borderOnly || item.pattern) {
+    return '#333'
+  }
+
+  // 解析 RGB 顏色
+  const color = item.color
+  let r = 0, g = 0, b = 0
+
+  // 處理 rgb(r, g, b) 格式
+  const rgbMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+  if (rgbMatch) {
+    r = parseInt(rgbMatch[1])
+    g = parseInt(rgbMatch[2])
+    b = parseInt(rgbMatch[3])
+  } else {
+    // 處理 HEX 格式 (#RRGGBB)
+    const hex = color.replace('#', '')
+    r = parseInt(hex.substring(0, 2), 16)
+    g = parseInt(hex.substring(2, 4), 16)
+    b = parseInt(hex.substring(4, 6), 16)
+  }
+
+  // 計算相對亮度 (使用 WCAG 公式)
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000
+
+  // 亮度大於 128 使用黑色文字，否則使用白色文字
+  return brightness > 128 ? '#000' : '#fff'
+}
+
+// 生成填充圖案的 CSS background-image
+const getPatternStyle = (item: any) => {
+  if (!item.pattern) return {}
+
+  const patternColor = item.patternColor || item.borderColor || item.color
+  const bgColor = item.patternBackgroundColor || 'rgba(255,255,255,0.9)'
+
+  const patterns: Record<string, string> = {
+    // 斜線 /
+    'diagonal': `repeating-linear-gradient(
+      45deg,
+      ${bgColor},
+      ${bgColor} 2px,
+      ${patternColor} 2px,
+      ${patternColor} 3px
+    )`,
+
+    // 反斜線 \
+    'diagonal-reverse': `repeating-linear-gradient(
+      -45deg,
+      ${bgColor},
+      ${bgColor} 2px,
+      ${patternColor} 2px,
+      ${patternColor} 3px
+    )`,
+
+    // 交叉斜線 X
+    'cross-diagonal': `repeating-linear-gradient(
+      45deg,
+      ${bgColor},
+      ${bgColor} 2px,
+      ${patternColor} 2px,
+      ${patternColor} 3px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 2px,
+      ${patternColor} 2px,
+      ${patternColor} 3px
+    )`,
+
+    // 水平線 ≡
+    'horizontal': `repeating-linear-gradient(
+      0deg,
+      ${bgColor},
+      ${bgColor} 2px,
+      ${patternColor} 2px,
+      ${patternColor} 3px
+    )`,
+
+    // 垂直線 ‖
+    'vertical': `repeating-linear-gradient(
+      90deg,
+      ${bgColor},
+      ${bgColor} 2px,
+      ${patternColor} 2px,
+      ${patternColor} 3px
+    )`,
+
+    // 網格 #
+    'grid': `repeating-linear-gradient(
+      0deg,
+      ${bgColor},
+      ${bgColor} 3px,
+      ${patternColor} 3px,
+      ${patternColor} 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 3px,
+      ${patternColor} 3px,
+      ${patternColor} 4px
+    )`,
+
+    // 點狀 ·
+    'dots': `radial-gradient(
+      circle at 4px 4px,
+      ${patternColor} 1px,
+      ${bgColor} 1px
+    )`,
+
+    // 密集點狀
+    'dots-dense': `radial-gradient(
+      circle at 3px 3px,
+      ${patternColor} 1.5px,
+      ${bgColor} 1.5px
+    )`
+  }
+
+  const backgroundImage = patterns[item.pattern] || ''
+  const backgroundSize = item.pattern === 'dots' ? '8px 8px' :
+                         item.pattern === 'dots-dense' ? '6px 6px' :
+                         'auto'
+
+  return {
+    backgroundImage,
+    backgroundSize
+  }
+}
 
 // 工具面板顯示狀態
 const showDrawPanel = ref(false);
@@ -4917,15 +5068,15 @@ const refreshLayerData = () => {
   z-index: 1000;
 }
 
-.legend-drawer :deep(.v-navigation-drawer__content) {
+/* .legend-drawer :deep(.v-navigation-drawer__content) {
   overflow-y: auto;
   overflow-x: hidden;
-}
+} */
 
 .legend-items-container {
-  max-height: 150px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* max-height: 150px; */
+  /* overflow-y: auto; */
+  /* overflow-x: hidden; */
 }
 
 .legend-items-container::-webkit-scrollbar {
