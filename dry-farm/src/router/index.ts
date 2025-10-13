@@ -29,6 +29,18 @@ const authGuard = createAuthMiddleware({
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL || '/'),
   routes: setupLayouts(routes),
+  scrollBehavior(to, from, savedPosition) {
+    // 如果有保存的位置（例如使用瀏覽器的前進/後退按鈕），則滾動到該位置
+    if (savedPosition) {
+      return savedPosition
+    }
+    // 如果路由有 hash（例如 #section），則滾動到該元素
+    if (to.hash) {
+      return { el: to.hash, behavior: 'smooth' }
+    }
+    // 否則滾動到頂部
+    return { top: 0, behavior: 'smooth' }
+  }
 })
 
 // TODO: fix Docker Container Route Navigation Double-Click Issue

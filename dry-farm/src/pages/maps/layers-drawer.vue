@@ -3,7 +3,7 @@
     :model-value="visible"
     :disable-resize-watcher="true"
     location="end"
-    width="300"
+    width="310"
     border="0"
     @update:model-value="$emit('update:visible', $event)"
   >
@@ -113,14 +113,14 @@
                 <v-switch
                   v-model="item.layer.visible"
                   max-width="30"
-                  class="ml-2"
+                  class="mx-2 "
                   color="primary"
                   density="compact"
                   hide-details
                   flat
                   @update:model-value="toggleLayerVisibility(item.layer)"
                 />
-                <span class="text-body-2 font-weight-medium ml-2">
+                <span class="text-body-2 font-weight-medium">
                   {{ item.title }}
                 </span>
               </div>
@@ -131,7 +131,7 @@
                 size="x-small"
                 variant="text"
                 color="info"
-                class="legend-info-btn ml-1"
+                class="legend-info-btn ml-0"
                 @click.stop="showLegend(item.layer)"
               >
                 <v-icon size="small">
