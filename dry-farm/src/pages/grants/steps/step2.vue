@@ -20,7 +20,7 @@
           >
             mdi-map-marker
           </v-icon>
-          <span>土地資訊</span>
+          <span>查詢地號</span>
           <v-spacer />
           <v-btn
             class="text-none"
@@ -31,7 +31,7 @@
             :prepend-icon="featureInfoVisible ? 'mdi-information' : 'mdi-information-variant'"
             @click="toggleFeatureInfo"
           >
-            {{ featureInfoVisible ? '隱藏地段資訊' : '顯示地段資訊' }}
+            {{ featureInfoVisible ? '隱藏地號資訊' : '顯示地號資訊' }}
           </v-btn>
         </v-card-title>
 
@@ -50,7 +50,7 @@
               elevation="4"
             >
               <v-card-title class="text-body-1 py-1 px-2">
-                地段資訊
+                地號資訊
               </v-card-title>
               <v-divider />
               <v-card-text class="px-2 py-1">

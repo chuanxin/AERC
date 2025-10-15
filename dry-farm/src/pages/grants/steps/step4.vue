@@ -350,7 +350,7 @@
                 class="pa-3 rounded"
                 color="grey-lighten-5"
               >
-                <div class="d-flex align-center flex-wrap mb-3">
+                <div class="d-flex align-center flex-wrap">
                   <!-- 灌溉型式選擇 -->
                   <v-select
                     v-model="localFormData.irrigationTypeId"
@@ -384,7 +384,6 @@
                   v-if="localFormData.irrigationTypeId === 1"
                   class="irrigation-type-config"
                 >
-                  <v-divider class="mb-3" />
                   <div class="text-subtitle-2 mb-3">
                     穿孔管系統配置
                   </div>
@@ -468,7 +467,6 @@
                   v-else-if="localFormData.irrigationTypeId === 2"
                   class="irrigation-type-config"
                 >
-                  <v-divider class="mb-3" />
                   <div class="text-subtitle-2 mb-3">
                     噴頭式系統配置
                   </div>
@@ -503,36 +501,7 @@
                     />
                   </div>
 
-                  <div class="d-flex flex-wrap mt-2">
-                    <!-- 支管材質和規格 -->
-                    <v-select
-                      v-model="localFormData.branchPipeMaterialId"
-                      :items="pipeMaterialOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="支管材質"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      @update:model-value="updateFormData"
-                    />
-
-                    <v-select
-                      v-model="localFormData.branchPipeDiameterId"
-                      :items="pipeDiameterOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="支管規格"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      @update:model-value="updateFormData"
-                    />
-                  </div>
-
-                  <div class="d-flex flex-wrap mt-2 sprinkler-system-config">
+                  <div class="d-flex flex-wrap mt-2 sprinkler-system-config align-center">
                     <!-- 支管行距與間距 -->
                     <div class="me-3 mb-2">
                       <div class="text-body-2 mb-1">
@@ -570,24 +539,64 @@
                       </div>
                     </div>
 
-                    <!-- 支管變徑規格 -->
+                    <!-- 支管材質和規格 -->
                     <v-select
-                      v-model="localFormData.changeBranchSpecId"
-                      :items="pipeDiameterOptions"
+                      v-model="localFormData.branchPipeMaterialId"
+                      :items="pipeMaterialOptions"
                       item-title="name"
                       item-value="id"
-                      label="支管變徑規格"
+                      label="支管材質"
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
                       style="width: 150px"
+                      hide-details
+                      @update:model-value="updateFormData"
+                    />
+
+                    <v-select
+                      v-model="localFormData.branchPipeDiameterId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      hide-details
+                      @update:model-value="updateFormData"
+                    />
+
+                    <!-- 變徑 checkbox -->
+                    <v-checkbox
+                      v-model="localFormData.enableBranchDiameterChange"
+                      label="變徑"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      hide-details
+                      @update:model-value="(val) => { if (!val) localFormData.changeBranchSpecId = null; }"
+                    />
+
+                    <!-- 支管變徑規格（條件顯示） -->
+                    <v-select
+                      v-if="localFormData.enableBranchDiameterChange"
+                      v-model="localFormData.changeBranchSpecId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="變徑規格"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      hide-details
+                      variant="outlined"
+                      density="comfortable"
                       clearable
-                      hint="若不變徑則不選"
                     />
                   </div>
 
-                  <div class="d-flex flex-wrap mt-2">
-                    <!-- 豎管相關配置 -->
+                  <div class="d-flex flex-wrap mt-2 mb-0 align-center">
+                    <!-- 豎管高度 -->
                     <div class="me-3 mb-2">
                       <div class="text-body-2 mb-1">
                         豎管高度(H)
@@ -605,34 +614,6 @@
                       </div>
                     </div>
 
-                    <v-select
-                      v-model="localFormData.riserPipeMaterialId"
-                      :items="pipeMaterialOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="豎管材質"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      clearable
-                    />
-
-                    <v-select
-                      v-model="localFormData.riserPipeSpecId"
-                      :items="pipeDiameterOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="豎管規格"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      clearable
-                    />
-                  </div>
-
-                  <div class="d-flex flex-wrap mt-2 mb-0">
                     <!-- 末端設施規格和名稱 -->
                     <v-select
                       v-model="localFormData.endFacilitySpecId"
@@ -642,8 +623,9 @@
                       label="末端設施規格"
                       variant="outlined"
                       density="comfortable"
-                      class="me-3"
+                      class="me-3 mb-2"
                       style="width: 150px"
+                      hide-details
                       @update:model-value="onEndFacilitySpecChange"
                     />
 
@@ -655,9 +637,10 @@
                       label="末端設施名稱"
                       variant="outlined"
                       density="comfortable"
-                      class="me-3"
+                      class="me-3 mb-2"
                       style="width: 250px"
                       clearable
+                      hide-details
                       @update:model-value="onSelectedEndFacilityChange"
                     >
                       <template #item="{ props, item }">
@@ -669,6 +652,29 @@
                       </template>
                     </v-autocomplete>
                   </div>
+
+                  <!-- 豎管材質和規格欄位已隱藏，自動與末端設施同步 -->
+                  <v-select
+                    v-show="false"
+                    v-model="localFormData.riserPipeMaterialId"
+                    :items="pipeMaterialOptions"
+                    item-title="name"
+                    item-value="id"
+                    label="豎管材質"
+                    variant="outlined"
+                    density="comfortable"
+                  />
+
+                  <v-select
+                    v-show="false"
+                    v-model="localFormData.riserPipeSpecId"
+                    :items="pipeDiameterOptions"
+                    item-title="name"
+                    item-value="id"
+                    label="豎管規格"
+                    variant="outlined"
+                    density="comfortable"
+                  />
                 </div>
 
                 <!-- 微噴系統相關配置 -->
@@ -676,7 +682,6 @@
                   v-else-if="localFormData.irrigationTypeId === 3"
                   class="irrigation-type-config"
                 >
-                  <v-divider class="mb-3" />
                   <div class="text-subtitle-2 mb-3">
                     微噴系統配置
                   </div>
@@ -697,36 +702,7 @@
                     />
                   </div>
 
-                  <div class="d-flex flex-wrap mt-2">
-                    <!-- 支管材質和規格 -->
-                    <v-select
-                      v-model="localFormData.branchPipeMaterialId"
-                      :items="pipeMaterialOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="支管材質"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      @update:model-value="updateFormData"
-                    />
-
-                    <v-select
-                      v-model="localFormData.branchPipeDiameterId"
-                      :items="pipeDiameterOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="支管規格"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      @update:model-value="updateFormData"
-                    />
-                  </div>
-
-                  <div class="d-flex flex-wrap mt-2">
+                  <div class="d-flex flex-wrap mt-2 align-center">
                     <!-- 支管行距和間距 -->
                     <div class="me-3 mb-2">
                       <div class="text-body-2 mb-1">
@@ -764,24 +740,64 @@
                       </div>
                     </div>
 
-                    <!-- 支管變徑規格 -->
+                    <!-- 支管材質和規格 -->
                     <v-select
-                      v-model="localFormData.changeBranchSpecId"
-                      :items="pipeDiameterOptions"
+                      v-model="localFormData.branchPipeMaterialId"
+                      :items="pipeMaterialOptions"
                       item-title="name"
                       item-value="id"
-                      label="支管變徑規格"
+                      label="支管材質"
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
                       style="width: 150px"
+                      hide-details
+                      @update:model-value="updateFormData"
+                    />
+
+                    <v-select
+                      v-model="localFormData.branchPipeDiameterId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="支管規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      hide-details
+                      @update:model-value="updateFormData"
+                    />
+
+                    <!-- 變徑 checkbox -->
+                    <v-checkbox
+                      v-model="localFormData.enableBranchDiameterChange"
+                      label="變徑"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      hide-details
+                      @update:model-value="(val) => { if (!val) localFormData.changeBranchSpecId = null; }"
+                    />
+
+                    <!-- 支管變徑規格（條件顯示） -->
+                    <v-select
+                      v-if="localFormData.enableBranchDiameterChange"
+                      v-model="localFormData.changeBranchSpecId"
+                      :items="pipeDiameterOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="變徑規格"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      style="width: 150px"
+                      hide-details
                       clearable
-                      hint="若不變徑則不選"
                     />
                   </div>
 
-                  <div class="d-flex flex-wrap mt-2">
-                    <!-- 豎管相關配置 -->
+                  <div class="d-flex flex-wrap mt-2 mb-0 pb-0 align-center">
+                    <!-- 豎管高度 -->
                     <div class="me-3 mb-2">
                       <div class="text-body-2 mb-1">
                         豎管高度(H)
@@ -799,34 +815,6 @@
                       </div>
                     </div>
 
-                    <v-select
-                      v-model="localFormData.riserPipeMaterialId"
-                      :items="pipeMaterialOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="豎管材質"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      clearable
-                    />
-
-                    <v-select
-                      v-model="localFormData.riserPipeSpecId"
-                      :items="pipeDiameterOptions"
-                      item-title="name"
-                      item-value="id"
-                      label="豎管規格"
-                      variant="outlined"
-                      density="comfortable"
-                      class="me-3 mb-2"
-                      style="width: 150px"
-                      clearable
-                    />
-                  </div>
-
-                  <div class="d-flex flex-wrap mt-2 mb-0 pb-0">
                     <!-- 末端設施規格和名稱 -->
                     <v-select
                       v-model="localFormData.endFacilitySpecId"
@@ -836,8 +824,9 @@
                       label="末端設施規格"
                       variant="outlined"
                       density="comfortable"
-                      class="me-3"
+                      class="me-3 mb-2"
                       style="width: 150px"
+                      hide-details
                       @update:model-value="onEndFacilitySpecChange"
                     />
 
@@ -849,9 +838,10 @@
                       label="末端設施名稱"
                       variant="outlined"
                       density="comfortable"
-                      class="me-3"
+                      class="me-3 mb-2"
                       style="width: 250px"
                       clearable
+                      hide-details
                       @update:model-value="onSelectedEndFacilityChange"
                     >
                       <template #item="{ props, item }">
@@ -863,6 +853,29 @@
                       </template>
                     </v-autocomplete>
                   </div>
+
+                  <!-- 豎管材質和規格欄位已隱藏，自動與末端設施同步 -->
+                  <v-select
+                    v-show="false"
+                    v-model="localFormData.riserPipeMaterialId"
+                    :items="pipeMaterialOptions"
+                    item-title="name"
+                    item-value="id"
+                    label="豎管材質"
+                    variant="outlined"
+                    density="comfortable"
+                  />
+
+                  <v-select
+                    v-show="false"
+                    v-model="localFormData.riserPipeSpecId"
+                    :items="pipeDiameterOptions"
+                    item-title="name"
+                    item-value="id"
+                    label="豎管規格"
+                    variant="outlined"
+                    density="comfortable"
+                  />
                 </div>
 
                 <!-- 滴灌系統相關配置 -->
@@ -870,7 +883,6 @@
                   v-else-if="localFormData.irrigationTypeId === 4"
                   class="irrigation-type-config"
                 >
-                  <v-divider class="mb-3" />
                   <div class="text-subtitle-2 mb-3">
                     滴灌系統配置
                   </div>
@@ -2194,7 +2206,7 @@ interface MaterialData {
   groupId: number;
   groupName?: string;
   module: string;
-  module_id?: number;
+  moduleType?: string;
   matname: string;
   mattype?: string;
   specification: string;
@@ -2207,8 +2219,6 @@ interface MaterialData {
   matamount: number;
   totalPrice: number;
   order?: number;
-  moduleType?: string;
-  module_id?: number;
   GroupNo?: number;
   GroupName?: string;
   List?: Array<{
@@ -2321,7 +2331,6 @@ interface MaterialData {
   List?: MaterialData[];
   GroupNo?: number;
   GroupName?: string;
-  module_id?: number;
 }
 
 interface MaterialGroup {
@@ -2365,6 +2374,7 @@ interface EndFacilityPipeFitting {
     pomno: number;
     displayName: string; // 例如: "PVC噴頭 1/2吋"
     materialName: string;
+    materialId?: number; // 材質ID (material_id) - 用於自動同步到豎管材質
     specName: string; // 主要規格描述
     specId?: number; // 主要規格ID (diameter1_id)
     // 其他 pipe_fittings 表的相關欄位
@@ -2460,6 +2470,7 @@ const localFormData = reactive({
   branchPipeSpacing_SL: null as number | null, // SL
   sprinklerSpacing_SS: null as number | null,  // SS
   riserHeight_H: null as number | null,        // H
+  enableBranchDiameterChange: false, // 是否啟用支管變徑功能
   changeBranchSpecId: null as number | null, // 變徑規格ID (原 variantType/Adjustable)
   branchPipeMaterialId: null as number | null, // 支管主要材質ID
   branchPipeDiameterId: null as number | null, // 支管主要管徑ID
@@ -3538,8 +3549,9 @@ const loadEndFacilityOptions = async () => {
   const newFittings = fittings.map(fitting => ({
     pomno: fitting.pomno,
     displayName: fitting.name || `${fitting.material_name || ''} ${fitting.diameter1_name || ''}`.trim(),
-    materialName: fitting.material.name || '',
-    specName: fitting.diameter1_name || '',
+    materialName: fitting.material?.name || '',
+    materialId: fitting.material_id, // 添加材質ID用於自動同步到豎管材質
+    specName: fitting.diameter1?.name || '',
     specId: fitting.diameter1_id
   }));
 
@@ -3552,6 +3564,7 @@ const loadEndFacilityOptions = async () => {
     return acc;
   }, [] as EndFacilityPipeFitting[]);
 
+  console.log(`📋 末端設施選項已載入，共 ${uniqueFittings.length} 項`, uniqueFittings.slice(0, 3));
   filteredEndFacilityPipeFittings.value = uniqueFittings;
 };
 
@@ -3560,10 +3573,23 @@ const onSelectedEndFacilityChange = (selectedPomno: number | null) => {
         const selectedFitting = filteredEndFacilityPipeFittings.value.find(f => f.pomno === selectedPomno);
         if (selectedFitting) {
             localFormData.endFacilitySpecId = selectedFitting.specId || null;
+
+            // 自動同步到豎管欄位（僅限噴頭式和微噴系統）
+            if (localFormData.irrigationTypeId === 2 || localFormData.irrigationTypeId === 3) {
+                localFormData.riserPipeSpecId = selectedFitting.specId || null;
+                localFormData.riserPipeMaterialId = selectedFitting.materialId || null;
+                console.log(`✅ 自動同步豎管欄位：材質ID=${selectedFitting.materialId}, 規格ID=${selectedFitting.specId}`);
+            }
             // 單價等也應從此 fitting 物件或後續API獲取
         }
     } else {
         localFormData.endFacilitySpecId = null;
+
+        // 清空時也清空豎管欄位
+        if (localFormData.irrigationTypeId === 2 || localFormData.irrigationTypeId === 3) {
+            localFormData.riserPipeSpecId = null;
+            localFormData.riserPipeMaterialId = null;
+        }
     }
     updateFormData();
 };
@@ -6380,6 +6406,30 @@ watch(pipeMaterialOptions, (newOptions) => {
   }
 });
 
+// 監聽末端設施選擇變化，自動同步到豎管材質和規格
+watch(() => localFormData.endFacilityPomno, (newPomno) => {
+  // 只有在噴頭式系統(ID=2)或微噴系統(ID=3)時才需要同步豎管欄位
+  if (localFormData.irrigationTypeId !== 2 && localFormData.irrigationTypeId !== 3) {
+    return;
+  }
+
+  if (newPomno) {
+    // 查找選中的末端設施
+    const selectedFitting = filteredEndFacilityPipeFittings.value.find(f => f.pomno === newPomno);
+    if (selectedFitting) {
+      // 自動同步：豎管規格 = 末端設施規格
+      localFormData.riserPipeSpecId = selectedFitting.specId || null;
+      // 自動同步：豎管材質 = 末端設施材質
+      localFormData.riserPipeMaterialId = selectedFitting.materialId || null;
+      // console.log(`✅ 自動同步豎管欄位：材質ID=${selectedFitting.materialId}, 規格ID=${selectedFitting.specId}`);
+    }
+  } else {
+    // 如果清空末端設施選擇，也清空豎管欄位
+    localFormData.riserPipeSpecId = null;
+    localFormData.riserPipeMaterialId = null;
+  }
+}, { immediate: false });
+
 // 監聽 ID=7 相關欄位變化，自動更新滴水管名稱選項
 watch(
   [() => localFormData.dripperSubtypeId, () => localFormData.branchPipeDiameterId],
@@ -6663,7 +6713,7 @@ const addMaterialToList = async () => {
 
 .irrigation-type-config {
   background-color: rgba(0, 0, 0, 0.02);
-  padding: 15px;
+  padding: 10px 10px 2px 10px;
   border-radius: 8px;
 }
 
