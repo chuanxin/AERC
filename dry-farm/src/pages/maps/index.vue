@@ -990,11 +990,9 @@ const domicileStore = useDomicileStore();
 // 定義地圖變數，使用具體的 Map 型別
 let map: Map | null = null;
 
-// 暴露到全局以便調試（僅開發環境）
-if (import.meta.env.DEV) {
-  (window as any).__MAP__ = null;
-  (window as any).__MEASURE_DRAW__ = null;
-}
+// 🔥 移除全域暴露以避免與其他組件（如 step2.vue）的 Map 實例衝突
+// 原因：window.__MAP__ 會在組件間造成資源競爭和渲染問題
+// 替代調試方案：使用 Vue DevTools 或組件內部的 console.log
 
 const isFluid = ref(false);
 const mapContainer = ref(null);
@@ -3677,7 +3675,6 @@ onUnmounted(() => {
   if (map) {
     // 移除地圖移動監聽
     map.un('moveend', updateUrlFromMap);
-
     map.setTarget(undefined);
     map = null;
   }
@@ -4051,12 +4048,6 @@ async function initMap() {
         rotate: false
       }).extend([scaleLineControl])
     }));
-
-    // 暴露地圖到全局（僅開發環境調試用）
-    if (import.meta.env.DEV) {
-      (window as any).__MAP__ = map;
-      console.log('地圖已暴露到 window.__MAP__');
-    }
 
     // 添加點擊事件處理補助案件點位和格網
     // 注意：使用較低的優先級，讓 Draw interaction 優先處理
@@ -5066,17 +5057,6 @@ const refreshLayerData = () => {
   position: absolute !important;
   max-height: 120px;
   z-index: 1000;
-}
-
-/* .legend-drawer :deep(.v-navigation-drawer__content) {
-  overflow-y: auto;
-  overflow-x: hidden;
-} */
-
-.legend-items-container {
-  /* max-height: 150px; */
-  /* overflow-y: auto; */
-  /* overflow-x: hidden; */
 }
 
 .legend-items-container::-webkit-scrollbar {
