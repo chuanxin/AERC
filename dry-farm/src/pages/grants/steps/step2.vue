@@ -3,6 +3,172 @@
     ref="stepContent"
     class="step-content"
   >
+    <!-- Land info dialog -->
+    <v-dialog
+      v-model="landInfoDialog"
+      max-width="700px"
+    >
+      <v-card rounded="lg">
+        <v-card-title
+          class="text-subtitle-1 font-weight-bold pa-4 d-flex justify-start"
+          style="color: #2d8c8f; background-color: #e3f4f4;"
+        >
+          <v-icon
+            color="#3ea0a3"
+            class="me-2"
+            size="small"
+          >
+            mdi-map-marker
+          </v-icon>
+          <span>查詢地號</span>
+          <v-spacer />
+          <v-btn
+            class="text-none"
+            :color="featureInfoVisible ? '#3ea0a3' : 'medium-emphasis'"
+            :variant="featureInfoVisible ? 'flat' : 'outlined'"
+            density="compact"
+            rounded
+            :prepend-icon="featureInfoVisible ? 'mdi-information' : 'mdi-information-variant'"
+            @click="toggleFeatureInfo"
+          >
+            {{ featureInfoVisible ? '隱藏地號資訊' : '顯示地號資訊' }}
+          </v-btn>
+        </v-card-title>
+
+        <v-card-text class="pa-4">
+          <div class="mb-4">
+            <div
+              id="step2-land-info-map"
+              ref="mapElement"
+              style="height: 300px;"
+              class="rounded border"
+            />
+            <!-- Feature info popup -->
+            <v-card
+              v-if="featureInfoVisible"
+              class="feature-info-card pa-2"
+              elevation="4"
+            >
+              <v-card-title class="text-body-1 py-1 px-2">
+                地號資訊
+              </v-card-title>
+              <v-divider />
+              <v-card-text class="px-2 py-1">
+                <div v-if="selectedFeatureInfo.Land_no">
+                  <strong>地號:</strong> {{ selectedFeatureInfo.Land_no }}
+                </div>
+                <div v-if="selectedFeatureInfo.section">
+                  <strong>地段:</strong> {{ selectedFeatureInfo.section }}
+                </div>
+                <div v-if="selectedFeatureInfo.area">
+                  <strong>面積:</strong> {{ selectedFeatureInfo.area }} 平方公尺
+                  <div class="text-caption text-grey-darken-1">
+                    來源: {{ getAreaSourceDisplay(selectedFeatureInfo) }}
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <v-btn
+                    density="compact"
+                    color="#3ea0a3"
+                    variant="outlined"
+                    rounded="lg"
+                    size="small"
+                    @click="useSelectedFeature"
+                  >
+                    使用此地號
+                  </v-btn>
+                  <v-btn
+                    density="compact"
+                    variant="text"
+                    size="small"
+                    @click="hideFeatureInfo"
+                  >
+                    關閉
+                  </v-btn>
+                </div>
+              </v-card-text>
+            </v-card>
+          </div>
+          <v-table
+            density="comfortable"
+            class="border rounded mb-4"
+          >
+            <tbody>
+              <tr>
+                <!-- <td
+                  class="bg-grey-lighten-4 font-weight-medium"
+                  width="15%"
+                >
+                  補助資訊
+                </td>
+                <td>{{ landInfo.subsidyInfo }}</td> -->
+                <td
+                  class="bg-grey-lighten-4 font-weight-medium"
+                  width="15%"
+                >
+                  縣市
+                </td>
+                <td>{{ landInfo.county }}</td>
+                <td class="bg-grey-lighten-4 font-weight-medium">
+                  水利小組
+                </td>
+                <td>
+                  <!-- 詳細事業區層級資訊 -->
+                  <div
+                    v-if="landInfo.irrigationDistrictInfo && landInfo.irrigationDistrictInfo.length > 0"
+                    class="d-flex flex-column gap-1"
+                  >
+                    <div
+                      v-for="boundary in landInfo.irrigationDistrictInfo.slice(0, 2)"
+                      :key="boundary.gid"
+                      class="text-body-2"
+                    >
+                      <span class="font-weight-bold text-teal">{{ boundary.ia_name || '未知' }}</span>
+                      <template v-if="boundary.mng_name">
+                        <span class="mx-1 text-grey-darken-1">></span>
+                        <span>{{ boundary.mng_name }}</span>
+                      </template>
+                      <span class="mx-1 text-grey-darken-1">></span>
+                      <span>{{ boundary.stn_name || '未知工作站' }}</span>
+                      <span
+                        v-if="boundary.grp_name"
+                        class="mx-1 text-grey-darken-1"
+                      >></span>
+                      <span
+                        v-if="boundary.grp_name"
+                        class="text-blue-grey-darken-1"
+                      >{{ boundary.grp_name }}</span>
+                    </div>
+
+                    <div
+                      v-if="landInfo.irrigationDistrictInfo.length > 2"
+                      class="text-caption text-grey-darken-1 mt-1"
+                    >
+                      另有 {{ landInfo.irrigationDistrictInfo.length - 2 }} 個事業區域
+                    </div>
+                  </div>
+
+                  <!-- 無事業區域資訊時的顯示 -->
+                  <div
+                    v-else
+                    class="text-grey-darken-1"
+                  >
+                    查無相關事業區域資訊
+                  </div>
+                </td>
+              </tr>
+              <!-- <tr>
+                <td class="bg-grey-lighten-4 font-weight-medium">
+                  特殊地
+                </td>
+                <td>{{ landInfo.specialLand ? '是' : '否' }}</td>
+              </tr> -->
+            </tbody>
+          </v-table>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
     <v-card
       class="mt-4 pa-0"
       flat
@@ -301,7 +467,7 @@
             </v-card-title>
 
             <!-- 頂部操作按鈕：便利性設計 -->
-            <div class="d-flex gap-3 mb-6 pb-4 border-b border-grey-lighten-2">
+            <!-- <div class="d-flex gap-3 mb-6 pb-4 border-b border-grey-lighten-2">
               <v-btn
                 color="success"
                 variant="flat"
@@ -318,7 +484,7 @@
                 </v-icon>
                 {{ landManagement.currentEditingLandId ? '更新土地資料' : '儲存土地資料' }}
               </v-btn>
-            </div>
+            </div> -->
 
             <!-- 地址選擇區域 -->
             <v-sheet
@@ -1621,159 +1787,6 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-
-    <!-- Land info dialog -->
-    <v-dialog
-      v-model="landInfoDialog"
-      max-width="700px"
-    >
-      <v-card>
-        <v-card-title
-          class="text-subtitle-1 font-weight-bold pa-4"
-          style="color: #2d8c8f; background-color: #e3f4f4;"
-        >
-          <v-icon
-            color="#3ea0a3"
-            class="me-2"
-            size="small"
-          >
-            mdi-map-marker
-          </v-icon>
-          <span>土地資訊</span>
-        </v-card-title>
-
-        <v-card-text class="pa-4">
-          <div class="map-container mb-4">
-            <div
-              ref="mapElement"
-              style="height: 300px; width: 100%;"
-              class="rounded border"
-            />
-            <!-- Feature info popup -->
-            <v-card
-              v-if="featureInfoVisible"
-              class="feature-info-card pa-2"
-              elevation="4"
-            >
-              <v-card-title class="text-body-1 py-1 px-2">
-                地段資訊
-              </v-card-title>
-              <v-divider />
-              <v-card-text class="px-2 py-1">
-                <div v-if="selectedFeatureInfo.Land_no">
-                  <strong>地號:</strong> {{ selectedFeatureInfo.Land_no }}
-                </div>
-                <div v-if="selectedFeatureInfo.section">
-                  <strong>地段:</strong> {{ selectedFeatureInfo.section }}
-                </div>
-                <div v-if="selectedFeatureInfo.area">
-                  <strong>面積:</strong> {{ selectedFeatureInfo.area }} 平方公尺
-                  <div class="text-caption text-grey-darken-1">
-                    來源: {{ getAreaSourceDisplay(selectedFeatureInfo) }}
-                  </div>
-                </div>
-                <div class="mt-2">
-                  <v-btn
-                    density="compact"
-                    color="#3ea0a3"
-                    variant="outlined"
-                    rounded="lg"
-                    size="small"
-                    @click="useSelectedFeature"
-                  >
-                    使用此地號
-                  </v-btn>
-                  <v-btn
-                    density="compact"
-                    variant="text"
-                    size="small"
-                    @click="hideFeatureInfo"
-                  >
-                    關閉
-                  </v-btn>
-                </div>
-              </v-card-text>
-            </v-card>
-          </div>
-          <v-table
-            density="comfortable"
-            class="border rounded mb-4"
-          >
-            <tbody>
-              <tr>
-                <!-- <td
-                  class="bg-grey-lighten-4 font-weight-medium"
-                  width="15%"
-                >
-                  補助資訊
-                </td>
-                <td>{{ landInfo.subsidyInfo }}</td> -->
-                <td
-                  class="bg-grey-lighten-4 font-weight-medium"
-                  width="15%"
-                >
-                  縣市
-                </td>
-                <td>{{ landInfo.county }}</td>
-                <td class="bg-grey-lighten-4 font-weight-medium">
-                  水利小組
-                </td>
-                <td>
-                  <!-- 詳細事業區層級資訊 -->
-                  <div
-                    v-if="landInfo.irrigationDistrictInfo && landInfo.irrigationDistrictInfo.length > 0"
-                    class="d-flex flex-column gap-1"
-                  >
-                    <div
-                      v-for="boundary in landInfo.irrigationDistrictInfo.slice(0, 2)"
-                      :key="boundary.gid"
-                      class="text-body-2"
-                    >
-                      <span class="font-weight-bold text-teal">{{ boundary.ia_name || '未知' }}</span>
-                      <template v-if="boundary.mng_name">
-                        <span class="mx-1 text-grey-darken-1">></span>
-                        <span>{{ boundary.mng_name }}</span>
-                      </template>
-                      <span class="mx-1 text-grey-darken-1">></span>
-                      <span>{{ boundary.stn_name || '未知工作站' }}</span>
-                      <span
-                        v-if="boundary.grp_name"
-                        class="mx-1 text-grey-darken-1"
-                      >></span>
-                      <span
-                        v-if="boundary.grp_name"
-                        class="text-blue-grey-darken-1"
-                      >{{ boundary.grp_name }}</span>
-                    </div>
-
-                    <div
-                      v-if="landInfo.irrigationDistrictInfo.length > 2"
-                      class="text-caption text-grey-darken-1 mt-1"
-                    >
-                      另有 {{ landInfo.irrigationDistrictInfo.length - 2 }} 個事業區域
-                    </div>
-                  </div>
-
-                  <!-- 無事業區域資訊時的顯示 -->
-                  <div
-                    v-else
-                    class="text-grey-darken-1"
-                  >
-                    查無相關事業區域資訊
-                  </div>
-                </td>
-              </tr>
-              <!-- <tr>
-                <td class="bg-grey-lighten-4 font-weight-medium">
-                  特殊地
-                </td>
-                <td>{{ landInfo.specialLand ? '是' : '否' }}</td>
-              </tr> -->
-            </tbody>
-          </v-table>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
   </div>
 </template>
 
@@ -1879,7 +1892,7 @@ import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
 import { useRoute } from 'vue-router';
 import { fetchLandSectionsByLandCodes, type LandSection } from '@/services/landSectionNlscService';
-import { nextTick, reactive, markRaw } from 'vue';
+import { markRaw, nextTick, reactive } from 'vue';
 
 // 事件驅動架構：定義事件類型
 interface Step2Events {
@@ -1914,9 +1927,6 @@ let map: Map | null = null;
 const mapState = reactive({
   isInitialized: false,
   isInitializing: false,
-  initAttempts: 0,
-  maxRetries: 3,
-  key: 0 // 用於強制重新渲染地圖容器
 });
 
 // Form validation references
@@ -3558,27 +3568,8 @@ watch(() => landManagement.isEditingMode, async (isEditing, wasEditing) => {
     reason: isEditing ? '正在編輯土地資料，請先完成或取消編輯' : undefined
   })
 
-  // 🔥 修復：編輯模式切換時重建地圖
-  if (isEditing && landInfoDialog.value) {
-    console.log('🗺️ Reinitializing map for edit mode...');
-
-    // 清理現有地圖
-    cleanupMap();
-
-    // 等待 DOM 更新
-    await nextTick();
-
-    // 強制重新渲染地圖容器
-    mapState.key++;
-
-    // 延遲初始化以確保 DOM 完全準備好
-    await nextTick();
-    setTimeout(() => {
-      if (mapElement.value && landInfoDialog.value) {
-        initMap();
-      }
-    }, 100);
-  }
+  // ✅ 地圖初始化由 landInfoDialog watch 統一處理
+  // 編輯模式切換時不主動初始化，避免與對話框 watch 衝突
 }, { immediate: false })
 
 // 向後相容性處理：從舊版單筆土地資料轉換為多筆土地格式
@@ -3925,14 +3916,7 @@ const showLandInfoDialog = () => {
   }
 
   landInfoDialog.value = true;
-
-  // Allow time for the dialog to open and map to initialize
-  nextTick(() => {
-    // This will be called after the DOM updates
-    if (mapElement.value) {
-      initMap();
-    }
-  });
+  // ✅ 地圖初始化已由 landInfoDialog watch 處理，無需在此手動初始化
 };
 
 // const useLandInfo = () => {
@@ -3977,62 +3961,60 @@ const showLandInfoDialog = () => {
 // OpenLayers map initialization - 增強版本
 const initMap = async () => {
   // 防止重複初始化
+  // Prevent duplicate initialization
   if (mapState.isInitializing) {
-    console.log('⏳ Map initialization already in progress...');
     return;
   }
 
-  // 檢查 DOM 元素是否存在
+  // Check if map element exists
   if (!mapElement.value) {
-    console.warn('⚠️ Map element not found, cannot initialize map');
-
-    // 自動重試機制
-    if (mapState.initAttempts < mapState.maxRetries) {
-      mapState.initAttempts++;
-      console.log(`🔄 Retrying map initialization (attempt ${mapState.initAttempts}/${mapState.maxRetries})...`);
-
-      await nextTick();
-      setTimeout(() => {
-        initMap();
-      }, 300 * mapState.initAttempts); // 遞增延遲
-    } else {
-      console.error('❌ Map initialization failed after multiple attempts');
-    }
     return;
   }
 
   try {
     mapState.isInitializing = true;
-    console.log('🗺️ Initializing OpenLayers map...');
 
-    // 如果地圖已存在，先清理
+    // 清理舊實例
     if (map) {
-      console.log('🧹 Cleaning up existing map instance...');
       cleanupMap();
       await nextTick();
+    }
+
+    // 清空容器
+    if (mapElement.value) {
+      const container = mapElement.value as HTMLElement;
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
     }
 
     // Convert coordinate strings to numbers
     const lon = parseFloat(localFormData.longitude || '120.5734');
     const lat = parseFloat(localFormData.latitude || '23.5155');
 
-    // 創建地圖 - 使用 markRaw 防止 Vue reactivity 包裝
+    // Create OSM layer
+    const osmLayer = new TileLayer({
+      source: new OSM(),
+    });
+
+    // Get target element
+    const targetElement = document.getElementById('step2-land-info-map');
+
+    if (!targetElement) {
+      throw new Error('Map container not found');
+    }
+
+    // Create map instance with markRaw to prevent Vue reactivity overhead
     map = markRaw(new Map({
-      target: mapElement.value,
-      layers: [
-        new TileLayer({
-          source: new OSM()
-        })
-      ],
+      target: targetElement,
+      layers: [osmLayer],
       view: new View({
         center: fromLonLat([lon, lat]),
         zoom: 16
-      })
+      }),
     }));
 
-    // 確保地圖正確渲染
     await nextTick();
-    map.updateSize();
 
     // Add selection interaction
     addSelectInteraction();
@@ -4041,20 +4023,9 @@ const initMap = async () => {
     loadGeoJSONFile();
 
     mapState.isInitialized = true;
-    mapState.initAttempts = 0; // 重置重試計數
-    console.log('✅ Map initialized successfully');
 
   } catch (error) {
-    console.error('❌ Error initializing map:', error);
-
-    // 重試機制
-    if (mapState.initAttempts < mapState.maxRetries) {
-      mapState.initAttempts++;
-      console.log(`🔄 Retrying after error (attempt ${mapState.initAttempts}/${mapState.maxRetries})...`);
-      setTimeout(() => {
-        initMap();
-      }, 500);
-    }
+    console.error('Error initializing map:', error);
   } finally {
     mapState.isInitializing = false;
   }
@@ -4285,6 +4256,11 @@ const handleFeatureSelect = (e: { selected: Feature<Geometry>[]; deselected: Fea
 // Hide feature info popup
 const hideFeatureInfo = () => {
   featureInfoVisible.value = false;
+};
+
+// Toggle feature info popup visibility
+const toggleFeatureInfo = () => {
+  featureInfoVisible.value = !featureInfoVisible.value;
 };
 
 // Perform spatial queries with the selected feature geometry
@@ -4528,7 +4504,8 @@ const loadGeoJSONFile = () => {
       fill: new Fill({
         color: 'rgba(0, 128, 255, 0.2)'
       })
-    })
+    }),
+    zIndex: 10, // 🔥 確保在 OSM 圖層之上
   });
 
   if (map) {
@@ -4625,46 +4602,87 @@ const selectFeature = (feature: Feature<Geometry>) => {
 
 // Clean up interactions when map is destroyed - 增強版本
 const cleanupMap = () => {
-  console.log('🧹 Cleaning up map resources...');
-
   try {
-    // 清理選擇交互
+    // Clean up selection interaction
     if (select && selectedFeatureKey) {
       unByKey(selectedFeatureKey);
       selectedFeatureKey = null;
     }
 
-    // 清理修改交互
+    // Clean up modify interaction
     if (modify && modifyFeatureKey) {
       unByKey(modifyFeatureKey);
       modifyFeatureKey = null;
     }
 
-    // 清理地圖實例
+    // Clean up map instance
     if (map) {
-      // 移除所有圖層
+      // Release canvas rendering contexts
+      const viewport = map.getViewport();
+      if (viewport) {
+        const canvases = viewport.querySelectorAll('canvas');
+        canvases.forEach(canvas => {
+          // Release WebGL context
+          const gl = canvas.getContext('webgl') || canvas.getContext('webgl2');
+          const loseContextExt = gl?.getExtension('WEBGL_lose_context');
+          if (loseContextExt) {
+            loseContextExt.loseContext();
+          }
+
+          // Clear 2D Canvas
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+          }
+
+          // Remove canvas element
+          canvas.remove();
+        });
+      }
+
+      // Clean up all layers and their sources
+      map.getLayers().forEach(layer => {
+        if ('getSource' in layer && typeof layer.getSource === 'function') {
+          const source = layer.getSource();
+          if (source && typeof source.dispose === 'function') {
+            source.dispose();
+          }
+        }
+      });
       map.getLayers().clear();
 
-      // 移除所有交互
+      // Remove all interactions
       map.getInteractions().clear();
 
-      // 解除目標元素綁定
-      map.setTarget(undefined);
+      // Clean up all controls
+      map.getControls().clear();
+
+      // Unbind target to prevent conflicts
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      map.setTarget(null as any);
+
+      // Wait for DOM update
+      setTimeout(() => {
+        if (map) {
+          map.setTarget(undefined);
+        }
+      }, 0);
+
+      // Dispose map resources
+      map.dispose();
 
       map = null;
     }
-
-    // 重置選擇狀態
+    // Reset selection state
     select = null;
     modify = null;
     featureInfoVisible.value = false;
     selectedFeatureInfo.value = {};
 
     mapState.isInitialized = false;
-    console.log('✅ Map cleanup completed');
 
   } catch (error) {
-    console.error('❌ Error during map cleanup:', error);
+    console.error('Error during map cleanup:', error);
   }
 };
 
@@ -4800,36 +4818,23 @@ watch(localFormData, stepManager.createProtectedWatch(() => {
 
 // Watch for dialog open/close to initialize/cleanup map - 增強版本
 watch(landInfoDialog, async (isOpen, wasOpen) => {
-  // 避免重複觸發
+  // Avoid duplicate triggers
   if (isOpen === wasOpen) return;
 
   if (isOpen) {
-    console.log('📖 Land info dialog opened, initializing map...');
-
-    // 確保之前的地圖已清理
+    // Clean up previous map instance
     if (map) {
       cleanupMap();
     }
 
-    // 重置初始化狀態
-    mapState.initAttempts = 0;
-    mapState.key++;
-
-    // 等待對話框 DOM 完全渲染
     await nextTick();
 
-    // 延遲初始化以確保容器可見且大小正確
+    // Simple delay to wait for DOM rendering
     setTimeout(() => {
-      if (landInfoDialog.value && mapElement.value) {
-        console.log('🎯 Starting map initialization...');
-        initMap();
-      } else {
-        console.warn('⚠️ Map element or dialog not ready');
-      }
-    }, 150);
+      initMap();
+    }, 100)
 
   } else {
-    console.log('📕 Land info dialog closed, cleaning up map...');
     // Clean up map when dialog closes
     cleanupMap();
   }
@@ -4857,25 +4862,6 @@ watch([() => localFormData.longitude, () => localFormData.latitude], () => {
         }
       }
     }
-  }
-});
-
-// 🔥 新增：監聽地圖容器可見性變化，確保地圖正確渲染
-watch(() => landInfoDialog.value, async (isVisible) => {
-  if (isVisible && map && mapState.isInitialized) {
-    // 等待 DOM 更新和動畫完成
-    await nextTick();
-    setTimeout(() => {
-      if (map && mapElement.value) {
-        console.log('🔄 Updating map size after dialog visibility change...');
-        try {
-          map.updateSize();
-          console.log('✅ Map size updated');
-        } catch (error) {
-          console.error('❌ Error updating map size:', error);
-        }
-      }
-    }, 200);
   }
 });
 
@@ -5046,10 +5032,6 @@ onUnmounted(() => {
   color: rgba(0, 0, 0, 0.7);
 }
 
-.map-container {
-  position: relative;
-}
-
 .feature-info-card {
   position: absolute;
   top: 10px;
@@ -5057,7 +5039,6 @@ onUnmounted(() => {
   width: 200px;
   max-width: 40%;
   background: white;
-  z-index: 100;
   font-size: 0.875rem;
 }
 

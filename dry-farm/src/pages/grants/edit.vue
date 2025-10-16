@@ -64,20 +64,35 @@
             width="280"
             class="navigation-drawer-glass"
           >
-            <v-list height="55" class="pt-0 mt-0">
+            <v-list
+              height="55"
+              class="pt-0 mt-0"
+            >
               <v-list-item>
-                <v-list-item-title class="text-h6 font-weight-bold" style="color: #2d8c8f">
+                <v-list-item-title
+                  class="text-h6 font-weight-bold"
+                  style="color: #2d8c8f"
+                >
                   補助申請業務 {{ currentStep }}/{{ steps.length }}
                 </v-list-item-title>
                 <template #append>
-                  <v-btn icon variant="text" rounded="circle" class="pl-0" @click="isRailMode = !isRailMode">
+                  <v-btn
+                    icon
+                    variant="text"
+                    rounded="circle"
+                    class="pl-0"
+                    @click="isRailMode = !isRailMode"
+                  >
                     <v-icon>{{ isRailMode ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
                   </v-btn>
                 </template>
               </v-list-item>
             </v-list>
             <v-divider />
-            <v-list nav class="step-list">
+            <v-list
+              nav
+              class="step-list"
+            >
               <v-list-item
                 v-for="step in steps"
                 :key="step.value"
@@ -90,7 +105,10 @@
                 @click="handleStepClick(step.value)"
               >
                 <template #prepend>
-                  <v-icon :color="getStepIconColor(step.value)" size="large">
+                  <v-icon
+                    :color="getStepIconColor(step.value)"
+                    size="large"
+                  >
                     {{ getStepIcon(step.value) }}
                   </v-icon>
                 </template>
