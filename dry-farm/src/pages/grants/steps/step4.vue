@@ -4,7 +4,7 @@
     class="step-content"
   >
     <v-card
-      class="mb-0 pa-0"
+      class="mt-4 mb-0 pa-0"
       flat
     >
       <v-card-text class="pb-0 pt-0">
@@ -15,58 +15,127 @@
         >
           <!-- STEP 1: 設計人姓名 -->
           <v-card
-            class="mb-4"
-            variant="outlined"
+            flat
+            class="mb-4 pa-4"
+            color="#e3f4f4"
+            rounded="lg"
           >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-4 d-flex align-center flex-wrap"
+              style="color: #2d8c8f"
+            >
               <v-icon
-                class="me-2"
+                color="#3ea0a3"
+                class="me-2 pb-1"
                 size="small"
               >
-                mdi-account-edit
+                mdi-cog
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">設計資訊</span>
+              田間管路系統設計
+
+              <!-- 設計人姓名 chip (僅在有值且非編輯模式時顯示) -->
+              <template v-if="localFormData.designerName && !isEditingDesigner">
+                <v-chip
+                  class="ms-4"
+                  size="small"
+                  variant="flat"
+                  color="#3ea0a3"
+                >
+                  <v-icon
+                    size="x-small"
+                    class="me-1"
+                  >
+                    mdi-account-edit
+                  </v-icon>
+                  設計人：{{ localFormData.designerName }}
+                </v-chip>
+                <v-btn
+                  icon
+                  size="x-small"
+                  variant="text"
+                  color="#3ea0a3"
+                  class="ms-2"
+                  @click="isEditingDesigner = true"
+                >
+                  <v-icon size="small">
+                    mdi-pencil
+                  </v-icon>
+                  <!-- <v-tooltip
+                    activator="parent"
+                    location="top"
+                  >
+                    編輯設計人姓名
+                  </v-tooltip> -->
+                </v-btn>
+              </template>
             </v-card-title>
 
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
-              >
+            <!-- 初始輸入區塊 (當設計人姓名為空或在編輯模式時顯示) -->
+            <v-sheet
+              v-if="!localFormData.designerName || isEditingDesigner"
+              class="mb-3 pa-4 rounded"
+              color="#fff3e0"
+            >
+              <div class="d-flex align-center mb-3">
+                <v-icon
+                  size="small"
+                  color="#f57c00"
+                  class="me-2"
+                >
+                  mdi-alert-circle
+                </v-icon>
+                <span
+                  class="text-body-2 font-weight-bold"
+                  style="color: #e65100;"
+                >
+                  請先輸入設計人姓名以完成設計
+                </span>
+              </div>
+              <div class="d-flex align-center">
                 <v-text-field
                   v-model="localFormData.designerName"
                   label="設計人姓名"
                   variant="outlined"
                   density="comfortable"
-                  style="max-width: 400px"
-                  placeholder="請輸入設計人姓名"
-                  @update:model-value="updateFormData"
+                  color="#f57c00"
+                  bg-color="white"
+                  class="me-3"
+                  style="max-width: 300px;"
+                  autofocus
+                  hide-details
+                  :rules="[v => !!v || '請輸入設計人姓名']"
                 />
-              </v-sheet>
-            </v-card-text>
-          </v-card>
+                <v-btn
+                  color="#f57c00"
+                  variant="flat"
+                  :disabled="!localFormData.designerName"
+                  @click="isEditingDesigner = false"
+                >
+                  <v-icon class="me-1">
+                    mdi-check
+                  </v-icon>
+                  確認
+                </v-btn>
+              </div>
+            </v-sheet>
 
-          <!-- STEP 2: 設施基地長寬長度調整 -->
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-land-fields
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">田間坵塊</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
+            <!-- 主要配置區塊 (僅在有設計人姓名且非編輯模式時顯示) -->
+            <template v-if="localFormData.designerName && !isEditingDesigner">
+              <!-- STEP 2: 設施基地長寬長度調整 -->
               <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
+                class="mb-3 pa-3 rounded"
+                color="white"
               >
-                <div class="d-flex flex-wrap align-center mb-4">
+                <div class="d-flex align-center mb-2">
+                  <v-icon
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-land-fields
+                  </v-icon>
+                  <span class="text-body-2 font-weight-medium">田間坵塊</span>
+                </div>
+                <div class="d-flex flex-wrap align-center">
                   <div class="d-flex align-center flex-wrap me-4 mb-2">
                     <div class="text-body-2 me-2">
                       設施基地長寬:
@@ -77,6 +146,8 @@
                       type="number"
                       variant="outlined"
                       density="comfortable"
+                      color="#3ea0a3"
+                      bg-color="white"
                       style="width: 100px"
                       class="me-1"
                       @update:model-value="calculateWidth"
@@ -91,6 +162,7 @@
                       style="width: 100px"
                       class="me-1"
                       readonly
+                      bg-color="grey-lighten-4"
                     />
                   </div>
 
@@ -100,39 +172,32 @@
                     </div>
                     <v-text-field
                       :value="facilityAreaFromStep2"
-                      suffix="m²"
                       type="number"
                       variant="outlined"
                       density="comfortable"
-                      style="width: 120px"
+                      style="max-width: 100px"
+                      class="me-1"
                       readonly
                     />
+                    <span>m²</span>
                   </div>
                 </div>
               </v-sheet>
-            </v-card-text>
-          </v-card>
 
-          <!-- STEP 3: 田間主管資訊 -->
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-pipe
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">田間主管配置</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
+              <!-- STEP 3: 田間主管資訊 -->
               <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
+                class="mb-3 pa-3 rounded"
+                color="white"
               >
+                <div class="d-flex align-center mb-2">
+                  <v-icon
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-pipe
+                  </v-icon>
+                  <span class="text-body-2 font-weight-medium">田間主管配置</span>
+                </div>
                 <!-- 主管1 -->
                 <div class="text-subtitle-2 mb-1">
                   主管 1（L1）
@@ -145,6 +210,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
+                    color="#3ea0a3"
                     style="width: 120px"
                     :rules="[v => (v !== null && v !== '') || '請輸入長度']"
                     @update:model-value="calculateMainPipeQuantity"
@@ -158,6 +224,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
+                    color="#3ea0a3"
                     style="width: 120px"
                     :rules="[v => !!v || '請選擇管徑']"
                     @update:model-value="() => fetchPipePrice(1)"
@@ -179,6 +246,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
+                    color="#3ea0a3"
                     style="width: 120px"
                     :rules="[v => !!v || '請選擇材質']"
                     @update:model-value="() => fetchPipePrice(1)"
@@ -198,6 +266,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
+                    color="#3ea0a3"
                     style="width: 100px"
                     :rules="[v => (v !== null && v !== '') || '請輸入單價']"
                     @update:model-value="updateFormData"
@@ -209,6 +278,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
+                    color="#3ea0a3"
                     style="width: 80px"
                     :rules="[v => (v !== null && v !== '') || '請輸入數量']"
                     @update:model-value="updateFormData"
@@ -247,6 +317,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
+                    color="#3ea0a3"
                     style="width: 120px"
                     :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入長度') : true]"
                     @update:model-value="calculateMainPipe2Quantity"
@@ -260,6 +331,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
+                    color="#3ea0a3"
                     style="width: 120px"
                     :rules="[localFormData.mainPipe2Enabled ? (v => !!v || '請選擇管徑') : true]"
                     @update:model-value="() => fetchPipePrice(2)"
@@ -281,6 +353,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
+                    color="#3ea0a3"
                     style="width: 120px"
                     :rules="[localFormData.mainPipe2Enabled ? (v => !!v || '請選擇材質') : true]"
                     @update:model-value="() => fetchPipePrice(2)"
@@ -300,6 +373,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
+                    color="#3ea0a3"
                     style="width: 100px"
                     :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入單價') : true]"
                     @update:model-value="updateFormData"
@@ -311,6 +385,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
+                    color="#3ea0a3"
                     style="width: 80px"
                     :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入數量') : true]"
                     @update:model-value="updateFormData"
@@ -327,29 +402,21 @@
                   />
                 </div>
               </v-sheet>
-            </v-card-text>
-          </v-card>
 
-          <!-- STEP 4: 灌溉型式與相關管路配置 -->
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-sprinkler
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">灌溉管路配置</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
+              <!-- STEP 4: 灌溉型式與相關管路配置 -->
               <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
+                class="mb-3 pa-3 rounded"
+                color="white"
               >
+                <div class="d-flex align-center mb-4">
+                  <v-icon
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-sprinkler
+                  </v-icon>
+                  <span class="text-body-2 font-weight-medium">灌溉管路配置</span>
+                </div>
                 <div class="d-flex align-center flex-wrap">
                   <!-- 灌溉型式選擇 -->
                   <v-select
@@ -361,6 +428,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
+                    color="#3ea0a3"
                     style="width: 180px"
                     @update:model-value="onIrrigationTypeChange"
                   />
@@ -374,6 +442,7 @@
                     variant="outlined"
                     density="comfortable"
                     class="mb-2"
+                    color="#3ea0a3"
                     style="width: 160px"
                     @update:model-value="updateFormData"
                   />
@@ -399,6 +468,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 100px"
                       @update:model-value="onEndFacilityParamsChange"
                     />
@@ -414,11 +484,12 @@
                           variant="outlined"
                           density="comfortable"
                           type="number"
+                          color="#3ea0a3"
                           style="width: 100px"
                           class="me-1"
                           @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
                         />
-                        <span>M</span>
+                        <span>m</span>
                       </div>
                     </div>
                   </div>
@@ -434,6 +505,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 150px"
                       @update:model-value="onEndFacilitySpecChange"
                     />
@@ -447,6 +519,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 250px"
                       clearable
                       @update:model-value="onSelectedEndFacilityChange"
@@ -482,6 +555,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 180px"
                       @update:model-value="onEndFacilityParamsChange"
                     />
@@ -496,6 +570,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 160px"
                       @update:model-value="onEndFacilityParamsChange"
                     />
@@ -515,9 +590,10 @@
                           type="number"
                           style="width: 80px"
                           class="me-1"
+                          color="#3ea0a3"
                           @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
                         />
-                        <span>M</span>
+                        <span>m</span>
                       </div>
                     </div>
 
@@ -533,9 +609,10 @@
                           density="comfortable"
                           style="width: 80px"
                           class="me-1"
+                          color="#3ea0a3"
                           @update:model-value="calculateSprinklerQuantity"
                         />
-                        <span>M</span>
+                        <span>m</span>
                       </div>
                     </div>
 
@@ -549,6 +626,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 150px"
                       hide-details
                       @update:model-value="updateFormData"
@@ -563,6 +641,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 150px"
                       hide-details
                       @update:model-value="updateFormData"
@@ -574,6 +653,7 @@
                       label="變徑"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       hide-details
                       @update:model-value="(val) => { if (!val) localFormData.changeBranchSpecId = null; }"
                     />
@@ -587,6 +667,7 @@
                       item-value="id"
                       label="變徑規格"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 150px"
                       hide-details
                       variant="outlined"
@@ -609,8 +690,9 @@
                           density="comfortable"
                           style="width: 80px"
                           class="me-1"
+                          color="#3ea0a3"
                         />
-                        <span>M</span>
+                        <span>m</span>
                       </div>
                     </div>
 
@@ -624,6 +706,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 150px"
                       hide-details
                       @update:model-value="onEndFacilitySpecChange"
@@ -638,6 +721,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 250px"
                       clearable
                       hide-details
@@ -697,6 +781,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 160px"
                       @update:model-value="onEndFacilityParamsChange"
                     />
@@ -716,9 +801,10 @@
                           type="number"
                           style="width: 80px"
                           class="me-1"
+                          color="#3ea0a3"
                           @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
                         />
-                        <span>M</span>
+                        <span>m</span>
                       </div>
                     </div>
 
@@ -734,9 +820,10 @@
                           density="comfortable"
                           style="width: 80px"
                           class="me-1"
+                          color="#3ea0a3"
                           @update:model-value="calculateSprinklerQuantity"
                         />
-                        <span>M</span>
+                        <span>m</span>
                       </div>
                     </div>
 
@@ -750,6 +837,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 150px"
                       hide-details
                       @update:model-value="updateFormData"
@@ -764,6 +852,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 150px"
                       hide-details
                       @update:model-value="updateFormData"
@@ -775,6 +864,7 @@
                       label="變徑"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       hide-details
                       @update:model-value="(val) => { if (!val) localFormData.changeBranchSpecId = null; }"
                     />
@@ -790,6 +880,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 150px"
                       hide-details
                       clearable
@@ -810,8 +901,9 @@
                           density="comfortable"
                           style="width: 80px"
                           class="me-1"
+                          color="#3ea0a3"
                         />
-                        <span>M</span>
+                        <span>m</span>
                       </div>
                     </div>
 
@@ -825,6 +917,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 150px"
                       hide-details
                       @update:model-value="onEndFacilitySpecChange"
@@ -839,6 +932,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 250px"
                       clearable
                       hide-details
@@ -898,6 +992,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 180px"
                       @update:model-value="onEndFacilityParamsChange"
                     />
@@ -912,6 +1007,7 @@
                       variant="outlined"
                       density="comfortable"
                       class="me-3 mb-2"
+                      color="#3ea0a3"
                       style="width: 160px"
                       @update:model-value="onEndFacilityParamsChange"
                     />
@@ -933,9 +1029,10 @@
                             type="number"
                             style="width: 80px"
                             class="me-1"
+                            color="#3ea0a3"
                             @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
                           />
-                          <span>M</span>
+                          <span></span>
                         </div>
                       </div>
 
@@ -949,6 +1046,7 @@
                         variant="outlined"
                         density="comfortable"
                         class="me-3 mb-2"
+                        color="#3ea0a3"
                         style="width: 150px"
                         @update:model-value="onBranchPipeSpecChangeForId7"
                       />
@@ -963,6 +1061,7 @@
                         variant="outlined"
                         density="comfortable"
                         class="me-3 mb-2"
+                        color="#3ea0a3"
                         style="width: 250px"
                         clearable
                         @update:model-value="onSelectedBranchPipeChangeForId7"
@@ -990,6 +1089,7 @@
                         variant="outlined"
                         density="comfortable"
                         class="me-3 mb-2"
+                        color="#3ea0a3"
                         style="width: 150px"
                         @update:model-value="updateFormData"
                       />
@@ -1003,6 +1103,7 @@
                         variant="outlined"
                         density="comfortable"
                         class="me-3 mb-2"
+                        color="#3ea0a3"
                         style="width: 150px"
                         @update:model-value="updateFormData"
                       />
@@ -1020,9 +1121,10 @@
                             type="number"
                             style="width: 80px"
                             class="me-1"
+                            color="#3ea0a3"
                             @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
                           />
-                          <span>M</span>
+                          <span>m</span>
                         </div>
                       </div>
                     </template>
@@ -1047,9 +1149,10 @@
                           density="comfortable"
                           style="width: 80px"
                           class="me-1"
+                          color="#3ea0a3"
                           @update:model-value="calculateSprinklerQuantity"
                         />
-                        <span>M</span>
+                        <span>m</span>
                       </div>
                     </div>
 
@@ -1068,9 +1171,10 @@
                             type="number"
                             style="width: 80px"
                             class="me-1"
+                            color="#3ea0a3"
                             @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
                           />
-                          <span>M</span>
+                          <span>m</span>
                         </div>
                       </div>
 
@@ -1085,6 +1189,7 @@
                         variant="outlined"
                         density="comfortable"
                         class="me-3 mb-2"
+                        color="#3ea0a3"
                         style="width: 150px"
                         @update:model-value="onEndFacilitySpecChange"
                       />
@@ -1100,6 +1205,7 @@
                         variant="outlined"
                         density="comfortable"
                         class="me-3 mb-2"
+                        color="#3ea0a3"
                         style="width: 250px"
                         clearable
                         @update:model-value="onSelectedEndFacilityChange"
@@ -1127,6 +1233,7 @@
                         variant="outlined"
                         density="comfortable"
                         class="me-3 mb-2"
+                        color="#3ea0a3"
                         style="width: 150px"
                         @update:model-value="onEndFacilitySpecChange"
                       />
@@ -1142,6 +1249,7 @@
                         variant="outlined"
                         density="comfortable"
                         class="me-3 mb-2"
+                        color="#3ea0a3"
                         style="width: 250px"
                         clearable
                         @update:model-value="onSelectedEndFacilityChange"
@@ -1157,35 +1265,13 @@
                     </template>
                   </div>
                 </div>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
 
-          <!-- STEP 6: 已新增管路設施列表 -->
-          <v-card
-            variant="outlined"
-            class="mb-4"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-format-list-bulleted
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">管路設施列表</span>
-            </v-card-title>
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
-              >
                 <div class="text-body-2 mb-2 text-grey-darken-1">
                   點擊下方按鈕可根據您選擇的灌溉型式和設施配置，自動帶入相應的材料清單。
                 </div>
 
                 <!-- 版本選擇控制項 -->
-                <div class="mb-3">
+                <div>
                   <v-chip-group
                     v-model="materialGenerationVersion"
                     mandatory
@@ -1208,17 +1294,21 @@
                       v2 - 僅含有單價材料
                     </v-chip>
                   </v-chip-group>
-                  <div class="text-caption text-grey-darken-1 mb-2">
+                  <div class="text-caption text-grey-darken-1">
                     {{ materialGenerationVersion === 'v1' ? '包含所有材料項目（含無單價項目）' : '僅包含具有單價的材料項目' }}
                   </div>
                 </div>
-
+              </v-sheet>
+              <div class="d-flex gap-3">
                 <v-btn
                   color="success"
-                  class="mb-2"
+                  class="flex-grow-1"
+                  block
+                  variant="flat"
+                  rounded="lg"
+                  size="large"
                   :loading="isLoadingMaterials"
                   :disabled="!canAutoFillMaterials"
-                  block
                   @click="autoFillMaterials"
                 >
                   <v-icon
@@ -1229,275 +1319,298 @@
                   </v-icon>
                   自動帶入材料 ({{ materialGenerationVersion.toUpperCase() }})
                 </v-btn>
-                <div
-                  v-if="!canAutoFillMaterials"
-                  class="text-caption text-red mt-1"
-                >
-                  請先完成上方配置中的必填欄位，才能自動帶入材料
-                  <v-btn
-                    variant="text"
-                    size="small"
-                    color="info"
-                    class="ml-2 mt-n1"
-                    @click="showMissingFieldsInfo"
-                  >
-                    查看缺少欄位
-                  </v-btn>
-                </div>
-              </v-sheet>
-            </v-card-text>
-
-            <v-card-text class="pb-4 pt-0">
-              <v-table
-                class="rounded border"
-                density="compact"
+              </div>
+              <div
+                v-if="!canAutoFillMaterials"
+                class="text-caption text-red pb-0 mt-4 border-t border-grey-lighten-2"
               >
-                <thead class="bg-grey-lighten-3">
-                  <tr>
-                    <th
-                      class="text-center px-2"
-                      style="width: 100px; min-width: 40px;"
+                請先完成上方配置中的必填欄位，才能自動帶入材料
+                <v-btn
+                  variant="text"
+                  size="small"
+                  color="info"
+                  class="ml-2 mt-n1"
+                  @click="showMissingFieldsInfo"
+                >
+                  查看缺少欄位
+                </v-btn>
+              </div>
+            </template>
+          </v-card>
+
+          <!-- STEP 5: 已新增管路設施列表 -->
+          <v-card-title
+            class="text-subtitle-1 font-weight-bold pa-0"
+            style="color: #2d8c8f"
+          >
+            <v-icon
+              color="#3ea0a3"
+              class="me-2 mb-0 pb-0"
+              size="small"
+            >
+              mdi-format-list-bulleted
+            </v-icon>
+            管路設施列表
+          </v-card-title>
+          <v-sheet
+            class="mt-2 mb-4 pa-0 rounded"
+            color="white"
+          >
+            <v-row>
+              <v-col
+                cols="12"
+              >
+                <v-table
+                  class="rounded border"
+                  density="compact"
+                >
+                  <thead class="bg-grey-lighten-3">
+                    <tr>
+                      <th
+                        class="text-center px-2"
+                        style="width: 100px; min-width: 40px;"
+                      >
+                        項目
+                      </th>
+                      <th
+                        class="px-2"
+                        style="width: auto; min-width: 70px;"
+                      >
+                        名稱
+                      </th>
+                      <th
+                        class="text-center px-2"
+                        style="width: 80px; min-width: 70px;"
+                      >
+                        類別
+                      </th>
+                      <th
+                        class="text-center px-2"
+                        style="width: 80px; min-width: 70px;"
+                      >
+                        規格
+                      </th>
+                      <th
+                        class="text-center px-2"
+                        style="width: 80px; min-width: 30px;"
+                      >
+                        單位
+                      </th>
+                      <th
+                        class="px-2"
+                        style="width: auto; min-width: 120px;"
+                      >
+                        說明
+                      </th>
+                      <th
+                        class="text-center px-2"
+                        style="width: 100px; min-width: 80px;"
+                      >
+                        單價
+                      </th>
+                      <th
+                        class="text-center px-2"
+                        style="width: 100px; min-width: 100px;"
+                      >
+                        數量
+                      </th>
+                      <th
+                        class="text-center px-2"
+                        style="width: 120px; min-width: 100px;"
+                      >
+                        總價
+                      </th>
+                      <th
+                        class="text-center px-2"
+                        style="width: 80px; min-width: 30px;"
+                      >
+                        刪除
+                      </th>
+                      <th
+                        class="text-center px-2"
+                        style="width: 80px; min-width: 30px;"
+                      >
+                        排序
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template
+                      v-for="(group, groupIndex) in groupedPipes"
+                      :key="`group-${group.groupNo}`"
                     >
-                      項目
-                    </th>
-                    <th
-                      class="px-2"
-                      style="width: auto; min-width: 70px;"
-                    >
-                      名稱
-                    </th>
-                    <th
-                      class="text-center px-2"
-                      style="width: 80px; min-width: 70px;"
-                    >
-                      類別
-                    </th>
-                    <th
-                      class="text-center px-2"
-                      style="width: 80px; min-width: 70px;"
-                    >
-                      規格
-                    </th>
-                    <th
-                      class="text-center px-2"
-                      style="width: 80px; min-width: 30px;"
-                    >
-                      單位
-                    </th>
-                    <th
-                      class="px-2"
-                      style="width: auto; min-width: 120px;"
-                    >
-                      說明
-                    </th>
-                    <th
-                      class="text-center px-2"
-                      style="width: 100px; min-width: 80px;"
-                    >
-                      單價
-                    </th>
-                    <th
-                      class="text-center px-2"
-                      style="width: 100px; min-width: 100px;"
-                    >
-                      數量
-                    </th>
-                    <th
-                      class="text-center px-2"
-                      style="width: 120px; min-width: 100px;"
-                    >
-                      總價
-                    </th>
-                    <th
-                      class="text-center px-2"
-                      style="width: 80px; min-width: 30px;"
-                    >
-                      刪除
-                    </th>
-                    <th
-                      class="text-center px-2"
-                      style="width: 80px; min-width: 30px;"
-                    >
-                      排序
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <template
-                    v-for="(group, groupIndex) in groupedPipes"
-                    :key="`group-${group.groupNo}`"
-                  >
-                    <tr class="bg-grey-lighten-5">
+                      <tr class="bg-grey-lighten-5">
+                        <td
+                          colspan="11"
+                          class="py-2 px-3 font-weight-bold text-body-2"
+                        >
+                          {{ groupIndex + 1 }}. {{ group.groupName }}
+                          <v-btn
+                            variant="text"
+                            size="small"
+                            color="primary"
+                            class="text-caption"
+                            @click="openManualAddDialog(group.groupNo)"
+                          >
+                            <v-icon
+                              start
+                              size="x-small"
+                            >
+                              mdi-plus
+                            </v-icon>
+                            新增材料
+                          </v-btn>
+                        </td>
+                      </tr>
+                      <tr
+                        v-for="(pipe, pipeIndex) in group.items"
+                        :key="`pipe-${group.groupNo}-${pipe.pomno}-${pipeIndex}`"
+                      >
+                        <td class="text-center px-2">
+                          <div class="d-flex align-center justify-center">
+                            <span class="text-body-2">{{ groupIndex + 1 }}-{{ pipe.order }}</span>
+                          </div>
+                        </td>
+                        <td class="px-2">
+                          <div
+                            class="text-body-2"
+                            style="word-break: break-word;"
+                          >
+                            {{ pipe.matname }}
+                          </div>
+                        </td>
+                        <td class="text-center px-2">
+                          <div class="text-body-2">
+                            {{ pipe.module }}
+                          </div>
+                        </td>
+                        <td class="text-center px-2">
+                          <div class="text-body-2">
+                            {{ pipe.specification }}
+                          </div>
+                        </td>
+                        <td class="text-center px-2">
+                          <div class="text-body-2">
+                            {{ pipe.itemunit }}
+                          </div>
+                        </td>
+                        <td class="px-2">
+                          <div
+                            class="text-body-2"
+                            style="word-break: break-word;"
+                          >
+                            {{ pipe.description }}
+                          </div>
+                        </td>
+                        <td class="text-center px-1">
+                          <v-text-field
+                            v-model.number="pipe.matprice"
+                            type="number"
+                            min="0"
+                            step="1"
+                            density="compact"
+                            variant="outlined"
+                            hide-details="auto"
+                            class="material-input"
+                            style="min-width: 80px;"
+                            :rules="[
+                              v => v >= 0 || '單價不能為負數'
+                            ]"
+                            @update:model-value="(value) => updatePipePrice(group.groupNo, pipeIndex, Number(value) || 0)"
+                          />
+                        </td>
+                        <td class="text-center px-1">
+                          <v-text-field
+                            v-model.number="pipe.matamount"
+                            type="number"
+                            min="0"
+                            density="compact"
+                            variant="outlined"
+                            hide-details="auto"
+                            class="material-input"
+                            style="min-width: 80px;"
+                            :rules="[
+                              v => v >= 0 || '數量不能為負數'
+                            ]"
+                            @update:model-value="(value) => updatePipeQuantity(group.groupNo, pipeIndex, Number(value) || 0)"
+                          />
+                        </td>
+                        <td class="text-center px-2">
+                          <div class="text-body-2 font-weight-medium">
+                            {{ pipe.totalPrice?.toLocaleString() }}
+                          </div>
+                        </td>
+                        <td class="text-center px-1">
+                          <v-btn
+                            icon
+                            size="x-small"
+                            color="error"
+                            variant="text"
+                            @click="removePipe(group.groupNo, pipeIndex)"
+                          >
+                            <v-icon size="small">
+                              mdi-close
+                            </v-icon>
+                          </v-btn>
+                        </td>
+                        <td class="text-center px-1">
+                          <div class="d-flex flex-column align-center ga-1">
+                            <v-btn
+                              icon
+                              size="x-small"
+                              color="primary"
+                              variant="text"
+                              :disabled="pipeIndex === 0"
+                              @click="movePipeUp(group.groupNo, pipeIndex)"
+                            >
+                              <v-icon size="small">
+                                mdi-chevron-up
+                              </v-icon>
+                            </v-btn>
+                            <v-btn
+                              icon
+                              size="x-small"
+                              color="primary"
+                              variant="text"
+                              :disabled="pipeIndex === group.items.length - 1"
+                              @click="movePipeDown(group.groupNo, pipeIndex)"
+                            >
+                              <v-icon size="small">
+                                mdi-chevron-down
+                              </v-icon>
+                            </v-btn>
+                          </div>
+                        </td>
+                      </tr>
+                    </template>
+
+                    <tr v-if="localFormData.pipes.length === 0">
                       <td
                         colspan="11"
-                        class="py-2 px-3 font-weight-bold text-body-2"
+                        class="text-center py-4 text-grey"
                       >
-                        {{ groupIndex + 1 }}. {{ group.groupName }}
-                        <v-btn
-                          variant="text"
-                          size="small"
-                          color="primary"
-                          class="text-caption"
-                          @click="openManualAddDialog(group.groupNo)"
-                        >
-                          <v-icon
-                            start
-                            size="x-small"
-                          >
-                            mdi-plus
-                          </v-icon>
-                          新增材料
-                        </v-btn>
+                        點擊「自動帶入材料」或手動新增管路設施
                       </td>
                     </tr>
-                    <tr
-                      v-for="(pipe, pipeIndex) in group.items"
-                      :key="`pipe-${group.groupNo}-${pipe.pomno}-${pipeIndex}`"
-                    >
-                      <td class="text-center px-2">
-                        <div class="d-flex align-center justify-center">
-                          <span class="text-body-2">{{ groupIndex + 1 }}-{{ pipe.order }}</span>
+                    <tr class="bg-grey-lighten-4">
+                      <td
+                        colspan="8"
+                        class="text-right font-weight-bold px-2 py-2"
+                      >
+                        合計
+                      </td>
+                      <td class="text-center font-weight-bold px-2 py-2">
+                        <div class="text-body-1 font-weight-bold text-primary">
+                          {{ totalPipesPrice }}
                         </div>
                       </td>
-                      <td class="px-2">
-                        <div
-                          class="text-body-2"
-                          style="word-break: break-word;"
-                        >
-                          {{ pipe.matname }}
-                        </div>
-                      </td>
-                      <td class="text-center px-2">
-                        <div class="text-body-2">
-                          {{ pipe.module }}
-                        </div>
-                      </td>
-                      <td class="text-center px-2">
-                        <div class="text-body-2">
-                          {{ pipe.specification }}
-                        </div>
-                      </td>
-                      <td class="text-center px-2">
-                        <div class="text-body-2">
-                          {{ pipe.itemunit }}
-                        </div>
-                      </td>
-                      <td class="px-2">
-                        <div
-                          class="text-body-2"
-                          style="word-break: break-word;"
-                        >
-                          {{ pipe.description }}
-                        </div>
-                      </td>
-                      <td class="text-center px-1">
-                        <v-text-field
-                          v-model.number="pipe.matprice"
-                          type="number"
-                          min="0"
-                          step="1"
-                          density="compact"
-                          variant="outlined"
-                          hide-details="auto"
-                          class="material-input"
-                          style="min-width: 80px;"
-                          :rules="[
-                            v => v >= 0 || '單價不能為負數'
-                          ]"
-                          @update:model-value="(value) => updatePipePrice(group.groupNo, pipeIndex, Number(value) || 0)"
-                        />
-                      </td>
-                      <td class="text-center px-1">
-                        <v-text-field
-                          v-model.number="pipe.matamount"
-                          type="number"
-                          min="0"
-                          density="compact"
-                          variant="outlined"
-                          hide-details="auto"
-                          class="material-input"
-                          style="min-width: 80px;"
-                          :rules="[
-                            v => v >= 0 || '數量不能為負數'
-                          ]"
-                          @update:model-value="(value) => updatePipeQuantity(group.groupNo, pipeIndex, Number(value) || 0)"
-                        />
-                      </td>
-                      <td class="text-center px-2">
-                        <div class="text-body-2 font-weight-medium">
-                          {{ pipe.totalPrice?.toLocaleString() }}
-                        </div>
-                      </td>
-                      <td class="text-center px-1">
-                        <v-btn
-                          icon
-                          size="x-small"
-                          color="error"
-                          variant="text"
-                          @click="removePipe(group.groupNo, pipeIndex)"
-                        >
-                          <v-icon size="small">
-                            mdi-close
-                          </v-icon>
-                        </v-btn>
-                      </td>
-                      <td class="text-center px-1">
-                        <div class="d-flex flex-column align-center ga-1">
-                          <v-btn
-                            icon
-                            size="x-small"
-                            color="primary"
-                            variant="text"
-                            :disabled="pipeIndex === 0"
-                            @click="movePipeUp(group.groupNo, pipeIndex)"
-                          >
-                            <v-icon size="small">
-                              mdi-chevron-up
-                            </v-icon>
-                          </v-btn>
-                          <v-btn
-                            icon
-                            size="x-small"
-                            color="primary"
-                            variant="text"
-                            :disabled="pipeIndex === group.items.length - 1"
-                            @click="movePipeDown(group.groupNo, pipeIndex)"
-                          >
-                            <v-icon size="small">
-                              mdi-chevron-down
-                            </v-icon>
-                          </v-btn>
-                        </div>
-                      </td>
+                      <td colspan="2" />
                     </tr>
-                  </template>
-
-                  <tr v-if="localFormData.pipes.length === 0">
-                    <td
-                      colspan="11"
-                      class="text-center py-4 text-grey"
-                    >
-                      點擊「自動帶入材料」或手動新增管路設施
-                    </td>
-                  </tr>
-                  <tr class="bg-grey-lighten-4">
-                    <td
-                      colspan="8"
-                      class="text-right font-weight-bold px-2 py-2"
-                    >
-                      合計
-                    </td>
-                    <td class="text-center font-weight-bold px-2 py-2">
-                      <div class="text-body-1 font-weight-bold text-primary">
-                        {{ totalPipesPrice }}
-                      </div>
-                    </td>
-                    <td colspan="2" />
-                  </tr>
-                </tbody>
-              </v-table>
-            </v-card-text>
-          </v-card>
+                  </tbody>
+                </v-table>
+              </v-col>
+            </v-row>
+          </v-sheet>
         </v-form>
       </v-card-text>
     </v-card>
@@ -2411,6 +2524,9 @@ const filteredPipeFittings = ref([]);
 const form = ref<HTMLFormElement | null>(null); // 顯式類型
 const localValid = ref(true);
 const stepContent = ref<HTMLElement | null>(null); // 顯式類型
+
+// 設計人姓名編輯狀態控制
+const isEditingDesigner = ref(false);
 
 // 載入與計算狀態
 const isLoadingMaterials = ref(false);
@@ -6599,17 +6715,35 @@ const addMaterialToList = async () => {
 <style scoped>
 .step-content {
   padding: 0;
+  background-color: transparent !important;
 }
 
-.v-card-title {
-  color: rgba(0, 0, 0, 0.87);
-  font-size: 1.25rem;
-  font-weight: 500;
-  padding: 16px;
+/* 統一表單字段顏色 - 與 step1/step2 一致 */
+:deep(.v-text-field:not([readonly]):not([disabled]) .v-field),
+:deep(.v-select:not([readonly]):not([disabled]) .v-field),
+:deep(.v-autocomplete:not([readonly]):not([disabled]) .v-field) {
+  --v-field-border-color: #3ea0a3 !important;
+  --v-theme-on-surface: #3ea0a3 !important;
 }
 
-.bg-light-blue-lighten-4 {
-  background-color: #B3E5FC !important;
+:deep(.v-text-field:not([readonly]):not([disabled]) .v-field .v-field__input),
+:deep(.v-select:not([readonly]):not([disabled]) .v-field .v-field__input),
+:deep(.v-autocomplete:not([readonly]):not([disabled]) .v-field .v-field__input) {
+  background-color: white;
+}
+
+:deep(.v-text-field[readonly] .v-field),
+:deep(.v-text-field[disabled] .v-field) {
+  background-color: rgb(var(--v-theme-grey-lighten-4));
+}
+
+/* 卡片懸停效果 */
+.v-card.pa-4 {
+  transition: all 0.3s ease;
+}
+
+.v-card.pa-4:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
 }
 
 /* 穿孔管系統配置組件高度統一 */

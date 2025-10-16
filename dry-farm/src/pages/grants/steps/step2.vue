@@ -467,7 +467,7 @@
             </v-card-title>
 
             <!-- 頂部操作按鈕：便利性設計 -->
-            <div class="d-flex gap-3 mb-6 pb-4 border-b border-grey-lighten-2">
+            <!-- <div class="d-flex gap-3 mb-6 pb-4 border-b border-grey-lighten-2">
               <v-btn
                 color="success"
                 variant="flat"
@@ -484,7 +484,7 @@
                 </v-icon>
                 {{ landManagement.currentEditingLandId ? '更新土地資料' : '儲存土地資料' }}
               </v-btn>
-            </div>
+            </div> -->
 
             <!-- 地址選擇區域 -->
             <v-sheet
