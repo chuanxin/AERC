@@ -1032,7 +1032,7 @@
                             color="#3ea0a3"
                             @update:model-value="() => { calculateBranchPipeQuantity(); calculateSprinklerQuantity(); }"
                           />
-                          <span></span>
+                          <span>m</span>
                         </div>
                       </div>
 
