@@ -1291,11 +1291,11 @@
                       size="small"
                       variant="outlined"
                     >
-                      v2 - 僅含有單價材料
+                      v2 - 只帶入有單價的材料
                     </v-chip>
                   </v-chip-group>
                   <div class="text-caption text-grey-darken-1">
-                    {{ materialGenerationVersion === 'v1' ? '包含所有材料項目（含無單價項目）' : '僅包含具有單價的材料項目' }}
+                    {{ materialGenerationVersion === 'v1' ? '帶入所有材料項目（含無單價項目）' : '只帶入資料庫中具有單價的材料項目' }}
                   </div>
                 </div>
               </v-sheet>
