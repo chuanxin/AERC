@@ -152,6 +152,13 @@
                   item-value="id"
                   class="downloads-table rounded-lg"
                 >
+                  <!-- 項次欄位 -->
+                  <template #[`item.index`]="{ item }">
+                    <div class="text-center">
+                      <span class="text-body-2">{{ item.index || '-' }}</span>
+                    </div>
+                  </template>
+
                   <!-- 檔案名稱欄位 -->
                   <template #[`item.filename`]="{ item }">
                     <div class="d-flex align-center">
@@ -161,7 +168,7 @@
                         class="mr-2"
                         size="small"
                       />
-                      <span class="text-body-2">{{ item.filename }}</span>
+                      <span class="text-body-2">{{ item.parsedFilename || item.filename }}</span>
                     </div>
                   </template>
 
@@ -192,7 +199,7 @@
 
                   <!-- 最後更新時間欄位 -->
                   <template #[`item.createdAt`]="{ item }">
-                    <span class="text-body-2">{{ formatDateTime(item.createdAt) }}</span>
+                    <span class="text-body-2">{{ formatDateOnly(item.createdAt) }}</span>
                   </template>
 
 
@@ -334,6 +341,9 @@ interface DownloadFile {
   baseFileName: string
   availableFormats?: StaticFileInfo[]
   fileGroup?: FileGroup
+  // 新增：從檔案名稱解析出的 index 和 filename
+  index?: number | string
+  parsedFilename?: string
 }
 
 // 響應式資料
@@ -366,6 +376,7 @@ const filterRequest = ref<StaticDownloadsFilterRequest>({
 
 // 表格標題
 const headers = ref([
+  { title: '#', key: 'index', align: 'center' as const },
   { title: '檔案名稱', key: 'filename', align: 'start' as const },
   { title: '下載格式', key: 'formats', align: 'center' as const },
   { title: '最後更新', key: 'createdAt', align: 'center' as const },
@@ -385,6 +396,20 @@ const filteredFiles = computed(() => {
       file.description?.toLowerCase().includes(keyword)
     )
   }
+
+  // 預設按照項次數字增冪排序
+  result = result.sort((a, b) => {
+    const indexA = a.index ? (typeof a.index === 'string' ? parseInt(a.index) : a.index) : Number.MAX_SAFE_INTEGER
+    const indexB = b.index ? (typeof b.index === 'string' ? parseInt(b.index) : b.index) : Number.MAX_SAFE_INTEGER
+
+    // 如果兩個都有項次，按數字大小排序
+    if (indexA !== Number.MAX_SAFE_INTEGER || indexB !== Number.MAX_SAFE_INTEGER) {
+      return indexA - indexB
+    }
+
+    // 如果都沒有項次，按檔案名稱排序
+    return a.filename.localeCompare(b.filename)
+  })
 
   return result
 })
@@ -413,6 +438,35 @@ const convertFileGroupsToFiles = (groups: FileGroup[]): DownloadFile[] => {
       return priorityA - priorityB
     })
 
+    // 解析檔案名稱：提取第一個底線前的數字作為 index，底線後的字串作為 parsedFilename
+    const parseFilename = (filename: string): { index?: string; parsedFilename?: string } => {
+      const underscoreIndex = filename.indexOf('_')
+
+      if (underscoreIndex === -1) {
+        // 如果沒有底線，返回空值
+        return { index: undefined, parsedFilename: undefined }
+      }
+
+      const beforeUnderscore = filename.substring(0, underscoreIndex)
+      const afterUnderscore = filename.substring(underscoreIndex + 1)
+
+      // 檢查底線前的部分是否為數字
+      if (/^\d+$/.test(beforeUnderscore)) {
+        return {
+          index: beforeUnderscore,
+          parsedFilename: afterUnderscore
+        }
+      }
+
+      // 如果底線前不是純數字，返回空值
+      return { index: undefined, parsedFilename: undefined }
+    }
+
+    const { index, parsedFilename } = parseFilename(group.base_name)
+
+    // Debug: 顯示所有檔案的解析結果
+    // console.log(`[檔案解析] base_name: "${group.base_name}" → 項次: ${index || '無'}, 檔名: ${parsedFilename || '無'}`)
+
     convertedFiles.push({
       id: group.base_name, // 使用 base_name 作為 ID
       filename: group.display_name || group.base_name,
@@ -425,7 +479,10 @@ const convertFileGroupsToFiles = (groups: FileGroup[]): DownloadFile[] => {
       description: group.description || undefined,
       baseFileName: group.base_name,
       availableFormats: sortedFormats,
-      fileGroup: group
+      fileGroup: group,
+      // 新增解析後的欄位
+      index,
+      parsedFilename
     })
   })
 
@@ -436,7 +493,23 @@ const convertFileGroupsToFiles = (groups: FileGroup[]): DownloadFile[] => {
 const getFileIcon = downloadsService.getFileIcon.bind(downloadsService)
 const getFileIconColor = downloadsService.getFileIconColor.bind(downloadsService)
 const formatFileSize = downloadsService.formatFileSize.bind(downloadsService)
-const formatDateTime = downloadsService.formatDateTime.bind(downloadsService)
+
+// 格式化日期（只顯示日期，不含時間，使用民國年）
+const formatDateOnly = (dateString: string): string => {
+  if (!dateString) return '-'
+
+  try {
+    const date = new Date(dateString)
+    const westernYear = date.getFullYear()
+    const rocYear = westernYear - 1911 // 民國年 = 西元年 - 1911
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+
+    return `${rocYear}-${month}-${day}`
+  } catch {
+    return dateString
+  }
+}
 
 // 移除不再使用的工具函數
 
@@ -591,7 +664,7 @@ onMounted(async () => {
   top: -50px;
   left: -1px;
   width: auto !important;
-  min-width: 130px;
+  min-width: 0px;
   height: 50px;
   background-color: #3ea0a3 !important;
   border-radius: 8px 8px 0 0;
