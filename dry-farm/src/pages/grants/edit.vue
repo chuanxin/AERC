@@ -22,7 +22,7 @@
     <v-overlay
       v-model="isStepTransitioning"
       class="d-flex align-center justify-center step-transition-overlay"
-      :opacity="0.8"
+      :opacity="0"
     >
       <div class="text-center">
         <v-progress-circular

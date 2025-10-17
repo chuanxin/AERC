@@ -76,7 +76,10 @@
               class="mb-3 pa-4 rounded"
               color="#fff3e0"
             >
-              <div class="d-flex align-center mb-3">
+              <div
+                v-if="!localFormData.designerName"
+                class="d-flex align-center mb-3"
+              >
                 <v-icon
                   size="small"
                   color="#f57c00"
@@ -101,9 +104,8 @@
                   bg-color="white"
                   class="me-3"
                   style="max-width: 300px;"
-                  autofocus
                   hide-details
-                  :rules="[v => !!v || '請輸入設計人姓名']"
+                  autofocus
                 />
                 <v-btn
                   color="#f57c00"
@@ -115,6 +117,18 @@
                     mdi-check
                   </v-icon>
                   確認
+                </v-btn>
+                <v-btn
+                  v-if="!localFormData.designerName"
+                  color="grey-darken-1"
+                  variant="outlined"
+                  class="ms-2"
+                  @click="skipStep"
+                >
+                  <v-icon class="me-1">
+                    mdi-skip-next
+                  </v-icon>
+                  不需申請田間管路補助
                 </v-btn>
               </div>
             </v-sheet>
@@ -2526,6 +2540,7 @@ const localValid = ref(true);
 const stepContent = ref<HTMLElement | null>(null); // 顯式類型
 
 // 設計人姓名編輯狀態控制
+// 初始值會在 onMounted 中根據 props.formData.designerName 設置
 const isEditingDesigner = ref(false);
 
 // 載入與計算狀態
@@ -4390,6 +4405,78 @@ const updateFormData = () => {
   console.log('📤 Emitting update:formData with facilityArea from Step2:', dataToEmit.facilityArea);
 
   emit('update:formData', dataToEmit);
+};
+
+// 跳過田間管路步驟功能
+const skipStep = () => {
+  console.log('⏭️ Skipping step4 (田間管路)');
+
+  // 重置所有表單數據為初始狀態
+  Object.assign(localFormData, {
+    // 基本欄位
+    designerName: '',
+    fieldLength: null,
+    fieldWidth: null,
+    fundingSourceId: 0,
+
+    // 主管相關
+    mainPipeLength: null,
+    mainPipeDiameterId: null,
+    mainPipeMaterialId: 1,
+    mainPipeUnitPrice: null,
+    mainPipeQuantity: null,
+    mainPipeStandardLength: 4,
+
+    // 主管2相關
+    mainPipe2Enabled: false,
+    mainPipe2Length: null,
+    mainPipe2DiameterId: null,
+    mainPipe2MaterialId: 1,
+    mainPipe2UnitPrice: null,
+    mainPipe2Quantity: null,
+    mainPipe2StandardLength: 4,
+
+    // 支管相關
+    branchPipeSpacing_SL: null,
+    sprinklerSpacing_SS: null,
+    riserHeight_H: null,
+    enableBranchDiameterChange: false,
+    changeBranchSpecId: null,
+    branchPipeMaterialId: null,
+    branchPipeDiameterId: null,
+    branchPipePomno: null,
+
+    // 末端設施相關
+    irrigationTypeId: null,
+    sprinklerSubtypeId: null,
+    dripperSubtypeId: null,
+    perforatedPipeDirection: 1,
+    facilityTypeId: null,
+    waterSourceId: null,
+    endFacilityPomno: null,
+    endFacilitySpecId: null,
+    riserPipeMaterialId: null,
+    riserPipeSpecId: null,
+
+    // 管路列表和補助
+    pipes: [],
+    subsidyTotal: 0,
+    subsidyAmount: 0,
+  });
+
+  // 設置為有效狀態，允許跳過
+  localValid.value = true;
+
+  // 更新父組件數據
+  updateFormData();
+
+  // 觸發 validated 事件，進入下一步
+  emit('validated', {
+    valid: true,
+    step: props.currentStep
+  });
+
+  console.log('✅ Step4 skipped successfully');
 };
 
 // 顯示缺少的必填欄位詳細信息
@@ -6405,6 +6492,10 @@ onMounted(async () => {
     // 可以發出事件通知父組件，但不直接修改
     // emit('step-mismatch', { expected: expectedUIStep, actual: grantsStore.currentStep })
   }
+
+  // 🔧 修復設計人姓名輸入問題：根據初始數據設置編輯狀態
+  // 如果初始沒有設計人姓名，應該顯示編輯區塊
+  isEditingDesigner.value = !props.formData?.designerName
 
   await loadDropdownOptions();
 
