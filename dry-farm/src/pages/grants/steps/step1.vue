@@ -110,53 +110,51 @@
                 color="#e3f4f4"
                 rounded="lg"
               >
-                <v-card-title
-                  class="text-subtitle-1 font-weight-bold pa-0 pb-6"
-                  style="color: #2d8c8f"
-                >
-                  <v-icon
-                    color="#3ea0a3"
-                    class="me-2 pb-1"
-                    size="small"
+                <div class="d-flex align-center justify-space-between mb-6">
+                  <v-card-title
+                    class="text-subtitle-1 font-weight-bold pa-0"
+                    style="color: #2d8c8f"
                   >
-                    mdi-map-marker
-                  </v-icon>
-                  <span class="required-asterisk">*</span>申請人通訊地址
-                </v-card-title>
-
-                <div class="d-flex align-center mb-2 justify-space-between">
-                  <div class="d-flex align-center">
-                    <v-btn
-                      v-if="!isEditingAddress"
-                      variant="text"
-                      density="comfortable"
-                      size="small"
+                    <v-icon
                       color="#3ea0a3"
-                      rounded="sm"
-                      @click="isEditingAddress = true"
-                    >
-                      <v-icon>mdi-pencil</v-icon>
-                      編輯地址
-                    </v-btn>
-                    <v-btn
-                      v-else
-                      variant="text"
-                      density="comfortable"
+                      class="me-2 pb-1"
                       size="small"
-                      color="success"
-                      rounded="circle"
-                      @click="finishEditingAddress"
                     >
-                      <v-icon>mdi-check</v-icon>
-                      完成編輯
-                    </v-btn>
-                  </div>
+                      mdi-map-marker
+                    </v-icon>
+                    <span class="required-asterisk">*</span>
+                    申請人通訊地址
+                  </v-card-title>
+                  <v-btn
+                    v-if="!isEditingAddress"
+                    variant="text"
+                    density="comfortable"
+                    size="small"
+                    color="#3ea0a3"
+                    rounded="sm"
+                    @click="isEditingAddress = true"
+                  >
+                    <v-icon>mdi-pencil</v-icon>
+                    編輯地址
+                  </v-btn>
+                  <v-btn
+                    v-else
+                    variant="text"
+                    density="comfortable"
+                    size="small"
+                    color="success"
+                    rounded="circle"
+                    @click="finishEditingAddress"
+                  >
+                    <v-icon>mdi-check</v-icon>
+                    完成編輯
+                  </v-btn>
                 </div>
 
                 <!-- Read-only address display -->
                 <div
                   v-if="!isEditingAddress"
-                  class="pa-2"
+                  class="pa-2 pt-0"
                 >
                   <div class="d-flex flex-column">
                     <span class="text-subtitle-1 mb-2">{{ getFullAddress }}</span>
@@ -260,6 +258,144 @@
               </v-card>
             </v-col>
           </v-row>
+
+          <!-- 💰 年度補助額度提示區塊（軟限制） -->
+          <v-card
+            v-if="showSubsidySummary"
+            flat
+            class="mb-4 pa-4"
+            :color="subsidyWarningColor"
+            rounded="lg"
+          >
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-4"
+              :style="`color: ${subsidyTitleColor}`"
+            >
+              <v-icon
+                :color="subsidyIconColor"
+                class="me-2 pb-1"
+                size="small"
+              >
+                {{ subsidyIcon }}
+              </v-icon>
+              年度補助額度資訊
+            </v-card-title>
+
+            <!-- Loading 狀態 -->
+            <div
+              v-if="grantsStore.subsidySummaryLoading"
+              class="text-center py-4"
+            >
+              <v-progress-circular
+                indeterminate
+                color="#3ea0a3"
+                size="40"
+              />
+              <div class="text-caption mt-2 text-grey-darken-1">
+                查詢補助額度中...
+              </div>
+            </div>
+
+            <!-- 錯誤狀態 -->
+            <v-alert
+              v-else-if="grantsStore.subsidySummaryError"
+              type="error"
+              density="compact"
+              variant="tonal"
+              class="mb-0"
+            >
+              {{ grantsStore.subsidySummaryError }}
+            </v-alert>
+
+            <!-- 額度資訊顯示 -->
+            <div v-else-if="grantsStore.hasSubsidySummary">
+              <v-row dense>
+                <v-col
+                  cols="12"
+                  md="4"
+                >
+                  <div class="subsidy-info-card">
+                    <div class="text-caption text-grey-darken-1">
+                      年度上限
+                    </div>
+                    <div class="text-h6 font-weight-bold">
+                      {{ formatCurrency(grantsStore.subsidyLimit) }}
+                    </div>
+                  </div>
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="4"
+                >
+                  <div class="subsidy-info-card">
+                    <div class="text-caption text-grey-darken-1">
+                      已申請金額
+                    </div>
+                    <div class="text-h6 font-weight-bold text-orange-darken-2">
+                      {{ formatCurrency(grantsStore.totalSubsidyAmount) }}
+                    </div>
+                  </div>
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="4"
+                >
+                  <div class="subsidy-info-card">
+                    <div class="text-caption text-grey-darken-1">
+                      剩餘可用額度
+                    </div>
+                    <div
+                      class="text-h6 font-weight-bold"
+                      :class="remainingAmountColorClass"
+                    >
+                      {{ formatCurrency(grantsStore.remainingSubsidyAmount) }}
+                    </div>
+                  </div>
+                </v-col>
+              </v-row>
+
+              <!-- 案件列表 -->
+              <div
+                v-if="grantsStore.subsidySummary && grantsStore.subsidySummary.grant_count > 0"
+                class="mt-4"
+              >
+                <div class="text-caption text-grey-darken-1 mb-2">
+                  本年度已申請 {{ grantsStore.subsidySummary.grant_count }} 筆案件：
+                </div>
+                <v-chip-group column>
+                  <v-chip
+                    v-for="grant in grantsStore.subsidySummary.grants"
+                    :key="grant.case_number"
+                    size="small"
+                    variant="outlined"
+                    color="grey-darken-1"
+                  >
+                    {{ grant.case_number }} ({{ formatCurrency(grant.subsidy_amount) }})
+                  </v-chip>
+                </v-chip-group>
+              </div>
+
+              <!-- 警告訊息 -->
+              <v-alert
+                v-if="grantsStore.isSubsidyLimitExceeded"
+                type="warning"
+                density="compact"
+                variant="tonal"
+                class="mt-4 mb-0"
+              >
+                <strong>注意：</strong>本次申請將超過年度補助上限！請調整申請金額或聯繫承辦人員。
+              </v-alert>
+              <v-alert
+                v-else-if="grantsStore.remainingSubsidyAmount < 100000"
+                type="info"
+                density="compact"
+                variant="tonal"
+                class="mt-4 mb-0"
+              >
+                提醒：剩餘額度不足 10 萬元，請注意申請金額規劃。
+              </v-alert>
+            </div>
+          </v-card>
 
           <!-- 承辦資訊區塊 -->
           <v-card
@@ -909,17 +1045,34 @@ const initializeAddressDropdowns = async () => {
 //   return stepData && Object.keys(stepData).length > 0;
 // });
 
-// 🆕 初始化數據 - 自主載入模式
+// 🆕 追蹤當前正在載入的案件編號（防止重複請求）
+const loadingCaseNumber = ref<string | null>(null);
+
+// 🆕 初始化數據 - 自主載入模式（優化防重複邏輯）
 const initializeFormData = async (forceReload = false) => {
+  const route = useRoute();
+  const caseNumber = route.query.id as string;
+
+  if (!caseNumber) {
+    console.error('❌ step1.vue: No case number in route query');
+    return;
+  }
+
+  // 🔥 防止重複請求：檢查是否正在載入相同案件
+  if (loadingCaseNumber.value === caseNumber && !forceReload) {
+    console.log('⏳ step1.vue: Already loading this case, skipping...');
+    return;
+  }
+
   // 防止重複初始化
-  if (isInitializing.value) {
+  if (isInitializing.value && !forceReload) {
     console.log('⏳ step1.vue: Already initializing, skipping...');
     return;
   }
 
-  // 如果已經初始化且非強制重載，跳過
-  if (isInitialized.value && !forceReload) {
-    console.log('✅ step1.vue: Already initialized, skipping...');
+  // 如果已經初始化且非強制重載，且案件相同，跳過
+  if (isInitialized.value && !forceReload && loadingCaseNumber.value === caseNumber) {
+    console.log('✅ step1.vue: Already initialized for this case, skipping...');
     return;
   }
 
@@ -927,21 +1080,15 @@ const initializeFormData = async (forceReload = false) => {
   if (forceReload) {
     console.log('🔄 step1.vue: Force reload triggered');
     resetFormData();
+    isInitialized.value = false;
   }
 
+  // 設置標記，防止重複請求
+  loadingCaseNumber.value = caseNumber;
   isInitializing.value = true;
-  console.log('🔄 step1.vue: Initializing form data with autonomous loading');
+  console.log('🔄 step1.vue: Initializing form data with autonomous loading for case:', caseNumber);
 
   try {
-    // 🆕 自主載入：直接從路由獲取案件ID並載入資料
-    const route = useRoute();
-    const caseNumber = route.query.id as string;
-
-    if (!caseNumber) {
-      console.error('❌ step1.vue: No case number in route query');
-      return;
-    }
-
     console.log('📥 step1.vue: Loading step 1 data autonomously for case:', caseNumber);
 
     // 檢查是否已有快取資料，並確認案件編號匹配
@@ -958,15 +1105,19 @@ const initializeFormData = async (forceReload = false) => {
       hasValidData,
       isSameCaseNumber,
       cachedCaseNumber: existingData?.caseNumber,
-      currentCaseNumber: caseNumber
+      currentCaseNumber: caseNumber,
+      forceReload
     });
 
-    if (!hasValidData || !isSameCaseNumber) {
+    // 只有在沒有有效快取、案件不匹配或強制重載時才從伺服器載入
+    if (!hasValidData || !isSameCaseNumber || forceReload) {
       if (!hasValidData) {
         console.log('🔄 step1.vue: No valid cached data, loading fresh data from server');
-      } else {
+      } else if (!isSameCaseNumber) {
         console.log('🔄 step1.vue: Case number mismatch, loading fresh data from server');
         console.log(`   Previous case: ${existingData?.caseNumber}, Current case: ${caseNumber}`);
+      } else {
+        console.log('🔄 step1.vue: Force reload requested');
       }
       await grantsStore.loadStepData(caseNumber, 1);
     } else {
@@ -992,14 +1143,26 @@ const initializeFormData = async (forceReload = false) => {
       // 智能地址處理
       await handleSmartAddressInitialization();
 
-      // 標記為已初始化
-      isInitialized.value = true;
-
+      // 🔥 Linus式修復：在發送初始化資料前，先標記為已初始化
+      // 但暫時不觸發 watch，避免地址解析被視為變更
       console.log('✅ step1.vue: Autonomous initialization complete');
 
-      // 發送資料到父組件
+      // 標記為已初始化（在發送資料之前）
+      isInitialized.value = true;
+
+      // 🔥 關鍵修復：使用 nextTick 確保地址解析完成後再發送資料
+      // 這樣可以避免地址解析過程中的欄位修改被視為「變更」
+      await nextTick();
+
+      // 發送資料到父組件（只發送一次完整的初始化資料）
       emitDataChanged();
       emitValidationChanged(localValid.value);
+
+      // 💰 初始化完成後，立即查詢補助額度
+      if (localFormData.id && localFormData.caseNumber) {
+        console.log('💰 [step1] Data initialized, fetching subsidy summary');
+        await fetchSubsidySummaryIfNeeded();
+      }
     } else {
       console.warn('⚠️ step1.vue: No data available after loading');
     }
@@ -1202,6 +1365,193 @@ const handleGoBack = () => {
   emit('go-back-requested', { step: 1 });
 };
 
+// =============================================================================
+// 年度補助額度限制功能
+// =============================================================================
+
+/**
+ * 獲取案件年度（民國年） - Computed
+ */
+const caseYear = computed((): number | null => {
+  if (!localFormData.caseNumber) {
+    return null
+  }
+
+  // 案件編號格式: MMM-YYY-NNN (例如: M01-114-001)
+  // 提取年度部分 (YYY)
+  const parts = localFormData.caseNumber.split('-')
+
+  if (parts.length >= 2) {
+    const yearStr = parts[1]
+    const year = parseInt(yearStr)
+    return isNaN(year) ? null : year
+  }
+
+  return null
+})
+
+/**
+ * 是否顯示補助額度提示卡片
+ */
+const showSubsidySummary = computed(() => {
+  const hasId = !!localFormData.id
+  const hasCaseNumber = !!localFormData.caseNumber
+  const year = caseYear.value
+
+  console.log('💰 [showSubsidySummary] Check:', {
+    hasId,
+    hasCaseNumber,
+    id: localFormData.id,
+    caseNumber: localFormData.caseNumber,
+    year
+  })
+
+  // 必須有身分證字號和案件編號
+  return hasId && hasCaseNumber && year !== null
+})
+
+/**
+ * 格式化貨幣顯示
+ */
+const formatCurrency = (amount: number): string => {
+  return `NT$ ${amount.toLocaleString('zh-TW')}`
+}
+
+/**
+ * 剩餘額度顏色樣式
+ */
+const remainingAmountColorClass = computed(() => {
+  const remaining = grantsStore.remainingSubsidyAmount
+
+  if (remaining < 0) {
+    return 'text-error'
+  } else if (remaining < 100000) {
+    return 'text-warning'
+  } else {
+    return 'text-success'
+  }
+})
+
+/**
+ * 補助額度卡片背景色
+ */
+const subsidyWarningColor = computed(() => {
+  if (grantsStore.isSubsidyLimitExceeded) {
+    return 'orange-lighten-5'
+  } else if (grantsStore.remainingSubsidyAmount < 100000) {
+    return 'amber-lighten-5'
+  } else {
+    return 'blue-grey-lighten-5'
+  }
+})
+
+/**
+ * 補助額度標題顏色
+ */
+const subsidyTitleColor = computed(() => {
+  if (grantsStore.isSubsidyLimitExceeded) {
+    return '#e65100'
+  } else if (grantsStore.remainingSubsidyAmount < 100000) {
+    return '#f57f17'
+  } else {
+    return '#2d8c8f'
+  }
+})
+
+/**
+ * 補助額度圖示顏色
+ */
+const subsidyIconColor = computed(() => {
+  if (grantsStore.isSubsidyLimitExceeded) {
+    return 'orange-darken-3'
+  } else if (grantsStore.remainingSubsidyAmount < 100000) {
+    return 'amber-darken-2'
+  } else {
+    return '#3ea0a3'
+  }
+})
+
+/**
+ * 補助額度圖示
+ */
+const subsidyIcon = computed(() => {
+  if (grantsStore.isSubsidyLimitExceeded) {
+    return 'mdi-alert-circle'
+  } else if (grantsStore.remainingSubsidyAmount < 100000) {
+    return 'mdi-alert'
+  } else {
+    return 'mdi-cash-check'
+  }
+})
+
+/**
+ * 查詢補助額度摘要
+ */
+const fetchSubsidySummaryIfNeeded = async () => {
+  const applicantId = localFormData.id
+  const year = caseYear.value
+  const currentGrantId = grantsStore.currentGrant?.id
+
+  console.log('💰 [fetchSubsidySummaryIfNeeded] Starting check:', {
+    applicantId,
+    year,
+    currentGrantId,
+    hasId: !!applicantId,
+    hasYear: !!year
+  })
+
+  if (!applicantId || !year) {
+    console.log('💰 [fetchSubsidySummaryIfNeeded] Cannot fetch: missing applicantId or year')
+    return
+  }
+
+  console.log('💰 [fetchSubsidySummaryIfNeeded] Calling API with:', { applicantId, year, currentGrantId })
+
+  try {
+    await grantsStore.fetchSubsidySummary(applicantId, year, currentGrantId)
+    console.log('💰 [fetchSubsidySummaryIfNeeded] API call completed successfully')
+  } catch (error) {
+    console.error('💰 [fetchSubsidySummaryIfNeeded] Error:', error)
+  }
+}
+
+// 監聽身分證字號和案件編號變化，自動查詢補助額度
+watch(
+  () => [localFormData.id, localFormData.caseNumber],
+  async ([newId, newCaseNumber], [oldId, oldCaseNumber]) => {
+    console.log('💰 [step1] Watch triggered - ID/CaseNumber changed:', {
+      newId,
+      newCaseNumber,
+      oldId,
+      oldCaseNumber,
+      isInitialized: isInitialized.value
+    })
+
+    // 只在已初始化且身分證字號或案件編號真正變化時才查詢
+    if (isInitialized.value && (newId !== oldId || newCaseNumber !== oldCaseNumber) && newId && newCaseNumber) {
+      console.log('💰 [step1] Applicant ID or case number changed, fetching subsidy summary')
+      await fetchSubsidySummaryIfNeeded()
+    }
+  }
+)
+
+// 在組件掛載完成且資料初始化後，查詢補助額度
+watch(
+  () => isInitialized.value,
+  async (initialized) => {
+    console.log('💰 [step1] isInitialized watch triggered:', initialized)
+    if (initialized && localFormData.id && localFormData.caseNumber) {
+      console.log('💰 [step1] Component initialized, fetching subsidy summary')
+      await fetchSubsidySummaryIfNeeded()
+    }
+  },
+  { immediate: true }  // 立即執行一次，即使 isInitialized 已經是 true
+)
+
+// =============================================================================
+// Expose
+// =============================================================================
+
 // 暴露方法給父組件使用
 defineExpose({
   handleProceedToNext,
@@ -1269,5 +1619,19 @@ defineExpose({
 
 :deep(.v-radio-group) .v-radio .v-selection-control__wrapper {
   margin-inline-end: 8px;
+}
+
+/* 補助額度資訊卡片樣式 */
+.subsidy-info-card {
+  padding: 12px;
+  background-color: white;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+.subsidy-info-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
 }
 </style>

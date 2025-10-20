@@ -61,6 +61,10 @@ export const useUserStore = defineStore('user', () => {
   let isRefreshing = false
   let refreshPromise: Promise<string | null> | null = null
 
+  // 🔥 防重複請求：追蹤正在進行的 fetchCurrentUser 請求
+  let isFetchingUser = false
+  let fetchUserPromise: Promise<User | null> | null = null
+
   // 手動提醒相關狀態
   const showExpiryNotification = ref(false)
   const notificationExpiresAt = ref(0)
@@ -91,7 +95,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   /**
-   * 獲取當前用戶信息
+   * 獲取當前用戶信息（帶請求去重機制）
    * @returns 用戶信息或 null（如果獲取失敗）
    */
   const fetchCurrentUser = wrapAsync(async () => {
@@ -105,21 +109,41 @@ export const useUserStore = defineStore('user', () => {
       return null
     }
 
-    try {
-      const user = await userService.getCurrentUser()
-      if (user) {
-        currentUser.value = user
-        hasAttemptedAutoLogin.value = true
-        return user
-      }
-    } catch (error) {
-      // If fetching fails, clear token
-      token.value = null
-      localStorage.removeItem('auth_token')
-      throw error
+    // 🔥 請求去重：如果正在請求中，返回現有 Promise
+    if (isFetchingUser && fetchUserPromise) {
+      console.log('🔄 [fetchCurrentUser] Already fetching user, returning existing promise')
+      return fetchUserPromise
     }
 
-    return null
+    // 標記為正在請求
+    isFetchingUser = true
+
+    // 創建請求 Promise
+    fetchUserPromise = (async () => {
+      try {
+        console.log('📡 [fetchCurrentUser] Fetching user data...')
+        const user = await userService.getCurrentUser()
+        if (user) {
+          currentUser.value = user
+          hasAttemptedAutoLogin.value = true
+          console.log('✅ [fetchCurrentUser] User data fetched successfully:', user.username)
+          return user
+        }
+        return null
+      } catch (error) {
+        // If fetching fails, clear token
+        console.error('❌ [fetchCurrentUser] Failed to fetch user:', error)
+        token.value = null
+        localStorage.removeItem('auth_token')
+        throw error
+      } finally {
+        // 重置請求狀態
+        isFetchingUser = false
+        fetchUserPromise = null
+      }
+    })()
+
+    return fetchUserPromise
   }, asyncOptions)
 
   /**

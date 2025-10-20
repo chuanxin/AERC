@@ -929,7 +929,9 @@ const isAdminMode = computed(() => {
 })
 
 // State refs
-const currentStep = ref(1)
+// 🔥 Linus式修復：延遲初始化 currentStep，避免錯誤渲染
+// 使用 0 作為初始值，確保在 onMounted 完成前不渲染任何 step 組件
+const currentStep = ref(0)
 const submitting = ref(false)
 const isDataLoaded = ref(false)
 const isNavigating = ref(false)

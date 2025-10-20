@@ -8,10 +8,10 @@ from starlette import status
 from src.auth.jwthandler import get_current_user
 from src.schemas.users import UserOutSchema
 from src.schemas.grants import (
-    GrantInSchema, GrantOutSchema, GrantListSchema, 
-    GrantUpdateSchema, GrantCreateResponseSchema, 
+    GrantInSchema, GrantOutSchema, GrantListSchema,
+    GrantUpdateSchema, GrantCreateResponseSchema,
     GrantStepSchema, GrantLandInSchema, GrantSearchSchema,
-    GrantCreateRequestSchema
+    GrantCreateRequestSchema, ApplicantSubsidySummarySchema
 )
 # import src.crud.offices as crud
 import src.crud.grants as crud
@@ -445,4 +445,47 @@ async def batch_cross_year_grants_api(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"批次跨年度處理失敗: {str(e)}",
+        )
+
+
+@router.get(
+    "/applicant-subsidy-summary/{applicant_id}/{year}",
+    response_model=Dict[str, Any],
+    dependencies=[Depends(get_current_user)],
+)
+async def get_applicant_subsidy_summary(
+    applicant_id: str = Path(..., description="申請人身分證字號"),
+    year: int = Path(..., description="申請年度（民國年）"),
+    current_grant_id: Optional[int] = Query(None, description="當前案件ID（用於排除自己）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """
+    查詢申請人年度補助額度摘要
+
+    業務規則：
+    - 年度補助上限：50萬元
+    - 計入狀態：submitted, under_review, approved, completed
+    - 補助來源：step4(灌溉調控設施) + step5(田間管路)
+    - 以 active_version 為準
+    """
+    try:
+        logger.info(
+            f"📊 查詢年度補助額度: "
+            f"申請人={applicant_id}, 年度={year}, "
+            f"排除案件ID={current_grant_id}"
+        )
+
+        result = await crud.calculate_applicant_yearly_subsidy(
+            applicant_id=applicant_id,
+            year=year,
+            current_grant_id=current_grant_id
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ 查詢年度補助額度失敗: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查詢年度補助額度失敗: {str(e)}",
         )

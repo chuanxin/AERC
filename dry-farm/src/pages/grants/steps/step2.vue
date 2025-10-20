@@ -3777,11 +3777,20 @@ const initializeStep2WithCascadeData = async () => {
       }, 100); // Use a bit longer delay for initialization
     }
 
-    // 完成初始化
+    // 🔥 Linus式修復：完成初始化
+    console.log('✅ [P0 Fix] Step2 initialization completed successfully')
+
+    // 先標記為已初始化
     initGuard.isInitialized = true
     initGuard.isInitializing = false
 
-    console.log('✅ [P0 Fix] Step2 initialization completed successfully')
+    // 🔥 關鍵修復：使用 nextTick 確保所有初始化副作用完成後再發送資料
+    // 這樣可以避免初始化過程中的欄位修改被視為「變更」
+    await nextTick()
+
+    // 主動發送一次完整的初始化資料狀態給父組件
+    // 這確保 grants store 的 previousFormData 與當前資料一致
+    eventEmitter.emitDataChanged()
 
   } catch (error) {
     console.error('❌ [P0 Fix] Step2 initialization failed:', error)
@@ -4687,129 +4696,122 @@ const cleanupMap = () => {
 };
 
 // 事件驅動架構:自主載入資料
-const loadStepData = async () => {
-  if (initGuard.isDataLoading || initGuard.isInitializing) return;
+// const loadStepData = async () => {
+//   if (initGuard.isDataLoading || initGuard.isInitializing) return;
 
-  const caseNumber = route.query.id as string;
-  if (!caseNumber) {
-    console.warn('❌ step2.vue: No case number in route');
-    return;
-  }
+//   const caseNumber = route.query.id as string;
+//   if (!caseNumber) {
+//     console.warn('❌ step2.vue: No case number in route');
+//     return;
+//   }
 
-  try {
-    initGuard.isDataLoading = true;
-    initGuard.isInitializing = true;
+//   try {
+//     initGuard.isDataLoading = true;
+//     initGuard.isInitializing = true;
 
-    console.log('📥 step2.vue: Loading step data for case:', caseNumber);
+//     console.log('📥 step2.vue: Loading step data for case:', caseNumber);
 
-    // 調用 grantsStore.loadStepData 從 API 載入資料
-    console.log('🎯 step2.vue: Calling grantsStore.loadStepData(2) to load from API...');
-    await grantsStore.loadStepData(caseNumber, 2);
-    console.log('✅ step2.vue: grantsStore.loadStepData completed');
+//     // 調用 grantsStore.loadStepData 從 API 載入資料
+//     console.log('🎯 step2.vue: Calling grantsStore.loadStepData(2) to load from API...');
+//     await grantsStore.loadStepData(caseNumber, 2);
+//     console.log('✅ step2.vue: grantsStore.loadStepData completed');
 
-    // 從 grantsStore 取得已載入的 step 2 資料
-    if (grantsStore.formData[2]) {
-      const savedData = grantsStore.formData[2];
-      console.log('📦 step2.vue: Found loaded data from grantsStore:', Object.keys(savedData));
+//     // 從 grantsStore 取得已載入的 step 2 資料
+//     if (grantsStore.formData[2]) {
+//       const savedData = grantsStore.formData[2];
+//       console.log('📦 step2.vue: Found loaded data from grantsStore:', Object.keys(savedData));
 
-      // 暫時禁用 watch，避免觸發不當的更新
-      initGuard.isInitializing = true;
+//       // 暫時禁用 watch，避免觸發不當的更新
+//       initGuard.isInitializing = true;
 
-      // 更新本地表單資料，排除 valid 欄位
-      Object.keys(savedData).forEach(key => {
-        if (key !== 'valid' && savedData[key] !== undefined && key in localFormData) {
-          (localFormData as Record<string, unknown>)[key] = savedData[key];
-        }
-      });
+//       // 更新本地表單資料，排除 valid 欄位
+//       Object.keys(savedData).forEach(key => {
+//         if (key !== 'valid' && savedData[key] !== undefined && key in localFormData) {
+//           (localFormData as Record<string, unknown>)[key] = savedData[key];
+//         }
+//       });
 
-      // 載入級聯選擇資料
-      await cascadeManager.loadCascadeData();
+//       // 載入級聯選擇資料
+//       await cascadeManager.loadCascadeData();
 
-      // 多筆土地資料處理
-      if (savedData.lands && Array.isArray(savedData.lands)) {
-        console.log('🏞️ step2.vue: Loading multiple lands data:', savedData.lands.length, 'lands found')
-        landManagement.lands = [...savedData.lands]
-        localFormData.lands = [...savedData.lands]
-      } else {
-        console.log('🔄 step2.vue: No multiple lands data found, checking for legacy conversion')
-        // 檢查向後相容性
-        convertLegacyDataToMultipleLands()
-      }
+//       // 多筆土地資料處理
+//       if (savedData.lands && Array.isArray(savedData.lands)) {
+//         console.log('🏞️ step2.vue: Loading multiple lands data:', savedData.lands.length, 'lands found')
+//         landManagement.lands = [...savedData.lands]
+//         localFormData.lands = [...savedData.lands]
+//       } else {
+//         console.log('🔄 step2.vue: No multiple lands data found, checking for legacy conversion')
+//         // 檢查向後相容性
+//         convertLegacyDataToMultipleLands()
+//       }
 
-    } else {
-      console.log('📝 step2.vue: No data found in grantsStore.formData[2], using default values');
+//     } else {
+//       console.log('📝 step2.vue: No data found in grantsStore.formData[2], using default values');
 
-      // 檢查是否有舊版本資料需要轉換
-      convertLegacyDataToMultipleLands()
-    }
+//       // 檢查是否有舊版本資料需要轉換
+//       convertLegacyDataToMultipleLands()
+//     }
 
-    // 確保陣列存在
-    if (!Array.isArray(localFormData.crops)) {
-      localFormData.crops = [];
-    }
+//     // 確保陣列存在
+//     if (!Array.isArray(localFormData.crops)) {
+//       localFormData.crops = [];
+//     }
 
-    if (!Array.isArray(localFormData.owners)) {
-      localFormData.owners = [];
-    }
+//     if (!Array.isArray(localFormData.owners)) {
+//       localFormData.owners = [];
+//     }
 
-    if (!Array.isArray(localFormData.lands)) {
-      localFormData.lands = [];
-    }
+//     if (!Array.isArray(localFormData.lands)) {
+//       localFormData.lands = [];
+//     }
 
-    console.log('✅ step2.vue: Data loaded successfully');
-    console.log('📊 step2.vue: Final localFormData keys:', Object.keys(localFormData));
-    console.log('🏞️ step2.vue: Loaded lands count:', landManagement.lands.length);
+//     console.log('✅ step2.vue: Data loaded successfully');
+//     console.log('📊 step2.vue: Final localFormData keys:', Object.keys(localFormData));
+//     console.log('🏞️ step2.vue: Loaded lands count:', landManagement.lands.length);
 
-  } catch (error) {
-    console.error('❌ step2.vue: Failed to load step data:', error);
+//   } catch (error) {
+//     console.error('❌ step2.vue: Failed to load step data:', error);
 
-    // 即使 API 載入失敗，也要確保陣列欄位存在
-    if (!Array.isArray(localFormData.crops)) {
-      localFormData.crops = [];
-    }
+//     // 即使 API 載入失敗，也要確保陣列欄位存在
+//     if (!Array.isArray(localFormData.crops)) {
+//       localFormData.crops = [];
+//     }
 
-    if (!Array.isArray(localFormData.owners)) {
-      localFormData.owners = [];
-    }
-  } finally {
-    initGuard.isDataLoading = false;
+//     if (!Array.isArray(localFormData.owners)) {
+//       localFormData.owners = [];
+//     }
+//   } finally {
+//     initGuard.isDataLoading = false;
 
-    // 延遲設定初始化完成，確保所有副作用完成後才允許事件發送
-    nextTick(() => {
-      // 增加額外延遲，確保所有計算屬性和 watch 都已穩定
-      setTimeout(() => {
-        initGuard.isInitialized = true;
-        initGuard.isInitializing = false;
+//     // 延遲設定初始化完成，確保所有副作用完成後才允許事件發送
+//     nextTick(() => {
+//       // 增加額外延遲，確保所有計算屬性和 watch 都已穩定
+//       setTimeout(() => {
+//         initGuard.isInitialized = true;
+//         initGuard.isInitializing = false;
 
-        // 初始驗證（現在有保護機制）
-        validateForm();
+//         // 初始驗證（現在有保護機制）
+//         validateForm();
 
-        // 如果有已儲存的地段資料，載入對應的 NLSC 地段資料
-        if (localFormData.landCounty && localFormData.landTown && localFormData.landSec) {
-          console.log('🎯 檢測到已儲存的地段資料，載入 NLSC 地段選項');
-          loadLandSections(true).then(() => { // 保留現有的地段選擇
-            console.log('✅ 地段資料載入完成，地段選單應正確顯示名稱');
-          }).catch(error => {
-            console.warn('⚠️ 地段資料載入失敗:', error);
-          });
-        }
+//         // 如果有已儲存的地段資料，載入對應的 NLSC 地段資料
+//         if (localFormData.landCounty && localFormData.landTown && localFormData.landSec) {
+//           console.log('🎯 檢測到已儲存的地段資料，載入 NLSC 地段選項');
+//           loadLandSections(true).then(() => { // 保留現有的地段選擇
+//             console.log('✅ 地段資料載入完成，地段選單應正確顯示名稱');
+//           }).catch(error => {
+//             console.warn('⚠️ 地段資料載入失敗:', error);
+//           });
+//         }
 
-        console.log('🎉 step2.vue: Initialization completed, events now enabled');
-      }, 100); // 100ms 延遲確保所有副作用完成
-    });
-  }
-};
+//         console.log('🎉 step2.vue: Initialization completed, events now enabled');
+//       }, 100); // 100ms 延遲確保所有副作用完成
+//     });
+//   }
+// };
 
-// 事件驅動架構:組件掛載時自主載入資料
-onMounted(async () => {
-  console.log('🔧 step2.vue: Component mounted, starting initialization');
-
-  // 初始化 domicile store
-  await domicileStore.loadCounties();
-
-  // 自主載入步驟資料
-  await loadStepData();
-});
+// 🗑️ Linus式清理：已刪除舊的 onMounted，避免與 line 3801 的新邏輯重複
+// 舊邏輯調用 loadStepData()，新邏輯使用 initializeStep2WithCascadeData()
+// 只保留新邏輯，避免重複初始化
 
 // 事件驅動架構:監聽本地表單資料變更 - 使用統一的保護機制
 watch(localFormData, stepManager.createProtectedWatch(() => {

@@ -388,3 +388,24 @@ class GrantLandInSchema(BaseSchema):
     
     # 土地所有權人資訊
     owners: List[LandOwnerDataSchema] = Field(..., description="土地所有權人列表")
+
+
+# 年度補助額度相關模型
+class ApplicantGrantSummaryItemSchema(BaseSchema):
+    """申請人單筆補助案件摘要"""
+    case_number: str = Field(..., description="案件編號")
+    status: str = Field(..., description="案件狀態")
+    subsidy_amount: float = Field(..., description="補助金額")
+    created_at: datetime = Field(..., description="建立時間")
+
+
+class ApplicantSubsidySummarySchema(BaseSchema):
+    """申請人年度補助額度摘要"""
+    applicant_id: str = Field(..., description="申請人身分證字號")
+    applicant_name: str = Field(..., description="申請人姓名")
+    year: int = Field(..., description="申請年度")
+    total_subsidy_amount: float = Field(..., description="已用補助額度")
+    remaining_amount: float = Field(..., description="剩餘可用額度")
+    subsidy_limit: float = Field(default=500000, description="年度補助上限")
+    grant_count: int = Field(..., description="案件數量")
+    grants: List[ApplicantGrantSummaryItemSchema] = Field(..., description="案件列表")
