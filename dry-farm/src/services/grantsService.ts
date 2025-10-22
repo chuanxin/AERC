@@ -79,6 +79,34 @@ export interface ServiceStatus {
   fallbackMode: boolean;
 }
 
+// =============================================================================
+// 年度補助額度限制相關介面
+// =============================================================================
+
+/**
+ * 申請人單筆補助案件摘要
+ */
+export interface ApplicantGrantSummaryItem {
+  case_number: string;
+  status: string;
+  subsidy_amount: number;
+  created_at: string;
+}
+
+/**
+ * 申請人年度補助額度摘要
+ */
+export interface ApplicantSubsidySummary {
+  applicant_id: string;
+  applicant_name: string;
+  year: number;
+  total_subsidy_amount: number;  // 已用補助額度
+  remaining_amount: number;       // 剩餘可用額度
+  subsidy_limit: number;          // 年度補助上限 (500,000)
+  grant_count: number;            // 案件數量
+  grants: ApplicantGrantSummaryItem[];
+}
+
 export const createGrant = async (data: GrantCreateRequest): Promise<GrantCreateResponse> => {
   try {
     console.log('發送建立專案請求，資料:', data)
@@ -266,6 +294,36 @@ export const deleteGrant = async (grantId: number): Promise<void> => {
   } catch (error) {
     console.error(`📡 [deleteGrant] Failed to delete grant ${grantId}:`, error)
     throw handleApiError(error, 'grantsService.deleteGrant')
+  }
+}
+
+/**
+ * 查詢申請人年度補助額度摘要
+ * @param applicantId 申請人身分證字號
+ * @param year 申請年度（民國年）
+ * @param currentGrantId 當前案件ID（用於排除自己，避免重複計算）
+ */
+export const getApplicantSubsidySummary = async (
+  applicantId: string,
+  year: number,
+  currentGrantId?: number
+): Promise<ApplicantSubsidySummary> => {
+  try {
+    let url = GRANTS.APPLICANT_SUBSIDY_SUMMARY(applicantId, year)
+
+    // 如果有提供 currentGrantId，加入 query parameter
+    if (currentGrantId !== undefined) {
+      url += `?current_grant_id=${currentGrantId}`
+    }
+
+    console.log(`📡 [getApplicantSubsidySummary] API call to: ${url}`)
+    const response = await apiService.get<ApplicantSubsidySummary>(url)
+    console.log(`📡 [getApplicantSubsidySummary] Received subsidy summary:`, response)
+
+    return response
+  } catch (error) {
+    console.error('📡 [getApplicantSubsidySummary] API error:', error)
+    throw handleApiError(error, 'grantsService.getApplicantSubsidySummary')
   }
 }
 

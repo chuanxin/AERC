@@ -8,11 +8,13 @@ import {
   updateCurrentStep as updateCurrentStepAPI,
   hybridGrantService,
   grantCacheService,
+  getApplicantSubsidySummary,
   type GrantCreateResponse,
   type GrantStepDataUpdateRequest,
   type GrantListItem,
   type GrantListParams,
   type ServiceStatus,
+  type ApplicantSubsidySummary,
 } from '@/services/grantsService'
 import { ApplicationError } from '@/utils/asyncHelpers'
 import { GrantStorage } from '@/utils/grant-storage'
@@ -59,6 +61,11 @@ export const useGrantsStore = defineStore('grants', () => {
   const error = ref<string | null>(null)
   const lastSavedAt = ref<Date | null>(null)
 
+  // 年度補助額度相關狀態
+  const subsidySummary = ref<ApplicantSubsidySummary | null>(null)
+  const subsidySummaryLoading = ref<boolean>(false)
+  const subsidySummaryError = ref<string | null>(null)
+
   // Form data for all steps
   const formData = reactive<Record<number, Record<string, unknown>>>({
     1: {}, // Step 1 form data (API)
@@ -75,11 +82,21 @@ export const useGrantsStore = defineStore('grants', () => {
   // Request cache to prevent duplicate API calls
   const requestCache = reactive<Record<string, { data: GrantCreateResponse; timestamp: number }>>({})
 
+  // 🔥 防重複請求：追蹤正在載入的步驟資料
+  const stepLoadingStates = reactive<Record<string, boolean>>({})
+
   // Getters
   const isGrantLoaded = computed(() => !!currentGrant.value)
   const caseNumber = computed(() => currentGrant.value?.case_number || '')
   const status = computed(() => currentGrant.value?.status || '')
   const lastSavedTime = computed(() => lastSavedAt.value?.toLocaleTimeString() || '')
+
+  // 補助額度相關 getters
+  const hasSubsidySummary = computed(() => !!subsidySummary.value)
+  const remainingSubsidyAmount = computed(() => subsidySummary.value?.remaining_amount || 0)
+  const totalSubsidyAmount = computed(() => subsidySummary.value?.total_subsidy_amount || 0)
+  const subsidyLimit = computed(() => subsidySummary.value?.subsidy_limit || 500000)
+  const isSubsidyLimitExceeded = computed(() => remainingSubsidyAmount.value < 0)
 
   // Form status
   const hasUnsavedChanges = ref(false)
@@ -263,20 +280,31 @@ export const useGrantsStore = defineStore('grants', () => {
   }
 
   /**
-   * Load data for a specific step
+   * Load data for a specific step (帶共享載入狀態防重複)
    * @param {string} caseNumber - The grant case number
    * @param {number} step - The step number
    * @returns {Promise<any>} The step data
    */
   const loadStepData = async (caseNumber: string, step: number) => {
+    // 🔥 共享載入狀態：檢查是否正在載入相同的步驟資料
+    const loadKey = `${caseNumber}-${step}`
+
+    if (stepLoadingStates[loadKey]) {
+      console.log(`⏳ [loadStepData] Already loading ${caseNumber} step ${step}, skipping duplicate request`)
+      return null
+    }
+
     // Don't do anything if a load is already in progress
     if (isLoading.value) return null
 
+    // 標記為正在載入
+    stepLoadingStates[loadKey] = true
     isLoading.value = true
     error.value = null
     currentStep.value = step
 
     try {
+      console.log(`📡 [loadStepData] Loading ${caseNumber} step ${step}...`)
       let data: Record<string, unknown> | null = null
 
       // 🆕 Step 1 從 API 讀取，Steps 2-8 優先從 API (grant_versions) 讀取，失敗時回退到 localStorage
@@ -329,7 +357,11 @@ export const useGrantsStore = defineStore('grants', () => {
 
       throw err
     } finally {
+      // 重置載入狀態
+      const loadKey = `${caseNumber}-${step}`
+      stepLoadingStates[loadKey] = false
       isLoading.value = false
+      console.log(`✅ [loadStepData] Finished loading ${caseNumber} step ${step}`)
     }
   }
 
@@ -461,22 +493,39 @@ export const useGrantsStore = defineStore('grants', () => {
     // console.log('📥 Received data keys:', Object.keys(data));
     // console.log('📥 Current formData[' + step + '] before update:', JSON.stringify(formData[step], null, 2));
 
+    // 🔥 Linus式修復：定義系統欄位，這些欄位不應被組件覆蓋
+    const systemFields = ['id', 'case_number', 'current_step', 'status', '_caseNumber']
+
+    // 保留現有的系統欄位
+    const preservedSystemFields: Record<string, unknown> = {}
+    systemFields.forEach(field => {
+      if (field in formData[step]) {
+        preservedSystemFields[field] = formData[step][field]
+      }
+    })
+
     // 保存當前數據作為 previousFormData 以便追蹤變更
     if (!previousFormData.value[step]) {
       previousFormData.value[step] = { ...formData[step] }
     }
 
-    // Mark that we have unsaved changes
-    hasUnsavedChanges.value = true
-    // console.log('✅ hasUnsavedChanges set to true');
+    // 🔥 Linus式修復：合併時只比較非系統欄位的變更
+    // 先合併資料，再追蹤變更（這樣系統欄位不會被視為「變更」）
+    const mergedData = { ...data, ...preservedSystemFields }
+    const changed = trackFieldChanges(step, mergedData)
 
-    // 追蹤變更的欄位
-    trackFieldChanges(step, data)
+    // 過濾掉系統欄位的變更（這些不應觸發自動保存）
+    const userFieldChanges = changed.filter(field => !systemFields.includes(field))
 
-    // Update the form data
-    // Preserve case number when updating form data
-    const currentCaseNumber = formData[step]?._caseNumber || (currentGrant.value?.case_number as string);
-    formData[step] = { ...formData[step], ...data, _caseNumber: currentCaseNumber }
+    if (userFieldChanges.length > 0) {
+      hasUnsavedChanges.value = true
+      console.log(`✅ [updateFormData] Detected ${userFieldChanges.length} user field changes for step ${step}:`, userFieldChanges.join(', '))
+    } else {
+      console.log(`ℹ️ [updateFormData] No user field changes detected for step ${step}, skipping unsaved flag`)
+    }
+
+    // Update the form data with merged result
+    formData[step] = mergedData
     // console.log('📥 Updated formData[' + step + ']:', JSON.stringify(formData[step], null, 2));
   }
 
@@ -1039,6 +1088,77 @@ export const useGrantsStore = defineStore('grants', () => {
   }
 
   // =============================================================================
+  // 年度補助額度管理
+  // =============================================================================
+
+  /**
+   * 查詢申請人年度補助額度摘要
+   * @param applicantId 申請人身分證字號
+   * @param year 申請年度（民國年）
+   * @param currentGrantId 當前案件ID（用於排除自己）
+   */
+  const fetchSubsidySummary = async (
+    applicantId: string,
+    year: number,
+    currentGrantId?: number
+  ) => {
+    subsidySummaryLoading.value = true
+    subsidySummaryError.value = null
+
+    try {
+      console.log(`💰 [fetchSubsidySummary] Fetching subsidy summary for ${applicantId}, year ${year}`)
+
+      const summary = await getApplicantSubsidySummary(applicantId, year, currentGrantId)
+      subsidySummary.value = summary
+
+      console.log(`💰 [fetchSubsidySummary] Summary loaded:`, {
+        total: summary.total_subsidy_amount,
+        remaining: summary.remaining_amount,
+        limit: summary.subsidy_limit,
+        grantCount: summary.grant_count
+      })
+
+      return summary
+    } catch (err) {
+      const errorMessage = err instanceof ApplicationError
+        ? err.message
+        : '無法載入補助額度資訊'
+
+      subsidySummaryError.value = errorMessage
+      console.error('💰 [fetchSubsidySummary] Error:', err)
+      throw err
+    } finally {
+      subsidySummaryLoading.value = false
+    }
+  }
+
+  /**
+   * 清除補助額度摘要
+   */
+  const clearSubsidySummary = () => {
+    subsidySummary.value = null
+    subsidySummaryError.value = null
+    console.log('💰 [clearSubsidySummary] Subsidy summary cleared')
+  }
+
+  /**
+   * 檢查補助金額是否超過剩餘額度
+   * @param amount 要檢查的補助金額
+   * @returns 是否超過剩餘額度
+   */
+  const checkSubsidyAmountExceedsLimit = (amount: number): boolean => {
+    if (!subsidySummary.value) {
+      console.warn('💰 [checkSubsidyAmountExceedsLimit] No subsidy summary available')
+      return false
+    }
+
+    const exceeded = amount > subsidySummary.value.remaining_amount
+    console.log(`💰 [checkSubsidyAmountExceedsLimit] Amount ${amount}, Remaining ${subsidySummary.value.remaining_amount}, Exceeded: ${exceeded}`)
+
+    return exceeded
+  }
+
+  // =============================================================================
   // 網路狀態監控
   // =============================================================================
 
@@ -1083,6 +1203,11 @@ export const useGrantsStore = defineStore('grants', () => {
     selectedGrants,
     pagination,
 
+    // State - 補助額度
+    subsidySummary,
+    subsidySummaryLoading,
+    subsidySummaryError,
+
     // Getters - 原有的
     isGrantLoaded,
     caseNumber,
@@ -1092,6 +1217,13 @@ export const useGrantsStore = defineStore('grants', () => {
     // Getters - 新增的
     filteredGrantsList,
     isUsingApi,
+
+    // Getters - 補助額度
+    hasSubsidySummary,
+    remainingSubsidyAmount,
+    totalSubsidyAmount,
+    subsidyLimit,
+    isSubsidyLimitExceeded,
 
     // Actions - 原有的
     loadGrant,
@@ -1117,6 +1249,11 @@ export const useGrantsStore = defineStore('grants', () => {
     refreshGrantsList,
     tryReconnectApi,
     clearSelectedGrants,
+
+    // Actions - 補助額度
+    fetchSubsidySummary,
+    clearSubsidySummary,
+    checkSubsidyAmountExceedsLimit,
 
     // Tracking functions - 原有的
     trackFormValidation,

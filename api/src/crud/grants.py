@@ -1900,3 +1900,132 @@ def compare_facility_list(before_list: List[Dict], after_list: List[Dict], facil
             })
 
     return sorted(results, key=lambda x: x["name"])
+
+
+# ============================================================================
+# 年度補助額度限制功能
+# ============================================================================
+
+async def calculate_applicant_yearly_subsidy(
+    applicant_id: str,
+    year: int,
+    current_grant_id: Optional[int] = None
+) -> Dict[str, Any]:
+    """
+    計算申請人在指定年度的補助總額
+
+    Args:
+        applicant_id: 申請人身分證字號
+        year: 申請年度 (民國年)
+        current_grant_id: 目前正在編輯的案件ID (用於排除自己)
+
+    Returns:
+        Dict包含：
+        - applicant_id: 申請人身分證字號
+        - applicant_name: 申請人姓名
+        - year: 申請年度
+        - total_subsidy_amount: 已用補助額度
+        - remaining_amount: 剩餘可用額度
+        - subsidy_limit: 年度補助上限 (500000)
+        - grant_count: 案件數量
+        - grants: 案件列表
+    """
+    try:
+        # 年度補助上限：50萬元
+        SUBSIDY_LIMIT = 500000
+
+        # 需要計入額度的申請狀態
+        COUNTED_STATUSES = [
+            GrantStatus.SUBMITTED,
+            GrantStatus.UNDER_REVIEW,
+            GrantStatus.APPROVED,
+            GrantStatus.COMPLETED
+        ]
+
+        logger.info(f"開始計算申請人 {applicant_id} 在 {year} 年度的補助總額")
+
+        # 查詢符合條件的案件
+        query = Grants.filter(
+            applicant_id=applicant_id,
+            year=year,
+            status__in=COUNTED_STATUSES
+        ).prefetch_related('active_version')
+
+        # 排除當前正在編輯的案件 (避免重複計算)
+        if current_grant_id:
+            query = query.exclude(id=current_grant_id)
+
+        grants = await query.order_by('-created_at')
+
+        # 計算每個案件的補助金額
+        grant_subsidies = []
+        total_subsidy = 0.0
+        applicant_name = ""
+
+        for grant in grants:
+            # 從 active_version 的 all_steps_data 取得補助金額
+            subsidy_amount = 0.0
+
+            if grant.active_version and grant.active_version.all_steps_data:
+                steps_data = grant.active_version.all_steps_data.get("steps", {})
+
+                # Step4: 灌溉調控設施補助 (UI 顯示為 step3，但資料儲存在 step4)
+                step4_data = steps_data.get("4", {})
+                step4_subsidy = float(step4_data.get("subsidyAmount", 0) or 0)
+
+                # Step5: 田間管路補助 (UI 顯示為 step4，但資料儲存在 step5)
+                step5_data = steps_data.get("5", {})
+                step5_subsidy = float(step5_data.get("subsidyAmount", 0) or 0)
+
+                subsidy_amount = step4_subsidy + step5_subsidy
+
+                logger.info(
+                    f"案件 {grant.case_number}: "
+                    f"step4(調控設施)={step4_subsidy}, "
+                    f"step5(田間管路)={step5_subsidy}, "
+                    f"總計={subsidy_amount}"
+                )
+
+            # 記錄申請人姓名 (取第一筆即可)
+            if not applicant_name:
+                applicant_name = grant.applicant_name
+
+            # 加入案件列表
+            grant_subsidies.append({
+                "case_number": grant.case_number,
+                "status": grant.status,
+                "subsidy_amount": subsidy_amount,
+                "created_at": grant.created_at
+            })
+
+            total_subsidy += subsidy_amount
+
+        # 計算剩餘額度
+        remaining_amount = max(0, SUBSIDY_LIMIT - total_subsidy)
+
+        result = {
+            "applicant_id": applicant_id,
+            "applicant_name": applicant_name,
+            "year": year,
+            "total_subsidy_amount": total_subsidy,
+            "remaining_amount": remaining_amount,
+            "subsidy_limit": SUBSIDY_LIMIT,
+            "grant_count": len(grant_subsidies),
+            "grants": grant_subsidies
+        }
+
+        logger.info(
+            f"✅ 申請人 {applicant_id} ({applicant_name}) 在 {year} 年度: "
+            f"已用額度 {total_subsidy:,.0f} 元, "
+            f"剩餘額度 {remaining_amount:,.0f} 元, "
+            f"共 {len(grant_subsidies)} 筆案件"
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"計算申請人 {applicant_id} 年度補助總額失敗: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"計算年度補助總額失敗: {str(e)}"
+        )
