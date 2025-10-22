@@ -779,6 +779,7 @@
                                 variant="outlined"
                                 rounded="lg"
                                 class="px-2"
+                                :disabled="!localFormData.landNumberMain"
                                 @click="showLandInfoDialog"
                               >
                                 <v-icon
@@ -4696,7 +4697,7 @@ const findAndSelectFeatureByLandNumber = () => {
 
     landParcelNotFoundAlert.value = true;
     landParcelNotFoundMessage.value = querySection
-      ? `在「${sectionName}」中找不到地號「${fullLandNumber}」，已自動縮放至地段範圍供您查看。`
+      ? `在「${sectionName}」中找不到地號「${fullLandNumber}」，已自動縮放至地段範圍。`
       : `找不到地號「${fullLandNumber}」，請確認地號是否正確。`;
   }
 
