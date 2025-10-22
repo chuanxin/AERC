@@ -131,6 +131,26 @@
               </v-card-text>
             </v-card>
           </div>
+
+          <!-- 🆕 查無地號提示 -->
+          <v-alert
+            v-if="landParcelNotFoundAlert"
+            type="warning"
+            variant="tonal"
+            class="mb-4"
+            closable
+            @click:close="landParcelNotFoundAlert = false"
+          >
+            <div class="d-flex align-center">
+              <div>
+                <div class="font-weight-medium">查無此地號</div>
+                <div class="text-body-2">
+                  {{ landParcelNotFoundMessage }}
+                </div>
+              </div>
+            </div>
+          </v-alert>
+
           <v-table
             density="comfortable"
             class="border rounded mb-4"
@@ -2551,6 +2571,10 @@ const selectedFeatureInfo = ref<SelectedFeatureInfo>({});
 // 🆕 無地段圖資提示 overlay 狀態
 const noSectionDataOverlay = ref(false);
 
+// 🆕 查無地號提示 alert 狀態
+const landParcelNotFoundAlert = ref(false);
+const landParcelNotFoundMessage = ref('');
+
 // Variables to track interactions with proper types
 let select: Select | null = null;
 let modify: Modify | null = null;
@@ -4123,8 +4147,8 @@ const addSelectInteraction = () => {
     })
   });
 
-  // Add the modify interaction to the map
-  map.addInteraction(modify);
+  // #已停用編輯功能# Add the modify interaction to the map
+  // map.addInteraction(modify);
 
   // Listen for selection changes
   selectedFeatureKey = select.on('select', handleFeatureSelect);
@@ -4568,6 +4592,10 @@ const loadGeoJSONFile = () => {
 const findAndSelectFeatureByLandNumber = () => {
   if (!map) return;
 
+  // 🆕 清除之前的查無地號 alert
+  landParcelNotFoundAlert.value = false;
+  landParcelNotFoundMessage.value = '';
+
   // Get the main and sub numbers
   const mainNumber = localFormData.landNumberMain;
   const subNumber = localFormData.landNumberSub;
@@ -4657,6 +4685,20 @@ const findAndSelectFeatureByLandNumber = () => {
 
   // 🆕 找不到匹配的地號時，嘗試縮放到整個 Section 的範圍
   console.log(`❌ No feature found with land number: ${fullLandNumber}${querySection ? ` in Section: ${querySection}` : ''}`);
+
+  // 🆕 設置查無地號 alert（僅在未顯示「查無地段圖資」overlay 時）
+  if (!noSectionDataOverlay.value) {
+    const selectedSection = sections.value.find(s =>
+      s.code === localFormData.landSec?.toString() ||
+      s.value === localFormData.landSec?.toString()
+    );
+    const sectionName = selectedSection?.name || selectedSection?.displayName || '所選地段';
+
+    landParcelNotFoundAlert.value = true;
+    landParcelNotFoundMessage.value = querySection
+      ? `在「${sectionName}」中找不到地號「${fullLandNumber}」，已自動縮放至地段範圍供您查看。`
+      : `找不到地號「${fullLandNumber}」，請確認地號是否正確。`;
+  }
 
   if (querySection && map) {
     // 收集所有符合 Section 的 features，計算其 bbox
