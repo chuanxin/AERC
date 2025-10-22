@@ -36,17 +36,59 @@
         </v-card-title>
 
         <v-card-text class="pa-4">
-          <div class="mb-4">
+          <div
+            class="mb-4"
+            style="position: relative;"
+          >
             <div
               id="step2-land-info-map"
               ref="mapElement"
-              style="height: 300px;"
               class="rounded border"
+              style="height: 300px;"
             />
+            <!-- 🆕 無地段圖資提示 overlay（移到地圖外部避免 DOM 衝突） -->
+            <v-overlay
+              v-model="noSectionDataOverlay"
+              contained
+              scrim="rgba(0, 0, 0, 0.5)"
+              persistent
+              class="align-center justify-center"
+            >
+              <v-card
+                max-width="400"
+                class="pa-4"
+                rounded="lg"
+                elevation="8"
+              >
+                <v-card-text class="text-center">
+                  <v-icon
+                    size="64"
+                    color="warning"
+                    class="mb-4"
+                  >
+                    mdi-map-marker-off
+                  </v-icon>
+                  <div class="text-h6 mb-2">
+                    查無此地段圖資
+                  </div>
+                  <div class="text-body-2 text-grey-darken-1 mb-4">
+                    目前系統中沒有此地段的地號圖資資料
+                  </div>
+                  <v-btn
+                    color="#3ea0a3"
+                    variant="flat"
+                    rounded="lg"
+                    @click="closeNoSectionOverlay"
+                  >
+                    確定
+                  </v-btn>
+                </v-card-text>
+              </v-card>
+            </v-overlay>
             <!-- Feature info popup -->
             <v-card
               v-if="featureInfoVisible"
-              class="feature-info-card pa-2"
+              class="feature-info-card pa-0"
               elevation="4"
             >
               <v-card-title class="text-body-1 py-1 px-2">
@@ -58,7 +100,7 @@
                   <strong>地號:</strong> {{ selectedFeatureInfo.Land_no }}
                 </div>
                 <div v-if="selectedFeatureInfo.section">
-                  <strong>地段:</strong> {{ selectedFeatureInfo.section }}
+                  <strong>地段:</strong> {{ selectedFeatureInfo.Sec_cns }}
                 </div>
                 <div v-if="selectedFeatureInfo.area">
                   <strong>面積:</strong> {{ selectedFeatureInfo.area }} 平方公尺
@@ -108,7 +150,7 @@
                 >
                   縣市
                 </td>
-                <td>{{ landInfo.county }}</td>
+                <td>{{ displayCountyName }}</td>
                 <td class="bg-grey-lighten-4 font-weight-medium">
                   水利小組
                 </td>
@@ -503,7 +545,7 @@
               <v-row>
                 <v-col
                   cols="12"
-                  md="4"
+                  md="3"
                 >
                   <v-select
                     v-model="localFormData.landCounty"
@@ -522,7 +564,7 @@
                 </v-col>
                 <v-col
                   cols="12"
-                  md="4"
+                  md="3"
                 >
                   <v-select
                     v-model="localFormData.landTown"
@@ -542,7 +584,7 @@
                 </v-col>
                 <v-col
                   cols="12"
-                  md="4"
+                  md="6"
                 >
                   <v-autocomplete
                     :key="sectionSelectKey"
@@ -1111,7 +1153,7 @@
                   md="6"
                 >
                   <div class="d-flex align-center">
-                    <span class="text-body-1 font-weight-medium me-2">農地地籍面積</span>
+                    <span class="text-body-2 font-weight-medium me-2">農地地籍面積</span>
                     <v-text-field
                       v-model="localFormData.landArea"
                       variant="outlined"
@@ -1119,7 +1161,7 @@
                       color="#3ea0a3"
                       bg-color="white"
                       class="me-2"
-                      style="width: 120px"
+                      style="width: 60px"
                       :rules="[v => !!v || '請輸入土地面積']"
                       @update:model-value="updateFormData"
                     />
@@ -1132,7 +1174,7 @@
                       density="compact"
                       color="#3ea0a3"
                       bg-color="white"
-                      style="width: 120px"
+                      style="width: 60px"
                       readonly
                     />
                     <div class="ms-2">
@@ -1145,7 +1187,7 @@
                   md="6"
                 >
                   <div class="d-flex align-center">
-                    <span class="text-body-1 font-weight-medium me-2">施作面積</span>
+                    <span class="text-body-2 font-weight-medium me-2">施作面積</span>
                     <v-text-field
                       v-model="localFormData.facilityArea"
                       variant="outlined"
@@ -1153,7 +1195,7 @@
                       color="#3ea0a3"
                       bg-color="white"
                       class="me-2"
-                      style="width: 120px"
+                      style="width: 60px"
                       :rules="[
                         v => !!v || '請輸入施作面積',
                         v => !v || parseFloat(v) <= parseFloat(localFormData.landArea) || '施作面積不能大於農地地籍面積'
@@ -1169,7 +1211,7 @@
                       density="compact"
                       color="#3ea0a3"
                       bg-color="white"
-                      style="width: 120px"
+                      style="width: 60px"
                       readonly
                     />
                     <div class="ms-2">
@@ -1810,6 +1852,7 @@ import { click } from 'ol/events/condition';
 import { unByKey } from 'ol/Observable';
 import type { EventsKey } from 'ol/events';
 import { getArea } from 'ol/sphere';
+import { createEmpty, extend } from 'ol/extent';
 import { debounce } from 'lodash-es';
 import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
@@ -2386,13 +2429,18 @@ const landUtils = {
   }),
 
   // 🔥 修復：防止載入時觸發級聯重置的土地資料載入
-  loadLandToCurrentForm: (land: LandData): void => {
-    console.log('🔧 loadLandToCurrentForm - Starting land data load...')
+  loadLandToCurrentForm: (land: LandData, skipProtection = false): void => {
+    console.log('🔧 loadLandToCurrentForm - Starting land data load...', skipProtection ? '(外層保護)' : '')
 
-    // 暫時標記為載入模式，防止級聯重置
-    initGuard.isInitializing = true
-    // 同時設定地號更新為程式碼模式，防止清空坐標和面積
-    isLandNumberUpdateProgrammatic.value = true
+    // 暫時標記為載入模式，防止級聯重置（除非外層已經開啟保護）
+    const needProtection = !skipProtection && !initGuard.isInitializing
+    if (needProtection) {
+      initGuard.isInitializing = true
+      isLandNumberUpdateProgrammatic.value = true
+      console.log('🔒 loadLandToCurrentForm - 開啟載入保護')
+    } else {
+      console.log('⏭️ loadLandToCurrentForm - 跳過保護（外層已管理）')
+    }
 
     try {
       // 確保資料類型正確轉換
@@ -2443,24 +2491,18 @@ const landUtils = {
       console.log('  landNumberSub:', localFormData.landNumberSub)
 
     } finally {
-      // 使用 nextTick 確保 Vue 響應性更新完成後再開啟級聯重置
-      nextTick(() => {
-        initGuard.isInitializing = false
-        isLandNumberUpdateProgrammatic.value = false
-        console.log('✅ loadLandToCurrentForm - Cascade reset protection disabled')
-      })
+      // 使用 nextTick 確保 Vue 響應性更新完成後再開啟級聯重置（僅當由此函數開啟保護時）
+      if (needProtection) {
+        nextTick(() => {
+          initGuard.isInitializing = false
+          isLandNumberUpdateProgrammatic.value = false
+          console.log('✅ loadLandToCurrentForm - 載入保護已關閉')
+        })
+      }
     }
   },
 
-  // 清空當前表單
-  // clearCurrentForm: (): void => {
-  //   const initialData = createInitialLandData()
-  //   Object.keys(initialData).forEach(key => {
-  //     if (key !== 'id' && key in localFormData) {
-  //       (localFormData as any)[key] = (initialData as any)[key]
-  //     }
-  //   })
-  // },
+
   clearCurrentForm: (): void => {
     const initialData = createInitialLandData()
 
@@ -2492,12 +2534,12 @@ const cascadeManager = stepManager
 // Dialog state
 const landInfoDialog = ref(false);
 const landInfo = reactive({
-  subsidyInfo: '符合補助資格',
-  county: '嘉義縣',
-  section: '瓦厝埔段',
-  number: '996-1',
-  managementOffice: '瑠公管理處',
-  workstation: '嘉義工作站',
+  subsidyInfo: '',
+  county: '',
+  section: '',
+  number: '',
+  managementOffice: '',
+  workstation: '',
   irrigationDistrictInfo: [] as any[], // 儲存完整的事業區階層資訊陣列
   specialLand: false
 });
@@ -2505,6 +2547,9 @@ const landInfo = reactive({
 // Feature info state
 const featureInfoVisible = ref(false);
 const selectedFeatureInfo = ref<SelectedFeatureInfo>({});
+
+// 🆕 無地段圖資提示 overlay 狀態
+const noSectionDataOverlay = ref(false);
 
 // Variables to track interactions with proper types
 let select: Select | null = null;
@@ -2518,6 +2563,27 @@ const counties = computed(() => {
     title: county.title,
     value: county.value
   }));
+});
+
+// 🆕 顯示縣市名稱（處理代碼轉換）
+const displayCountyName = computed(() => {
+  const countyValue = landInfo.county;
+
+  // 如果為空或未定義，返回 '-'
+  if (!countyValue) return '-';
+
+  // 如果是數字或數字字串，嘗試從 counties 中查找對應名稱
+  const numericValue = typeof countyValue === 'number'
+    ? countyValue
+    : (typeof countyValue === 'string' && !isNaN(Number(countyValue)) ? Number(countyValue) : null);
+
+  if (numericValue !== null) {
+    const found = counties.value.find(c => c.value === numericValue);
+    return found ? found.title : '-';
+  }
+
+  // 如果已經是文字名稱，直接返回
+  return countyValue;
 });
 
 // Load towns and villages for a county when it's selected
@@ -2800,14 +2866,6 @@ const dayOptions = computed(() => {
 // Flag to track if land number changes are programmatic (not user input)
 const isLandNumberUpdateProgrammatic = ref(false);
 
-// Debug initialization log (can be removed in production)
-// console.log('🚀 STEP2 LAND NUMBER CLEAR FUNCTIONALITY INITIALIZED');
-
-// Watch the flag for debugging (can be removed in production)
-// watch(isLandNumberUpdateProgrammatic, (newValue, oldValue) => {
-//   console.log('🔧 isLandNumberUpdateProgrammatic changed:', { from: oldValue, to: newValue });
-// }, { immediate: true });
-
 // Watch direct changes to landNumberMain and landNumberSub
 watch(() => localFormData.landNumberMain, (newValue, oldValue) => {
   if (oldValue !== newValue && oldValue !== undefined && !isLandNumberUpdateProgrammatic.value) {
@@ -2840,6 +2898,30 @@ const clearLocationAndAreaInfo = () => {
   localFormData.facilityArea = '';
   localFormData.facilityAreaHa = '';
   localFormData.isIrrigationArea = false;
+};
+
+// 🆕 當設施地段（縣市/鄉鎮/地段）變更時，重置相關資訊
+const resetLandRelatedInfo = () => {
+  // 重置地號資訊
+  localFormData.landNumberMain = '';
+  localFormData.landNumberSub = '';
+
+  // 重置坐標資訊
+  localFormData.longitude = '';
+  localFormData.latitude = '';
+
+  // 重置面積資訊
+  localFormData.landArea = '';
+  localFormData.landAreaHa = '';
+  localFormData.facilityArea = '';
+  localFormData.facilityAreaHa = '';
+  localFormData.isIrrigationArea = false;
+
+  // 重置農地種植作物
+  localFormData.cropCategory = '';
+  localFormData.cropName = '';
+
+  console.log('🔄 已重置地號、坐標、面積、作物資訊');
 };
 
 // Previous values to track manual changes
@@ -2887,12 +2969,6 @@ const formattedLandNumberMain = computed({
     const newValue = val ? val.replace(/^0+/, '') || '0' : '';
     localFormData.landNumberMain = newValue;
 
-    // Debug logging (can be removed in production)
-    // console.log('🔄 LandNumberMain setter:', {
-    //   previousValue, newValue, valueChanged: previousValue !== newValue,
-    //   isProgrammatic: isLandNumberUpdateProgrammatic.value
-    // });
-
     // Clear coordinate and area info if the value actually changed and it's a manual user input
     if (previousValue !== newValue && !isLandNumberUpdateProgrammatic.value) {
       clearLocationAndAreaInfo();
@@ -2916,12 +2992,6 @@ const formattedLandNumberSub = computed({
     // Store numeric value (remove leading zeros)
     const newValue = val ? val.replace(/^0+/, '') || '0' : '';
     localFormData.landNumberSub = newValue;
-
-    // Debug logging (can be removed in production)
-    // console.log('🔄 LandNumberSub setter:', {
-    //   previousValue, newValue, valueChanged: previousValue !== newValue,
-    //   isProgrammatic: isLandNumberUpdateProgrammatic.value
-    // });
 
     // Clear coordinate and area info if the value actually changed and it's a manual user input
     if (previousValue !== newValue && !isLandNumberUpdateProgrammatic.value) {
@@ -3092,11 +3162,6 @@ const getLandNumber = (land: LandData): string => {
   return '未設定'
 }
 
-// Helper function to format land numbers for display elsewhere
-// const formatLandNumber = (value) => {
-//   if (!value) return '0000';
-//   return value.toString().padStart(4, '0');
-// };
 
 // 使用統一的保護函數工廠重構事件處理函數
 const updateLandNumber = stepManager.createProtectedHandler(() => {
@@ -3447,41 +3512,54 @@ const editLand = async (landId: string) => {
     return
   }
 
-  // 🔥 P0 修復：載入該土地的級聯資料
-  console.log('🔗 Loading cascade data for editing land...')
+  // 🆕 開啟載入保護，防止 watch 誤觸發重置
+  initGuard.isInitializing = true
+  isLandNumberUpdateProgrammatic.value = true
+
   try {
-    await preloadCascadeDataForLands([land])
-    console.log('✅ Cascade data loaded for editing')
-  } catch (error) {
-    console.warn('⚠️ Failed to load cascade data for editing:', error)
-  }
-
-  // 載入土地資料到當前表單（修復後的版本包含類型轉換）
-  landUtils.loadLandToCurrentForm(land)
-
-  // 如果該土地有地段資料，載入對應的 NLSC 地段選項
-  if (land.landCounty && land.landTown && land.landSec) {
-    console.log('🎯 載入編輯土地的地段資料:', {
-      county: land.landCounty,
-      town: land.landTown,
-      section: land.landSec
-    });
-
+    // 🔥 P0 修復：載入該土地的級聯資料
+    console.log('🔗 Loading cascade data for editing land...')
     try {
-      // 等待一下確保表單資料已載入
-      await nextTick();
-      await loadLandSections(true); // 保留現有的地段選擇
-      console.log('✅ 編輯模式地段資料載入完成');
+      await preloadCascadeDataForLands([land])
+      console.log('✅ Cascade data loaded for editing')
     } catch (error) {
-      console.warn('⚠️ 編輯模式地段資料載入失敗:', error);
+      console.warn('⚠️ Failed to load cascade data for editing:', error)
     }
+
+    // 載入土地資料到當前表單（修復後的版本包含類型轉換）
+    // 注意：傳入 true 跳過內部保護，因為我們在外層統一管理
+    landUtils.loadLandToCurrentForm(land, true)
+
+    // 如果該土地有地段資料，載入對應的 NLSC 地段選項
+    if (land.landCounty && land.landTown && land.landSec) {
+      console.log('🎯 載入編輯土地的地段資料:', {
+        county: land.landCounty,
+        town: land.landTown,
+        section: land.landSec
+      });
+
+      try {
+        // 等待一下確保表單資料已載入
+        await nextTick();
+        await loadLandSections(true); // 保留現有的地段選擇
+        console.log('✅ 編輯模式地段資料載入完成');
+      } catch (error) {
+        console.warn('⚠️ 編輯模式地段資料載入失敗:', error);
+      }
+    }
+
+    // 設置為編輯模式
+    landManagement.currentEditingLandId = landId
+    landManagement.isEditingMode = true
+
+    console.log('✅ step2.vue: Land loaded for editing')
+  } finally {
+    // 🆕 所有載入完成後才關閉保護
+    await nextTick()
+    initGuard.isInitializing = false
+    isLandNumberUpdateProgrammatic.value = false
+    console.log('✅ editLand - 載入保護已關閉')
   }
-
-  // 設置為編輯模式
-  landManagement.currentEditingLandId = landId
-  landManagement.isEditingMode = true
-
-  console.log('✅ step2.vue: Land loaded for editing')
 }
 
 const saveLandEdit = () => {
@@ -3571,22 +3649,22 @@ watch(() => landManagement.isEditingMode, async (isEditing, wasEditing) => {
 }, { immediate: false })
 
 // 向後相容性處理：從舊版單筆土地資料轉換為多筆土地格式
-const convertLegacyDataToMultipleLands = () => {
-  // 檢查是否有舊版資料但沒有新版 lands 陣列
-  if (localFormData.landCounty && (!localFormData.lands || localFormData.lands.length === 0)) {
-    console.log('🔄 step2.vue: Converting legacy single land data to multiple lands format')
+// const convertLegacyDataToMultipleLands = () => {
+//   // 檢查是否有舊版資料但沒有新版 lands 陣列
+//   if (localFormData.landCounty && (!localFormData.lands || localFormData.lands.length === 0)) {
+//     console.log('🔄 step2.vue: Converting legacy single land data to multiple lands format')
 
-    // 創建土地資料
-    const legacyLandData = landUtils.createLandFromCurrentForm()
-    legacyLandData.id = 'legacy_land_1'
+//     // 創建土地資料
+//     const legacyLandData = landUtils.createLandFromCurrentForm()
+//     legacyLandData.id = 'legacy_land_1'
 
-    // 加入到土地陣列
-    landManagement.lands = [legacyLandData]
-    localFormData.lands = [...landManagement.lands]
+//     // 加入到土地陣列
+//     landManagement.lands = [legacyLandData]
+//     localFormData.lands = [...landManagement.lands]
 
-    console.log('✅ step2.vue: Legacy data converted successfully')
-  }
-}
+//     console.log('✅ step2.vue: Legacy data converted successfully')
+//   }
+// }
 
 // 瀏覽器原生防護
 const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
@@ -3926,45 +4004,6 @@ const showLandInfoDialog = () => {
   // ✅ 地圖初始化已由 landInfoDialog watch 處理，無需在此手動初始化
 };
 
-// const useLandInfo = () => {
-//   // Update form with data from the dialog
-//   localFormData.landNumber = landInfo.number;
-
-//   // Parse main and sub number
-//   const parts = landInfo.number.split('-');
-//   localFormData.landNumberMain = parts[0];
-//   localFormData.landNumberSub = parts.length > 1 ? parts[1] : '';
-
-//   // Set county if not set
-//   if (!localFormData.landCounty) {
-//     localFormData.landCounty = landInfo.county;
-//   }
-
-//   // Set land section if applicable
-//   if (landInfo.section) {
-//     // Find the section by name in the available sections
-//     const matchingSection = villages.value.find(section => section.title === landInfo.section);
-//     if (matchingSection) {
-//       localFormData.landSec = matchingSection.value.toString();
-//     }
-//   }
-
-//   // Update aboriginal area status
-//   localFormData.isAboriginalArea = landInfo.specialLand;
-
-//   // Clean up map resources
-//   if (map) {
-//     map.setTarget(null);
-//     map = null;
-//   }
-
-//   // Close the dialog
-//   landInfoDialog.value = false;
-
-//   // Update parent form data
-//   updateFormData();
-// };
-
 // OpenLayers map initialization - 增強版本
 const initMap = async () => {
   // 防止重複初始化
@@ -4037,37 +4076,6 @@ const initMap = async () => {
     mapState.isInitializing = false;
   }
 };
-
-// const addMarker = (lon, lat) => {
-//   if (!map) return;
-
-//   // Create marker feature
-//   const markerFeature = new Feature({
-//     geometry: new Point(fromLonLat([lon, lat])),
-//     name: '所選位置',
-//     type: 'marker'
-//   });
-
-//   markerFeature.setStyle(
-//     new Style({
-//       image: new Icon({
-//         scale: 0.7,
-//         src: '/assets/images/marker.png'
-//       })
-//     })
-//   );
-
-//   const markerSource = new VectorSource({
-//     features: [markerFeature]
-//   });
-
-//   const markerLayer = new VectorLayer({
-//     source: markerSource,
-//     zIndex: 10  // Set a higher zIndex to keep marker on top
-//   });
-
-//   map.addLayer(markerLayer);
-// };
 
 const addSelectInteraction = () => {
   if (!map) return;
@@ -4253,12 +4261,6 @@ const handleFeatureSelect = (e: { selected: Feature<Geometry>[]; deselected: Fea
   }
 };
 
-// Show feature info popup
-// const showFeatureInfo = (feature) => {
-//   const properties = feature.getProperties();
-//   selectedFeatureInfo.value = properties;
-//   featureInfoVisible.value = true;
-// };
 
 // Hide feature info popup
 const hideFeatureInfo = () => {
@@ -4268,6 +4270,12 @@ const hideFeatureInfo = () => {
 // Toggle feature info popup visibility
 const toggleFeatureInfo = () => {
   featureInfoVisible.value = !featureInfoVisible.value;
+};
+
+// 🆕 關閉無地段圖資 overlay，同時關閉查詢地號對話窗
+const closeNoSectionOverlay = () => {
+  noSectionDataOverlay.value = false;
+  landInfoDialog.value = false;
 };
 
 // Perform spatial queries with the selected feature geometry
@@ -4463,8 +4471,45 @@ const loadGeoJSONFile = () => {
     const features = geoJSONSource.getFeatures();
     console.log(`GeoJSON loaded successfully with ${features.length} features`);
 
+    // 🆕 即時查詢當前選中地段的 office 和 code，組合成 Section 過濾條件
+    let filterSection: string | null = null;
+    if (localFormData.landSec) {
+      const currentSectionCode = localFormData.landSec.toString();
+      const selectedSection = sections.value.find(s =>
+        s.code === currentSectionCode ||
+        s.value === currentSectionCode ||
+        s.code === localFormData.landSec ||
+        s.value === localFormData.landSec
+      );
+
+      if (selectedSection && selectedSection.office && selectedSection.code) {
+        filterSection = `${selectedSection.office}${selectedSection.code}`;
+        console.log(`🔍 Filtering GeoJSON by Section: ${filterSection} (office: ${selectedSection.office}, code: ${selectedSection.code})`);
+      }
+    }
+
+    // 🆕 過濾 features：只保留符合當前地段的地號
+    let filteredFeatures = features;
+    if (filterSection) {
+      filteredFeatures = features.filter(feature => {
+        const featureSection = feature.get('Section');
+        return featureSection === filterSection;
+      });
+      console.log(`✅ Filtered to ${filteredFeatures.length} features in Section ${filterSection} (from ${features.length} total)`);
+
+      // 🆕 如果過濾後沒有任何 features，顯示「查無此地段圖資」overlay
+      if (filteredFeatures.length === 0) {
+        console.warn(`⚠️ No features found in Section ${filterSection}`);
+        noSectionDataOverlay.value = true;
+      }
+    }
+
+    // 🆕 清空原始 source 並重新加入過濾後的 features
+    geoJSONSource.clear();
+    geoJSONSource.addFeatures(filteredFeatures);
+
     // Add properties to features if they don't have them
-    features.forEach((feature, index) => {
+    filteredFeatures.forEach((feature, index) => {
       if (!feature.get('id')) {
         feature.set('id', `parcel-${index + 1}`);
       }
@@ -4533,6 +4578,24 @@ const findAndSelectFeatureByLandNumber = () => {
 
   // Format the search pattern based on available data
   const fullLandNumber = subNumber ? `${mainNumber}-${subNumber}` : mainNumber;
+
+  // 🆕 即時查詢當前選中地段的 office 和 code，組合成 Section 查詢字串
+  let querySection: string | null = null;
+  if (localFormData.landSec) {
+    const currentSectionCode = localFormData.landSec.toString();
+    const selectedSection = sections.value.find(s =>
+      s.code === currentSectionCode ||
+      s.value === currentSectionCode ||
+      s.code === localFormData.landSec ||
+      s.value === localFormData.landSec
+    );
+
+    if (selectedSection && selectedSection.office && selectedSection.code) {
+      querySection = `${selectedSection.office}${selectedSection.code}`;
+      console.log(`Searching with Section filter: ${querySection} (office: ${selectedSection.office}, code: ${selectedSection.code})`);
+    }
+  }
+
   console.log(`Searching for land number: ${fullLandNumber}`);
 
   // Look through all vector layers
@@ -4554,6 +4617,17 @@ const findAndSelectFeatureByLandNumber = () => {
       const featureNumber = feature.get('Land_no');
       if (!featureNumber) return;
 
+      // 🆕 取得 feature 的 Section 屬性
+      const featureSection = feature.get('Section');
+
+      // 🆕 如果有 Section 查詢條件，先檢查 Section 是否匹配
+      if (querySection && featureSection) {
+        if (featureSection !== querySection) {
+          // Section 不匹配，跳過此 feature
+          return;
+        }
+      }
+
       // Check for exact match first
       if (featureNumber === fullLandNumber) {
         exactMatch = feature;
@@ -4566,7 +4640,8 @@ const findAndSelectFeatureByLandNumber = () => {
 
     // If we found an exact match, use it
     if (exactMatch) {
-      console.log(`Found exact match feature with land number: ${(exactMatch as Feature<Geometry>).get('Land_no')}`);
+      const matchedSection = (exactMatch as Feature<Geometry>).get('Section');
+      console.log(`✅ Found exact match - Land_no: ${(exactMatch as Feature<Geometry>).get('Land_no')}${matchedSection ? `, Section: ${matchedSection}` : ''}`);
       selectFeature(exactMatch);
       return true;
     }
@@ -4574,12 +4649,49 @@ const findAndSelectFeatureByLandNumber = () => {
 
   // If no exact match was found but we have a main number match, use that
   if (mainNumberMatch) {
-    console.log(`Found main number match: ${(mainNumberMatch as Feature<Geometry>).get('Land_no')}`);
+    const matchedSection = (mainNumberMatch as Feature<Geometry>).get('Section');
+    console.log(`✅ Found main number match - Land_no: ${(mainNumberMatch as Feature<Geometry>).get('Land_no')}${matchedSection ? `, Section: ${matchedSection}` : ''}`);
     selectFeature(mainNumberMatch);
     return true;
   }
 
-  console.log(`No feature found with land number: ${fullLandNumber}`);
+  // 🆕 找不到匹配的地號時，嘗試縮放到整個 Section 的範圍
+  console.log(`❌ No feature found with land number: ${fullLandNumber}${querySection ? ` in Section: ${querySection}` : ''}`);
+
+  if (querySection && map) {
+    // 收集所有符合 Section 的 features，計算其 bbox
+    const sectionExtent = createEmpty();
+    let sectionFeatureCount = 0;
+
+    for (const layer of layers) {
+      const source = layer.getSource();
+      if (!source) continue;
+      const features = source.getFeatures();
+
+      features.forEach((feature: Feature<Geometry>) => {
+        const featureSection = feature.get('Section');
+        if (featureSection === querySection) {
+          const geometry = feature.getGeometry();
+          if (geometry) {
+            extend(sectionExtent, geometry.getExtent());
+            sectionFeatureCount++;
+          }
+        }
+      });
+    }
+
+    // 如果找到該 Section 的 features，縮放到其範圍
+    if (sectionFeatureCount > 0) {
+      console.log(`🔍 Zooming to Section ${querySection} with ${sectionFeatureCount} features`);
+      map.getView().fit(sectionExtent, {
+        duration: 500,
+        padding: [50, 50, 50, 50], // 添加邊距以便更好地顯示
+        maxZoom: 16 // 限制最大縮放級別，避免過度放大
+      });
+      return true; // 雖然沒找到精確地號，但成功顯示了地段範圍
+    }
+  }
+
   return false;
 };
 
@@ -4693,124 +4805,6 @@ const cleanupMap = () => {
   }
 };
 
-// 事件驅動架構:自主載入資料
-// const loadStepData = async () => {
-//   if (initGuard.isDataLoading || initGuard.isInitializing) return;
-
-//   const caseNumber = route.query.id as string;
-//   if (!caseNumber) {
-//     console.warn('❌ step2.vue: No case number in route');
-//     return;
-//   }
-
-//   try {
-//     initGuard.isDataLoading = true;
-//     initGuard.isInitializing = true;
-
-//     console.log('📥 step2.vue: Loading step data for case:', caseNumber);
-
-//     // 調用 grantsStore.loadStepData 從 API 載入資料
-//     console.log('🎯 step2.vue: Calling grantsStore.loadStepData(2) to load from API...');
-//     await grantsStore.loadStepData(caseNumber, 2);
-//     console.log('✅ step2.vue: grantsStore.loadStepData completed');
-
-//     // 從 grantsStore 取得已載入的 step 2 資料
-//     if (grantsStore.formData[2]) {
-//       const savedData = grantsStore.formData[2];
-//       console.log('📦 step2.vue: Found loaded data from grantsStore:', Object.keys(savedData));
-
-//       // 暫時禁用 watch，避免觸發不當的更新
-//       initGuard.isInitializing = true;
-
-//       // 更新本地表單資料，排除 valid 欄位
-//       Object.keys(savedData).forEach(key => {
-//         if (key !== 'valid' && savedData[key] !== undefined && key in localFormData) {
-//           (localFormData as Record<string, unknown>)[key] = savedData[key];
-//         }
-//       });
-
-//       // 載入級聯選擇資料
-//       await cascadeManager.loadCascadeData();
-
-//       // 多筆土地資料處理
-//       if (savedData.lands && Array.isArray(savedData.lands)) {
-//         console.log('🏞️ step2.vue: Loading multiple lands data:', savedData.lands.length, 'lands found')
-//         landManagement.lands = [...savedData.lands]
-//         localFormData.lands = [...savedData.lands]
-//       } else {
-//         console.log('🔄 step2.vue: No multiple lands data found, checking for legacy conversion')
-//         // 檢查向後相容性
-//         convertLegacyDataToMultipleLands()
-//       }
-
-//     } else {
-//       console.log('📝 step2.vue: No data found in grantsStore.formData[2], using default values');
-
-//       // 檢查是否有舊版本資料需要轉換
-//       convertLegacyDataToMultipleLands()
-//     }
-
-//     // 確保陣列存在
-//     if (!Array.isArray(localFormData.crops)) {
-//       localFormData.crops = [];
-//     }
-
-//     if (!Array.isArray(localFormData.owners)) {
-//       localFormData.owners = [];
-//     }
-
-//     if (!Array.isArray(localFormData.lands)) {
-//       localFormData.lands = [];
-//     }
-
-//     console.log('✅ step2.vue: Data loaded successfully');
-//     console.log('📊 step2.vue: Final localFormData keys:', Object.keys(localFormData));
-//     console.log('🏞️ step2.vue: Loaded lands count:', landManagement.lands.length);
-
-//   } catch (error) {
-//     console.error('❌ step2.vue: Failed to load step data:', error);
-
-//     // 即使 API 載入失敗，也要確保陣列欄位存在
-//     if (!Array.isArray(localFormData.crops)) {
-//       localFormData.crops = [];
-//     }
-
-//     if (!Array.isArray(localFormData.owners)) {
-//       localFormData.owners = [];
-//     }
-//   } finally {
-//     initGuard.isDataLoading = false;
-
-//     // 延遲設定初始化完成，確保所有副作用完成後才允許事件發送
-//     nextTick(() => {
-//       // 增加額外延遲，確保所有計算屬性和 watch 都已穩定
-//       setTimeout(() => {
-//         initGuard.isInitialized = true;
-//         initGuard.isInitializing = false;
-
-//         // 初始驗證（現在有保護機制）
-//         validateForm();
-
-//         // 如果有已儲存的地段資料，載入對應的 NLSC 地段資料
-//         if (localFormData.landCounty && localFormData.landTown && localFormData.landSec) {
-//           console.log('🎯 檢測到已儲存的地段資料，載入 NLSC 地段選項');
-//           loadLandSections(true).then(() => { // 保留現有的地段選擇
-//             console.log('✅ 地段資料載入完成，地段選單應正確顯示名稱');
-//           }).catch(error => {
-//             console.warn('⚠️ 地段資料載入失敗:', error);
-//           });
-//         }
-
-//         console.log('🎉 step2.vue: Initialization completed, events now enabled');
-//       }, 100); // 100ms 延遲確保所有副作用完成
-//     });
-//   }
-// };
-
-// 🗑️ Linus式清理：已刪除舊的 onMounted，避免與 line 3801 的新邏輯重複
-// 舊邏輯調用 loadStepData()，新邏輯使用 initializeStep2WithCascadeData()
-// 只保留新邏輯，避免重複初始化
-
 // 事件驅動架構:監聽本地表單資料變更 - 使用統一的保護機制
 watch(localFormData, stepManager.createProtectedWatch(() => {
   updateFormData();
@@ -4881,17 +4875,32 @@ const checkAndUpdateIndigenousArea = stepManager.createProtectedHandler((...args
 // Watchers for automatic town/village loading and indigenous area detection - 使用保護 Watch 工廠
 watch(() => localFormData.landCounty as string | number, stepManager.createProtectedWatch(async (...args: unknown[]) => {
   const newCounty = args[0] as string | number;
+  const oldCounty = args[1] as string | number;
+
   if (newCounty) {
     localFormData.landTown = '';
     localFormData.landSec = '';
+
+    // 🆕 只有在真正變更且非載入狀態時才重置（避免編輯模式載入時誤觸發）
+    if (!initGuard.isInitializing && oldCounty && oldCounty !== newCounty) {
+      resetLandRelatedInfo();
+    }
+
     await loadTownsForCounty(newCounty);
   }
 }));
 
 watch(() => localFormData.landTown, stepManager.createProtectedWatch(async (...args: unknown[]) => {
   const newTown = args[0] as string | number;
+  const oldTown = args[1] as string | number;
+
   if (newTown) {
     const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
+
+    // 🆕 只有在真正變更且非載入狀態時才重置（避免編輯模式載入時誤觸發）
+    if (!initGuard.isInitializing && oldTown && oldTown !== newTown) {
+      resetLandRelatedInfo();
+    }
 
     // 檢查是否為特殊城市的代碼，如果是則跳過處理
     const isSpecialCityCode = newTown === 'O01' || newTown === 'I01';
@@ -4900,6 +4909,17 @@ watch(() => localFormData.landTown, stepManager.createProtectedWatch(async (...a
       await loadLandSections();
       checkAndUpdateIndigenousArea(townId);
     }
+  }
+}));
+
+// 🆕 監聽地段變更，重置相關資訊
+watch(() => localFormData.landSec, stepManager.createProtectedWatch((...args: unknown[]) => {
+  const newSec = args[0] as string | number;
+  const oldSec = args[1] as string | number;
+
+  // 只有在真正變更且非載入狀態時才重置（避免編輯模式載入時誤觸發）
+  if (!initGuard.isInitializing && newSec && oldSec && oldSec !== newSec) {
+    resetLandRelatedInfo();
   }
 }));
 
@@ -5034,8 +5054,8 @@ onUnmounted(() => {
 
 .feature-info-card {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 2px;
+  right: 2px;
   width: 200px;
   max-width: 40%;
   background: white;
