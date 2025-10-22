@@ -47,6 +47,7 @@
                   color="#3ea0a3"
                   bg-color="white"
                   required
+                  autocomplete="off"
                   :rules="nameRules"
                 >
                   <template #label>
@@ -68,6 +69,7 @@
                   hint="例：A123456789"
                   persistent-hint
                   required
+                  autocomplete="off"
                   :rules="idRules"
                 >
                   <template #label>
@@ -85,6 +87,7 @@
                   color="#3ea0a3"
                   bg-color="white"
                   required
+                  autocomplete="off"
                   :rules="phoneRules"
                 >
                   <template #label>
@@ -201,6 +204,7 @@
                   color="#3ea0a3"
                   bg-color="white"
                   placeholder="例：中正路100號"
+                  autocomplete="off"
                   :rules="[v => !!v || '請輸入詳細地址']"
                 >
                   <template #label>
@@ -212,6 +216,135 @@
           </v-card>
         </v-col>
       </v-row>
+
+      <!-- 💰 年度補助額度簡要提示 -->
+      <v-alert
+        v-if="showSubsidySummary"
+        :type="subsidyAlertType"
+        variant="tonal"
+        density="compact"
+        class="mb-4"
+      >
+        <template #prepend>
+          <v-icon :icon="subsidyIcon" />
+        </template>
+
+        <!-- Loading 狀態 -->
+        <div
+          v-if="grantsStore.subsidySummaryLoading"
+          class="d-flex align-center"
+        >
+          <v-progress-circular
+            indeterminate
+            size="16"
+            width="2"
+            class="me-2"
+          />
+          <span class="text-body-2">查詢補助額度中...</span>
+        </div>
+
+        <!-- 錯誤狀態 -->
+        <div
+          v-else-if="grantsStore.subsidySummaryError"
+          class="text-body-2"
+        >
+          {{ grantsStore.subsidySummaryError }}
+        </div>
+
+        <!-- 簡要額度資訊 -->
+        <div
+          v-else-if="grantsStore.hasSubsidySummary"
+          class="d-flex align-center justify-space-between flex-wrap"
+        >
+          <div class="text-body-2">
+            <strong>年度補助額度</strong>
+            <span class="mx-2">｜</span>
+            已用 <strong>{{ formatCurrency(grantsStore.totalSubsidyAmount) }}</strong>
+            <span class="mx-1">/</span>
+            上限 {{ formatCurrency(grantsStore.subsidyLimit) }}
+            <span class="mx-2">｜</span>
+            剩餘 <strong :class="remainingAmountColorClass">{{ formatCurrency(grantsStore.remainingSubsidyAmount) }}</strong>
+            <span
+              v-if="grantsStore.subsidySummary && grantsStore.subsidySummary.grant_count > 0"
+              class="text-caption text-medium-emphasis ms-2"
+            >
+              (本年度已申請 {{ grantsStore.subsidySummary.grant_count }} 筆)
+            </span>
+          </div>
+
+          <!-- 展開詳情按鈕 -->
+          <v-btn
+            v-if="grantsStore.hasSubsidySummary"
+            :icon="subsidyDetailsExpanded ? 'mdi-chevron-up' : 'mdi-information-outline'"
+            variant="text"
+            size="x-small"
+            density="compact"
+            @click="subsidyDetailsExpanded = !subsidyDetailsExpanded"
+          >
+            <v-tooltip
+              activator="parent"
+              location="top"
+            >
+              {{ subsidyDetailsExpanded ? '收起詳情' : '查看詳情' }}
+            </v-tooltip>
+          </v-btn>
+        </div>
+
+        <!-- 展開的詳細資訊 -->
+        <v-expand-transition>
+          <div
+            v-if="subsidyDetailsExpanded && grantsStore.hasSubsidySummary"
+            class="mt-3 pt-3 border-t"
+          >
+            <!-- 案件列表 -->
+            <div
+              v-if="grantsStore.subsidySummary && grantsStore.subsidySummary.grant_count > 0"
+              class="mb-2"
+            >
+              <div class="text-caption text-medium-emphasis mb-2">
+                本年度已申請案件明細：
+              </div>
+              <v-chip-group column>
+                <v-chip
+                  v-for="grant in grantsStore.subsidySummary.grants"
+                  :key="grant.case_number"
+                  size="small"
+                  variant="outlined"
+                >
+                  {{ grant.case_number }}
+                  <span class="text-caption ms-1">({{ formatCurrency(grant.subsidy_amount) }})</span>
+                </v-chip>
+              </v-chip-group>
+            </div>
+
+            <!-- 詳細警告 -->
+            <div
+              v-if="grantsStore.isSubsidyLimitExceeded"
+              class="text-body-2 text-warning mt-2"
+            >
+              <v-icon
+                size="small"
+                class="me-1"
+              >
+                mdi-alert
+              </v-icon>
+              <strong>注意：</strong>本次申請將超過年度補助上限！請調整申請金額或聯繫承辦人員。
+            </div>
+            <div
+              v-else-if="grantsStore.remainingSubsidyAmount < 100000"
+              class="text-body-2 text-info mt-2"
+            >
+              <v-icon
+                size="small"
+                class="me-1"
+              >
+                mdi-information
+              </v-icon>
+              提醒：剩餘額度不足 10 萬元，請注意申請金額規劃。
+            </div>
+          </div>
+        </v-expand-transition>
+      </v-alert>
 
       <!-- 表單提示說明 -->
       <v-card
@@ -230,6 +363,7 @@
               v-model="localFormData.undertracker"
               variant="outlined"
               density="comfortable"
+              autocomplete="off"
               bg-color="rgba(255, 255, 255, 1)"
             >
               <template #label>
@@ -362,11 +496,13 @@
 <script setup lang="ts">
 import { useUserStore } from '@/stores/users'
 import { useDomicileStore } from '@/stores/domicile'
+import { useGrantsStore } from '@/stores/grants'
 import type { GrantCreateRequest } from '@/types/grantForms'
 import type { VForm } from 'vuetify/components'
 
 const userStore = useUserStore()
 const domicileStore = useDomicileStore()
+const grantsStore = useGrantsStore()
 
 const emit = defineEmits<{
   'create:case': [data: GrantCreateRequest]
@@ -569,6 +705,128 @@ watch(() => localFormData.isDisasterCase, (newVal) => {
     localFormData.disasterCaseDescription = ''
   }
 })
+
+// =============================================================================
+// 年度補助額度限制功能
+// =============================================================================
+
+/**
+ * 補助額度詳情展開狀態
+ */
+const subsidyDetailsExpanded = ref(false)
+
+/**
+ * 取得當前民國年
+ */
+const getCurrentROCYear = (): number => {
+  const westernYear = new Date().getFullYear()
+  return westernYear - 1911
+}
+
+/**
+ * 是否顯示補助額度提示
+ * step0 中只需要有效的身份證字號即可
+ */
+const showSubsidySummary = computed(() => {
+  const hasValidId = localFormData.id && /^[A-Z][12]\d{8}$/.test(localFormData.id)
+  return !!hasValidId
+})
+
+/**
+ * 格式化貨幣顯示
+ */
+const formatCurrency = (amount: number): string => {
+  return `NT$ ${amount.toLocaleString('zh-TW')}`
+}
+
+/**
+ * 剩餘額度顏色樣式
+ */
+const remainingAmountColorClass = computed(() => {
+  const remaining = grantsStore.remainingSubsidyAmount
+
+  if (remaining < 0) {
+    return 'text-error'
+  } else if (remaining < 100000) {
+    return 'text-warning'
+  } else {
+    return 'text-success'
+  }
+})
+
+/**
+ * Alert 類型
+ */
+const subsidyAlertType = computed(() => {
+  if (grantsStore.isSubsidyLimitExceeded) {
+    return 'error'
+  } else if (grantsStore.remainingSubsidyAmount < 100000) {
+    return 'warning'
+  } else {
+    return 'info'
+  }
+})
+
+/**
+ * 補助額度圖示
+ */
+const subsidyIcon = computed(() => {
+  if (grantsStore.isSubsidyLimitExceeded) {
+    return 'mdi-alert-circle'
+  } else if (grantsStore.remainingSubsidyAmount < 100000) {
+    return 'mdi-alert'
+  } else {
+    return 'mdi-cash-check'
+  }
+})
+
+/**
+ * 查詢補助額度摘要
+ * step0 使用當前年度，不需要 currentGrantId
+ */
+const fetchSubsidySummaryIfNeeded = async () => {
+  const applicantId = localFormData.id
+  const year = getCurrentROCYear()
+
+  console.log('💰 [step0.fetchSubsidySummaryIfNeeded] Data:', {
+    applicantId,
+    year
+  })
+
+  if (!applicantId || !/^[A-Z][12]\d{8}$/.test(applicantId)) {
+    console.log('💰 [step0.fetchSubsidySummaryIfNeeded] Invalid applicant ID, skipping')
+    return
+  }
+
+  console.log('💰 [step0.fetchSubsidySummaryIfNeeded] Calling API...')
+
+  try {
+    await grantsStore.fetchSubsidySummary(applicantId, year)
+    console.log('✅ [step0.fetchSubsidySummaryIfNeeded] Success')
+  } catch (error) {
+    console.error('❌ [step0.fetchSubsidySummaryIfNeeded] Error:', error)
+  }
+}
+
+// 監聽身分證字號變化，自動查詢補助額度
+watch(
+  () => localFormData.id,
+  async (newId, oldId) => {
+    console.log('💰 [step0] Watch triggered - ID changed:', {
+      newId,
+      oldId
+    })
+
+    // 當身分證字號符合格式時才查詢
+    if (newId && newId !== oldId && /^[A-Z][12]\d{8}$/.test(newId)) {
+      console.log('💰 [step0] Valid ID format, fetching subsidy summary')
+      await fetchSubsidySummaryIfNeeded()
+    } else if (!newId) {
+      // 清空身分證字號時，清除補助額度資訊
+      grantsStore.clearSubsidySummary()
+    }
+  }
+)
 </script>
 
 <style scoped>

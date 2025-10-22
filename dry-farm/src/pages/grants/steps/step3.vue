@@ -1012,11 +1012,67 @@ const onStorageTypeChange = () => {
   updateFormData();
 };
 
-// 🔥 Linus式修復：不同設施類型使用不同邏輯
+// Linus式修復：不同設施類型使用不同邏輯
 // 動力設備 - 直接使用補助款作為單價，無自備款
 const addPowerEquipment = () => {
   if (canAddPowerEquipment.value) {
     const correctSubsidy = calculateSubsidyAmount('power', localFormData.powerEquipment, regionType.value, 1);
+
+    // 個人年度補助額度查驗
+    if (grantsStore.hasSubsidySummary) {
+      // Step3 加入新設施後的總額
+      const step3TotalAfterAdd = totalSubsidyAmount.value + correctSubsidy;
+
+      // 取得 step4（田間管路）的補助
+      const step4Data = getStepDataSafely(4) || {};
+      const step4Subsidy = parseFloat(step4Data.subsidyAmount) || 0;
+      console.log('📊 [addPowerEquipment] step4 資料:', {
+        'step4Data': step4Data,
+        'subsidyAmount原始值': step4Data.subsidyAmount,
+        'step4Subsidy解析值': step4Subsidy
+      });
+
+      // 本案件總補助 = step3 + step4
+      const thisGrantTotal = step3TotalAfterAdd + step4Subsidy;
+
+      // 總使用額 = 其他案件 + 本案件
+      const estimatedTotal = grantsStore.totalSubsidyAmount + thisGrantTotal;
+      const remaining = grantsStore.subsidyLimit - estimatedTotal;
+
+      console.log('💰 [addPowerEquipment] 補助額度驗算:', {
+        '新增設施補助': correctSubsidy,
+        'step3加入後總額': step3TotalAfterAdd,
+        'step4補助': step4Subsidy,
+        '本案件總補助': thisGrantTotal,
+        '其他案件已用': grantsStore.totalSubsidyAmount,
+        '預估總使用': estimatedTotal,
+        '年度上限': grantsStore.subsidyLimit,
+        '剩餘額度': remaining
+      });
+
+      if (remaining < 0) {
+        alert(
+          `個人年度補助額度不足！\n\n` +
+          `本次新增設施補助：NT$ ${correctSubsidy.toLocaleString()}\n` +
+          `本步驟預估總補助：NT$ ${step3TotalAfterAdd.toLocaleString()}\n` +
+          `本案件總補助（含田間管路）：NT$ ${thisGrantTotal.toLocaleString()}\n` +
+          `其他案件已用額度：NT$ ${grantsStore.totalSubsidyAmount.toLocaleString()}\n` +
+          `預估總使用：NT$ ${estimatedTotal.toLocaleString()}\n` +
+          `個人年度上限：NT$ ${grantsStore.subsidyLimit.toLocaleString()}\n` +
+          `超出金額：NT$ ${Math.abs(remaining).toLocaleString()}\n\n` +
+          `無法加入此設施，請調整申請內容！`
+        );
+        return;
+      } else if (remaining < 100000) {
+        const confirmAdd = confirm(
+          `⚠️ 年度補助額度即將不足！\n\n` +
+          `本次新增設施補助：NT$ ${correctSubsidy.toLocaleString()}\n` +
+          `加入後剩餘額度：NT$ ${remaining.toLocaleString()}\n\n` +
+          `是否確定要加入此設施？`
+        );
+        if (!confirmAdd) return;
+      }
+    }
 
     localFormData.facilities.push({
       type: 'power',
@@ -1070,6 +1126,62 @@ const addStorageFacility = () => {
       return;
     }
 
+    // 💰 年度補助額度查驗
+    if (grantsStore.hasSubsidySummary) {
+      // Step3 加入新設施後的總額
+      const step3TotalAfterAdd = totalSubsidyAmount.value + correctSubsidy;
+
+      // 取得 step4（田間管路）的補助
+      const step4Data = getStepDataSafely(4) || {};
+      const step4Subsidy = parseFloat(step4Data.subsidyAmount) || 0;
+      console.log('📊 [addStorageFacility] step4 資料:', {
+        'step4Data': step4Data,
+        'subsidyAmount原始值': step4Data.subsidyAmount,
+        'step4Subsidy解析值': step4Subsidy
+      });
+
+      // 本案件總補助 = step3 + step4
+      const thisGrantTotal = step3TotalAfterAdd + step4Subsidy;
+
+      // 總使用額 = 其他案件 + 本案件
+      const estimatedTotal = grantsStore.totalSubsidyAmount + thisGrantTotal;
+      const remaining = grantsStore.subsidyLimit - estimatedTotal;
+
+      console.log('💰 [addStorageFacility] 補助額度驗算:', {
+        '新增設施補助': correctSubsidy,
+        'step3加入後總額': step3TotalAfterAdd,
+        'step4補助': step4Subsidy,
+        '本案件總補助': thisGrantTotal,
+        '其他案件已用': grantsStore.totalSubsidyAmount,
+        '預估總使用': estimatedTotal,
+        '年度上限': grantsStore.subsidyLimit,
+        '剩餘額度': remaining
+      });
+
+      if (remaining < 0) {
+        alert(
+          `⚠️ 年度補助額度不足！\n\n` +
+          `本次新增設施補助：NT$ ${correctSubsidy.toLocaleString()}\n` +
+          `本步驟預估總補助：NT$ ${step3TotalAfterAdd.toLocaleString()}\n` +
+          `本案件總補助（含田間管路）：NT$ ${thisGrantTotal.toLocaleString()}\n` +
+          `其他案件已用額度：NT$ ${grantsStore.totalSubsidyAmount.toLocaleString()}\n` +
+          `預估總使用：NT$ ${estimatedTotal.toLocaleString()}\n` +
+          `年度上限：NT$ ${grantsStore.subsidyLimit.toLocaleString()}\n` +
+          `超出金額：NT$ ${Math.abs(remaining).toLocaleString()}\n\n` +
+          `無法加入此設施，請調整申請內容！`
+        );
+        return;
+      } else if (remaining < 100000) {
+        const confirmAdd = confirm(
+          `⚠️ 年度補助額度即將不足！\n\n` +
+          `本次新增設施補助：NT$ ${correctSubsidy.toLocaleString()}\n` +
+          `加入後剩餘額度：NT$ ${remaining.toLocaleString()}\n\n` +
+          `是否確定要加入此設施？`
+        );
+        if (!confirmAdd) return;
+      }
+    }
+
     localFormData.facilities.push({
       type: 'storage',
       typeLabel: '調蓄設施',
@@ -1098,6 +1210,90 @@ const addControlFacility = () => {
     const totalCost = unitPrice * quantity;
 
     console.log(`[調節控制設施] 新增設施 - 單價:${unitPrice}, 數量:${quantity}, 總成本:${totalCost}`);
+
+    // 💰 年度補助額度查驗 - 模擬新增後的補助金額
+    if (grantsStore.hasSubsidySummary) {
+      const area = facilityArea.value > 0 ? facilityArea.value : 0.1;
+      const currentControlFacilities = localFormData.facilities.filter(f => f.type === 'control');
+
+      // 模擬新增設施
+      const simulatedFacilities = [
+        ...currentControlFacilities,
+        {
+          type: 'control',
+          name: localFormData.controlName,
+          quantity: quantity,
+          unitPrice: unitPrice,
+          totalPrice: totalCost,
+          subsidyAmount: 0,
+          selfPaidAmount: totalCost
+        }
+      ];
+
+      // 計算新增後的補助金額分配
+      const allocations = calculateControlFacilitiesAllocation(area, regionType.value, simulatedFacilities);
+      const newControlSubsidy = allocations.reduce((sum, allocation) => sum + allocation.subsidyAmount, 0);
+
+      // 計算其他設施的補助金額（動力設備 + 調蓄設施）
+      const otherFacilitiesSubsidy = localFormData.facilities
+        .filter(f => f.type === 'power' || f.type === 'storage')
+        .reduce((sum, f) => sum + (f.totalPrice || 0), 0);
+
+      // Step3 總補助（調節控制 + 動力 + 調蓄）
+      const step3TotalSubsidy = newControlSubsidy + otherFacilitiesSubsidy;
+
+      // 取得 step4（田間管路）的補助
+      const step4Data = getStepDataSafely(4) || {};
+      const step4Subsidy = parseFloat(step4Data.subsidyAmount) || 0;
+      console.log('📊 [addControlFacility] step4 資料:', {
+        'step4Data': step4Data,
+        'subsidyAmount原始值': step4Data.subsidyAmount,
+        'step4Subsidy解析值': step4Subsidy
+      });
+
+      // 本案件總補助 = step3 + step4
+      const thisGrantTotal = step3TotalSubsidy + step4Subsidy;
+
+      // 總使用額 = 其他案件 + 本案件
+      const estimatedTotal = grantsStore.totalSubsidyAmount + thisGrantTotal;
+      const remaining = grantsStore.subsidyLimit - estimatedTotal;
+
+      console.log('💰 [addControlFacility] 補助額度驗算:', {
+        '調節控制設施補助': newControlSubsidy,
+        '其他設施補助': otherFacilitiesSubsidy,
+        'step3總補助': step3TotalSubsidy,
+        'step4補助': step4Subsidy,
+        '本案件總補助': thisGrantTotal,
+        '其他案件已用': grantsStore.totalSubsidyAmount,
+        '預估總使用': estimatedTotal,
+        '年度上限': grantsStore.subsidyLimit,
+        '剩餘額度': remaining
+      });
+
+      if (remaining < 0) {
+        alert(
+          `⚠️ 年度補助額度不足！\n\n` +
+          `本次新增設施預估補助：NT$ ${newControlSubsidy.toLocaleString()}\n` +
+          `(含重新分配所有調節控制設施)\n` +
+          `本步驟預估總補助：NT$ ${step3TotalSubsidy.toLocaleString()}\n` +
+          `本案件總補助（含田間管路）：NT$ ${thisGrantTotal.toLocaleString()}\n` +
+          `其他案件已用額度：NT$ ${grantsStore.totalSubsidyAmount.toLocaleString()}\n` +
+          `預估總使用：NT$ ${estimatedTotal.toLocaleString()}\n` +
+          `年度上限：NT$ ${grantsStore.subsidyLimit.toLocaleString()}\n` +
+          `超出金額：NT$ ${Math.abs(remaining).toLocaleString()}\n\n` +
+          `無法加入此設施，請調整申請內容！`
+        );
+        return;
+      } else if (remaining < 100000) {
+        const confirmAdd = confirm(
+          `⚠️ 年度補助額度即將不足！\n\n` +
+          `本次新增設施預估補助：NT$ ${newControlSubsidy.toLocaleString()}\n` +
+          `加入後剩餘額度：NT$ ${remaining.toLocaleString()}\n\n` +
+          `是否確定要加入此設施？`
+        );
+        if (!confirmAdd) return;
+      }
+    }
 
     // 先加入設施（補助金額暫時設為0，稍後重新分配）
     localFormData.facilities.push({
@@ -1168,10 +1364,9 @@ const updateFacilityTotal = (index: number) => {
         const maxAllowedQuantity = Math.floor(available / tonnage);
 
         alert(`調蓄設施數量超過容量限制！\n\n` +
+              `面積限制：${area.toFixed(4)} 公頃 → 最大補助容量 ${maxCap} 噸\n` +
               `${tonnage} 噸設施最多可申請 ${maxAllowedQuantity} 個\n` +
-              `面積限制：${area.toFixed(4)} 公頃 → 最大容量 ${maxCap} 噸\n` +
-              `其他設施已用：${otherStorageCapacity} 噸\n` +
-              `剩餘可用：${available} 噸`);
+              `其他設施已用：${otherStorageCapacity} 噸\n`);
 
         // 恢復為最大允許數量
         facility.quantity = maxAllowedQuantity;
@@ -1276,11 +1471,12 @@ onMounted(async () => {
         await grantsStore.loadGrant(caseNumberFromRoute);
       }
 
-      // 總是載入必要的步驟資料，確保 step2 資料正確載入
-      await grantsStore.loadStepData(caseNumberFromRoute, 2);
-      await grantsStore.loadStepData(caseNumberFromRoute, 3); // 載入 step3 本身的資料
+      // 總是載入必要的步驟資料，確保相關資料正確載入
+      await grantsStore.loadStepData(caseNumberFromRoute, 2); // step2: 土地資料（用於計算面積）
+      await grantsStore.loadStepData(caseNumberFromRoute, 3); // step3: 本身的資料
+      await grantsStore.loadStepData(caseNumberFromRoute, 4); // step4: 田間管路（用於補助額度驗算）
 
-      console.log('✅ Step3: 案件資料載入完成');
+      console.log('✅ Step3: 案件資料載入完成 (step2, step3, step4)');
     } catch (error) {
       console.error('❌ Step3: 載入案件資料時發生錯誤:', error);
     }
@@ -1305,6 +1501,27 @@ onMounted(async () => {
 
   // 初始記錄 step2 資料狀態
   logStep2DataStatus();
+
+  // 💰 初始化補助額度查詢
+  if (caseNumberFromRoute && grantsStore.currentGrant) {
+    const applicantId = grantsStore.currentGrant.applicant_id;
+    const year = grantsStore.currentGrant.year;
+    const currentGrantId = grantsStore.currentGrant.id;
+
+    if (applicantId && year) {
+      console.log('💰 [step3] 初始化補助額度查詢:', {
+        applicantId,
+        year,
+        currentGrantId
+      });
+      try {
+        await grantsStore.fetchSubsidySummary(applicantId, year, currentGrantId);
+        console.log('✅ [step3] 補助額度查詢完成');
+      } catch (error) {
+        console.error('❌ [step3] 補助額度查詢失敗:', error);
+      }
+    }
+  }
 
   // Initial update to parent
   updateFormData();

@@ -5,25 +5,62 @@ import type { GrantCreateRequest } from '@/types/grantForms'
 import { fieldMappingMiddleware, FieldMappingValidator, type DataRecord } from '@/types/fieldMappings'
 import { GrantStorage, type GrantData } from '@/utils/grant-storage'
 
-// Enhanced Types
+// 🔥 Linus式修復：與後端 GrantOutSchema (pydantic_model_creator) 完全對應
+// 這是整個專案的**唯一資料來源** (Single Source of Truth)
 export interface GrantCreateResponse {
+  // 系統資訊
   id: number;
   case_number: string;
   year: number;
-  applicant_name: string;
+  sn: number; // 流水號
   status: string;
-  received_date: string;
-  received_time: string;
+  current_step: number;
+
+  // 申請人完整資訊 (Step1 所有欄位)
+  applicant_name: string;
+  applicant_id: string; // 🔥 新增：身分證字號
+  applicant_phone: string; // 🔥 新增：電話
+
+  // 地址完整資訊 (Step1 所有欄位)
+  county: string; // 🔥 新增：縣市
+  town: string; // 🔥 新增：鄉鎮
+  village?: string; // 🔥 新增：村里
+  address: string; // 🔥 新增：詳細地址
+
+  // 承辦資訊
+  office: string; // 🔥 新增：管理處名稱
   office_id?: number;
+  undertracker?: string;
+
+  // 災害案件資訊
   is_disaster_case: boolean;
   disaster_case_description?: string;
-  undertracker?: string;
+
+  // 建檔資訊
+  received_date: string;
+  received_time: string;
+
+  // 時間戳記
+  created_at: string; // 🔥 新增
+  modified_at: string; // 🔥 新增
+
+  // 建立人資訊
+  created_by?: { // 🔥 新增
+    id: number;
+    username: string;
+    full_name: string;
+  };
+
+  // 版本資訊
   active_version?: {
     id: number;
     version: string;
     comment?: string;
     created_at?: string;
   };
+
+  // 歷史資料標記
+  is_legacy?: boolean; // 🔥 新增
 }
 
 export interface GrantStepData {
@@ -216,12 +253,16 @@ export const updateGrantStepData = async (caseNumber: string, step: number, data
   try {
     const endpoint = GRANTS.STEP(caseNumber, step)
 
-    // 使用字段映射中间件转换前端数据为后端格式
-    const transformedData = fieldMappingMiddleware.beforeRequest(step, data as DataRecord, endpoint)
+    // 🔥 Linus式修復：Step1 後端期望前端格式（camelCase），不轉換
+    // Step2-8 需要轉換為後端格式（snake_case）
+    let requestData = data
+    if (step !== 1) {
+      requestData = fieldMappingMiddleware.beforeRequest(step, data as DataRecord, endpoint)
+    }
 
-    const response = await apiService.put(endpoint, transformedData)
+    const response = await apiService.put(endpoint, requestData)
 
-    // 使用字段映射中间件转换后端响应为前端格式
+    // 使用字段映射中间件转換後端響應為前端格式
     const transformedResponse = fieldMappingMiddleware.afterResponse(step, response as DataRecord, endpoint)
 
     return transformedResponse as GrantStepData
@@ -237,8 +278,24 @@ export const updateGrantStepDataWithTracking = async (
   updateRequest: GrantStepDataUpdateRequest
 ): Promise<GrantStepData> => {
   try {
-    const response = await apiService.put(GRANTS.STEP(caseNumber, step), updateRequest as Record<string, unknown>)
-    return response as GrantStepData
+    const endpoint = GRANTS.STEP(caseNumber, step)
+
+    // 🔥 Linus式修復：Step1 後端期望前端格式（camelCase），不轉換
+    // Step2-8 需要轉換為後端格式（snake_case）
+    if (step !== 1) {
+      const transformedData = fieldMappingMiddleware.beforeRequest(step, updateRequest.data as DataRecord, endpoint)
+      updateRequest = {
+        ...updateRequest,
+        data: transformedData
+      }
+    }
+
+    const response = await apiService.put(endpoint, updateRequest as Record<string, unknown>)
+
+    // 使用字段映射中间件转换后端响應為前端格式
+    const transformedResponse = fieldMappingMiddleware.afterResponse(step, response as DataRecord, endpoint)
+
+    return transformedResponse as GrantStepData
   } catch (error: unknown) {
     return handleApiError(error, 'grantsService.updateGrantStepDataWithTracking')
   }

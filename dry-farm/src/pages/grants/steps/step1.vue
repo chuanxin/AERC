@@ -259,143 +259,134 @@
             </v-col>
           </v-row>
 
-          <!-- 💰 年度補助額度提示區塊（軟限制） -->
-          <v-card
+          <!-- 年度補助額度簡要提示 -->
+          <v-alert
             v-if="showSubsidySummary"
-            flat
-            class="mb-4 pa-4"
-            :color="subsidyWarningColor"
-            rounded="lg"
+            :type="subsidyAlertType"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
           >
-            <v-card-title
-              class="text-subtitle-1 font-weight-bold pa-0 pb-4"
-              :style="`color: ${subsidyTitleColor}`"
-            >
-              <v-icon
-                :color="subsidyIconColor"
-                class="me-2 pb-1"
-                size="small"
-              >
-                {{ subsidyIcon }}
-              </v-icon>
-              年度補助額度資訊
-            </v-card-title>
+            <template #prepend>
+              <v-icon :icon="subsidyIcon" />
+            </template>
 
             <!-- Loading 狀態 -->
             <div
               v-if="grantsStore.subsidySummaryLoading"
-              class="text-center py-4"
+              class="d-flex align-center"
             >
               <v-progress-circular
                 indeterminate
-                color="#3ea0a3"
-                size="40"
+                size="16"
+                width="2"
+                class="me-2"
               />
-              <div class="text-caption mt-2 text-grey-darken-1">
-                查詢補助額度中...
-              </div>
+              <span class="text-body-2">查詢補助額度中...</span>
             </div>
 
             <!-- 錯誤狀態 -->
-            <v-alert
+            <div
               v-else-if="grantsStore.subsidySummaryError"
-              type="error"
-              density="compact"
-              variant="tonal"
-              class="mb-0"
+              class="text-body-2"
             >
               {{ grantsStore.subsidySummaryError }}
-            </v-alert>
+            </div>
 
-            <!-- 額度資訊顯示 -->
-            <div v-else-if="grantsStore.hasSubsidySummary">
-              <v-row dense>
-                <v-col
-                  cols="12"
-                  md="4"
+            <!-- 簡要額度資訊 -->
+            <div
+              v-else-if="grantsStore.hasSubsidySummary"
+              class="d-flex align-center justify-space-between flex-wrap"
+            >
+              <div class="text-body-2">
+                <strong>年度補助額度</strong>
+                <span class="mx-2">｜</span>
+                已用 <strong>{{ formatCurrency(grantsStore.totalSubsidyAmount) }}</strong>
+                <span class="mx-1">/</span>
+                上限 {{ formatCurrency(grantsStore.subsidyLimit) }}
+                <span class="mx-2">｜</span>
+                剩餘 <strong :class="remainingAmountColorClass">{{ formatCurrency(grantsStore.remainingSubsidyAmount) }}</strong>
+                <span
+                  v-if="grantsStore.subsidySummary && grantsStore.subsidySummary.grant_count > 0"
+                  class="text-caption text-medium-emphasis ms-2"
                 >
-                  <div class="subsidy-info-card">
-                    <div class="text-caption text-grey-darken-1">
-                      年度上限
-                    </div>
-                    <div class="text-h6 font-weight-bold">
-                      {{ formatCurrency(grantsStore.subsidyLimit) }}
-                    </div>
-                  </div>
-                </v-col>
-                <v-col
-                  cols="12"
-                  md="4"
-                >
-                  <div class="subsidy-info-card">
-                    <div class="text-caption text-grey-darken-1">
-                      已申請金額
-                    </div>
-                    <div class="text-h6 font-weight-bold text-orange-darken-2">
-                      {{ formatCurrency(grantsStore.totalSubsidyAmount) }}
-                    </div>
-                  </div>
-                </v-col>
-                <v-col
-                  cols="12"
-                  md="4"
-                >
-                  <div class="subsidy-info-card">
-                    <div class="text-caption text-grey-darken-1">
-                      剩餘可用額度
-                    </div>
-                    <div
-                      class="text-h6 font-weight-bold"
-                      :class="remainingAmountColorClass"
-                    >
-                      {{ formatCurrency(grantsStore.remainingSubsidyAmount) }}
-                    </div>
-                  </div>
-                </v-col>
-              </v-row>
-
-              <!-- 案件列表 -->
-              <div
-                v-if="grantsStore.subsidySummary && grantsStore.subsidySummary.grant_count > 0"
-                class="mt-4"
-              >
-                <div class="text-caption text-grey-darken-1 mb-2">
-                  本年度已申請 {{ grantsStore.subsidySummary.grant_count }} 筆案件：
-                </div>
-                <v-chip-group column>
-                  <v-chip
-                    v-for="grant in grantsStore.subsidySummary.grants"
-                    :key="grant.case_number"
-                    size="small"
-                    variant="outlined"
-                    color="grey-darken-1"
-                  >
-                    {{ grant.case_number }} ({{ formatCurrency(grant.subsidy_amount) }})
-                  </v-chip>
-                </v-chip-group>
+                  (本年度已申請 {{ grantsStore.subsidySummary.grant_count }} 筆)
+                </span>
               </div>
 
-              <!-- 警告訊息 -->
-              <v-alert
-                v-if="grantsStore.isSubsidyLimitExceeded"
-                type="warning"
+              <!-- 展開詳情按鈕 -->
+              <v-btn
+                v-if="grantsStore.hasSubsidySummary"
+                :icon="subsidyDetailsExpanded ? 'mdi-chevron-up' : 'mdi-information-outline'"
+                variant="text"
+                size="x-small"
                 density="compact"
-                variant="tonal"
-                class="mt-4 mb-0"
+                @click="subsidyDetailsExpanded = !subsidyDetailsExpanded"
               >
-                <strong>注意：</strong>本次申請將超過年度補助上限！請調整申請金額或聯繫承辦人員。
-              </v-alert>
-              <v-alert
-                v-else-if="grantsStore.remainingSubsidyAmount < 100000"
-                type="info"
-                density="compact"
-                variant="tonal"
-                class="mt-4 mb-0"
-              >
-                提醒：剩餘額度不足 10 萬元，請注意申請金額規劃。
-              </v-alert>
+                <v-tooltip
+                  activator="parent"
+                  location="top"
+                >
+                  {{ subsidyDetailsExpanded ? '收起詳情' : '查看詳情' }}
+                </v-tooltip>
+              </v-btn>
             </div>
-          </v-card>
+
+            <!-- 展開的詳細資訊 -->
+            <v-expand-transition>
+              <div
+                v-if="subsidyDetailsExpanded && grantsStore.hasSubsidySummary"
+                class="mt-3 pt-3 border-t"
+              >
+                <!-- 案件列表 -->
+                <div
+                  v-if="grantsStore.subsidySummary && grantsStore.subsidySummary.grant_count > 0"
+                  class="mb-2"
+                >
+                  <div class="text-caption text-medium-emphasis mb-2">
+                    本年度已申請案件明細：
+                  </div>
+                  <v-chip-group column>
+                    <v-chip
+                      v-for="grant in grantsStore.subsidySummary.grants"
+                      :key="grant.case_number"
+                      size="small"
+                      variant="outlined"
+                    >
+                      {{ grant.case_number }}
+                      <span class="text-caption ms-1">({{ formatCurrency(grant.subsidy_amount) }})</span>
+                    </v-chip>
+                  </v-chip-group>
+                </div>
+
+                <!-- 詳細警告 -->
+                <div
+                  v-if="grantsStore.isSubsidyLimitExceeded"
+                  class="text-body-2 text-warning mt-2"
+                >
+                  <v-icon
+                    size="small"
+                    class="me-1"
+                  >
+                    mdi-alert
+                  </v-icon>
+                  <strong>注意：</strong>本次申請將超過年度補助上限！請調整申請金額或聯繫承辦人員。
+                </div>
+                <div
+                  v-else-if="grantsStore.remainingSubsidyAmount < 100000"
+                  class="text-body-2 text-info mt-2"
+                >
+                  <v-icon
+                    size="small"
+                    class="me-1"
+                  >
+                    mdi-information
+                  </v-icon>
+                  提醒：剩餘額度不足 10 萬元，請注意申請金額規劃。
+                </div>
+              </div>
+            </v-expand-transition>
+          </v-alert>
 
           <!-- 承辦資訊區塊 -->
           <v-card
@@ -660,13 +651,6 @@ import { useDomicileStore } from '@/stores/domicile';
 import { useGrantsStore } from '@/stores/grants';
 import type { Step1Data } from '@/types/grantForms'
 
-// const props = defineProps({
-//   currentStep: {
-//     type: Number,
-//     required: true
-//   }
-// });
-
 interface Step1Events {
   'step-data-changed': [eventData: { step: number; data: Record<string, unknown>; valid: boolean }];
   'validation-changed': [eventData: { step: number; valid: boolean }];
@@ -754,12 +738,6 @@ const loadFormData = (stepData: Partial<Step1Data>) => {
   });
 };
 
-// 🆕 更簡潔的載入方法 (方案二：直接使用 createInitialFormData)
-// const loadFormDataDirect = (stepData: Partial<Step1Data>) => {
-//   console.log('📥 step1.vue: Direct loading with createInitialFormData');
-//   Object.assign(localFormData, createInitialFormData(stepData));
-// };
-
 const localFormData = reactive<Step1Data>(createInitialFormData());
 
 // 驗證規則
@@ -804,6 +782,9 @@ const isEditingAddress = ref(false);
 
 // Add a state to control disaster case info editing
 const isEditingDisasterInfo = ref(false);
+
+// 💰 補助額度詳情展開狀態
+const subsidyDetailsExpanded = ref(false);
 
 // Computed property to display the full address
 const getFullAddress = computed(() => {
@@ -955,95 +936,120 @@ const emitReadyToProceed = () => {
   });
 };
 
-// Validate and emit validated event
-// const validate = async () => {
-//   if (!form.value) return { valid: false };
+// =============================================================================
+// 地址初始化 - 統一架構（Linus式扁平化設計）
+// =============================================================================
 
-//   const { valid } = await form.value.validate();
+/**
+ * 確保縣市 ID 存在
+ * - 如果有 countyId，直接使用
+ * - 如果只有 county 字串，從 store 解析 ID
+ */
+const ensureCountyId = async () => {
+  if (!localFormData.county) return false;
 
-//   if (valid) {
-//     updateFormData();
-//   }
-
-//   return { valid };
-// };
-
-// Initialize address dropdowns based on string values from the store
-const initializeAddressDropdowns = async () => {
-  try {
-    // First ensure counties are loaded
-    if (domicileStore.counties.length === 0) {
-      await domicileStore.loadCounties();
-    }      // Ensure countyOptions exists before using find()
-      if (!domicileStore.countyOptions || !Array.isArray(domicileStore.countyOptions)) {
-        console.warn('County options not available yet, using direct county string');
-        // Fallback: Create a temporary county option
-        if (localFormData.county) {
-          selectedCountyId.value = {
-            title: localFormData.county,
-            value: localFormData.countyId || 0
-          };
-          return; // Exit early since we can't proceed with cascading data
-        }
-        return;
-      }
-
-      // Find county by name
-      const county = domicileStore.countyOptions.find(c => c.title === localFormData.county);
-      if (county) {
-        selectedCountyId.value = county;
-        localFormData.countyId = county.value;
-
-        // Load towns for this county
-        await domicileStore.loadTownsByCountyId(county.value);
-
-        // Get towns for this county from the map
-        const countyTowns = domicileStore.townsByCountyId.get(county.value) || [];
-        if (countyTowns.length === 0) {
-          console.warn('Towns not available yet for county:', county.title);
-          return;
-        }
-
-        // Find town by name
-        const town = countyTowns.find(t => t.name === localFormData.town);
-        if (town) {
-          selectedTownId.value = {
-            title: town.name,
-            value: town.id
-          };
-          localFormData.townId = town.id;
-
-          // Load villages for this town
-          await domicileStore.loadVillagesByTownId(town.id);
-
-          // Get villages for this town from the map
-          const townVillages = domicileStore.villagesByTownId.get(town.id) || [];
-          if (townVillages.length === 0) {
-            console.warn('Villages not available yet for town:', town.name);
-            return;
-          }
-
-          // Find village by name
-          const village = townVillages.find(v => v.name === localFormData.village);
-          if (village) {
-            selectedVillageId.value = {
-              title: village.name,
-              value: village.id
-            };
-            localFormData.villageId = village.id;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error initializing address dropdowns:', error);
+  // 如果已有 ID，驗證並設置下拉選項
+  if (localFormData.countyId) {
+    const countyObj = domicileStore.counties.find(c => c.id === localFormData.countyId);
+    if (countyObj) {
+      selectedCountyId.value = { title: countyObj.name, value: countyObj.id };
+      return true;
     }
+  }
+
+  // 只有 name，需要解析 ID
+  const countyObj = domicileStore.counties.find(c => c.name === localFormData.county);
+  if (countyObj) {
+    localFormData.countyId = countyObj.id;
+    selectedCountyId.value = { title: countyObj.name, value: countyObj.id };
+    return true;
+  }
+
+  console.warn('⚠️ step1: Could not resolve county:', localFormData.county);
+  return false;
 };
 
-// 🆕 檢查資料是否已準備好
-// const isDataReady = computed(() => {
-//   const stepData = grantsStore.formData[1];
-//   return stepData && Object.keys(stepData).length > 0;
-// });
+/**
+ * 確保鄉鎮 ID 存在
+ */
+const ensureTownId = async () => {
+  if (!localFormData.town || !localFormData.countyId) return false;
+
+  // 載入鄉鎮資料
+  await domicileStore.loadTownsByCountyId(localFormData.countyId);
+
+  // 如果已有 ID，驗證並設置下拉選項
+  if (localFormData.townId) {
+    const townObj = domicileStore.towns.find(t => t.id === localFormData.townId);
+    if (townObj) {
+      selectedTownId.value = { title: townObj.name, value: townObj.id };
+      return true;
+    }
+  }
+
+  // 只有 name，需要解析 ID
+  const townObj = domicileStore.towns.find(t => t.name === localFormData.town);
+  if (townObj) {
+    localFormData.townId = townObj.id;
+    selectedTownId.value = { title: townObj.name, value: townObj.id };
+    return true;
+  }
+
+  console.warn('⚠️ step1: Could not resolve town:', localFormData.town);
+  return false;
+};
+
+/**
+ * 確保村里 ID 存在
+ */
+const ensureVillageId = async () => {
+  if (!localFormData.village || !localFormData.townId) return false;
+
+  // 載入村里資料
+  await domicileStore.loadVillagesByTownId(localFormData.townId);
+
+  // 如果已有 ID，驗證並設置下拉選項
+  if (localFormData.villageId) {
+    const villageObj = domicileStore.villages.find(v => v.id === localFormData.villageId);
+    if (villageObj) {
+      selectedVillageId.value = { title: villageObj.name, value: villageObj.id };
+      return true;
+    }
+  }
+
+  // 只有 name，需要解析 ID
+  const villageObj = domicileStore.villages.find(v => v.name === localFormData.village);
+  if (villageObj) {
+    localFormData.villageId = villageObj.id;
+    selectedVillageId.value = { title: villageObj.name, value: villageObj.id };
+    return true;
+  }
+
+  console.warn('⚠️ step1: Could not resolve village:', localFormData.village);
+  return false;
+};
+
+/**
+ * 統一的地址初始化入口
+ * 扁平化設計，消除嵌套條件判斷
+ */
+const initializeAddress = async () => {
+  if (!localFormData.county) {
+    console.log('ℹ️ step1: No address data to initialize');
+    return;
+  }
+
+  console.log('🏠 step1: Initializing address data');
+
+  // 順序執行三個步驟，無嵌套
+  const countyOk = await ensureCountyId();
+  if (!countyOk) return;
+
+  const townOk = await ensureTownId();
+  if (!townOk && localFormData.town) return; // 如果有 town 但解析失敗，停止
+
+  await ensureVillageId(); // 最後一步，失敗也沒關係
+};
 
 // 🆕 追蹤當前正在載入的案件編號（防止重複請求）
 const loadingCaseNumber = ref<string | null>(null);
@@ -1140,8 +1146,8 @@ const initializeFormData = async (forceReload = false) => {
       // 初始化地址下拉選單系統
       await domicileStore.initializeStore();
 
-      // 智能地址處理
-      await handleSmartAddressInitialization();
+      // 統一地址初始化處理
+      await initializeAddress();
 
       // 🔥 Linus式修復：在發送初始化資料前，先標記為已初始化
       // 但暫時不觸發 watch，避免地址解析被視為變更
@@ -1176,115 +1182,6 @@ const initializeFormData = async (forceReload = false) => {
     }
   } finally {
     isInitializing.value = false;
-  }
-};
-
-// 🆕 智能地址初始化處理
-const handleSmartAddressInitialization = async () => {
-  console.log('🏠 step1.vue: Handling smart address initialization');
-
-  // 情況1：有 countyId，使用正常流程
-  if (localFormData.countyId && domicileStore.counties.length > 0) {
-    console.log('📍 step1.vue: Using existing countyId:', localFormData.countyId);
-
-    const countyObj = domicileStore.counties.find(c => c.id === localFormData.countyId);
-    if (countyObj) {
-      selectedCountyId.value = {
-        title: countyObj.name,
-        value: countyObj.id
-      };
-
-      await domicileStore.loadTownsByCountyId(countyObj.id);
-
-      if (localFormData.townId) {
-        const townObj = domicileStore.towns.find(t => t.id === localFormData.townId);
-        if (townObj) {
-          selectedTownId.value = {
-            title: townObj.name,
-            value: townObj.id
-          };
-
-          await domicileStore.loadVillagesByTownId(townObj.id);
-
-          if (localFormData.villageId) {
-            const villageObj = domicileStore.villages.find(v => v.id === localFormData.villageId);
-            if (villageObj) {
-              selectedVillageId.value = {
-                title: villageObj.name,
-                value: villageObj.id
-              };
-            }
-          }
-        }
-      }
-    }
-  }
-  // 情況2：沒有 countyId 但有 county 字串，嘗試解析
-  else if (localFormData.county && !localFormData.countyId && domicileStore.counties.length > 0) {
-    console.log('🔍 step1.vue: Attempting to resolve county by name:', localFormData.county);
-
-    const countyObj = domicileStore.counties.find(c => c.name === localFormData.county);
-    if (countyObj) {
-      console.log('✅ step1.vue: Found county match:', countyObj);
-
-      // 更新 localFormData 的 countyId
-      localFormData.countyId = countyObj.id;
-
-      selectedCountyId.value = {
-        title: countyObj.name,
-        value: countyObj.id
-      };
-
-      // 載入鄉鎮資料
-      await domicileStore.loadTownsByCountyId(countyObj.id);
-
-      // 如果有 town 字串但沒有 townId，嘗試解析
-      if (localFormData.town && !localFormData.townId) {
-        console.log('🔍 step1.vue: Attempting to resolve town by name:', localFormData.town);
-
-        const townObj = domicileStore.towns.find(t => t.name === localFormData.town);
-        if (townObj) {
-          console.log('✅ step1.vue: Found town match:', townObj);
-
-          localFormData.townId = townObj.id;
-          selectedTownId.value = {
-            title: townObj.name,
-            value: townObj.id
-          };
-
-          // 載入村里資料
-          await domicileStore.loadVillagesByTownId(townObj.id);
-
-          // 如果有 village 字串但沒有 villageId，嘗試解析
-          if (localFormData.village && !localFormData.villageId) {
-            console.log('🔍 step1.vue: Attempting to resolve village by name:', localFormData.village);
-
-            const villageObj = domicileStore.villages.find(v => v.name === localFormData.village);
-            if (villageObj) {
-              console.log('✅ step1.vue: Found village match:', villageObj);
-
-              localFormData.villageId = villageObj.id;
-              selectedVillageId.value = {
-                title: villageObj.name,
-                value: villageObj.id
-              };
-            } else {
-              console.warn('⚠️ step1.vue: Could not resolve village:', localFormData.village);
-            }
-          }
-        } else {
-          console.warn('⚠️ step1.vue: Could not resolve town:', localFormData.town);
-        }
-      }
-    } else {
-      console.warn('⚠️ step1.vue: Could not resolve county:', localFormData.county);
-      // 如果無法解析，使用原有的 initializeAddressDropdowns 方法
-      await initializeAddressDropdowns();
-    }
-  }
-  // 情況3：完全沒有地址資料，不需要處理
-  else {
-    console.log('ℹ️ step1.vue: No address data to initialize');
   }
 };
 
@@ -1371,23 +1268,25 @@ const handleGoBack = () => {
 
 /**
  * 獲取案件年度（民國年） - Computed
+ * 🔥 Linus式修復：單一資料來源，無回退方案
+ * 只從 grantsStore.currentGrant.year 取得，資料缺失時記錄錯誤
  */
 const caseYear = computed((): number | null => {
-  if (!localFormData.caseNumber) {
+  // 單一資料來源：currentGrant.year
+  const year = grantsStore.currentGrant?.year
+
+  if (!year) {
+    // 資料缺失是系統問題，需要明確記錄
+    console.error('❌ [caseYear] CRITICAL: currentGrant.year is missing!', {
+      hasCurentGrant: !!grantsStore.currentGrant,
+      currentGrantKeys: grantsStore.currentGrant ? Object.keys(grantsStore.currentGrant) : [],
+      caseNumber: grantsStore.currentGrant?.case_number
+    })
     return null
   }
 
-  // 案件編號格式: MMM-YYY-NNN (例如: M01-114-001)
-  // 提取年度部分 (YYY)
-  const parts = localFormData.caseNumber.split('-')
-
-  if (parts.length >= 2) {
-    const yearStr = parts[1]
-    const year = parseInt(yearStr)
-    return isNaN(year) ? null : year
-  }
-
-  return null
+  console.log('✅ [caseYear] Year from currentGrant:', year)
+  return year
 })
 
 /**
@@ -1433,43 +1332,27 @@ const remainingAmountColorClass = computed(() => {
 })
 
 /**
- * 補助額度卡片背景色
+ * Alert 類型（簡化版）
  */
-const subsidyWarningColor = computed(() => {
+const subsidyAlertType = computed(() => {
   if (grantsStore.isSubsidyLimitExceeded) {
-    return 'orange-lighten-5'
+    return 'error'
   } else if (grantsStore.remainingSubsidyAmount < 100000) {
-    return 'amber-lighten-5'
+    return 'warning'
   } else {
-    return 'blue-grey-lighten-5'
+    return 'info'
   }
 })
 
-/**
- * 補助額度標題顏色
- */
-const subsidyTitleColor = computed(() => {
-  if (grantsStore.isSubsidyLimitExceeded) {
-    return '#e65100'
-  } else if (grantsStore.remainingSubsidyAmount < 100000) {
-    return '#f57f17'
-  } else {
-    return '#2d8c8f'
-  }
-})
-
-/**
- * 補助額度圖示顏色
- */
-const subsidyIconColor = computed(() => {
-  if (grantsStore.isSubsidyLimitExceeded) {
-    return 'orange-darken-3'
-  } else if (grantsStore.remainingSubsidyAmount < 100000) {
-    return 'amber-darken-2'
-  } else {
-    return '#3ea0a3'
-  }
-})
+// const subsidyAlertColor = computed(() => {
+//   if (grantsStore.isSubsidyLimitExceeded) {
+//     return 'orange'
+//   } else if (grantsStore.remainingSubsidyAmount < 100000) {
+//     return 'amber'
+//   } else {
+//     return 'teal'
+//   }
+// })
 
 /**
  * 補助額度圖示
@@ -1486,32 +1369,59 @@ const subsidyIcon = computed(() => {
 
 /**
  * 查詢補助額度摘要
+ * 🔥 Linus式修復：使用 currentGrant 作為唯一資料來源
+ *
+ * 資料來源架構：
+ * Layer 1 (唯一真相): grantsStore.currentGrant (GrantCreateResponse)
+ *   - 包含所有 step1 完整資料
+ *   - 來自 GET /grants/case/{caseNumber}
+ *
+ * Layer 2 (編輯緩衝): localFormData
+ *   - 用戶即時編輯狀態
+ *   - 未保存前使用此層的最新值
  */
 const fetchSubsidySummaryIfNeeded = async () => {
-  const applicantId = localFormData.id
-  const year = caseYear.value
+  // 🔥 優先使用編輯緩衝區的值（用戶可能修改但未保存）
+  // 如果編輯緩衝區沒有值，回退到 currentGrant（已保存的值）
+  const applicantId = localFormData.id || grantsStore.currentGrant?.applicant_id
+  const year = caseYear.value  // 從 currentGrant.year 取得
   const currentGrantId = grantsStore.currentGrant?.id
 
-  console.log('💰 [fetchSubsidySummaryIfNeeded] Starting check:', {
+  console.log('💰 [fetchSubsidySummaryIfNeeded] Data source:', {
     applicantId,
     year,
     currentGrantId,
-    hasId: !!applicantId,
-    hasYear: !!year
+    source: {
+      applicantId: localFormData.id
+        ? 'localFormData.id (user editing)'
+        : 'currentGrant.applicant_id (saved)',
+      year: 'currentGrant.year',
+      currentGrantId: 'currentGrant.id'
+    }
   })
 
-  if (!applicantId || !year) {
-    console.log('💰 [fetchSubsidySummaryIfNeeded] Cannot fetch: missing applicantId or year')
+  // 🔥 Fail fast：缺少任何必要資料時立即返回
+  if (!applicantId) {
+    console.error('❌ [fetchSubsidySummaryIfNeeded] CRITICAL: applicant_id missing!', {
+      localFormDataId: localFormData.id,
+      currentGrantApplicantId: grantsStore.currentGrant?.applicant_id,
+      currentGrant: grantsStore.currentGrant
+    })
     return
   }
 
-  console.log('💰 [fetchSubsidySummaryIfNeeded] Calling API with:', { applicantId, year, currentGrantId })
+  if (!year) {
+    console.error('❌ [fetchSubsidySummaryIfNeeded] CRITICAL: year missing!')
+    return
+  }
+
+  console.log('💰 [fetchSubsidySummaryIfNeeded] Calling API...')
 
   try {
     await grantsStore.fetchSubsidySummary(applicantId, year, currentGrantId)
-    console.log('💰 [fetchSubsidySummaryIfNeeded] API call completed successfully')
+    console.log('✅ [fetchSubsidySummaryIfNeeded] Success')
   } catch (error) {
-    console.error('💰 [fetchSubsidySummaryIfNeeded] Error:', error)
+    console.error('❌ [fetchSubsidySummaryIfNeeded] Error:', error)
   }
 }
 
@@ -1622,7 +1532,7 @@ defineExpose({
 }
 
 /* 補助額度資訊卡片樣式 */
-.subsidy-info-card {
+/* .subsidy-info-card {
   padding: 12px;
   background-color: white;
   border-radius: 8px;
@@ -1633,5 +1543,5 @@ defineExpose({
 .subsidy-info-card:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transform: translateY(-2px);
-}
+} */
 </style>

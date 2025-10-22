@@ -493,8 +493,20 @@ export const useGrantsStore = defineStore('grants', () => {
     // console.log('📥 Received data keys:', Object.keys(data));
     // console.log('📥 Current formData[' + step + '] before update:', JSON.stringify(formData[step], null, 2));
 
-    // 🔥 Linus式修復：定義系統欄位，這些欄位不應被組件覆蓋
-    const systemFields = ['id', 'case_number', 'current_step', 'status', '_caseNumber']
+    // 🔥 Linus式修復：根據 step 定義不同的系統欄位
+    // Step1: 'id' 是用戶輸入的身份證字號，不是系統欄位
+    // Step2-8: 'id' 可能代表 grant 的資料庫 ID
+    const getSystemFields = (step: number): string[] => {
+      if (step === 1) {
+        // Step1: 'id' 是申請人身份證字號（用戶欄位），不應被排除
+        return ['case_number', 'current_step', 'status', '_caseNumber']
+      } else {
+        // Step2-8: 標準系統欄位
+        return ['id', 'case_number', 'current_step', 'status', '_caseNumber']
+      }
+    }
+
+    const systemFields = getSystemFields(step)
 
     // 保留現有的系統欄位
     const preservedSystemFields: Record<string, unknown> = {}
