@@ -133,6 +133,28 @@ export const useGrantsStore = defineStore('grants', () => {
     return changed
   }
 
+  // 🔥 新增：使用指定的 oldData 追蹤欄位變更（避免引用問題）
+  const trackFieldChangesWithOldData = (step: number, newData: Record<string, unknown>, oldData: Record<string, unknown>) => {
+    const changed: string[] = []
+
+    // 檢查新增或修改的欄位
+    Object.keys(newData).forEach(key => {
+      if (key !== 'valid' && JSON.stringify(oldData[key]) !== JSON.stringify(newData[key])) {
+        changed.push(key)
+      }
+    })
+
+    // 檢查刪除的欄位
+    Object.keys(oldData).forEach(key => {
+      if (key !== 'valid' && !(key in newData)) {
+        changed.push(key)
+      }
+    })
+
+    changedFields.value[step] = changed
+    return changed
+  }
+
   /**
    * Create a new grant application
    * @param {GrantCreateRequest} projectData - Grant creation data
@@ -339,8 +361,8 @@ export const useGrantsStore = defineStore('grants', () => {
       // Initialize form data with loaded data and case number tracking
       formData[step] = { ...data, valid: true, _caseNumber: caseNumber }
 
-      // 初始化 previousFormData 以便追蹤變更
-      previousFormData.value[step] = { ...data, valid: true }
+      // 初始化 previousFormData 以便追蹤變更（深拷貝避免引用問題）
+      previousFormData.value[step] = JSON.parse(JSON.stringify({ ...data, valid: true }))
 
       // 清除變更追蹤
       changedFields.value[step] = []
@@ -462,8 +484,8 @@ export const useGrantsStore = defineStore('grants', () => {
       formData[step] = { ...data, valid: true }
       // console.log(`📊 Updated formData[${step}] after save:`, JSON.stringify(formData[step], null, 2));
 
-      // 更新 previousFormData 以便下次追蹤變更
-      previousFormData.value[step] = { ...formData[step] }
+      // 更新 previousFormData 以便下次追蹤變更（深拷貝避免引用問題）
+      previousFormData.value[step] = JSON.parse(JSON.stringify(formData[step]))
 
       // 清除變更追蹤
       changedFields.value[step] = []
@@ -493,8 +515,20 @@ export const useGrantsStore = defineStore('grants', () => {
     // console.log('📥 Received data keys:', Object.keys(data));
     // console.log('📥 Current formData[' + step + '] before update:', JSON.stringify(formData[step], null, 2));
 
-    // 🔥 Linus式修復：定義系統欄位，這些欄位不應被組件覆蓋
-    const systemFields = ['id', 'case_number', 'current_step', 'status', '_caseNumber']
+    // 🔥 Linus式修復：根據 step 定義不同的系統欄位
+    // Step1: 'id' 是用戶輸入的身份證字號，不是系統欄位
+    // Step2-8: 'id' 可能代表 grant 的資料庫 ID
+    const getSystemFields = (step: number): string[] => {
+      if (step === 1) {
+        // Step1: 'id' 是申請人身份證字號（用戶欄位），不應被排除
+        return ['case_number', 'current_step', 'status', '_caseNumber']
+      } else {
+        // Step2-8: 標準系統欄位
+        return ['id', 'case_number', 'current_step', 'status', '_caseNumber']
+      }
+    }
+
+    const systemFields = getSystemFields(step)
 
     // 保留現有的系統欄位
     const preservedSystemFields: Record<string, unknown> = {}
@@ -504,15 +538,30 @@ export const useGrantsStore = defineStore('grants', () => {
       }
     })
 
-    // 保存當前數據作為 previousFormData 以便追蹤變更
-    if (!previousFormData.value[step]) {
-      previousFormData.value[step] = { ...formData[step] }
-    }
+    // 🔥 修復：在追蹤變更前，先深拷貝 previousFormData 作為比對基準
+    // 這樣可以避免引用問題導致變更檢測失敗
+    const oldFormData = previousFormData.value[step]
+      ? JSON.parse(JSON.stringify(previousFormData.value[step]))
+      : JSON.parse(JSON.stringify(formData[step]))
 
     // 🔥 Linus式修復：合併時只比較非系統欄位的變更
     // 先合併資料，再追蹤變更（這樣系統欄位不會被視為「變更」）
     const mergedData = { ...data, ...preservedSystemFields }
-    const changed = trackFieldChanges(step, mergedData)
+
+    // 🔍 DEBUG: 記錄 step2 的 lands 資料
+    if (step === 2 && mergedData.lands) {
+      const oldLands = oldFormData.lands as Array<unknown> || []
+      const newLands = mergedData.lands as Array<unknown> || []
+      console.log('🔍 [updateFormData] Step 2 lands comparison:', {
+        'previousFormData exists': !!previousFormData.value[step],
+        'oldLands count': oldLands.length,
+        'newLands count': newLands.length,
+        'are equal (stringify)': JSON.stringify(oldLands) === JSON.stringify(newLands)
+      })
+    }
+
+    // 使用深拷貝的 oldFormData 進行變更追蹤
+    const changed = trackFieldChangesWithOldData(step, mergedData, oldFormData)
 
     // 過濾掉系統欄位的變更（這些不應觸發自動保存）
     const userFieldChanges = changed.filter(field => !systemFields.includes(field))
@@ -526,6 +575,13 @@ export const useGrantsStore = defineStore('grants', () => {
 
     // Update the form data with merged result
     formData[step] = mergedData
+
+    // 🔥 修復：只在初次設定或沒有 previousFormData 時才設定
+    // 正常情況下，previousFormData 應該在 saveStepData 成功後才更新
+    if (!previousFormData.value[step]) {
+      previousFormData.value[step] = JSON.parse(JSON.stringify(mergedData))
+    }
+
     // console.log('📥 Updated formData[' + step + ']:', JSON.stringify(formData[step], null, 2));
   }
 
@@ -698,8 +754,8 @@ export const useGrantsStore = defineStore('grants', () => {
       formData[step] = { ...stepData, valid: true }
       // console.log(`📊 Updated formData[${step}] after save:`, JSON.stringify(formData[step], null, 2));
 
-      // 更新 previousFormData 以便下次追蹤變更
-      previousFormData.value[step] = { ...formData[step] }
+      // 更新 previousFormData 以便下次追蹤變更（深拷貝避免引用問題）
+      previousFormData.value[step] = JSON.parse(JSON.stringify(formData[step]))
 
       // 清除變更追蹤
       changedFields.value[step] = []

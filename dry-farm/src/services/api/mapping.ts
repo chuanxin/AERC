@@ -53,6 +53,8 @@ export const BACKEND_PATHS = {
     STEP: (caseNumber: string, step: number) => `/grants/case/${caseNumber}/step/${step}`,
     UPDATE_CURRENT_STEP: (caseNumber: string) => `/grants/case/${caseNumber}/current-step`,
     DELETE: (id: number | string) => `/grants/${id}`,
+    APPLICANT_SUBSIDY_SUMMARY: (applicantId: string, year: number) =>
+    `/grants/applicant-subsidy-summary/${applicantId}/${year}`,
   },
   PIPE_FITTINGS: { // Added PIPE_FITTINGS backend paths
     LIST: '/pipe_fittings/', // For GET all and POST create
@@ -146,10 +148,17 @@ export const API_MAPPING: Record<string, string> = {
   [DOWNLOADS.STATIC_FILES_LIST]: BACKEND_PATHS.DOWNLOADS.STATIC_FILES_LIST,
   [DOWNLOADS.STATIC_FILES_BATCH]: BACKEND_PATHS.DOWNLOADS.STATIC_FILES_BATCH,
   [DOWNLOADS.TEST]: BACKEND_PATHS.DOWNLOADS.TEST,
+  // 🔥 移除錯誤的靜態映射：APPLICANT_SUBSIDY_SUMMARY 是函數，不能作為 Record key
+  // [GRANTS.APPLICANT_SUBSIDY_SUMMARY]: BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY,
 }
 
 // 動態參數路徑匹配規則
 export const DYNAMIC_PATH_PATTERNS = [
+  {
+    // 匹配申請人補助額度摘要路徑 {API_PREFIX}/grants/applicant-subsidy-summary/{applicantId}/{year}
+    pattern: new RegExp(`^${GRANTS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/applicant-subsidy-summary/([^/]+)/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY(matches[1], parseInt(matches[2], 10))
+  },
   {
     // 匹配用戶詳情路徑 {API_PREFIX}/users/123
     pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/([\\d]+)$`),
@@ -210,10 +219,17 @@ export function mapApiPath(frontendPath: string): string {
   console.debug(`[mapApiPath] Cleaned path (removed prefix): ${cleanPath}`);
 
   // 3. 使用純淨路徑進行 grants 相關的動態匹配
-  // 3.1 匹配 grants case number 路徑
-  const caseNumberMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)$/);
-  if (caseNumberMatch) {
-    const caseNumber = caseNumberMatch[1];
+  // 🔥 3.0 匹配申請人補助額度摘要路徑 /grants/applicant-subsidy-summary/{applicantId}/{year}
+  const subsidySummaryMatch = cleanPath.match(/^\/grants\/applicant-subsidy-summary\/([^\/]+)\/(\d+)$/);
+  if (subsidySummaryMatch) {
+    const applicantId = subsidySummaryMatch[1];
+    const year = parseInt(subsidySummaryMatch[2], 10);
+    mappedBasePath = BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY(applicantId, year);
+    console.debug(`[mapApiPath] Grant applicant subsidy summary dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+  } else if (cleanPath.match(/^\/grants\/case\/([^\/]+)$/)) {
+    // 3.1 匹配 grants case number 路徑
+    const caseNumberMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)$/);
+    const caseNumber = caseNumberMatch![1];
     mappedBasePath = BACKEND_PATHS.GRANTS.BY_CASE_NUMBER(caseNumber);
     console.debug(`[mapApiPath] Grant case number dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
   } else {

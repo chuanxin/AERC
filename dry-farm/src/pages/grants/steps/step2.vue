@@ -3536,7 +3536,7 @@ const deleteLand = (landId: string) => {
   if (index !== -1) {
     landManagement.lands.splice(index, 1)
 
-    // 同步到 localFormData.lands
+    // 同步到 localFormData.lands (watch會自動觸發資料更新)
     localFormData.lands = [...landManagement.lands]
 
     // 如果正在編輯被刪除的土地，退出編輯模式
@@ -3544,12 +3544,10 @@ const deleteLand = (landId: string) => {
       cancelLandEdit()
     }
 
-    // 觸發資料更新
-    if (!initGuard.isInitializing && initGuard.isInitialized) {
-      eventEmitter.emitDataChanged()
-    }
+    // watch(localFormData) 會自動觸發 updateFormData()
+    // 不需要手動呼叫 eventEmitter.emitDataChanged()
 
-    console.log('✅ step2.vue: Land deleted successfully')
+    console.log('✅ step2.vue: Land deleted successfully, lands count:', landManagement.lands.length)
   }
 }
 

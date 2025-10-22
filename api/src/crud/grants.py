@@ -1919,6 +1919,12 @@ async def calculate_applicant_yearly_subsidy(
         year: 申請年度 (民國年)
         current_grant_id: 目前正在編輯的案件ID (用於排除自己)
 
+    補助金額計算邏輯：
+        - 新系統案件 (is_legacy=False):
+            補助金額 = step4.subsidyAmount + step5.subsidyAmount
+        - 歷史案件 (is_legacy=True):
+            補助金額 = pay_detail.amount - pay_detail.self_raised
+
     Returns:
         Dict包含：
         - applicant_id: 申請人身分證字號
@@ -1967,24 +1973,41 @@ async def calculate_applicant_yearly_subsidy(
             subsidy_amount = 0.0
 
             if grant.active_version and grant.active_version.all_steps_data:
-                steps_data = grant.active_version.all_steps_data.get("steps", {})
+                # 🔥 判斷是否為歷史案件
+                if grant.is_legacy:
+                    # 歷史案件：從 pay_detail 取得補助金額
+                    pay_detail = grant.active_version.all_steps_data.get("pay_detail", {})
 
-                # Step4: 灌溉調控設施補助 (UI 顯示為 step3，但資料儲存在 step4)
-                step4_data = steps_data.get("4", {})
-                step4_subsidy = float(step4_data.get("subsidyAmount", 0) or 0)
+                    # 補助金額 = 總金額 - 自籌款
+                    amount = float(pay_detail.get("amount", 0) or 0)
+                    self_raised = float(pay_detail.get("self_raised", 0) or 0)
+                    subsidy_amount = amount - self_raised
 
-                # Step5: 田間管路補助 (UI 顯示為 step4，但資料儲存在 step5)
-                step5_data = steps_data.get("5", {})
-                step5_subsidy = float(step5_data.get("subsidyAmount", 0) or 0)
+                    logger.info(
+                        f"[歷史案件] {grant.case_number}: "
+                        f"總金額={amount}, 自籌款={self_raised}, "
+                        f"補助金額={subsidy_amount}"
+                    )
+                else:
+                    # 新系統案件：從 steps 取得補助金額
+                    steps_data = grant.active_version.all_steps_data.get("steps", {})
 
-                subsidy_amount = step4_subsidy + step5_subsidy
+                    # Step4: 灌溉調控設施補助 (UI 顯示為 step3，但資料儲存在 step4)
+                    step4_data = steps_data.get("4", {})
+                    step4_subsidy = float(step4_data.get("subsidyAmount", 0) or 0)
 
-                logger.info(
-                    f"案件 {grant.case_number}: "
-                    f"step4(調控設施)={step4_subsidy}, "
-                    f"step5(田間管路)={step5_subsidy}, "
-                    f"總計={subsidy_amount}"
-                )
+                    # Step5: 田間管路補助 (UI 顯示為 step4，但資料儲存在 step5)
+                    step5_data = steps_data.get("5", {})
+                    step5_subsidy = float(step5_data.get("subsidyAmount", 0) or 0)
+
+                    subsidy_amount = step4_subsidy + step5_subsidy
+
+                    logger.info(
+                        f"[新系統案件] {grant.case_number}: "
+                        f"step4(調控設施)={step4_subsidy}, "
+                        f"step5(田間管路)={step5_subsidy}, "
+                        f"總計={subsidy_amount}"
+                    )
 
             # 記錄申請人姓名 (取第一筆即可)
             if not applicant_name:
