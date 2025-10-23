@@ -781,7 +781,7 @@
                                 variant="outlined"
                                 rounded="lg"
                                 class="px-2"
-                                :disabled="!localFormData.landNumberMain"
+                                :disabled="!localFormData.landNumberMain || !localFormData.landSec"
                                 @click="showLandInfoDialog"
                               >
                                 <v-icon
