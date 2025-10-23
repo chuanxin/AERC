@@ -569,7 +569,7 @@
                 >
                   <v-select
                     v-model="localFormData.landCounty"
-                    :items="counties"
+                    :items="filteredCounties"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
@@ -588,7 +588,7 @@
                 >
                   <v-select
                     v-model="localFormData.landTown"
-                    :items="towns"
+                    :items="filteredTowns"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
@@ -717,9 +717,6 @@
                           <div class="d-flex align-center">
                             <!-- 母地號輸入 -->
                             <div class="me-1">
-                              <div class="text-caption text-grey-darken-1 mb-1 ps-1">
-                                母地號
-                              </div>
                               <v-text-field
                                 v-model="formattedLandNumberMain"
                                 variant="outlined"
@@ -736,11 +733,15 @@
                                 @focus="landNumberMainFocused = true"
                                 @blur="landNumberMainFocused = false"
                                 @input="onLandNumberMainInput"
-                              />
+                              >
+                                <template #label>
+                                  母地號
+                                </template>
+                              </v-text-field>
                             </div>
 
                             <!-- 分隔符號 -->
-                            <div class="mx-2 mt-4">
+                            <div class="mx-2">
                               <v-icon
                                 size="20"
                                 color="grey"
@@ -751,9 +752,6 @@
 
                             <!-- 子地號輸入 -->
                             <div class="me-3">
-                              <div class="text-caption text-grey-darken-1 mb-1 ps-1">
-                                子地號
-                              </div>
                               <v-text-field
                                 v-model="formattedLandNumberSub"
                                 variant="outlined"
@@ -769,11 +767,15 @@
                                 @focus="landNumberSubFocused = true"
                                 @blur="landNumberSubFocused = false"
                                 @input="onLandNumberSubInput"
-                              />
+                              >
+                                <template #label>
+                                  子地號
+                                </template>
+                              </v-text-field>
                             </div>
 
                             <!-- 查詢按鈕 -->
-                            <div class="mt-4 d-flex gap-3">
+                            <div class="d-flex gap-3">
                               <v-btn
                                 color="#3ea0a3"
                                 variant="outlined"
@@ -2655,6 +2657,76 @@ const towns = computed(() => {
 
   // 一般縣市返回正常的鄉鎮清單
   return domicileStore.getTownsForCountyId(countyId);
+});
+
+// 🆕 獲取其他土地資料（排除當前編輯的土地）
+const otherLands = computed(() => {
+  if (!landManagement.isEditingMode || !landManagement.currentEditingLandId) {
+    return landManagement.lands;
+  }
+  return landManagement.lands.filter(land => land.id !== landManagement.currentEditingLandId);
+});
+
+// 🆕 編輯模式下的縣市選項過濾
+const filteredCounties = computed(() => {
+  const allCounties = counties.value;
+
+  // 新增模式或沒有其他土地資料時，返回所有選項
+  if (!landManagement.isEditingMode || otherLands.value.length === 0) {
+    return allCounties;
+  }
+
+  // 編輯模式且有其他土地資料時，限制為其他土地的共同縣市
+  const otherCounties = otherLands.value.map(land => land.landCounty).filter(Boolean);
+
+  if (otherCounties.length === 0) {
+    return allCounties;
+  }
+
+  // 獲取第一筆土地的縣市作為基準
+  const requiredCounty = otherCounties[0];
+
+  // 檢查所有其他土地是否使用相同縣市
+  const allSameCounty = otherCounties.every(county => county === requiredCounty);
+
+  if (allSameCounty) {
+    // 只返回該縣市選項
+    return allCounties.filter(county => county.value === requiredCounty);
+  }
+
+  // 如果其他土地的縣市不一致，返回所有選項（理論上不應發生）
+  return allCounties;
+});
+
+// 🆕 編輯模式下的鄉鎮市區選項過濾
+const filteredTowns = computed(() => {
+  const allTowns = towns.value;
+
+  // 新增模式或沒有其他土地資料時，返回所有選項
+  if (!landManagement.isEditingMode || otherLands.value.length === 0) {
+    return allTowns;
+  }
+
+  // 編輯模式且有其他土地資料時，限制為其他土地的共同鄉鎮市區
+  const otherTowns = otherLands.value.map(land => land.landTown).filter(Boolean);
+
+  if (otherTowns.length === 0) {
+    return allTowns;
+  }
+
+  // 獲取第一筆土地的鄉鎮市區作為基準
+  const requiredTown = otherTowns[0];
+
+  // 檢查所有其他土地是否使用相同鄉鎮市區
+  const allSameTown = otherTowns.every(town => town === requiredTown);
+
+  if (allSameTown) {
+    // 只返回該鄉鎮市區選項
+    return allTowns.filter(town => town.value === requiredTown);
+  }
+
+  // 如果其他土地的鄉鎮市區不一致，返回所有選項（理論上不應發生）
+  return allTowns;
 });
 
 // 動態獲取地段選項 - 使用 NLSC API 原始格式，優化搜尋支援
