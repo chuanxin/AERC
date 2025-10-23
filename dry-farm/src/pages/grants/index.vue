@@ -161,7 +161,7 @@
                       hide-details
                       class="filter-select mr-2"
                       style="min-width: 150px"
-                      clearable
+                      disabled
                       bg-color="white"
                       rounded="lg"
                       @update:model-value="updateFilters"
