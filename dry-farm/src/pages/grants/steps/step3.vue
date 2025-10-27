@@ -458,6 +458,60 @@
             </v-card-title>
 
             <v-card-text class="pa-4">
+              <!-- 💰 個人年度補助額度資訊 -->
+              <v-alert
+                v-if="grantsStore.hasSubsidySummary && localFormData.facilities.length > 0"
+                type="info"
+                variant="tonal"
+                density="compact"
+                class="mb-4"
+                prominent
+                border="start"
+              >
+                <template #prepend>
+                  <v-icon size="small">
+                    mdi-calculator
+                  </v-icon>
+                </template>
+                <div class="text-body-2">
+                  <div class="font-weight-bold mb-2">
+                    個人年度補助額度使用狀況
+                  </div>
+                  <v-row dense>
+                    <v-col cols="12" sm="6" md="3">
+                      <div class="text-caption text-grey-darken-1">個人年度上限</div>
+                      <div class="text-subtitle-2 font-weight-bold">
+                        NT$ {{ grantsStore.subsidyLimit.toLocaleString() }}
+                      </div>
+                    </v-col>
+                    <v-col cols="12" sm="6" md="3">
+                      <div class="text-caption text-grey-darken-1">其他案件已用</div>
+                      <div class="text-subtitle-2 font-weight-bold">
+                        NT$ {{ grantsStore.totalSubsidyAmount.toLocaleString() }}
+                      </div>
+                    </v-col>
+                    <v-col cols="12" sm="6" md="3">
+                      <div class="text-caption text-grey-darken-1">本案件總補助（含田間管路）</div>
+                      <div class="text-subtitle-2 font-weight-bold text-primary">
+                        NT$ {{ currentGrantTotalSubsidy.toLocaleString() }}
+                      </div>
+                    </v-col>
+                    <v-col cols="12" sm="6" md="3">
+                      <div class="text-caption text-grey-darken-1">剩餘可用額度</div>
+                      <div class="text-subtitle-2 font-weight-bold">
+                        NT$ {{ remainingSubsidyQuota.toLocaleString() }}
+                      </div>
+                    </v-col>
+                  </v-row>
+                  <v-divider class="my-2" />
+                  <div class="text-caption">
+                    本步驟補助：NT$ {{ totalSubsidyAmount.toLocaleString() }} |
+                    田間管路補助：NT$ {{ step4SubsidyAmount.toLocaleString() }} |
+                    使用率：{{ quotaUsageRate }}%
+                  </div>
+                </div>
+              </v-alert>
+
               <v-table class="rounded border">
                 <thead class="bg-grey-lighten-3">
                   <tr>
@@ -937,6 +991,29 @@ const facilitiesWithSelfPaid = computed(() => {
   return localFormData.facilities.filter(facility =>
     (facility.selfPaidAmount || 0) > 0
   ).length;
+});
+
+// 💰 個人年度補助額度計算
+const step4SubsidyAmount = computed(() => {
+  const step4Data = getStepDataSafely(4) || {};
+  return parseFloat(step4Data.subsidyAmount) || 0;
+});
+
+const currentGrantTotalSubsidy = computed(() => {
+  return totalSubsidyAmount.value + step4SubsidyAmount.value;
+});
+
+const remainingSubsidyQuota = computed(() => {
+  if (!grantsStore.hasSubsidySummary) return 0;
+  const estimatedTotal = grantsStore.totalSubsidyAmount + currentGrantTotalSubsidy.value;
+  return grantsStore.subsidyLimit - estimatedTotal;
+});
+
+const quotaUsageRate = computed(() => {
+  if (!grantsStore.hasSubsidySummary || grantsStore.subsidyLimit === 0) return '0.0';
+  const estimatedTotal = grantsStore.totalSubsidyAmount + currentGrantTotalSubsidy.value;
+  const rate = (estimatedTotal / grantsStore.subsidyLimit) * 100;
+  return rate.toFixed(1);
 });
 
 // 🔥 Linus式修復：區分設施類型的顯示邏輯
