@@ -4,39 +4,46 @@
     class="step-content"
   >
     <v-card
-      class="mb-0 pa-0"
+      class="mt-4 mb-0 pa-0"
       flat
     >
       <v-card-text class="pb-0 pt-0">
         <!-- 填寫說明提示 -->
-        <v-alert
-          type="info"
-          variant="tonal"
-          class="mb-4"
-          prominent
-          border="start"
+        <v-card
+          flat
+          class="mb-4 pa-4"
+          color="#fff3e0"
+          rounded="lg"
         >
-          <template #prepend>
-            <v-icon size="large">
+          <div class="d-flex align-center mb-3">
+            <v-icon
+              size="small"
+              color="#f57c00"
+              class="me-2"
+            >
               mdi-information-outline
             </v-icon>
-          </template>
-          <div class="text-h6 mb-2">
-            填寫說明
+            <span
+              class="text-subtitle-1 font-weight-bold"
+              style="color: #e65100;"
+            >
+              填寫說明
+            </span>
           </div>
-          <div class="text-body-1">
+          <div class="text-body-2">
             <p class="mb-2">
               <strong>注意：</strong>本階段項目皆為<strong>選填項目</strong>，請依據農戶實際申請需求進行填寫。
             </p>
             <ul class="ml-4 mb-2">
-              <li><strong>補助來源：</strong>若您需要申請任何設施補助，請先選擇補助來源</li>
+              <li><strong>補助來源：</strong>申請任何設施補助前，請先確認補助來源是否正確</li>
               <li><strong>動力設備：</strong>僅在需要申請動力設備補助時填寫</li>
               <li><strong>調蓄設施：</strong>僅在需要申請調蓄設施補助時填寫</li>
-              <li><strong>調節控制設施：</strong>僅在需要申請蓄控制設施補助時填寫</li>
+              <li><strong>調節控制設施：</strong>僅在需要申請調控設施補助時填寫</li>
             </ul>
             <p class="mb-0">
               <v-icon
                 size="small"
+                color="#f57c00"
                 class="me-1"
               >
                 mdi-check-circle
@@ -44,133 +51,203 @@
               若不需要申請任何設施補助，可以直接進行下一步驟。
             </p>
           </div>
-        </v-alert>
+        </v-card>
 
         <v-form
           ref="form"
           v-model="localValid"
           @submit.prevent
         >
-          <!-- 補助來源選擇區域 -->
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-hand-coin
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">補助來源</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <div class="d-flex align-center flex-wrap">
-                  <v-select
-                    v-model="localFormData.fundingSourceId"
-                    :items="fundingSourceOptions"
-                    item-title="name"
-                    item-value="id"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="min-width: 250px"
-                    @update:model-value="updateFormData"
-                  >
-                    <template #label>
-                      補助來源<span class="required-asterisk" />
-                    </template>
-                  </v-select>
-                  <span class="text-body-2 text-grey ms-2">
-                    選擇的補助來源將自動套用至下方新增的所有設施
-                  </span>
-                </div>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
-
           <!-- 動力設備選擇區域 -->
           <v-card
-            class="mb-4"
-            variant="outlined"
+            flat
+            class="mb-4 pa-4"
+            color="#e3f4f4"
+            rounded="lg"
           >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-4 d-flex align-center"
+              style="color: #2d8c8f"
+            >
               <v-icon
+                color="#3ea0a3"
                 class="me-2"
                 size="small"
               >
-                mdi-engine
+                mdi-hammer-wrench
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">動力設備</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <div class="d-flex align-center flex-wrap">
-                  <v-select
-                    v-model="localFormData.powerEquipment"
-                    :items="powerEquipmentOptions"
-                    label="動力設備"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="min-width: 200px"
-                    @update:model-value="onPowerEquipmentChange"
-                  />
-
-                  <!-- <v-select
-                    v-model="localFormData.fundingSource"
-                    :items="powerSourceOptions"
-                    label="補助單位"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="min-width: 200px"
-                  /> -->
-
-                  <v-btn
-                    color="primary"
-                    class="mb-2"
-                    :disabled="!canAddPowerEquipment"
-                    @click="addPowerEquipment"
+              補助設施
+              <!-- 補助來源 chip (僅在有值且非編輯模式時顯示) -->
+              <template v-if="getFundingSourceName(localFormData.fundingSourceId) !== '未選擇補助來源' && !isEditingFundingSource">
+                <v-chip
+                  class="ms-4"
+                  size="small"
+                  variant="flat"
+                  color="#3ea0a3"
+                >
+                  <v-icon
+                    size="x-small"
+                    class="me-1"
                   >
-                    <v-icon
-                      class="me-1"
-                    >
-                      mdi-plus
-                    </v-icon>
-                    加入
-                  </v-btn>
-                </div>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
-
-          <!-- 調蓄設施區域 -->
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-diving-scuba-tank-multiple
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">調蓄設施</span>
+                    mdi-office-building
+                  </v-icon>
+                  補助來源：{{ getFundingSourceName(localFormData.fundingSourceId) }}
+                </v-chip>
+                <v-btn
+                  icon
+                  size="x-small"
+                  variant="text"
+                  color="#3ea0a3"
+                  class="ms-2"
+                  @click="isEditingFundingSource = true"
+                >
+                  <v-icon size="small">
+                    mdi-pencil
+                  </v-icon>
+                </v-btn>
+              </template>
             </v-card-title>
+            <!-- 補助來源輸入區塊 (當補助來源未選擇或在編輯模式時顯示) -->
+            <v-sheet
+              v-if="isEditingFundingSource"
+              class="mb-3 pa-4 rounded"
+              color="#fff3e0"
+            >
+              <div
+                v-if="getFundingSourceName(localFormData.fundingSourceId) === '未選擇補助來源'"
+                class="d-flex align-center mb-3"
+              >
+                <v-icon
+                  size="small"
+                  color="#f57c00"
+                  class="me-2"
+                >
+                  mdi-alert-circle
+                </v-icon>
+                <span
+                  class="text-body-2 font-weight-bold"
+                  style="color: #e65100;"
+                >
+                  請先選擇補助來源
+                </span>
+              </div>
+              <div class="d-flex align-center flex-wrap">
+                <v-select
+                  v-model="localFormData.fundingSourceId"
+                  :items="fundingSourceOptions"
+                  item-title="name"
+                  item-value="id"
+                  label="本案補助來源"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#f57c00"
+                  bg-color="white"
+                  class="me-3 mb-2"
+                  style="min-width: 300px;"
+                  hide-details
+                  autofocus
+                  @update:model-value="updateFormData"
+                />
+                <v-btn
+                  color="#f57c00"
+                  variant="flat"
+                  class="flex-grow-2 mb-2"
+                  rounded="lg"
+                  size="large"
+                  :disabled="getFundingSourceName(localFormData.fundingSourceId) === '未選擇補助來源'"
+                  @click="isEditingFundingSource = false"
+                >
+                  <v-icon class="me-1">
+                    mdi-check
+                  </v-icon>
+                  確認
+                </v-btn>
+                <v-btn
+                  v-if="localFormData.facilities.length === 0"
+                  color="grey-darken-1"
+                  variant="outlined"
+                  class="ms-2 mb-2"
+                  rounded="lg"
+                  size="large"
+                  @click="skipStep"
+                >
+                  <v-icon class="me-1">
+                    mdi-skip-next
+                  </v-icon>
+                  不需申請灌溉調控設施補助
+                </v-btn>
+              </div>
+              <div class="text-caption text-grey-darken-1 mt-2">
+                <v-icon
+                  size="x-small"
+                  class="me-1"
+                >
+                  mdi-information-outline
+                </v-icon>
+                選擇的補助來源將自動套用至本案新增的所有補助項目
+              </div>
+            </v-sheet>
+            <!-- 動力設備區域 -->
+            <v-sheet
+              v-if="!isEditingFundingSource"
+              class="mb-3 pa-3 rounded"
+              color="white"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
+                >
+                  mdi-engine
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">動力設備</span>
+              </div>
 
-            <v-card-text class="pa-4">
+              <div class="d-flex align-center flex-wrap">
+                <v-select
+                  v-model="localFormData.powerEquipment"
+                  :items="powerEquipmentOptions"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2"
+                  style="min-width: 200px"
+                  clearable
+                  hide-details
+                  @update:model-value="onPowerEquipmentChange"
+                />
+                <v-btn
+                  color="success"
+                  class="flex-grow-2"
+                  variant="flat"
+                  rounded="lg"
+                  size="large"
+                  :disabled="!canAddPowerEquipment"
+                  @click="addPowerEquipment"
+                >
+                  <v-icon
+                    class="me-1"
+                  >
+                    mdi-plus
+                  </v-icon>
+                  加入
+                </v-btn>
+              </div>
+            </v-sheet>
+            <!-- 調蓄設施區域 -->
+            <v-sheet
+              v-if="!isEditingFundingSource"
+              class="mb-3 pa-3 rounded"
+              color="white"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
+                >
+                  mdi-diving-scuba-tank-multiple
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">調蓄設施</span>
+              </div>
               <!-- 容量狀態提示 -->
               <v-alert
                 v-if="facilityArea > 0"
@@ -210,85 +287,80 @@
                 </div>
               </v-alert>
 
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
-              >
-                <div class="d-flex align-center flex-wrap">
-                  <v-select
-                    v-model="localFormData.storageType"
-                    :items="storageTypeOptions"
-                    label="調蓄設施"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="min-width: 180px"
-                    @update:model-value="onStorageTypeChange"
-                  />
+              <div class="d-flex align-center flex-wrap">
+                <v-select
+                  v-model="localFormData.storageType"
+                  :items="storageTypeOptions"
+                  label="調蓄設施"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2 mb-2"
+                  style="min-width: 180px"
+                  @update:model-value="onStorageTypeChange"
+                />
 
-                  <v-select
-                    v-model="localFormData.storageTonnage"
-                    :items="tonnageOptions"
-                    label="噸數"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="min-width: 100px"
-                    :hint="tonnageOptions.length === 0 ? '當前容量已滿，無法加入更多調蓄設施' : `可選擇 ${tonnageOptions.length} 種噸數`"
-                    persistent-hint
-                  />
+                <v-select
+                  v-model="localFormData.storageTonnage"
+                  :items="tonnageOptions"
+                  label="噸數"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2 mb-2"
+                  style="min-width: 100px"
+                  :hint="tonnageOptions.length === 0 ? '當前容量已滿，無法加入更多調蓄設施' : `可選擇 ${tonnageOptions.length} 種噸數`"
+                  persistent-hint
+                />
 
-                  <!-- <v-select
-                    v-model="localFormData.fundingSource"
-                    :items="fundingSourceOptions"
-                    label="補助單位"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="min-width: 180px"
-                  /> -->
+                <!-- <v-select
+                  v-model="localFormData.fundingSource"
+                  :items="fundingSourceOptions"
+                  label="補助單位"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2 mb-2"
+                  style="min-width: 180px"
+                /> -->
 
-                  <v-text-field
-                    v-model="localFormData.storageRemark"
-                    label="備註"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="min-width: 200px"
-                  />
+                <v-text-field
+                  v-model="localFormData.storageRemark"
+                  label="備註"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2 mb-2"
+                  style="min-width: 200px"
+                />
 
-                  <v-btn
-                    color="primary"
-                    class="mb-2"
-                    :disabled="!canAddStorageFacility"
-                    @click="addStorageFacility"
-                  >
-                    <v-icon class="me-1">
-                      mdi-plus
-                    </v-icon>
-                    加入
-                  </v-btn>
-                </div>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
-
-          <!-- 調節控制設施區域 -->
-          <v-card
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-valve
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">調節控制設施</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
+                <v-btn
+                  color="success"
+                  class="flex-grow-2 mb-7"
+                  variant="flat"
+                  rounded="lg"
+                  size="large"
+                  :disabled="!canAddStorageFacility"
+                  @click="addStorageFacility"
+                >
+                  <v-icon class="me-1">
+                    mdi-plus
+                  </v-icon>
+                  加入
+                </v-btn>
+              </div>
+            </v-sheet>
+            <!-- 調節控制設施區域 -->
+            <v-sheet
+              v-if="!isEditingFundingSource"
+              class="pa-3 rounded"
+              color="white"
+            >
+              <div class="d-flex align-center mb-2">
+                <v-icon
+                  size="small"
+                  class="me-2"
+                >
+                  mdi-valve
+                </v-icon>
+                <span class="text-body-2 font-weight-medium">調節控制設施</span>
+              </div>
               <!-- 補助額度狀態提示 -->
               <v-alert
                 v-if="facilityArea > 0"
@@ -333,356 +405,352 @@
                   <strong>提醒：</strong>未偵測到 Step2 的施作面積資料，補助款以 0.1 公頃為基準計算。請確認 Step2 已完成並儲存。
                 </div>
               </v-alert>
+              <!-- 第一行：調節控制設施選擇和設施名稱 -->
+              <div class="d-flex align-center flex-wrap mb-3">
+                <v-select
+                  v-model="localFormData.controlType"
+                  :items="controlTypeOptions"
+                  label="調節控制設施"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2 mb-2"
+                  style="min-width: 180px"
+                  @update:model-value="onControlTypeChange"
+                />
 
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
+                <v-text-field
+                  v-model="localFormData.controlName"
+                  label="設施名稱"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2 mb-2"
+                  style="min-width: 220px"
+                />
+
+                <!-- <v-select
+                  v-model="localFormData.fundingSource"
+                  :items="fundingSourceOptions"
+                  label="補助單位"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2 mb-2"
+                  style="min-width: 180px"
+                /> -->
+              </div>
+
+              <!-- 第二行：數量、單價、總價和加入按鈕 -->
+              <div class="d-flex align-center flex-wrap">
+                <v-text-field
+                  v-model="localFormData.controlQuantity"
+                  label="數量"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2 mb-2"
+                  style="width: 80px"
+                  type="number"
+                  min="1"
+                  :rules="[
+                    v => !!v || '請輸入數量',
+                    v => v > 0 || '數量必須大於0'
+                  ]"
+                />
+
+                <v-text-field
+                  v-model="localFormData.controlUnitPrice"
+                  label="手動輸入單價"
+                  prefix="$"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2 mb-2"
+                  style="width: 120px"
+                  type="number"
+                  min="0"
+                  placeholder="請輸入單價"
+                  :rules="[
+                    v => !!v || '請輸入單價',
+                    v => v > 0 || '單價必須大於0'
+                  ]"
+                />
+
+                <v-text-field
+                  :model-value="controlActualSubsidyAmount.toLocaleString()"
+                  label="補助款"
+                  prefix="$"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2 mb-2"
+                  style="width: 120px"
+                  readonly
+                  bg-color="green-lighten-5"
+                />
+
+                <v-text-field
+                  :model-value="controlSelfPaidAmount.toLocaleString()"
+                  label="自備款"
+                  prefix="$"
+                  variant="outlined"
+                  density="comfortable"
+                  class="me-2 mb-2"
+                  style="width: 120px"
+                  readonly
+                  bg-color="orange-lighten-5"
+                />
+
+                <v-btn
+                  color="success"
+                  class="flex-grow-2 mb-7"
+                  variant="flat"
+                  rounded="lg"
+                  size="large"
+                  :disabled="!canAddControlFacility"
+                  @click="addControlFacility"
+                >
+                  <v-icon class="me-1">
+                    mdi-plus
+                  </v-icon>
+                  加入
+                </v-btn>
+              </div>
+            </v-sheet>
+          </v-card>
+
+          <!-- 設施列表 -->
+          <v-card-title
+            class="text-subtitle-1 font-weight-bold pa-0 pb-2 d-flex align-center"
+            style="color: #2d8c8f"
+          >
+            <v-icon
+              color="#3ea0a3"
+              class="me-2"
+              size="small"
+            >
+              mdi-format-list-bulleted
+            </v-icon>
+            補助設施列表
+          </v-card-title>
+          <!-- 💰 個人年度補助額度資訊 -->
+          <v-alert
+            v-if="grantsStore.hasSubsidySummary && localFormData.facilities.length > 0"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+            prominent
+            border="start"
+          >
+            <template #prepend>
+              <v-icon size="small">
+                mdi-calculator
+              </v-icon>
+            </template>
+            <div class="text-body-2">
+              <div class="font-weight-bold mb-2">
+                個人年度補助額度使用狀況
+              </div>
+              <v-row dense>
+                <v-col cols="12" sm="6" md="3">
+                  <div class="text-caption text-grey-darken-1">個人年度上限</div>
+                  <div class="text-subtitle-2 font-weight-bold">
+                    NT$ {{ grantsStore.subsidyLimit.toLocaleString() }}
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6" md="3">
+                  <div class="text-caption text-grey-darken-1">個人其他案件已用</div>
+                  <div class="text-subtitle-2 font-weight-bold">
+                    NT$ {{ grantsStore.totalSubsidyAmount.toLocaleString() }}
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6" md="3">
+                  <div class="text-caption text-grey-darken-1">本案件總補助（含田間管路）</div>
+                  <div class="text-subtitle-2 font-weight-bold text-primary">
+                    NT$ {{ currentGrantTotalSubsidy.toLocaleString() }}
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6" md="3">
+                  <div class="text-caption text-grey-darken-1">剩餘可用額度</div>
+                  <div class="text-subtitle-2 font-weight-bold">
+                    NT$ {{ remainingSubsidyQuota.toLocaleString() }}
+                  </div>
+                </v-col>
+              </v-row>
+              <v-divider class="my-2" />
+              <div class="text-caption">
+                本步驟補助：NT$ {{ totalSubsidyAmount.toLocaleString() }} |
+                田間管路補助：NT$ {{ step4SubsidyAmount.toLocaleString() }} |
+                使用率：{{ quotaUsageRate }}%
+              </div>
+            </div>
+          </v-alert>
+
+          <v-table class="rounded border">
+            <thead class="bg-grey-lighten-3">
+              <tr>
+                <th
+                  class="text-center"
+                >
+                  NO.
+                </th>
+                <th style="width: 140px">
+                  設施類型
+                </th>
+                <th style="width: 180px">
+                  設施名稱
+                </th>
+                <th
+                  class="text-center"
+                  style="width: 130px"
+                >
+                  數量
+                </th>
+                <th
+                  class="text-center"
+                >
+                  單價
+                </th>
+                <th style="width: 200px">
+                  補助標準
+                </th>
+                <!-- <th style="width: 180px">
+                  補助來源
+                </th> -->
+                <th
+                  class="text-center"
+                  style="width: 10px"
+                >
+                  刪除
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(facility, index) in localFormData.facilities"
+                :key="index"
               >
-                <!-- 第一行：調節控制設施選擇和設施名稱 -->
-                <div class="d-flex align-center flex-wrap mb-3">
-                  <v-select
-                    v-model="localFormData.controlType"
-                    :items="controlTypeOptions"
-                    label="調節控制設施"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="min-width: 180px"
-                    @update:model-value="onControlTypeChange"
-                  />
-
+                <td class="text-center">
+                  {{ index + 1 }}
+                </td>
+                <td>{{ facility.typeLabel }}</td>
+                <td>{{ facility.name }}</td>
+                <td class="text-center">
                   <v-text-field
-                    v-model="localFormData.controlName"
-                    label="設施名稱"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="min-width: 220px"
-                  />
-
-                  <!-- <v-select
-                    v-model="localFormData.fundingSource"
-                    :items="fundingSourceOptions"
-                    label="補助單位"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="min-width: 180px"
-                  /> -->
-                </div>
-
-                <!-- 第二行：數量、單價、總價和加入按鈕 -->
-                <div class="d-flex align-center flex-wrap">
-                  <v-text-field
-                    v-model="localFormData.controlQuantity"
-                    label="數量"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 80px"
+                    v-model="facility.quantity"
                     type="number"
                     min="1"
+                    density="compact"
+                    variant="outlined"
+                    hide-details="auto"
+                    class="ma-1"
                     :rules="[
                       v => !!v || '請輸入數量',
                       v => v > 0 || '數量必須大於0'
                     ]"
+                    @focus="saveFacilitySnapshot(index)"
+                    @update:model-value="updateFacilityTotal(index)"
                   />
-
+                </td>
+                <td class="text-center">
                   <v-text-field
-                    v-model="localFormData.controlUnitPrice"
-                    label="手動輸入單價"
-                    prefix="$"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 120px"
+                    v-model="facility.unitPrice"
                     type="number"
+                    prefix="$"
                     min="0"
-                    placeholder="請輸入單價"
-                    :rules="[
-                      v => !!v || '請輸入單價',
-                      v => v > 0 || '單價必須大於0'
-                    ]"
-                  />
-
-                  <v-text-field
-                    :model-value="controlActualSubsidyAmount.toLocaleString()"
-                    label="補助款"
-                    prefix="$"
+                    density="compact"
                     variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 120px"
-                    readonly
-                    bg-color="green-lighten-5"
+                    hide-details
+                    class="ma-1"
+                    style="width: 130px"
+                    :readonly="facility.type === 'power' || facility.type === 'storage'"
+                    @focus="saveFacilitySnapshot(index)"
+                    @update:model-value="updateFacilityTotal(index)"
                   />
-
-                  <v-text-field
-                    :model-value="controlSelfPaidAmount.toLocaleString()"
-                    label="自備款"
-                    prefix="$"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 120px"
-                    readonly
-                    bg-color="orange-lighten-5"
-                  />
-
+                </td>
+                <td>{{ facility.remark }}</td>
+                <!-- <td>{{ getFundingSourceName(facility.fundingSourceId) }}</td> -->
+                <td class="text-center">
                   <v-btn
-                    color="primary"
-                    class="mb-2"
-                    :disabled="!canAddControlFacility"
-                    @click="addControlFacility"
+                    icon
+                    size="x-small"
+                    color="error"
+                    variant="text"
+                    @click="removeFacility(index)"
                   >
-                    <v-icon class="me-1">
-                      mdi-plus
-                    </v-icon>
-                    加入
+                    <v-icon>mdi-close</v-icon>
                   </v-btn>
-                </div>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
+                </td>
+              </tr>
+              <tr v-if="localFormData.facilities.length === 0">
+                <td
+                  colspan="8"
+                  class="text-center py-3 text-grey"
+                >
+                  尚未新增任何設施，請使用上方各區塊的加入按鈕新增設施
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
 
-          <!-- 設施列表 -->
-          <v-card variant="outlined">
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
+          <!-- 💰 金額統計區塊 -->
+          <div
+            v-if="localFormData.facilities.length > 0"
+            class="mt-4 mb-4"
+          >
+            <v-row>
+              <v-col
+                cols="12"
+                md="6"
               >
-                mdi-format-list-bulleted
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">已新增設施列表</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <!-- 💰 個人年度補助額度資訊 -->
-              <v-alert
-                v-if="grantsStore.hasSubsidySummary && localFormData.facilities.length > 0"
-                type="info"
-                variant="tonal"
-                density="compact"
-                class="mb-4"
-                prominent
-                border="start"
-              >
-                <template #prepend>
-                  <v-icon size="small">
-                    mdi-calculator
+                <v-card
+                  class="pa-4 text-center"
+                  color="green-lighten-5"
+                  variant="outlined"
+                >
+                  <v-icon
+                    class="mb-2"
+                    color="green-darken-2"
+                    size="large"
+                  >
+                    mdi-hand-coin
                   </v-icon>
-                </template>
-                <div class="text-body-2">
-                  <div class="font-weight-bold mb-2">
-                    個人年度補助額度使用狀況
+                  <div class="text-h6 text-green-darken-2 font-weight-bold">
+                    補助款總額
                   </div>
-                  <v-row dense>
-                    <v-col cols="12" sm="6" md="3">
-                      <div class="text-caption text-grey-darken-1">個人年度上限</div>
-                      <div class="text-subtitle-2 font-weight-bold">
-                        NT$ {{ grantsStore.subsidyLimit.toLocaleString() }}
-                      </div>
-                    </v-col>
-                    <v-col cols="12" sm="6" md="3">
-                      <div class="text-caption text-grey-darken-1">其他案件已用</div>
-                      <div class="text-subtitle-2 font-weight-bold">
-                        NT$ {{ grantsStore.totalSubsidyAmount.toLocaleString() }}
-                      </div>
-                    </v-col>
-                    <v-col cols="12" sm="6" md="3">
-                      <div class="text-caption text-grey-darken-1">本案件總補助（含田間管路）</div>
-                      <div class="text-subtitle-2 font-weight-bold text-primary">
-                        NT$ {{ currentGrantTotalSubsidy.toLocaleString() }}
-                      </div>
-                    </v-col>
-                    <v-col cols="12" sm="6" md="3">
-                      <div class="text-caption text-grey-darken-1">剩餘可用額度</div>
-                      <div class="text-subtitle-2 font-weight-bold">
-                        NT$ {{ remainingSubsidyQuota.toLocaleString() }}
-                      </div>
-                    </v-col>
-                  </v-row>
-                  <v-divider class="my-2" />
-                  <div class="text-caption">
-                    本步驟補助：NT$ {{ totalSubsidyAmount.toLocaleString() }} |
-                    田間管路補助：NT$ {{ step4SubsidyAmount.toLocaleString() }} |
-                    使用率：{{ quotaUsageRate }}%
+                  <div class="text-h4 text-green-darken-3 font-weight-bold mt-2">
+                    ${{ totalSubsidyAmount.toLocaleString() }}
                   </div>
-                </div>
-              </v-alert>
-
-              <v-table class="rounded border">
-                <thead class="bg-grey-lighten-3">
-                  <tr>
-                    <th
-                      class="text-center"
-                    >
-                      NO.
-                    </th>
-                    <th style="width: 140px">
-                      設施類型
-                    </th>
-                    <th style="width: 180px">
-                      設施名稱
-                    </th>
-                    <th
-                      class="text-center"
-                      style="width: 130px"
-                    >
-                      數量
-                    </th>
-                    <th
-                      class="text-center"
-                    >
-                      單價
-                    </th>
-                    <th style="width: 200px">
-                      補助標準
-                    </th>
-                    <!-- <th style="width: 180px">
-                      補助來源
-                    </th> -->
-                    <th
-                      class="text-center"
-                      style="width: 10px"
-                    >
-                      刪除
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="(facility, index) in localFormData.facilities"
-                    :key="index"
-                  >
-                    <td class="text-center">
-                      {{ index + 1 }}
-                    </td>
-                    <td>{{ facility.typeLabel }}</td>
-                    <td>{{ facility.name }}</td>
-                    <td class="text-center">
-                      <v-text-field
-                        v-model="facility.quantity"
-                        type="number"
-                        min="1"
-                        density="compact"
-                        variant="outlined"
-                        hide-details="auto"
-                        class="ma-1"
-                        :rules="[
-                          v => !!v || '請輸入數量',
-                          v => v > 0 || '數量必須大於0'
-                        ]"
-                        @focus="saveFacilitySnapshot(index)"
-                        @update:model-value="updateFacilityTotal(index)"
-                      />
-                    </td>
-                    <td class="text-center">
-                      <v-text-field
-                        v-model="facility.unitPrice"
-                        type="number"
-                        prefix="$"
-                        min="0"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        class="ma-1"
-                        style="width: 130px"
-                        :readonly="facility.type === 'power' || facility.type === 'storage'"
-                        @focus="saveFacilitySnapshot(index)"
-                        @update:model-value="updateFacilityTotal(index)"
-                      />
-                    </td>
-                    <td>{{ facility.remark }}</td>
-                    <!-- <td>{{ getFundingSourceName(facility.fundingSourceId) }}</td> -->
-                    <td class="text-center">
-                      <v-btn
-                        icon
-                        size="x-small"
-                        color="error"
-                        variant="text"
-                        @click="removeFacility(index)"
-                      >
-                        <v-icon>mdi-close</v-icon>
-                      </v-btn>
-                    </td>
-                  </tr>
-                  <tr v-if="localFormData.facilities.length === 0">
-                    <td
-                      colspan="8"
-                      class="text-center py-3 text-grey"
-                    >
-                      尚未新增任何設施，請使用上方各區塊的加入按鈕新增設施
-                    </td>
-                  </tr>
-                </tbody>
-              </v-table>
-
-              <!-- 💰 金額統計區塊 -->
-              <div
-                v-if="localFormData.facilities.length > 0"
-                class="mt-4"
+                  <div class="text-caption text-green-darken-1 mt-1">
+                    共 {{ localFormData.facilities.length }} 項設施
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="12"
+                md="6"
               >
-                <v-row>
-                  <v-col
-                    cols="12"
-                    md="6"
+                <v-card
+                  class="pa-4 text-center"
+                  color="orange-lighten-5"
+                  variant="outlined"
+                >
+                  <v-icon
+                    class="mb-2"
+                    color="orange-darken-2"
+                    size="large"
                   >
-                    <v-card
-                      class="pa-4 text-center"
-                      color="green-lighten-5"
-                      variant="outlined"
-                    >
-                      <v-icon
-                        class="mb-2"
-                        color="green-darken-2"
-                        size="large"
-                      >
-                        mdi-hand-coin
-                      </v-icon>
-                      <div class="text-h6 text-green-darken-2 font-weight-bold">
-                        補助款總額
-                      </div>
-                      <div class="text-h4 text-green-darken-3 font-weight-bold mt-2">
-                        ${{ totalSubsidyAmount.toLocaleString() }}
-                      </div>
-                      <div class="text-caption text-green-darken-1 mt-1">
-                        共 {{ localFormData.facilities.length }} 項設施
-                      </div>
-                    </v-card>
-                  </v-col>
-                  <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <v-card
-                      class="pa-4 text-center"
-                      color="orange-lighten-5"
-                      variant="outlined"
-                    >
-                      <v-icon
-                        class="mb-2"
-                        color="orange-darken-2"
-                        size="large"
-                      >
-                        mdi-wallet
-                      </v-icon>
-                      <div class="text-h6 text-orange-darken-2 font-weight-bold">
-                        自備款總額
-                      </div>
-                      <div class="text-h4 text-orange-darken-3 font-weight-bold mt-2">
-                        ${{ totalSelfPaidAmount.toLocaleString() }}
-                      </div>
-                      <div class="text-caption text-orange-darken-1 mt-1">
-                        {{ facilitiesWithSelfPaid }} 項需要自備款
-                      </div>
-                    </v-card>
-                  </v-col>
-                </v-row>
-              </div>
-            </v-card-text>
-          </v-card>
+                    mdi-wallet
+                  </v-icon>
+                  <div class="text-h6 text-orange-darken-2 font-weight-bold">
+                    自備款總額
+                  </div>
+                  <div class="text-h4 text-orange-darken-3 font-weight-bold mt-2">
+                    ${{ totalSelfPaidAmount.toLocaleString() }}
+                  </div>
+                  <div class="text-caption text-orange-darken-1 mt-1">
+                    {{ facilitiesWithSelfPaid }} 項需要自備款
+                  </div>
+                </v-card>
+              </v-col>
+            </v-row>
+          </div>
         </v-form>
       </v-card-text>
     </v-card>
@@ -770,6 +838,9 @@ const facilitySnapshot = ref<{
 
 // 🔥 防止遞歸更新的標誌位
 const isRestoringSnapshot = ref(false);
+
+// 補助來源編輯模式控制
+const isEditingFundingSource = ref(false);
 
 // 選項
 const powerEquipmentOptions = [
@@ -1702,7 +1773,8 @@ const getFundingSourceName = (fundingSourceId: string | number): string => {
   }
 
   const source = fundingSourceOptions.value.find(option => option.id === fundingSourceId);
-  return source ? source.name : '未找到補助來源';
+  // 統一處理：找不到補助來源或 id 為 0（預設值）都視為未選擇
+  return source ? source.name : '未選擇補助來源';
 };
 
 
@@ -1713,6 +1785,54 @@ const updateFormData = () => {
     ...localFormData,
     valid: true // Always true for seamless navigation
   });
+};
+
+// 跳過灌溉調控設施步驟功能
+const skipStep = () => {
+  console.log('⏭️ Skipping step3 (灌溉調控設施)');
+
+  // 重置所有表單數據為初始狀態
+  Object.assign(localFormData, {
+    fundingSourceId: 0,
+
+    // 動力設備
+    powerEquipment: '',
+
+    // 調蓄設施
+    storageType: '',
+    storageTonnage: '',
+    storageSource: '',
+    storageRemark: '',
+
+    // 調節控制設施
+    controlType: '',
+    controlName: '',
+    controlQuantity: 1,
+    controlUnitPrice: '',
+    controlSource: '',
+
+    // 設施列表
+    facilities: [],
+
+    valid: true
+  });
+
+  // 關閉編輯模式
+  isEditingFundingSource.value = false;
+
+  // 設置為有效狀態，允許跳過
+  localValid.value = true;
+
+  // 更新父組件數據
+  updateFormData();
+
+  // 觸發 validated 事件，進入下一步
+  emit('validated', {
+    valid: true,
+    step: props.currentStep
+  });
+
+  console.log('✅ Step3 skipped successfully');
 };
 
 const onControlTypeChange = () => {
@@ -1749,7 +1869,10 @@ onMounted(async () => {
     console.warn('⚠️ Step3: URL 中沒有案件號，無法載入資料');
   }
 
-  // Set form data from props
+  // Set form data from props (props.formData = grantsStore.formData[3])
+  console.log('📊 [step3] props.formData:', props.formData);
+  console.log('📊 [step3] props.formData.facilities:', props.formData?.facilities);
+
   if (props.formData) {
     // Set basic properties
     Object.keys(localFormData).forEach(key => {
@@ -1761,7 +1884,25 @@ onMounted(async () => {
     // Ensure facilities array is properly set
     if (Array.isArray(props.formData.facilities)) {
       localFormData.facilities = [...props.formData.facilities];
+      console.log('✅ [step3] 已複製 facilities 陣列，長度:', localFormData.facilities.length);
+    } else {
+      console.warn('⚠️ [step3] props.formData.facilities 不是陣列');
     }
+  } else {
+    console.warn('⚠️ [step3] props.formData 為空');
+  }
+
+  // 🎯 UX 改進：根據設施列表狀態決定是否進入補助來源編輯模式
+  // 必須在 facilities 設置完成後立即執行
+  const facilitiesLength = localFormData.facilities.length;
+  console.log('🔍 [step3] 檢查設施列表長度:', facilitiesLength);
+
+  if (facilitiesLength === 0) {
+    isEditingFundingSource.value = true;
+    console.log('📝 [step3] 設施列表為空，自動進入補助來源編輯模式');
+  } else {
+    isEditingFundingSource.value = false;
+    console.log('📝 [step3] 設施列表不為空 (長度:', facilitiesLength, ')，退出補助來源編輯模式');
   }
 
   // 初始記錄 step2 資料狀態
@@ -1816,7 +1957,20 @@ watch(() => props.formData, (newData) => {
     // Special handling for facilities array
     if (Array.isArray(newData.facilities) &&
         JSON.stringify(newData.facilities) !== JSON.stringify(localFormData.facilities)) {
+      const oldLength = localFormData.facilities.length;
       localFormData.facilities = [...newData.facilities];
+      const newLength = localFormData.facilities.length;
+
+      console.log(`🔄 [step3] facilities 陣列更新: ${oldLength} -> ${newLength}`);
+
+      // 🎯 UX 改進：當 facilities 從空變為有數據時，自動退出編輯模式
+      if (oldLength === 0 && newLength > 0) {
+        isEditingFundingSource.value = false;
+        console.log('📝 [step3] facilities 從空變為有數據，自動退出編輯模式');
+      } else if (oldLength > 0 && newLength === 0) {
+        isEditingFundingSource.value = true;
+        console.log('📝 [step3] facilities 從有數據變為空，自動進入編輯模式');
+      }
     }
   }
 }, { deep: true });

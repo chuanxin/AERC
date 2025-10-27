@@ -110,6 +110,9 @@
                 <v-btn
                   color="#f57c00"
                   variant="flat"
+                  class="flex-grow-2"
+                  rounded="lg"
+                  size="large"
                   :disabled="!localFormData.designerName"
                   @click="isEditingDesigner = false"
                 >
@@ -122,6 +125,8 @@
                   v-if="!localFormData.designerName"
                   color="grey-darken-1"
                   variant="outlined"
+                  rounded="lg"
+                  size="large"
                   class="ms-2"
                   @click="skipStep"
                 >
@@ -4409,7 +4414,7 @@ const updateFormData = () => {
 
 // 跳過田間管路步驟功能
 const skipStep = () => {
-  console.log('⏭️ Skipping step4 (田間管路)');
+  // console.log('⏭️ Skipping step4 (田間管路)');
 
   // 重置所有表單數據為初始狀態
   Object.assign(localFormData, {
@@ -6486,16 +6491,15 @@ onMounted(async () => {
 
   // 🔥 修復：使用三層映射架構 - step4.vue 現在對應 UI step 5
   // 根據三層映射：UI step 5 → Component step4.vue → Data step 4
-  const expectedUIStep = 5; // step4.vue 現在對應 UI step 5 (田間管路)
-  if (grantsStore.currentStep !== expectedUIStep) {
-    console.warn(`⚠️ Step4 component mounted but currentStep is ${grantsStore.currentStep}, expected ${expectedUIStep} (田間管路)`)
+  // const expectedUIStep = 5; // step4.vue 現在對應 UI step 5 (田間管路)
+  // if (grantsStore.currentStep !== expectedUIStep) {
+    // console.warn(`⚠️ Step4 component mounted but currentStep is ${grantsStore.currentStep}, expected ${expectedUIStep} (田間管路)`)
     // 可以發出事件通知父組件，但不直接修改
     // emit('step-mismatch', { expected: expectedUIStep, actual: grantsStore.currentStep })
-  }
+  // }
 
-  // 🔧 修復設計人姓名輸入問題：根據初始數據設置編輯狀態
-  // 如果初始沒有設計人姓名，應該顯示編輯區塊
-  isEditingDesigner.value = !props.formData?.designerName
+  // 🔧 編輯狀態將在所有數據載入完成後統一設置（避免畫面閃爍）
+  // 暫不設置 isEditingDesigner，保持初始值 false
 
   await loadDropdownOptions();
 
@@ -6553,6 +6557,11 @@ onMounted(async () => {
   if (localFormData.pipes && localFormData.pipes.length > 0) {
     await calculateSubsidy();
   }
+
+  // 🎯 UX 改進：在所有數據載入完成後，根據 designerName 最終確認編輯狀態
+  const hasDesignerName = !!localFormData.designerName;
+  isEditingDesigner.value = !hasDesignerName;
+  console.log(`📝 [step4] onMounted 完成，設計人姓名${hasDesignerName ? '有值' : '為空'}，編輯模式: ${isEditingDesigner.value}`);
 
   isUpdating.value = false; // 結束更新標記
 
