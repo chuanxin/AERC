@@ -184,7 +184,7 @@
                 >
                   mdi-information-outline
                 </v-icon>
-                選擇的補助來源將自動套用至本案新增的所有補助項目
+                選擇的補助來源將自動套用至本案申請的所有補助項目
               </div>
             </v-sheet>
             <!-- 動力設備區域 -->
@@ -425,6 +425,7 @@
                   density="comfortable"
                   class="me-2 mb-2"
                   style="min-width: 220px"
+                  autocomplete="off"
                 />
 
                 <!-- <v-select
@@ -453,6 +454,7 @@
                     v => !!v || '請輸入數量',
                     v => v > 0 || '數量必須大於0'
                   ]"
+                  autocomplete="off"
                 />
 
                 <v-text-field
@@ -470,6 +472,7 @@
                     v => !!v || '請輸入單價',
                     v => v > 0 || '單價必須大於0'
                   ]"
+                  autocomplete="off"
                 />
 
                 <v-text-field
@@ -561,7 +564,7 @@
                   </div>
                 </v-col>
                 <v-col cols="12" sm="6" md="3">
-                  <div class="text-caption text-grey-darken-1">本案件總補助（含田間管路）</div>
+                  <div class="text-caption text-grey-darken-1">本案件預計補助（含田間管路）</div>
                   <div class="text-subtitle-2 font-weight-bold text-primary">
                     NT$ {{ currentGrantTotalSubsidy.toLocaleString() }}
                   </div>
@@ -575,7 +578,7 @@
               </v-row>
               <v-divider class="my-2" />
               <div class="text-caption">
-                本步驟補助：NT$ {{ totalSubsidyAmount.toLocaleString() }} |
+                灌溉調控設施補助：NT$ {{ totalSubsidyAmount.toLocaleString() }} |
                 田間管路補助：NT$ {{ step4SubsidyAmount.toLocaleString() }} |
                 使用率：{{ quotaUsageRate }}%
               </div>
@@ -760,8 +763,7 @@
 <script setup lang="ts">
 import { useGrantsStore } from '@/stores/grants';
 import { useOfficesStore } from '@/stores/offices';
-import { calculateSubsidyAmount, determineRegionType, validateStorageFacility, getStorageCapacityLimit, calculateExistingStorageCapacity, getAvailableStorageCapacity, canAddStorageFacility as canAddStorageFacilityUtil, calculateExistingControlSubsidy, getControlSubsidyLimit, getAvailableControlSubsidy, calculateControlActualSubsidy, calculateControlFacilitiesAllocation, calculateControlTotalCost } from '@/utils/subsidyStandards';
-import type { ControlSubsidyAllocation } from '@/utils/subsidyStandards';
+import { calculateSubsidyAmount, determineRegionType, validateStorageFacility, getStorageCapacityLimit, calculateExistingStorageCapacity, getAvailableStorageCapacity, canAddStorageFacility as canAddStorageFacilityUtil, getControlSubsidyLimit, calculateControlFacilitiesAllocation } from '@/utils/subsidyStandards';
 import { useRoute } from 'vue-router';
 
 // Props definition
@@ -848,12 +850,6 @@ const powerEquipmentOptions = [
   '柱塞式泵',
   '汽油引擎',
   '柴油引擎'
-];
-
-const powerSourceOptions = [
-  '農田水利署',
-  '七星管理處作業基金',
-  '瑠公管理處作業基金'
 ];
 
 const storageTypeOptions = [
@@ -982,12 +978,45 @@ const controlFacilitiesAllocation = computed(() => {
 
   if (controlFacilities.length === 0) return [];
 
-  return calculateControlFacilitiesAllocation(area, regionType.value, controlFacilities);
+  // 🔥 計算個人年度可用補助額度
+  let userAvailableSubsidy: number | undefined = undefined;
+
+  if (grantsStore.hasSubsidySummary) {
+    const nonControlSubsidy = localFormData.facilities
+      .filter(f => f.type !== 'control')
+      .reduce((sum, f) => sum + (f.subsidyAmount || 0), 0);
+
+    const step4Subsidy = step4SubsidyAmount.value;
+
+    userAvailableSubsidy = grantsStore.subsidyLimit
+      - grantsStore.totalSubsidyAmount
+      - step4Subsidy
+      - nonControlSubsidy;
+  }
+
+  return calculateControlFacilitiesAllocation(area, regionType.value, controlFacilities, userAvailableSubsidy);
 });
 
 const totalControlSubsidyLimit = computed(() => {
   const area = facilityArea.value > 0 ? facilityArea.value : 0.1;
-  return getControlSubsidyLimit(area, regionType.value);
+
+  // 🔥 計算個人年度可用補助額度
+  let userAvailableSubsidy: number | undefined = undefined;
+
+  if (grantsStore.hasSubsidySummary) {
+    const nonControlSubsidy = localFormData.facilities
+      .filter(f => f.type !== 'control')
+      .reduce((sum, f) => sum + (f.subsidyAmount || 0), 0);
+
+    const step4Subsidy = step4SubsidyAmount.value;
+
+    userAvailableSubsidy = grantsStore.subsidyLimit
+      - grantsStore.totalSubsidyAmount
+      - step4Subsidy
+      - nonControlSubsidy;
+  }
+
+  return getControlSubsidyLimit(area, regionType.value, userAvailableSubsidy);
 });
 
 const totalControlCost = computed(() => {
@@ -1000,47 +1029,42 @@ const totalControlSubsidy = computed(() => {
   return controlFacilitiesAllocation.value.reduce((sum, allocation) => sum + allocation.subsidyAmount, 0);
 });
 
-const totalControlSelfPaid = computed(() => {
-  return controlFacilitiesAllocation.value.reduce((sum, allocation) => sum + allocation.selfPaidAmount, 0);
-});
-
 const availableControlSubsidy = computed(() => {
   return Math.max(0, totalControlSubsidyLimit.value - totalControlSubsidy.value);
 });
 
 const overallControlSubsidyRatio = computed(() => {
-  if (totalControlCost.value === 0) return 0;
-  return totalControlSubsidy.value / totalControlCost.value;
+  // 🔥 修正：統一從 localFormData.facilities 計算，與 totalSubsidyAmount/totalSelfPaidAmount 一致
+  const controlFacilities = localFormData.facilities.filter(f => f.type === 'control');
+  const totalCost = controlFacilities.reduce((sum, f) => sum + (f.totalPrice || 0), 0);
+  const totalSubsidy = controlFacilities.reduce((sum, f) => sum + (f.subsidyAmount || 0), 0);
+
+  if (totalCost === 0) return 0;
+  return totalSubsidy / totalCost;
 });
 
-// 🔥 Linus式修復：預覽新設施的補助分配（用於即時顯示）
+// 🔥 Good Taste: 簡單直接的補助計算 - 總成本與剩餘額度取最小值
 const controlActualSubsidyAmount = computed(() => {
   if (!localFormData.controlType) return 0;
 
   const unitPrice = parseFloat(localFormData.controlUnitPrice as any) || 0;
   const quantity = parseFloat(localFormData.controlQuantity as any) || 1;
-  const newFacilityCost = unitPrice * quantity;
-  const area = facilityArea.value > 0 ? facilityArea.value : 0.1;
+  const totalCost = unitPrice * quantity;
 
-  // 計算包含新設施在內的整體分配
-  const previewTotalCost = totalControlCost.value + newFacilityCost;
-  const subsidyLimit = totalControlSubsidyLimit.value;
-  const previewTotalSubsidy = Math.min(previewTotalCost, subsidyLimit);
-  const previewSubsidyRatio = previewTotalCost > 0 ? previewTotalSubsidy / previewTotalCost : 0;
+  // 剩餘額度 = 總額度 - 已使用
+  const remaining = availableControlSubsidy.value;
 
-  const newFacilitySubsidy = newFacilityCost * previewSubsidyRatio;
-
-  console.log(`[調節控制設施預覽] 面積:${area}公頃, 新設施成本:${newFacilityCost}, 預覽總成本:${previewTotalCost}, 補助比例:${(previewSubsidyRatio * 100).toFixed(1)}%, 新設施補助:${newFacilitySubsidy}`);
-  return Math.round(newFacilitySubsidy);
+  // 總成本 <= 剩餘額度 → 全額補助；總成本 > 剩餘額度 → 補助到上限
+  return Math.min(totalCost, remaining);
 });
 
 const controlSelfPaidAmount = computed(() => {
   const unitPrice = parseFloat(localFormData.controlUnitPrice as any) || 0;
   const quantity = parseFloat(localFormData.controlQuantity as any) || 1;
   const totalCost = unitPrice * quantity;
-  const subsidyAmount = controlActualSubsidyAmount.value;
 
-  return Math.max(0, totalCost - subsidyAmount);
+  // 自備款 = 總成本 - 補助款
+  return totalCost - controlActualSubsidyAmount.value;
 });
 
 // 🔥 Linus式修復：統一金額統計計算邏輯
@@ -1087,32 +1111,6 @@ const quotaUsageRate = computed(() => {
   return rate.toFixed(1);
 });
 
-// 🔥 Linus式修復：區分設施類型的顯示邏輯
-const hasSelfPaidFacilities = computed(() => {
-  // 只有調節控制設施需要顯示自備款欄位
-  return localFormData.facilities.some(facility => facility.type === 'control');
-});
-
-const getFacilitySubsidyDisplay = (facility: any): string => {
-  // 動力設備和調節控制設施：補助款 = 總價
-  if (facility.type === 'power' || facility.type === 'storage') {
-    return facility.totalPrice ? facility.totalPrice.toLocaleString() : '0';
-  }
-  // 調節控制設施：使用 subsidyAmount
-  else if (facility.type === 'control') {
-    return facility.subsidyAmount ? facility.subsidyAmount.toLocaleString() : '0';
-  }
-  return '0';
-};
-
-const getFacilitySelfPaidDisplay = (facility: any): string => {
-  // 只有調節控制設施才有自備款
-  if (facility.type === 'control') {
-    return facility.selfPaidAmount ? facility.selfPaidAmount.toLocaleString() : '0';
-  }
-  return '-'; // 其他設施類型顯示 '-'
-};
-
 const fundingSourceOptions = computed(() => {
   const filtered = officesStore.offices
     .filter(office => {
@@ -1142,19 +1140,6 @@ const canAddControlFacility = computed(() => {
          !!localFormData.controlUnitPrice;
 });
 
-const formattedPrice = computed({
-  get() {
-    // 顯示格式化價格
-    return formatPrice(localFormData.controlUnitPrice);
-  },
-  set(value) {
-    // 將輸入轉換回純數字儲存
-    const numericValue = value.replace(/[^\d]/g, '');
-    localFormData.controlUnitPrice = numericValue;
-  }
-});
-
-// 方法
 const onPowerEquipmentChange = () => {
   updateFormData();
 };
@@ -1163,7 +1148,7 @@ const onStorageTypeChange = () => {
   updateFormData();
 };
 
-// Linus式修復：不同設施類型使用不同邏輯
+// 不同設施類型使用不同邏輯
 // 動力設備 - 直接使用補助款作為單價，無自備款
 const addPowerEquipment = () => {
   if (canAddPowerEquipment.value) {
@@ -1368,10 +1353,23 @@ const addControlFacility = () => {
 
     console.log(`[調節控制設施] 新增設施 - 單價:${unitPrice}, 數量:${quantity}, 總成本:${totalCost}`);
 
-    // 💰 年度補助額度查驗 - 模擬新增後的補助金額
+    // 💰 年度補助額度查驗（僅用於顯示信息，不阻止加入）
+    // 🔥 Good Taste: 超過額度的部分會自動轉為自備款，不需要阻止加入
     if (grantsStore.hasSubsidySummary) {
       const area = facilityArea.value > 0 ? facilityArea.value : 0.1;
       const currentControlFacilities = localFormData.facilities.filter(f => f.type === 'control');
+
+      // 計算個人年度可用補助額度
+      const nonControlSubsidy = localFormData.facilities
+        .filter(f => f.type !== 'control')
+        .reduce((sum, f) => sum + (f.subsidyAmount || 0), 0);
+
+      const step4Subsidy = step4SubsidyAmount.value;
+
+      const userAvailableSubsidy = grantsStore.subsidyLimit
+        - grantsStore.totalSubsidyAmount
+        - step4Subsidy
+        - nonControlSubsidy;
 
       // 模擬新增設施
       const simulatedFacilities = [
@@ -1387,26 +1385,13 @@ const addControlFacility = () => {
         }
       ];
 
-      // 計算新增後的補助金額分配
-      const allocations = calculateControlFacilitiesAllocation(area, regionType.value, simulatedFacilities);
+      // 🔥 傳入個人年度可用額度進行模擬計算
+      const allocations = calculateControlFacilitiesAllocation(area, regionType.value, simulatedFacilities, userAvailableSubsidy);
       const newControlSubsidy = allocations.reduce((sum, allocation) => sum + allocation.subsidyAmount, 0);
+      const newControlSelfPaid = allocations.reduce((sum, allocation) => sum + allocation.selfPaidAmount, 0);
 
-      // 計算其他設施的補助金額（動力設備 + 調蓄設施）
-      const otherFacilitiesSubsidy = localFormData.facilities
-        .filter(f => f.type === 'power' || f.type === 'storage')
-        .reduce((sum, f) => sum + (f.totalPrice || 0), 0);
-
-      // Step3 總補助（調節控制 + 動力 + 調蓄）
-      const step3TotalSubsidy = newControlSubsidy + otherFacilitiesSubsidy;
-
-      // 取得 step4（田間管路）的補助
-      const step4Data = getStepDataSafely(4) || {};
-      const step4Subsidy = parseFloat(step4Data.subsidyAmount) || 0;
-      console.log('📊 [addControlFacility] step4 資料:', {
-        'step4Data': step4Data,
-        'subsidyAmount原始值': step4Data.subsidyAmount,
-        'step4Subsidy解析值': step4Subsidy
-      });
+      // Step3 總補助
+      const step3TotalSubsidy = newControlSubsidy + nonControlSubsidy;
 
       // 本案件總補助 = step3 + step4
       const thisGrantTotal = step3TotalSubsidy + step4Subsidy;
@@ -1416,8 +1401,10 @@ const addControlFacility = () => {
       const remaining = grantsStore.subsidyLimit - estimatedTotal;
 
       console.log('💰 [addControlFacility] 補助額度驗算:', {
+        '個人年度可用': userAvailableSubsidy,
         '調節控制設施補助': newControlSubsidy,
-        '其他設施補助': otherFacilitiesSubsidy,
+        '調節控制設施自備': newControlSelfPaid,
+        '非控制設施補助': nonControlSubsidy,
         'step3總補助': step3TotalSubsidy,
         'step4補助': step4Subsidy,
         '本案件總補助': thisGrantTotal,
@@ -1427,29 +1414,7 @@ const addControlFacility = () => {
         '剩餘額度': remaining
       });
 
-      if (remaining < 0) {
-        alert(
-          `⚠️ 年度補助額度不足！\n\n` +
-          `本次新增設施預估補助：NT$ ${newControlSubsidy.toLocaleString()}\n` +
-          `(含重新分配所有調節控制設施)\n` +
-          `本步驟預估總補助：NT$ ${step3TotalSubsidy.toLocaleString()}\n` +
-          `本案件總補助（含田間管路）：NT$ ${thisGrantTotal.toLocaleString()}\n` +
-          `其他案件已用額度：NT$ ${grantsStore.totalSubsidyAmount.toLocaleString()}\n` +
-          `預估總使用：NT$ ${estimatedTotal.toLocaleString()}\n` +
-          `年度上限：NT$ ${grantsStore.subsidyLimit.toLocaleString()}\n` +
-          `超出金額：NT$ ${Math.abs(remaining).toLocaleString()}\n\n` +
-          `無法加入此設施，請調整申請內容！`
-        );
-        return;
-      // } else if (remaining < 100000) {
-      //   const confirmAdd = confirm(
-      //     `⚠️ 年度補助額度即將不足！\n\n` +
-      //     `本次新增設施預估補助：NT$ ${newControlSubsidy.toLocaleString()}\n` +
-      //     `加入後剩餘額度：NT$ ${remaining.toLocaleString()}\n\n` +
-      //     `是否確定要加入此設施？`
-      //   );
-      //   if (!confirmAdd) return;
-      }
+      // ✅ 不再阻止加入，超額部分已自動轉為自備款
     }
 
     // 先加入設施（補助金額暫時設為0，稍後重新分配）
@@ -1480,7 +1445,7 @@ const addControlFacility = () => {
   }
 };
 
-// 🔥 保存設施快照（在用戶開始編輯前）
+// 保存設施快照（在用戶開始編輯前）
 const saveFacilitySnapshot = (index: number) => {
   const facility = localFormData.facilities[index];
   facilitySnapshot.value = {
@@ -1493,7 +1458,7 @@ const saveFacilitySnapshot = (index: number) => {
   console.log(`[快照保存] 設施 ${index} - 數量:${facility.quantity}, 單價:${facility.unitPrice}`);
 };
 
-// 🔥 統一的年度補助額度檢查函數
+// 統一的年度補助額度檢查函數
 const checkSubsidyLimit = (operation: string, newStep3Subsidy: number): { allowed: boolean; remaining: number } => {
   if (!grantsStore.hasSubsidySummary) {
     return { allowed: true, remaining: Infinity };
@@ -1550,23 +1515,28 @@ const checkSubsidyLimit = (operation: string, newStep3Subsidy: number): { allowe
 // 移除設施
 const removeFacility = (index: number) => {
   const facility = localFormData.facilities[index];
-  const wasControlFacility = facility.type === 'control';
 
   localFormData.facilities.splice(index, 1);
 
-  // 如果移除的是調節控制設施，需要重新分配剩餘設施的補助
-  if (wasControlFacility) {
+  // 🔥 Good Taste: 任何設施刪除都可能釋出個人年度補助額度
+  // 需要檢查是否有調節控制設施需要重新分配
+  const hasControlFacilities = localFormData.facilities.some(f => f.type === 'control');
+
+  if (hasControlFacilities) {
+    // 有調節控制設施：重新分配（可能有更多額度可用）
     nextTick(() => {
       reallocateControlSubsidies();
+      // reallocateControlSubsidies 內部已經調用 updateFormData()
     });
+  } else {
+    // 沒有調節控制設施：直接更新
+    updateFormData();
   }
-
-  updateFormData();
 };
 
 // 更新設施的總價
 const updateFacilityTotal = (index: number) => {
-  // 🔥 防止遞歸更新：如果正在恢復快照，直接返回
+  // 防止遞歸更新：如果正在恢復快照，直接返回
   if (isRestoringSnapshot.value) {
     console.log(`[updateFacilityTotal] 正在恢復快照，跳過更新`);
     return;
@@ -1654,53 +1624,39 @@ const updateFacilityTotal = (index: number) => {
     console.log(`[updateFacilityTotal] ${facility.typeLabel} - 數量:${newQuantity}, 單價:${unitPrice}, 總價:${facility.totalPrice}, 原始補助:${originalSubsidyTotal}, 實際補助:${facility.subsidyAmount}, 自備:${facility.selfPaidAmount}`);
   }
 
-  // 🔥 調節控制設施：先計算新的補助分配（不直接修改，只用於額度檢查）
-  let simulatedStep3Subsidy = 0;
-  if (facility.type === 'control') {
-    const area = facilityArea.value > 0 ? facilityArea.value : 0.1;
-    const controlFacilities = localFormData.facilities.filter(f => f.type === 'control');
-    const allocations = calculateControlFacilitiesAllocation(area, regionType.value, controlFacilities);
-
-    // 計算模擬的 step3 總補助（調節控制設施 + 其他設施）
-    const controlSubsidy = allocations.reduce((sum, a) => sum + a.subsidyAmount, 0);
-    const otherFacilitiesSubsidy = localFormData.facilities
-      .filter(f => f.type !== 'control')
-      .reduce((sum, f) => sum + (f.subsidyAmount || 0), 0);
-    simulatedStep3Subsidy = controlSubsidy + otherFacilitiesSubsidy;
-  } else {
-    // 定價補助設施：計算新的 step3 總補助
-    simulatedStep3Subsidy = totalSubsidyAmount.value;
-  }
-
   // 💰 年度補助額度檢查
-  const limitCheck = checkSubsidyLimit(
-    `調整${facility.typeLabel} (數量: ${oldQuantity} → ${newQuantity}, 單價: ${oldUnitPrice} → ${unitPrice})`,
-    simulatedStep3Subsidy
-  );
+  // 🔥 Good Taste: 只對定價補助設施（動力、調蓄）檢查
+  // 調節控制設施超額部分會自動轉為自備款，不需要檢查
+  if (facility.type === 'power' || facility.type === 'storage') {
+    const limitCheck = checkSubsidyLimit(
+      `調整${facility.typeLabel} (數量: ${oldQuantity} → ${newQuantity}, 單價: ${oldUnitPrice} → ${unitPrice})`,
+      totalSubsidyAmount.value
+    );
 
-  if (!limitCheck.allowed) {
-    // 恢復快照中的原始值
-    if (facilitySnapshot.value) {
-      console.log(`[額度檢查失敗] 開始恢復設施 ${index} 的原始值`);
+    if (!limitCheck.allowed) {
+      // 恢復快照中的原始值
+      if (facilitySnapshot.value) {
+        console.log(`[額度檢查失敗] 開始恢復設施 ${index} 的原始值`);
 
-      // 設置恢復標誌，防止觸發遞歸更新
-      isRestoringSnapshot.value = true;
+        // 設置恢復標誌，防止觸發遞歸更新
+        isRestoringSnapshot.value = true;
 
-      facility.quantity = facilitySnapshot.value.quantity;
-      facility.unitPrice = facilitySnapshot.value.unitPrice;
-      facility.totalPrice = facilitySnapshot.value.totalPrice;
-      facility.subsidyAmount = facilitySnapshot.value.subsidyAmount;
-      facility.selfPaidAmount = facilitySnapshot.value.selfPaidAmount;
+        facility.quantity = facilitySnapshot.value.quantity;
+        facility.unitPrice = facilitySnapshot.value.unitPrice;
+        facility.totalPrice = facilitySnapshot.value.totalPrice;
+        facility.subsidyAmount = facilitySnapshot.value.subsidyAmount;
+        facility.selfPaidAmount = facilitySnapshot.value.selfPaidAmount;
 
-      // 使用 nextTick 確保 DOM 更新完成後再清除標誌
-      nextTick(() => {
-        isRestoringSnapshot.value = false;
-        console.log(`[額度檢查失敗] 已完成恢復設施 ${index}，值：數量=${facility.quantity}, 單價=${facility.unitPrice}`);
-      });
+        // 使用 nextTick 確保 DOM 更新完成後再清除標誌
+        nextTick(() => {
+          isRestoringSnapshot.value = false;
+          console.log(`[額度檢查失敗] 已完成恢復設施 ${index}，值：數量=${facility.quantity}, 單價=${facility.unitPrice}`);
+        });
+      }
+      // 清除快照
+      facilitySnapshot.value = null;
+      return;
     }
-    // 清除快照
-    facilitySnapshot.value = null;
-    return;
   }
 
   // 調節控制設施修改後需要重新分配所有設施的補助金額
@@ -1711,7 +1667,7 @@ const updateFacilityTotal = (index: number) => {
     });
   }
 
-  // 🔥 更新快照為當前成功的值（支持連續修改）
+  // 更新快照為當前成功的值（支持連續修改）
   // 這樣下次修改失敗時，能恢復到上次成功的值而不是最初的值
   facilitySnapshot.value = {
     quantity: facility.quantity,
@@ -1731,10 +1687,35 @@ const reallocateControlSubsidies = () => {
   const area = facilityArea.value > 0 ? facilityArea.value : 0.1;
   const controlFacilities = localFormData.facilities.filter(facility => facility.type === 'control');
 
-  if (controlFacilities.length === 0) return;
+  // 🔥 Good Taste: 即使沒有調節控制設施，也要調用 updateFormData 確保 UI 更新
+  if (controlFacilities.length === 0) {
+    updateFormData();
+    return;
+  }
 
-  // 獲取新的分配結果
-  const allocations = calculateControlFacilitiesAllocation(area, regionType.value, controlFacilities);
+  // 🔥 計算個人年度可用補助額度（考慮兩層限制）
+  let userAvailableSubsidy: number | undefined = undefined;
+
+  if (grantsStore.hasSubsidySummary) {
+    // 1. 計算非調節控制設施的補助總額
+    const nonControlSubsidy = localFormData.facilities
+      .filter(f => f.type !== 'control')
+      .reduce((sum, f) => sum + (f.subsidyAmount || 0), 0);
+
+    // 2. 取得 step4 的補助額
+    const step4Subsidy = step4SubsidyAmount.value;
+
+    // 3. 計算個人年度可用額度 = 總上限 - 其他案件已用 - step4 - 非調節控制設施
+    userAvailableSubsidy = grantsStore.subsidyLimit
+      - grantsStore.totalSubsidyAmount
+      - step4Subsidy
+      - nonControlSubsidy;
+
+    console.log(`[重新分配] 個人年度上限:${grantsStore.subsidyLimit}, 其他案件已用:${grantsStore.totalSubsidyAmount}, step4:${step4Subsidy}, 非控制設施:${nonControlSubsidy}, 可用於調節控制:${userAvailableSubsidy}`);
+  }
+
+  // 獲取新的分配結果（傳入個人年度可用額度）
+  const allocations = calculateControlFacilitiesAllocation(area, regionType.value, controlFacilities, userAvailableSubsidy);
 
   // 更新每個調節控制設施的補助金額和自備款
   let controlIndex = 0;
@@ -1755,19 +1736,13 @@ const reallocateControlSubsidies = () => {
   updateFormData();
 };
 
-// 🔥 Linus式修復：工具函數 - 消除重複邏輯
-const formatPrice = (value: any) => {
-  if (!value && value !== 0) return '';
-  return Number(value).toLocaleString();
-};
-
 const formatArea = (area: number): string => {
   if (!area && area !== 0) return '0.0000';
   return Number(area).toFixed(4);
 };
 
 const getFundingSourceName = (fundingSourceId: string | number): string => {
-  // 🔥 Linus式修復：使用嚴格比較，避免 0 被判斷為 falsy
+  // 使用嚴格比較，避免 0 被判斷為 falsy
   if (fundingSourceId === null || fundingSourceId === undefined || fundingSourceId === '未選擇補助來源') {
     return '未選擇補助來源';
   }
@@ -1845,7 +1820,7 @@ const onControlTypeChange = () => {
 onMounted(async () => {
   console.log("Step 3 mounted, formData:", props.formData);
 
-  // 🔥 Linus式修復：參照 step6 的完整載入機制，確保資料正確性
+  // 參照 step6 的完整載入機制，確保資料正確性
   const caseNumberFromRoute = route.query.id as string;
 
   if (caseNumberFromRoute) {
@@ -1892,7 +1867,7 @@ onMounted(async () => {
     console.warn('⚠️ [step3] props.formData 為空');
   }
 
-  // 🎯 UX 改進：根據設施列表狀態決定是否進入補助來源編輯模式
+  // UX 改進：根據設施列表狀態決定是否進入補助來源編輯模式
   // 必須在 facilities 設置完成後立即執行
   const facilitiesLength = localFormData.facilities.length;
   console.log('🔍 [step3] 檢查設施列表長度:', facilitiesLength);
@@ -1933,7 +1908,7 @@ onMounted(async () => {
   updateFormData();
 });
 
-// 🔧 簡化的診斷函數
+// 簡化的診斷函數
 const logStep2DataStatus = () => {
   const step2Data = getStepDataSafely(2);
 

@@ -252,10 +252,22 @@ export const calculateExistingControlSubsidy = (facilities: Array<{
 
 /**
  * 根據面積和地區類型計算調節控制設施的總補助上限
+ * 🔥 Good Taste: 同時考慮面積上限和個人年度剩餘額度，返回較小者
  */
-export const getControlSubsidyLimit = (area: number, region: 'general' | 'indigenous'): number => {
+export const getControlSubsidyLimit = (
+  area: number,
+  region: 'general' | 'indigenous',
+  userAvailableSubsidy?: number
+): number => {
   const unitSubsidy = SUBSIDY_STANDARDS.controlEquipment[region];
-  return unitSubsidy * area;
+  const areaBasedLimit = unitSubsidy * area;
+
+  // 如果提供了個人年度可用額度，返回兩者中較小的值
+  if (userAvailableSubsidy !== undefined) {
+    return Math.min(areaBasedLimit, userAvailableSubsidy);
+  }
+
+  return areaBasedLimit;
 };
 
 /**
@@ -300,8 +312,9 @@ export interface ControlSubsidyAllocation {
 }
 
 /**
- * 調節控制設施整體性補助分配
- * 計算所有調節控制設施的總成本，然後按比例分配補助金額
+ * 調節控制設施補助分配
+ * 🔥 Good Taste: 先來先得原則，純加減邏輯
+ * 考慮兩層限制：面積上限 & 個人年度補助額度
  */
 export const calculateControlFacilitiesAllocation = (
   area: number,
@@ -309,36 +322,55 @@ export const calculateControlFacilitiesAllocation = (
   controlFacilities: Array<{
     totalPrice: number;
     quantity: number;
-  }>
+  }>,
+  userSubsidyLimit?: number // 個人年度可用補助額度（可選）
 ): ControlSubsidyAllocation[] => {
-  // 1. 計算所有調節控制設施的總成本
-  const totalCost = controlFacilities.reduce((sum, facility) => sum + (facility.totalPrice || 0), 0);
+  // 1. 計算有效補助上限（已考慮面積和個人年度兩層限制）
+  const effectiveLimit = getControlSubsidyLimit(area, region, userSubsidyLimit);
 
-  // 2. 計算補助上限
-  const subsidyLimit = getControlSubsidyLimit(area, region);
+  // 2. 初始化剩餘額度
+  let remainingSubsidy = effectiveLimit;
 
-  // 3. 計算實際總補助金額（不超過上限）
-  const totalActualSubsidy = Math.min(totalCost, subsidyLimit);
+  console.log(`[調節控制設施分配] 有效補助上限:${effectiveLimit}, 個人年度可用:${userSubsidyLimit ?? '無限制'}`);
 
-  // 4. 計算整體補助比例
-  const overallSubsidyRatio = totalCost > 0 ? totalActualSubsidy / totalCost : 0;
-
-  // 5. 按比例分配給每個設施
+  // 4. 按順序分配補助（先來先得）
   const allocations: ControlSubsidyAllocation[] = controlFacilities.map((facility, index) => {
     const facilityCost = facility.totalPrice || 0;
-    const facilitySubsidy = facilityCost * overallSubsidyRatio;
-    const facilitySelfPaid = facilityCost - facilitySubsidy;
+
+    // 補助 = min(成本, 剩餘額度)
+    const subsidyAmount = Math.min(facilityCost, remainingSubsidy);
+    const selfPaidAmount = facilityCost - subsidyAmount;
+
+    // 扣除已分配的額度
+    remainingSubsidy -= subsidyAmount;
+
+    const subsidyRatio = facilityCost > 0 ? subsidyAmount / facilityCost : 0;
+
+    console.log(`[調節控制設施分配] 設施${index + 1}: 成本${facilityCost}, 補助${subsidyAmount}, 自備${selfPaidAmount}, 剩餘額度${remainingSubsidy}`);
 
     return {
       facilityIndex: index,
       totalCost: facilityCost,
-      subsidyAmount: Math.round(facilitySubsidy), // 四捨五入到整數
-      selfPaidAmount: Math.round(facilitySelfPaid), // 四捨五入到整數
-      subsidyRatio: overallSubsidyRatio
+      subsidyAmount,
+      selfPaidAmount,
+      subsidyRatio
     };
   });
 
-  console.log(`[調節控制設施整體分配] 面積:${area}公頃, 地區:${region}, 總成本:${totalCost}, 補助上限:${subsidyLimit}, 實際補助:${totalActualSubsidy}, 補助比例:${(overallSubsidyRatio * 100).toFixed(1)}%`);
+  // 5. 計算總額驗證
+  const totalCost = allocations.reduce((sum, a) => sum + a.totalCost, 0);
+  const totalSubsidy = allocations.reduce((sum, a) => sum + a.subsidyAmount, 0);
+  const totalSelfPaid = allocations.reduce((sum, a) => sum + a.selfPaidAmount, 0);
+
+  console.log(`[調節控制設施整體分配] 面積:${area}公頃, 地區:${region}, 有效上限:${effectiveLimit}, 總成本:${totalCost}, 總補助:${totalSubsidy}, 總自備:${totalSelfPaid}`);
+
+  // ✅ 驗證數學恆等式
+  if (totalSubsidy > effectiveLimit) {
+    console.error(`❌ 補助總額超過有效上限！${totalSubsidy} > ${effectiveLimit}`);
+  }
+  if (totalSubsidy + totalSelfPaid !== totalCost) {
+    console.error(`❌ 補助+自備 ≠ 總成本！${totalSubsidy} + ${totalSelfPaid} ≠ ${totalCost}`);
+  }
 
   return allocations;
 };
