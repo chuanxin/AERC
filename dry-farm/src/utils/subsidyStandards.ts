@@ -16,6 +16,10 @@ export interface SubsidyStandards {
     general: number; // 元/公頃
     indigenous: number; // 元/公頃
   };
+  pipelineEquipment: {
+    general: Record<string, number>; // 元/公頃
+    indigenous: Record<string, number>; // 元/公頃
+  };
 }
 
 /**
@@ -74,6 +78,22 @@ export const SUBSIDY_STANDARDS: SubsidyStandards = {
   controlEquipment: {
     general: 230000,
     indigenous: 253000
+  },
+
+  // 田間管路灌溉系統補助上限（元/公頃）
+  pipelineEquipment: {
+    general: {
+      '穿孔管系統': 62000,
+      '噴頭系統': 120000,
+      '微噴系統': 180000,
+      '滴灌系統': 200000
+    },
+    indigenous: {
+      '穿孔管系統': 68200,
+      '噴頭系統': 132000,
+      '微噴系統': 198000,
+      '滴灌系統': 220000
+    }
   }
 };
 
@@ -390,4 +410,51 @@ export const calculateControlTotalCost = (
     .reduce((sum, facility) => sum + (facility.totalPrice || 0), 0);
 
   return existingCost + (previewCost || 0);
+};
+
+/**
+ * 根據灌溉系統類型和地區計算田間管路補助上限
+ */
+export const getPipelineSubsidyLimit = (
+  irrigationSystem: string,
+  area: number,
+  region: 'general' | 'indigenous'
+): number => {
+  const unitSubsidy = SUBSIDY_STANDARDS.pipelineEquipment[region][irrigationSystem];
+  if (!unitSubsidy) {
+    console.warn(`未找到灌溉系統 "${irrigationSystem}" 在 ${region} 地區的補助標準`);
+    return 0;
+  }
+  return unitSubsidy * area;
+};
+
+/**
+ * 計算田間管路實際可獲得補助金額
+ * 考慮補助上限和總成本，取較小值
+ */
+export const calculatePipelineActualSubsidy = (
+  irrigationSystem: string,
+  area: number,
+  region: 'general' | 'indigenous',
+  totalCost: number
+): number => {
+  const subsidyLimit = getPipelineSubsidyLimit(irrigationSystem, area, region);
+  const actualSubsidy = Math.min(totalCost, subsidyLimit);
+
+  console.log(`[田間管路補助計算] 系統:${irrigationSystem}, 面積:${area}公頃, 地區:${region}, 補助上限:${subsidyLimit}, 總成本:${totalCost}, 實際補助:${actualSubsidy}`);
+
+  return actualSubsidy;
+};
+
+/**
+ * 計算田間管路農民自備款
+ */
+export const calculatePipelineSelfPaid = (
+  irrigationSystem: string,
+  area: number,
+  region: 'general' | 'indigenous',
+  totalCost: number
+): number => {
+  const actualSubsidy = calculatePipelineActualSubsidy(irrigationSystem, area, region, totalCost);
+  return Math.max(0, totalCost - actualSubsidy);
 };
