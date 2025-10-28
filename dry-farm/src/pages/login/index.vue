@@ -59,7 +59,6 @@
                 placeholder="帳號"
                 variant="outlined"
                 density="comfortable"
-                size="default"
                 class="login-input mb-2"
                 hide-details
               />
@@ -70,7 +69,6 @@
                 :type="showPassword ? 'text' : 'password'"
                 variant="outlined"
                 density="comfortable"
-                size="default"
                 class="login-input mb-2"
                 hide-details
               />
@@ -80,7 +78,6 @@
                 placeholder="驗證碼"
                 variant="outlined"
                 density="comfortable"
-                size="default"
                 class="login-input captcha-input mb-2"
                 hide-details
                 :error="captchaError"
@@ -157,7 +154,6 @@
                   placeholder="帳號"
                   variant="outlined"
                   density="comfortable"
-                  :size="$vuetify.display.xs ? 'small' : 'default'"
                   class="login-input mb-2"
                   hide-details
                 />
@@ -168,7 +164,6 @@
                   :type="showPassword ? 'text' : 'password'"
                   variant="outlined"
                   density="comfortable"
-                  :size="$vuetify.display.xs ? 'small' : 'default'"
                   class="login-input mb-2"
                   hide-details
                 />
@@ -178,7 +173,6 @@
                   placeholder="驗證碼"
                   variant="outlined"
                   density="comfortable"
-                  :size="$vuetify.display.xs ? 'small' : 'default'"
                   class="login-input captcha-input mb-0"
                   :error="captchaError"
                   :error-messages="captchaError ? '驗證碼不正確' : ''"
@@ -226,7 +220,6 @@
         <div class="small-screen-footer">
           <div class="d-flex flex-column align-center">
             <v-chip
-              size="default"
               color="teal-darken-1"
               variant="flat"
               class="text-body-2 font-weight-medium mb-2"
@@ -253,7 +246,6 @@
     >
       <div class="d-flex flex-column align-end">
         <v-chip
-          size="default"
           color="teal-darken-1"
           variant="flat"
           class="text-body-2 font-weight-medium mb-2"
