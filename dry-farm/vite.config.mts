@@ -167,4 +167,7 @@ export default defineConfig({
   optimizeDeps: {
     include: ['lodash-es'] // 預構建 lodash-es
   },
+  esbuild: {
+    drop: ['console', 'debugger'], // 移除 console 和 debugger 語句
+  },
 })
