@@ -1359,7 +1359,7 @@
 
           <!-- STEP 5: 已新增管路設施列表 -->
           <v-card-title
-            class="text-subtitle-1 font-weight-bold pa-0"
+            class="text-subtitle-1 font-weight-bold pa-0 pb-2"
             style="color: #2d8c8f"
           >
             <v-icon
@@ -1371,8 +1371,63 @@
             </v-icon>
             管路設施列表
           </v-card-title>
+
+          <!-- 💰 個人年度補助額度資訊 -->
+          <v-alert
+            v-if="grantsStore.hasSubsidySummary && localFormData.pipes.length > 0"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mb-3"
+            prominent
+            border="start"
+          >
+            <template #prepend>
+              <v-icon size="small">
+                mdi-calculator
+              </v-icon>
+            </template>
+            <div class="text-body-2">
+              <div class="font-weight-bold mb-2">
+                個人年度補助額度使用狀況
+              </div>
+              <v-row dense>
+                <v-col cols="12" sm="6" md="3">
+                  <div class="text-caption text-grey-darken-1">個人年度上限</div>
+                  <div class="text-subtitle-2 font-weight-bold">
+                    NT$ {{ grantsStore.subsidyLimit.toLocaleString() }}
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6" md="3">
+                  <div class="text-caption text-grey-darken-1">個人其他案件已用</div>
+                  <div class="text-subtitle-2 font-weight-bold">
+                    NT$ {{ grantsStore.totalSubsidyAmount.toLocaleString() }}
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6" md="3">
+                  <div class="text-caption text-grey-darken-1">本案件規劃補助（含灌溉調控設施）</div>
+                  <div class="text-subtitle-2 font-weight-bold text-primary">
+                    NT$ {{ currentGrantTotalSubsidy.toLocaleString() }}
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6" md="3">
+                  <div class="text-caption text-grey-darken-1">剩餘可用額度</div>
+                  <div class="text-subtitle-2 font-weight-bold">
+                    NT$ {{ remainingSubsidyQuota.toLocaleString() }}
+                  </div>
+                </v-col>
+              </v-row>
+              <v-divider class="my-2" />
+              <div class="text-caption">
+                灌溉調控設施補助：NT$ {{ step3SubsidyAmount.toLocaleString() }} |
+                田間管路補助：NT$ {{ (localFormData.subsidyAmount || 0).toLocaleString() }} |
+                使用率：{{ quotaUsageRate }}%
+              </div>
+            </div>
+          </v-alert>
+
           <v-sheet
-            class="mt-2 mb-4 pa-0 rounded"
+            class="mt-2 pb-4 rounded"
             color="white"
           >
             <v-row>
@@ -1630,6 +1685,90 @@
               </v-col>
             </v-row>
           </v-sheet>
+
+          <!-- 💰 金額統計區塊 -->
+          <div
+            v-if="localFormData.pipes.length > 0"
+            class="mb-4"
+          >
+            <v-row>
+              <v-col
+                cols="12"
+                md="6"
+              >
+                <v-card
+                  class="pa-4 text-center"
+                  color="green-lighten-5"
+                  variant="outlined"
+                >
+                  <v-icon
+                    class="mb-2"
+                    color="green-darken-2"
+                    size="large"
+                  >
+                    mdi-hand-coin
+                  </v-icon>
+                  <div class="text-h6 text-green-darken-2 font-weight-bold">
+                    補助款總額
+                  </div>
+                  <div class="text-h4 text-green-darken-3 font-weight-bold mt-2">
+                    ${{ (localFormData.subsidyAmount || 0).toLocaleString() }}
+                  </div>
+                  <div class="text-caption text-green-darken-1 mt-1">
+                    共 {{ localFormData.pipes.length }} 項管路設施
+                  </div>
+                </v-card>
+              </v-col>
+              <v-col
+                cols="12"
+                md="6"
+              >
+                <v-card
+                  class="pa-4 text-center"
+                  color="orange-lighten-5"
+                  variant="outlined"
+                >
+                  <v-icon
+                    class="mb-2"
+                    color="orange-darken-2"
+                    size="large"
+                  >
+                    mdi-wallet
+                  </v-icon>
+                  <div class="text-h6 text-orange-darken-2 font-weight-bold">
+                    自備款總額
+                  </div>
+                  <div class="text-h4 text-orange-darken-3 font-weight-bold mt-2">
+                    ${{ (localFormData.farmerSelfAmount || 0).toLocaleString() }}
+                  </div>
+                  <div class="text-caption text-orange-darken-1 mt-1">
+                    {{ localFormData.farmerSelfAmount > 0 ? '田間管路設計超過補助限額，增加相應之自備款' : '無需自備款' }}
+                  </div>
+                </v-card>
+              </v-col>
+            </v-row>
+
+            <!-- ⚠️ 年度餘額限制警告 -->
+            <v-alert
+              v-if="isSubsidyLimitedByQuota"
+              type="warning"
+              variant="tonal"
+              class="mt-3"
+              density="compact"
+            >
+              <template #prepend>
+                <v-icon>mdi-alert-circle</v-icon>
+              </template>
+              <div class="text-body-2">
+                <strong>補助金額受個人年度補助餘額限制</strong>
+              </div>
+              <div class="text-caption mt-1">
+                本案件補助金額已依據您的個人年度補助餘額調整。
+                扣除「灌溉調控設施」(step3) 已使用的 NT$ {{ step3SubsidyAmount.toLocaleString() }} 後，
+                剩餘可用額度不足以支付完整的灌溉系統補助上限，因此自備款金額相應增加。
+              </div>
+            </v-alert>
+          </div>
         </v-form>
       </v-card-text>
     </v-card>
@@ -2331,6 +2470,12 @@ import { usePFDiametersStore } from '@/stores/pfDiametersStore'
 import { usePFMaterialsStore } from '@/stores/pfMaterialsStore'
 import { useIrrigationTypesStore } from '@/stores/irrigationTypesStore'
 import type { PipeFitting } from '@/types/pipeFittings'
+import {
+  getPipelineSubsidyLimit,
+  calculatePipelineActualSubsidy,
+  calculatePipelineSelfPaid,
+  determineRegionType
+} from '@/utils/subsidyStandards'
 
 // Type definitions for material generation
 interface MaterialData {
@@ -3009,7 +3154,6 @@ const facilityAreaFromStep2 = computed(() => {
   const step2Data = grantsStore.formData[2]
 
   if (!step2Data || !step2Data.lands || !Array.isArray(step2Data.lands)) {
-    console.log('📊 step4.vue: No Step2 lands data available')
     return 0
   }
 
@@ -3019,7 +3163,6 @@ const facilityAreaFromStep2 = computed(() => {
     return total + (isNaN(area) ? 0 : area)
   }, 0)
 
-  console.log(`📊 step4.vue: Calculated facility area from Step2: ${totalArea} m²`)
   return totalArea
 })
 
@@ -3193,6 +3336,49 @@ const subsidyAmount = computed(() => {
 
 const farmerSelfAmount = computed(() => {
   return localFormData.farmerSelfAmount.toLocaleString();
+});
+
+// 💰 個人年度補助額度計算
+// 獲取 step3 的補助金額
+const step3SubsidyAmount = computed(() => {
+  const step3Data = grantsStore.formData[3] || grantsStore.all_steps_data?.[3] || {};
+  const facilities = step3Data.facilities || [];
+  return facilities.reduce((total: number, facility: any) => {
+    return total + (facility.subsidyAmount || 0);
+  }, 0);
+});
+
+// 本案件總補助（step3 + step4）
+const currentGrantTotalSubsidy = computed(() => {
+  return step3SubsidyAmount.value + (localFormData.subsidyAmount || 0);
+});
+
+// 剩餘可用額度
+const remainingSubsidyQuota = computed(() => {
+  if (!grantsStore.hasSubsidySummary) return 0;
+  const estimatedTotal = grantsStore.totalSubsidyAmount + currentGrantTotalSubsidy.value;
+  return grantsStore.subsidyLimit - estimatedTotal;
+});
+
+// 使用率
+const quotaUsageRate = computed(() => {
+  if (!grantsStore.hasSubsidySummary || grantsStore.subsidyLimit === 0) return '0.0';
+  const estimatedTotal = grantsStore.totalSubsidyAmount + currentGrantTotalSubsidy.value;
+  const rate = (estimatedTotal / grantsStore.subsidyLimit) * 100;
+  return rate.toFixed(1);
+});
+
+// 💡 檢查補助是否受到個人年度餘額限制
+const isSubsidyLimitedByQuota = computed(() => {
+  if (!grantsStore.hasSubsidySummary || !localFormData.subsidyAmount) return false;
+
+  // 計算 step4 可用的個人年度餘額
+  const step3Subsidy = step3SubsidyAmount.value;
+  const otherCasesTotal = grantsStore.totalSubsidyAmount;
+  const availableQuota = grantsStore.subsidyLimit - otherCasesTotal - step3Subsidy;
+
+  // 如果可用餘額小於補助金額，表示受到年度餘額限制
+  return availableQuota < localFormData.subsidyAmount && availableQuota >= 0;
 });
 
 // 驗證條件 - 依照不同灌溉型式驗證自動帶入材料所需欄位
@@ -3449,7 +3635,6 @@ const calculateWidth = () => {
 // 🔧 Linus式修正：監聽 Step2 面積變化，自動重新計算 fieldWidth
 watch(facilityAreaFromStep2, (newArea, oldArea) => {
   if (newArea !== oldArea) {
-    console.log(`📊 step4.vue: facilityArea changed from ${oldArea} to ${newArea}, recalculating width`);
     calculateWidth();
   }
 }, { immediate: false });
@@ -3457,7 +3642,6 @@ watch(facilityAreaFromStep2, (newArea, oldArea) => {
 // 也監聽 fieldLength 變化
 watch(() => localFormData.fieldLength, (newLength, oldLength) => {
   if (newLength !== oldLength && newLength > 0) {
-    console.log(`📊 step4.vue: fieldLength changed from ${oldLength} to ${newLength}, recalculating width`);
     calculateWidth();
   }
 }, { immediate: false });
@@ -3885,6 +4069,9 @@ const updatePipeQuantity = (groupNo: number, pipeIndex: number, newQuantity: num
 
   // 更新父組件數據
   updateFormData();
+
+  // 自動重新計算補助
+  calculateSubsidy();
 };
 
 // 更新管路單價
@@ -3932,6 +4119,9 @@ const updatePipePrice = (groupNo: number, pipeIndex: number, newPrice: number) =
 
   // 更新父組件數據
   updateFormData();
+
+  // 自動重新計算補助
+  calculateSubsidy();
 };
 
 // 移除管路
@@ -4307,62 +4497,95 @@ const calculateSubsidy = async () => {
   isCalculatingSubsidy.value = true;
   try {
     // 根據灌溉型式和原民區域狀態計算補助金額
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
     const currentTotalPipesPrice = parseFloat(totalPipesPrice.value.replace(/,/g, ''));
     const facilityAreaInHectares = facilityAreaFromStep2.value / 10000; // 轉換為公頃
 
     // 從 step2 數據中獲取原民區域狀態
-    const isAboriginalArea = grantsStore.formData[2]?.isAboriginalArea || false;
+    const step2Data = grantsStore.formData[2];
 
-    // 根據灌溉型式和原民區域狀態設定每公頃補助金額
-    let subsidyPerHectare = 0;
+    // 🔥 修正：優先從 lands 陣列中檢查實際土地的原住民地區狀態
+    // 檢查邏輯：只要有任一筆土地位於原住民地區，就套用原住民地區補助標準
+    let isAboriginalArea = false;
+
+    if (step2Data?.lands && Array.isArray(step2Data.lands) && step2Data.lands.length > 0) {
+      // 檢查 lands 陣列中是否有土地位於原住民地區
+      isAboriginalArea = step2Data.lands.some((land: any) => {
+        // 可能的欄位名稱：isIndigenous, is_indigenous, isAboriginalArea, is_aboriginal_area
+        return land.isIndigenous || land.is_indigenous ||
+               land.isAboriginalArea || land.is_aboriginal_area ||
+               land.indigenousType || land.indigenous_type;
+      });
+    }
+
+    // 如果 lands 沒有資料，回退到使用 step2 的 isAboriginalArea
+    if (!step2Data?.lands || step2Data.lands.length === 0) {
+      isAboriginalArea = step2Data?.isAboriginalArea || false;
+    }
+
+    const region = determineRegionType(isAboriginalArea);
+
+    // 根據灌溉型式ID獲取系統名稱並映射到補助標準中的名稱
     const irrigationTypeId = localFormData.irrigationTypeId;
+    const irrigationType = irrigationTypesStore.getIrrigationTypeById(irrigationTypeId);
 
-    if (irrigationTypeId === 1) { // 穿孔管系統
-      subsidyPerHectare = isAboriginalArea ? 68200 : 62000;
-    } else if (irrigationTypeId === 2) { // 噴頭式系統
-      subsidyPerHectare = isAboriginalArea ? 132000 : 120000;
-    } else if (irrigationTypeId === 3) { // 微噴系統
-      subsidyPerHectare = isAboriginalArea ? 198000 : 180000;
-    } else if (irrigationTypeId === 4) { // 滴灌系統
-      subsidyPerHectare = isAboriginalArea ? 220000 : 200000;
+    // 映射灌溉系統名稱到補助標準格式
+    const irrigationSystemNameMap: Record<number, string> = {
+      1: '穿孔管系統',
+      2: '噴頭系統',
+      3: '微噴系統',
+      4: '滴灌系統'
+    };
+
+    const irrigationSystemName = irrigationSystemNameMap[irrigationTypeId] || '';
+
+    // 使用 subsidyStandards.ts 中的計算方法
+    const actualSubsidyAmount = calculatePipelineActualSubsidy(
+      irrigationSystemName,
+      facilityAreaInHectares,
+      region,
+      currentTotalPipesPrice
+    );
+
+    const farmerSelfAmount = calculatePipelineSelfPaid(
+      irrigationSystemName,
+      facilityAreaInHectares,
+      region,
+      currentTotalPipesPrice
+    );
+
+    const subsidyLimit = getPipelineSubsidyLimit(
+      irrigationSystemName,
+      facilityAreaInHectares,
+      region
+    );
+
+    // 💰 計算個人年度補助餘額限制
+    // 剩餘可用額度 = 年度上限 - 已申請總額 - step3 補助
+    const step3Subsidy = step3SubsidyAmount.value;
+    let availableQuota = 0;
+
+    if (grantsStore.hasSubsidySummary) {
+      // 年度補助餘額（扣除其他案件但不含本案）
+      const otherCasesTotal = grantsStore.totalSubsidyAmount;
+      // 本案 step4 可用額度 = 年度上限 - 其他案件 - 本案 step3
+      availableQuota = grantsStore.subsidyLimit - otherCasesTotal - step3Subsidy;
     }
 
-    // 計算政府補助金額上限
-    const maxSubsidyAmount = Math.round(facilityAreaInHectares * subsidyPerHectare);
+    // 🎯 雙重限制：取「灌溉系統補助上限」與「個人年度餘額」兩者較小值
+    let finalSubsidy = actualSubsidyAmount;
+    let finalSelfPaid = farmerSelfAmount;
+    let limitType = '灌溉系統補助上限';
 
-    // 計算實際補助金額和農民自付金額
-    let actualSubsidyAmount, farmerSelfAmount;
-
-    if (currentTotalPipesPrice > maxSubsidyAmount) {
-      // 總價超過補助上限，農民需自付超出部分
-      actualSubsidyAmount = maxSubsidyAmount;
-      farmerSelfAmount = currentTotalPipesPrice - maxSubsidyAmount;
-    } else {
-      // 總價不超過補助上限，政府全額補助
-      actualSubsidyAmount = currentTotalPipesPrice;
-      farmerSelfAmount = 0;
+    if (grantsStore.hasSubsidySummary && availableQuota < actualSubsidyAmount) {
+      // 個人年度餘額不足，需調整
+      finalSubsidy = Math.max(0, availableQuota); // 不能為負數
+      finalSelfPaid = currentTotalPipesPrice - finalSubsidy;
+      limitType = '個人年度補助餘額';
     }
 
-    // 模擬 API 回傳格式
-    const mockApiResponse = `${currentTotalPipesPrice};${actualSubsidyAmount};${farmerSelfAmount}`;
-    const priceData = mockApiResponse.split(';');
-
-    console.log('💰 補助計算結果:', {
-      灌溉型式: irrigationTypeId,
-      原民區域: isAboriginalArea,
-      施設面積公頃: facilityAreaInHectares,
-      每公頃補助額: subsidyPerHectare,
-      補助上限: maxSubsidyAmount,
-      總工程費: currentTotalPipesPrice,
-      政府補助: actualSubsidyAmount,
-      農民自付: farmerSelfAmount
-    });
-
-    localFormData.subsidyTotal = parseInt(priceData[0]) || 0;
-    localFormData.subsidyAmount = parseInt(priceData[1]) || 0;
-    localFormData.farmerSelfAmount = parseInt(priceData[2]) || 0;
+    localFormData.subsidyTotal = Math.round(currentTotalPipesPrice);
+    localFormData.subsidyAmount = Math.round(finalSubsidy);
+    localFormData.farmerSelfAmount = Math.round(finalSelfPaid);
 
   } catch (error) {
     console.error('Error calculating subsidy:', error);
@@ -4406,16 +4629,11 @@ const updateFormData = () => {
     valid: localValid.value // 或總是true，取決於您的導航邏輯
   };
 
-  console.log('🔄 step4.vue updateFormData called');
-  console.log('📤 Emitting update:formData with facilityArea from Step2:', dataToEmit.facilityArea);
-
   emit('update:formData', dataToEmit);
 };
 
 // 跳過田間管路步驟功能
 const skipStep = () => {
-  // console.log('⏭️ Skipping step4 (田間管路)');
-
   // 重置所有表單數據為初始狀態
   Object.assign(localFormData, {
     // 基本欄位
@@ -4480,8 +4698,6 @@ const skipStep = () => {
     valid: true,
     step: props.currentStep
   });
-
-  console.log('✅ Step4 skipped successfully');
 };
 
 // 顯示缺少的必填欄位詳細信息
@@ -6455,6 +6671,14 @@ const loadDataFromProps = (propsData: Record<string, unknown>) => {
         return;
       }
 
+      // 🔥 Good Taste：pipes/subsidyAmount/farmerSelfAmount 只在 mounted 時載入一次
+      // 之後完全由本地管理，永不從 props 反向載入（避免清除後被恢復）
+      const localManagedFields = ['pipes', 'subsidyAmount', 'farmerSelfAmount'];
+      if (localManagedFields.includes(key)) {
+        // console.log(`⏸️ Skipping ${key} - locally managed field`);
+        return;
+      }
+
       // 特殊處理：主管材質未設定時預設為 1 (PVC)
       if (key === 'mainPipeMaterialId' || key === 'mainPipe2MaterialId') {
         if (newValue === null || newValue === undefined || newValue === 0 || newValue === '') {
@@ -6503,11 +6727,8 @@ onMounted(async () => {
 
   await loadDropdownOptions();
 
-  console.log('🔄 step4.vue onMounted - props.formData:', props.formData);
-
   // 1. 先從 props.formData 載入所有數據（包含 localStorage 數據）
   if (props.formData && Object.keys(props.formData).length > 0) {
-    console.log('📥 Loading data from props.formData in onMounted');
     Object.keys(localFormData).forEach(key => {
       if (props.formData[key] !== undefined && props.formData[key] !== localFormData[key]) {
         const oldValue = localFormData[key];
@@ -6532,9 +6753,13 @@ onMounted(async () => {
     await grantsStore.loadStepData(grantsStore.currentGrant.case_number, 2);
   }
 
+  // 3. 確保 step3 數據載入（用於計算灌溉調控設施補助總額）
+  if (!grantsStore.formData[3]?.facilities && grantsStore.currentGrant?.case_number) {
+    await grantsStore.loadStepData(grantsStore.currentGrant.case_number, 3);
+  }
+
   // 🔧 Linus式修正：不再需要手動設置 facilityArea，已改為 computed
   // facilityAreaFromStep2 會自動從 Step2 資料計算，無需初始化
-  console.log("📊 step4.vue: facilityAreaFromStep2 computed will handle Step2 sync automatically");
 
   calculateWidth();
 
@@ -6543,7 +6768,6 @@ onMounted(async () => {
 
   // 5. 如果有灌溉型式，載入末端設施選項
   if (localFormData.irrigationTypeId) {
-    // console.log('🔄 Loading end facility options in onMounted');
     await loadEndFacilityOptions();
   }
 
@@ -6553,7 +6777,22 @@ onMounted(async () => {
     updateBranchPipeFittingsForId7();
   }
 
-  // 如果有管路設施，計算補助金額
+  // 💰 初始化補助額度查詢（必須在 calculateSubsidy 之前完成）
+  if (grantsStore.currentGrant) {
+    const applicantId = grantsStore.currentGrant.applicant_id;
+    const year = grantsStore.currentGrant.year;
+    const currentGrantId = grantsStore.currentGrant.id;
+
+    if (applicantId && year) {
+      try {
+        await grantsStore.fetchSubsidySummary(applicantId, year, currentGrantId);
+      } catch (error) {
+        console.error('❌ [step4] 補助額度查詢失敗:', error);
+      }
+    }
+  }
+
+  // 如果有管路設施，計算補助金額（確保 subsidySummary 已載入）
   if (localFormData.pipes && localFormData.pipes.length > 0) {
     await calculateSubsidy();
   }
@@ -6561,7 +6800,6 @@ onMounted(async () => {
   // 🎯 UX 改進：在所有數據載入完成後，根據 designerName 最終確認編輯狀態
   const hasDesignerName = !!localFormData.designerName;
   isEditingDesigner.value = !hasDesignerName;
-  console.log(`📝 [step4] onMounted 完成，設計人姓名${hasDesignerName ? '有值' : '為空'}，編輯模式: ${isEditingDesigner.value}`);
 
   isUpdating.value = false; // 結束更新標記
 
@@ -6694,6 +6932,100 @@ watch(
       // 從 ID=7 切換到其他選項時，清空 branchPipePomno
       console.log('🔄 Switched away from ID=7, clearing branchPipePomno');
       onSelectedBranchPipeChangeForId7(null);
+    }
+  },
+  { immediate: false }
+);
+
+// 監聽「田間管路系統設計」欄位變化，清除管路設施列表
+// 排除：灌溉水源(waterSourceId)、設施型式(facilityTypeId)、設計人(designerName)
+watch(
+  [
+    // 田間坵塊
+    () => localFormData.fieldLength,
+
+    // 田間主管配置
+    () => localFormData.mainPipeLength,
+    () => localFormData.mainPipeDiameterId,
+    () => localFormData.mainPipeMaterialId,
+    () => localFormData.mainPipeUnitPrice,
+    () => localFormData.mainPipeQuantity,
+    () => localFormData.mainPipe2Enabled,
+    () => localFormData.mainPipe2Length,
+    () => localFormData.mainPipe2DiameterId,
+    () => localFormData.mainPipe2MaterialId,
+    () => localFormData.mainPipe2UnitPrice,
+    () => localFormData.mainPipe2Quantity,
+
+    // 灌溉管路配置
+    () => localFormData.irrigationTypeId,
+    () => localFormData.perforatedPipeDirection,
+    () => localFormData.sprinklerSubtypeId,
+    () => localFormData.dripperSubtypeId,
+    () => localFormData.branchPipeSpacing_SL,
+    () => localFormData.sprinklerSpacing_SS,
+    () => localFormData.branchPipeMaterialId,
+    () => localFormData.branchPipeDiameterId,
+    () => localFormData.branchPipePomno,
+    () => localFormData.enableBranchDiameterChange,
+    () => localFormData.changeBranchSpecId,
+    () => localFormData.riserHeight_H,
+    () => localFormData.endFacilitySpecId,
+    () => localFormData.endFacilityPomno,
+    () => localFormData.riserPipeMaterialId,
+    () => localFormData.riserPipeSpecId,
+  ],
+  (newValues, oldValues) => {
+    console.log('🔍 [管路清除監聽] watch 被觸發');
+    console.log('  - isUpdating:', isUpdating.value);
+    console.log('  - pipes.length:', localFormData.pipes.length);
+
+    // 如果正在更新數據（例如從 API 載入），不執行清除操作
+    if (isUpdating.value) {
+      console.log('  ⏸️  isUpdating=true，跳過清除');
+      return;
+    }
+
+    // 檢查是否有任何欄位真的發生了變化（排除初始化時的 undefined → value）
+    const changedFields: string[] = [];
+    const fieldNames = [
+      'fieldLength',
+      'mainPipeLength', 'mainPipeDiameterId', 'mainPipeMaterialId', 'mainPipeUnitPrice', 'mainPipeQuantity',
+      'mainPipe2Enabled', 'mainPipe2Length', 'mainPipe2DiameterId', 'mainPipe2MaterialId', 'mainPipe2UnitPrice', 'mainPipe2Quantity',
+      'irrigationTypeId', 'perforatedPipeDirection', 'sprinklerSubtypeId', 'dripperSubtypeId',
+      'branchPipeSpacing_SL', 'sprinklerSpacing_SS', 'branchPipeMaterialId', 'branchPipeDiameterId', 'branchPipePomno',
+      'enableBranchDiameterChange', 'changeBranchSpecId', 'riserHeight_H',
+      'endFacilitySpecId', 'endFacilityPomno', 'riserPipeMaterialId', 'riserPipeSpecId'
+    ];
+
+    newValues.forEach((newVal, index) => {
+      const oldVal = oldValues?.[index];
+      if (newVal !== oldVal && oldVal !== undefined) {
+        changedFields.push(`${fieldNames[index]}: ${oldVal} → ${newVal}`);
+      }
+    });
+
+    console.log('  - 變更的欄位:', changedFields.length > 0 ? changedFields : '無');
+
+    const hasChanges = changedFields.length > 0;
+
+    // 只有在有實際變化且管路設施列表不為空時才清除
+    if (hasChanges && localFormData.pipes.length > 0) {
+      console.log('🧹 田間管路系統設計欄位已變更，清除管路設施列表');
+      console.log('  變更詳情:', changedFields);
+
+      // Good Taste: 直接清除，無需標誌和延遲
+      // loadDataFromProps 已永久跳過這些欄位，不會恢復數據
+      localFormData.pipes = [];
+      localFormData.subsidyAmount = 0;
+      localFormData.farmerSelfAmount = 0;
+
+      // 觸發更新（父組件會收到空列表，但不會反向載入回來）
+      updateFormData();
+    } else if (hasChanges && localFormData.pipes.length === 0) {
+      console.log('  ℹ️  有欄位變更但管路設施列表已為空，不需清除');
+    } else {
+      console.log('  ℹ️  無有效變更，不執行清除');
     }
   },
   { immediate: false }
@@ -6842,9 +7174,9 @@ const addMaterialToList = async () => {
   transition: all 0.3s ease;
 }
 
-.v-card.pa-4:hover {
+/* .v-card.pa-4:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
-}
+} */
 
 /* 穿孔管系統配置組件高度統一 */
 .perforated-pipe-config {
