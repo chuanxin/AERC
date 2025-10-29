@@ -318,6 +318,7 @@
                   density="comfortable"
                   class="me-2 mb-2"
                   style="min-width: 200px"
+                  autocomplete="off"
                 />
 
                 <v-btn
@@ -633,6 +634,7 @@
                     variant="outlined"
                     hide-details="auto"
                     class="ma-1"
+                    autocomplete="off"
                     :rules="[
                       v => !!v || '請輸入數量',
                       v => v > 0 || '數量必須大於0'
@@ -652,6 +654,7 @@
                     hide-details
                     class="ma-1"
                     style="width: 130px"
+                    autocomplete="off"
                     :readonly="facility.type === 'power' || facility.type === 'storage'"
                     @focus="saveFacilitySnapshot(index)"
                     @update:model-value="updateFacilityTotal(index)"

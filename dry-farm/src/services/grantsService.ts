@@ -551,11 +551,11 @@ export class HybridGrantService {
 
   /**
    * 從步驟資料中提取設施面積
+   * 🔥 Good Taste: 直接使用 totalFacilityArea (m²)
    */
   private extractFacilityArea(grantData: GrantData): number {
     const step2Data = grantData.stepsData?.[2] || {}
-    const areaHa = parseFloat(String(step2Data.facilityAreaHa || step2Data.landAreaHa || '0'))
-    return Math.round(areaHa * 10000) // 轉換為平方公尺
+    return Math.round(parseFloat(String(step2Data.totalFacilityArea || '0')))
   }
 
   /**
