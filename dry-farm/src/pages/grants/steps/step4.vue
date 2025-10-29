@@ -424,7 +424,7 @@
 
               <!-- STEP 4: 灌溉型式與相關管路配置 -->
               <v-sheet
-                class="mb-0 pa-3 rounded"
+                class="mb-3 pa-3 rounded"
                 color="white"
               >
                 <div class="d-flex align-center mb-2">
