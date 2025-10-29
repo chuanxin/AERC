@@ -132,8 +132,9 @@ async def get_grants(
             
             # 從 active_version 取得額外資訊
             facility_area = None
+            facility_area_m2 = None
             facility_type = None
-            
+
             if hasattr(grant, 'active_version') and grant.active_version:
                 try:
                     version_data = grant.active_version.all_steps_data
@@ -141,35 +142,31 @@ async def get_grants(
                         steps = version_data.get("steps", {})
                         
                         # 從 step 2 取得土地/設施面積
+                        # 🔥 Good Taste: 直接使用 totalFacilityArea (m²) 和 totalFacilityAreaHa (公頃)
                         step2_data = steps.get("2", {}) or steps.get(2, {})
                         if step2_data:
-                            # 優先使用設施面積，其次土地面積
-                            facility_area = (
-                                step2_data.get("facilityAreaHa") or 
-                                step2_data.get("landAreaHa") or 
-                                step2_data.get("facility_area_ha") or 
-                                step2_data.get("land_area_ha")
-                            )
-                            
+                            facility_area = step2_data.get("totalFacilityAreaHa")
+                            facility_area_m2 = step2_data.get("totalFacilityArea")
+
                         # 從 step 4 取得設施類型/灌溉類型
                         step4_data = steps.get("4", {}) or steps.get(4, {})
                         if step4_data:
                             facility_type = (
-                                step4_data.get("irrigationType") or 
-                                step4_data.get("facilityType") or 
-                                step4_data.get("irrigation_type") or 
+                                step4_data.get("irrigationType") or
+                                step4_data.get("facilityType") or
+                                step4_data.get("irrigation_type") or
                                 step4_data.get("facility_type")
                             )
-                            
+
                 except Exception as e:
                     logger.warning(f"解析版本資料失敗，案件: {grant.case_number}, 錯誤: {str(e)}")
-            
+
             # 將計算出的資料添加到結果
             grant_data.update({
                 "facility_area": facility_area,
                 "facility_type": facility_type,
-                # 轉換面積單位（公頃轉平方公尺）用於前端顯示
-                "facility_area_m2": int(float(facility_area) * 10000) if facility_area else None
+                # 直接使用 totalFacilityArea (已經是 m²，不需要轉換)
+                "facility_area_m2": int(float(facility_area_m2)) if facility_area_m2 else None
             })
             
             results.append(grant_data)

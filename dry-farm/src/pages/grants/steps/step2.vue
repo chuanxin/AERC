@@ -2102,10 +2102,22 @@ const createEventEmitter = (
   const debouncedEmitDataChanged = debounce(() => {
     if (!guard.isInitialized || guard.isInitializing) return
 
-    console.log(`🚀 step${stepNumber}.vue: Emitting step-data-changed event`)
+    // 🔥 Good Taste: 只發送持久化資料（lands 陣列 + 計算欄位），單筆編輯欄位不發送
+    const persistentData = {
+      lands: formData.lands,
+      totalFacilityArea: formData.totalFacilityArea,
+      totalFacilityAreaHa: formData.totalFacilityAreaHa,
+      valid: formData.valid
+    }
+
+    console.log(`🚀 step${stepNumber}.vue: Emitting step-data-changed event (lands + totals)`, {
+      landsCount: persistentData.lands?.length || 0,
+      totalFacilityArea: persistentData.totalFacilityArea,
+      totalFacilityAreaHa: persistentData.totalFacilityAreaHa
+    })
     emit('step-data-changed', {
       step: stepNumber,
-      data: { ...formData },
+      data: persistentData,
       valid: validationState.value
     })
   }, 300)
@@ -2342,12 +2354,17 @@ const createInitialLandData = (id?: string): LandData => ({
   }>
 })
 
-// 事件驅動架構：創建初始表單資料函數 (向後相容 + 多筆土地支援)
+// 事件驅動架構：創建初始表單資料函數
+// 🔥 Good Taste: 保持扁平結構，單筆欄位用於 UI 綁定，發送時只送 lands 陣列 + 計算欄位
 const createInitialFormData = () => ({
-  // 多筆土地資料陣列
+  // 多筆土地資料陣列（發送給後端的唯一持久化資料）
   lands: [] as LandData[],
 
-  // 向後相容：保留原有的單筆土地資料結構
+  // 計算欄位（從 lands 陣列即時計算，發送給後端）
+  totalFacilityArea: 0,
+  totalFacilityAreaHa: 0,
+
+  // 單筆土地編輯欄位（用於 v-model 綁定，不發送給後端）
   // Facility address section
   landCounty: '',
   landTown: '',
@@ -2506,12 +2523,12 @@ const landUtils = {
       previousLandNumberMain.value = land.landNumberMain || '';
       previousLandNumberSub.value = land.landNumberSub || '';
 
-      console.log('🔧 loadLandToCurrentForm - Data loaded:')
-      console.log('  landCounty:', localFormData.landCounty, typeof localFormData.landCounty)
-      console.log('  landTown:', localFormData.landTown, typeof localFormData.landTown)
-      console.log('  landSec:', localFormData.landSec, typeof localFormData.landSec)
-      console.log('  landNumberMain:', localFormData.landNumberMain)
-      console.log('  landNumberSub:', localFormData.landNumberSub)
+      // console.log('🔧 loadLandToCurrentForm - Data loaded:')
+      // console.log('  landCounty:', localFormData.landCounty, typeof localFormData.landCounty)
+      // console.log('  landTown:', localFormData.landTown, typeof localFormData.landTown)
+      // console.log('  landSec:', localFormData.landSec, typeof localFormData.landSec)
+      // console.log('  landNumberMain:', localFormData.landNumberMain)
+      // console.log('  landNumberSub:', localFormData.landNumberSub)
 
     } finally {
       // 使用 nextTick 確保 Vue 響應性更新完成後再開啟級聯重置（僅當由此函數開啟保護時）
@@ -3172,6 +3189,12 @@ const totalFacilityArea = computed(() => {
 
 const totalFacilityAreaHa = computed(() => {
   return totalFacilityArea.value / 10000
+})
+
+// 🔥 Good Taste: 監聽計算欄位變化，自動同步到 localFormData 以便發送給後端
+watch([totalFacilityArea, totalFacilityAreaHa], ([area, areaHa]) => {
+  localFormData.totalFacilityArea = area
+  localFormData.totalFacilityAreaHa = areaHa
 })
 
 // 土地資料展示工具函數
