@@ -333,7 +333,7 @@ export interface ControlSubsidyAllocation {
 
 /**
  * 調節控制設施補助分配
- * 🔥 Good Taste: 先來先得原則，純加減邏輯
+ * 先來先得原則，純加減邏輯
  * 考慮兩層限制：面積上限 & 個人年度補助額度
  */
 export const calculateControlFacilitiesAllocation = (

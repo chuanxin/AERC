@@ -424,10 +424,10 @@
 
               <!-- STEP 4: 灌溉型式與相關管路配置 -->
               <v-sheet
-                class="mb-3 pa-3 rounded"
+                class="mb-0 pa-3 rounded"
                 color="white"
               >
-                <div class="d-flex align-center mb-4">
+                <div class="d-flex align-center mb-2">
                   <v-icon
                     size="small"
                     class="me-2"
@@ -436,6 +436,74 @@
                   </v-icon>
                   <span class="text-body-2 font-weight-medium">灌溉管路配置</span>
                 </div>
+                <!-- 補助額度狀態提示 -->
+                <v-alert
+                  v-if="localFormData.irrigationTypeId && facilityAreaFromStep2 > 0"
+                  type="info"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3"
+                >
+                  <template #prepend>
+                    <v-icon size="small">
+                      mdi-information-outline
+                    </v-icon>
+                  </template>
+                  <div class="text-caption">
+                    <strong>補助額度狀態（{{ irrigationSystemDisplayName }}）：</strong>
+                    <!-- 判斷限制類型並顯示對應說明 -->
+                    <template v-if="grantsStore.hasSubsidySummary && effectivePipelineSubsidyLimit < pipelineSubsidyLimit">
+                      面積 {{ (facilityAreaFromStep2 / 10000).toFixed(4) }} 公頃 → 有效額度 ${{ effectivePipelineSubsidyLimit.toLocaleString() }}
+                      <span class="text-warning font-weight-bold">（原補助上限 ${{ pipelineSubsidyLimit.toLocaleString() }} 超過個人年度補助限額）</span>
+                    </template>
+                    <template v-else>
+                      面積 {{ (facilityAreaFromStep2 / 10000).toFixed(4) }} 公頃 → 補助上限 ${{ effectivePipelineSubsidyLimit.toLocaleString() }}
+                    </template>
+                    |
+                    已申請 ${{ currentPipelineSubsidy.toLocaleString() }} |
+                    剩餘額度 ${{ availablePipelineSubsidy.toLocaleString() }}
+                    <span
+                      v-if="pipelineSubsidyRatio > 0"
+                      class="ms-2"
+                    >
+                      (補助比例: {{ (pipelineSubsidyRatio * 100).toFixed(1) }}%)
+                    </span>
+                  </div>
+                </v-alert>
+
+                <v-alert
+                  v-if="!localFormData.irrigationTypeId"
+                  type="warning"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3"
+                >
+                  <template #prepend>
+                    <v-icon size="small">
+                      mdi-alert-circle-outline
+                    </v-icon>
+                  </template>
+                  <div class="text-caption">
+                    請先選擇<strong>灌溉型式</strong>以查看補助額度資訊
+                  </div>
+                </v-alert>
+
+                <v-alert
+                  v-if="localFormData.irrigationTypeId && facilityAreaFromStep2 <= 0"
+                  type="warning"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3"
+                >
+                  <template #prepend>
+                    <v-icon size="small">
+                      mdi-alert-circle-outline
+                    </v-icon>
+                  </template>
+                  <div class="text-caption">
+                    請先在 <strong>Step2 土地資料</strong> 中填寫施作面積，以計算補助額度
+                  </div>
+                </v-alert>
                 <div class="d-flex align-center flex-wrap">
                   <!-- 灌溉型式選擇 -->
                   <v-select
@@ -449,6 +517,7 @@
                     class="me-2 mb-2"
                     color="#3ea0a3"
                     style="width: 180px"
+                    hide-details
                     @update:model-value="onIrrigationTypeChange"
                   />
                   <!-- 水源選擇 (適用於所有灌溉類型) -->
@@ -463,6 +532,7 @@
                     class="mb-2"
                     color="#3ea0a3"
                     style="width: 160px"
+                    hide-details
                     @update:model-value="updateFormData"
                   />
                 </div>
@@ -2480,7 +2550,8 @@ import type { PipeFitting } from '@/types/pipeFittings'
 import {
   calculatePipelineActualSubsidy,
   calculatePipelineSelfPaid,
-  determineRegionType
+  determineRegionType,
+  getPipelineSubsidyLimit
 } from '@/utils/subsidyStandards'
 
 // Type definitions for material generation
@@ -3159,20 +3230,16 @@ const pipe2DiameterOptions = computed(() => getFilteredDiameterOptions(localForm
 const pipe2MaterialOptions = computed(() => getFilteredMaterialOptions(localFormData.mainPipe2DiameterId));
 
 // Step4 的設施面積應該直接從 Step2 的總施作面積計算得出
+// 🔥 Good Taste: 單一資料來源，直接使用 step2 持久化的 totalFacilityArea
 const facilityAreaFromStep2 = computed(() => {
   const step2Data = getStepDataSafely(2);
 
-  if (!step2Data || !step2Data.lands || !Array.isArray(step2Data.lands)) {
-    return 0
+  if (!step2Data) {
+    return 0;
   }
 
-  // 計算所有土地的施作面積總和（與 Step2 的 totalFacilityArea 邏輯一致）
-  const totalArea = step2Data.lands.reduce((total, land) => {
-    const area = parseFloat(land.facilityArea || '0')
-    return total + (isNaN(area) ? 0 : area)
-  }, 0)
-
-  return totalArea
+  // 直接使用 totalFacilityArea（Step2 重構後的持久化欄位）
+  return step2Data.totalFacilityArea || 0;
 })
 
 // 創建新的計算屬性用於支管的選項
@@ -3387,6 +3454,85 @@ const isSubsidyLimitedByQuota = computed(() => {
 
   // 如果可用餘額小於補助金額，表示受到年度餘額限制
   return availableQuota < localFormData.subsidyAmount && availableQuota >= 0;
+});
+
+// 💰 田間管路補助額度狀態（參考 step3 的實現）
+// 根據灌溉型式和面積計算補助上限
+const pipelineSubsidyLimit = computed(() => {
+  const irrigationTypeId = localFormData.irrigationTypeId;
+  if (!irrigationTypeId) return 0;
+
+  const facilityAreaInHectares = facilityAreaFromStep2.value / 10000;
+  if (facilityAreaInHectares <= 0) return 0;
+
+  // 獲取地區類型
+  const step2Data = getStepDataSafely(2);
+  let isAboriginalArea = false;
+  if (step2Data?.lands && Array.isArray(step2Data.lands) && step2Data.lands.length > 0) {
+    isAboriginalArea = step2Data.lands.some((land: any) => {
+      return land.isIndigenous || land.is_indigenous ||
+             land.isAboriginalArea || land.is_aboriginal_area ||
+             land.indigenousType || land.indigenous_type;
+    });
+  }
+  const region = determineRegionType(isAboriginalArea);
+
+  // 映射灌溉系統名稱
+  const irrigationSystemNameMap: Record<number, string> = {
+    1: '穿孔管系統',
+    2: '噴頭系統',
+    3: '微噴系統',
+    4: '滴灌系統'
+  };
+  const irrigationSystemName = irrigationSystemNameMap[irrigationTypeId] || '';
+
+  // 計算補助上限
+  return getPipelineSubsidyLimit(irrigationSystemName, facilityAreaInHectares, region);
+});
+
+// 有效補助上限（考慮個人年度補助限額）
+const effectivePipelineSubsidyLimit = computed(() => {
+  const areaBasedLimit = pipelineSubsidyLimit.value;
+
+  if (grantsStore.hasSubsidySummary) {
+    const step3Subsidy = step3SubsidyAmount.value;
+    const otherCasesTotal = grantsStore.totalSubsidyAmount;
+    const availableQuota = grantsStore.subsidyLimit - otherCasesTotal - step3Subsidy;
+
+    return Math.min(areaBasedLimit, Math.max(0, availableQuota));
+  }
+
+  return areaBasedLimit;
+});
+
+// 當前田間管路補助金額
+const currentPipelineSubsidy = computed(() => {
+  return localFormData.subsidyAmount || 0;
+});
+
+// 剩餘可用田間管路補助額度
+const availablePipelineSubsidy = computed(() => {
+  return Math.max(0, effectivePipelineSubsidyLimit.value - currentPipelineSubsidy.value);
+});
+
+// 田間管路補助比例
+const pipelineSubsidyRatio = computed(() => {
+  const totalCost = localFormData.subsidyTotal || 0;
+  const subsidyAmount = currentPipelineSubsidy.value;
+  if (totalCost === 0) return 0;
+  return subsidyAmount / totalCost;
+});
+
+// 灌溉型式名稱（用於顯示）
+const irrigationSystemDisplayName = computed(() => {
+  const irrigationTypeId = localFormData.irrigationTypeId;
+  const nameMap: Record<number, string> = {
+    1: '穿孔管系統',
+    2: '噴頭系統',
+    3: '微噴系統',
+    4: '滴灌系統'
+  };
+  return nameMap[irrigationTypeId] || '未選擇';
 });
 
 // 驗證條件 - 依照不同灌溉型式驗證自動帶入材料所需欄位
@@ -4511,7 +4657,7 @@ const calculateSubsidy = async () => {
     // 從 step2 數據中獲取原民區域狀態
     const step2Data = getStepDataSafely(2);
 
-    // 🔥 修正：優先從 lands 陣列中檢查實際土地的原住民地區狀態
+    // 優先從 lands 陣列中檢查實際土地的原住民地區狀態
     // 檢查邏輯：只要有任一筆土地位於原住民地區，就套用原住民地區補助標準
     let isAboriginalArea = false;
 
@@ -4594,6 +4740,13 @@ const calculateSubsidy = async () => {
     localFormData.subsidyTotal = Math.round(currentTotalPipesPrice);
     localFormData.subsidyAmount = Math.round(finalSubsidy);
     localFormData.farmerSelfAmount = Math.round(finalSelfPaid);
+
+    // 關鍵日誌：補助計算結果
+    console.log(
+      `💰 [田間管路補助] 系統:${irrigationSystemName}, 面積:${facilityAreaInHectares.toFixed(4)}公頃, ` +
+      `總成本:${currentTotalPipesPrice.toLocaleString()}, 補助:${Math.round(finalSubsidy).toLocaleString()}, ` +
+      `自備:${Math.round(finalSelfPaid).toLocaleString()}, 限制類型:${limitType}`
+    );
 
   } catch (error) {
     console.error('Error calculating subsidy:', error);
