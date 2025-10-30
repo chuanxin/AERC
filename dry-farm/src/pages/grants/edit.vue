@@ -149,7 +149,7 @@
               >
                 <v-list
                   height="55"
-                  class="pt-0 mt-0"
+                  class="pa-0 ma-0"
                 >
                   <v-list-item>
                     <v-list-item-title

@@ -429,6 +429,76 @@ export const getPipelineSubsidyLimit = (
 };
 
 /**
+ * 計算田間管路規劃設計費 (2%)
+ */
+export const calculatePipelineDesignFee = (pipelineMaterialCost: number): number => {
+  return Math.round(pipelineMaterialCost * 0.02);
+};
+
+/**
+ * 田間管路補助計算結果
+ */
+export interface PipelineSubsidyResult {
+  pipelineMaterialCost: number; // 管路材料成本
+  designFee: number;            // 規劃設計費 (2%)
+  totalCost: number;            // 總成本 (材料 + 設計費)
+  subsidyLimit: number;         // 補助上限
+  subsidyAmount: number;        // 實際補助金額
+  selfPaidAmount: number;       // 自備款金額
+}
+
+/**
+ * 計算田間管路完整補助分配
+ * 包含材料成本、設計費、補助款和自備款的完整計算
+ *
+ * @param irrigationSystem - 灌溉系統類型
+ * @param area - 設施面積（公頃）
+ * @param region - 地區類型
+ * @param pipelineMaterialCost - 管路材料成本（不含設計費）
+ * @returns 完整的補助計算結果
+ */
+export const calculatePipelineSubsidyAllocation = (
+  irrigationSystem: string,
+  area: number,
+  region: 'general' | 'indigenous',
+  pipelineMaterialCost: number
+): PipelineSubsidyResult => {
+  // 1. 計算規劃設計費 (2%)
+  const designFee = calculatePipelineDesignFee(pipelineMaterialCost);
+
+  // 2. 計算總成本 (材料 + 設計費)
+  const totalCost = pipelineMaterialCost + designFee;
+
+  // 3. 取得補助上限
+  const subsidyLimit = getPipelineSubsidyLimit(irrigationSystem, area, region);
+
+  // 4. 計算實際補助金額 (取總成本和補助上限的較小值)
+  const subsidyAmount = Math.min(totalCost, subsidyLimit);
+
+  // 5. 計算自備款 (總成本 - 補助金額)
+  const selfPaidAmount = Math.max(0, totalCost - subsidyAmount);
+
+  // console.log(`[田間管路補助完整計算]`);
+  // console.log(`  系統: ${irrigationSystem}, 面積: ${area}公頃, 地區: ${region}`);
+  // console.log(`  管路材料成本: ${pipelineMaterialCost.toLocaleString()}`);
+  // console.log(`  規劃設計費 (2%): ${designFee.toLocaleString()}`);
+  // console.log(`  總成本: ${totalCost.toLocaleString()}`);
+  // console.log(`  補助上限: ${subsidyLimit.toLocaleString()}`);
+  // console.log(`  實際補助: ${subsidyAmount.toLocaleString()}`);
+  // console.log(`  自備款: ${selfPaidAmount.toLocaleString()}`);
+
+  return {
+    pipelineMaterialCost,
+    designFee,
+    totalCost,
+    subsidyLimit,
+    subsidyAmount,
+    selfPaidAmount
+  };
+};
+
+/**
+ * @deprecated 使用 calculatePipelineSubsidyAllocation 替代
  * 計算田間管路實際可獲得補助金額
  * 考慮補助上限和總成本，取較小值
  */
@@ -447,6 +517,7 @@ export const calculatePipelineActualSubsidy = (
 };
 
 /**
+ * @deprecated 使用 calculatePipelineSubsidyAllocation 替代
  * 計算田間管路農民自備款
  */
 export const calculatePipelineSelfPaid = (
