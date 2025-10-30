@@ -3,473 +3,384 @@
     ref="stepContent"
     class="step-content"
   >
-    <!-- 設施明細區 -->
     <v-card
-      class="mb-4"
-      flat
-    >
-      <v-card-text class="pt-4 pb-0">
-        <v-card variant="outlined">
-          <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-            <v-icon
-              class="me-2"
-              size="small"
-            >
-              mdi-pipe
-            </v-icon>
-            <span class="text-subtitle-1 font-weight-medium">本案設施</span>
-          </v-card-title>
-
-          <v-card-text class="pa-4">
-            <div class="facility-table-container">
-              <v-table
-                class="facility-table border"
-                density="compact"
-              >
-                <thead class="bg-grey-lighten-3">
-                  <tr>
-                    <th>設施項目</th>
-                    <th>說明</th>
-                    <th class="text-center">
-                      單位
-                    </th>
-                    <th class="text-center">
-                      數量
-                    </th>
-                    <th class="text-center">
-                      單價
-                    </th>
-                    <th class="text-center">
-                      總價
-                    </th>
-                    <th>備註</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td class="font-weight-medium">
-                      A.田間管路設施費
-                    </td>
-                    <td />
-                    <td class="text-center">
-                      全
-                    </td>
-                    <td class="text-center" />
-                    <td class="text-center" />
-                    <td class="text-center">
-                      {{ pipeLineTotal }}
-                    </td>
-                    <td />
-                  </tr>
-                  <tr
-                    v-for="(item, index) in mainPipes"
-                    :key="`main-${index}`"
-                  >
-                    <td>  田間主管(L{{ index + 1 }})</td>
-                    <td />
-                    <td class="text-center">
-                      {{ item.unit }}
-                    </td>
-                    <td class="text-center">
-                      {{ item.quantity }}
-                    </td>
-                    <td class="text-center">
-                      {{ item.unitPrice }}
-                    </td>
-                    <td class="text-center">
-                      {{ item.totalPrice }}
-                    </td>
-                    <td>{{ item.remark }}</td>
-                  </tr>
-                  <tr
-                    v-for="(item, index) in irrigationSystem"
-                    :key="`irrigation-${index}`"
-                  >
-                    <td>{{ item.name }}</td>
-                    <td />
-                    <td class="text-center">
-                      {{ item.unit }}
-                    </td>
-                    <td class="text-center">
-                      {{ item.quantity }}
-                    </td>
-                    <td class="text-center">
-                      {{ item.unitPrice }}
-                    </td>
-                    <td class="text-center">
-                      {{ item.totalPrice }}
-                    </td>
-                    <td>
-                      詳如數量表
-                    <!-- <v-table density="compact" style="background-color: transparent">
-                      <thead>
-                      </thead>
-                      <tbody>
-                      </tbody>
-                    </v-table> -->
-                    </td>
-                  </tr>
-                  <tr>
-                    <td class="font-weight-medium">
-                      B.灌溉調控設施
-                    </td>
-                    <td>依計畫補助標準</td>
-                    <td class="text-center" />
-                    <td class="text-center" />
-                    <td class="text-center" />
-                    <td class="text-center" />
-                    <td />
-                  </tr>
-                  <tr
-                    v-for="(item, index) in controlFacilities"
-                    :key="`control-${index}`"
-                  >
-                    <td>  {{ item.name }}</td>
-                    <td>{{ item.facilityName }}</td>
-                    <td class="text-center">
-                      {{ item.unit }}
-                    </td>
-                    <td class="text-center">
-                      {{ item.quantity }}
-                    </td>
-                    <td class="text-center">
-                      {{ item.unitPrice }}
-                    </td>
-                    <td class="text-center">
-                      {{ item.totalPrice }}
-                    </td>
-                    <td>{{ item.remark }}</td>
-                  </tr>
-                  <tr>
-                    <td class="font-weight-medium">
-                      C.規劃設計費
-                    </td>
-                    <td>A*2.0%</td>
-                    <td class="text-center" />
-                    <td class="text-center">
-                      1
-                    </td>
-                    <td class="text-center" />
-                    <td class="text-center">
-                      {{ designFee }}
-                    </td>
-                    <td />
-                  </tr>
-                  <tr class="bg-grey-lighten-4">
-                    <td
-                      colspan="5"
-                      class="text-right font-weight-bold"
-                    >
-                      合計
-                    </td>
-                    <td class="text-center font-weight-bold">
-                      {{ totalBudget }}
-                    </td>
-                    <td class="amount-in-words">
-                      <span class="nowrap-text">新臺幣 {{ amountInWords }}元整 {{ isAboriginalAreaText }}</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </v-table>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-card-text>
-    </v-card>
-
-    <v-card
-      class="mb-0 pa-0"
+      class="mt-4 mb-0 pa-0"
       flat
     >
       <v-card-text class="pb-0 pt-0">
+        <!-- 本案設施區 -->
+        <v-card-title
+          class="text-subtitle-1 font-weight-bold pa-0 pb-2 d-flex align-center"
+          style="color: #2d8c8f"
+        >
+          <v-icon
+            color="#3ea0a3"
+            class="me-2 mb-0 pb-0"
+            size="small"
+          >
+            mdi-pipe
+          </v-icon>
+          本案設施表
+        </v-card-title>
+
+        <v-sheet
+          class="mt-2 pb-4 rounded"
+          color="white"
+        >
+          <v-table
+            density="compact"
+            fixed-header
+            class="border-thin"
+          >
+            <thead>
+              <tr class="bg-grey-lighten-3">
+                <th class="text-start ">
+                  設施項目
+                </th>
+                <th class="text-start">
+                  說明
+                </th>
+                <th class="text-center">
+                  單位
+                </th>
+                <th class="text-center">
+                  數量
+                </th>
+                <th class="text-center">
+                  單價
+                </th>
+                <th class="text-center">
+                  總價
+                </th>
+                <th class="text-start">
+                  備註
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="font-weight-medium">
+                  A.田間管路設施費
+                </td>
+                <td />
+                <td class="text-center">
+                  全
+                </td>
+                <td class="text-center" />
+                <td class="text-center" />
+                <td class="text-center">
+                  {{ pipeLineTotal }}
+                </td>
+                <td />
+              </tr>
+              <tr
+                v-for="(item, index) in mainPipes"
+                :key="`main-${index}`"
+              >
+                <td class="pl-6">
+                  田間主管(L{{ index + 1 }})
+                </td>
+                <td />
+                <td class="text-center">
+                  {{ item.unit }}
+                </td>
+                <td class="text-center">
+                  {{ item.quantity }}
+                </td>
+                <td class="text-center">
+                  {{ item.unitPrice }}
+                </td>
+                <td class="text-center">
+                  {{ item.totalPrice }}
+                </td>
+                <td>{{ item.remark }}</td>
+              </tr>
+              <tr
+                v-for="(item, index) in irrigationSystem"
+                :key="`irrigation-${index}`"
+              >
+                <td class="pl-6">
+                  {{ item.name }}
+                </td>
+                <td />
+                <td class="text-center">
+                  {{ item.unit }}
+                </td>
+                <td class="text-center">
+                  {{ item.quantity }}
+                </td>
+                <td class="text-center">
+                  {{ item.unitPrice }}
+                </td>
+                <td class="text-center">
+                  {{ item.totalPrice }}
+                </td>
+                <td>詳如數量表</td>
+              </tr>
+              <tr>
+                <td class="font-weight-medium">
+                  B.灌溉調控設施
+                </td>
+                <td>依計畫補助標準</td>
+                <td class="text-center" />
+                <td class="text-center" />
+                <td class="text-center" />
+                <td class="text-center" />
+                <td />
+              </tr>
+              <tr
+                v-for="(item, index) in controlFacilities"
+                :key="`control-${index}`"
+              >
+                <td class="pl-6">
+                  {{ item.name }}
+                </td>
+                <td>{{ item.facilityName }}</td>
+                <td class="text-center">
+                  {{ item.unit }}
+                </td>
+                <td class="text-center">
+                  {{ item.quantity }}
+                </td>
+                <td class="text-center">
+                  {{ item.unitPrice }}
+                </td>
+                <td class="text-center">
+                  {{ item.totalPrice }}
+                </td>
+                <td>{{ item.remark }}</td>
+              </tr>
+              <tr>
+                <td class="font-weight-medium">
+                  C.規劃設計費
+                </td>
+                <td>A*2.0%</td>
+                <td class="text-center" />
+                <td class="text-center">
+                  1
+                </td>
+                <td class="text-center" />
+                <td class="text-center">
+                  {{ designFee }}
+                </td>
+                <td />
+              </tr>
+              <tr class="bg-grey-lighten-4">
+                <td
+                  colspan="5"
+                  class="text-end font-weight-bold"
+                >
+                  合計
+                </td>
+                <td class="text-center font-weight-bold">
+                  {{ totalBudget }}
+                </td>
+                <td class="text-no-wrap">
+                  新臺幣 {{ amountInWords }}元整 {{ isAboriginalAreaText }}
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-sheet>
+
+        <!-- Form section -->
         <v-form
           ref="form"
           v-model="localValid"
           @submit.prevent
         >
-          <!-- 補助申請基本資訊區 -->
-          <!-- <v-card
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-file-document
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">
-                補助申請資料預覽
-              </span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="bg-amber-lighten-5 border border-amber"
-              >
-                <v-table
-                  class="preview-table"
-                  style="background-color: transparent"
-                  density="compact"
-                >
-                  <tbody>
-                    <tr>
-                      <td
-                        class="font-weight-medium text-center"
-                        style="width: 15%"
-                      >
-                        申請年度
-                      </td>
-                      <td style="width: 35%">
-                        {{ displayApplicationYear }}
-                      </td>
-                      <td
-                        class="font-weight-medium text-center"
-                        style="width: 15%"
-                      >
-                        案號
-                      </td>
-                      <td style="width: 35%">
-                        {{ displayCaseNumber }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td class="font-weight-medium text-center">
-                        農戶姓名
-                      </td>
-                      <td>
-                        {{ displayApplicantName }}
-                      </td>
-                      <td class="font-weight-medium text-center">
-                        農戶住址
-                      </td>
-                      <td>
-                        {{ displayApplicantAddress }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td class="font-weight-medium text-center">
-                        設施地段
-                      </td>
-                      <td>
-                        {{ displayFacilityLocation }}
-                      </td>
-                      <td class="font-weight-medium text-center">
-                        設施地號
-                      </td>
-                      <td>
-                        {{ displayFacilityNumber }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td class="font-weight-medium text-center">
-                        設施面積
-                      </td>
-                      <td>
-                        {{ displayFacilityArea }}公頃
-                      </td>
-                      <td class="font-weight-medium text-center">
-                        設施型式
-                      </td>
-                      <td>
-                        {{ displayFacilityType }}
-                      </td>
-                    </tr>
-                  </tbody>
-                </v-table>
-              </v-sheet>
-            </v-card-text>
-          </v-card> -->
-
           <!-- 農戶補助明細區 -->
-          <v-card
-            class="mb-4"
-            variant="outlined"
+          <v-card-title
+            class="text-subtitle-1 font-weight-bold pa-0 pb-2 d-flex align-center"
+            style="color: #2d8c8f"
           >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-calculator
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">農戶補助明細</span>
-            </v-card-title>
+            <v-icon
+              color="#3ea0a3"
+              class="me-2"
+              size="small"
+            >
+              mdi-calculator
+            </v-icon>
+            農戶補助明細
+          </v-card-title>
 
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="bg-amber-lighten-5 border border-amber"
-              >
-                <v-table
-                  class="budget-table"
-                  style="background-color: transparent"
-                  density="compact"
-                >
-                  <tbody>
-                    <!-- 農戶配合款 -->
-                    <tr>
-                      <td
-                        class="font-weight-medium text-center"
-                        colspan="2"
-                        style="width: 25%"
-                      >
-                        農戶配合款
-                      </td>
-                      <td class="text-center">
-                        {{ displayFarmerContribution }}
-                      </td>
-                    </tr>
+          <v-sheet
+            class="mt-2 pb-4 rounded"
+            color="white"
+          >
+            <v-table
+              density="compact"
+              class="border-thin"
+            >
+              <colgroup>
+                <col style="width: 20%;">
+                <col style="width: 20%;">
+                <col style="width: 60%;">
+              </colgroup>
+              <tbody>
+                <!-- 農戶配合款 -->
+                <tr>
+                  <td
+                    colspan="2"
+                    class="font-weight-medium text-center"
+                  >
+                    農戶配合款
+                  </td>
+                  <td class="text-center">
+                    {{ displayFarmerContribution }}
+                  </td>
+                </tr>
 
-                    <!-- 政府補助款 -->
-                    <tr>
-                      <td
-                        class="font-weight-medium text-center"
-                        rowspan="3"
-                        style="vertical-align: middle"
-                      >
-                        政府<br>補助款
-                      </td>
-                      <td
-                        class="font-weight-medium text-center"
-                        rowspan="2"
-                        style="vertical-align: middle"
-                      >
-                        農戶<br>請領款
-                      </td>
-                      <td class="text-center">
-                        A項補助費：{{ pipeLineSubsidy }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td class="text-center">
-                        B項補助費：{{ facilitySubsidy }}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td class="font-weight-medium text-center">
-                        規劃設計費
-                      </td>
-                      <td class="text-center">
-                        {{ designFee }}
-                      </td>
-                    </tr>
+                <!-- 政府補助款 -->
+                <tr>
+                  <td
+                    rowspan="3"
+                    class="font-weight-medium text-center align-center"
+                  >
+                    政府<br>補助款
+                  </td>
+                  <td
+                    rowspan="2"
+                    class="font-weight-medium text-center align-center"
+                  >
+                    農戶<br>請領款
+                  </td>
+                  <td class="text-center">
+                    A項補助費：{{ pipeLineSubsidy }}
+                  </td>
+                </tr>
+                <tr>
+                  <td class="text-center">
+                    B項補助費：{{ facilitySubsidy }}
+                  </td>
+                </tr>
+                <tr>
+                  <td class="font-weight-medium text-center">
+                    規劃設計費
+                  </td>
+                  <td class="text-center">
+                    {{ designFee }}
+                  </td>
+                </tr>
 
-                    <!-- 總計 -->
-                    <tr class="total-row">
-                      <td
-                        class="font-weight-medium text-center"
-                        colspan="2"
-                      >
-                        本設施預算總計
-                      </td>
-                      <td class="text-center font-weight-medium">
-                        {{ totalBudget }}
-                      </td>
-                    </tr>
-                  </tbody>
-                </v-table>
-              </v-sheet>
-            </v-card-text>
-          </v-card>
+                <!-- 總計 -->
+                <tr class="bg-amber-lighten-4">
+                  <td
+                    colspan="2"
+                    class="font-weight-medium text-center"
+                  >
+                    本設施預算總計
+                  </td>
+                  <td class="text-center font-weight-medium">
+                    {{ totalBudget }}
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
+          </v-sheet>
 
           <!-- 報表列印區 -->
-          <v-card variant="outlined">
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
+          <v-card
+            flat
+            class="mb-4 pa-4"
+            color="#e3f4f4"
+            rounded="lg"
+          >
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-4 d-flex align-center"
+              style="color: #2d8c8f"
+            >
               <v-icon
+                color="#3ea0a3"
                 class="me-2"
                 size="small"
               >
                 mdi-printer
               </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">報表列印</span>
+              報表列印
             </v-card-title>
 
-            <v-card-text class="pa-4">
-              <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
+            <v-sheet
+              class="mb-3 pa-3 rounded"
+              color="white"
+            >
+              <v-row
+                no-gutters
+                align-content="space-between"
               >
-                <v-row
-                  no-gutters
-                  align-content="space-between"
+                <v-col
+                  class="me-auto"
+                  cols="auto"
                 >
-                  <v-col
-                    class="me-auto"
-                    cols="auto"
+                  <v-btn
+                    variant="outlined"
+                    color="primary"
+                    prepend-icon="mdi-file-document-outline"
+                    class="ml-4 mr-4 mb-2"
+                    @click="printDocument('application')"
                   >
-                    <v-btn
-                      variant="outlined"
-                      color="primary"
-                      prepend-icon="mdi-file-document-outline"
-                      class="ml-4 mr-4 mb-2"
-                      @click="printDocument('application')"
-                    >
-                      灌溉系統設計標準
-                    </v-btn>
-                  </v-col>
-                  <v-col
-                    class="me-auto"
-                    cols="auto"
+                    灌溉系統設計標準
+                  </v-btn>
+                </v-col>
+                <v-col
+                  class="me-auto"
+                  cols="auto"
+                >
+                  <v-btn
+                    variant="outlined"
+                    color="primary"
+                    prepend-icon="mdi-file-document-outline"
+                    class="ml-4 mr-4 mb-2"
+                    @click="printDocument('completion')"
                   >
-                    <v-btn
-                      variant="outlined"
-                      color="primary"
-                      prepend-icon="mdi-file-document-outline"
-                      class="ml-4 mr-4 mb-2"
-                      @click="printDocument('completion')"
-                    >
-                      結案申報書
-                    </v-btn>
-                  </v-col>
-                  <v-col
-                    class="me-auto"
-                    cols="auto"
+                    結案申報書
+                  </v-btn>
+                </v-col>
+                <v-col
+                  class="me-auto"
+                  cols="auto"
+                >
+                  <v-btn
+                    variant="outlined"
+                    color="primary"
+                    prepend-icon="mdi-file-document-outline"
+                    class="ml-4 mr-4 mb-2"
+                    @click="printDocument('pledge')"
                   >
-                    <v-btn
-                      variant="outlined"
-                      color="primary"
-                      prepend-icon="mdi-file-document-outline"
-                      class="ml-4 mr-4 mb-2"
-                      @click="printDocument('pledge')"
-                    >
-                      補助切結書
-                    </v-btn>
-                  </v-col>
-                  <v-col
-                    class="me-auto"
-                    cols="auto"
+                    補助切結書
+                  </v-btn>
+                </v-col>
+                <v-col
+                  class="me-auto"
+                  cols="auto"
+                >
+                  <v-btn
+                    variant="outlined"
+                    color="primary"
+                    prepend-icon="mdi-file-document-outline"
+                    class="ml-4 mr-4 mb-2"
+                    @click="printDocument('planning')"
                   >
-                    <v-btn
-                      variant="outlined"
-                      color="primary"
-                      prepend-icon="mdi-file-document-outline"
-                      class="ml-4 mr-4 mb-2"
-                      @click="printDocument('planning')"
-                    >
-                      規劃委託書
-                    </v-btn>
-                  </v-col>
-                  <v-col
-                    class="me-auto"
-                    cols="auto"
+                    規劃委託書
+                  </v-btn>
+                </v-col>
+                <v-col
+                  class="me-auto"
+                  cols="auto"
+                >
+                  <v-btn
+                    variant="outlined"
+                    color="primary"
+                    prepend-icon="mdi-file-document-outline"
+                    class="ml-4 mr-4 mb-2"
+                    @click="printDocument('budget')"
                   >
-                    <v-btn
-                      variant="outlined"
-                      color="primary"
-                      prepend-icon="mdi-file-document-outline"
-                      class="ml-4 mr-4 mb-2"
-                      @click="printDocument('budget')"
-                    >
-                      工程預算書
-                    </v-btn>
-                  </v-col>
-                  <v-spacer />
-                </v-row>
-              </v-sheet>
-            </v-card-text>
+                    工程預算書
+                  </v-btn>
+                </v-col>
+                <v-spacer />
+              </v-row>
+            </v-sheet>
           </v-card>
         </v-form>
       </v-card-text>
@@ -509,10 +420,21 @@ const route = useRoute();
 const form = ref<any>(null);
 const localValid = ref(true);
 
-// Computed property for farmer contribution - 從 grantsStore 讀取
+// Computed property for farmer contribution - step3 和 step4 的自備款總和
 const displayFarmerContribution = computed(() => {
-  const step6Data = getStepDataSafely(6);
-  return step6Data?.farmerContribution || '0';
+  const step3Data = getStepDataSafely(3);
+  const step4Data = getStepDataSafely(4);
+
+  // step3 自備款
+  const step3SelfPaid = step3Data?.facilities?.reduce((sum: number, facility: any) => {
+    return sum + (facility.selfPaidAmount || 0);
+  }, 0) || 0;
+
+  // step4 自備款
+  const step4SelfPaid = step4Data?.selfPaidAmount || 0;
+
+  const total = step3SelfPaid + step4SelfPaid;
+  return total.toLocaleString();
 });
 
 // 本地表單數據 - 僅保留必要的表單欄位
@@ -523,30 +445,30 @@ const localFormData = reactive<Record<string, any>>({
 // 智慧資料來源選擇器：透過案件號比對確保 formData 歸屬正確
 const getStepDataSafely = (step: number) => {
   const currentCaseNumber = route.query.id as string;
-  
+
   // 確保只處理當前案件的資料
   if (!currentCaseNumber || grantsStore.caseNumber !== currentCaseNumber) {
     return null;
   }
-  
+
   const formData = grantsStore.formData[step];
   const allStepsData = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.[step.toString()];
-  
+
   // 檢查 formData 是否屬於當前案件（透過 _caseNumber 欄位比對）
   const formDataCaseNumber = formData?._caseNumber;
   const isFormDataValid = formDataCaseNumber === currentCaseNumber;
-  
+
   if (isFormDataValid && formData && Object.keys(formData).length > 1) { // >1 因為至少有 _caseNumber
     console.log(`✅ Step6: Using formData for step ${step} (case: ${formDataCaseNumber})`);
     return formData; // 使用 formData（即時同步）
   }
-  
+
   // 否則使用 all_steps_data（持久化資料）
   if (allStepsData && Object.keys(allStepsData).length > 0) {
     console.log(`📚 Step6: Using all_steps_data for step ${step} (formData case: ${formDataCaseNumber}, current: ${currentCaseNumber})`);
     return allStepsData;
   }
-  
+
   return null;
 };
 
@@ -714,31 +636,46 @@ const pipeLineTotal = computed(() => {
   return (pipelineTotal + irrigationTotal).toLocaleString();
 });
 
-const pipeLineSubsidy = computed(() => pipeLineTotal.value);
+// A項補助費：step4 的補助款總額（扣除設計費）
+const pipeLineSubsidy = computed(() => {
+  const step4Data = getStepDataSafely(4);
+  if (!step4Data) return '0';
 
+  const subsidyAmount = step4Data.subsidyAmount || 0;
+  const designFeeAmount = step4Data.designFee || 0;
+
+  // A項補助費 = 總補助 - 設計費
+  const pipelineSubsidyOnly = Math.max(0, subsidyAmount - designFeeAmount);
+  return pipelineSubsidyOnly.toLocaleString();
+});
+
+// B項補助費：step3 的補助款總額
 const facilitySubsidy = computed(() => {
   const step3Data = getStepDataSafely(3);
   if (!step3Data || Object.keys(step3Data).length === 0 || !step3Data?.facilities || !Array.isArray(step3Data.facilities)) return '0';
 
   const total = step3Data.facilities.reduce((sum: number, facility: any) => {
-    return sum + (typeof facility.totalPrice === 'number'
-                 ? facility.totalPrice
-                 : parseInt(facility.totalPrice || '0'));
+    return sum + (facility.subsidyAmount || 0);
   }, 0);
 
   return total.toLocaleString();
 });
 
+// 規劃設計費：直接從 step4 讀取
 const designFee = computed(() => {
-  const pipelineValue = parseInt(pipeLineSubsidy.value.replace(/,/g, '')) || 0;
-  return Math.round(pipelineValue * 0.02).toLocaleString();
+  const step4Data = getStepDataSafely(4);
+  if (!step4Data) return '0';
+
+  const designFeeAmount = step4Data.designFee || 0;
+  return designFeeAmount.toLocaleString();
 });
 
 const totalBudget = computed(() => {
-  const pipelineValue = parseInt(pipeLineSubsidy.value.replace(/,/g, '')) || 0;
-  const facilityValue = parseInt(facilitySubsidy.value.replace(/,/g, '')) || 0;
-  const designValue = parseInt(designFee.value.replace(/,/g, '')) || 0;
-  return (pipelineValue + facilityValue + designValue).toLocaleString();
+  const farmerContribution = parseInt(displayFarmerContribution.value.replace(/,/g, '')) || 0;
+  const pipelineSubsidyValue = parseInt(pipeLineSubsidy.value.replace(/,/g, '')) || 0;
+  const facilitySubsidyValue = parseInt(facilitySubsidy.value.replace(/,/g, '')) || 0;
+  const designFeeValue = parseInt(designFee.value.replace(/,/g, '')) || 0;
+  return (farmerContribution + pipelineSubsidyValue + facilitySubsidyValue + designFeeValue).toLocaleString();
 });
 
 // 將金額轉換為中文大寫
@@ -781,6 +718,8 @@ const printDocument = (documentType: string) => {
 };
 
 // Computed properties for display data - 直接從 grantsStore 讀取，不維護本地副本
+// NOTE: 以下 computed 屬性目前未使用，但保留以備將來使用
+/*
 const displayCaseNumber = computed(() => {
   const currentCaseNumber = route.query.id as string;
   if (!currentCaseNumber || grantsStore.caseNumber !== currentCaseNumber) {
@@ -829,7 +768,7 @@ const displayApplicationYear = computed(() => {
   if (!currentCaseNumber || grantsStore.caseNumber !== currentCaseNumber) {
     return '';
   }
-  
+
   // 從案號提取年度
   if (grantsStore.caseNumber?.includes('-')) {
     const yearPart = grantsStore.caseNumber.split('-')[0];
@@ -848,6 +787,7 @@ const displayApplicationYear = computed(() => {
   // 使用當前年度作為備用
   return `${new Date().getFullYear() - 1911}`;
 });
+*/
 
 // 更新父組件數據 - Step6 只傳遞本地表單資料，不傳遞計算結果
 const updateFormData = () => {
@@ -862,20 +802,20 @@ const updateFormData = () => {
 watch(() => route.query.id, async (newCaseNumber, oldCaseNumber) => {
   if (newCaseNumber && newCaseNumber !== oldCaseNumber) {
     console.log('🔄 Step6: 案件切換偵測', { from: oldCaseNumber, to: newCaseNumber });
-    
+
     // 清理本地表單資料
     Object.keys(localFormData).forEach(key => {
       if (key !== 'valid') {
         delete localFormData[key];
       }
     });
-    
+
     // 載入新案件資料
     const caseNumberStr = newCaseNumber as string;
     if (grantsStore.caseNumber !== caseNumberStr) {
       await grantsStore.loadGrant(caseNumberStr);
     }
-    
+
     // 載入必要的步驟資料
     await Promise.all([
       grantsStore.loadStepData(caseNumberStr, 1),
@@ -884,7 +824,7 @@ watch(() => route.query.id, async (newCaseNumber, oldCaseNumber) => {
       grantsStore.loadStepData(caseNumberStr, 4),
       grantsStore.loadStepData(caseNumberStr, 6)
     ]);
-    
+
     console.log('✅ Step6: 案件切換完成，已清理舊資料並載入新案件資料');
   }
 }, { immediate: false });
@@ -1013,12 +953,12 @@ watch(localValid, (newVal) => {
   padding: 0;
 }
 
-.v-card-title {
+/* .v-card-title {
   color: rgba(0, 0, 0, 0.87);
   font-size: 1.25rem;
   font-weight: 500;
   padding: 16px;
-}
+} */
 
 .bg-light-blue-lighten-4 {
   background-color: #B3E5FC !important;
@@ -1068,117 +1008,11 @@ watch(localValid, (newVal) => {
   border-bottom: none !important;
 }
 
-.report-table {
-  width: 100%;
-  border-collapse: collapse;
+/* 表格邊框 - 使用 Vuetify 樣式添加垂直和水平邊框 */
+:deep() .v-table .v-table__wrapper > table > thead > tr > th:not(:last-child) {
+  border-right: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-
-.report-table td {
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  padding: 10px;
-}
-
-.report-btn {
-  min-width: 150px;
-  flex: 1;
-  max-width: 30%;
-}
-
-.preview-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.preview-table td {
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  padding: 10px;
-}
-
-.preview-table td.font-weight-medium {
-  background-color: rgba(255, 224, 130, 0.15);
-}
-
-.budget-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.budget-table td {
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  padding: 8px;
-}
-
-.budget-table .total-row {
-  background-color: rgba(255, 224, 130, 0.3);
-}
-
-.facility-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.facility-table th,
-.facility-table td {
-  border: 1px solid rgba(0, 0, 0, 0.12);
-}
-
-.facility-table th {
-  background-color: rgba(0, 0, 0, 0.05);
-  font-weight: 600;
-  padding: 10px;
-}
-
-.facility-table td {
-  padding: 8px;
-}
-
-/* 確保國字大寫金額在一行顯示 */
-.amount-in-words {
-  white-space: nowrap !important;
-  overflow: visible; /* 允許內容溢出而不是隱藏 */
-  min-width: 250px; /* 增加最小寬度 */
-  width: auto; /* 允許自動調整寬度 */
-  max-width: none; /* 移除最大寬度限制 */
-}
-
-.nowrap-text {
-  white-space: nowrap !important;
-  display: inline-block;
-  font-size: 0.875rem; /* 稍微縮小字體以適應更長的文字 */
-  font-weight: 500;
-  letter-spacing: -0.01em; /* 稍微縮小字間距 */
-}
-
-/* 表格容器允許水平滾動 */
-.facility-table-container {
-  overflow-x: auto;
-  width: 100%;
-}
-
-/* 確保表格最小寬度足夠容納所有內容 */
-.facility-table {
-  min-width: 800px; /* 設定表格最小寬度 */
-}
-
-/* 在小螢幕上調整字體大小但保持不換行 */
-@media (max-width: 768px) {
-  .facility-table {
-    font-size: 0.8rem;
-    min-width: 800px; /* 在小螢幕上稍微縮小但仍保持足夠寬度 */
-  }
-
-  .nowrap-text {
-    font-size: 0.75rem;
-    letter-spacing: -0.02em; /* 進一步縮小字間距 */
-  }
-
-  .amount-in-words {
-    min-width: 200px;
-  }
-}
-
-/* 確保表格在小螢幕上可以水平滾動 */
-.v-table {
-  overflow-x: auto;
+:deep() .v-table .v-table__wrapper > table > tbody > tr > td:not(:last-child), .v-table .v-table__wrapper > table > tbody > tr > th:not(:last-child) {
+  border-right: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 </style>

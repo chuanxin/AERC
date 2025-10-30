@@ -265,7 +265,7 @@
                   <strong>容量狀態：</strong>
                   面積 {{ facilityArea.toFixed(4) }} 公頃 →
                   最大容量 {{ maxStorageCapacity }} 噸 |
-                  已申請 {{ existingStorageCapacity }} 噸 |
+                  本次申請 {{ existingStorageCapacity }} 噸 |
                   剩餘可申請 {{ availableStorageCapacity }} 噸
                 </div>
               </v-alert>
@@ -376,7 +376,7 @@
                     面積 {{ facilityArea.toFixed(4) }} 公頃 → 補助上限 ${{ totalControlSubsidyLimit.toLocaleString() }}
                   </template>
                   |
-                  已申請 ${{ totalControlSubsidy.toLocaleString() }} |
+                  本次申請 ${{ totalControlSubsidy.toLocaleString() }} |
                   剩餘額度 ${{ availableControlSubsidy.toLocaleString() }}
                   <span
                     v-if="overallControlSubsidyRatio > 0"
@@ -1231,7 +1231,7 @@ const addStorageFacility = () => {
 
       alert(`無法加入 ${tonnage} 噸調蓄設施！\n\n` +
             `面積限制：${area.toFixed(4)} 公頃 → 最大容量 ${maxCap} 噸\n` +
-            `已申請容量：${existing} 噸\n` +
+            `申請容量：${existing} 噸\n` +
             `剩餘可申請：${available} 噸\n` +
             `嘗試加入：${tonnage} 噸`);
       return;
