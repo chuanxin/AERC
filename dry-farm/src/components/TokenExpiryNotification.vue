@@ -43,6 +43,39 @@
           <p class="text-body-2 text-medium-emphasis mb-0">
             您可以選擇繼續工作或手動登出
           </p>
+
+          <!-- 錯誤訊息 -->
+          <v-alert
+            v-if="refreshError"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mt-4 text-start"
+            closable
+            @click:close="refreshError = null"
+          >
+            <div class="text-caption">
+              <strong>刷新失敗：</strong>{{ refreshError }}
+            </div>
+            <div class="text-caption mt-1">
+              請檢查網路連線後重試，或選擇登出重新登入
+            </div>
+          </v-alert>
+
+          <!-- 調試信息 (開發用) -->
+          <v-alert
+            v-if="debugInfo"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mt-2 text-start"
+            closable
+            @click:close="debugInfo = ''"
+          >
+            <div class="text-caption font-mono">
+              {{ debugInfo }}
+            </div>
+          </v-alert>
         </div>
       </v-card-text>
 
@@ -66,7 +99,8 @@
           color="primary"
           variant="flat"
           :loading="isRefreshing"
-          @click="handleRefresh"
+          :disabled="isRefreshing"
+          @click.stop.prevent="handleRefresh"
         >
           <v-icon class="me-2">
             mdi-refresh
@@ -104,6 +138,8 @@ const userStore = useUserStore()
 // 內部狀態
 const isRefreshing = ref(false)
 const currentTime = ref(Math.floor(Date.now() / 1000))
+const refreshError = ref<string | null>(null)
+const debugInfo = ref<string>('') // 調試信息顯示在 UI 上
 
 // 計算屬性
 const isVisible = computed({
@@ -154,25 +190,96 @@ const stopCountdown = () => {
 
 // 事件處理函數
 const handleRefresh = async () => {
+  console.log('[TokenExpiryNotification] ===== handleRefresh called =====')
+  debugInfo.value = `[1] 開始刷新... Token存在: ${!!userStore.token}`
+  console.log('[TokenExpiryNotification] isRefreshing before:', isRefreshing.value)
+  console.log('[TokenExpiryNotification] userStore.token exists:', !!userStore.token)
+
+  if (isRefreshing.value) {
+    console.warn('[TokenExpiryNotification] Already refreshing, ignoring duplicate request')
+    debugInfo.value = '[X] 已在刷新中，忽略重複請求'
+    return
+  }
+
   isRefreshing.value = true
+  refreshError.value = null // 清除之前的錯誤訊息
+
+  // 添加超時保護機制 - 30秒後自動重置狀態
+  const timeoutId = setTimeout(() => {
+    console.error('[TokenExpiryNotification] Refresh timeout after 30 seconds')
+    debugInfo.value = '[X] 請求逾時 (30秒)'
+    refreshError.value = '請求逾時，請重試'
+    isRefreshing.value = false
+    emit('refresh-failed')
+  }, 30000)
 
   try {
     console.log('[TokenExpiryNotification] User requested manual refresh')
-    await userStore.refreshToken()
+    console.log('[TokenExpiryNotification] Current time:', new Date().toISOString())
+    console.log('[TokenExpiryNotification] Token expires at:', new Date(props.expiresAt * 1000).toISOString())
+    console.log('[TokenExpiryNotification] Calling userStore.refreshToken()...')
 
-    // 刷新成功，關閉對話框
-    isVisible.value = false
-    emit('refresh-success')
+    debugInfo.value = '[2] 正在呼叫 API...'
+    const result = await userStore.refreshToken()
 
-    console.log('[TokenExpiryNotification] Manual refresh successful')
+    // 清除超時計時器
+    clearTimeout(timeoutId)
+
+    console.log('[TokenExpiryNotification] Refresh result:', result ? 'success' : 'null')
+    console.log('[TokenExpiryNotification] Result type:', typeof result)
+    console.log('[TokenExpiryNotification] Result value:', result)
+
+    debugInfo.value = `[3] API 回應: ${result ? 'success' : 'null'} (type: ${typeof result})`
+
+    if (result) {
+      // 刷新成功，關閉對話框
+      console.log('[TokenExpiryNotification] Manual refresh successful, closing dialog')
+      debugInfo.value = '[✓] 刷新成功，關閉對話框'
+      isVisible.value = false
+      emit('refresh-success')
+    } else {
+      // 刷新失敗但沒有拋出錯誤
+      console.warn('[TokenExpiryNotification] Token refresh returned null')
+      debugInfo.value = '[X] API 返回 null'
+      refreshError.value = '無法取得新的登入憑證'
+      emit('refresh-failed')
+    }
   } catch (error) {
+    // 清除超時計時器
+    clearTimeout(timeoutId)
+
     console.error('[TokenExpiryNotification] Manual refresh failed:', error)
+    console.error('[TokenExpiryNotification] Error type:', typeof error)
+    console.error('[TokenExpiryNotification] Error details:', JSON.stringify(error, null, 2))
+
+    // 根據錯誤類型顯示不同訊息
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorResponse = (error as { response?: { status?: number } })?.response
+
+    debugInfo.value = `[X] 錯誤: ${errorMessage.substring(0, 100)}`
+
+    if (errorMessage.includes('Network') || errorMessage.includes('network')) {
+      refreshError.value = '網路連線異常，請檢查您的網路狀態'
+    } else if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
+      refreshError.value = '請求逾時，請重試'
+    } else if (errorResponse?.status === 401) {
+      refreshError.value = '登入憑證已失效'
+    } else {
+      refreshError.value = errorMessage || '未知錯誤，請重試或重新登入'
+    }
+
     emit('refresh-failed')
 
-    // 刷新失敗，可能需要登出
-    // 這裡讓用戶選擇是否重試或登出
+    // 如果是 401 或 token 完全失效，應該自動登出
+    if (errorResponse?.status === 401 || !userStore.token) {
+      console.log('[TokenExpiryNotification] Token completely invalid, will auto logout in 3 seconds')
+      setTimeout(() => {
+        handleLogout()
+      }, 3000) // 3秒後自動登出，給用戶時間看到錯誤訊息
+    }
   } finally {
     isRefreshing.value = false
+    console.log('[TokenExpiryNotification] Refresh process completed, isRefreshing:', false)
   }
 }
 
