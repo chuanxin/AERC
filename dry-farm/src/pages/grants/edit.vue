@@ -142,8 +142,6 @@
                 class="navigation-drawer-glass"
                 :style="{
                   width: isRailMode ? '60px' : '280px',
-                  height: 'calc(100vh - 150px)',
-                  overflowY: 'auto',
                   transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                 }"
               >
@@ -2056,9 +2054,9 @@ onBeforeRouteLeave((to, from, next) => {
 
   /* 關鍵修改：調整邊距和高度 */
   margin: 0px 0 !important; /* 與 section-card 一致的上下邊距 */
-  max-height: calc(100% - 8px) !important; /* 減去上下邊距總和 */
+  /* max-height: calc(100% - 8px) !important; 減去上下邊距總和 */
   border-radius: 12px !important; /* 添加與卡片相同的圓角 */
-  overflow: hidden !important;
+  /* overflow: hidden !important; */
 }
 
 /* Step list items */
@@ -2092,7 +2090,9 @@ onBeforeRouteLeave((to, from, next) => {
 .fixed-sidebar-col {
   flex: 0 0 280px !important; /* 固定280px寬度 */
   max-width: 280px !important;
-  min-width: 280px !important;
+  /* min-width: 280px !important;
+  /* height: auto !important; 根據內容自動調整高度 */
+  /* align-self: flex-start !important; 從上方開始排列，不拉伸 */
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
