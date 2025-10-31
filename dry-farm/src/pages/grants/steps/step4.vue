@@ -4633,7 +4633,7 @@ const autoFillMaterials = async () => {
           matamount: material.matamount,
           totalPrice: Math.round(material.matprice * material.matamount),
           order: material.order,
-          debugMatchData: material.debugMatchData // 加入除錯比對資料
+          // debugMatchData: material.debugMatchData // 加入除錯比對資料
         });
       });
     });
@@ -5515,7 +5515,7 @@ const addMaterial = (
       matname: match.matchedData?.name || materialConfig.matname, // 使用真實名稱
       mattype: match.matchedData?.material?.name || materialConfig.mattype, // 使用真實材質
       spec1: match.matchedData?.diameter1?.name || materialConfig.spec1, // 使用真實規格
-      debugMatchData: match.matchedData
+      // debugMatchData: match.matchedData
     });
 
     // console.log(`[addMaterial] Successfully matched: ${materialConfig.matname} -> ${match.matchedData?.name} (${materialConfig.description})`);
@@ -5526,7 +5526,7 @@ const addMaterial = (
       ...materialConfig,
       pomno: null,
       matprice: null,
-      debugMatchData: null
+      // debugMatchData: null
     });
 
     console.warn(`[addMaterial] No match found, using default values: ${materialConfig.matname}`, {
@@ -5663,7 +5663,7 @@ const addMainPipeMaterial = (
     matprice: customPrice, // 使用田間主管配置的自定義單價
     matname: match.matchedData?.name || materialConfig.matname,
     mattype: match.matchedData?.material?.name || materialConfig.mattype,
-    debugMatchData: match.matchedData,
+    // debugMatchData: match.matchedData,
     isMainPipeMaterial: true, // 標記為主管材料
     customPrice: customPrice // 保存自定義價格
   });
@@ -5759,7 +5759,7 @@ const generateGalvanizedSteelValveGroup = (data: any) => {
     description: '鍍鋅鋼主管制水閥',
     order: 1,
     group: 4,
-    debugMatchData: valveMatch.matchedData // 除錯用資料
+    // debugMatchData: valveMatch.matchedData // 除錯用資料
   }];
 
   return {
@@ -6447,7 +6447,7 @@ const generateSprinklerHeads = (data: any, groupId: number) => {
     description: '末端噴灑裝置',
     order: 1,
     group: groupId,
-    debugMatchData: sprinklerMatch.matchedData
+    // debugMatchData: sprinklerMatch.matchedData
   });
 
   return materials;
@@ -6508,7 +6508,7 @@ const generateMicroSprinklerHeads = (data: any, groupId: number) => {
     description: '微噴頭裝置',
     order: 1,
     group: groupId,
-    debugMatchData: microSprinklerMatch.matchedData
+    // debugMatchData: microSprinklerMatch.matchedData
   });
 
   return materials;
@@ -6675,7 +6675,7 @@ const generateDripperHeads = (data: any) => {
     description: '滴灌滴嘴',
     order: 1,
     group: 8,
-    debugMatchData: dripperMatch.matchedData
+    // debugMatchData: dripperMatch.matchedData
   });
 
   return {

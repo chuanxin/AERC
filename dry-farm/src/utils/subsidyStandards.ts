@@ -144,7 +144,7 @@ export const calculateSubsidyAmount = (
         console.warn(`調節控制設施需要提供設施面積進行計算`);
         return 0;
       }
-      return unitSubsidy * area;
+      return Math.floor(unitSubsidy * area);
     }
 
     default:
@@ -280,7 +280,7 @@ export const getControlSubsidyLimit = (
   userAvailableSubsidy?: number
 ): number => {
   const unitSubsidy = SUBSIDY_STANDARDS.controlEquipment[region];
-  const areaBasedLimit = unitSubsidy * area;
+  const areaBasedLimit = Math.floor(unitSubsidy * area);
 
   // 如果提供了個人年度可用額度，返回兩者中較小的值
   if (userAvailableSubsidy !== undefined) {
@@ -425,7 +425,7 @@ export const getPipelineSubsidyLimit = (
     console.warn(`未找到灌溉系統 "${irrigationSystem}" 在 ${region} 地區的補助標準`);
     return 0;
   }
-  return unitSubsidy * area;
+  return Math.floor(unitSubsidy * area);
 };
 
 /**
