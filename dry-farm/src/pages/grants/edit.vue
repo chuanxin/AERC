@@ -204,6 +204,7 @@
                     variant="elevated"
                     elevation="0"
                     class="step-list-item"
+                    rounded
                     @click="handleStepClick(step.value)"
                   >
                     <template #prepend>
@@ -255,9 +256,9 @@
                 >
                   <v-list-item
                     :disabled="isNavigating || designChangeLoading"
-                    variant="elevated"
-                    elevation="0"
-                    class="design-change-item"
+                    variant="plain"
+                    class="design-change-item border-thin"
+                    rounded
                     @click="handleDesignChangeClick"
                   >
                     <template #prepend>
@@ -2202,11 +2203,11 @@ onBeforeRouteLeave((to, from, next) => {
 }
 
 /* 🆕 功能項目樣式 */
-.function-list {
+/* .function-list {
   background-color: rgba(62, 160, 163, 0.02);
   margin: 0 8px;
   border-radius: 8px;
-}
+} */
 
 .design-change-item {
   margin-bottom: 4px;
