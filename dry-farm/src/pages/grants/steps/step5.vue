@@ -35,7 +35,7 @@
             </v-card-title>
 
             <v-sheet
-              class="pa-3 rounded"
+              class="mb-3 pa-3 rounded"
               color="white"
             >
               <v-row>
@@ -146,35 +146,46 @@
                 </v-col>
               </v-row>
 
-              <v-row>
+              <v-row dense>
                 <v-col cols="12">
-                  <label class="text-body-2 font-weight-medium mb-2 d-block">勘查結果</label>
-                  <div class="d-flex align-center">
-                    <v-radio-group
-                      v-model="localFormData.inspectionResult"
-                      inline
-                      :rules="[v => !!v || '請選擇勘查結果']"
-                      color="#3ea0a3"
-                      @update:model-value="updateFormData"
+                  <label class="d-flex align-center mb-2">
+                    <v-icon
+                      size="small"
+                      class="me-2"
                     >
-                      <v-radio
-                        value="comply"
-                        label="符合"
-                      />
-                      <v-radio
-                        value="notComply"
-                        label="不符合"
-                      />
-                      <!-- <v-radio
-                        value="other"
-                        label="其他"
-                      /> -->
-                    </v-radio-group>
-                  </div>
+                      mdi-clipboard-check-outline
+                    </v-icon>
+                    <span class="text-body-2 font-weight-medium">勘查結果</span>
+                  </label>
+                  <v-radio-group
+                    v-model="localFormData.inspectionResult"
+                    inline
+                    :rules="[v => !!v || '請選擇勘查結果']"
+                    color="#3ea0a3"
+                    class="mt-0"
+                    hide-details="auto"
+                    @update:model-value="updateFormData"
+                  >
+                    <v-radio
+                      value="comply"
+                      label="符合"
+                    />
+                    <v-radio
+                      value="notComply"
+                      label="不符合"
+                    />
+                    <!-- <v-radio
+                      value="other"
+                      label="其他"
+                    /> -->
+                  </v-radio-group>
                 </v-col>
               </v-row>
 
-              <v-row v-if="localFormData.inspectionResult === 'notComply' || localFormData.inspectionResult === 'other'">
+              <v-row
+                v-if="localFormData.inspectionResult === 'notComply' || localFormData.inspectionResult === 'other'"
+                dense
+              >
                 <v-col cols="12">
                   <v-textarea
                     v-model="localFormData.reason"
@@ -191,7 +202,7 @@
                 </v-col>
               </v-row>
 
-              <v-row>
+              <v-row dense>
                 <v-col cols="12">
                   <v-textarea
                     v-model="localFormData.remarks"
@@ -207,37 +218,22 @@
                 </v-col>
               </v-row>
             </v-sheet>
-          </v-card>
 
-          <!-- 照片上傳區域 -->
-          <v-card
-            flat
-            class="mb-4 pa-4"
-            color="#e3f4f4"
-            rounded="lg"
-          >
-            <v-card-title
-              class="text-subtitle-1 font-weight-bold pa-0 pb-6"
-              style="color: #2d8c8f"
-            >
-              <v-icon
-                color="#3ea0a3"
-                class="me-2 pb-1"
-                size="small"
-              >
-                mdi-camera
-              </v-icon>
-              <span><span class="required-asterisk">*</span>現場照片</span>
-            </v-card-title>
-
+            <!-- 照片上傳區域 -->
             <v-sheet
               class="pa-3 rounded"
               color="white"
             >
               <v-row>
                 <v-col cols="12">
-                  <label class="text-body-2 font-weight-medium mb-3 d-block">
-                    施工前照片 <span class="text-grey text-caption">(需要1-3張照片)</span>
+                  <label class="d-flex align-center mb-2">
+                    <v-icon
+                      size="small"
+                      class="me-2"
+                    >
+                      mdi-camera-outline
+                    </v-icon>
+                    <span class="text-body-2 font-weight-medium">施工前照片</span><span class="ml-2 text-grey text-caption">(需要1-3張照片)</span>
                   </label>
 
                   <!-- 已上傳照片展示區域 -->
