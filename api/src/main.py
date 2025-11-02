@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from tortoise import Tortoise
 
 from src.database.register import register_tortoise
@@ -22,12 +23,21 @@ from src.routes import users, offices, domicile, grants, grant_versions, pipe_fi
 
 app = FastAPI()
 
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# GZip Compression Middleware
+# 壓縮所有大於 1000 bytes 的回應，可將 JSON 資料大小減少 80-90%
+app.add_middleware(
+    GZipMiddleware,
+    minimum_size=1000,      # 只壓縮大於 1KB 的回應
+    compresslevel=6         # 壓縮等級 1-9（6 是速度與壓縮率的平衡點）
 )
 
 app.include_router(users.router)
