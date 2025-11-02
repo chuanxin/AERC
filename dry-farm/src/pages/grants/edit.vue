@@ -486,6 +486,7 @@
                           ref="step5Ref"
                           :form-data="grantsStore.formData[5]"
                           :current-step="currentStep"
+                          :grant-id="grantsStore.currentGrant?.id || 0"
                           @update:form-data="(data) => handleFormDataUpdate(5, data)"
                           @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                           @go-back="handleGoBack"

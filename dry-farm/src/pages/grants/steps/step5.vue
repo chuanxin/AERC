@@ -183,7 +183,7 @@
               </v-row>
 
               <v-row
-                v-if="localFormData.inspectionResult === 'notComply' || localFormData.inspectionResult === 'other'"
+                v-if="localFormData.inspectionResult === 'notComply'"
                 dense
               >
                 <v-col cols="12">
@@ -202,7 +202,10 @@
                 </v-col>
               </v-row>
 
-              <v-row dense>
+              <v-row
+                v-if="localFormData.inspectionResult === 'comply'"
+                dense
+              >
                 <v-col cols="12">
                   <v-textarea
                     v-model="localFormData.remarks"
@@ -411,6 +414,7 @@
 
 <script setup lang="ts">
 import { useGrantsStore } from '@/stores/grants';
+import { attachmentService } from '@/services/attachmentService';
 
 // Props definition
 const props = defineProps({
@@ -420,6 +424,10 @@ const props = defineProps({
     default: () => ({})
   },
   currentStep: {
+    type: Number,
+    required: true
+  },
+  grantId: {
     type: Number,
     required: true
   }
@@ -441,6 +449,24 @@ const grantsStore = useGrantsStore();
 // Form ref and validation state
 const form = ref(null);
 const localValid = ref(true);
+
+// 上傳狀態管理
+const uploading = ref(false);
+const uploadProgress = ref<Record<string, number>>({});
+
+// 已上傳照片介面
+interface UploadedPhoto {
+  id: number;
+  original_filename: string;
+  filesize: number;
+  mime_type: string;
+  category: string;
+  uploaded_at: string;
+  uploaded_by: string;
+}
+
+// 已上傳照片列表
+const uploadedPhotos = ref<UploadedPhoto[]>([]);
 
 // 新增：導航狀態管理
 const navigationState = reactive({
@@ -666,19 +692,32 @@ const handlePhotoChange = (type: 'before' | 'after') => {
 };
 
 // 移除單張施工前照片
-const removeBeforePhoto = (index: number) => {
-  // 清除預覽
-  if (localFormData.beforePhotoPreviews[index] &&
-      typeof localFormData.beforePhotoPreviews[index] === 'string' &&
-      localFormData.beforePhotoPreviews[index].startsWith('blob:')) {
-    URL.revokeObjectURL(localFormData.beforePhotoPreviews[index]);
+const removeBeforePhoto = async (index: number) => {
+  try {
+    // 如果是已上傳的照片，從後端刪除
+    if (uploadedPhotos.value[index]) {
+      const photoToDelete = uploadedPhotos.value[index];
+      console.log(`[step5] 刪除照片 ID: ${photoToDelete.id}`);
+
+      await attachmentService.delete(photoToDelete.id);
+      console.log(`[step5] 成功刪除照片 ID: ${photoToDelete.id}`);
+    }
+
+    // 清除預覽
+    if (localFormData.beforePhotoPreviews[index] &&
+        typeof localFormData.beforePhotoPreviews[index] === 'string' &&
+        localFormData.beforePhotoPreviews[index].startsWith('blob:')) {
+      URL.revokeObjectURL(localFormData.beforePhotoPreviews[index]);
+    }
+
+    // 重新載入照片列表
+    await loadPhotos();
+
+    updateFormData();
+  } catch (error) {
+    console.error('[step5] 刪除照片失敗:', error);
+    alert('刪除照片失敗，請稍後再試');
   }
-
-  // 移除照片和預覽
-  localFormData.beforeConstructionPhotos.splice(index, 1);
-  localFormData.beforePhotoPreviews.splice(index, 1);
-
-  updateFormData();
 };
 
 // 檔案輸入框引用
@@ -691,8 +730,53 @@ const triggerFileInput = () => {
   }
 };
 
+// 載入已上傳的照片
+const loadPhotos = async () => {
+  if (!props.grantId || props.grantId === 0) {
+    console.warn('[step5] loadPhotos: grantId 無效，跳過載入', props.grantId);
+    return;
+  }
+
+  try {
+    const stepNumber = 5;
+    console.log(`[step5] 開始載入照片 - grantId: ${props.grantId}, step: ${stepNumber}`);
+
+    const response = await attachmentService.list(props.grantId, stepNumber, 'inspection_before');
+    console.log(`[step5] API 回應:`, response);
+
+    uploadedPhotos.value = response.attachments || [];
+
+    // 清除本地預覽並使用 API 照片
+    cleanupPreviews();
+    localFormData.beforePhotoPreviews = [];
+    localFormData.beforeConstructionPhotos = [];
+
+    // 為每張已上傳的照片創建預覽 URL
+    for (const photo of uploadedPhotos.value) {
+      try {
+        const blob = await attachmentService.download(photo.id);
+        const previewUrl = URL.createObjectURL(blob);
+        localFormData.beforePhotoPreviews.push(previewUrl);
+      } catch (error) {
+        console.error(`[step5] 載入照片預覽失敗 (ID: ${photo.id}):`, error);
+      }
+    }
+
+    console.log(`[step5] 成功載入 ${uploadedPhotos.value.length} 張照片`);
+  } catch (error: any) {
+    console.error('[step5] 載入照片列表失敗:', {
+      error,
+      message: error?.message,
+      response: error?.response?.data,
+      status: error?.response?.status,
+      grantId: props.grantId
+    });
+    uploadedPhotos.value = [];
+  }
+};
+
 // 處理單張照片上傳
-const handleSinglePhotoUpload = (event: Event) => {
+const handleSinglePhotoUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
 
@@ -709,15 +793,43 @@ const handleSinglePhotoUpload = (event: Event) => {
       return;
     }
 
-    // 添加到照片陣列
-    localFormData.beforeConstructionPhotos.push(file);
+    // 開始上傳
+    uploading.value = true;
+    const stepNumber = 5;
+    const progressKey = file.name;
 
-    // 創建預覽
-    const preview = URL.createObjectURL(file);
-    localFormData.beforePhotoPreviews.push(preview);
+    try {
+      uploadProgress.value[progressKey] = 0;
 
-    // 清空 input value 以允許重複選擇同一檔案
-    target.value = '';
+      console.log(`[step5] 上傳照片: ${file.name} 到類別 inspection_before`);
+
+      // 上傳到後端
+      const response = await attachmentService.upload(
+        props.grantId,
+        stepNumber,
+        file,
+        'inspection_before',
+        undefined,
+        (progress) => {
+          uploadProgress.value[progressKey] = progress;
+        }
+      );
+
+      console.log('[step5] 照片上傳成功:', response);
+
+      // 重新載入照片列表
+      await loadPhotos();
+
+      delete uploadProgress.value[progressKey];
+    } catch (error) {
+      console.error(`[step5] 上傳照片 ${file.name} 失敗:`, error);
+      alert('照片上傳失敗，請稍後再試');
+      delete uploadProgress.value[progressKey];
+    } finally {
+      uploading.value = false;
+      // 清空 input value 以允許重複選擇同一檔案
+      target.value = '';
+    }
 
     updateFormData();
   }
@@ -855,22 +967,33 @@ const confirmDateSelection = () => {
 
 // 更新父組件數據
 const updateFormData = () => {
+  // 排除應從 API 載入的欄位（這些欄位不應傳回父組件）
+  const { beforePhotoPreviews, beforeConstructionPhotos, afterPhotoPreview, afterConstructionPhoto, ...dataToEmit } = localFormData;
+
   emit('update:formData', {
     ...props.formData,
-    ...localFormData,
+    ...dataToEmit,
     valid: true // Always true for seamless navigation
   });
 };
 
 // 初始化數據
-onMounted(() => {
+onMounted(async () => {
   console.log("Step 5 mounted, formData:", props.formData);
 
-  // 從父組件接收數據
+  // 從父組件接收數據（排除應從 API 載入的欄位）
   if (props.formData) {
     // 設置基本屬性，使用類型安全的方式
     const formDataKeys = Object.keys(localFormData) as Array<keyof typeof localFormData>;
     formDataKeys.forEach(key => {
+      // 排除應從 API 載入的欄位
+      if (key === 'beforePhotoPreviews' ||
+          key === 'beforeConstructionPhotos' ||
+          key === 'afterPhotoPreview' ||
+          key === 'afterConstructionPhoto') {
+        return;
+      }
+
       if (props.formData[key] !== undefined) {
         (localFormData as any)[key] = props.formData[key];
       }
@@ -887,6 +1010,11 @@ onMounted(() => {
     localFormData.inspectionDate = `${year}-${month}-${day}`;
   }
 
+  // 載入已上傳的照片
+  if (props.grantId && props.grantId > 0) {
+    await loadPhotos();
+  }
+
   // Initial update to parent
   updateFormData();
 
@@ -901,6 +1029,14 @@ watch(() => props.formData, (newVal) => {
   if (newVal) {
     const formDataKeys = Object.keys(localFormData) as Array<keyof typeof localFormData>;
     formDataKeys.forEach(key => {
+      // 排除應從 API 載入的欄位
+      if (key === 'beforePhotoPreviews' ||
+          key === 'beforeConstructionPhotos' ||
+          key === 'afterPhotoPreview' ||
+          key === 'afterConstructionPhoto') {
+        return;
+      }
+
       if (newVal[key] !== undefined &&
           JSON.stringify(newVal[key]) !== JSON.stringify((localFormData as any)[key])) {
         (localFormData as any)[key] = newVal[key];
