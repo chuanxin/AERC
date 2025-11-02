@@ -1920,6 +1920,12 @@ onMounted(async () => {
     await loadStepData(startStep);
     console.log(`[edit.vue onMounted] loadStepData for step ${startStep} finished. grantsStore.formData[${startStep}]:`, JSON.stringify(grantsStore.formData[startStep], null, 2));
 
+    // 🆕 檢查案件狀態，若已核准則自動鎖定前三步
+    if (grantsStore.currentGrant?.status === 'approved') {
+      lockSteps([1, 2, 3])
+      console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3 (case status: approved)')
+    }
+
     isDataLoaded.value = true;
   } catch (error) {
     console.error('[edit.vue onMounted] Failed to initialize grant data:', error);

@@ -55,6 +55,7 @@ export const BACKEND_PATHS = {
     DELETE: (id: number | string) => `/grants/${id}`,
     APPLICANT_SUBSIDY_SUMMARY: (applicantId: string, year: number) =>
     `/grants/applicant-subsidy-summary/${applicantId}/${year}`,
+    UPDATE_STATUS: (caseNumber: string) => `/grants/case/${caseNumber}/status`,
   },
   PIPE_FITTINGS: { // Added PIPE_FITTINGS backend paths
     LIST: '/pipe_fittings/', // For GET all and POST create
@@ -283,12 +284,20 @@ export function mapApiPath(frontendPath: string): string {
         mappedBasePath = BACKEND_PATHS.GRANTS.UPDATE_CURRENT_STEP(caseNumber);
         console.debug(`[mapApiPath] Grant current-step dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
       } else {
-        // 3.4 匹配 grants delete 路徑 (DELETE /grants/{id})
-        const deleteMatch = cleanPath.match(/^\/grants\/(\d+)$/);
-        if (deleteMatch) {
-          const grantId = deleteMatch[1];
-          mappedBasePath = BACKEND_PATHS.GRANTS.DELETE(grantId);
-          console.debug(`[mapApiPath] Grant delete dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+        // 3.4 匹配 grants status 路徑 (PATCH /grants/case/{case_number}/status)
+        const statusMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/status$/);
+        if (statusMatch) {
+          const caseNumber = statusMatch[1];
+          mappedBasePath = BACKEND_PATHS.GRANTS.UPDATE_STATUS(caseNumber);
+          console.debug(`[mapApiPath] Grant status dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+        } else {
+          // 3.5 匹配 grants delete 路徑 (DELETE /grants/{id})
+          const deleteMatch = cleanPath.match(/^\/grants\/(\d+)$/);
+          if (deleteMatch) {
+            const grantId = deleteMatch[1];
+            mappedBasePath = BACKEND_PATHS.GRANTS.DELETE(grantId);
+            console.debug(`[mapApiPath] Grant delete dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+          }
         }
       }
     }

@@ -595,12 +595,29 @@ const handleArchiveCase = async () => {
 };
 
 // 新增：處理正常進入下一步
-const handleProceedToNext = () => {
+const handleProceedToNext = async () => {
   console.log('➡️ [step5] Proceeding to next step');
 
   // 驗證表單
   if (!validateForm()) {
     return;
+  }
+
+  // 🆕 更新案件狀態為已核准（完成現場勘查）
+  if (grantsStore.currentGrant?.case_number) {
+    try {
+      console.log('🔄 [step5] Updating grant status to approved...')
+      await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'approved')
+      console.log('✅ [step5] Grant status updated to approved')
+    } catch (error) {
+      console.error('❌ [step5] Failed to update status:', error)
+      alert('更新案件狀態失敗，請稍後再試')
+      return
+    }
+  } else {
+    console.error('❌ [step5] No case_number available, cannot update status')
+    alert('找不到案件編號，無法更新狀態')
+    return
   }
 
   // 發送驗證成功事件

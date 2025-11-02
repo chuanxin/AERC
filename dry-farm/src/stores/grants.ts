@@ -621,10 +621,10 @@ export const useGrantsStore = defineStore('grants', () => {
    */
   const clearCurrentGrant = () => {
     console.log('[grantsStore.clearCurrentGrant] 清理當前案件資料...')
-    
+
     currentGrant.value = null
     currentStep.value = 1
-    
+
     // 🔥 Linus式修復：徹底清空所有步驟資料，避免資料污染
     Object.keys(formData).forEach(key => {
       const stepNum = Number(key)
@@ -642,7 +642,7 @@ export const useGrantsStore = defineStore('grants', () => {
 
     hasUnsavedChanges.value = false
     lastSavedAt.value = null
-    
+
     console.log('[grantsStore.clearCurrentGrant] 案件資料清理完成')
   }
 
@@ -670,7 +670,7 @@ export const useGrantsStore = defineStore('grants', () => {
       const step = targetDataStep || currentStep.value
       const stepData = formData[step]
       const caseNumber = currentGrant.value.case_number
-      
+
       console.log(`💾 saveAllChanges: saving dataStep ${step} ${targetDataStep ? '(targeted)' : '(current)'}`)
 
       // 準備追蹤資訊
@@ -877,6 +877,40 @@ export const useGrantsStore = defineStore('grants', () => {
     }
 
     return step;
+  }
+
+  /**
+   * Update grant status
+   * @param caseNumber - Case number of the grant
+   * @param newStatus - New status value (e.g., 'approved', 'rejected')
+   */
+  const updateGrantStatus = async (caseNumber: string, newStatus: string) => {
+    try {
+      console.log(`🔄 [grantsStore.updateGrantStatus] Updating status to ${newStatus} for case ${caseNumber}`)
+
+      const response = await import('@/services/grantsService').then(m => m.updateGrantStatus(caseNumber, newStatus))
+
+      // Update local state if this is the current grant
+      if (currentGrant.value && currentGrant.value.case_number === caseNumber) {
+        currentGrant.value.status = response.status
+        console.log(`✅ [grantsStore.updateGrantStatus] Local state updated: ${response.status}`)
+      }
+
+      // Update localStorage
+      const grantData = GrantStorage.getGrant(caseNumber)
+      if (grantData) {
+        grantData.stepName = newStatus
+        grantData.updatedAt = new Date().toISOString()
+        GrantStorage.saveGrantData(caseNumber, grantData)
+        console.log(`💾 [grantsStore.updateGrantStatus] localStorage updated`)
+      }
+
+      return response
+    } catch (error) {
+      console.error('❌ [grantsStore.updateGrantStatus] Error:', error)
+      handleError(error as Error, 'updateGrantStatus')
+      throw error
+    }
   }
 
   /**
@@ -1294,6 +1328,7 @@ export const useGrantsStore = defineStore('grants', () => {
     exportGrantBackup,
     importGrantBackup,
     updateCurrentStep,
+    updateGrantStatus,
 
     // Actions - 新增的列表功能
     loadGrantsList,
