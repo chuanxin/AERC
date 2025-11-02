@@ -8,6 +8,20 @@
       flat
     >
       <v-card-text class="pb-0 pt-0">
+        <!-- 🆕 唯讀模式提示 -->
+        <v-alert
+          v-if="props.readonly"
+          type="warning"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          rounded="lg"
+        >
+          <div class="d-flex align-center">
+            <span class="text-body-2">已完成現場勘查，此步驟已鎖定，無法編輯。</span>
+          </div>
+        </v-alert>
+
         <v-form
           ref="form"
           v-model="localValid"
@@ -50,6 +64,7 @@
                     color="#3ea0a3"
                     bg-color="white"
                     :rules="[v => !!v || '請填寫勘查人員']"
+                    :readonly="props.readonly"
                     @update:model-value="updateFormData"
                   >
                     <template #label>
@@ -70,9 +85,9 @@
                     density="comfortable"
                     color="#3ea0a3"
                     bg-color="white"
-                    readonly
                     :rules="[v => !!v || '請選擇勘查日期']"
-                    @click="openDateDialog"
+                    :readonly="props.readonly"
+                    @click="!props.readonly && openDateDialog()"
                   >
                     <template #label>
                       勘查日期
@@ -164,6 +179,7 @@
                     color="#3ea0a3"
                     class="mt-0"
                     hide-details="auto"
+                    :readonly="props.readonly"
                     @update:model-value="updateFormData"
                   >
                     <v-radio
@@ -197,6 +213,7 @@
                     rows="3"
                     auto-grow
                     :rules="reasonRules"
+                    :readonly="props.readonly"
                     @update:model-value="updateFormData"
                   />
                 </v-col>
@@ -216,6 +233,7 @@
                     bg-color="white"
                     rows="3"
                     auto-grow
+                    :readonly="props.readonly"
                     @update:model-value="updateFormData"
                   />
                 </v-col>
@@ -270,6 +288,7 @@
                               variant="elevated"
                               class="position-absolute"
                               style="top: 8px; right: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"
+                              :disabled="props.readonly"
                               @click="removeBeforePhoto(index)"
                             >
                               <v-icon size="small">
@@ -295,6 +314,7 @@
                         <v-card
                           variant="outlined"
                           class="photo-card add-photo-card"
+                          :disabled="props.readonly"
                           @click="triggerFileInput"
                         >
                           <div class="d-flex flex-column align-center justify-center h-100">
@@ -320,7 +340,7 @@
                     <v-card
                       variant="outlined"
                       class="upload-zone"
-                      @click="triggerFileInput"
+                      @click="!props.readonly && triggerFileInput"
                     >
                       <v-card-text class="text-center pa-8">
                         <v-icon
@@ -352,7 +372,7 @@
 
                   <!-- 上傳狀態提示 -->
                   <div
-                    v-if="localFormData.beforePhotoPreviews.length > 0"
+                    v-if="localFormData.beforePhotoPreviews.length > 0 && !props.readonly"
                     class="mt-2"
                   >
                     <v-chip
@@ -417,6 +437,7 @@ import { useGrantsStore } from '@/stores/grants';
 import { attachmentService } from '@/services/attachmentService';
 
 // Props definition
+// 🆕 新增 readonly prop 支援
 const props = defineProps({
   formData: {
     type: Object,
@@ -430,6 +451,10 @@ const props = defineProps({
   grantId: {
     type: Number,
     required: true
+  },
+  readonly: {
+    type: Boolean,
+    default: false
   }
 });
 
