@@ -1,4 +1,4 @@
-import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, GIS, QUALIFICATION, SPATIAL, DOWNLOADS } from './endpoints';
+import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, GIS, QUALIFICATION, SPATIAL, DOWNLOADS, ATTACHMENTS } from './endpoints';
 
 // 取得當前的 API 版本前綴
 const API_BASE_URL = import.meta.env.FAST_API_BASE_URL || '';
@@ -108,6 +108,14 @@ export const BACKEND_PATHS = {
     STATIC_FILE_DOWNLOAD: (fileId: string) => `/download/static-file/${fileId}`,
     STATIC_FILES_BATCH: '/download/static-files/batch',
     TEST: '/download/test',
+  },
+  ATTACHMENTS: {
+    UPLOAD: (grantId: number, step: number) => `/attachments/upload/${grantId}/${step}`,
+    LIST: (grantId: number, step: number) => `/attachments/list/${grantId}/${step}`,
+    DOWNLOAD: (attachmentId: number) => `/attachments/download/${attachmentId}`,
+    INFO: (attachmentId: number) => `/attachments/info/${attachmentId}`,
+    DELETE: (attachmentId: number) => `/attachments/${attachmentId}`,
+    BATCH_OPERATION: '/attachments/batch-operation',
   }
 };
 
@@ -148,6 +156,7 @@ export const API_MAPPING: Record<string, string> = {
   [DOWNLOADS.STATIC_FILES_LIST]: BACKEND_PATHS.DOWNLOADS.STATIC_FILES_LIST,
   [DOWNLOADS.STATIC_FILES_BATCH]: BACKEND_PATHS.DOWNLOADS.STATIC_FILES_BATCH,
   [DOWNLOADS.TEST]: BACKEND_PATHS.DOWNLOADS.TEST,
+  [ATTACHMENTS.BATCH_OPERATION]: BACKEND_PATHS.ATTACHMENTS.BATCH_OPERATION,
   // 🔥 移除錯誤的靜態映射：APPLICANT_SUBSIDY_SUMMARY 是函數，不能作為 Record key
   // [GRANTS.APPLICANT_SUBSIDY_SUMMARY]: BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY,
 }
@@ -190,6 +199,32 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配靜態檔案下載路徑 {API_PREFIX}/download/static-file/{fileId}
     pattern: new RegExp(`^${DOWNLOADS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/static-file/([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.DOWNLOADS.STATIC_FILE_DOWNLOAD(matches[1])
+  },
+  {
+    // 匹配附件上傳路徑 {API_PREFIX}/attachments/upload/{grantId}/{step}
+    pattern: new RegExp(`^${ATTACHMENTS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/upload/(\\d+)/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ATTACHMENTS.UPLOAD(parseInt(matches[1], 10), parseInt(matches[2], 10))
+  },
+  {
+    // 匹配附件列表路徑 {API_PREFIX}/attachments/list/{grantId}/{step}
+    pattern: new RegExp(`^${ATTACHMENTS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/list/(\\d+)/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ATTACHMENTS.LIST(parseInt(matches[1], 10), parseInt(matches[2], 10))
+  },
+  {
+    // 匹配附件下載路徑 {API_PREFIX}/attachments/download/{attachmentId}
+    pattern: new RegExp(`^${ATTACHMENTS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/download/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ATTACHMENTS.DOWNLOAD(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配附件資訊路徑 {API_PREFIX}/attachments/info/{attachmentId}
+    pattern: new RegExp(`^${ATTACHMENTS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/info/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ATTACHMENTS.INFO(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配附件刪除路徑 {API_PREFIX}/attachments/{attachmentId}
+    // 注意: 這個要放在最後，避免與 upload/list/download/info 衝突
+    pattern: new RegExp(`^${ATTACHMENTS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(?!upload|list|download|info|batch-operation)(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ATTACHMENTS.DELETE(parseInt(matches[1], 10))
   }
 ];
 

@@ -126,7 +126,7 @@
                             >
                               mdi-file-check-outline
                             </v-icon>
-                            {{ file.display_name }}
+                            {{ file.original_filename }}
                           </v-chip>
                         </div>
                       </v-list-item>
@@ -401,18 +401,18 @@
                     >
                       <template #prepend>
                         <v-icon
-                          :color="getFileTypeColor(file.file_type)"
+                          :color="getFileTypeColor(file.mime_type)"
                           size="small"
                         >
-                          {{ getFileTypeIcon(file.file_type) }}
+                          {{ getFileTypeIcon(file.mime_type) }}
                         </v-icon>
                       </template>
 
                       <v-list-item-title class="text-body-2">
-                        {{ file.display_name }}
+                        {{ file.original_filename }}
                       </v-list-item-title>
                       <v-list-item-subtitle class="text-caption">
-                        {{ formatFileSize(file.file_size) }}
+                        {{ formatFileSize(file.filesize) }}
                         <span v-if="file.description"> • {{ file.description }}</span>
                       </v-list-item-subtitle>
 
@@ -447,6 +447,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { attachmentService } from '@/services/attachmentService'
+import type { AttachmentListResponse } from '@/services/attachmentService'
 
 // Props definition
 const props = defineProps({
@@ -456,6 +458,10 @@ const props = defineProps({
     default: () => ({})
   },
   currentStep: {
+    type: Number,
+    required: true
+  },
+  grantId: {
     type: Number,
     required: true
   }
@@ -526,25 +532,27 @@ const triggerFileSelect = () => {
     console.error('觸發檔案選擇時發生錯誤:', error);
   }
 };
-// 上傳檔案類型定義
+// 上傳檔案類型定義 - 對應後端 API 回應
 interface UploadedFile {
   id: number;
-  display_name: string;
-  file_type: string;
-  file_size: number;
+  original_filename: string;
+  filesize: number;
+  mime_type: string;
   category: string;
-  description: string;
-  upload_date: string;
+  description?: string;
+  uploaded_at: string;
+  uploaded_by: string;
 }
 
 const uploadedFiles = ref<UploadedFile[]>([]);
+const uploadProgress = ref<Record<string, number>>({});
 
-// 唱一檔案計算屬性（去重）
+// 唯一檔案計算屬性（去重）
 const uniqueUploadedFiles = computed(() => {
   const fileMap = new Map<string, UploadedFile & { uniqueId: string; categories: string[] }>();
 
   uploadedFiles.value.forEach(file => {
-    const key = `${file.display_name}_${file.file_size}_${file.file_type}`;
+    const key = `${file.original_filename}_${file.filesize}_${file.mime_type}`;
     if (fileMap.has(key)) {
       // 如果檔案已存在，將類別加入列表
       const existingFile = fileMap.get(key)!;
@@ -712,96 +720,164 @@ const toggleCategory = (categoryId: string) => {
   }
 };
 
-// 檔案上傳
+// 檔案上傳 - 整合真實 API（優化版：單檔案多類別）
 const uploadFiles = async () => {
   if (!selectedFiles.value.length || selectedCategories.value.length === 0) return;
 
   uploading.value = true;
+  const stepNumber = 8;
 
   try {
-    // 為每個檔案和每個選中類別創建上傳記錄
+    let successCount = 0;
+    let failCount = 0;
+    let totalRecordsCreated = 0;
+
+    // 為每個檔案上傳一次，同時關聯到多個類別
     for (const file of selectedFiles.value) {
-      for (const categoryId of selectedCategories.value) {
-        // 這裡應該調用實際的檔案上傳 API
-        const uploadedFile = {
-          id: Date.now() + Math.random() + Math.random(), // 確保唯一性
-          display_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          category: categoryId,
-          description: fileDescription.value || '',
-          upload_date: new Date().toISOString()
-        };
+      try {
+        const progressKey = file.name;
+        uploadProgress.value[progressKey] = 0;
 
-        uploadedFiles.value.push(uploadedFile);
+        console.log(`[Upload] 上傳檔案: ${file.name} 到 ${selectedCategories.value.length} 個類別:`, selectedCategories.value);
+
+        // 一次上傳，為所有選中的類別創建記錄
+        const response = await attachmentService.upload(
+          props.grantId,
+          stepNumber,
+          file,
+          selectedCategories.value,  // 傳送類別陣列
+          fileDescription.value || undefined,
+          (progress) => {
+            uploadProgress.value[progressKey] = progress;
+          }
+        );
+
+        console.log('[Upload] 上傳成功:', {
+          filename: response.filename,
+          filesize: response.filesize,
+          checksum: response.checksum,
+          file_reused: response.file_reused,
+          categories_count: response.categories_count,
+          attachments: response.attachments
+        });
+
+        successCount++;
+        totalRecordsCreated += response.attachments.length;
+
+        // 清除進度
+        delete uploadProgress.value[progressKey];
+      } catch (error) {
+        console.error(`[Upload] 上傳檔案 ${file.name} 失敗:`, error);
+        failCount++;
       }
     }
 
-    // 只有實際上傳成功後才更新檢核項目狀態
-    for (const categoryId of selectedCategories.value) {
-      const categoryItem = checklistItems.find(item => item.id === categoryId);
-      if (categoryItem) {
-        categoryItem.completed = true;
-      }
-    }
+    // 上傳完成後重新載入附件列表
+    await loadAttachments();
 
     // 清空選中狀態
     selectedFiles.value = [];
     selectedCategories.value = [];
     fileDescription.value = '';
 
+    // 顯示上傳結果
+    if (successCount > 0) {
+      console.log(`✅ 成功上傳 ${successCount} 個檔案，創建 ${totalRecordsCreated} 筆記錄`);
+    }
+    if (failCount > 0) {
+      console.warn(`❌ ${failCount} 個檔案上傳失敗`);
+    }
+
     updateFormData();
   } catch (error) {
-    console.error('檔案上傳失敗:', error);
-    // 如果上傳失敗，不應該更新檢核表狀態
+    console.error('[Upload] 檔案上傳過程發生錯誤:', error);
   } finally {
     uploading.value = false;
+    uploadProgress.value = {};
   }
 };
 
-// 檔案管理
-const downloadFile = (file: UploadedFile) => {
-  // 實現檔案下載邏輯
-  console.log('下載檔案:', file);
+// 檔案下載 - 整合真實 API
+const downloadFile = async (file: UploadedFile) => {
+  try {
+    console.log('下載檔案:', file);
+    const blob = await attachmentService.download(file.id);
+    attachmentService.triggerDownload(blob, file.original_filename);
+  } catch (error) {
+    console.error('下載檔案失敗:', error);
+  }
 };
 
-// 移除未使用的 deleteFile 函數，使用 deleteUniqueFile 代替
+// 刪除唯一檔案 - 整合真實 API（會刪除所有相關的類別記錄）
+const deleteUniqueFile = async (uniqueFile: UploadedFile & { uniqueId: string; categories: string[] }) => {
+  try {
+    const fileKey = `${uniqueFile.original_filename}_${uniqueFile.filesize}_${uniqueFile.mime_type}`;
 
-// 刪除唯一檔案（會刪除所有相關的類別記錄）
-const deleteUniqueFile = (uniqueFile: UploadedFile & { uniqueId: string; categories: string[] }) => {
-  const fileKey = `${uniqueFile.display_name}_${uniqueFile.file_size}_${uniqueFile.file_type}`;
-  const filesToRemove = uploadedFiles.value.filter(f =>
-    `${f.display_name}_${f.file_size}_${f.file_type}` === fileKey
-  );
+    // 找出所有相同檔案的記錄
+    const filesToRemove = uploadedFiles.value.filter(f =>
+      `${f.original_filename}_${f.filesize}_${f.mime_type}` === fileKey
+    );
 
-  // 收集受影響的類別
-  const affectedCategories = [...new Set(filesToRemove.map(f => f.category))];
-
-  // 刪除所有相關記錄
-  uploadedFiles.value = uploadedFiles.value.filter(f =>
-    `${f.display_name}_${f.file_size}_${f.file_type}` !== fileKey
-  );
-
-  // 更新受影響類別的完成狀態
-  for (const categoryId of affectedCategories) {
-    const categoryHasFiles = uploadedFiles.value.some(f => f.category === categoryId);
-    if (!categoryHasFiles) {
-      const categoryItem = checklistItems.find(item => item.id === categoryId);
-      if (categoryItem) {
-        categoryItem.completed = false;
+    // 刪除所有相關的後端記錄
+    for (const file of filesToRemove) {
+      try {
+        await attachmentService.delete(file.id);
+        console.log(`成功刪除附件 ID: ${file.id}`);
+      } catch (error) {
+        console.error(`刪除附件 ID ${file.id} 失敗:`, error);
       }
     }
+
+    // 重新載入附件列表
+    await loadAttachments();
+
+    updateFormData();
+  } catch (error) {
+    console.error('刪除檔案失敗:', error);
+  }
+};
+
+// 載入附件列表 - 從後端獲取
+const loadAttachments = async () => {
+  // 驗證 grantId
+  if (!props.grantId || props.grantId === 0) {
+    console.warn('loadAttachments: grantId 無效，跳過載入', props.grantId);
+    return;
   }
 
-  updateFormData();
+  try {
+    const stepNumber = 8;
+    console.log(`[loadAttachments] 開始載入附件 - grantId: ${props.grantId}, step: ${stepNumber}`);
+
+    const response = await attachmentService.list(props.grantId, stepNumber);
+    console.log(`[loadAttachments] API 回應:`, response);
+
+    uploadedFiles.value = response.attachments || [];
+
+    // 更新檢核表完成狀態
+    checklistItems.forEach(item => {
+      const hasFiles = uploadedFiles.value.some(file => file.category === item.id);
+      item.completed = hasFiles;
+    });
+
+    console.log(`[loadAttachments] 成功載入 ${uploadedFiles.value.length} 個附件`);
+  } catch (error: any) {
+    console.error('[loadAttachments] 載入附件列表失敗:', {
+      error,
+      message: error?.message,
+      response: error?.response?.data,
+      status: error?.response?.status,
+      grantId: props.grantId
+    });
+    // 失敗時清空列表
+    uploadedFiles.value = [];
+  }
 };
 
 // 輔助函數
 const getItemFiles = (categoryId: string) => {
   return uploadedFiles.value.filter(file => file.category === categoryId);
 };
-
-// 移除未使用的 getCategoryName 函數
 
 const getFileTypeIcon = (fileType: string) => {
   if (fileType.includes('pdf')) return 'mdi-file-pdf-box';
@@ -848,8 +924,9 @@ const updateFormData = () => {
 };
 
 // 初始化
-onMounted(() => {
+onMounted(async () => {
   console.log("Step 8 mounted, formData:", props.formData);
+  console.log("Grant ID:", props.grantId);
   console.log("檢核表項目數量:", checklistItems.length);
   console.log("檢核表項目:", checklistItems.map(item => ({ id: item.id, name: item.name })));
 
@@ -861,39 +938,25 @@ onMounted(() => {
     console.log('使用預設檢核表項目');
   }
 
-  if (props.formData?.uploadedFiles) {
-    uploadedFiles.value = [...(props.formData.uploadedFiles || [])];
+  // 從後端載入已上傳的附件
+  if (props.grantId) {
+    await loadAttachments();
   }
 
   updateFormData();
-
-  // 讓 Vue 重新渲染以確保檢核表顯示
-  setTimeout(() => {
-    console.log('一秒後檢核表項目數量:', checklistItems.length);
-  }, 1000);
 });
 
-// 監聽父組件數據變化
-watch(() => props.formData, (newVal) => {
-  if (newVal?.checklistItems && newVal.checklistItems.length > 0) {
-    console.log('更新檢核表項目：', newVal.checklistItems.length);
-    checklistItems.splice(0, checklistItems.length, ...newVal.checklistItems);
+// 監聽 grantId 變化，重新載入附件
+watch(() => props.grantId, async (newGrantId) => {
+  if (newGrantId) {
+    await loadAttachments();
   }
-
-  if (newVal?.uploadedFiles) {
-    uploadedFiles.value = [...(newVal.uploadedFiles || [])];
-  }
-}, { deep: true });
+});
 
 // 監聽完成狀態變化
 watch(completionPercentage, () => {
   updateFormData();
 });
-
-// 監聽檢核表項目變化
-watch(() => checklistItems.length, (newLength) => {
-  console.log('檢核表項目數量變化:', newLength);
-}, { immediate: true });
 </script>
 
 <style scoped>

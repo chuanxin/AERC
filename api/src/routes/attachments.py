@@ -21,45 +21,125 @@ async def upload_attachment(
     step: int,
     file: UploadFile = File(...),
     category: Optional[str] = Form(None),
+    categories: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
     current_user: Users = Depends(get_current_user)
 ):
-    """上傳補助申請案件附件"""
+    """
+    上傳補助申請案件附件
+
+    支援兩種模式：
+    1. 單一類別：使用 category 參數
+    2. 多個類別：使用 categories 參數（JSON 陣列字串，如 '["cat1","cat2"]'）
+
+    當指定多個類別時：
+    - 實體檔案只儲存一次（透過 checksum 去重）
+    - 為每個類別創建獨立的資料庫記錄
+    - 所有記錄共用同一個實體檔案（相同 internal_filename 和 checksum）
+    """
     try:
+        import json
+
         grant = await Grants.get_or_none(id=grant_id)
         if not grant:
             raise HTTPException(status_code=404, detail="補助申請案件不存在")
-        
+
         if step not in [5, 6, 7, 8]:
             raise HTTPException(status_code=400, detail="步驟編號必須在5-8之間")
-        
+
+        # 解析類別列表
+        category_list = []
+        if categories:
+            try:
+                category_list = json.loads(categories)
+                if not isinstance(category_list, list) or len(category_list) == 0:
+                    raise ValueError("categories 必須是非空的 JSON 陣列")
+            except (json.JSONDecodeError, ValueError) as e:
+                raise HTTPException(status_code=400, detail=f"categories 格式錯誤: {str(e)}")
+        elif category:
+            category_list = [category]
+        else:
+            category_list = ["general"]
+
+        # 讀取檔案內容並計算 checksum
         file_content = await file.read()
         storage.validate_file_size(len(file_content))
-        
-        absolute_path, internal_filename, relative_path = storage.generate_file_info(grant_id, file.filename)
-        checksum = await storage.save_file(file_content, absolute_path)
-        
-        attachment = await GrantAttachments.create(
+
+        import hashlib
+        checksum = hashlib.sha256(file_content).hexdigest()
+
+        # 檢查是否已存在相同檔案（透過 checksum 去重）
+        existing_attachment = await GrantAttachments.filter(
             grant_id=grant_id,
             step=step,
-            category=category or "general",
-            original_filename=file.filename,
-            internal_filename=internal_filename,
-            filepath=relative_path,
-            filesize=len(file_content),
-            mime_type=storage.get_mime_type(file.filename),
             checksum=checksum,
-            description=description,
-            uploaded_by_id=current_user.id
-        )
-        
+            status="active"
+        ).first()
+
+        # 決定檔案儲存策略
+        if existing_attachment:
+            # 重用已存在的實體檔案
+            internal_filename = existing_attachment.internal_filename
+            relative_path = existing_attachment.filepath
+            file_reused = True
+            print(f"[Upload] 重用已存在檔案: {internal_filename} (checksum: {checksum[:8]}...)")
+        else:
+            # 儲存新的實體檔案
+            absolute_path, internal_filename, relative_path = storage.generate_file_info(grant_id, file.filename)
+            await storage.save_file(file_content, absolute_path)
+            file_reused = False
+            print(f"[Upload] 儲存新檔案: {internal_filename} (checksum: {checksum[:8]}...)")
+
+        # 為每個類別創建資料庫記錄
+        created_attachments = []
+        for cat in category_list:
+            # 檢查是否已存在相同類別的記錄
+            existing_category_record = await GrantAttachments.filter(
+                grant_id=grant_id,
+                step=step,
+                category=cat,
+                checksum=checksum,
+                status="active"
+            ).first()
+
+            if existing_category_record:
+                print(f"[Upload] 類別 '{cat}' 已存在相同檔案記錄，跳過")
+                created_attachments.append({
+                    "id": existing_category_record.id,
+                    "category": cat,
+                    "existed": True
+                })
+                continue
+
+            attachment = await GrantAttachments.create(
+                grant_id=grant_id,
+                step=step,
+                category=cat,
+                original_filename=file.filename,
+                internal_filename=internal_filename,
+                filepath=relative_path,
+                filesize=len(file_content),
+                mime_type=storage.get_mime_type(file.filename),
+                checksum=checksum,
+                description=description,
+                uploaded_by_id=current_user.id
+            )
+            created_attachments.append({
+                "id": attachment.id,
+                "category": cat,
+                "existed": False
+            })
+            print(f"[Upload] 為類別 '{cat}' 創建記錄 (ID: {attachment.id})")
+
         return {
             "success": True,
-            "attachment_id": attachment.id,
+            "attachments": created_attachments,
             "filename": file.filename,
             "internal_filename": internal_filename,
             "filesize": len(file_content),
-            "upload_time": attachment.uploaded_at
+            "checksum": checksum,
+            "file_reused": file_reused,
+            "categories_count": len(category_list)
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

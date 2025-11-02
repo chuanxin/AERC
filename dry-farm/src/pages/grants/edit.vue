@@ -533,6 +533,7 @@
                           v-if="currentStep === 8"
                           :form-data="grantsStore.formData[8]"
                           :current-step="currentStep"
+                          :grant-id="grantsStore.currentGrant?.id || 0"
                           @update:form-data="handleFormDataUpdate(8, $event)"
                           @validated="handleStepValidated"
                           @go-back="handleGoBack"
