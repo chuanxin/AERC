@@ -1429,6 +1429,64 @@ async def delete_grant(grant_id: int, current_user: UserOutSchema) -> Dict[str, 
 #                 )
             
 #             # 記錄審核日誌
+async def update_grant_status(case_number: str, new_status: str, current_user):
+    """更新補助申請案件的狀態"""
+    async with in_transaction():
+        try:
+            # 檢查案件是否存在
+            try:
+                grant = await Grants.get(case_number=case_number)
+            except DoesNotExist:
+                raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
+            
+            # 驗證狀態值（使用 GrantStatus 枚舉的有效值）
+            valid_statuses = ["draft", "submitted", "under_review", "approved", "rejected", "completed"]
+            if new_status not in valid_statuses:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"無效的狀態值：{new_status}。有效值：{', '.join(valid_statuses)}"
+                )
+            
+            # 保存舊狀態
+            old_status = grant.status
+            
+            # 更新狀態
+            await Grants.filter(id=grant.id).update(status=new_status)
+            
+            # 建立歷史紀錄
+            await GrantHistory.create(
+                grant=grant,
+                action_type=GrantActionType.STATUS_CHANGE,
+                grant_status=new_status,
+                step_number=grant.current_step,
+                changed_fields=['status'],
+                old_value={'status': old_status},
+                new_value={'status': new_status},
+                changed_by_id=current_user.id,
+                notes=f"更新案件狀態：{old_status} → {new_status}"
+            )
+            
+            logger.info(f"成功更新案件 {case_number} 的狀態：{old_status} → {new_status}")
+            
+            return {
+                "success": True,
+                "case_number": case_number,
+                "status": new_status,
+                "old_status": old_status,
+                "message": f"成功更新案件狀態為 {new_status}"
+            }
+            
+        except HTTPException:
+            # 重新拋出 HTTPException
+            raise
+        except Exception as e:
+            logger.error(f"更新案件 {case_number} 狀態時發生錯誤: {str(e)}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"更新狀態失敗: {str(e)}"
+            )
+
+
 async def update_grant_current_step(case_number: str, current_step: int, current_user):
     """更新補助申請案件的當前步驟"""
     async with in_transaction():
