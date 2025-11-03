@@ -1440,7 +1440,7 @@ async def update_grant_status(case_number: str, new_status: str, current_user):
                 raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
             
             # 驗證狀態值（使用 GrantStatus 枚舉的有效值）
-            valid_statuses = ["draft", "submitted", "under_review", "approved", "rejected", "completed"]
+            valid_statuses = ["draft", "submitted", "under_review", "approved", "rejected", "completed", "withdrawn"]
             if new_status not in valid_statuses:
                 raise HTTPException(
                     status_code=400, 

@@ -4,10 +4,10 @@
     class="step-content"
   >
     <v-card
-      class="mb-0 pa-0"
+      class="mt-4 mb-0 pa-0"
       flat
     >
-      <v-card-text class="pb-0 pt-0">
+      <v-card-text class="py-0">
         <v-form
           ref="form"
           v-model="localValid"
@@ -290,101 +290,136 @@
 
           <!-- 結案申報基本資訊區域 -->
           <v-card
-            class="mb-4"
-            variant="outlined"
+            class="pa-0 mx-0"
+            flat
           >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
+            <v-card-text class="pa-0 ">
+              <v-card-title
+                class="text-subtitle-1 font-weight-bold pa-0 pb-2 d-flex align-center"
+                style="color: #2d8c8f"
               >
-                mdi-clipboard-text
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium">本案基本資訊</span>
-            </v-card-title>
+                <v-icon
+                  color="#3ea0a3"
+                  class="me-2 mb-0 pb-0"
+                  size="small"
+                >
+                  mdi-clipboard-text
+                </v-icon>
+                本案基本資訊
+              </v-card-title>
 
-            <v-card-text class="pa-4">
               <v-sheet
-                class="pa-3 rounded"
-                color="bg-amber-lighten-5 border border-amber"
+                class="mt-2 pb-4 rounded"
+                color="white"
               >
                 <v-table
-                  class="preview-table"
-                  style="background-color: transparent"
                   density="compact"
+                  fixed-header
+                  class="border-thin"
                 >
                   <tbody>
                     <tr>
                       <td
                         class="font-weight-medium text-center"
-                        style="width: 15%"
+                        style="width: 15%; background-color: rgba(255, 224, 130, 0.15)"
                       >
                         申請年度
                       </td>
                       <td style="width: 35%">
-                        {{ localFormData.applicationYear }}
+                        {{ displayApplicationYear }}
                       </td>
                       <td
                         class="font-weight-medium text-center"
-                        style="width: 15%"
+                        style="width: 15%; background-color: rgba(255, 224, 130, 0.15)"
                       >
                         案號
                       </td>
                       <td style="width: 35%">
-                        {{ localFormData.caseNumber }}
+                        {{ displayCaseNumber }}
                       </td>
                     </tr>
                     <tr>
-                      <td class="font-weight-medium text-center">
+                      <td
+                        class="font-weight-medium text-center"
+                        style="background-color: rgba(255, 224, 130, 0.15)"
+                      >
                         農戶姓名
                       </td>
                       <td>
-                        {{ localFormData.name }}
+                        {{ displayApplicantName }}
                       </td>
-                      <td class="font-weight-medium text-center">
+                      <td
+                        class="font-weight-medium text-center"
+                        style="background-color: rgba(255, 224, 130, 0.15)"
+                      >
                         農戶住址
                       </td>
                       <td>
-                        {{ localFormData.applicantAddress }}
+                        {{ displayApplicantAddress }}
                       </td>
                     </tr>
                     <tr>
-                      <td class="font-weight-medium text-center">
+                      <td
+                        class="font-weight-medium text-center"
+                        style="background-color: rgba(255, 224, 130, 0.15)"
+                      >
                         設施地段
                       </td>
                       <td>
-                        {{ displayFacilityLocation }}
-                      </td>
-                      <td class="font-weight-medium text-center">
-                        設施地號
-                      </td>
-                      <td>
-                        <div v-if="displayFacilityNumbers.length > 1">
-                          <div 
-                            v-for="(number, index) in displayFacilityNumbers" 
+                        <!-- 多筆土地時，地段與地號一一對應顯示 -->
+                        <div v-if="displayFacilityLocationPairs.length > 1">
+                          <div
+                            v-for="(pair, index) in displayFacilityLocationPairs"
                             :key="index"
                             class="mb-1"
                           >
-                            {{ number }}
+                            {{ pair.location || '-' }}
                           </div>
                         </div>
                         <div v-else>
-                          {{ displayFacilityNumbers[0] }}
+                          {{ displayFacilityLocationPairs[0]?.location || '-' }}
+                        </div>
+                      </td>
+                      <td
+                        class="font-weight-medium text-center"
+                        style="background-color: rgba(255, 224, 130, 0.15)"
+                      >
+                        設施地號
+                      </td>
+                      <td>
+                        <!-- 多筆土地時，地號與地段一一對應顯示 -->
+                        <div v-if="displayFacilityLocationPairs.length > 1">
+                          <div
+                            v-for="(pair, index) in displayFacilityLocationPairs"
+                            :key="index"
+                            class="mb-1"
+                          >
+                            {{ pair.number || '-' }}
+                          </div>
+                        </div>
+                        <div v-else>
+                          {{ displayFacilityLocationPairs[0]?.number || '-' }}
                         </div>
                       </td>
                     </tr>
                     <tr>
-                      <td class="font-weight-medium text-center">
+                      <td
+                        class="font-weight-medium text-center"
+                        style="background-color: rgba(255, 224, 130, 0.15)"
+                      >
                         設施面積
                       </td>
                       <td>
                         {{ displayFacilityArea }}公頃
                       </td>
-                      <td class="font-weight-medium text-center">
+                      <td
+                        class="font-weight-medium text-center"
+                        style="background-color: rgba(255, 224, 130, 0.15)"
+                      >
                         設施型式
                       </td>
                       <td>
-                        {{ localFormData.facilityType }}
+                        {{ displayFacilityType }}
                       </td>
                     </tr>
                   </tbody>
@@ -395,33 +430,47 @@
 
           <!-- 竣工和測試資訊區域 -->
           <v-card
-            class="mb-4"
-            variant="outlined"
+            flat
+            class="mb-4 pa-4"
+            color="#e3f4f4"
+            rounded="lg"
           >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center justify-space-between py-2 px-4">
-              <div class="d-flex align-center">
-                <v-icon
-                  class="me-2"
-                  size="small"
-                >
-                  mdi-check-decagram
-                </v-icon>
-                <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>功能測試(驗收)</span>
-              </div>
+            <v-card-title
+              class="text-subtitle-1 font-weight-bold pa-0 pb-4 d-flex align-center flex-wrap"
+              style="color: #2d8c8f"
+            >
+              <v-icon
+                color="#3ea0a3"
+                class="me-2 pb-1"
+                size="small"
+              >
+                mdi-check-decagram
+              </v-icon>
+              功能測試資訊
+              <v-spacer />
+              <!-- 🔒 僅當狀態為 withdrawn 時顯示複驗 checkbox -->
               <v-checkbox
+                v-if="shouldShowReinspectionCheckbox"
                 v-model="localFormData.isReinspection"
                 label="複驗"
                 color="#3ea0a3"
                 density="compact"
                 hide-details
+                readonly
                 @update:model-value="updateFormData"
-              />
+              >
+                <template #label>
+                  <span class="text-grey-darken-2">
+                    複驗（{{ localFormData.improvementDate ? formattedImprovementDate : '待設定改善完成日期' }}前完成改善）
+                  </span>
+                </template>
+              </v-checkbox>
             </v-card-title>
 
-            <v-card-text class="pa-4">
+            <v-card-text class="pa-0">
               <v-sheet
                 class="pa-3 rounded"
-                color="grey-lighten-5"
+                color="white"
               >
                 <v-row>
                   <v-col
@@ -508,66 +557,48 @@
                       </v-card>
                     </v-dialog>
                   </v-col>
-
                   <v-col
+                    v-if="!localFormData.isReinspection"
                     cols="12"
                     md="6"
                   >
-                    <div class="d-flex flex-row gap-3">
-                      <v-sheet
-                        class="py-0 pl-5 rounded flex-1"
-                        color="grey-lighten-5"
-                      >
-                        <label class="text-body-2 font-weight-medium mb-0 d-block">與設計圖說規劃型式</label>
-                        <v-radio-group
-                          v-model="localFormData.designCompliance"
-                          color="#3ea0a3"
-                          density="comfortable"
-                          hide-details
-                          inline
-                          @update:model-value="updateFormData"
-                        >
-                          <v-radio
-                            label="相符"
-                            value="compliant"
-                          />
-                          <v-radio
-                            label="不符"
-                            value="non-compliant"
-                          />
-                        </v-radio-group>
-                      </v-sheet>
-                      <v-spacer />
-                      <v-sheet
-                        class="py-0 pr-5 rounded flex-1"
-                        color="grey-lighten-5"
-                      >
-                        <label class="text-body-2 font-weight-medium mb-0 d-block">經現場運轉功能</label>
-                        <v-radio-group
-                          v-model="localFormData.operationCompliance"
-                          color="#3ea0a3"
-                          density="comfortable"
-                          hide-details
-                          inline
-                          @update:model-value="updateFormData"
-                        >
-                          <v-radio
-                            label="相符"
-                            value="compliant"
-                          />
-                          <v-radio
-                            label="不符"
-                            value="non-compliant"
-                          />
-                        </v-radio-group>
-                      </v-sheet>
-                    </div>
+                    <v-text-field
+                      v-model="localFormData.tester"
+                      variant="outlined"
+                      density="comfortable"
+                      :rules="[v => !!v || '請填寫測試人員']"
+                      prepend-icon="mdi-account"
+                      @update:model-value="updateFormData"
+                    >
+                      <template #label>
+                        測試人員
+                      </template>
+                    </v-text-field>
+                  </v-col>
+                  <v-col
+                    v-if="localFormData.isReinspection"
+                    cols="12"
+                    md="6"
+                  >
+                    <v-text-field
+                      v-model="localFormData.reinspectionTester"
+                      variant="outlined"
+                      density="comfortable"
+                      :rules="localFormData.isReinspection ? [v => !!v || '請填寫複驗人員'] : []"
+                      prepend-icon="mdi-account"
+                      @update:model-value="updateFormData"
+                    >
+                      <template #label>
+                        複驗人員
+                      </template>
+                    </v-text-field>
                   </v-col>
                 </v-row>
 
                 <!-- 非複驗狀態下顯示原測試日期和人員 -->
-                <v-row v-if="!localFormData.isReinspection">
+                <v-row>
                   <v-col
+                    v-if="!localFormData.isReinspection"
                     cols="12"
                     md="6"
                   >
@@ -651,29 +682,8 @@
                       </v-card>
                     </v-dialog>
                   </v-col>
-
                   <v-col
-                    cols="12"
-                    md="6"
-                  >
-                    <v-text-field
-                      v-model="localFormData.tester"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="[v => !!v || '請填寫測試人員']"
-                      prepend-icon="mdi-account"
-                      @update:model-value="updateFormData"
-                    >
-                      <template #label>
-                        測試人員
-                      </template>
-                    </v-text-field>
-                  </v-col>
-                </v-row>
-
-                <!-- 複驗相關欄位 -->
-                <v-row v-if="localFormData.isReinspection">
-                  <v-col
+                    v-if="localFormData.isReinspection"
                     cols="12"
                     md="6"
                   >
@@ -757,23 +767,59 @@
                       </v-card>
                     </v-dialog>
                   </v-col>
-
                   <v-col
                     cols="12"
                     md="6"
                   >
-                    <v-text-field
-                      v-model="localFormData.reinspectionTester"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="localFormData.isReinspection ? [v => !!v || '請填寫複驗人員'] : []"
-                      prepend-icon="mdi-account"
-                      @update:model-value="updateFormData"
-                    >
-                      <template #label>
-                        複驗人員
-                      </template>
-                    </v-text-field>
+                    <div class="d-flex flex-row gap-3">
+                      <v-sheet
+                        class="py-0 pl-5 rounded flex-1"
+                        color="white"
+                      >
+                        <label class="text-body-2 font-weight-medium mb-0 d-block">與設計圖說規劃型式</label>
+                        <v-radio-group
+                          v-model="localFormData.designCompliance"
+                          color="#3ea0a3"
+                          density="comfortable"
+                          hide-details
+                          inline
+                          @update:model-value="updateFormData"
+                        >
+                          <v-radio
+                            label="相符"
+                            value="compliant"
+                          />
+                          <v-radio
+                            label="不符"
+                            value="non-compliant"
+                          />
+                        </v-radio-group>
+                      </v-sheet>
+                      <v-spacer />
+                      <v-sheet
+                        class="py-0 pr-5 rounded flex-1"
+                        color="white"
+                      >
+                        <label class="text-body-2 font-weight-medium mb-0 d-block">經現場運轉功能</label>
+                        <v-radio-group
+                          v-model="localFormData.operationCompliance"
+                          color="#3ea0a3"
+                          density="comfortable"
+                          hide-details
+                          inline
+                          @update:model-value="updateFormData"
+                        >
+                          <v-radio
+                            label="相符"
+                            value="compliant"
+                          />
+                          <v-radio
+                            label="不符"
+                            value="non-compliant"
+                          />
+                        </v-radio-group>
+                      </v-sheet>
+                    </div>
                   </v-col>
                 </v-row>
 
@@ -815,206 +861,499 @@
                   </v-col>
                 </v-row>
               </v-sheet>
-            </v-card-text>
-          </v-card>
 
-          <!-- 功能測試(驗收)結果區域 -->
-          <v-card
-            v-if="localFormData.testResult || localFormData.reinspectionResult"
-            class="mb-4"
-            variant="outlined"
-          >
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-check-circle
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>功能測試(驗收)結果</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
+              <!-- 功能測試(驗收)結果區域 -->
               <v-sheet
-                class="pa-3 rounded"
-                color="bg-amber-lighten-5 border border-amber"
+                class="my-3 pa-3 rounded"
+                color="white"
               >
-                <v-row v-if="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'original'">
-                  <v-col cols="12">
-                    <v-text-field
-                      v-model="localFormData.originalPayment"
-                      label="原應發放"
-                      variant="outlined"
-                      density="comfortable"
-                      readonly
-                      bg-color="yellow-lighten-3"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                </v-row>
-
-                <v-row v-if="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'adjusted'">
-                  <v-col cols="12">
-                    <v-text-field
-                      v-model="localFormData.increasedDecreasedAmount"
-                      label="減列"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'adjusted' ? [v => !!v || '請填寫增減列金額'] : []"
-                      bg-color="yellow-lighten-3"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                </v-row>
-
-                <v-row v-if="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'adjusted' || (localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'original'">
-                  <v-col cols="12">
-                    <v-text-field
-                      v-model="localFormData.actualPayment"
-                      label="實際發放"
-                      variant="outlined"
-                      density="comfortable"
-                      readonly
-                      bg-color="yellow-lighten-3"
-                      @update:model-value="updateFormData"
-                    />
-                  </v-col>
-                </v-row>
-
-                <v-row>
-                  <v-col cols="12">
-                    <v-textarea
-                      v-model="localFormData.testResultDescription"
-                      label="結果說明"
-                      variant="outlined"
-                      density="comfortable"
-                      rows="3"
-                      auto-grow
-                      :rules="[v => (localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) !== 'improvement' || !!v || '請填寫結果說明']"
-                      @update:model-value="onTestResultDescriptionChange"
+                <div class="d-flex align-center mb-2">
+                  <v-icon
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-check-circle
+                  </v-icon>
+                  <span class="text-body-2 font-weight-medium"><span class="required-asterisk">*</span>功能測試（驗收）結果</span>
+                </div>
+                <v-sheet
+                  class="pa-3 rounded"
+                  color="bg-amber-lighten-5 border border-amber"
+                >
+                  <!-- 合格（未減列）：原應發放 + 實際發放 並列 -->
+                  <v-row v-if="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'original'">
+                    <v-col
+                      cols="12"
+                      md="6"
                     >
-                      <template #label>
-                        結果說明
-                      </template>
-                    </v-textarea>
-                  </v-col>
-                </v-row>
+                      <v-text-field
+                        v-model="localFormData.originalPayment"
+                        label="原應發放"
+                        variant="outlined"
+                        density="comfortable"
+                        readonly
+                        hide-details
+                        bg-color="yellow-lighten-3"
+                        @update:model-value="updateFormData"
+                      />
+                    </v-col>
+                    <v-col
+                      cols="12"
+                      md="6"
+                    >
+                      <v-text-field
+                        v-model="localFormData.actualPayment"
+                        label="實際發放"
+                        variant="outlined"
+                        density="comfortable"
+                        readonly
+                        hide-details
+                        bg-color="yellow-lighten-3"
+                        @update:model-value="updateFormData"
+                      />
+                    </v-col>
+                  </v-row>
+
+                  <!-- 部分合格（減列）：減列 + 實際發放 並列 -->
+                  <v-row v-if="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'adjusted'">
+                    <v-col
+                      cols="12"
+                      md="6"
+                    >
+                      <v-text-field
+                        v-model="localFormData.increasedDecreasedAmount"
+                        variant="outlined"
+                        density="comfortable"
+                        type="text"
+                        inputmode="numeric"
+                        :rules="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'adjusted' ? [
+                          v => !!v || '請填寫減列金額',
+                          v => {
+                            const num = parseFloat(v.replace(/,/g, ''));
+                            return !isNaN(num) && num > 0 || '減列金額必須大於 0';
+                          }
+                        ] : []"
+                        hide-details
+                        bg-color="white"
+                        prepend-inner-icon="mdi-pencil"
+                        color="#3ea0a3"
+                        placeholder="請輸入減列金額"
+                        @update:model-value="handleDeductionAmountInput"
+                      >
+                        <template #label>
+                          <span class="text-red-darken-2 font-weight-medium">
+                            <v-icon
+                              size="small"
+                              class="mr-1"
+                            >
+                              mdi-currency-usd
+                            </v-icon>
+                            減列（可編輯）
+                          </span>
+                        </template>
+                      </v-text-field>
+                    </v-col>
+                    <v-col
+                      cols="12"
+                      md="6"
+                    >
+                      <v-text-field
+                        v-model="localFormData.actualPayment"
+                        label="實際發放"
+                        variant="outlined"
+                        density="comfortable"
+                        readonly
+                        hide-details
+                        bg-color="yellow-lighten-3"
+                        @update:model-value="updateFormData"
+                      />
+                    </v-col>
+                  </v-row>
+
+                  <!-- 結果說明（合格/減列時獨立一列） -->
+                  <v-row v-if="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) !== 'improvement'">
+                    <v-col cols="12">
+                      <v-textarea
+                        v-model="localFormData.testResultDescription"
+                        label="結果說明（系統產生）"
+                        variant="outlined"
+                        density="comfortable"
+                        rows="1"
+                        auto-grow
+                        readonly
+                        bg-color="grey-lighten-4"
+                        hint="此欄位由系統自動產生，不可修改"
+                        persistent-hint
+                      >
+                        <template #label>
+                          結果說明（系統產生）
+                        </template>
+                      </v-textarea>
+                    </v-col>
+                  </v-row>
+
+                  <!-- 不合格（需改善）：結果說明 + 改善完成日期 並列 -->
+                  <v-row v-if="(localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult) === 'improvement'">
+                    <v-col
+                      cols="12"
+                      md="6"
+                    >
+                      <v-textarea
+                        v-model="localFormData.testResultDescription"
+                        label="結果說明（系統產生）"
+                        variant="outlined"
+                        density="comfortable"
+                        rows="1"
+                        auto-grow
+                        readonly
+                        bg-color="grey-lighten-4"
+                        :rules="[v => !!v || '請填寫結果說明']"
+                        hint="此欄位由系統自動產生，不可修改"
+                        persistent-hint
+                      >
+                        <template #label>
+                          結果說明（系統產生）
+                        </template>
+                      </v-textarea>
+                    </v-col>
+                    <v-col
+                      cols="12"
+                      md="6"
+                    >
+                      <v-text-field
+                        v-model="formattedImprovementDate"
+                        label="改善完成日期"
+                        variant="outlined"
+                        density="comfortable"
+                        readonly
+                        prepend-icon="mdi-calendar"
+                        :rules="[
+                          v => !!localFormData.improvementDate || '請選擇改善完成日期',
+                          v => {
+                            if (!localFormData.improvementDate) return true;
+                            const selected = new Date(localFormData.improvementDate);
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            return selected > today || '改善完成日期範圍有誤';
+                          }
+                        ]"
+                        hint="請選擇預計完成改善的日期"
+                        persistent-hint
+                        @click="openDateDialog('improvement')"
+                        @update:model-value="updateFormData"
+                      >
+                        <template #label>
+                          <span class="required-asterisk">*</span>改善完成日期
+                        </template>
+                      </v-text-field>
+
+                      <!-- 改善日期選擇對話框 -->
+                      <v-dialog
+                        v-model="datePickerDialog4"
+                        width="600"
+                      >
+                        <v-card>
+                          <v-card-title
+                            class="text-h6 font-weight-bold"
+                            style="color: #2d8c8f"
+                          >
+                            選擇改善完成日期
+                          </v-card-title>
+                          <v-card-text>
+                            <v-row>
+                              <v-col cols="4">
+                                <v-select
+                                  v-model="improvementDateComponents.year"
+                                  :items="yearOptions"
+                                  label="年"
+                                  variant="outlined"
+                                  density="comfortable"
+                                  color="#3ea0a3"
+                                />
+                              </v-col>
+                              <v-col cols="4">
+                                <v-select
+                                  v-model="improvementDateComponents.month"
+                                  :items="monthOptions"
+                                  label="月"
+                                  variant="outlined"
+                                  density="comfortable"
+                                  color="#3ea0a3"
+                                />
+                              </v-col>
+                              <v-col cols="4">
+                                <v-select
+                                  v-model="improvementDateComponents.day"
+                                  :items="dayOptions('improvement')"
+                                  label="日"
+                                  variant="outlined"
+                                  density="comfortable"
+                                  color="#3ea0a3"
+                                />
+                              </v-col>
+                            </v-row>
+                          </v-card-text>
+                          <v-card-actions>
+                            <v-spacer />
+                            <v-btn
+                              variant="text"
+                              @click="datePickerDialog4 = false"
+                            >
+                              取消
+                            </v-btn>
+                            <v-btn
+                              color="#3ea0a3"
+                              variant="text"
+                              @click="confirmDateSelection('improvement')"
+                            >
+                              確定
+                            </v-btn>
+                          </v-card-actions>
+                        </v-card>
+                      </v-dialog>
+                    </v-col>
+                  </v-row>
+
+                  <v-row>
+                    <v-col cols="12">
+                      <v-textarea
+                        v-model="localFormData.additionalNotes"
+                        :label="additionalNotesLabel"
+                        variant="outlined"
+                        density="comfortable"
+                        rows="3"
+                        auto-grow
+                        :placeholder="additionalNotesPlaceholder"
+                        :hint="additionalNotesHint"
+                        persistent-hint
+                        :rules="additionalNotesRules"
+                        @update:model-value="updateFormData"
+                      >
+                        <template #label>
+                          {{ additionalNotesLabel }}
+                        </template>
+                      </v-textarea>
+                    </v-col>
+                  </v-row>
+                </v-sheet>
               </v-sheet>
-            </v-card-text>
-          </v-card>
 
-          <!-- 照片上傳區域 -->
-          <v-card variant="outlined">
-            <v-card-title class="bg-light-blue-lighten-4 d-flex align-center py-2 px-4">
-              <v-icon
-                class="me-2"
-                size="small"
-              >
-                mdi-camera
-              </v-icon>
-              <span class="text-subtitle-1 font-weight-medium"><span class="required-asterisk">*</span>施工照片</span>
-            </v-card-title>
-
-            <v-card-text class="pa-4">
+              <!-- 照片上傳區域 -->
               <v-sheet
-                class="pa-3 rounded"
-                color="grey-lighten-5"
+                class="mt-3 pa-3 rounded"
+                color="white"
               >
-                <v-row>
-                  <v-col
-                    cols="12"
-                    md="6"
+                <div class="d-flex align-center">
+                  <v-icon
+                    size="small"
+                    class="me-2"
                   >
-                    <label class="text-body-2 font-weight-medium mb-2 d-block">
-                      施工前照片
-                    </label>
-                    <v-file-input
-                      v-model="localFormData.beforeConstructionPhoto"
-                      label="選擇檔案"
-                      variant="outlined"
-                      density="comfortable"
-                      accept="image/*"
-                      prepend-icon="mdi-camera"
-                      :rules="photoRules"
-                      @update:model-value="handlePhotoChange('before')"
-                    />
+                    mdi-camera
+                  </v-icon>
+                  <span class="text-body-2 font-weight-medium">施工前照片</span>
+                </div>
+                <!-- 施工前照片區域（從 UI step3 載入，只讀） -->
+                <v-sheet
+                  class="pa-3 rounded mb-4"
+                  color="white"
+                >
+                  <!-- 已載入的施工前照片展示 -->
+                  <div v-if="localFormData.beforePhotoPreviews && localFormData.beforePhotoPreviews.length > 0">
+                    <v-row>
+                      <v-col
+                        v-for="(preview, index) in localFormData.beforePhotoPreviews"
+                        :key="`before-${index}`"
+                        cols="6"
+                        sm="4"
+                        md="3"
+                      >
+                        <v-card
+                          variant="outlined"
+                          class="photo-card"
+                        >
+                          <v-img
+                            :src="preview"
+                            height="120"
+                            cover
+                            class="rounded-t"
+                          />
+                          <v-card-text class="pa-2 text-center">
+                            <div class="text-caption text-grey-darken-1">
+                              第 {{ index + 1 }} 張照片
+                            </div>
+                          </v-card-text>
+                        </v-card>
+                      </v-col>
+                    </v-row>
+                  </div>
 
-                    <div
-                      v-if="localFormData.beforePhotoPreview"
-                      class="mt-2"
-                    >
-                      <v-img
-                        :src="localFormData.beforePhotoPreview"
-                        max-height="200"
-                        contain
-                        class="bg-grey-lighten-3 rounded"
-                      />
-                    </div>
-                  </v-col>
-
-                  <v-col
-                    cols="12"
-                    md="6"
+                  <!-- 無施工前照片提示 -->
+                  <div
+                    v-else
+                    class="text-center py-4"
                   >
-                    <label class="text-body-2 font-weight-medium mb-2 d-block">
-                      竣工照片
-                    </label>
-                    <v-file-input
-                      v-model="localFormData.afterConstructionPhoto"
-                      label="選擇檔案"
-                      variant="outlined"
-                      density="comfortable"
-                      accept="image/*"
-                      prepend-icon="mdi-camera"
-                      :rules="photoRules"
-                      @update:model-value="handlePhotoChange('after')"
-                    />
-
-                    <div
-                      v-if="localFormData.afterPhotoPreview"
-                      class="mt-2"
+                    <v-icon
+                      size="48"
+                      color="grey-lighten-1"
+                      class="mb-2"
                     >
-                      <v-img
-                        :src="localFormData.afterPhotoPreview"
-                        max-height="200"
-                        contain
-                        class="bg-grey-lighten-3 rounded"
-                      />
+                      mdi-image-off-outline
+                    </v-icon>
+                    <div class="text-body-2 text-grey">
+                      尚未在 Step 5 上傳施工前照片
                     </div>
+                  </div>
+                </v-sheet>
 
-                    <div
-                      v-if="!localFormData.afterConstructionPhoto && !localFormData.afterPhotoPreview"
-                      class="mt-2 d-flex align-center text-red"
+                <div class="d-flex align-center">
+                  <v-icon
+                    size="small"
+                    class="me-2"
+                  >
+                    mdi-camera
+                  </v-icon>
+                  <span class="text-body-2 font-weight-medium"><span class="required-asterisk">*</span>竣工照片</span>
+                  <span class="ml-2 text-grey text-caption">(需要1-3張照片)</span>
+                </div>
+
+                <!-- 竣工照片區域（可上傳） -->
+                <v-sheet
+                  class="pa-3 rounded"
+                  color="white"
+                >
+                  <!-- 已上傳竣工照片展示區域 -->
+                  <div
+                    v-if="localFormData.afterPhotoPreviews && localFormData.afterPhotoPreviews.length > 0"
+                    class="mb-3"
+                  >
+                    <v-row>
+                      <v-col
+                        v-for="(preview, index) in localFormData.afterPhotoPreviews"
+                        :key="`after-${index}`"
+                        cols="6"
+                        sm="4"
+                        md="3"
+                      >
+                        <v-card
+                          variant="outlined"
+                          class="photo-card"
+                        >
+                          <div class="position-relative">
+                            <v-img
+                              :src="preview"
+                              height="120"
+                              cover
+                              class="rounded-t"
+                            />
+                            <v-btn
+                              icon
+                              size="x-small"
+                              color="error"
+                              variant="elevated"
+                              class="position-absolute"
+                              style="top: 8px; right: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"
+                              :disabled="props.readonly"
+                              @click="removeAfterPhoto(index)"
+                            >
+                              <v-icon size="small">
+                                mdi-close
+                              </v-icon>
+                            </v-btn>
+                          </div>
+                          <v-card-text class="pa-2 text-center">
+                            <div class="text-caption text-grey-darken-1">
+                              第 {{ index + 1 }} 張照片
+                            </div>
+                          </v-card-text>
+                        </v-card>
+                      </v-col>
+
+                      <!-- 新增照片按鈕 (當未達到3張時顯示) -->
+                      <v-col
+                        v-if="localFormData.afterPhotoPreviews.length < 3"
+                        cols="6"
+                        sm="4"
+                        md="3"
+                      >
+                        <v-card
+                          variant="outlined"
+                          class="photo-card add-photo-card"
+                          :disabled="props.readonly"
+                          @click="triggerAfterFileInput"
+                        >
+                          <div class="d-flex flex-column align-center justify-center h-100">
+                            <v-icon
+                              size="40"
+                              color="grey-lighten-1"
+                              class="mb-2"
+                            >
+                              mdi-plus-circle-outline
+                            </v-icon>
+                            <div class="text-caption text-grey text-center">
+                              新增照片<br>
+                              <span class="text-xs">({{ localFormData.afterPhotoPreviews.length }}/3)</span>
+                            </div>
+                          </div>
+                        </v-card>
+                      </v-col>
+                    </v-row>
+                  </div>
+
+                  <!-- 初次上傳區域 (當沒有竣工照片時顯示) -->
+                  <div v-if="localFormData.afterPhotoPreviews.length === 0">
+                    <v-card
+                      variant="outlined"
+                      class="upload-zone"
+                      @click="!props.readonly && triggerAfterFileInput()"
+                    >
+                      <v-card-text class="text-center pa-8">
+                        <v-icon
+                          size="48"
+                          color="grey-lighten-1"
+                          class="mb-3"
+                        >
+                          mdi-camera-plus-outline
+                        </v-icon>
+                        <div class="text-h6 text-grey-darken-1 mb-2">
+                          上傳竣工照片
+                        </div>
+                        <div class="text-body-2 text-grey">
+                          點擊選擇照片檔案<br>
+                          <span class="text-caption">支援 JPG、PNG 格式，需要 1-3 張照片</span>
+                        </div>
+                      </v-card-text>
+                    </v-card>
+                  </div>
+
+                  <!-- 隱藏的檔案輸入框 -->
+                  <input
+                    ref="afterFileInput"
+                    type="file"
+                    accept="image/*"
+                    style="display: none"
+                    @change="handleAfterPhotoUpload"
+                  >
+
+                  <!-- 上傳狀態提示 -->
+                  <div
+                    v-if="localFormData.afterPhotoPreviews.length > 0 && !props.readonly"
+                    class="mt-2"
+                  >
+                    <v-chip
+                      :color="getUploadStatusColor()"
+                      variant="tonal"
+                      size="small"
                     >
                       <v-icon
-                        color="red"
-                        class="me-1"
+                        start
                         size="small"
                       >
-                        mdi-alert-circle
+                        {{ getUploadStatusIcon() }}
                       </v-icon>
-                      <span class="text-caption">卡驗收照片(尚未上傳竣工照片)</span>
-                    </div>
-                  </v-col>
-                </v-row>
-
-                <v-row v-if="!localFormData.afterConstructionPhoto && !localFormData.beforeConstructionPhoto && !localFormData.afterPhotoPreview && !localFormData.beforePhotoPreview">
-                  <v-col cols="12">
-                    <v-alert
-                      type="warning"
-                      variant="tonal"
-                      class="mb-0"
-                      density="comfortable"
-                    >
-                      <div class="d-flex align-center">
-                        <v-icon class="me-2">
-                          mdi-alert
-                        </v-icon>
-                        <span>尚未上傳施工前後照片，請儘速上傳以完成結案申報程序。</span>
-                      </div>
-                    </v-alert>
-                  </v-col>
-                </v-row>
+                      {{ getUploadStatusText() }}
+                    </v-chip>
+                  </div>
+                </v-sheet>
               </v-sheet>
             </v-card-text>
           </v-card>
@@ -1073,7 +1412,7 @@ import { nextTick, computed, watch, watchEffect } from 'vue';
 import { useRoute } from 'vue-router';
 import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
-// 🆕 導入版本比較相關服務
+// 導入版本比較相關服務
 import {
   compareGrantVersions,
   getGrantVersionSummary,
@@ -1081,7 +1420,8 @@ import {
   type FacilitiesComparison,
   type VersionComparisonResult
 } from '@/services/grantsService';
-
+// 導入附件服務（照片上傳）
+import { attachmentService } from '@/services/attachmentService';
 // Props and emits
 const props = defineProps({
   formData: {
@@ -1092,6 +1432,16 @@ const props = defineProps({
   currentStep: {
     type: Number,
     required: true
+  },
+  grantId: {
+    type: Number,
+    required: false,
+    default: 0
+  },
+  readonly: {
+    type: Boolean,
+    required: false,
+    default: false
   }
 });
 
@@ -1102,6 +1452,11 @@ const emit = defineEmits(['update:formData', 'validated', 'go-back', 'save-for-i
 const grantsStore = useGrantsStore();
 const domicileStore = useDomicileStore();
 const route = useRoute();
+
+// 🆕 判斷是否應該顯示複驗 checkbox（當狀態為 withdrawn 時顯示）
+const shouldShowReinspectionCheckbox = computed(() => {
+  return grantsStore.currentGrant?.status === 'withdrawn';
+});
 
 // 🆕 版本比較相關狀態
 const versionComparisonLoading = ref(false);
@@ -1138,7 +1493,14 @@ const localValid = ref(true);
 const datePickerDialog1 = ref(false);
 const datePickerDialog2 = ref(false);
 const datePickerDialog3 = ref(false); // 複驗日期對話框
+const datePickerDialog4 = ref(false); // 改善完成日期對話框
 const isDesignChangeVisible = ref(false);
+
+// 移除括號內容的輔助函數（用於系統產生的結果說明）
+const removeParenthesesContent = (text: string): string => {
+  // 移除所有括號及其內容，包括全形和半形括號
+  return text.replace(/[（(][^）)]*[）)]/g, '').trim();
+};
 
 // 測試結果選項 - 動態計算，包含對應的發放金額
 const testResultOptions = computed(() => {
@@ -1153,7 +1515,7 @@ const testResultOptions = computed(() => {
   return [
     { title: `合格，依核定補助款發放${originalPaymentText}`, value: 'original' },
     { title: `合格，依核定補助款減列金額，發放${actualPaymentText}（請說明原因）`, value: 'adjusted' },
-    { title: `不合格，限期改善複查（請註明${spacing}年${spacing}月${spacing}日完成改善）`, value: 'improvement' },
+    { title: `不合格，限期改善複查（請註明完成改善日期）`, value: 'improvement' },
     { title: '不合格，取消補助資格', value: 'cancel' }
   ];
 });
@@ -1254,17 +1616,24 @@ const localFormData = reactive({
   originalPayment: '',          // 原應發放
   increasedDecreasedAmount: '', // 增減列
   actualPayment: '',            // 實際發放
-  testResultDescription: '',    // 結果說明
+  testResultDescription: '',    // 結果說明（系統產生）
+  additionalNotes: '',          // 補充說明（使用者輸入）
+  improvementDate: '',          // 改善完成日期（ISO格式）
 
-  // 照片
-  beforeConstructionPhoto: null,
-  afterConstructionPhoto: null,
-  beforePhotoPreview: null as string | null,
-  afterPhotoPreview: null as string | null,
+  // 照片 - 改為陣列格式支援多張照片
+  beforeConstructionPhotos: [] as File[],      // 施工前照片（從 UI step3 載入，只讀）
+  afterConstructionPhotos: [] as File[],       // 竣工照片（可上傳）
+  beforePhotoPreviews: [] as string[],         // 施工前照片預覽
+  afterPhotoPreviews: [] as string[],          // 竣工照片預覽
 
   // 設置默認值，確保與edit.vue中的顯示邏輯保持一致
   valid: true
 });
+
+// 照片相關的 ref
+const uploadedBeforePhotos = ref<any[]>([]);  // 已上傳的施工前照片（從 step3）
+const uploadedAfterPhotos = ref<any[]>([]);   // 已上傳的竣工照片
+const afterFileInput = ref<HTMLInputElement | null>(null);
 
 // 🆕 版本比較輔助函數
 const getChangeStatusColor = (changeType: string) => {
@@ -1407,12 +1776,18 @@ const reinspectionDateComponents = reactive({
   day: new Date().getDate()
 });
 
+const improvementDateComponents = reactive({
+  year: new Date().getFullYear(),
+  month: new Date().getMonth() + 1,
+  day: new Date().getDate()
+});
+
 // 產生年份選項 (民國年)
 const yearOptions = computed(() => {
   const currentYear = new Date().getFullYear();
   const years = [];
-  // 產生從當前年份到五年前的年份選項
-  for (let year = currentYear - 5; year <= currentYear; year++) {
+  // 產生從當前年份到五年前和五年後的年份選項
+  for (let year = currentYear - 5; year <= currentYear + 5; year++) {
     years.push({
       title: `民國 ${year - 1911} 年`,
       value: year
@@ -1435,6 +1810,8 @@ const dayOptions = (type) => {
     ? completionDateComponents
     : type === 'reinspection'
     ? reinspectionDateComponents
+    : type === 'improvement'
+    ? improvementDateComponents
     : testDateComponents;
 
   const year = components.year;
@@ -1507,22 +1884,146 @@ const formattedReinspectionDate = computed(() => {
   }
 });
 
-// 計算顯示用的設施地段（中文地名）
-const displayFacilityLocation = computed(() => {
-  const step2Data = grantsStore.formData[2];
-  if (!step2Data) return localFormData.facilityLocation || '';
+const formattedImprovementDate = computed(() => {
+  if (!localFormData.improvementDate) return '';
+
+  try {
+    const date = new Date(localFormData.improvementDate);
+    if (isNaN(date.getTime())) return '';
+
+    // 計算民國年
+    const twYear = date.getFullYear() - 1911;
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `民國 ${twYear} 年 ${month} 月 ${day} 日`;
+  } catch (error) {
+    console.error('日期格式化錯誤:', error);
+    return '';
+  }
+});
+
+// 補充說明欄位的標籤（根據測試結果動態變化）
+const additionalNotesLabel = computed(() => {
+  const currentResult = localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult;
+  if (currentResult === 'adjusted' || currentResult === 'improvement') {
+    return '補充說明（必填）';
+  }
+  return '補充說明（選填）';
+});
+
+// 補充說明欄位的提示文字
+const additionalNotesPlaceholder = computed(() => {
+  const currentResult = localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult;
+  if (currentResult === 'adjusted') {
+    return '請說明減列原因...';
+  } else if (currentResult === 'improvement') {
+    return '請說明需要改善的項目...';
+  }
+  return '如有需要，請在此輸入補充說明...';
+});
+
+// 補充說明欄位的 hint 文字
+const additionalNotesHint = computed(() => {
+  const currentResult = localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult;
+  if (currentResult === 'adjusted') {
+    return '減列情況下，請說明減列的原因';
+  } else if (currentResult === 'improvement') {
+    return '不合格情況下，請說明需要改善的項目，並在上方選擇預計完成改善的日期';
+  }
+  return '此欄位供您輸入額外的補充說明';
+});
+
+// 補充說明欄位的驗證規則
+const additionalNotesRules = computed(() => {
+  const currentResult = localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult;
+
+  return [
+    (v: string) => {
+      if (currentResult === 'adjusted' || currentResult === 'improvement') {
+        return !!v || '此情況下補充說明為必填';
+      }
+      return true;
+    }
+  ];
+});
+
+// 計算顯示用的申請年度（統一單一來源）
+const displayApplicationYear = computed(() => {
+  const step6Data = getStepDataSafely(6);
+  if (step6Data?.applicationYear) {
+    return step6Data.applicationYear;
+  }
+
+  // Fallback to localFormData
+  if (localFormData.applicationYear) {
+    return localFormData.applicationYear;
+  }
+
+  // Default to current Taiwan calendar year
+  const currentYear = new Date().getFullYear() - 1911;
+  return `${currentYear}`;
+});
+
+// 計算顯示用的案號（統一單一來源）
+const displayCaseNumber = computed(() => {
+  // Priority: grantsStore.caseNumber > localFormData.caseNumber
+  return grantsStore.caseNumber || localFormData.caseNumber || '';
+});
+
+// 計算顯示用的申請人姓名（從 grants 表讀取，不在 all_steps_data 中）
+const displayApplicantName = computed(() => {
+  // Step1 資料儲存在 grants 表的 applicant_name 欄位
+  return grantsStore.currentGrant?.applicant_name || localFormData.name || '';
+});
+
+// 計算顯示用的申請人地址（從 grants 表讀取，不在 all_steps_data 中）
+const displayApplicantAddress = computed(() => {
+  // Step1 地址資料儲存在 grants 表的 county, town, village, address 欄位
+  const grant = grantsStore.currentGrant;
+  if (!grant) return localFormData.applicantAddress || '';
+
+  // 組合完整地址：縣市 + 鄉鎮 + 村里 + 詳細地址
+  const addressParts = [
+    grant.county,
+    grant.town,
+    grant.village,
+    grant.address
+  ].filter(Boolean);
+
+  return addressParts.length > 0 ? addressParts.join('') : (localFormData.applicantAddress || '');
+});
+
+// 計算顯示用的設施型式（統一單一來源）
+const displayFacilityType = computed(() => {
+  const step4Data = getStepDataSafely(4);
+
+  // Priority: step4.irrigationType > localFormData
+  if (step4Data?.irrigationType) {
+    return step4Data.irrigationType;
+  }
+
+  return localFormData.facilityType || '';
+});
+
+// 計算設施地段和地號的配對資料（用於一一對應顯示）
+const displayFacilityLocationPairs = computed(() => {
+  const step2Data = getStepDataSafely(2);
+  if (!step2Data) {
+    return [{
+      location: localFormData.facilityLocation || '',
+      number: localFormData.facilityNumber || ''
+    }];
+  }
 
   // 處理多筆土地格式
   if (step2Data.lands && Array.isArray(step2Data.lands) && step2Data.lands.length > 0) {
-    const locations = step2Data.lands.map((land: any) => {
-      return getLandLocationText(land);
-    }).filter(Boolean);
-    
-    // 去重並合併
-    const uniqueLocations = [...new Set(locations)];
-    return uniqueLocations.join('、') || localFormData.facilityLocation || '';
+    return step2Data.lands.map((land: any) => ({
+      location: getLandLocationText(land),
+      number: land.landNumber || ''
+    })).filter(pair => pair.location || pair.number);
   }
-  
+
   // 向後相容：處理舊格式
   if (step2Data.landCounty || step2Data.landTown || step2Data.landSec) {
     const land = {
@@ -1530,36 +2031,35 @@ const displayFacilityLocation = computed(() => {
       landTown: step2Data.landTown,
       landSec: step2Data.landSec
     };
-    return getLandLocationText(land) || localFormData.facilityLocation || '';
+    return [{
+      location: getLandLocationText(land),
+      number: step2Data.landNumber || ''
+    }];
   }
-  
-  return localFormData.facilityLocation || '';
+
+  return [{
+    location: localFormData.facilityLocation || '',
+    number: localFormData.facilityNumber || ''
+  }];
 });
 
-// 計算顯示用的設施地號（多筆分行顯示）
-const displayFacilityNumbers = computed(() => {
-  const step2Data = grantsStore.formData[2];
-  if (!step2Data) return [localFormData.facilityNumber || ''];
+// 計算顯示用的設施地段（向後相容，保留給其他地方使用）
+const displayFacilityLocation = computed(() => {
+  const pairs = displayFacilityLocationPairs.value;
+  const locations = pairs.map(p => p.location).filter(Boolean);
+  const uniqueLocations = [...new Set(locations)];
+  return uniqueLocations.join('、');
+});
 
-  // 處理多筆土地格式
-  if (step2Data.lands && Array.isArray(step2Data.lands) && step2Data.lands.length > 0) {
-    const landNumbers = step2Data.lands
-      .map((land: any) => land.landNumber)
-      .filter(Boolean);
-    return landNumbers.length > 0 ? landNumbers : [localFormData.facilityNumber || ''];
-  }
-  
-  // 向後相容：處理舊格式
-  if (step2Data.landNumber) {
-    return [step2Data.landNumber];
-  }
-  
-  return [localFormData.facilityNumber || ''];
+// 計算顯示用的設施地號（向後相容，保留給其他地方使用）
+const displayFacilityNumbers = computed(() => {
+  const pairs = displayFacilityLocationPairs.value;
+  return pairs.map(p => p.number).filter(Boolean);
 });
 
 // 計算顯示用的設施面積（與step2同步）
 const displayFacilityArea = computed(() => {
-  const step2Data = grantsStore.formData[2];
+  const step2Data = getStepDataSafely(2);
   if (!step2Data) return localFormData.facilityAreaHa || '';
 
   // 處理多筆土地格式
@@ -1571,61 +2071,81 @@ const displayFacilityArea = computed(() => {
     const totalFacilityAreaHa = totalFacilityAreaM2 / 10000;
     return totalFacilityAreaHa > 0 ? totalFacilityAreaHa.toFixed(4) : localFormData.facilityAreaHa || '';
   }
-  
+
   // 向後相容：處理舊格式
   if (step2Data.landArea) {
     const landAreaM2 = parseFloat(step2Data.landArea || '0');
     const landAreaHa = landAreaM2 / 10000;
     return landAreaHa > 0 ? landAreaHa.toFixed(4) : localFormData.facilityAreaHa || '';
   }
-  
+
   return localFormData.facilityAreaHa || '';
 });
 
 // 土地位置文字轉換函數（將ID轉換為中文地名）
+// 土地資料展示工具函數（與 step2 保持一致）
 const getLandLocationText = (land: any): string => {
   const parts = [];
-  
+
   // 縣市
+  let countyName = '';
   if (land.landCounty) {
     if (typeof land.landCounty === 'number') {
       const county = domicileStore.countyOptions.find(c => c.value === land.landCounty);
-      if (county) parts.push(county.title);
+      if (county) {
+        countyName = county.title;
+        parts.push(county.title);
+      }
     } else {
+      countyName = land.landCounty;
       parts.push(land.landCounty);
     }
   }
-  
-  // 鄉鎮
-  if (land.landTown) {
+
+  // 特殊城市配置 - 與 step2 保持一致
+  const specialCities = ['新竹市', '嘉義市'];
+
+  // 鄉鎮 - 特殊城市跳過鄉鎮市區顯示
+  if (land.landTown && !specialCities.includes(countyName)) {
     if (typeof land.landTown === 'number') {
       const town = domicileStore.getTownsForCountyId(land.landCounty as number)
         .find(t => t.value === land.landTown);
       if (town) parts.push(town.title);
     } else {
-      parts.push(land.landTown);
+      // 對於字串值，只有不是特殊城市代碼才顯示
+      if (land.landTown !== 'O01' && land.landTown !== 'I01') {
+        parts.push(land.landTown);
+      }
     }
   }
-  
-  // 地段
+
+  // 地段 - 優先使用儲存的地段名稱，提高效能和可靠性
   if (land.landSec) {
-    if (typeof land.landSec === 'number') {
-      const section = domicileStore.getLandSectionsForTownId(land.landTown as number)
-        .find(s => s.value === land.landSec);
-      if (section) parts.push(section.title);
+    // 第一優先：使用已儲存的地段名稱
+    if (land.landSecName) {
+      parts.push(land.landSecName);
     } else {
-      parts.push(land.landSec);
+      // 第二優先：從 domicileStore 查找地段名稱
+      if (typeof land.landSec === 'number') {
+        const section = domicileStore.getLandSectionsForTownId(land.landTown as number)
+          .find(s => s.value === land.landSec);
+        if (section) parts.push(section.title);
+      } else {
+        // 如果是字串代碼，直接顯示（通常是地段名稱）
+        parts.push(land.landSec);
+      }
     }
   }
-  
-  return parts.join('');
+
+  return parts.length > 0 ? parts.join('') : '未設定位置';
 };
 
 // 初始化設施資訊的函數
 const initializeFacilityInfo = async () => {
   console.log('🔄 Initializing facility info...');
-  
-  const step2Data = grantsStore.formData[2];
+
+  // 統一使用 getStepDataSafely 獲取 step2 資料
+  const step2Data = getStepDataSafely(2);
   if (!step2Data) {
     console.log('❌ No step2 data available');
     return;
@@ -1634,7 +2154,7 @@ const initializeFacilityInfo = async () => {
   // 需要載入的縣市和鄉鎮資料
   const countyIds = new Set<number>();
   const townIds = new Set<number>();
-  
+
   // 收集需要載入的資料
   if (step2Data.lands && Array.isArray(step2Data.lands)) {
     step2Data.lands.forEach((land: any) => {
@@ -1672,13 +2192,13 @@ const initializeFacilityInfo = async () => {
 
   // 初始化設施資訊
   console.log('💡 Initializing facility info with domicile data...');
-  
+
   // Get facility location (使用中文地名)
   if (step2Data.lands && Array.isArray(step2Data.lands) && step2Data.lands.length > 0) {
     const locations = step2Data.lands.map((land: any) => {
       return getLandLocationText(land);
     }).filter(Boolean);
-    
+
     const uniqueLocations = [...new Set(locations)];
     if (uniqueLocations.length > 0) {
       localFormData.facilityLocation = uniqueLocations.join('、');
@@ -1731,10 +2251,10 @@ const initializeFacilityInfo = async () => {
     }
   }
 
-  // Get facility type from all_steps_data
-  const allStepsStep4 = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['4'];
-  if (allStepsStep4?.irrigationType) {
-    localFormData.facilityType = allStepsStep4.irrigationType;
+  // Get facility type - 統一使用 getStepDataSafely
+  const step4Data = getStepDataSafely(4);
+  if (step4Data?.irrigationType) {
+    localFormData.facilityType = step4Data.irrigationType;
   }
 
   console.log('✅ Facility info initialized:', {
@@ -1752,19 +2272,17 @@ const openDateDialog = (type) => {
     ? completionDateComponents
     : type === 'reinspection'
     ? reinspectionDateComponents
+    : type === 'improvement'
+    ? improvementDateComponents
     : testDateComponents;
 
   const dateValue = type === 'completion'
     ? localFormData.completionDate
     : type === 'reinspection'
     ? localFormData.reinspectionDate
+    : type === 'improvement'
+    ? localFormData.improvementDate
     : localFormData.testDate;
-
-  const dialog = type === 'completion'
-    ? datePickerDialog1
-    : type === 'reinspection'
-    ? datePickerDialog3
-    : datePickerDialog2;
 
   // 如果已有日期，解析它
   if (dateValue) {
@@ -1777,12 +2295,28 @@ const openDateDialog = (type) => {
       }
     } catch (error) {
       console.error('日期解析錯誤:', error);
-      // 預設為今天
+      // 預設為今天或明天
       const today = new Date();
-      components.year = today.getFullYear();
-      components.month = today.getMonth() + 1;
-      components.day = today.getDate();
+      // 改善日期預設為明天
+      if (type === 'improvement') {
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        components.year = tomorrow.getFullYear();
+        components.month = tomorrow.getMonth() + 1;
+        components.day = tomorrow.getDate();
+      } else {
+        components.year = today.getFullYear();
+        components.month = today.getMonth() + 1;
+        components.day = today.getDate();
+      }
     }
+  } else if (type === 'improvement') {
+    // 改善日期若無值，預設為明天
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    components.year = tomorrow.getFullYear();
+    components.month = tomorrow.getMonth() + 1;
+    components.day = tomorrow.getDate();
   }
 
   // 打開對話框
@@ -1790,6 +2324,8 @@ const openDateDialog = (type) => {
     datePickerDialog1.value = true;
   } else if (type === 'reinspection') {
     datePickerDialog3.value = true;
+  } else if (type === 'improvement') {
+    datePickerDialog4.value = true;
   } else {
     datePickerDialog2.value = true;
   }
@@ -1802,6 +2338,8 @@ const confirmDateSelection = (type) => {
     ? completionDateComponents
     : type === 'reinspection'
     ? reinspectionDateComponents
+    : type === 'improvement'
+    ? improvementDateComponents
     : testDateComponents;
 
   // 用選擇的年、月、日構建日期字串
@@ -1817,6 +2355,9 @@ const confirmDateSelection = (type) => {
   } else if (type === 'reinspection') {
     localFormData.reinspectionDate = dateString;
     datePickerDialog3.value = false;
+  } else if (type === 'improvement') {
+    localFormData.improvementDate = dateString;
+    datePickerDialog4.value = false;
   } else {
     localFormData.testDate = dateString;
     datePickerDialog2.value = false;
@@ -1826,33 +2367,194 @@ const confirmDateSelection = (type) => {
   updateFormData();
 };
 
-// 處理照片預覽
-const handlePhotoChange = (type: 'before' | 'after') => {
-  const file = type === 'before'
-    ? localFormData.beforeConstructionPhoto
-    : localFormData.afterConstructionPhoto;
-
-  if (file) {
-    // Only create object URLs for actual File objects
-    if (file instanceof File) {
-      // 清除之前的預覽
-      if (type === 'before') {
-        if (localFormData.beforePhotoPreview && typeof localFormData.beforePhotoPreview === 'string' &&
-            localFormData.beforePhotoPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.beforePhotoPreview);
-        }
-        localFormData.beforePhotoPreview = URL.createObjectURL(file);
-      } else {
-        if (localFormData.afterPhotoPreview && typeof localFormData.afterPhotoPreview === 'string' &&
-            localFormData.afterPhotoPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(localFormData.afterPhotoPreview);
-        }
-        localFormData.afterPhotoPreview = URL.createObjectURL(file);
-      }
+// 清理預覽 URL
+const cleanupPreviews = (type: 'before' | 'after') => {
+  const previews = type === 'before' ? localFormData.beforePhotoPreviews : localFormData.afterPhotoPreviews;
+  previews.forEach(preview => {
+    if (preview && typeof preview === 'string' && preview.startsWith('blob:')) {
+      URL.revokeObjectURL(preview);
     }
+  });
+};
+
+// 載入施工前照片（從 UI step3，只讀）
+const loadBeforePhotos = async () => {
+  if (!props.grantId || props.grantId === 0) {
+    console.warn('[step7] loadBeforePhotos: grantId 無效，跳過載入', props.grantId);
+    return;
   }
 
-  updateFormData();
+  try {
+    const stepNumber = 5;  // 施工前照片存在 3
+    console.log(`[step7] 開始載入施工前照片 - grantId: ${props.grantId}, step: ${stepNumber}`);
+
+    const response = await attachmentService.list(props.grantId, stepNumber, 'inspection_before');
+    console.log(`[step7] 施工前照片 API 回應:`, response);
+
+    uploadedBeforePhotos.value = response.attachments || [];
+
+    // 清除本地預覽並使用 API 照片
+    cleanupPreviews('before');
+    localFormData.beforePhotoPreviews = [];
+    localFormData.beforeConstructionPhotos = [];
+
+    // 為每張已上傳的照片創建預覽 URL
+    for (const photo of uploadedBeforePhotos.value) {
+      try {
+        const blob = await attachmentService.download(photo.id);
+        const previewUrl = URL.createObjectURL(blob);
+        localFormData.beforePhotoPreviews.push(previewUrl);
+        console.log(`[step7] 施工前照片 ${photo.id} 載入成功`);
+      } catch (downloadError) {
+        console.error(`[step7] 下載施工前照片 ${photo.id} 失敗:`, downloadError);
+      }
+    }
+
+    console.log(`[step7] 施工前照片載入完成，共 ${uploadedBeforePhotos.value.length} 張`);
+  } catch (error) {
+    console.error('[step7] 載入施工前照片失敗:', error);
+  }
+};
+
+// 載入竣工照片（step7，可編輯）
+const loadAfterPhotos = async () => {
+  if (!props.grantId || props.grantId === 0) {
+    console.warn('[step7] loadAfterPhotos: grantId 無效，跳過載入', props.grantId);
+    return;
+  }
+
+  try {
+    const stepNumber = 7;
+    console.log(`[step7] 開始載入竣工照片 - grantId: ${props.grantId}, step: ${stepNumber}`);
+
+    const response = await attachmentService.list(props.grantId, stepNumber, 'inspection_after');
+    console.log(`[step7] 竣工照片 API 回應:`, response);
+
+    uploadedAfterPhotos.value = response.attachments || [];
+
+    // 清除本地預覽並使用 API 照片
+    cleanupPreviews('after');
+    localFormData.afterPhotoPreviews = [];
+    localFormData.afterConstructionPhotos = [];
+
+    // 為每張已上傳的照片創建預覽 URL
+    for (const photo of uploadedAfterPhotos.value) {
+      try {
+        const blob = await attachmentService.download(photo.id);
+        const previewUrl = URL.createObjectURL(blob);
+        localFormData.afterPhotoPreviews.push(previewUrl);
+        console.log(`[step7] 竣工照片 ${photo.id} 載入成功`);
+      } catch (downloadError) {
+        console.error(`[step7] 下載竣工照片 ${photo.id} 失敗:`, downloadError);
+      }
+    }
+
+    console.log(`[step7] 竣工照片載入完成，共 ${uploadedAfterPhotos.value.length} 張`);
+  } catch (error) {
+    console.error('[step7] 載入竣工照片失敗:', error);
+  }
+};
+
+// 觸發竣工照片上傳
+const triggerAfterFileInput = () => {
+  if (localFormData.afterPhotoPreviews.length < 3) {
+    afterFileInput.value?.click();
+  }
+};
+
+// 處理竣工照片上傳（單張上傳）
+const handleAfterPhotoUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+
+  if (!file) {
+    return;
+  }
+
+  if (!props.grantId || props.grantId === 0) {
+    alert('無法上傳照片：缺少 grant ID');
+    return;
+  }
+
+  try {
+    console.log(`[step7] 開始上傳竣工照片: ${file.name}`);
+
+    // 上傳照片到後端
+    const stepNumber = 7;
+    const uploadedPhoto = await attachmentService.upload(
+      props.grantId,
+      stepNumber,
+      file,
+      'inspection_after'
+    );
+
+    console.log(`[step7] 竣工照片上傳成功:`, uploadedPhoto);
+
+    // 重新載入照片列表
+    await loadAfterPhotos();
+
+    // 清空 input
+    target.value = '';
+
+    updateFormData();
+  } catch (error) {
+    console.error('[step7] 上傳竣工照片失敗:', error);
+    alert('上傳照片失敗，請稍後再試');
+    target.value = '';
+  }
+};
+
+// 刪除竣工照片
+const removeAfterPhoto = async (index: number) => {
+  try {
+    // 如果是已上傳的照片，從後端刪除
+    if (uploadedAfterPhotos.value[index]) {
+      const photoToDelete = uploadedAfterPhotos.value[index];
+      console.log(`[step7] 刪除竣工照片 ID: ${photoToDelete.id}`);
+
+      await attachmentService.delete(photoToDelete.id);
+      console.log(`[step7] 成功刪除竣工照片 ID: ${photoToDelete.id}`);
+    }
+
+    // 清除預覽
+    if (localFormData.afterPhotoPreviews[index] &&
+        typeof localFormData.afterPhotoPreviews[index] === 'string' &&
+        localFormData.afterPhotoPreviews[index].startsWith('blob:')) {
+      URL.revokeObjectURL(localFormData.afterPhotoPreviews[index]);
+    }
+
+    // 重新載入照片列表
+    await loadAfterPhotos();
+
+    updateFormData();
+  } catch (error) {
+    console.error('[step7] 刪除竣工照片失敗:', error);
+    alert('刪除照片失敗，請稍後再試');
+  }
+};
+
+// 獲取上傳狀態顏色
+const getUploadStatusColor = () => {
+  const count = localFormData.afterPhotoPreviews.length;
+  if (count === 0) return 'grey';
+  if (count < 3) return 'orange';
+  return 'green';
+};
+
+// 獲取上傳狀態圖標
+const getUploadStatusIcon = () => {
+  const count = localFormData.afterPhotoPreviews.length;
+  if (count === 0) return 'mdi-alert-circle';
+  if (count < 3) return 'mdi-clock-alert';
+  return 'mdi-check-circle';
+};
+
+// 獲取上傳狀態文字
+const getUploadStatusText = () => {
+  const count = localFormData.afterPhotoPreviews.length;
+  if (count === 0) return '尚未上傳竣工照片';
+  if (count < 3) return `已上傳 ${count} 張，建議上傳 1-3 張`;
+  return `已上傳 ${count} 張照片`;
 };
 
 // 切換變更設計顯示狀態
@@ -1904,7 +2606,7 @@ const getStepDataSafely = (step: number) => {
   return null;
 };
 
-// 計算田間管路設施補助總額（參考 Step6 邏輯）
+// 計算田間管路設施補助總額（從 step4.subsidyAmount 獲取）
 const calculatePipeLineSubsidy = () => {
   const step4Data = getStepDataSafely(4);
   console.log('🔍 Step7: calculatePipeLineSubsidy - step4Data:', step4Data);
@@ -1914,48 +2616,21 @@ const calculatePipeLineSubsidy = () => {
     return 0;
   }
 
-  let pipelineTotal = 0;
-  let irrigationTotal = 0;
+  // 🆕 直接使用 step4 的 subsidyAmount（補助金額，而非總成本）
+  const subsidyAmount = step4Data.subsidyAmount || 0;
+  const parsedAmount = typeof subsidyAmount === 'number'
+    ? subsidyAmount
+    : parseFloat(subsidyAmount as string || '0');
 
-  // 主管計算
-  if (step4Data.mainPipeQuantity && step4Data.mainPipeUnitPrice) {
-    const quantity = parseInt(step4Data.mainPipeQuantity as string || '0');
-    const unitPrice = parseFloat(step4Data.mainPipeUnitPrice as string || '0');
-    pipelineTotal += quantity * unitPrice;
-    console.log('🔍 Step7: 主管1計算:', { quantity, unitPrice, subtotal: quantity * unitPrice });
-  }
+  console.log('💰 Step7: step4 補助金額:', {
+    subsidyAmount: step4Data.subsidyAmount,
+    parsed: parsedAmount
+  });
 
-  if (step4Data.mainPipe2Enabled && step4Data.mainPipe2Quantity && step4Data.mainPipe2UnitPrice) {
-    const quantity = parseInt(step4Data.mainPipe2Quantity as string || '0');
-    const unitPrice = parseFloat(step4Data.mainPipe2UnitPrice as string || '0');
-    pipelineTotal += quantity * unitPrice;
-    console.log('🔍 Step7: 主管2計算:', { quantity, unitPrice, subtotal: quantity * unitPrice });
-  }
-
-  // 灌溉系統計算
-  if (step4Data.pipes && Array.isArray(step4Data.pipes)) {
-    console.log('🔍 Step7: pipes 資料:', step4Data.pipes);
-    const filteredPipes = step4Data.pipes.filter((p: any) => {
-      if ([2, 3, 4, 5, 6, 7, 8].includes(p.groupId)) return true;
-      if (p.groupId === 1) return p.module !== '主管';
-      return false;
-    });
-
-    console.log('🔍 Step7: 篩選後的 pipes:', filteredPipes);
-
-    irrigationTotal = filteredPipes.reduce((sum: number, pipe: any) => {
-      const price = typeof pipe.totalPrice === 'number' ? pipe.totalPrice : parseInt(pipe.totalPrice || '0');
-      console.log('🔍 Step7: pipe 價格:', { module: pipe.module, totalPrice: pipe.totalPrice, parsed: price });
-      return sum + price;
-    }, 0);
-  }
-
-  const total = pipelineTotal + irrigationTotal;
-  console.log('🔍 Step7: calculatePipeLineSubsidy 結果:', { pipelineTotal, irrigationTotal, total });
-  return total;
+  return parsedAmount;
 };
 
-// 計算灌溉調控設施補助總額（參考 Step6 邏輯）
+// 計算灌溉調控設施補助總額（從 step3.facilities[].subsidyAmount 獲取）
 const calculateFacilitySubsidy = () => {
   const step3Data = getStepDataSafely(3);
   console.log('🔍 Step7: calculateFacilitySubsidy - step3Data:', step3Data);
@@ -1967,41 +2642,51 @@ const calculateFacilitySubsidy = () => {
 
   console.log('🔍 Step7: facilities 資料:', step3Data.facilities);
 
-  const total = step3Data.facilities.reduce((sum: number, facility: any) => {
-    const price = typeof facility.totalPrice === 'number'
-                 ? facility.totalPrice
-                 : parseInt(facility.totalPrice || '0');
-    console.log('🔍 Step7: facility 計算:', {
+  // 🆕 使用 subsidyAmount（補助金額）而非 totalPrice（總成本）
+  const total = step3Data.facilities.reduce((sum: number, facility: Record<string, unknown>) => {
+    const subsidyAmount = facility.subsidyAmount || 0;
+    const parsed = typeof subsidyAmount === 'number'
+                  ? subsidyAmount
+                  : parseFloat(subsidyAmount as string || '0');
+
+    console.log('💰 Step7: facility 補助金額:', {
       name: facility.name,
-      totalPrice: facility.totalPrice,
-      parsed: price
+      subsidyAmount: facility.subsidyAmount,
+      parsed
     });
-    return sum + price;
+    return sum + parsed;
   }, 0);
 
-  console.log('🔍 Step7: calculateFacilitySubsidy 結果:', total);
+  console.log('💰 Step7: calculateFacilitySubsidy 結果:', total);
   return total;
 };
 
-// 計算設計費（參考 Step6 邏輯）
-const calculateDesignFee = (pipeLineSubsidy: number) => {
-  return Math.round(pipeLineSubsidy * 0.02);
-};
+// 從資料庫讀取設計費（不重新計算，避免重複計算）
+const getDesignFee = () => {
+  const step4Data = getStepDataSafely(4);
+  if (!step4Data) {
+    return 0;
+  }
 
-// 計算總補助預算（參考 Step6 邏輯）
-const calculateTotalBudget = () => {
-  const pipelineValue = calculatePipeLineSubsidy();
-  const facilityValue = calculateFacilitySubsidy();
-  const designValue = calculateDesignFee(pipelineValue);
-  const total = pipelineValue + facilityValue + designValue;
+  // ✅ 直接從 step4.designFee 讀取（step4 已經計算並儲存）
+  const designFee = step4Data.designFee || 0;
+  const parsed = typeof designFee === 'number'
+    ? designFee
+    : parseFloat(designFee as string || '0');
 
-  console.log('💰 Step7: 計算補助金額:', {
-    pipelineValue,
-    facilityValue,
-    designValue,
-    total
+  console.log('💰 Step7: 讀取設計費 (從 step4):', {
+    designFee: step4Data.designFee,
+    parsed
   });
 
+  return parsed;
+};
+
+// 計算補助總額（所有金額來自資料庫，不重新計算）
+const calculateTotalBudget = () => {
+  const pipelineSubsidy = calculatePipeLineSubsidy();  // step4 補助
+  const facilitySubsidy = calculateFacilitySubsidy();  // step3 補助
+  const total = pipelineSubsidy + facilitySubsidy;
   return total;
 };
 
@@ -2024,7 +2709,7 @@ const computedTotalBudget = computed(() => {
 
   const pipelineValue = calculatePipeLineSubsidy();
   const facilityValue = calculateFacilitySubsidy();
-  const designValue = calculateDesignFee(pipelineValue);
+  const designValue = getDesignFee();  // ✅ 從 step4 讀取，不重新計算
   const total = pipelineValue + facilityValue + designValue;
 
   console.log('💰 Step7: computedTotalBudget 計算結果:', {
@@ -2069,9 +2754,10 @@ watch(computedTotalBudget, (newBudget, oldBudget) => {
     else if (localFormData.testResult === 'adjusted' && localFormData.increasedDecreasedAmount) {
       try {
         const original = newBudget.total;
-        const adjustment = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
-        if (!isNaN(adjustment)) {
-          const actual = original + adjustment;
+        const deduction = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
+        if (!isNaN(deduction) && deduction > 0) {
+          // ✅ 減列：原金額 - 減列金額（直接相減）
+          const actual = original - deduction;
           localFormData.actualPayment = actual.toLocaleString();
         }
       } catch (e) {
@@ -2085,6 +2771,44 @@ watch(computedTotalBudget, (newBudget, oldBudget) => {
 }, { immediate: false });
 
 
+// 處理減列金額輸入（只允許正數，自動格式化為千分位）
+const handleDeductionAmountInput = (value: string) => {
+  if (!value) {
+    localFormData.increasedDecreasedAmount = '';
+    updateFormData();
+    return;
+  }
+
+  // 移除所有非數字字符（保留小數點）
+  let cleanValue = value.replace(/[^\d.]/g, '');
+
+  // 確保只有一個小數點
+  const parts = cleanValue.split('.');
+  if (parts.length > 2) {
+    cleanValue = parts[0] + '.' + parts.slice(1).join('');
+  }
+
+  // 解析數字
+  const numValue = parseFloat(cleanValue);
+
+  // 如果是有效的正數，格式化為千分位
+  if (!isNaN(numValue) && numValue > 0) {
+    // 保留小數部分
+    const [integer, decimal] = cleanValue.split('.');
+    const formattedInteger = parseInt(integer).toLocaleString();
+    localFormData.increasedDecreasedAmount = decimal !== undefined
+      ? `${formattedInteger}.${decimal}`
+      : formattedInteger;
+  } else if (cleanValue === '' || cleanValue === '0') {
+    localFormData.increasedDecreasedAmount = '';
+  } else {
+    // 保持輸入中的狀態，允許用戶繼續輸入
+    localFormData.increasedDecreasedAmount = cleanValue;
+  }
+
+  updateFormData();
+};
+
 // 更新父組件數據
 const updateFormData = () => {
   emit('update:formData', {
@@ -2093,20 +2817,6 @@ const updateFormData = () => {
     designChangeItems: [...designChangeItems],
     valid: true // Always set to true for seamless navigation
   });
-};
-
-// 清理預覽資源的函數
-const cleanupPreviews = () => {
-  // Only clean up blob URLs, not external URLs
-  if (localFormData.beforePhotoPreview && typeof localFormData.beforePhotoPreview === 'string' &&
-      localFormData.beforePhotoPreview.startsWith('blob:')) {
-    URL.revokeObjectURL(localFormData.beforePhotoPreview);
-  }
-
-  if (localFormData.afterPhotoPreview && typeof localFormData.afterPhotoPreview === 'string' &&
-      localFormData.afterPhotoPreview.startsWith('blob:')) {
-    URL.revokeObjectURL(localFormData.afterPhotoPreview);
-  }
 };
 
 // 確認存檔
@@ -2125,7 +2835,7 @@ onMounted(async () => {
   console.log('step2 data:', localFormData);
   console.log('facilityArea from step2:', localFormData.facilityAreaHa);
   console.log('landAreaHa from step2:', localFormData.landAreaHa);
-  
+
   // 初始化 domicile store 以獲取縣市資料
   try {
     await domicileStore.loadCounties();
@@ -2138,6 +2848,14 @@ onMounted(async () => {
   if (props.formData) {
     // 設置基本屬性
     Object.keys(localFormData).forEach(key => {
+      // 🔒 排除應從 API 載入的照片欄位
+      if (key === 'beforePhotoPreviews' ||
+          key === 'beforeConstructionPhotos' ||
+          key === 'afterPhotoPreviews' ||
+          key === 'afterConstructionPhotos') {
+        return;
+      }
+
       if (props.formData[key] !== undefined) {
         localFormData[key] = props.formData[key];
       }
@@ -2156,11 +2874,12 @@ onMounted(async () => {
     }
   }
 
-  // Initialize data from other steps if necessary
+  // Initialize data from other steps if necessary - 統一使用 getStepDataSafely
   if (!localFormData.applicationYear) {
-    // Try to get from store or use default
-    if (grantsStore.formData[6]?.applicationYear) {
-      localFormData.applicationYear = grantsStore.formData[6].applicationYear;
+    // Try to get from step6 or use default
+    const step6Data = getStepDataSafely(6);
+    if (step6Data?.applicationYear) {
+      localFormData.applicationYear = step6Data.applicationYear;
     } else {
       const currentYear = new Date().getFullYear() - 1911; // Taiwan calendar year
       localFormData.applicationYear = `${currentYear}`;
@@ -2174,30 +2893,33 @@ onMounted(async () => {
     }
   }
 
-  // Get applicant info
+  // Get applicant info - 統一使用 getStepDataSafely
   if (!localFormData.name) {
-    if (grantsStore.formData[1]?.name) {
-      localFormData.name = grantsStore.formData[1].name;
-    } else if (grantsStore.formData[6]?.name) {
-      localFormData.name = grantsStore.formData[6].name;
+    const step1Data = getStepDataSafely(1);
+    const step6Data = getStepDataSafely(6);
+
+    if (step1Data?.name) {
+      localFormData.name = step1Data.name;
+    } else if (step6Data?.name) {
+      localFormData.name = step6Data.name;
     }
   }
 
-  // Get applicant address
+  // Get applicant address - 統一使用 getStepDataSafely
   if (!localFormData.applicantAddress) {
-    if (grantsStore.formData[6]?.applicantAddress) {
-      localFormData.applicantAddress = grantsStore.formData[6].applicantAddress;
-    } else {
-      const step1Data = grantsStore.formData[1];
-      if (step1Data) {
-        const county = step1Data.county || '';
-        const town = step1Data.town || '';
-        const village = step1Data.village || '';
-        const address = step1Data.address || '';
+    const step6Data = getStepDataSafely(6);
+    const step1Data = getStepDataSafely(1);
 
-        if (county || town || village || address) {
-          localFormData.applicantAddress = `${county}${town}${village}${address}`;
-        }
+    if (step6Data?.applicantAddress) {
+      localFormData.applicantAddress = step6Data.applicantAddress;
+    } else if (step1Data) {
+      const county = step1Data.county || '';
+      const town = step1Data.town || '';
+      const village = step1Data.village || '';
+      const address = step1Data.address || '';
+
+      if (county || town || village || address) {
+        localFormData.applicantAddress = `${county}${town}${village}${address}`;
       }
     }
   }
@@ -2267,19 +2989,24 @@ onMounted(async () => {
     // localFormData.testResultDescription = '工程完工符合規範，依核定補助款發放。';
   }
 
-  // Set sample photo previews if none exist - 使用簡單的 data URL 避免外部依賴
-  if (!localFormData.beforePhotoPreview) {
-    localFormData.beforePhotoPreview = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect width="100%25" height="100%25" fill="%23ddd"/%3E%3Ctext x="50%25" y="50%25" fill="%23999" text-anchor="middle" font-family="Arial" font-size="16"%3E施工前照片%3C/text%3E%3C/svg%3E';
-  }
-
-  if (!localFormData.afterPhotoPreview) {
-    localFormData.afterPhotoPreview = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect width="100%25" height="100%25" fill="%23ddd"/%3E%3Ctext x="50%25" y="50%25" fill="%23999" text-anchor="middle" font-family="Arial" font-size="16"%3E竣工照片%3C/text%3E%3C/svg%3E';
+  // 載入照片（僅在 grantId 有效時）
+  if (props.grantId && props.grantId > 0) {
+    try {
+      console.log('[step7] 開始載入照片...', { grantId: props.grantId });
+      await loadBeforePhotos();  // 從 UI step3 載入施工前照片
+      await loadAfterPhotos();   // 載入竣工照片
+      console.log('[step7] 照片載入完成');
+    } catch (error) {
+      console.error('[step7] 載入照片失敗:', error);
+    }
+  } else {
+    console.log('[step7] grantId 無效，跳過照片載入（將在 grantId 更新後載入）', { grantId: props.grantId });
   }
 
   // Initial update to parent
   updateFormData();
 
-  // 🆕 載入版本比較資料
+  // 載入版本比較資料
   try {
     // 添加小延遲確保 grantsStore 已經準備好
     await nextTick();
@@ -2375,17 +3102,18 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
       }
     }
 
-    // 設置預設減列金額並立即計算實際發放金額
+    // 設置預設減列金額（正數，不帶負號）
     if (!localFormData.increasedDecreasedAmount) {
-      localFormData.increasedDecreasedAmount = '-1,000';
+      localFormData.increasedDecreasedAmount = '1,000';
     }
 
-    // 實際發放金額會通過增減列計算
+    // 實際發放金額會通過減列計算（原金額 - 減列金額）
     try {
       const original = parseFloat(localFormData.originalPayment.replace(/,/g, ''));
-      const adjustment = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
-      if (!isNaN(original) && !isNaN(adjustment)) {
-        const actual = original + adjustment;
+      const deduction = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
+      if (!isNaN(original) && !isNaN(deduction) && deduction > 0) {
+        // ✅ 減列：原金額 - 減列金額（直接相減）
+        const actual = original - deduction;
         localFormData.actualPayment = actual.toLocaleString();
       }
     } catch (e) {
@@ -2428,8 +3156,10 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
       // 找到對應的測試結果選項
       const selectedOption = testResultOptions.value.find(option => option.value === newValue);
       if (selectedOption) {
-        console.log('自動帶入測試結果說明:', selectedOption.title);
-        localFormData.testResultDescription = selectedOption.title;
+        // 移除括號內容後再設置到結果說明
+        const cleanTitle = removeParenthesesContent(selectedOption.title);
+        console.log('自動帶入測試結果說明:', cleanTitle);
+        localFormData.testResultDescription = cleanTitle;
 
         // 延遲更新父組件資料，確保本地資料先更新完成
         nextTick(() => {
@@ -2533,15 +3263,22 @@ watch([() => localFormData.originalPayment, () => localFormData.increasedDecreas
   if (currentResult === 'adjusted' && localFormData.originalPayment && localFormData.increasedDecreasedAmount) {
     try {
       const original = parseFloat(localFormData.originalPayment.replace(/,/g, ''));
-      const adjustment = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
-      if (!isNaN(original) && !isNaN(adjustment)) {
-        const actual = original + adjustment;
+      const deduction = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
+
+      if (!isNaN(original) && !isNaN(deduction) && deduction > 0) {
+        // ✅ 減列：原金額 - 減列金額（直接相減）
+        const actual = original - deduction;
         const newActualPayment = actual.toLocaleString();
 
         // 只有當計算結果與當前值不同時才更新
         if (localFormData.actualPayment !== newActualPayment) {
           localFormData.actualPayment = newActualPayment;
-          console.log('金額變化 watch: 重新計算 adjusted 實際發放金額:', localFormData.actualPayment);
+          console.log('金額變化 watch: 計算實際發放金額 (原金額 - 減列):', {
+            原金額: original,
+            減列金額: deduction,
+            實際發放: actual,
+            格式化: newActualPayment
+          });
         }
       }
     } catch (e) {
@@ -2564,6 +3301,43 @@ watch([() => localFormData.originalPayment, () => localFormData.increasedDecreas
   updateFormData();
 });
 
+// 🆕 監聽金額變化，自動更新結果說明中的金額顯示
+watch([() => localFormData.originalPayment, () => localFormData.actualPayment], () => {
+  // 只有在用戶沒有手動編輯過結果說明時，才自動更新金額
+  if (isManuallyEditedDescription.value) {
+    console.log('結果說明已手動編輯，跳過金額同步');
+    return;
+  }
+
+  const currentResult = localFormData.isReinspection ? localFormData.reinspectionResult : localFormData.testResult;
+
+  // 如果有測試結果，更新結果說明中的金額
+  if (currentResult) {
+    nextTick(() => {
+      isAutoSyncingDescription.value = true;
+
+      // 找到對應的測試結果選項（會自動包含最新的金額）
+      const selectedOption = testResultOptions.value.find(option => option.value === currentResult);
+      if (selectedOption) {
+        // 移除括號內容後再設置到結果說明
+        const cleanTitle = removeParenthesesContent(selectedOption.title);
+        console.log('金額變化: 自動更新結果說明中的金額:', cleanTitle);
+        localFormData.testResultDescription = cleanTitle;
+
+        // 延遲更新父組件資料
+        nextTick(() => {
+          updateFormData();
+          nextTick(() => {
+            isAutoSyncingDescription.value = false;
+          });
+        });
+      } else {
+        isAutoSyncingDescription.value = false;
+      }
+    });
+  }
+});
+
 // 處理結果說明手動編輯
 const onTestResultDescriptionChange = () => {
   // 如果不是在自動同步過程中，標記為手動編輯
@@ -2573,11 +3347,28 @@ const onTestResultDescriptionChange = () => {
   updateFormData();
 };
 
+// 🆕 監聽案件狀態變化，當狀態為 withdrawn 時自動勾選複驗
+watch(() => grantsStore.currentGrant?.status, (newStatus) => {
+  if (newStatus === 'withdrawn') {
+    console.log('🔄 案件狀態為 withdrawn，自動勾選複驗');
+    localFormData.isReinspection = true;
+    updateFormData();
+  }
+}, { immediate: true });
+
 // 監聽父組件數據變化
 watch(() => props.formData, (newVal) => {
   if (newVal) {
     // 更新基本屬性
     Object.keys(localFormData).forEach(key => {
+      // 🔒 排除應從 API 載入的照片欄位，避免被覆蓋
+      if (key === 'beforePhotoPreviews' ||
+          key === 'beforeConstructionPhotos' ||
+          key === 'afterPhotoPreviews' ||
+          key === 'afterConstructionPhotos') {
+        return;
+      }
+
       if (newVal[key] !== undefined &&
           JSON.stringify(newVal[key]) !== JSON.stringify((localFormData as any)[key])) {
         // 如果正在自動同步結果說明，跳過 testResultDescription 的更新
@@ -2615,7 +3406,7 @@ watch(localValid, (newVal) => {
   }
 });
 
-// 🆕 監聽當前案件變化，重新載入版本比較
+// 監聽當前案件變化，重新載入版本比較
 watch(() => grantsStore.currentGrant?.case_number, (newCaseNumber, oldCaseNumber) => {
   if (newCaseNumber && newCaseNumber !== oldCaseNumber) {
     console.log('🔄 案件變更，重新載入版本比較:', newCaseNumber);
@@ -2675,7 +3466,7 @@ watch(
             計算詳情: {
               pipelineValue: calculatePipeLineSubsidy(),
               facilityValue: calculateFacilitySubsidy(),
-              designValue: calculateDesignFee(calculatePipeLineSubsidy())
+              designValue: getDesignFee()  // ✅ 從 step4 讀取，不重新計算
             }
           });
 
@@ -2900,5 +3691,40 @@ defineExpose({
   color: #ff0000 !important;
   font-weight: bold;
   margin-left: 2px;
+}
+
+/* 照片卡片樣式 */
+.photo-card {
+  height: 160px;
+  cursor: default;
+  transition: all 0.2s ease-in-out;
+}
+
+.photo-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.add-photo-card {
+  cursor: pointer;
+  border: 2px dashed #e0e0e0;
+  background-color: #fafafa;
+}
+
+.add-photo-card:hover {
+  border-color: #3ea0a3;
+  background-color: #f5f5f5;
+}
+
+.upload-zone {
+  cursor: pointer;
+  border: 2px dashed #e0e0e0;
+  background-color: #fafafa;
+  transition: all 0.2s ease-in-out;
+}
+
+.upload-zone:hover {
+  border-color: #3ea0a3;
+  background-color: #f5f5f5;
 }
 </style>

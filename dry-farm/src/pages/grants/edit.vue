@@ -264,15 +264,15 @@
                 </v-list>
 
                 <!-- 功能項目分隔線 -->
-                <v-divider v-if="grantsStore.currentGrant?.status === 'submitted'" class="my-2" />
+                <v-divider v-if="grantsStore.currentGrant?.status === 'under_review'" class="my-2" />
 
                 <!-- 版本管理功能項目 -->
                 <v-list
-                  v-if="grantsStore.currentGrant?.status === 'submitted'"
+                  v-if="grantsStore.currentGrant?.status === 'under_review'"
                   nav
                   class="function-list"
                 >
-                  <!-- 🔒 僅當專案狀態為 submitted 時顯示變更設計按鈕 -->
+                  <!-- 🔒 僅當專案狀態為 under_review 時顯示變更設計按鈕 -->
                   <v-list-item
                     :disabled="isNavigating || designChangeLoading"
                     variant="plain"
@@ -553,6 +553,7 @@
                           ref="step7Ref"
                           :form-data="grantsStore.formData[7]"
                           :current-step="currentStep"
+                          :grant-id="grantsStore.currentGrant?.id || 0"
                           :readonly="isCurrentStepReadonly"
                           @update:form-data="handleFormDataUpdate(7, $event)"
                           @validated="handleStepValidated"
@@ -1334,8 +1335,22 @@ const handleSaveForImprovement = async () => {
   try {
     submitting.value = true
 
-    // 保存當前數據
+    // 🆕 1. 保存當前數據
     await saveAllChanges()
+
+    // 🆕 2. 更新案件狀態為 withdrawn（待改善）
+    if (grantsStore.currentGrant?.case_number) {
+      try {
+        console.log('🔄 [edit.vue] Step 7 (存檔) updating status to withdrawn...')
+        await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'withdrawn')
+        console.log('✅ [edit.vue] Status updated to withdrawn')
+      } catch (error) {
+        console.error('❌ [edit.vue] Failed to update status:', error)
+        // 即使狀態更新失敗，仍允許繼續流程
+      }
+    } else {
+      console.error('❌ [edit.vue] No case_number available for status update')
+    }
 
     // 顯示成功訊息
     // 這裡可以添加 snackbar 或其他提示
@@ -1598,14 +1613,14 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
         console.log('🔒 [edit.vue] Step 3 (現場勘查) completed, locked steps 1, 2, 3')
       }
 
-      // 🆕 3️⃣-2 當完成申報（UI step 6）時，更新狀態為 submitted 並鎖定前五步
+      // 🆕 3️⃣-2 當完成申報（UI step 6）時，更新狀態為 under_review 並鎖定前五步
       if (step === 6) {
         if (grantsStore.currentGrant?.case_number) {
           try {
-            console.log('🔄 [edit.vue] Step 6 (完成申報) updating status to submitted...')
-            await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'submitted')
+            console.log('🔄 [edit.vue] Step 6 (完成申報) updating status to under_review...')
+            await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'under_review')
             lockSteps([1, 2, 3, 4, 5])
-            console.log('✅ [edit.vue] Status updated to submitted, locked steps 1-5')
+            console.log('✅ [edit.vue] Status updated to under_review, locked steps 1-5')
           } catch (error) {
             console.error('❌ [edit.vue] Failed to update status:', error)
             // 即使狀態更新失敗，仍允許繼續流程
@@ -1979,9 +1994,15 @@ onMounted(async () => {
     if (currentStatus === 'approved') {
       lockSteps([1, 2, 3])
       console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3 (case status: approved)')
-    } else if (currentStatus === 'submitted') {
+    } else if (currentStatus === 'under_review') {
       lockSteps([1, 2, 3, 4, 5])
-      console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3, 4, 5 (case status: submitted)')
+      console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3, 4, 5 (case status: under_review)')
+    } else if (currentStatus === 'submitted') {
+      // submitted 狀態：step6 完成申報後，準備進入 step7 驗收
+      console.log('🔒 [edit.vue onMounted] Case status: submitted (ready for inspection)')
+    } else if (currentStatus === 'withdrawn') {
+      // withdrawn 狀態：step7 存檔後，待改善後複驗
+      console.log('🔒 [edit.vue onMounted] Case status: withdrawn (needs improvement and reinspection)')
     } else if (currentStatus === 'completed') {
       lockSteps([1, 2, 3, 4, 5, 7])
       console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3, 4, 5, 7 (case status: completed)')
