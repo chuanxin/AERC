@@ -1469,26 +1469,50 @@
                 個人年度補助額度使用狀況
               </div>
               <v-row dense>
-                <v-col cols="12" sm="6" md="3">
-                  <div class="text-caption text-grey-darken-1">個人年度上限</div>
+                <v-col
+                  cols="12"
+                  sm="6"
+                  md="3"
+                >
+                  <div class="text-caption text-grey-darken-1">
+                    個人年度上限
+                  </div>
                   <div class="text-subtitle-2 font-weight-bold">
                     NT$ {{ grantsStore.subsidyLimit.toLocaleString() }}
                   </div>
                 </v-col>
-                <v-col cols="12" sm="6" md="3">
-                  <div class="text-caption text-grey-darken-1">個人其他案件已用</div>
+                <v-col
+                  cols="12"
+                  sm="6"
+                  md="3"
+                >
+                  <div class="text-caption text-grey-darken-1">
+                    個人其他案件已用
+                  </div>
                   <div class="text-subtitle-2 font-weight-bold">
                     NT$ {{ grantsStore.totalSubsidyAmount.toLocaleString() }}
                   </div>
                 </v-col>
-                <v-col cols="12" sm="6" md="3">
-                  <div class="text-caption text-grey-darken-1">本案件規劃補助（含灌溉調控設施）</div>
+                <v-col
+                  cols="12"
+                  sm="6"
+                  md="3"
+                >
+                  <div class="text-caption text-grey-darken-1">
+                    本案件規劃補助（含灌溉調控設施）
+                  </div>
                   <div class="text-subtitle-2 font-weight-bold text-primary">
                     NT$ {{ currentGrantTotalSubsidy.toLocaleString() }}
                   </div>
                 </v-col>
-                <v-col cols="12" sm="6" md="3">
-                  <div class="text-caption text-grey-darken-1">剩餘可用額度</div>
+                <v-col
+                  cols="12"
+                  sm="6"
+                  md="3"
+                >
+                  <div class="text-caption text-grey-darken-1">
+                    剩餘可用額度
+                  </div>
                   <div class="text-subtitle-2 font-weight-bold">
                     NT$ {{ remainingSubsidyQuota.toLocaleString() }}
                   </div>

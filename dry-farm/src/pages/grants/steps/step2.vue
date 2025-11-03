@@ -143,7 +143,9 @@
           >
             <div class="d-flex align-center">
               <div>
-                <div class="font-weight-medium">查無此地號</div>
+                <div class="font-weight-medium">
+                  查無此地號
+                </div>
                 <div class="text-body-2">
                   {{ landParcelNotFoundMessage }}
                 </div>

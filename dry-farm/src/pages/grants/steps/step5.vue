@@ -247,7 +247,7 @@
             >
               <v-row>
                 <v-col cols="12">
-                  <label class="d-flex align-center mb-2">
+                  <label class="d-flex align-center">
                     <v-icon
                       size="small"
                       class="me-2"
@@ -256,139 +256,143 @@
                     </v-icon>
                     <span class="text-body-2 font-weight-medium">施工前照片</span><span class="ml-2 text-grey text-caption">(需要1-3張照片)</span>
                   </label>
-
-                  <!-- 已上傳照片展示區域 -->
-                  <div
-                    v-if="localFormData.beforePhotoPreviews && localFormData.beforePhotoPreviews.length > 0"
-                    class="mb-3"
+                  <v-sheet
+                    class="pa-3 rounded mb-4"
+                    color="white"
                   >
-                    <v-row>
-                      <v-col
-                        v-for="(preview, index) in localFormData.beforePhotoPreviews"
-                        :key="`before-${index}`"
-                        cols="6"
-                        sm="4"
-                        md="3"
-                      >
-                        <v-card
-                          variant="outlined"
-                          class="photo-card"
+                    <!-- 已上傳照片展示區域 -->
+                    <div
+                      v-if="localFormData.beforePhotoPreviews && localFormData.beforePhotoPreviews.length > 0"
+                      class="mb-3"
+                    >
+                      <v-row>
+                        <v-col
+                          v-for="(preview, index) in localFormData.beforePhotoPreviews"
+                          :key="`before-${index}`"
+                          cols="6"
+                          sm="4"
+                          md="3"
                         >
-                          <div class="position-relative">
-                            <v-img
-                              :src="preview"
-                              height="120"
-                              cover
-                              class="rounded-t"
-                            />
-                            <v-btn
-                              icon
-                              size="x-small"
-                              color="error"
-                              variant="elevated"
-                              class="position-absolute"
-                              style="top: 8px; right: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"
-                              :disabled="props.readonly"
-                              @click="removeBeforePhoto(index)"
-                            >
-                              <v-icon size="small">
-                                mdi-close
+                          <v-card
+                            variant="outlined"
+                            class="photo-card"
+                          >
+                            <div class="position-relative">
+                              <v-img
+                                :src="preview"
+                                height="120"
+                                cover
+                                class="rounded-t"
+                              />
+                              <v-btn
+                                icon
+                                size="x-small"
+                                color="error"
+                                variant="elevated"
+                                class="position-absolute"
+                                style="top: 8px; right: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"
+                                :disabled="props.readonly"
+                                @click="removeBeforePhoto(index)"
+                              >
+                                <v-icon size="small">
+                                  mdi-close
+                                </v-icon>
+                              </v-btn>
+                            </div>
+                            <v-card-text class="pa-2 text-center">
+                              <div class="text-caption text-grey-darken-1">
+                                第 {{ index + 1 }} 張照片
+                              </div>
+                            </v-card-text>
+                          </v-card>
+                        </v-col>
+
+                        <!-- 新增照片按鈕 (當未達到3張時顯示) -->
+                        <v-col
+                          v-if="localFormData.beforePhotoPreviews.length < 3"
+                          cols="6"
+                          sm="4"
+                          md="3"
+                        >
+                          <v-card
+                            variant="outlined"
+                            class="photo-card add-photo-card"
+                            :disabled="props.readonly"
+                            @click="() => triggerFileInput()"
+                          >
+                            <div class="d-flex flex-column align-center justify-center h-100">
+                              <v-icon
+                                size="40"
+                                color="grey-lighten-1"
+                                class="mb-2"
+                              >
+                                mdi-plus-circle-outline
                               </v-icon>
-                            </v-btn>
-                          </div>
-                          <v-card-text class="pa-2 text-center">
-                            <div class="text-caption text-grey-darken-1">
-                              第 {{ index + 1 }} 張照片
+                              <div class="text-caption text-grey text-center">
+                                新增照片<br>
+                                <span class="text-xs">({{ localFormData.beforePhotoPreviews.length }}/3)</span>
+                              </div>
                             </div>
-                          </v-card-text>
-                        </v-card>
-                      </v-col>
+                          </v-card>
+                        </v-col>
+                      </v-row>
+                    </div>
 
-                      <!-- 新增照片按鈕 (當未達到3張時顯示) -->
-                      <v-col
-                        v-if="localFormData.beforePhotoPreviews.length < 3"
-                        cols="6"
-                        sm="4"
-                        md="3"
+                    <!-- 初次上傳區域 (當沒有照片時顯示) -->
+                    <div v-if="localFormData.beforePhotoPreviews.length === 0">
+                      <v-card
+                        variant="outlined"
+                        class="upload-zone"
+                        @click="() => !props.readonly && triggerFileInput()"
                       >
-                        <v-card
-                          variant="outlined"
-                          class="photo-card add-photo-card"
-                          :disabled="props.readonly"
-                          @click="() => triggerFileInput()"
-                        >
-                          <div class="d-flex flex-column align-center justify-center h-100">
-                            <v-icon
-                              size="40"
-                              color="grey-lighten-1"
-                              class="mb-2"
-                            >
-                              mdi-plus-circle-outline
-                            </v-icon>
-                            <div class="text-caption text-grey text-center">
-                              新增照片<br>
-                              <span class="text-xs">({{ localFormData.beforePhotoPreviews.length }}/3)</span>
-                            </div>
+                        <v-card-text class="text-center pa-8">
+                          <v-icon
+                            size="48"
+                            color="grey-lighten-1"
+                            class="mb-3"
+                          >
+                            mdi-camera-plus-outline
+                          </v-icon>
+                          <div class="text-h6 text-grey-darken-1 mb-2">
+                            上傳施工前照片
                           </div>
-                        </v-card>
-                      </v-col>
-                    </v-row>
-                  </div>
+                          <div class="text-body-2 text-grey">
+                            點擊選擇照片檔案<br>
+                            <span class="text-caption">支援 JPG、PNG 格式，需要 1-3 張照片</span>
+                          </div>
+                        </v-card-text>
+                      </v-card>
+                    </div>
 
-                  <!-- 初次上傳區域 (當沒有照片時顯示) -->
-                  <div v-if="localFormData.beforePhotoPreviews.length === 0">
-                    <v-card
-                      variant="outlined"
-                      class="upload-zone"
-                      @click="() => !props.readonly && triggerFileInput()"
+                    <!-- 隱藏的檔案輸入框 -->
+                    <input
+                      ref="fileInput"
+                      type="file"
+                      accept="image/*"
+                      style="display: none"
+                      @change="handleSinglePhotoUpload"
                     >
-                      <v-card-text class="text-center pa-8">
-                        <v-icon
-                          size="48"
-                          color="grey-lighten-1"
-                          class="mb-3"
-                        >
-                          mdi-camera-plus-outline
-                        </v-icon>
-                        <div class="text-h6 text-grey-darken-1 mb-2">
-                          上傳施工前照片
-                        </div>
-                        <div class="text-body-2 text-grey">
-                          點擊選擇照片檔案<br>
-                          <span class="text-caption">支援 JPG、PNG 格式，需要 1-3 張照片</span>
-                        </div>
-                      </v-card-text>
-                    </v-card>
-                  </div>
 
-                  <!-- 隱藏的檔案輸入框 -->
-                  <input
-                    ref="fileInput"
-                    type="file"
-                    accept="image/*"
-                    style="display: none"
-                    @change="handleSinglePhotoUpload"
-                  >
-
-                  <!-- 上傳狀態提示 -->
-                  <div
-                    v-if="localFormData.beforePhotoPreviews.length > 0 && !props.readonly"
-                    class="mt-2"
-                  >
-                    <v-chip
-                      :color="getUploadStatusColor()"
-                      variant="tonal"
-                      size="small"
+                    <!-- 上傳狀態提示 -->
+                    <div
+                      v-if="localFormData.beforePhotoPreviews.length > 0 && !props.readonly"
+                      class="mt-2"
                     >
-                      <v-icon
-                        start
+                      <v-chip
+                        :color="getUploadStatusColor()"
+                        variant="tonal"
                         size="small"
                       >
-                        {{ getUploadStatusIcon() }}
-                      </v-icon>
-                      {{ getUploadStatusText() }}
-                    </v-chip>
-                  </div>
+                        <v-icon
+                          start
+                          size="small"
+                        >
+                          {{ getUploadStatusIcon() }}
+                        </v-icon>
+                        {{ getUploadStatusText() }}
+                      </v-chip>
+                    </div>
+                  </v-sheet>
                 </v-col>
 
                 <!-- <v-col

@@ -4,39 +4,25 @@
     class="step-content"
   >
     <v-card
-      class="mb-0 pa-0"
+      class="mt-4 pa-0"
       flat
     >
       <v-card-text class="pb-0 pt-0">
-        <!-- 文件上傳說明提示 -->
+        <!-- 🎨 統一設計：文件上傳說明提示 -->
         <v-alert
           type="info"
           variant="tonal"
+          density="compact"
           class="mb-4"
-          prominent
-          border="start"
+          rounded="lg"
         >
-          <template #prepend>
-            <v-icon size="large">
-              mdi-clipboard-check
+          <div class="d-flex align-center">
+            <v-icon class="mr-2">
+              mdi-information
             </v-icon>
-          </template>
-          <div class="text-h6 mb-2">
-            上傳資料檢核表
-          </div>
-          <div class="text-body-1">
-            <p class="mb-2">
-              <strong>請依照檢核表逐項確認：</strong>請確認文件已備齊並勾選對應項目，然後統一上傳所需檔案。
-            </p>
-            <p class="mt-2 mb-0">
-              <v-icon
-                size="small"
-                class="me-1"
-              >
-                mdi-information
-              </v-icon>
-              支援格式：PDF、JPG、PNG
-            </p>
+            <div class="text-body-2">
+              <strong>請依照檢核表逐項確認：</strong>請確認文件已備齊並勾選對應項目，然後統一上傳所需檔案。支援格式：PDF、JPG、PNG
+            </div>
           </div>
         </v-alert>
 
@@ -51,36 +37,49 @@
               cols="12"
               md="5"
             >
+              <!-- 🎨 統一設計：檢核表卡片 -->
               <v-card
-                class="mb-4"
-                variant="outlined"
+                flat
+                class="mb-4 pa-4"
+                color="#e3f4f4"
+                rounded="lg"
               >
-                <v-card-title class="bg-primary-lighten-4 d-flex align-center py-3 px-4">
+                <v-card-title
+                  class="text-subtitle-1 font-weight-bold pa-0 pb-6 d-flex align-center"
+                  style="color: #2d8c8f"
+                >
                   <v-icon
-                    class="me-2"
+                    color="#3ea0a3"
+                    class="me-2 pb-1"
                     size="small"
                   >
                     mdi-clipboard-check-outline
                   </v-icon>
-                  <span class="text-subtitle-1 font-weight-medium">上傳資料檢核表</span>
+                  <span>上傳資料檢核表</span>
                   <v-spacer />
                   <v-chip
-                    :color="completionPercentage === 100 ? 'success' : 'primary'"
+                    :color="completionPercentage === 100 ? 'success' : '#3ea0a3'"
                     variant="flat"
                     size="small"
                   >
-                    {{ completedItems }}/{{ checklistItems.length }} 項目
+                    {{ completedItems }}/{{ checklistItems.length }}
                   </v-chip>
                 </v-card-title>
 
-                <v-card-text class="pa-0">
-                  <v-list class="py-0">
+                <v-sheet
+                  class="pa-3 rounded"
+                  color="white"
+                >
+                  <v-list
+                    class="py-0"
+                    bg-color="transparent"
+                  >
                     <template
                       v-for="(item, index) in checklistItems"
                       :key="item.id"
                     >
                       <v-list-item
-                        class="checklist-item"
+                        class="checklist-item px-0"
                         :class="{
                           'item-completed': item.completed,
                           'item-has-files': getItemFiles(item.id).length > 0
@@ -95,7 +94,7 @@
                           </v-icon>
                         </template>
 
-                        <v-list-item-title class="font-weight-medium">
+                        <v-list-item-title class="font-weight-medium text-body-2">
                           {{ item.name }}
                           <span
                             v-if="item.required"
@@ -130,29 +129,44 @@
                           </v-chip>
                         </div>
                       </v-list-item>
-                      <v-divider v-if="index < checklistItems.length - 1" />
+                      <v-divider
+                        v-if="index < checklistItems.length - 1"
+                        class="my-2"
+                      />
                     </template>
                   </v-list>
-                </v-card-text>
+                </v-sheet>
               </v-card>
 
-              <!-- 完成進度 -->
-              <v-card variant="outlined">
-                <v-card-title class="bg-info-lighten-4 d-flex align-center py-3 px-4">
+              <!-- 🎨 統一設計：完成進度 -->
+              <v-card
+                flat
+                class="mb-4 pa-4"
+                color="#e3f4f4"
+                rounded="lg"
+              >
+                <v-card-title
+                  class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+                  style="color: #2d8c8f"
+                >
                   <v-icon
-                    class="me-2"
+                    color="#3ea0a3"
+                    class="me-2 pb-1"
                     size="small"
                   >
                     mdi-progress-check
                   </v-icon>
-                  <span class="text-subtitle-1 font-weight-medium">完成進度</span>
+                  <span>完成進度</span>
                 </v-card-title>
 
-                <v-card-text class="pa-4">
+                <v-sheet
+                  class="pa-3 rounded"
+                  color="white"
+                >
                   <div class="d-flex align-center mb-3">
                     <v-progress-circular
                       :model-value="completionPercentage"
-                      :color="completionPercentage === 100 ? 'success' : 'primary'"
+                      :color="completionPercentage === 100 ? 'success' : '#3ea0a3'"
                       size="48"
                       width="4"
                     >
@@ -174,14 +188,18 @@
                     type="success"
                     variant="tonal"
                     density="compact"
+                    rounded="lg"
                     class="mb-0"
                   >
-                    <template #prepend>
-                      <v-icon size="small">
+                    <div class="d-flex align-center">
+                      <v-icon
+                        size="small"
+                        class="mr-2"
+                      >
                         mdi-check-circle
                       </v-icon>
-                    </template>
-                    所有必要文件已上傳完成，可以進行下一步！
+                      <span class="text-body-2">所有必要文件已上傳完成，可以進行下一步！</span>
+                    </div>
                   </v-alert>
 
                   <v-alert
@@ -189,16 +207,20 @@
                     type="warning"
                     variant="tonal"
                     density="compact"
+                    rounded="lg"
                     class="mb-0"
                   >
-                    <template #prepend>
-                      <v-icon size="small">
+                    <div class="d-flex align-center">
+                      <v-icon
+                        size="small"
+                        class="mr-2"
+                      >
                         mdi-alert-circle-outline
                       </v-icon>
-                    </template>
-                    還有 {{ incompleteRequiredItems }} 項必要文件待處理 (總共 {{ checklistItems.length }} 項)
+                      <span class="text-body-2">還有 {{ incompleteRequiredItems }} 項必要文件待處理</span>
+                    </div>
                   </v-alert>
-                </v-card-text>
+                </v-sheet>
               </v-card>
             </v-col>
 
@@ -207,33 +229,48 @@
               cols="12"
               md="7"
             >
-              <!-- 檔案上傳控制 -->
+              <!-- 🎨 統一設計：檔案上傳控制 -->
               <v-card
-                class="mb-4"
-                variant="outlined"
+                flat
+                class="mb-4 pa-4"
+                color="#e3f4f4"
+                rounded="lg"
               >
-                <v-card-title class="bg-success-lighten-4 d-flex align-center py-3 px-4">
+                <v-card-title
+                  class="text-subtitle-1 font-weight-bold pa-0 pb-6"
+                  style="color: #2d8c8f"
+                >
                   <v-icon
-                    class="me-2"
+                    color="#3ea0a3"
+                    class="me-2 pb-1"
                     size="small"
                   >
                     mdi-cloud-upload-outline
                   </v-icon>
-                  <span class="text-subtitle-1 font-weight-medium">檔案上傳</span>
+                  <span>檔案上傳</span>
                 </v-card-title>
 
-                <v-card-text class="pa-4">
+                <v-sheet
+                  class="pa-3 rounded"
+                  color="white"
+                >
                   <!-- 檔案類別選擇 -->
                   <div class="mb-3">
-                    <v-label class="text-subtitle-2 mb-2 d-block">
-                      選擇文件類別（可多選） - 共 {{ checklistItems.length }} 個類別
-                    </v-label>
+                    <label class="text-body-2 font-weight-medium mb-2 d-block">
+                      <v-icon
+                        size="small"
+                        class="me-1"
+                      >
+                        mdi-tag-multiple
+                      </v-icon>
+                      選擇文件類別（可多選）
+                    </label>
                     <div class="category-chips-container">
                       <v-chip
                         v-for="item in checklistItems"
                         :key="item.id"
                         :variant="selectedCategories.includes(item.id) ? 'flat' : 'outlined'"
-                        :color="selectedCategories.includes(item.id) ? 'primary' : 'default'"
+                        :color="selectedCategories.includes(item.id) ? '#3ea0a3' : 'default'"
                         size="small"
                         class="me-2 mb-2 category-chip"
                         @click="toggleCategory(item.id)"
@@ -269,7 +306,9 @@
                     v-model="fileDescription"
                     label="檔案說明（選填）"
                     variant="outlined"
-                    density="compact"
+                    density="comfortable"
+                    color="#3ea0a3"
+                    bg-color="white"
                     rows="3"
                     class="mb-3"
                   />
@@ -277,6 +316,7 @@
                   <!-- 檔案上傳拖放區域 -->
                   <v-card
                     variant="outlined"
+                    color="#3ea0a3"
                     class="upload-dropzone mb-3"
                     :class="{ 'dropzone-active': isDragOver }"
                     @dragover.prevent="handleDragOver"
@@ -287,7 +327,7 @@
                     <v-card-text class="text-center py-4">
                       <v-icon
                         size="32"
-                        color="primary"
+                        color="#3ea0a3"
                         class="mb-2"
                       >
                         mdi-cloud-upload
@@ -327,7 +367,7 @@
                         <template #prepend>
                           <v-icon
                             size="small"
-                            color="primary"
+                            color="#3ea0a3"
                           >
                             mdi-file-outline
                           </v-icon>
@@ -354,9 +394,10 @@
                   <v-btn
                     :disabled="!selectedFiles?.length || selectedCategories.length === 0 || uploading"
                     :loading="uploading"
-                    color="success"
+                    color="#3ea0a3"
                     variant="flat"
                     block
+                    rounded="lg"
                     @click="uploadFiles"
                   >
                     <v-icon start>
@@ -364,40 +405,52 @@
                     </v-icon>
                     上傳檔案到 {{ selectedCategories.length }} 個類別 ({{ selectedFiles?.length || 0 }} 個檔案)
                   </v-btn>
-                </v-card-text>
+                </v-sheet>
               </v-card>
 
-              <!-- 已上傳檔案管理 -->
+              <!-- 🎨 統一設計：已上傳檔案管理 -->
               <v-card
                 v-if="uniqueUploadedFiles.length > 0"
-                variant="outlined"
+                flat
+                class="mb-4 pa-4"
+                color="#e3f4f4"
+                rounded="lg"
               >
-                <v-card-title class="bg-grey-lighten-4 d-flex align-center py-3 px-4">
+                <v-card-title
+                  class="text-subtitle-1 font-weight-bold pa-0 pb-6 d-flex align-center"
+                  style="color: #2d8c8f"
+                >
                   <v-icon
-                    class="me-2"
+                    color="#3ea0a3"
+                    class="me-2 pb-1"
                     size="small"
                   >
                     mdi-file-check-outline
                   </v-icon>
-                  <span class="text-subtitle-1 font-weight-medium">已上傳檔案</span>
+                  <span>已上傳檔案</span>
                   <v-spacer />
                   <v-chip
-                    color="info"
+                    color="#3ea0a3"
                     variant="flat"
                     size="small"
                   >
-                    共 {{ uniqueUploadedFiles.length }} 個檔案
+                    共 {{ uniqueUploadedFiles.length }} 個
                   </v-chip>
                 </v-card-title>
 
-                <v-card-text class="pa-0">
+                <v-sheet
+                  class="pa-3 rounded"
+                  color="white"
+                >
                   <v-list
                     class="py-0"
                     density="compact"
+                    bg-color="transparent"
                   >
                     <v-list-item
                       v-for="file in uniqueUploadedFiles"
                       :key="file.uniqueId"
+                      class="px-0"
                     >
                       <template #prepend>
                         <v-icon
@@ -435,7 +488,7 @@
                       </template>
                     </v-list-item>
                   </v-list>
-                </v-card-text>
+                </v-sheet>
               </v-card>
             </v-col>
           </v-row>

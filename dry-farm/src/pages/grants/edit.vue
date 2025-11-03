@@ -264,7 +264,10 @@
                 </v-list>
 
                 <!-- 功能項目分隔線 -->
-                <v-divider v-if="grantsStore.currentGrant?.status === 'under_review'" class="my-2" />
+                <v-divider
+                  v-if="grantsStore.currentGrant?.status === 'under_review'"
+                  class="my-2"
+                />
 
                 <!-- 版本管理功能項目 -->
                 <v-list
