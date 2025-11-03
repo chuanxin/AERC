@@ -236,6 +236,20 @@
       flat
     >
       <v-card-text class="pb-0 pt-0">
+        <!-- 🆕 唯讀模式提示 -->
+        <v-alert
+          v-if="props.readonly"
+          type="warning"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          rounded="lg"
+        >
+          <div class="d-flex align-center">
+            <span class="text-body-2">已完成現場勘查，此步驟已鎖定，無法編輯。</span>
+          </div>
+        </v-alert>
+
         <v-form
           ref="form"
           v-model="localValid"
@@ -264,11 +278,12 @@
               <v-spacer />
               <!-- 只在有土地資料時顯示新增按鈕 -->
               <v-btn
-                v-if="landManagement.lands.length > 0"
+                v-if="landManagement.lands.length > 0 && !props.readonly"
                 color="#3ea0a3"
                 variant="flat"
                 rounded="lg"
                 size="small"
+                :disabled="props.readonly"
                 @click="addNewLand"
               >
                 <v-icon
@@ -319,7 +334,7 @@
                     class="land-card cursor-pointer"
                     variant="outlined"
                     :color="landManagement.currentEditingLandId === land.id ? '#e3f4f4' : 'white'"
-                    @click="editLand(land.id)"
+                    @click="!props.readonly && editLand(land.id)"
                   >
                     <v-card-text class="pa-3">
                       <div class="d-flex justify-space-between align-start mb-2">
@@ -331,6 +346,7 @@
                           土地 {{ index + 1 }}
                         </v-chip>
                         <v-btn
+                          v-if="!props.readonly"
                           icon
                           size="x-small"
                           color="error"
@@ -395,6 +411,7 @@
                         color="#3ea0a3"
                         size="small"
                         block
+                        :disabled="props.readonly"
                         @click.stop="editLand(land.id)"
                       >
                         <v-icon
@@ -1979,9 +1996,13 @@ interface Step2Events {
 const emit = defineEmits<Step2Events>();
 
 // 事件驅動架構：移除 props 依賴，但保留 currentStep
-defineProps<{
+// 🆕 新增 readonly prop 支援
+const props = withDefaults(defineProps<{
   currentStep: number;
-}>();
+  readonly?: boolean;
+}>(), {
+  readonly: false
+})
 
 const route = useRoute();
 

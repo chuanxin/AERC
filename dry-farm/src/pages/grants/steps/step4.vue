@@ -15,6 +15,7 @@
         >
           <!-- STEP 1: 設計人姓名 -->
           <v-card
+            v-if="!props.readonly"
             flat
             class="mb-4 pa-4"
             color="#e3f4f4"
@@ -2751,6 +2752,11 @@ const props = defineProps({
     type: Number,
     required: true
   },
+  readonly: {
+    type: Boolean,
+    required: false,
+    default: false
+  }
 });
 
 const emit = defineEmits(['update:formData', 'validated', 'go-back', 'show-snackbar']);

@@ -160,6 +160,17 @@ const apiService = {
   },
 
   /**
+   * send PATCH request
+   * @param url request URL or path defined in endpoints
+   * @param data request body data
+   * @param config additional configuration
+   */
+  async patch<T = unknown>(url: string, data?: Record<string, unknown>, config?: InternalAxiosRequestConfig): Promise<T> {
+    const response = await api.patch<T>(url, data, config)
+    return response.data
+  },
+
+  /**
    * send DELETE request
    * @param url request URL or path defined in endpoints
    * @param config additional configuration

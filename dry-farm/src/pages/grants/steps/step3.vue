@@ -10,6 +10,7 @@
       <v-card-text class="pb-0 pt-0">
         <!-- 填寫說明提示 -->
         <v-card
+          v-if="!props.readonly"
           flat
           class="mb-4 pa-4"
           color="#fff3e0"
@@ -60,6 +61,7 @@
         >
           <!-- 動力設備選擇區域 -->
           <v-card
+            v-if="!props.readonly"
             flat
             class="mb-4 pa-4"
             color="#e3f4f4"
@@ -769,6 +771,11 @@ const props = defineProps({
   currentStep: {
     type: Number,
     required: true
+  },
+  readonly: {
+    type: Boolean,
+    required: false,
+    default: false
   }
 });
 

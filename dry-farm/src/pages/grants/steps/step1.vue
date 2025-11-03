@@ -8,6 +8,20 @@
       flat
     >
       <v-card-text class="pb-0 pt-0">
+        <!-- 🆕 唯讀模式提示 -->
+        <v-alert
+          v-if="props.readonly"
+          type="warning"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          rounded="lg"
+        >
+          <div class="d-flex align-center">
+            <span class="text-body-2">已完成現場勘查，此步驟已鎖定，無法編輯。</span>
+          </div>
+        </v-alert>
+
         <v-form
           ref="form"
           v-model="localValid"
@@ -50,6 +64,7 @@
                       variant="outlined"
                       density="comfortable"
                       :rules="nameRules"
+                      :readonly="props.readonly"
                       color="#3ea0a3"
                       bg-color="white"
                     >
@@ -68,6 +83,7 @@
                       variant="outlined"
                       density="comfortable"
                       :rules="idRules"
+                      :readonly="props.readonly"
                       color="#3ea0a3"
                       bg-color="white"
                     >
@@ -87,6 +103,7 @@
                       variant="outlined"
                       density="comfortable"
                       :rules="phoneRules"
+                      :readonly="props.readonly"
                       color="#3ea0a3"
                       bg-color="white"
                     >
@@ -132,6 +149,7 @@
                     size="small"
                     color="#3ea0a3"
                     rounded="sm"
+                    :disabled="props.readonly"
                     @click="isEditingAddress = true"
                   >
                     <v-icon>mdi-pencil</v-icon>
@@ -158,7 +176,7 @@
                 >
                   <div class="d-flex flex-column">
                     <span class="text-subtitle-1 mb-2">{{ getFullAddress }}</span>
-                    <span class="text-caption text-grey">點擊編輯按鈕以修改地址</span>
+                    <span v-if="!props.readonly" class="text-caption text-grey">點擊編輯按鈕以修改地址</span>
                   </div>
                 </div>
 
@@ -178,6 +196,7 @@
                         density="comfortable"
                         :loading="domicileStore.isLoading"
                         :rules="[v => !!v || '請選擇縣市']"
+                        :disabled="props.readonly"
                         return-object
                         color="#3ea0a3"
                         bg-color="white"
@@ -201,7 +220,7 @@
                         density="comfortable"
                         :loading="domicileStore.isLoading"
                         :rules="[v => !!v || '請選擇鄉鎮市區']"
-                        :disabled="!selectedCountyId"
+                        :disabled="!selectedCountyId || props.readonly"
                         return-object
                         color="#3ea0a3"
                         bg-color="white"
@@ -225,7 +244,7 @@
                         density="comfortable"
                         :loading="domicileStore.isLoading"
                         :rules="[v => !!v || '請選擇村里']"
-                        :disabled="!selectedTownId"
+                        :disabled="!selectedTownId || props.readonly"
                         return-object
                         color="#3ea0a3"
                         bg-color="white"
@@ -245,6 +264,7 @@
                         variant="outlined"
                         density="comfortable"
                         :rules="[v => !!v || '請輸入詳細地址']"
+                        :readonly="props.readonly"
                         color="#3ea0a3"
                         bg-color="white"
                       >
@@ -421,6 +441,7 @@
                   :rules="[v => !!v || '請輸入承辦人']"
                   color="#3ea0a3"
                   bg-color="white"
+                  :readonly="props.readonly"
                 >
                   <template #label>
                     收件人
@@ -495,7 +516,7 @@
                       災害案件資訊
                     </v-card-title>
                     <v-btn
-                      v-if="!isEditingDisasterInfo"
+                      v-if="!isEditingDisasterInfo && !props.readonly"
                       variant="text"
                       density="comfortable"
                       size="small"
@@ -507,7 +528,7 @@
                       編輯
                     </v-btn>
                     <v-btn
-                      v-else
+                      v-else-if="!props.readonly"
                       variant="text"
                       density="comfortable"
                       size="small"
@@ -562,6 +583,7 @@
                           v-model="localFormData.isDisasterCase"
                           inline
                           hide-details
+                          :disabled="props.readonly"
                           :color="localFormData.isDisasterCase ? '#ef6c00' : '#666'"
                         >
                           <template #label>
@@ -594,6 +616,7 @@
                           bg-color="white"
                           rows="3"
                           :rules="disasterDescriptionRules"
+                          :readonly="props.readonly"
                           placeholder="請詳細說明災害情況、災害類型、發生時間等相關資訊..."
                         >
                           <template #label>
@@ -650,6 +673,16 @@ import { useUserStore } from '@/stores/users';
 import { useDomicileStore } from '@/stores/domicile';
 import { useGrantsStore } from '@/stores/grants';
 import type { Step1Data } from '@/types/grantForms'
+
+// 🆕 Props 定義
+interface Step1Props {
+  currentStep: number;
+  readonly?: boolean;
+}
+
+const props = withDefaults(defineProps<Step1Props>(), {
+  readonly: false
+})
 
 interface Step1Events {
   'step-data-changed': [eventData: { step: number; data: Record<string, unknown>; valid: boolean }];

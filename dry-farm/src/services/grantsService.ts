@@ -310,6 +310,15 @@ export const updateCurrentStep = async (caseNumber: string, currentStep: number)
   }
 }
 
+export const updateGrantStatus = async (caseNumber: string, status: string): Promise<{ success: boolean; status: string }> => {
+  try {
+    const response = await apiService.patch(GRANTS.UPDATE_STATUS(caseNumber), { status })
+    return response as { success: boolean; status: string }
+  } catch (error: unknown) {
+    return handleApiError(error, 'grantsService.updateGrantStatus')
+  }
+}
+
 // =============================================================================
 // 核心 API 服務層
 // =============================================================================
@@ -947,23 +956,23 @@ export const getCurrentVersionData = async (
 
     // 取得案件完整資料，包含當前版本
     const grantData = await apiService.get<any>(`/grants/case/${caseNumber}`)
-    
+
     if (!grantData.active_version) {
       throw new Error('無法找到當前版本資料')
     }
 
     // 從當前版本中提取 all_steps_data
     const currentVersionData = grantData.active_version.all_steps_data || {}
-    
+
     // 🔥 Linus式修復：清理資料結構，只保留 steps 格式，避免前後端格式混合
     // 檢查是否存在污染的資料結構（同時有數字鍵和 steps 鍵）
     const hasNumericKeys = Object.keys(currentVersionData).some(key => /^\d+$/.test(key))
     const hasStepsKey = 'steps' in currentVersionData
-    
+
     if (hasNumericKeys && hasStepsKey) {
       console.warn('🚨 Detected mixed data structure, cleaning up...')
       console.log('Keys before cleanup:', Object.keys(currentVersionData))
-      
+
       // 只返回正確的 steps 格式，移除污染的數字鍵
       const cleanedData = {
         steps: currentVersionData.steps || {}
@@ -971,7 +980,7 @@ export const getCurrentVersionData = async (
       console.log('✅ Cleaned data structure:', Object.keys(cleanedData))
       return cleanedData
     }
-    
+
     console.log(`✅ Loaded current version data with steps:`, Object.keys(currentVersionData))
     return currentVersionData
 

@@ -66,6 +66,26 @@ async def update_grant_step_api(
             detail=f"更新步驟資料失敗: {str(e)}",
         )
 
+@router.patch(
+    "/case/{case_number}/status",
+    response_model=Dict[str, Any],
+    dependencies=[Depends(get_current_user)],
+)
+async def update_grant_status_api(
+    case_number: str = Path(..., description="案件編號"),
+    status_data: Dict[str, str] = Body(..., description="狀態資料"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """更新補助申請案件的狀態"""
+    try:
+        return await crud.update_grant_status(case_number, status_data["status"], current_user)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"更新案件狀態失敗: {str(e)}",
+        )
+
+
 @router.put(
     "/case/{case_number}/current-step",
     response_model=Dict[str, Any],

@@ -53,6 +53,7 @@ export const GRANTS = {
   BY_CASE_NUMBER: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}`,
   STEP: (caseNumber: string, step: number) => `${BASE}/grants/case/${caseNumber}/step/${step}`,
   UPDATE_CURRENT_STEP: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/current-step`,
+  UPDATE_STATUS: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/status`,
   APPLICANT_SUBSIDY_SUMMARY: (applicantId: string, year: number) =>
     `${BASE}/grants/applicant-subsidy-summary/${applicantId}/${year}`,
 }
@@ -157,4 +158,15 @@ export const DOWNLOADS = {
   STATIC_FILES_LIST: `${BASE}/download/static-files`,
   STATIC_FILE_DOWNLOAD: (fileId: string) => `${BASE}/download/static-file/${fileId}`,
   STATIC_FILES_BATCH: `${BASE}/download/static-files/batch`,
+}
+
+// grant attachments related endpoints
+export const ATTACHMENTS = {
+  BASE: `${BASE}/attachments`,
+  UPLOAD: (grantId: number, step: number) => `${BASE}/attachments/upload/${grantId}/${step}`,
+  LIST: (grantId: number, step: number) => `${BASE}/attachments/list/${grantId}/${step}`,
+  DOWNLOAD: (attachmentId: number) => `${BASE}/attachments/download/${attachmentId}`,
+  INFO: (attachmentId: number) => `${BASE}/attachments/info/${attachmentId}`,
+  DELETE: (attachmentId: number) => `${BASE}/attachments/${attachmentId}`,
+  BATCH_OPERATION: `${BASE}/attachments/batch-operation`,
 }

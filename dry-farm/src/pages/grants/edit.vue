@@ -120,6 +120,17 @@
                 <v-list-item-subtitle class="text-medium-emphasis">
                   {{ step.subtitle }}
                 </v-list-item-subtitle>
+
+                <!-- 🆕 鎖定圖示 -->
+                <template #append>
+                  <v-icon
+                    v-if="lockedSteps.has(step.value)"
+                    color="grey-darken-1"
+                    size="small"
+                  >
+                    mdi-lock
+                  </v-icon>
+                </template>
               </v-list-item>
             </v-list>
           </v-navigation-drawer>
@@ -231,11 +242,17 @@
                       {{ step.subtitle }}
                     </v-list-item-subtitle>
 
-                    <template
-                      v-if="currentStep === step.value && !isRailMode"
-                      #append
-                    >
+                    <!-- 🆕 統一的 append 邏輯：鎖定圖示優先於當前步驟箭頭 -->
+                    <template #append>
                       <v-icon
+                        v-if="lockedSteps.has(step.value)"
+                        color="grey-darken-1"
+                        size="small"
+                      >
+                        mdi-lock
+                      </v-icon>
+                      <v-icon
+                        v-else-if="currentStep === step.value && !isRailMode"
                         color="primary"
                         size="small"
                         rounded="circle"
@@ -247,13 +264,15 @@
                 </v-list>
 
                 <!-- 功能項目分隔線 -->
-                <v-divider class="my-2" />
+                <v-divider v-if="grantsStore.currentGrant?.status === 'submitted'" class="my-2" />
 
                 <!-- 版本管理功能項目 -->
                 <v-list
+                  v-if="grantsStore.currentGrant?.status === 'submitted'"
                   nav
                   class="function-list"
                 >
+                  <!-- 🔒 僅當專案狀態為 submitted 時顯示變更設計按鈕 -->
                   <v-list-item
                     :disabled="isNavigating || designChangeLoading"
                     variant="plain"
@@ -335,7 +354,12 @@
 
                       <v-spacer />
 
-                      <div class="d-flex">
+                      <!-- 🔒 當步驟為唯讀時，隱藏導航按鈕 -->
+                      <!-- 🔒 Step6 僅在 approved 狀態時顯示按鈕 -->
+                      <div
+                        v-if="!isCurrentStepReadonly && canShowStep6Buttons"
+                        class="d-flex"
+                      >
                         <v-btn
                           v-if="currentStep > 1"
                           :disabled="isNavigating || !canGoToPreviousStep"
@@ -466,6 +490,7 @@
                           v-if="currentStep === 1"
                           ref="step1Ref"
                           :current-step="currentStep"
+                          :readonly="isCurrentStepReadonly"
                           @step-data-changed="handleStepDataChanged"
                           @validation-changed="handleStepValidationChanged"
                           @ready-to-proceed="handleStepReadyToProceed"
@@ -475,6 +500,7 @@
                           v-if="currentStep === 2"
                           ref="step2Ref"
                           :current-step="currentStep"
+                          :readonly="isCurrentStepReadonly"
                           @step-data-changed="handleStepDataChanged"
                           @validation-changed="handleStepValidationChanged"
                           @ready-to-proceed="handleStepReadyToProceed"
@@ -486,6 +512,8 @@
                           ref="step5Ref"
                           :form-data="grantsStore.formData[5]"
                           :current-step="currentStep"
+                          :grant-id="grantsStore.currentGrant?.id || 0"
+                          :readonly="isCurrentStepReadonly"
                           @update:form-data="(data) => handleFormDataUpdate(5, data)"
                           @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                           @go-back="handleGoBack"
@@ -497,6 +525,7 @@
                           v-if="currentStep === 4"
                           :form-data="grantsStore.formData[3]"
                           :current-step="currentStep"
+                          :readonly="isCurrentStepReadonly"
                           @update:form-data="(data) => handleFormDataUpdate(3, data)"
                           @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                           @go-back="handleGoBack"
@@ -505,6 +534,7 @@
                           v-if="currentStep === 5"
                           :form-data="grantsStore.formData[4]"
                           :current-step="currentStep"
+                          :readonly="isCurrentStepReadonly"
                           @update:form-data="(data) => handleFormDataUpdate(4, data)"
                           @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                           @go-back="handleGoBack"
@@ -513,6 +543,7 @@
                           v-if="currentStep === 6"
                           :form-data="grantsStore.formData[6]"
                           :current-step="currentStep"
+                          :readonly="isCurrentStepReadonly"
                           @update:form-data="handleFormDataUpdate(6, $event)"
                           @validated="handleStepValidated"
                           @go-back="handleGoBack"
@@ -522,6 +553,7 @@
                           ref="step7Ref"
                           :form-data="grantsStore.formData[7]"
                           :current-step="currentStep"
+                          :readonly="isCurrentStepReadonly"
                           @update:form-data="handleFormDataUpdate(7, $event)"
                           @validated="handleStepValidated"
                           @go-back="handleGoBack"
@@ -533,6 +565,8 @@
                           v-if="currentStep === 8"
                           :form-data="grantsStore.formData[8]"
                           :current-step="currentStep"
+                          :grant-id="grantsStore.currentGrant?.id || 0"
+                          :readonly="isCurrentStepReadonly"
                           @update:form-data="handleFormDataUpdate(8, $event)"
                           @validated="handleStepValidated"
                           @go-back="handleGoBack"
@@ -541,8 +575,10 @@
                     </v-card-text>
 
                     <!-- Step navigation buttons for desktop -->
+                    <!-- 🔒 當步驟為唯讀時，隱藏所有導航按鈕 -->
+                    <!-- 🔒 Step6 僅在 approved 狀態時顯示按鈕 -->
                     <v-card-actions
-                      v-if="!isSmallScreen"
+                      v-if="!isSmallScreen && !isCurrentStepReadonly && canShowStep6Buttons"
                       class="pt-0"
                     >
                       <v-spacer />
@@ -936,6 +972,25 @@ const isDataLoaded = ref(false)
 const isNavigating = ref(false)
 const autoSaveTimer = ref<number | null>(null)
 
+// 🆕 步驟鎖定狀態管理 - 記錄已鎖定的 UI 步驟編號
+// 當完成現場勘查（UI step 3）後，將 [1, 2, 3] 加入此集合
+const lockedSteps = ref<Set<number>>(new Set())
+
+// 🆕 判斷當前步驟是否為唯讀模式
+const isCurrentStepReadonly = computed(() => lockedSteps.value.has(currentStep.value))
+
+// 🆕 判斷 step6 是否可以顯示導航按鈕（僅當狀態為 approved 時顯示）
+const canShowStep6Buttons = computed(() => {
+  if (currentStep.value !== 6) return true // 非 step6 不受此限制
+  return grantsStore.currentGrant?.status === 'approved'
+})
+
+// 🆕 鎖定指定步驟的函數
+const lockSteps = (steps: number[]) => {
+  steps.forEach(step => lockedSteps.value.add(step))
+  console.log('🔒 [edit.vue] Locked steps:', Array.from(lockedSteps.value))
+}
+
 // 新增：導航狀態管理
 const navigationStates = ref<Record<number, {
   canNavigate: boolean;
@@ -1045,7 +1100,7 @@ const steps = [
   { title: '土地資料', value: 2, subtitle: '請填寫土地資料' },
   { title: '現場勘查', value: 3, subtitle: '請填寫現場勘查' }, // 顯示step5內容但位置在第3步
   { title: '灌溉調控設施', value: 4, subtitle: '請填寫灌溉調控設施' }, // 顯示step3內容但位置在第4步
-  { title: '田間管路', value: 5, subtitle: '請填寫田間管路' }, // 顯示step4內容但位置在第5步
+  { title: '田間管路設施', value: 5, subtitle: '請填寫田間管路' }, // 顯示step4內容但位置在第5步
   { title: '文件列印及完成申報', value: 6, subtitle: '請填寫補助申請資料' },
   { title: '功能測試', value: 7, subtitle: '請填寫結案申報' },
   { title: '佐證及相關文件上傳', value: 8, subtitle: '請上傳佐證及相關文件' },
@@ -1537,10 +1592,50 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
       // 2️⃣ 立即滾動到頂部
       scrollToTopInstantly()
 
-      // 3️⃣ 保存當前步驟數據
+      // 🆕 3️⃣ 當完成現場勘查（UI step 3）時，鎖定前三步
+      if (step === 3) {
+        lockSteps([1, 2, 3])
+        console.log('🔒 [edit.vue] Step 3 (現場勘查) completed, locked steps 1, 2, 3')
+      }
+
+      // 🆕 3️⃣-2 當完成申報（UI step 6）時，更新狀態為 submitted 並鎖定前五步
+      if (step === 6) {
+        if (grantsStore.currentGrant?.case_number) {
+          try {
+            console.log('🔄 [edit.vue] Step 6 (完成申報) updating status to submitted...')
+            await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'submitted')
+            lockSteps([1, 2, 3, 4, 5])
+            console.log('✅ [edit.vue] Status updated to submitted, locked steps 1-5')
+          } catch (error) {
+            console.error('❌ [edit.vue] Failed to update status:', error)
+            // 即使狀態更新失敗，仍允許繼續流程
+          }
+        } else {
+          console.error('❌ [edit.vue] No case_number available for step 6 status update')
+        }
+      }
+
+      // 🆕 3️⃣-3 當結案（UI step 7）時，更新狀態為 completed 並鎖定 steps 1-5, 7
+      if (step === 7) {
+        if (grantsStore.currentGrant?.case_number) {
+          try {
+            console.log('🔄 [edit.vue] Step 7 (結案) updating status to completed...')
+            await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'completed')
+            lockSteps([1, 2, 3, 4, 5, 7])
+            console.log('✅ [edit.vue] Status updated to completed, locked steps 1-5, 7')
+          } catch (error) {
+            console.error('❌ [edit.vue] Failed to update status:', error)
+            // 即使狀態更新失敗，仍允許繼續流程
+          }
+        } else {
+          console.error('❌ [edit.vue] No case_number available for step 7 status update')
+        }
+      }
+
+      // 4️⃣ 保存當前步驟數據
       await saveAllChanges()
 
-      // 4️⃣ 進入下一步或完成表單
+      // 5️⃣ 進入下一步或完成表單
       if (step < steps.length) {
         targetStep.value = nextStep
         currentStep.value = nextStep
@@ -1553,7 +1648,7 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
         updateStepInURL(currentStep.value)
         await loadStepData(currentStep.value)
 
-        // 5️⃣ 短暫延遲後結束過渡
+        // 6️⃣ 短暫延遲後結束過渡
         setTimeout(() => {
           isStepTransitioning.value = false
           targetStep.value = null
@@ -1878,6 +1973,19 @@ onMounted(async () => {
     console.log(`[edit.vue onMounted] Calling loadStepData for step: ${startStep}`);
     await loadStepData(startStep);
     console.log(`[edit.vue onMounted] loadStepData for step ${startStep} finished. grantsStore.formData[${startStep}]:`, JSON.stringify(grantsStore.formData[startStep], null, 2));
+
+    // 🆕 檢查案件狀態，根據不同狀態自動恢復鎖定
+    const currentStatus = grantsStore.currentGrant?.status
+    if (currentStatus === 'approved') {
+      lockSteps([1, 2, 3])
+      console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3 (case status: approved)')
+    } else if (currentStatus === 'submitted') {
+      lockSteps([1, 2, 3, 4, 5])
+      console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3, 4, 5 (case status: submitted)')
+    } else if (currentStatus === 'completed') {
+      lockSteps([1, 2, 3, 4, 5, 7])
+      console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3, 4, 5, 7 (case status: completed)')
+    }
 
     isDataLoaded.value = true;
   } catch (error) {
