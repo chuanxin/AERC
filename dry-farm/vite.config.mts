@@ -57,6 +57,7 @@ export default defineConfig({
           name: 'Roboto',
           styles: 'wght@100;300;400;500;700;900',
         }],
+        display: 'swap'
       },
     }),
   ],
@@ -131,12 +132,16 @@ export default defineConfig({
         }
       },
     },
-    hmr: {
-      overlay: false,
-    },
-    watch : {
-      usePolling: true,
-      interval: 1000,
+    // hmr: {
+    //   overlay: false,
+    // },
+    hmr: false,
+    // watch : {
+    //   usePolling: true,
+    //   interval: 1000,
+    // },
+    watch: {
+      usePolling: false
     },
     allowedHosts: [
       'cxin.mynetgear.com',
