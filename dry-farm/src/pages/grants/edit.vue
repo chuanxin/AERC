@@ -355,8 +355,9 @@
                       <v-spacer />
 
                       <!-- 🔒 當步驟為唯讀時，隱藏導航按鈕 -->
+                      <!-- 🔒 Step6 僅在 approved 狀態時顯示按鈕 -->
                       <div
-                        v-if="!isCurrentStepReadonly"
+                        v-if="!isCurrentStepReadonly && canShowStep6Buttons"
                         class="d-flex"
                       >
                         <v-btn
@@ -575,8 +576,9 @@
 
                     <!-- Step navigation buttons for desktop -->
                     <!-- 🔒 當步驟為唯讀時，隱藏所有導航按鈕 -->
+                    <!-- 🔒 Step6 僅在 approved 狀態時顯示按鈕 -->
                     <v-card-actions
-                      v-if="!isSmallScreen && !isCurrentStepReadonly"
+                      v-if="!isSmallScreen && !isCurrentStepReadonly && canShowStep6Buttons"
                       class="pt-0"
                     >
                       <v-spacer />
@@ -976,6 +978,12 @@ const lockedSteps = ref<Set<number>>(new Set())
 
 // 🆕 判斷當前步驟是否為唯讀模式
 const isCurrentStepReadonly = computed(() => lockedSteps.value.has(currentStep.value))
+
+// 🆕 判斷 step6 是否可以顯示導航按鈕（僅當狀態為 approved 時顯示）
+const canShowStep6Buttons = computed(() => {
+  if (currentStep.value !== 6) return true // 非 step6 不受此限制
+  return grantsStore.currentGrant?.status === 'approved'
+})
 
 // 🆕 鎖定指定步驟的函數
 const lockSteps = (steps: number[]) => {
