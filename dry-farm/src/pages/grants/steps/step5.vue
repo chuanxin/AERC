@@ -315,7 +315,7 @@
                           variant="outlined"
                           class="photo-card add-photo-card"
                           :disabled="props.readonly"
-                          @click="triggerFileInput"
+                          @click="() => triggerFileInput()"
                         >
                           <div class="d-flex flex-column align-center justify-center h-100">
                             <v-icon
@@ -340,7 +340,7 @@
                     <v-card
                       variant="outlined"
                       class="upload-zone"
-                      @click="!props.readonly && triggerFileInput"
+                      @click="() => !props.readonly && triggerFileInput()"
                     >
                       <v-card-text class="text-center pa-8">
                         <v-icon
