@@ -1334,18 +1334,49 @@ const filteredFeatures = ref<GeoJsonFeature[]>([]);
 
 // === FilterToolbar 事件處理 ===
 // 處理篩選變更事件
-const handleFilterChange = (event: { criteria: FilterCriteria; results: GeoJsonFeature[]; resultCount: number }) => {
-  // 更新篩選結果
-  filteredFeatures.value = event.results;
+const handleFilterChange = async (event: { criteria: FilterCriteria; results: GeoJsonFeature[]; resultCount: number }) => {
+  // 檢查年度範圍是否變更
+  const currentYearStart = yearRange.value.current[0];
+  const currentYearEnd = yearRange.value.current[1];
+  const newYearStart = event.criteria.yearStart;
+  const newYearEnd = event.criteria.yearEnd;
 
-  // 更新地圖顯示
-  updateLayersWithFilteredData();
+  const yearRangeChanged = currentYearStart !== newYearStart || currentYearEnd !== newYearEnd;
 
-  // 顯示篩選結果提示
-  if (event.criteria.quickFilter) {
-    const message = `快速篩選「${event.criteria.quickFilter}」找到 ${event.resultCount} 筆結果`;
+  if (yearRangeChanged) {
+    console.log(`📅 [FilterChange] 年度範圍變更: ${currentYearStart}-${currentYearEnd} → ${newYearStart}-${newYearEnd}，觸發重新載入`);
+
+    // 更新年度範圍到 GIS Store
+    const yearRangeArray: [number, number] = [newYearStart, newYearEnd];
+    yearRange.value.current = yearRangeArray;
+    await gisStore.updateYearRange(yearRangeArray);
+
+    // 清空已載入的資料，強制重新載入
+    allLoadedFeatures.value = [];
+    filteredFeatures.value = [];
+
+    // 觸發地圖圖層重新載入
+    refreshLayerData();
+
+    // 顯示提示訊息
     showSnackbar.value = true;
-    snackbarMessage.value = message;
+    snackbarMessage.value = `已更新年度範圍為民國${newYearStart}-${newYearEnd}年，正在重新載入資料...`;
+  } else {
+    // 年度範圍未變更，只進行前端篩選
+    console.log(`🔍 [FilterChange] 僅前端篩選，找到 ${event.resultCount} 筆結果`);
+
+    // 更新篩選結果
+    filteredFeatures.value = event.results;
+
+    // 更新地圖顯示
+    updateLayersWithFilteredData();
+
+    // 顯示篩選結果提示
+    if (event.criteria.quickFilter) {
+      const message = `快速篩選「${event.criteria.quickFilter}」找到 ${event.resultCount} 筆結果`;
+      showSnackbar.value = true;
+      snackbarMessage.value = message;
+    }
   }
 };
 
@@ -3345,7 +3376,7 @@ const showGrantPopup = (coordinate: number[], properties: Record<string, unknown
     info = `📍 聚合點位 (${systemType})
 📊 包含案件數: ${properties.point_count}
 📅 年度範圍: 民國${properties.year_range}年
- 縮放等級: ${properties.zoom_level}
+🔍 縮放等級: ${properties.zoom_level}
 
 💡 放大地圖可查看詳細的個別點位`
   } else {
@@ -4072,8 +4103,46 @@ async function initMap() {
           });
 
           if (feature) {
-            const properties = feature.getProperties();
-            showGrantPopup(event.coordinate, properties);
+            // 從 cluster feature 中取得原始 features
+            const clusterFeatures = feature.get('features') as Feature[];
+
+            if (clusterFeatures && clusterFeatures.length > 0) {
+              if (clusterFeatures.length === 1) {
+                // 單一點位：取得原始 feature 的 properties
+                const originalFeature = clusterFeatures[0];
+                const properties = originalFeature.getProperties();
+                showGrantPopup(event.coordinate, properties);
+              } else {
+                // 聚合點位：顯示聚合資訊
+                // 計算年度範圍
+                const years = clusterFeatures
+                  .map(f => f.get('apply_year'))
+                  .filter(year => year !== undefined && year !== null) as number[];
+                const minYear = years.length > 0 ? Math.min(...years) : null;
+                const maxYear = years.length > 0 ? Math.max(...years) : null;
+                const yearRange = minYear && maxYear
+                  ? (minYear === maxYear ? `${minYear}` : `${minYear}-${maxYear}`)
+                  : '未知';
+
+                // 取得當前縮放等級
+                const currentZoom = map?.getView().getZoom();
+                const zoomLevel = currentZoom !== undefined ? currentZoom.toFixed(1) : '未知';
+
+                const properties = {
+                  cluster: true,
+                  point_count: clusterFeatures.length,
+                  source_system: clusterFeatures[0].get('source_system'),
+                  year_range: yearRange,
+                  zoom_level: zoomLevel,
+                  features: clusterFeatures
+                };
+                showGrantPopup(event.coordinate, properties);
+              }
+            } else {
+              // 非 cluster feature（不應該發生，但作為備案）
+              const properties = feature.getProperties();
+              showGrantPopup(event.coordinate, properties);
+            }
           }
         } else if (displayMode.value === 'grid') {
           // 格網模式：處理格網統計
