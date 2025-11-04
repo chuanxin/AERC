@@ -1105,8 +1105,9 @@ const facilitiesWithSelfPaid = computed(() => {
 });
 
 // 個人年度補助額度計算
+// 🔥 統一架構 (2025-11-04): step4.vue (UI step 5) 現在儲存在 formData[5]
 const step4SubsidyAmount = computed(() => {
-  const step4Data = getStepDataSafely(4) || {};
+  const step4Data = getStepDataSafely(5) || {};  // step4.vue → formData[5]
   return parseFloat(step4Data.subsidyAmount) || 0;
 });
 
@@ -1179,7 +1180,7 @@ const addPowerEquipment = () => {
       const otherFacilitiesSubsidy = localFormData.facilities.reduce((sum, f) => sum + (f.subsidyAmount || 0), 0);
 
       // 取得 step4 的補助額
-      const step4Data = getStepDataSafely(4) || {};
+      const step4Data = getStepDataSafely(5) || {};  // step4.vue → formData[5]
       const step4Subsidy = parseFloat(step4Data.subsidyAmount) || 0;
 
       // 計算年度剩餘額度
@@ -1260,7 +1261,7 @@ const addStorageFacility = () => {
       const otherFacilitiesSubsidy = localFormData.facilities.reduce((sum, f) => sum + (f.subsidyAmount || 0), 0);
 
       // 取得 step4 的補助額
-      const step4Data = getStepDataSafely(4) || {};
+      const step4Data = getStepDataSafely(5) || {};  // step4.vue → formData[5]
       const step4Subsidy = parseFloat(step4Data.subsidyAmount) || 0;
 
       // 計算年度剩餘額度
@@ -1570,7 +1571,7 @@ const updateFacilityTotal = (index: number) => {
         .reduce((sum, f) => sum + (f.subsidyAmount || 0), 0);
 
       // 取得 step4 的補助額
-      const step4Data = getStepDataSafely(4) || {};
+      const step4Data = getStepDataSafely(5) || {};  // step4.vue → formData[5]
       const step4Subsidy = parseFloat(step4Data.subsidyAmount) || 0;
 
       // 計算年度剩餘額度
@@ -1879,11 +1880,12 @@ onMounted(async () => {
       }
 
       // 總是載入必要的步驟資料，確保相關資料正確載入
+      // 🔥 統一架構 (2025-11-04): step3.vue (UI step 4) → formData[4], step4.vue (UI step 5) → formData[5]
       await grantsStore.loadStepData(caseNumberFromRoute, 2); // step2: 土地資料（用於計算面積）
-      await grantsStore.loadStepData(caseNumberFromRoute, 3); // step3: 本身的資料
-      await grantsStore.loadStepData(caseNumberFromRoute, 4); // step4: 田間管路（用於補助額度驗算）
+      await grantsStore.loadStepData(caseNumberFromRoute, 4); // step3.vue: 本身的資料（灌溉調控設施）
+      await grantsStore.loadStepData(caseNumberFromRoute, 5); // step4.vue: 田間管路（用於補助額度驗算）
 
-      console.log('✅ Step3: 案件資料載入完成 (step2, step3, step4)');
+      console.log('✅ Step3: 案件資料載入完成 (step2, formData[4], formData[5])');
     } catch (error) {
       console.error('❌ Step3: 載入案件資料時發生錯誤:', error);
     }
