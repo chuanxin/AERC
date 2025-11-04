@@ -3214,10 +3214,58 @@ const totalFacilityAreaHa = computed(() => {
   return totalFacilityArea.value / 10000
 })
 
-// 🔥 Good Taste: 監聽計算欄位變化，自動同步到 localFormData 以便發送給後端
-watch([totalFacilityArea, totalFacilityAreaHa], ([area, areaHa]) => {
+// 追蹤上一次的面積值，用於檢測變化
+const previousTotalFacilityArea = ref<number>(0)
+
+// 監聽計算欄位變化，自動同步到 localFormData 以便發送給後端
+watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]) => {
   localFormData.totalFacilityArea = area
   localFormData.totalFacilityAreaHa = areaHa
+
+  // 當設施面積發生變化時，清除 step3 和 step4 的資料
+  // 因為補助額度計算依賴面積，面積變更後原有設施資料可能不再適用
+  if (previousTotalFacilityArea.value !== 0 && oldArea !== area && grantsStore.caseNumber) {
+    const hasStep3Data = grantsStore.formData[3] && Object.keys(grantsStore.formData[3]).length > 1
+    const hasStep4Data = grantsStore.formData[4] && Object.keys(grantsStore.formData[4]).length > 1
+
+    if (hasStep3Data || hasStep4Data) {
+      // 顯示提示說明（不提供取消選項）
+      alert(
+        '⚠️ 設施面積已變更！\n\n' +
+        `原面積：${(oldArea / 10000).toFixed(4)} 公頃\n` +
+        `新面積：${(area / 10000).toFixed(4)} 公頃\n\n` +
+        '面積變更會影響補助額度計算，系統將自動清除以下步驟的資料：\n' +
+        (hasStep3Data ? '• Step 4 - 灌溉調控設施\n' : '') +
+        (hasStep4Data ? '• Step 5 - 田間管路設施\n' : '') +
+        '\n請於清除後重新填寫設施資訊。'
+      )
+
+      try {
+        // 使用既有的 saveStepData 方法保存空物件來清除資料
+        if (hasStep3Data) {
+          console.log('🗑️ [Step2] 清除 Step4 資料（面積變更）')
+          await grantsStore.saveStepData(3, { _caseNumber: grantsStore.caseNumber })
+          // 同時清除 localStorage
+          grantsStore.formData[3] = { _caseNumber: grantsStore.caseNumber }
+        }
+
+        if (hasStep4Data) {
+          console.log('🗑️ [Step2] 清除 Step5 資料（面積變更）')
+          await grantsStore.saveStepData(4, { _caseNumber: grantsStore.caseNumber })
+          // 同時清除 localStorage
+          grantsStore.formData[4] = { _caseNumber: grantsStore.caseNumber }
+        }
+
+        alert('✅ 已成功清除相關步驟資料，請重新填寫設施資訊。')
+      } catch (error) {
+        console.error('❌ [Step2] 清除步驟資料失敗:', error)
+        alert('❌ 清除步驟資料時發生錯誤，請稍後再試。')
+      }
+    }
+  }
+
+  // 更新追蹤值
+  previousTotalFacilityArea.value = area
 })
 
 // 土地資料展示工具函數
@@ -4006,6 +4054,10 @@ const initializeStep2WithCascadeData = async () => {
     // 🔥 關鍵修復：使用 nextTick 確保所有初始化副作用完成後再發送資料
     // 這樣可以避免初始化過程中的欄位修改被視為「變更」
     await nextTick()
+
+    // 🔥 初始化面積追蹤值，避免首次載入時觸發清除邏輯
+    previousTotalFacilityArea.value = totalFacilityArea.value
+    console.log(`📏 [Step2] 初始化面積追蹤值: ${(totalFacilityArea.value / 10000).toFixed(4)} 公頃`)
 
     // 主動發送一次完整的初始化資料狀態給父組件
     // 這確保 grants store 的 previousFormData 與當前資料一致

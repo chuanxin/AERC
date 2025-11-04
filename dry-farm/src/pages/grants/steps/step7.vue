@@ -14,6 +14,8 @@
           @submit.prevent
         >
           <!-- 版本比較與變更設計部分 -->
+          <!-- 🔒 暫時註解：版本比較功能待後續開發完成後啟用 -->
+          <!--
           <v-card
             v-if="shouldShowVersionComparison"
             class="mb-4"
@@ -40,7 +42,6 @@
             </v-card-title>
 
             <v-card-text class="pa-4">
-              <!-- 載入中狀態 -->
               <div
                 v-if="versionComparisonLoading"
                 class="text-center py-8"
@@ -56,13 +57,11 @@
                 </div>
               </div>
 
-              <!-- 版本比較內容 -->
               <v-sheet
                 v-else-if="facilitiesComparison && !versionComparisonLoading && !versionComparisonError"
                 class="pa-3 rounded"
                 color="grey-lighten-5"
               >
-                <!-- 比較摘要 -->
                 <v-alert
                   v-if="facilitiesComparison.summary.total_changes > 0"
                   type="info"
@@ -90,7 +89,6 @@
                   </div>
                 </v-alert>
 
-                <!-- 灌溉調控設施比較表 -->
                 <div
                   v-if="facilitiesComparison.irrigation_control_facilities.length > 0"
                   class="mb-6"
@@ -161,7 +159,6 @@
                   </v-table>
                 </div>
 
-                <!-- 田間管路設施比較表 -->
                 <div
                   v-if="facilitiesComparison.pipeline_facilities.length > 0"
                   class="mb-4"
@@ -232,7 +229,6 @@
                   </v-table>
                 </div>
 
-                <!-- 總計變更摘要 -->
                 <v-card
                   v-if="facilitiesComparison.summary.total_changes > 0"
                   variant="outlined"
@@ -260,7 +256,6 @@
                 </v-card>
               </v-sheet>
 
-              <!-- 錯誤狀態 -->
               <v-alert
                 v-else-if="versionComparisonError"
                 type="error"
@@ -275,7 +270,6 @@
                 </div>
               </v-alert>
 
-              <!-- Debug: 顯示當前狀態 -->
               <div
                 v-else
                 class="pa-3 text-center text-caption text-medium-emphasis"
@@ -287,6 +281,7 @@
               </div>
             </v-card-text>
           </v-card>
+          -->
 
           <!-- 結案申報基本資訊區域 -->
           <v-card
