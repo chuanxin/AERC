@@ -176,7 +176,10 @@
                 >
                   <div class="d-flex flex-column">
                     <span class="text-subtitle-1 mb-2">{{ getFullAddress }}</span>
-                    <span v-if="!props.readonly" class="text-caption text-grey">點擊編輯按鈕以修改地址</span>
+                    <span
+                      v-if="!props.readonly"
+                      class="text-caption text-grey"
+                    >點擊編輯按鈕以修改地址</span>
                   </div>
                 </div>
 

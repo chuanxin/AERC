@@ -560,7 +560,6 @@
                       class="me-3 mb-2"
                       color="#3ea0a3"
                       style="width: 100px"
-                      @update:model-value="onEndFacilityParamsChange"
                     />
 
                     <!-- 支管行距(SL) -->
@@ -663,7 +662,6 @@
                       class="me-3 mb-2"
                       color="#3ea0a3"
                       style="width: 160px"
-                      @update:model-value="onEndFacilityParamsChange"
                     />
                   </div>
 
@@ -875,7 +873,6 @@
                       class="me-3 mb-2"
                       color="#3ea0a3"
                       style="width: 160px"
-                      @update:model-value="onEndFacilityParamsChange"
                     />
                   </div>
 
@@ -1102,7 +1099,6 @@
                       class="me-3 mb-2"
                       color="#3ea0a3"
                       style="width: 160px"
-                      @update:model-value="onEndFacilityParamsChange"
                     />
                   </div>
 
@@ -1146,6 +1142,7 @@
 
                       <!-- 滴水管名稱 - 替換原本的滴水管材質，使用與ID=8相同的pipeDrip資料來源 -->
                       <v-autocomplete
+                        :key="`branch-pipe-name-${localFormData.branchPipeDiameterId}`"
                         v-model="localFormData.branchPipePomno"
                         :items="filteredBranchPipeFittings"
                         item-title="displayName"
@@ -1279,7 +1276,7 @@
                         :items="endFacilityDiameterOptions"
                         item-title="name"
                         item-value="id"
-                        label="末端管徑（吋）"
+                        label="管徑（吋）"
                         variant="outlined"
                         density="comfortable"
                         class="me-3 mb-2"
@@ -1295,7 +1292,7 @@
                         :items="filteredEndFacilityPipeFittings"
                         item-title="displayName"
                         item-value="pomno"
-                        label="末端管材名稱"
+                        label="管材名稱"
                         variant="outlined"
                         density="comfortable"
                         class="me-3 mb-2"
@@ -1469,26 +1466,50 @@
                 個人年度補助額度使用狀況
               </div>
               <v-row dense>
-                <v-col cols="12" sm="6" md="3">
-                  <div class="text-caption text-grey-darken-1">個人年度上限</div>
+                <v-col
+                  cols="12"
+                  sm="6"
+                  md="3"
+                >
+                  <div class="text-caption text-grey-darken-1">
+                    個人年度上限
+                  </div>
                   <div class="text-subtitle-2 font-weight-bold">
                     NT$ {{ grantsStore.subsidyLimit.toLocaleString() }}
                   </div>
                 </v-col>
-                <v-col cols="12" sm="6" md="3">
-                  <div class="text-caption text-grey-darken-1">個人其他案件已用</div>
+                <v-col
+                  cols="12"
+                  sm="6"
+                  md="3"
+                >
+                  <div class="text-caption text-grey-darken-1">
+                    個人其他案件已用
+                  </div>
                   <div class="text-subtitle-2 font-weight-bold">
                     NT$ {{ grantsStore.totalSubsidyAmount.toLocaleString() }}
                   </div>
                 </v-col>
-                <v-col cols="12" sm="6" md="3">
-                  <div class="text-caption text-grey-darken-1">本案件規劃補助（含灌溉調控設施）</div>
+                <v-col
+                  cols="12"
+                  sm="6"
+                  md="3"
+                >
+                  <div class="text-caption text-grey-darken-1">
+                    本案件規劃補助（含灌溉調控設施）
+                  </div>
                   <div class="text-subtitle-2 font-weight-bold text-primary">
                     NT$ {{ currentGrantTotalSubsidy.toLocaleString() }}
                   </div>
                 </v-col>
-                <v-col cols="12" sm="6" md="3">
-                  <div class="text-caption text-grey-darken-1">剩餘可用額度</div>
+                <v-col
+                  cols="12"
+                  sm="6"
+                  md="3"
+                >
+                  <div class="text-caption text-grey-darken-1">
+                    剩餘可用額度
+                  </div>
                   <div class="text-subtitle-2 font-weight-bold">
                     NT$ {{ remainingSubsidyQuota.toLocaleString() }}
                   </div>
@@ -3076,9 +3097,17 @@ const endFacilityDiameterOptions = computed(() => {
   return pipeDiameterOptions.value;
 });
 
-// ID=7滴水管規格選項 (使用與ID=8相同的pipeDrip資料來源)
+// ID=7滴灌管規格選項
+// 💡 修正：當滴頭類型為滴嘴滴灌系統(ID=7)時，使用 module_id=1 (輸水管) 的管材
+// 當滴頭類型為滴水管滴灌系統(ID=8)時，使用 module_id=12 (滴水滴灌管) 的管材
 const branchPipeSpecOptionsForId7 = computed(() => {
-  return convertToSelectOptions(filteredPipeFittingsByModule.value.pipeDrip || []);
+  if (localFormData.dripperSubtypeId === 7) {
+    // 滴嘴滴灌系統 - 使用輸水管 (module_id=1)
+    return convertToSelectOptions(filteredPipeFittingsByModule.value.mainPipe || []);
+  } else {
+    // 滴水管滴灌系統 (ID=8) 或未設置 - 使用滴水滴灌管 (module_id=12)
+    return convertToSelectOptions(filteredPipeFittingsByModule.value.pipeDrip || []);
+  }
 });
 
 // 輔助函數：將管件數據轉換為下拉選項格式
@@ -3975,6 +4004,16 @@ const onIrrigationTypeChange = async () => {
 const onEndFacilityParamsChange = async () => {
   localFormData.endFacilityPomno = null; // 清除之前選擇的末端設施
   await loadEndFacilityOptions();
+
+  // 💡 當滴頭類型改變時，也需要更新滴灌管選項（ID=7專用）
+  if (localFormData.irrigationTypeId === 4 && localFormData.dripperSubtypeId === 7) {
+    // 清除之前選擇的滴灌管規格和名稱
+    localFormData.branchPipeDiameterId = null;
+    localFormData.branchPipePomno = null;
+    // 更新滴灌管選項
+    updateBranchPipeFittingsForId7();
+  }
+
   updateFormData();
 };
 
@@ -4083,26 +4122,36 @@ const onSelectedEndFacilityChange = (selectedPomno: number | null) => {
 
 // ID=7滴水管規格變更處理
 const onBranchPipeSpecChangeForId7 = () => {
+  // 清空滴灌管名稱選擇（參考末端設施規格的觸發邏輯）
+  localFormData.branchPipePomno = null;
   updateBranchPipeFittingsForId7();
 };
 
-// 更新ID=7滴水管件選項 (使用與ID=8相同的pipeDrip資料來源)
+// 更新ID=7滴灌管件選項
+// 💡 修正：根據滴頭類型選擇不同的資料來源
 const updateBranchPipeFittingsForId7 = () => {
   const branchPipeSpec = localFormData.branchPipeDiameterId;
 
-  // 從pipeDrip模組中篩選管件 (與ID=8使用相同來源)
-  let fittings = filteredPipeFittingsByModule.value.pipeDrip || [];
+  // 根據滴頭類型選擇資料來源
+  let fittings;
+  if (localFormData.dripperSubtypeId === 7) {
+    // 滴嘴滴灌系統 - 使用輸水管 (module_id=1)
+    fittings = filteredPipeFittingsByModule.value.mainPipe || [];
+  } else {
+    // 滴水管滴灌系統 (ID=8) 或未設置 - 使用滴水滴灌管 (module_id=12)
+    fittings = filteredPipeFittingsByModule.value.pipeDrip || [];
+  }
 
   // 根據選擇的規格進一步篩選
   if (branchPipeSpec) {
     fittings = fittings.filter(f => f.diameter1_id === branchPipeSpec);
   }
 
-  // 轉換為滴水管件選項格式
+  // 轉換為滴灌管件選項格式
   const newFittings = fittings.map(fitting => ({
     pomno: fitting.pomno,
     displayName: fitting.name || `${fitting.material_name || ''} ${fitting.diameter1_name || ''}`.trim(),
-    materialName: fitting.material.name || '',
+    materialName: fitting.material?.name || '',
     specName: fitting.diameter1_name || '',
     specId: fitting.diameter1_id
   }));
