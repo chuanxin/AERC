@@ -1991,7 +1991,7 @@ const displayApplicantAddress = computed(() => {
 
 // 計算顯示用的設施型式（統一單一來源）
 const displayFacilityType = computed(() => {
-  const step4Data = getStepDataSafely(4);
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
 
   // Priority: step4.irrigationType > localFormData
   if (step4Data?.irrigationType) {
@@ -2247,7 +2247,7 @@ const initializeFacilityInfo = async () => {
   }
 
   // Get facility type - 統一使用 getStepDataSafely
-  const step4Data = getStepDataSafely(4);
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (step4Data?.irrigationType) {
     localFormData.facilityType = step4Data.irrigationType;
   }
@@ -2603,7 +2603,7 @@ const getStepDataSafely = (step: number) => {
 
 // 計算田間管路設施補助總額（從 step4.subsidyAmount 獲取）
 const calculatePipeLineSubsidy = () => {
-  const step4Data = getStepDataSafely(4);
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   console.log('🔍 Step7: calculatePipeLineSubsidy - step4Data:', step4Data);
 
   if (!step4Data || Object.keys(step4Data).length === 0) {
@@ -2627,7 +2627,7 @@ const calculatePipeLineSubsidy = () => {
 
 // 計算灌溉調控設施補助總額（從 step3.facilities[].subsidyAmount 獲取）
 const calculateFacilitySubsidy = () => {
-  const step3Data = getStepDataSafely(3);
+  const step3Data = getStepDataSafely(4);  // step3.vue → formData[4]
   console.log('🔍 Step7: calculateFacilitySubsidy - step3Data:', step3Data);
 
   if (!step3Data || Object.keys(step3Data).length === 0 || !step3Data?.facilities || !Array.isArray(step3Data.facilities)) {
@@ -2658,7 +2658,7 @@ const calculateFacilitySubsidy = () => {
 
 // 從資料庫讀取設計費（不重新計算，避免重複計算）
 const getDesignFee = () => {
-  const step4Data = getStepDataSafely(4);
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data) {
     return 0;
   }

@@ -399,6 +399,14 @@ export const useGrantsStore = defineStore('grants', () => {
       return null
     }
 
+    // 🚫 禁止保存 rejected 狀態的案件
+    if (currentGrant.value?.status === 'rejected') {
+      console.warn('🚫 [grantsStore.saveStepData] Cannot save - Grant status is rejected (案件已不受理)')
+      console.warn(`📋 Case: ${currentGrant.value.case_number}, Status: ${currentGrant.value.status}, Step: ${step}`)
+      error.value = '案件已不受理，無法儲存變更'
+      return null
+    }
+
     isSaving.value = true
     error.value = null
     const caseNumber = currentGrant.value.case_number
@@ -662,6 +670,13 @@ export const useGrantsStore = defineStore('grants', () => {
       return true;
     }
 
+    // 🚫 禁止保存 rejected 狀態的案件
+    if (currentGrant.value?.status === 'rejected') {
+      console.warn('🚫 [grantsStore.saveAllChanges] Cannot save - Grant status is rejected (案件已不受理)')
+      console.warn(`📋 Case: ${currentGrant.value.case_number}, Status: ${currentGrant.value.status}`)
+      return false  // 返回 false 表示保存失敗
+    }
+
     try {
       isSaving.value = true
       // console.log('💾 Starting to save step data...');
@@ -856,17 +871,26 @@ export const useGrantsStore = defineStore('grants', () => {
 
           // 🔥 修復：只使用專門的 updateCurrentStepAPI，不要用 updateGrantStepDataWithTracking
           // updateGrantStepDataWithTracking 會覆蓋目標步驟的資料，導致資料丟失
-          try {
-            await updateCurrentStepAPI(currentGrant.value.case_number, step);
-            console.log(`[grantsStore] Successfully synced current_step ${step} to database for grant ${currentGrant.value.case_number}`);
 
-            // 🆕 如果需要追蹤步驟變更，可以使用單獨的追蹤邏輯，不影響步驟資料
-            if (previousStep !== step) {
-              console.log(`[grantsStore] Step change tracked: ${previousStep} → ${step} (sessionId: ${sessionId})`);
+          // 🚫 檢查案件狀態 - rejected 案件不同步到後端
+          if (currentGrant.value.status === 'rejected') {
+            console.warn(`🚫 [grantsStore.updateCurrentStep] Skipping backend sync - Grant status is rejected`)
+            console.warn(`📋 Case: ${currentGrant.value.case_number}, Status: ${currentGrant.value.status}`)
+            console.log(`✅ [grantsStore.updateCurrentStep] Local current_step updated to ${step} (localStorage only)`)
+          } else {
+            // 正常狀態：同步到後端資料庫
+            try {
+              await updateCurrentStepAPI(currentGrant.value.case_number, step);
+              console.log(`[grantsStore] Successfully synced current_step ${step} to database for grant ${currentGrant.value.case_number}`);
+
+              // 🆕 如果需要追蹤步驟變更，可以使用單獨的追蹤邏輯，不影響步驟資料
+              if (previousStep !== step) {
+                console.log(`[grantsStore] Step change tracked: ${previousStep} → ${step} (sessionId: ${sessionId})`);
+              }
+            } catch (error) {
+              console.warn(`[grantsStore] Failed to sync current_step to database for grant ${currentGrant.value.case_number}:`, error);
+              // 即使同步到資料庫失敗，localStorage 的更新依然有效，讓用戶能繼續操作
             }
-          } catch (error) {
-            console.warn(`[grantsStore] Failed to sync current_step to database for grant ${currentGrant.value.case_number}:`, error);
-            // 即使同步到資料庫失敗，localStorage 的更新依然有效，讓用戶能繼續操作
           }
         } else {
           console.warn(`[grantsStore] Grant data not found for case number: ${currentGrant.value.case_number}`);

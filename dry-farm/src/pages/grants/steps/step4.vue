@@ -3457,8 +3457,9 @@ const totalPipesPrice = computed(() => {
 
 // 個人年度補助額度計算
 // 獲取 step3 的補助金額
+// 🔥 統一架構 (2025-11-04): step3.vue (UI step 4) 現在儲存在 formData[4]
 const step3SubsidyAmount = computed(() => {
-  const step3Data = getStepDataSafely(3);
+  const step3Data = getStepDataSafely(4);  // step3.vue → formData[4]
   const facilities = step3Data.facilities || [];
   return facilities.reduce((total: number, facility: any) => {
     return total + (facility.subsidyAmount || 0);
@@ -6942,9 +6943,9 @@ const loadDataFromProps = (propsData: Record<string, unknown>) => {
 onMounted(async () => {
   isUpdating.value = true;
 
-  // 使用三層映射架構 - step4.vue 現在對應 UI step 5
-  // 根據三層映射：UI step 5 → Component step4.vue → Data step 4
-  // const expectedUIStep = 5; // step4.vue 現在對應 UI step 5 (田間管路)
+  // 🔥 統一架構 (2025-11-04) - step4.vue 對應 UI step 5
+  // UI step 5 → Component step4.vue → formData[5]（1:1 映射，無需轉換）
+  // const expectedUIStep = 5; // step4.vue 對應 UI step 5 (田間管路)
   // if (grantsStore.currentStep !== expectedUIStep) {
     // console.warn(`⚠️ Step4 component mounted but currentStep is ${grantsStore.currentStep}, expected ${expectedUIStep} (田間管路)`)
     // 可以發出事件通知父組件，但不直接修改
@@ -6983,8 +6984,9 @@ onMounted(async () => {
   }
 
   // 3. 確保 step3 數據載入（用於計算灌溉調控設施補助總額）
-  if (!getStepDataSafely(3)?.facilities && grantsStore.currentGrant?.case_number) {
-    await grantsStore.loadStepData(grantsStore.currentGrant.case_number, 3);
+  // 🔥 統一架構 (2025-11-04): step3.vue (UI step 4) 現在儲存在 formData[4]
+  if (!getStepDataSafely(4)?.facilities && grantsStore.currentGrant?.case_number) {
+    await grantsStore.loadStepData(grantsStore.currentGrant.case_number, 4);
   }
 
   // 🔧 Linus式修正：不再需要手動設置 facilityArea，已改為 computed

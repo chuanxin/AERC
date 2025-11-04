@@ -48,6 +48,31 @@
       {{ grantsStore.error }}
     </v-alert>
 
+    <!-- Rejected status warning -->
+    <!-- <v-alert
+      v-if="grantsStore.currentGrant?.status === 'rejected'"
+      type="warning"
+      class="mb-4"
+      prominent
+      border="start"
+      variant="tonal"
+    >
+      <v-row align="center">
+        <v-col class="grow">
+          <div class="text-h6 mb-2">
+            <v-icon class="mr-2">
+              mdi-archive-lock
+            </v-icon>
+            案件已不受理（唯讀模式）
+          </div>
+          <div class="text-body-2">
+            此案件已標記為「不受理」狀態，所有資料變更將不會同步至後端資料庫。
+            您可以查看歷史資料，但無法進行任何修改。
+          </div>
+        </v-col>
+      </v-row>
+    </v-alert> -->
+
     <!-- Main content -->
     <v-row justify="center">
       <v-col
@@ -98,7 +123,7 @@
                 :key="step.value"
                 :value="step.value"
                 :active="currentStep === step.value"
-                :disabled="isNavigating"
+                :disabled="isNavigating || disabledSteps.has(step.value)"
                 variant="elevated"
                 elevation="0"
                 class="step-list-item"
@@ -211,7 +236,7 @@
                     :key="step.value"
                     :value="step.value"
                     :active="currentStep === step.value"
-                    :disabled="isNavigating"
+                    :disabled="isNavigating || disabledSteps.has(step.value)"
                     variant="elevated"
                     elevation="0"
                     class="step-list-item"
@@ -513,11 +538,11 @@
                         <step5
                           v-if="currentStep === 3"
                           ref="step5Ref"
-                          :form-data="grantsStore.formData[5]"
+                          :form-data="grantsStore.formData[3]"
                           :current-step="currentStep"
                           :grant-id="grantsStore.currentGrant?.id || 0"
                           :readonly="isCurrentStepReadonly"
-                          @update:form-data="(data) => handleFormDataUpdate(5, data)"
+                          @update:form-data="(data) => handleFormDataUpdate(3, data)"
                           @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                           @go-back="handleGoBack"
                           @case-archived="handleCaseArchived"
@@ -526,19 +551,19 @@
                         />
                         <step3
                           v-if="currentStep === 4"
-                          :form-data="grantsStore.formData[3]"
+                          :form-data="grantsStore.formData[4]"
                           :current-step="currentStep"
                           :readonly="isCurrentStepReadonly"
-                          @update:form-data="(data) => handleFormDataUpdate(3, data)"
+                          @update:form-data="(data) => handleFormDataUpdate(4, data)"
                           @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                           @go-back="handleGoBack"
                         />
                         <step4
                           v-if="currentStep === 5"
-                          :form-data="grantsStore.formData[4]"
+                          :form-data="grantsStore.formData[5]"
                           :current-step="currentStep"
                           :readonly="isCurrentStepReadonly"
-                          @update:form-data="(data) => handleFormDataUpdate(4, data)"
+                          @update:form-data="(data) => handleFormDataUpdate(5, data)"
                           @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                           @go-back="handleGoBack"
                         />
@@ -980,6 +1005,10 @@ const autoSaveTimer = ref<number | null>(null)
 // 當完成現場勘查（UI step 3）後，將 [1, 2, 3] 加入此集合
 const lockedSteps = ref<Set<number>>(new Set())
 
+// 🆕 步驟 Disabled 狀態管理 - 記錄已 disabled 的 UI 步驟編號
+// 當案件被「不受理」後，將 current_step 之後的所有步驟加入此集合
+const disabledSteps = ref<Set<number>>(new Set())
+
 // 🆕 判斷當前步驟是否為唯讀模式
 const isCurrentStepReadonly = computed(() => lockedSteps.value.has(currentStep.value))
 
@@ -993,6 +1022,12 @@ const canShowStep6Buttons = computed(() => {
 const lockSteps = (steps: number[]) => {
   steps.forEach(step => lockedSteps.value.add(step))
   console.log('🔒 [edit.vue] Locked steps:', Array.from(lockedSteps.value))
+}
+
+// 🆕 Disable 指定步驟的函數
+const disableSteps = (steps: number[]) => {
+  steps.forEach(step => disabledSteps.value.add(step))
+  console.log('🚫 [edit.vue] Disabled steps:', Array.from(disabledSteps.value))
 }
 
 // 新增：導航狀態管理
@@ -1295,24 +1330,50 @@ const handleCaseArchived = async (eventData: {
   try {
     submitting.value = true
 
-    // 1. 保存歸檔資料
-    await grantsStore.updateFormData(eventData.step, eventData.data)
-    await grantsStore.saveAllChanges(eventData.step)  // 🔥 使用正確的 dataStep
+    // 1. 獲取 data step（現在與 UI step 相同，不需要映射）
+    const dataStep = getDataStepForCurrentStep(eventData.step)
 
-    // 2. 更新案件狀態為已歸檔
-    if (grantsStore.currentGrant) {
-      // 這裡可以調用 API 更新案件狀態
-      console.log('案件已歸檔，原因：', eventData.reason)
+    // 2. 保存歸檔資料
+    await grantsStore.updateFormData(dataStep, eventData.data)
+    await grantsStore.saveAllChanges(dataStep)
+
+    // 3. 更新案件狀態為 rejected
+    if (grantsStore.currentGrant?.case_number) {
+      console.log('🔄 [edit.vue] Updating grant status to rejected...')
+      await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'rejected')
+      console.log('✅ [edit.vue] Grant status updated to rejected')
+      console.log('📝 [edit.vue] Archive reason:', eventData.reason)
     }
 
-    // 3. 顯示歸檔成功提示
+    // 4. 使用 eventData.step（UI step = data step，統一）
+    const currentStepValue = eventData.step
+
+    console.log(`📍 [edit.vue] handleCaseArchived - Step: ${currentStepValue}`)
+
+    // 5. 鎖定當前步驟及之前的所有步驟（設為唯讀）
+    const stepsToLock: number[] = []
+    for (let i = 1; i <= currentStepValue; i++) {
+      stepsToLock.push(i)
+    }
+    lockSteps(stepsToLock)
+    console.log(`🔒 [edit.vue] Locked steps 1-${currentStepValue} (readonly)`)
+
+    // 6. Disable 當前步驟之後的所有步驟（不可點擊）
+    const stepsToDisable: number[] = []
+    for (let i = currentStepValue + 1; i <= steps.length; i++) {
+      stepsToDisable.push(i)
+    }
+    disableSteps(stepsToDisable)
+    console.log(`🚫 [edit.vue] Disabled steps ${currentStepValue + 1}-${steps.length} (not clickable)`)
+
+    // 7. 顯示歸檔成功提示
     showNotificationMessage(
-      '案件已歸檔',
-      `勘查結果不符合，案件已留存歸檔`,
+      '案件已不受理',
+      `勘查結果不符合，案件已歸檔（步驟 ${currentStepValue} 及之前已鎖定為唯讀）`,
       'warning'
     )
 
-    // 4. 禁用後續編輯功能
+    // 8. 禁用後續編輯功能
     navigationStates.value[eventData.step] = {
       canNavigate: false,
       isEditing: false,
@@ -1888,13 +1949,9 @@ const ensureCorrectStep = (expectedStep: number) => {
 
 // 獲取當前步驟對應的資料步驟 - 簡化映射
 const getDataStepForCurrentStep = (currentStepValue: number): number => {
-  // 直接映射：step3→5, step4→3, step5→4, 其他保持不變
-  const mapping: Record<number, number> = {
-    3: 5, // 現場勘查使用 step5 的資料
-    4: 3, // 灌溉調控設施使用 step3 的資料
-    5: 4  // 田間管路使用 step4 的資料
-  }
-  return mapping[currentStepValue] || currentStepValue
+  // 🔥 統一 UI step 和 data step（不再需要映射）
+  // UI step N 直接儲存到 data step N
+  return currentStepValue
 }
 
 // Improved data loading with race condition prevention
@@ -1913,9 +1970,9 @@ const loadStepData = async (step: number) => {
     return;
   }
 
-  // 🔥 修復步驟重組邏輯：根據直接映射載入正確的資料
+  // 🔥 統一 UI step 和 data step（不再需要映射）
   const dataStep = getDataStepForCurrentStep(step)
-  console.log(`[edit.vue loadStepData] Step ${step} maps to dataStep ${dataStep}`)
+  console.log(`[edit.vue loadStepData] Loading data for step: ${step} (dataStep: ${dataStep})`)
 
   isLoadingData = true;
   const caseNum = route.query.id as string;
@@ -1994,7 +2051,30 @@ onMounted(async () => {
 
     // 🆕 檢查案件狀態，根據不同狀態自動恢復鎖定
     const currentStatus = grantsStore.currentGrant?.status
-    if (currentStatus === 'approved') {
+    if (currentStatus === 'rejected') {
+      // rejected 狀態：案件已不受理（現場勘查不符合）
+      // ⚠️ 使用 startStep（UI step）作為基準，grantsStore.currentStep 作為備選
+      const currentStepValue = startStep  // startStep 是確定的 UI step
+
+      console.log(`📍 [edit.vue onMounted] Rejected case - Using UI step: ${currentStepValue}`)
+      console.log(`📊 [edit.vue onMounted] For reference - grantsStore.currentStep: ${grantsStore.currentStep}`)
+
+      // 鎖定當前步驟及之前的所有步驟（唯讀）
+      const stepsToLock: number[] = []
+      for (let i = 1; i <= currentStepValue; i++) {
+        stepsToLock.push(i)
+      }
+      lockSteps(stepsToLock)
+
+      // Disable 當前步驟之後的所有步驟（不可點擊）
+      const stepsToDisable: number[] = []
+      for (let i = currentStepValue + 1; i <= steps.length; i++) {
+        stepsToDisable.push(i)
+      }
+      disableSteps(stepsToDisable)
+
+      console.log(`🔒 [edit.vue onMounted] Case status: rejected - Locked UI steps 1-${currentStepValue}, Disabled UI steps ${currentStepValue + 1}-${steps.length}`)
+    } else if (currentStatus === 'approved') {
       lockSteps([1, 2, 3])
       console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3 (case status: approved)')
     } else if (currentStatus === 'under_review') {

@@ -65,7 +65,6 @@
                     bg-color="white"
                     :rules="[v => !!v || '請填寫勘查人員']"
                     :readonly="props.readonly"
-                    @update:model-value="updateFormData"
                   >
                     <template #label>
                       勘查人員
@@ -180,7 +179,6 @@
                     class="mt-0"
                     hide-details="auto"
                     :readonly="props.readonly"
-                    @update:model-value="updateFormData"
                   >
                     <v-radio
                       value="comply"
@@ -214,7 +212,6 @@
                     auto-grow
                     :rules="reasonRules"
                     :readonly="props.readonly"
-                    @update:model-value="updateFormData"
                   />
                 </v-col>
               </v-row>
@@ -234,7 +231,6 @@
                     rows="3"
                     auto-grow
                     :readonly="props.readonly"
-                    @update:model-value="updateFormData"
                   />
                 </v-col>
               </v-row>
@@ -559,30 +555,41 @@ const handleArchiveCase = async () => {
       return;
     }
 
-    // 2. 更新案件狀態為不受理
+    // 2. 更新案件狀態為 rejected（不受理）
+    if (grantsStore.currentGrant?.case_number) {
+      console.log('🔄 [step5] Updating grant status to rejected...')
+      await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'rejected')
+      console.log('✅ [step5] Grant status updated to rejected')
+    } else {
+      console.error('❌ [step5] No case_number available, cannot update status')
+      alert('找不到案件編號，無法更新狀態')
+      return
+    }
+
+    // 3. 準備歸檔資料
     const archiveData = {
       ...localFormData,
       status: 'rejected',
       archived: true,
       archiveReason: localFormData.reason,
       archiveDate: new Date().toISOString(),
-      finalStep: 5, // 標記最終停留在第5步
+      finalStep: props.currentStep, // 標記最終停留在 UI step（當前為 3）
       valid: true
     };
 
-    // 3. 發送歸檔事件給父組件
+    // 4. 發送歸檔事件給父組件（edit.vue 會處理鎖定和 disable 邏輯）
     emit('case-archived', {
       step: props.currentStep,
       data: archiveData,
       reason: localFormData.reason
     });
 
-    // 4. 禁用進一步編輯
+    // 5. 禁用進一步編輯
     navigationState.canNavigate = false;
     navigationState.isEditing = false;
     navigationState.reason = '案件已歸檔：勘查結果不符合';
 
-    // 5. 發送導航狀態變更事件
+    // 6. 發送導航狀態變更事件
     emit('navigation-state-changed', {
       step: props.currentStep,
       canNavigate: false,

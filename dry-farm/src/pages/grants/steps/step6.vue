@@ -444,8 +444,8 @@ const printDocuments = reactive([
 
 // Computed property for farmer contribution - step3 和 step4 的自備款總和
 const displayFarmerContribution = computed(() => {
-  const step3Data = getStepDataSafely(3);
-  const step4Data = getStepDataSafely(4);
+  const step3Data = getStepDataSafely(4);  // step3.vue → formData[4]
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
 
   // step3 自備款
   const step3SelfPaid = step3Data?.facilities?.reduce((sum: number, facility: any) => {
@@ -496,7 +496,7 @@ const getStepDataSafely = (step: number) => {
 
 // Computed properties for facility data - 直接從 grantsStore 讀取資料，不維護本地副本
 const mainPipes = computed(() => {
-  const step4Data = getStepDataSafely(4);
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data || Object.keys(step4Data).length === 0) return [];
 
   const mainPipeData = [];
@@ -546,7 +546,7 @@ const mainPipes = computed(() => {
 });
 
 const irrigationSystem = computed(() => {
-  const step4Data = getStepDataSafely(4);
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data?.pipes || !Array.isArray(step4Data.pipes)) return [];
 
   const pipes = step4Data.pipes as any[];
@@ -605,7 +605,7 @@ const irrigationSystem = computed(() => {
 });
 
 const controlFacilities = computed(() => {
-  const step3Data = getStepDataSafely(3);
+  const step3Data = getStepDataSafely(4);  // step3.vue → formData[4]
   if (!step3Data?.facilities || !Array.isArray(step3Data.facilities)) return [];
 
   const facilities = step3Data.facilities as any[];
@@ -623,7 +623,7 @@ const controlFacilities = computed(() => {
 
 // Computed properties for calculated values
 const pipeLineTotal = computed(() => {
-  const step4Data = getStepDataSafely(4);
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data || Object.keys(step4Data).length === 0) return '0';
 
   let pipelineTotal = 0;
@@ -660,7 +660,7 @@ const pipeLineTotal = computed(() => {
 
 // A項補助費：step4 的補助款總額（扣除設計費）
 const pipeLineSubsidy = computed(() => {
-  const step4Data = getStepDataSafely(4);
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data) return '0';
 
   const subsidyAmount = step4Data.subsidyAmount || 0;
@@ -673,7 +673,7 @@ const pipeLineSubsidy = computed(() => {
 
 // B項補助費：step3 的補助款總額
 const facilitySubsidy = computed(() => {
-  const step3Data = getStepDataSafely(3);
+  const step3Data = getStepDataSafely(4);  // step3.vue → formData[4]
   if (!step3Data || Object.keys(step3Data).length === 0 || !step3Data?.facilities || !Array.isArray(step3Data.facilities)) return '0';
 
   const total = step3Data.facilities.reduce((sum: number, facility: any) => {
@@ -685,7 +685,7 @@ const facilitySubsidy = computed(() => {
 
 // 規劃設計費：直接從 step4 讀取
 const designFee = computed(() => {
-  const step4Data = getStepDataSafely(4);
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data) return '0';
 
   const designFeeAmount = step4Data.designFee || 0;
@@ -806,7 +806,7 @@ const displayFacilityArea = computed(() => {
 });
 
 const displayFacilityType = computed(() => {
-  const step4Data = getStepDataSafely(4);
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data) return '';
   const parts = [step4Data.installationType, step4Data.irrigationType].filter(Boolean);
   return parts.length > 0 ? `${parts.join('')}系統` : '';
@@ -865,11 +865,12 @@ watch(() => route.query.id, async (newCaseNumber, oldCaseNumber) => {
     }
 
     // 載入必要的步驟資料
+    // 🔥 統一架構 (2025-11-04): step3.vue → formData[4], step4.vue → formData[5]
     await Promise.all([
       grantsStore.loadStepData(caseNumberStr, 1),
       grantsStore.loadStepData(caseNumberStr, 2),
-      grantsStore.loadStepData(caseNumberStr, 3),
-      grantsStore.loadStepData(caseNumberStr, 4),
+      grantsStore.loadStepData(caseNumberStr, 4),  // step3.vue
+      grantsStore.loadStepData(caseNumberStr, 5),  // step4.vue
       grantsStore.loadStepData(caseNumberStr, 6)
     ]);
 
@@ -892,12 +893,13 @@ onMounted(async () => {
       }
 
       // 總是載入必要的步驟資料，不進行條件判斷
+      // 🔥 統一架構 (2025-11-04): step3.vue → formData[4], step4.vue → formData[5]
       await Promise.all([
         grantsStore.loadStepData(caseNumberFromRoute, 1),
         grantsStore.loadStepData(caseNumberFromRoute, 2),
-        grantsStore.loadStepData(caseNumberFromRoute, 3),
-        grantsStore.loadStepData(caseNumberFromRoute, 4),
-        grantsStore.loadStepData(caseNumberFromRoute, 6)  // 載入 step6 本身的資料
+        grantsStore.loadStepData(caseNumberFromRoute, 4),  // step3.vue
+        grantsStore.loadStepData(caseNumberFromRoute, 5),  // step4.vue
+        grantsStore.loadStepData(caseNumberFromRoute, 6)   // step6.vue 本身的資料
       ]);
 
       console.log('✅ Step6: 案件資料載入完成');
