@@ -240,7 +240,7 @@
       <v-card-text class="pb-0 pt-0">
         <!-- 🆕 唯讀模式提示 -->
         <v-alert
-          v-if="props.readonly"
+          v-if="props.readonly && grantsStore.currentGrant?.status !== 'rejected'"
           type="warning"
           variant="tonal"
           density="compact"

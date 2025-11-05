@@ -10,7 +10,7 @@
       <v-card-text class="pb-0 pt-0">
         <!-- 🆕 唯讀模式提示 -->
         <v-alert
-          v-if="props.readonly"
+          v-if="props.readonly && grantsStore.currentGrant?.status !== 'rejected'"
           type="warning"
           variant="tonal"
           density="compact"
@@ -99,7 +99,7 @@
                   <v-col cols="12">
                     <v-text-field
                       v-model="localFormData.phone"
-                      placeholder="請輸入手機號碼"
+                      placeholder="請輸入手機或市話號碼"
                       variant="outlined"
                       density="comfortable"
                       :rules="phoneRules"
@@ -789,7 +789,23 @@ const idRules = [
 
 const phoneRules = [
   (v: string) => !!v || '請填寫連絡電話',
-  (v: string) => /^09\d{8}$/.test(v) || '手機號碼格式不正確'
+  (v: string) => {
+    // 手機號碼格式：09 開頭 + 8 碼數字
+    const mobilePattern = /^09\d{8}$/
+
+    // 室內電話格式：(\d{2,3}-?|\(\d{2,3}\))\d{3,4}-?\d{4}
+    // 支援格式：
+    // - 02-12345678, 0212345678
+    // - 03-1234567, 031234567
+    // - (02)12345678, (02)1234-5678
+    const landlinePattern = /^(\d{2,3}-?|\(\d{2,3}\))\d{3,4}-?\d{4}$/
+
+    if (mobilePattern.test(v) || landlinePattern.test(v)) {
+      return true
+    }
+
+    return '請輸入有效的手機號碼或室內電話'
+  }
 ];
 
 const disasterDescriptionRules = [

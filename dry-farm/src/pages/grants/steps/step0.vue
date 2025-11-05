@@ -88,6 +88,7 @@
                   bg-color="white"
                   required
                   autocomplete="off"
+                  placeholder="手機或市話號碼"
                   :rules="phoneRules"
                 >
                   <template #label>
@@ -547,7 +548,18 @@ const idRules = [
 
 const phoneRules = [
   (v: string) => !!v || '請填寫連絡電話',
-  (v: string) => /^09\d{8}$/.test(v) || '手機號碼格式不正確'
+  (v: string) => {
+    // 手機號碼格式：09 開頭 + 8 碼數字
+    const mobilePattern = /^09\d{8}$/
+    // 室內電話格式：區碼(2-3碼) + 3-4碼 + 4碼，可有或無連字號
+    const landlinePattern = /^(\d{2,3}-?|\(\d{2,3}\))\d{3,4}-?\d{4}$/
+
+    if (mobilePattern.test(v) || landlinePattern.test(v)) {
+      return true
+    }
+
+    return '請輸入有效的手機號碼或室內電話'
+  }
 ];
 
 const disasterDescriptionRules = [

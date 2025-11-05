@@ -49,29 +49,16 @@
     </v-alert>
 
     <!-- Rejected status warning -->
-    <!-- <v-alert
+    <v-alert
       v-if="grantsStore.currentGrant?.status === 'rejected'"
-      type="warning"
-      class="mb-4"
-      prominent
-      border="start"
+      color="warning"
       variant="tonal"
+      density="compact"
+      icon="mdi-lock"
+      class="ma-0 pa-1"
     >
-      <v-row align="center">
-        <v-col class="grow">
-          <div class="text-h6 mb-2">
-            <v-icon class="mr-2">
-              mdi-archive-lock
-            </v-icon>
-            案件已不受理（唯讀模式）
-          </div>
-          <div class="text-body-2">
-            此案件已標記為「不受理」狀態，所有資料變更將不會同步至後端資料庫。
-            您可以查看歷史資料，但無法進行任何修改。
-          </div>
-        </v-col>
-      </v-row>
-    </v-alert> -->
+      <span class="font-weight-medium">案件不受理（唯讀模式）</span>
+    </v-alert>
 
     <!-- Main content -->
     <v-row justify="center">
@@ -1012,10 +999,22 @@ const disabledSteps = ref<Set<number>>(new Set())
 // 🆕 判斷當前步驟是否為唯讀模式
 const isCurrentStepReadonly = computed(() => lockedSteps.value.has(currentStep.value))
 
-// 🆕 判斷 step6 是否可以顯示導航按鈕（僅當狀態為 approved 時顯示）
+// 🆕 判斷是否可以顯示導航按鈕
 const canShowStep6Buttons = computed(() => {
-  if (currentStep.value !== 6) return true // 非 step6 不受此限制
-  return grantsStore.currentGrant?.status === 'approved'
+  const currentStatus = grantsStore.currentGrant?.status
+
+  // submitted 狀態：所有步驟都隱藏導航按鈕（唯讀模式）
+  if (currentStatus === 'submitted') {
+    return false
+  }
+
+  // step6 特殊邏輯：僅當狀態為 approved 時顯示
+  if (currentStep.value === 6) {
+    return currentStatus === 'approved'
+  }
+
+  // 其他步驟：正常顯示
+  return true
 })
 
 // 🆕 鎖定指定步驟的函數
@@ -1293,7 +1292,7 @@ const goToNextStep = () => {
     return
   }
 
-  if (currentStep.value < steps.length) {
+  if (currentStep.value <= steps.length) {
     // 🆕 統一事件驅動：使用映射表統一處理所有步驟
     const stepComponent = stepRefs[currentStep.value]
     if (stepComponent) {
@@ -1552,13 +1551,24 @@ const executeDesignChange = async (comment?: string) => {
       grantsStore.currentGrant.active_version.created_at = result.created_at
     }
 
-    // 5. 觸發版本比較資料的重新載入
+    // 5. 更新案件狀態為 draft（變更設計後需重新審核）
+    console.log('🔄 Updating grant status to draft after design change')
+    await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'draft')
+    console.log('✅ Grant status updated to draft')
+
+    // 6. 清除步驟鎖定狀態（draft 狀態下所有步驟都可編輯）
+    console.log('🔓 Clearing step locks for draft status')
+    lockedSteps.value.clear()
+    disabledSteps.value.clear()
+    console.log('✅ Step locks cleared')
+
+    // 7. 觸發版本比較資料的重新載入
     await nextTick()
 
-    // 6. 統一成功回饋
+    // 8. 統一成功回饋
     showNotificationMessage(
       '變更設計成功',
-      `新版本 v${result.version} 建立完成`,
+      `新版本 v${result.version} 建立完成，案件狀態已更新`,
       'success'
     )
 
@@ -1708,6 +1718,22 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
           }
         } else {
           console.error('❌ [edit.vue] No case_number available for step 7 status update')
+        }
+      }
+
+      // 🆕 3️⃣-4 當完成 step 8 時，更新狀態為 submitted
+      if (step === 8) {
+        if (grantsStore.currentGrant?.case_number) {
+          try {
+            console.log('🔄 [edit.vue] Step 8 (完成) updating status to submitted...')
+            await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'submitted')
+            console.log('✅ [edit.vue] Status updated to submitted')
+          } catch (error) {
+            console.error('❌ [edit.vue] Failed to update status:', error)
+            // 即使狀態更新失敗，仍允許繼續流程
+          }
+        } else {
+          console.error('❌ [edit.vue] No case_number available for step 8 status update')
         }
       }
 
@@ -2081,8 +2107,9 @@ onMounted(async () => {
       lockSteps([1, 2, 3, 4, 5])
       console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3, 4, 5 (case status: under_review)')
     } else if (currentStatus === 'submitted') {
-      // submitted 狀態：step6 完成申報後，準備進入 step7 驗收
-      console.log('🔒 [edit.vue onMounted] Case status: submitted (ready for inspection)')
+      // submitted 狀態：step8 完成後，所有步驟都鎖定為唯讀
+      lockSteps([1, 2, 3, 4, 5, 6, 7, 8])
+      console.log('🔒 [edit.vue onMounted] Case status: submitted - Locked all steps 1-8 (readonly)')
     } else if (currentStatus === 'withdrawn') {
       // withdrawn 狀態：step7 存檔後，待改善後複驗
       console.log('🔒 [edit.vue onMounted] Case status: withdrawn (needs improvement and reinspection)')

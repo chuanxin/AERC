@@ -270,14 +270,15 @@
                       <!-- 一般案件：顯示編輯和刪除按鈕 -->
                       <template v-else>
                         <v-btn
-                          icon="mdi-pencil"
+                          :icon="item.status === 'submitted' ? 'mdi-eye' : 'mdi-pencil'"
                           size="small"
                           color="#3ea0a3"
                           variant="text"
-                          title="編輯案件"
+                          :title="item.status === 'submitted' ? '查看案件（唯讀）' : '編輯案件'"
                           @click="editItem(item)"
                         />
                         <v-btn
+                          v-if="item.status !== 'submitted'"
                           icon="mdi-delete"
                           size="small"
                           color="error"
