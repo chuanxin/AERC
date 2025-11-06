@@ -17,7 +17,18 @@ import path from 'path'
 export default defineConfig(({ mode }) => {
   // Load environment variables from parent directory (.env)
   // This allows both development (PowerShell script) and production (direct build) to work
-  const envFromFile = loadEnv(mode, path.resolve(__dirname, '..'), '')
+  // Use import.meta.url instead of __dirname for ES modules
+  const configDir = path.dirname(fileURLToPath(import.meta.url))
+
+  // Auto-detect .env location for different deployment structures
+  // Development: AERC/dry-farm -> up 1 level
+  // Production:  AERC-Deploy/app/dry-farm -> up 2 levels
+  let envDir = path.resolve(configDir, '..')
+  if (!fs.existsSync(path.join(envDir, '.env'))) {
+    envDir = path.resolve(configDir, '..', '..')
+  }
+
+  const envFromFile = loadEnv(mode, envDir, '')
 
   // Priority: process.env (PowerShell) > .env file > fail with error
   const getRequiredEnv = (key: string): string => {
