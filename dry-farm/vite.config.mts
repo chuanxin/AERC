@@ -136,21 +136,20 @@ export default defineConfig({
         }
       },
     },
-    // hmr: {
-    //   overlay: false,
-    // },
-    hmr: false,
-    // watch : {
-    //   usePolling: true,
-    //   interval: 1000,
-    // },
-    watch: {
-      usePolling: false
+    hmr: {
+      overlay: false,
     },
-    // allowedHosts restriction removed for development
-    // allowedHosts: [
-    //   'cxin.mynetgear.com',
-    // ]
+    // hmr: false,
+    watch : {
+      usePolling: true,
+      interval: 1000,
+    },
+    // watch: {
+    //   usePolling: false
+    // },
+    allowedHosts: [
+      'cxin.mynetgear.com',
+    ]
   },
   css: {
     preprocessorOptions: {
@@ -160,6 +159,7 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: '../release/html', // 輸出到 nginx 目錄
     chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
@@ -172,7 +172,7 @@ export default defineConfig({
   optimizeDeps: {
     include: ['lodash-es'] // 預構建 lodash-es
   },
-  esbuild: {
-    drop: ['console', 'debugger'], // 移除 console 和 debugger 語句
-  },
+  // esbuild: {
+  //   drop: ['console', 'debugger'], // 移除 console 和 debugger 語句
+  // },
 })

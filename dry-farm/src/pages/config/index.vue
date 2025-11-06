@@ -1,7 +1,16 @@
 <template>
-  <v-container>
-    <h1>系統管理</h1>
-    <p>{{ msg }}</p>
+  <v-container
+    fluid
+    class="grants-container px-6 pb-0 pt-0"
+    style="background-color: white"
+  >
+    <v-empty-state
+      headline="No Messages Yet"
+      text="You haven't received any messages yet. When you do, they'll appear here."
+      title="Check back later."
+      min-height="400"
+      @click:action="onClickAction"
+    />
   </v-container>
 </template>
 
@@ -18,7 +27,12 @@ const getMessage = async () => {
   }
 }
 
+function onClickAction () {
+    alert('You clicked the action button')
+  }
+
 onMounted(() => {
   getMessage()
 })
 </script>
+
