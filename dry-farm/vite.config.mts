@@ -10,7 +10,9 @@ import fs from 'fs';
 
 // Utilities
 import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
+import path from 'path'
 import path from 'path'
 
 // https://vitejs.dev/config/
@@ -137,10 +139,75 @@ export default defineConfig(({ mode }) => {
 
           // 可執行檔案
           '**/.bin/**',
+          // 可執行檔案
+          '**/.bin/**',
 
           // 防止向上遍歷
           '../../../**',
+          // 防止向上遍歷
+          '../../../**',
 
+          // 專案特定
+          '../../runtime/.env*',
+          '../../app/api/**',
+          '../../db/**',
+        ]
+      },
+      proxy: {
+        [API_BASE_URL]: {
+          target: API_TARGET,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(new RegExp(`^${API_BASE_URL}/${API_VERSION}`), ''),
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              console.log('proxy error', err)
+            })
+            proxy.on('proxyReq', (proxyReq, req) => {
+              console.log('Sending Request to the Target:', req.method, req.url)
+            })
+            proxy.on('proxyRes', (proxyRes, req) => {
+              console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
+            })
+          }
+        },
+      },
+      hmr: {
+        overlay: false,
+      },
+      // hmr: false,
+      watch : {
+        usePolling: true,
+        interval: 1000,
+      },
+      // watch: {
+      //   usePolling: false
+      // },
+    },
+    css: {
+      preprocessorOptions: {
+        sass: {
+          // api: 'modern-compiler',
+        },
+      },
+    },
+    build: {
+      outDir: '../../release/html', // 輸出到 nginx 目錄
+      chunkSizeWarningLimit: 1600,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vuetify: ['vuetify'],
+          },
+        },
+      },
+    },
+    optimizeDeps: {
+      include: ['lodash-es'] // 預構建 lodash-es
+    },
+    // esbuild: {
+    //   drop: ['console', 'debugger'], // 移除 console 和 debugger 語句
+    // },
+  }
           // 專案特定
           '../../runtime/.env*',
           '../../app/api/**',
