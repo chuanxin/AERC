@@ -9,166 +9,186 @@ import Vuetify, { transformAssetUrls } from 'vite-plugin-vuetify'
 import fs from 'fs';
 
 // Utilities
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
-
-// Environment variables
-const API_BASE_URL = process.env.FAST_API_BASE_URL || ''
-const API_TARGET = process.env.FAST_API_TARGET || ''
-const API_VERSION = process.env.FAST_API_VERSION || ''
+import path from 'path'
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  publicDir: 'public', // 確保 public 資料夾包含 .well-known/acme-challenge
-  plugins: [
-    VueRouter({
-      dts: 'src/typed-router.d.ts',
-    }),
-    Layouts(),
-    AutoImport({
-      imports: [
-        'vue',
-        {
-          'vue-router/auto': ['useRoute', 'useRouter'],
-        }
-      ],
-      dts: 'src/auto-imports.d.ts',
-      eslintrc: {
-        enabled: true,
-      },
-      vueTemplate: true,
-    }),
-    Components({
-      dts: 'src/components.d.ts',
-    }),
-    Vue({
-      template: { transformAssetUrls },
-    }),
-    // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
-    Vuetify({
-      autoImport: true,
-      styles: {
-        configFile: 'src/styles/settings.scss',
-      },
-    }),
-    Fonts({
-      google: {
-        families: [ {
-          name: 'Roboto',
-          styles: 'wght@100;300;400;500;700;900',
-        }],
-        display: 'swap'
-      },
-    }),
-  ],
-  define: {
-    'process.env': {},
-    'import.meta.env.FAST_API_BASE_URL': JSON.stringify(API_BASE_URL),
-    'import.meta.env.FAST_API_TARGET': JSON.stringify(API_TARGET),
-    'import.meta.env.FAST_API_VERSION': JSON.stringify(API_VERSION),
-  },
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-      // 'ol': fileURLToPath(new URL('./node_modules/ol', import.meta.url)),
-    },
-    extensions: [
-      '.js',
-      '.json',
-      '.jsx',
-      '.mjs',
-      '.ts',
-      '.tsx',
-      '.vue',
+export default defineConfig(({ mode }) => {
+  // Load environment variables from parent directory (.env)
+  // This allows both development (PowerShell script) and production (direct build) to work
+  const envFromFile = loadEnv(mode, path.resolve(__dirname, '..'), '')
+
+  // Priority: process.env (PowerShell) > .env file > fail with error
+  const getRequiredEnv = (key: string): string => {
+    const value = process.env[key] || envFromFile[key]
+    if (!value) {
+      throw new Error(
+        `❌ Required environment variable "${key}" is not set!\n` +
+        `   Please ensure either:\n` +
+        `   1. Run the PowerShell script to set process.env, OR\n` +
+        `   2. Create .env file in project root with ${key}=<value>`
+      )
+    }
+    return value
+  }
+
+  const API_BASE_URL = getRequiredEnv('FAST_API_BASE_URL')
+  const API_TARGET = getRequiredEnv('FAST_API_TARGET')
+  const API_VERSION = getRequiredEnv('FAST_API_VERSION')
+
+  return {
+    publicDir: 'public', // 確保 public 資料夾包含 .well-known/acme-challenge
+    plugins: [
+      VueRouter({
+        dts: 'src/typed-router.d.ts',
+      }),
+      Layouts(),
+      AutoImport({
+        imports: [
+          'vue',
+          {
+            'vue-router/auto': ['useRoute', 'useRouter'],
+          }
+        ],
+        dts: 'src/auto-imports.d.ts',
+        eslintrc: {
+          enabled: true,
+        },
+        vueTemplate: true,
+      }),
+      Components({
+        dts: 'src/components.d.ts',
+      }),
+      Vue({
+        template: { transformAssetUrls },
+      }),
+      // https://github.com/vuetifyjs/vuetify-loader/tree/master/packages/vite-plugin#readme
+      Vuetify({
+        autoImport: true,
+        styles: {
+          configFile: 'src/styles/settings.scss',
+        },
+      }),
+      Fonts({
+        google: {
+          families: [ {
+            name: 'Roboto',
+            styles: 'wght@100;300;400;500;700;900',
+          }],
+          display: 'swap'
+        },
+      }),
     ],
-  },
-  server: {
-    port: 3000,
-    host: '0.0.0.0',
-    https: {
-      key: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/privkey.pem'),
-      cert: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/fullchain.pem'),
+    define: {
+      'process.env': {},
+      'import.meta.env.FAST_API_BASE_URL': JSON.stringify(API_BASE_URL),
+      'import.meta.env.FAST_API_TARGET': JSON.stringify(API_TARGET),
+      'import.meta.env.FAST_API_VERSION': JSON.stringify(API_VERSION),
     },
-    fs: {
-      allow: [
-        // Allow serving files from the project root
-        '.',
-        // Allow serving files from the runtime node_modules directory
-        '../../runtime/node_modules',
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+        // 'ol': fileURLToPath(new URL('./node_modules/ol', import.meta.url)),
+      },
+      extensions: [
+        '.js',
+        '.json',
+        '.jsx',
+        '.mjs',
+        '.ts',
+        '.tsx',
+        '.vue',
       ],
-      deny: [
-        // 環境和配置檔案
-        '**/.env*',
-        '**/secrets/**',
-        '**/credentials/**',
-
-        // 可執行檔案
-        '**/.bin/**',
-
-        // 防止向上遍歷
-        '../../../**',
-
-        // 專案特定
-        '../../runtime/.env*',
-        '../../app/api/**',
-        '../../db/**',
-      ]
     },
-    proxy: {
-      [API_BASE_URL]: {
-        target: API_TARGET,
-        changeOrigin: true,
-        rewrite: (path) => path.replace(new RegExp(`^${API_BASE_URL}/${API_VERSION}`), ''),
-        configure: (proxy) => {
-          proxy.on('error', (err) => {
-            console.log('proxy error', err)
-          })
-          proxy.on('proxyReq', (proxyReq, req) => {
-            console.log('Sending Request to the Target:', req.method, req.url)
-          })
-          proxy.on('proxyRes', (proxyRes, req) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
-          })
-        }
+    server: {
+      port: 3000,
+      host: '0.0.0.0',
+      allowedHosts: [
+        'cxin.mynetgear.com',
+      ],
+      https: {
+        key: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/privkey.pem'),
+        cert: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/fullchain.pem'),
       },
-    },
-    hmr: {
-      overlay: false,
-    },
-    // hmr: false,
-    watch : {
-      usePolling: true,
-      interval: 1000,
-    },
-    // watch: {
-    //   usePolling: false
-    // },
-    allowedHosts: [
-      'cxin.mynetgear.com',
-    ]
-  },
-  css: {
-    preprocessorOptions: {
-      sass: {
-        api: 'modern-compiler',
+      fs: {
+        allow: [
+          // Allow serving files from the project root
+          '.',
+          // Allow serving files from the runtime node_modules directory
+          '../../runtime/node_modules',
+        ],
+        deny: [
+          // 環境和配置檔案
+          '**/.env*',
+          '**/secrets/**',
+          '**/credentials/**',
+
+          // 可執行檔案
+          '**/.bin/**',
+
+          // 防止向上遍歷
+          '../../../**',
+
+          // 專案特定
+          '../../runtime/.env*',
+          '../../app/api/**',
+          '../../db/**',
+        ]
       },
+      proxy: {
+        [API_BASE_URL]: {
+          target: API_TARGET,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(new RegExp(`^${API_BASE_URL}/${API_VERSION}`), ''),
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              console.log('proxy error', err)
+            })
+            proxy.on('proxyReq', (proxyReq, req) => {
+              console.log('Sending Request to the Target:', req.method, req.url)
+            })
+            proxy.on('proxyRes', (proxyRes, req) => {
+              console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
+            })
+          }
+        },
+      },
+      hmr: {
+        overlay: false,
+      },
+      // hmr: false,
+      watch : {
+        usePolling: true,
+        interval: 1000,
+      },
+      // watch: {
+      //   usePolling: false
+      // },
     },
-  },
-  build: {
-    outDir: '../release/html', // 輸出到 nginx 目錄
-    chunkSizeWarningLimit: 1600,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vuetify: ['vuetify'],
+    css: {
+      preprocessorOptions: {
+        sass: {
+          // api: 'modern-compiler',
         },
       },
     },
-  },
-  optimizeDeps: {
-    include: ['lodash-es'] // 預構建 lodash-es
-  },
-  // esbuild: {
-  //   drop: ['console', 'debugger'], // 移除 console 和 debugger 語句
-  // },
+    build: {
+      outDir: '../../release/html', // 輸出到 nginx 目錄
+      chunkSizeWarningLimit: 1600,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vuetify: ['vuetify'],
+          },
+        },
+      },
+    },
+    optimizeDeps: {
+      include: ['lodash-es'] // 預構建 lodash-es
+    },
+    // esbuild: {
+    //   drop: ['console', 'debugger'], // 移除 console 和 debugger 語句
+    // },
+  }
 })
