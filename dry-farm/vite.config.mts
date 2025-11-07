@@ -48,6 +48,16 @@ export default defineConfig(({ mode }) => {
   const API_TARGET = getRequiredEnv('FAST_API_TARGET')
   const API_VERSION = getRequiredEnv('FAST_API_VERSION')
 
+  // Optional HTTPS configuration - only enable if certificates exist
+  const certKeyPath = 'certbot/conf/live/cxin.mynetgear.com/privkey.pem'
+  const certPath = 'certbot/conf/live/cxin.mynetgear.com/fullchain.pem'
+  const httpsConfig = fs.existsSync(certKeyPath) && fs.existsSync(certPath)
+    ? {
+        key: fs.readFileSync(certKeyPath),
+        cert: fs.readFileSync(certPath),
+      }
+    : undefined
+
   return {
     publicDir: 'public', // 確保 public 資料夾包含 .well-known/acme-challenge
     plugins: [
@@ -118,10 +128,7 @@ export default defineConfig(({ mode }) => {
       allowedHosts: [
         'cxin.mynetgear.com',
       ],
-      https: {
-        key: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/privkey.pem'),
-        cert: fs.readFileSync('certbot/conf/live/cxin.mynetgear.com/fullchain.pem'),
-      },
+      ...(httpsConfig && { https: httpsConfig }),
       fs: {
         allow: [
           // Allow serving files from the project root
