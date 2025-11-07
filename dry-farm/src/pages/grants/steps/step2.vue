@@ -2012,6 +2012,14 @@ const route = useRoute();
 const mapElement = ref(null);
 let map: Map | null = null;
 
+// 📦 GeoJSON Source Cache (Static File Strategy)
+// Current: Load 13MB land_parcels.geojson once, cache forever, filter in frontend
+// TODO: If migrating to dynamic API endpoint, consider:
+//   - Backend filtering by section (no need to cache full dataset)
+//   - Authentication headers and error retry logic
+//   - Different caching strategy (per-section cache or short TTL cache)
+let sharedGeoJSONSource: VectorSource | null = null;
+
 // 地圖初始化狀態管理
 const mapState = reactive({
   isInitialized: false,
@@ -4648,23 +4656,68 @@ const useSelectedFeature = () => {
   }
 };
 
-// Function to load GeoJSON file
+// 🗺️ Load GeoJSON File (Static File Strategy)
+// Current implementation: Load from public/land_parcels.geojson (13MB)
+// - First load: HTTP request + cache in sharedGeoJSONSource
+// - Subsequent loads: Reuse cached source (no HTTP request)
+// - Filtering: Frontend filters by section from cached full dataset
+//
+// TODO: If migrating to API endpoint (e.g., GET /api/land-parcels?section=XXX):
+//   1. Replace VectorSource({ url, format }) with fetch() + manual parsing
+//   2. Add authentication headers if needed
+//   3. Consider backend filtering to reduce payload size
+//   4. Update caching strategy (may not need to cache full dataset)
 const loadGeoJSONFile = () => {
-  // Path to the GeoJSON file in assets
-  const geoJSONFilePath = `../src/assets/GML/land_parcels.geojson`;
+  // Path to the GeoJSON file in public directory
+  const geoJSONFilePath = `/land_parcels.geojson`;
 
-  console.log('Attempting to load GeoJSON from:', geoJSONFilePath);
+  // ✅ First check if we already have a loaded source (cache hit)
+  if (sharedGeoJSONSource && sharedGeoJSONSource.getFeatures().length > 0) {
+    console.log('✅ Reusing cached GeoJSON (no download)');
+    const geoJSONSource = sharedGeoJSONSource;
+    const features = geoJSONSource.getFeatures();
+    // Process and display immediately (same logic as below)
+    processFeatures(geoJSONSource, features);
+    return;
+  }
 
-  // Create a vector source with GeoJSON format
+  // First time: create and load
+  console.log('⬇️ Loading GeoJSON from:', geoJSONFilePath);
+
   const geoJSONSource = new VectorSource({
     url: geoJSONFilePath,
     format: new GeoJSON()
   });
 
-  // Add success event listener
+  // Save for reuse
+  sharedGeoJSONSource = geoJSONSource;
+
+  // Add success event listener (only fires on first load)
   geoJSONSource.on('featuresloadend', function() {
     const features = geoJSONSource.getFeatures();
-    console.log(`GeoJSON loaded successfully with ${features.length} features`);
+    console.log(`✅ GeoJSON downloaded: ${features.length} features`);
+    processFeatures(geoJSONSource, features);
+  });
+
+  // ✅ CRITICAL: Create and add layer to trigger loading
+  const geoJSONLayer = new VectorLayer({
+    source: geoJSONSource,
+    style: new Style({
+      stroke: new Stroke({ color: 'rgba(0, 128, 255, 1.0)', width: 2 }),
+      fill: new Fill({ color: 'rgba(0, 128, 255, 0.2)' })
+    }),
+    zIndex: 10,
+  });
+
+  if (map) {
+    map.addLayer(geoJSONLayer);
+    console.log('🗺️ Layer added, loading will start...');
+  }
+};
+
+// Process and display GeoJSON features (shared logic)
+const processFeatures = (geoJSONSource: VectorSource, features: any[]) => {
+    console.log(`🗺️ Processing ${features.length} features`);
 
     // 🆕 即時查詢當前選中地段的 office 和 code，組合成 Section 過濾條件
     let filterSection: string | null = null;
@@ -4699,9 +4752,13 @@ const loadGeoJSONFile = () => {
       }
     }
 
-    // 🆕 清空原始 source 並重新加入過濾後的 features
-    geoJSONSource.clear();
-    geoJSONSource.addFeatures(filteredFeatures);
+    // ✅ Create a NEW source with filtered features (don't modify original cached source)
+    // KEY DESIGN: Never call sharedGeoJSONSource.clear() to preserve cache
+    // Instead: Create new VectorSource with filtered subset for current section
+    // TODO: If migrating to API with backend filtering, this step may become unnecessary
+    const filteredSource = new VectorSource({
+      features: filteredFeatures
+    });
 
     // Add properties to features if they don't have them
     filteredFeatures.forEach((feature, index) => {
@@ -4733,16 +4790,10 @@ const loadGeoJSONFile = () => {
     setTimeout(() => {
       findAndSelectFeatureByLandNumber();
     }, 100); // Small delay to ensure map is fully initialized
-  });
 
-  // Handle loading errors (commented out due to TypeScript issues with OpenLayers event types)
-  // geoJSONSource.on('loaderror', function(event) {
-  //   console.error('Error loading GeoJSON file:', event);
-  // });
-
-  // Create and add the vector layer
+  // Create and add the vector layer with FILTERED features
   const geoJSONLayer = new VectorLayer({
-    source: geoJSONSource,
+    source: filteredSource, // ✅ Use filtered source, not original
     style: new Style({
       stroke: new Stroke({
         color: 'rgba(0, 128, 255, 1.0)',
