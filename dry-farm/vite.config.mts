@@ -194,10 +194,53 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: '../../release/html', // 輸出到 nginx 目錄
       chunkSizeWarningLimit: 1600,
+      // Minification and tree-shaking
+      minify: 'esbuild',
+      target: 'esnext',
+      // Reduce CSS size
+      cssCodeSplit: true,
       rollupOptions: {
         output: {
-          manualChunks: {
-            vuetify: ['vuetify'],
+          manualChunks(id) {
+            // Vuetify UI framework
+            if (id.includes('vuetify')) {
+              return 'vuetify'
+            }
+
+            // OpenLayers GIS library (heavy dependency)
+            if (id.includes('node_modules/ol/')) {
+              return 'openlayers'
+            }
+
+            // FontAwesome icons (split by type to reduce initial load)
+            if (id.includes('@fortawesome/fontawesome-svg-core')) {
+              return 'fontawesome-core'
+            }
+            if (id.includes('@fortawesome/free-solid-svg-icons')) {
+              return 'fontawesome-solid'
+            }
+            if (id.includes('@fortawesome/free-regular-svg-icons')) {
+              return 'fontawesome-regular'
+            }
+            if (id.includes('@fortawesome/free-brands-svg-icons')) {
+              return 'fontawesome-brands'
+            }
+
+            // Vendor libraries (utilities)
+            if (id.includes('node_modules/lodash-es')) {
+              return 'lodash'
+            }
+            if (id.includes('node_modules/axios')) {
+              return 'axios'
+            }
+
+            // Vue ecosystem (already optimized by Vite, but ensure separation)
+            if (id.includes('node_modules/vue-router')) {
+              return 'vue-router'
+            }
+            if (id.includes('node_modules/pinia')) {
+              return 'pinia'
+            }
           },
         },
       },
@@ -205,8 +248,8 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: ['lodash-es'] // 預構建 lodash-es
     },
-    // esbuild: {
-    //   drop: ['console', 'debugger'], // 移除 console 和 debugger 語句
-    // },
+    esbuild: {
+      drop: mode === 'production' ? ['console', 'debugger'] : [], // 生產環境移除 console 和 debugger
+    },
   }
 })
