@@ -608,6 +608,12 @@
                   <v-select
                     v-model="localFormData.landTown"
                     :items="filteredTowns"
+                    item-title="displayTitle"
+                    item-value="value"
+                    :item-props="(item: any) => ({
+                      disabled: item.disabled,
+                      class: item.disabled ? 'text-grey' : ''
+                    })"
                     variant="outlined"
                     density="comfortable"
                     color="#3ea0a3"
@@ -618,6 +624,22 @@
                   >
                     <template #label>
                       鄉鎮市區
+                    </template>
+                    <template #item="{ props, item }">
+                      <v-list-item
+                        v-bind="props"
+                        :disabled="item.raw.disabled"
+                      >
+                        <template #title>
+                          <span>{{ item.raw.title }}</span>
+                          <span
+                            v-if="item.raw.disabled && item.raw.requiredType"
+                            class="text-caption text-grey ml-1"
+                          >
+                            (不屬於{{ item.raw.requiredType }}區)
+                          </span>
+                        </template>
+                      </v-list-item>
                     </template>
                   </v-select>
                 </v-col>
@@ -2717,64 +2739,64 @@ const otherLands = computed(() => {
 
 // 🆕 編輯模式下的縣市選項過濾
 const filteredCounties = computed(() => {
-  const allCounties = counties.value;
-
-  // 新增模式或沒有其他土地資料時，返回所有選項
-  if (!landManagement.isEditingMode || otherLands.value.length === 0) {
-    return allCounties;
-  }
-
-  // 編輯模式且有其他土地資料時，限制為其他土地的共同縣市
-  const otherCounties = otherLands.value.map(land => land.landCounty).filter(Boolean);
-
-  if (otherCounties.length === 0) {
-    return allCounties;
-  }
-
-  // 獲取第一筆土地的縣市作為基準
-  const requiredCounty = otherCounties[0];
-
-  // 檢查所有其他土地是否使用相同縣市
-  const allSameCounty = otherCounties.every(county => county === requiredCounty);
-
-  if (allSameCounty) {
-    // 只返回該縣市選項
-    return allCounties.filter(county => county.value === requiredCounty);
-  }
-
-  // 如果其他土地的縣市不一致，返回所有選項（理論上不應發生）
-  return allCounties;
+  // 客戶需求修改（2025-11-08）：
+  // 第二筆土地的縣市不做限制，只限制鄉鎮市區的原住民屬性
+  return counties.value;
 });
 
 // 🆕 編輯模式下的鄉鎮市區選項過濾
 const filteredTowns = computed(() => {
   const allTowns = towns.value;
 
-  // 新增模式或沒有其他土地資料時，返回所有選項
+  // 新增模式或沒有其他土地資料時，返回所有選項（都可選）
   if (!landManagement.isEditingMode || otherLands.value.length === 0) {
-    return allTowns;
+    return allTowns.map(town => ({
+      ...town,
+      displayTitle: town.title,
+      disabled: false
+    }));
   }
 
-  // 編輯模式且有其他土地資料時，限制為其他土地的共同鄉鎮市區
-  const otherTowns = otherLands.value.map(land => land.landTown).filter(Boolean);
+  // 客戶需求修改（2025-11-08）：
+  // 第二筆土地的鄉鎮市區必須與第一筆土地的 isAboriginalArea 特性相同
+  // UX 改進：顯示所有選項，但禁用不符合條件的選項
 
-  if (otherTowns.length === 0) {
-    return allTowns;
+  // 獲取第一筆土地的原住民區域特性
+  const firstLand = otherLands.value[0];
+  if (!firstLand) {
+    return allTowns.map(town => ({
+      ...town,
+      displayTitle: town.title,
+      disabled: false
+    }));
   }
 
-  // 獲取第一筆土地的鄉鎮市區作為基準
-  const requiredTown = otherTowns[0];
+  const requiredIsAboriginal = firstLand.isAboriginalArea;
 
-  // 檢查所有其他土地是否使用相同鄉鎮市區
-  const allSameTown = otherTowns.every(town => town === requiredTown);
+  // 返回所有選項，但標記不符合條件的為 disabled
+  return allTowns.map(town => {
+    // 使用 domicileStore.getTownById 獲取完整的 Town 資料（包含 is_indigenous）
+    const townData = domicileStore.getTownById(Number(town.value));
 
-  if (allSameTown) {
-    // 只返回該鄉鎮市區選項
-    return allTowns.filter(town => town.value === requiredTown);
-  }
+    if (!townData) {
+      return {
+        ...town,
+        displayTitle: town.title,
+        disabled: true
+      };
+    }
 
-  // 如果其他土地的鄉鎮市區不一致，返回所有選項（理論上不應發生）
-  return allTowns;
+    // 檢查該鄉鎮市區的原住民屬性是否與第一筆土地相同
+    const isIndigenous = townData.is_indigenous || townData.indigenous_type === '1';
+    const isDisabled = isIndigenous !== requiredIsAboriginal;
+
+    return {
+      ...town,
+      displayTitle: town.title,  // 顯示在選中狀態的文字（不含提示）
+      disabled: isDisabled,
+      requiredType: requiredIsAboriginal ? '原民' : '非原民'  // 用於提示文字
+    };
+  });
 });
 
 // 動態獲取地段選項 - 使用 NLSC API 原始格式，優化搜尋支援
