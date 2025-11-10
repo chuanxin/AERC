@@ -71,7 +71,15 @@
                 density="comfortable"
                 class="login-input mb-2"
                 hide-details
-              />
+              >
+                <template #append-inner>
+                  <v-icon
+                    :icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                    class="password-toggle-icon"
+                    @click="showPassword = !showPassword"
+                  />
+                </template>
+              </v-text-field>
 
               <v-text-field
                 v-model="userCaptcha"
@@ -166,7 +174,15 @@
                   density="comfortable"
                   class="login-input mb-2"
                   hide-details
-                />
+                >
+                  <template #append-inner>
+                    <v-icon
+                      :icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                      class="password-toggle-icon"
+                      @click="showPassword = !showPassword"
+                    />
+                  </template>
+                </v-text-field>
 
                 <v-text-field
                   v-model="userCaptcha"
@@ -827,6 +843,19 @@
   /* Adjust input padding for captcha field */
   :deep(.captcha-input input) {
     padding-right: 8px !important;
+  }
+
+  /* ============================================== */
+  /* 密碼顯示/隱藏圖示樣式 */
+  /* ============================================== */
+  .password-toggle-icon {
+    cursor: pointer;
+    color: #666666 !important;
+    transition: color 0.2s ease;
+  }
+
+  .password-toggle-icon:hover {
+    color: #3ea0a3 !important;
   }
 </style>
 
