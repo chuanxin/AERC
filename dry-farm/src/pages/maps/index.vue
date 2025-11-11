@@ -2714,11 +2714,13 @@ const startMeasurement = (type: 'distance' | 'area') => {
 
   map.addInteraction(measureDraw.value);
 
-  // 禁用其他 interactions 以避免衝突
+  // 禁用其他 interactions 以避免衝突（保持 Draw 激活）
+  // 修復: 使用 instanceof 而不是 constructor.name（避免 minification 問題）
   const disabledInteractions: Array<{ interaction: any; name: string }> = [];
   map.getInteractions().forEach((interaction) => {
     const name = interaction.constructor.name;
-    if (name !== 'Draw') {
+    // 只禁用非 Draw interactions
+    if (!(interaction instanceof Draw)) {
       interaction.setActive(false);
       disabledInteractions.push({ interaction, name });
     }
@@ -3674,13 +3676,7 @@ onMounted(async () => {
     };
   });
 
-  // 確保 CSS 已正確載入
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'https://cdn.jsdelivr.net/npm/ol@v10.5.0/ol.css';
-  document.head.appendChild(link);
-
-  // 延遲一點點初始化地圖，確保 DOM 和 CSS 都準備好了
+  // 延遲一點點初始化地圖，確保 DOM 準備好了
   setTimeout(async () => {
     await initMap();
 
