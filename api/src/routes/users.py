@@ -1,14 +1,27 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from tortoise.exceptions import DoesNotExist
 
 import src.crud.users as crud
-from src.auth.users import validate_user
+from src.auth.users import validate_user, get_password_hash
 from src.schemas.token import Status
-from src.schemas.users import UserInSchema, UserOutSchema, UserInfoSchema
+from src.schemas.users import (
+    UserInSchema,
+    UserOutSchema,
+    UserInfoSchema,
+    EmailVerificationRequest,
+    EmailVerificationConfirm,
+    EmailVerificationResponse,
+    PasswordResetRequest,
+    PasswordResetConfirm,
+    PasswordResetResponse,
+)
+from src.database.models import Users, AuthTokenType
+from src.services.email_service import EmailService
 
 from src.auth.jwthandler import (
     create_access_token,
@@ -110,3 +123,224 @@ async def delete_user(
     user_id: int, current_user: UserOutSchema = Depends(get_current_user)
 ) -> Status:
     return await crud.delete_user(user_id, current_user)
+
+
+# ============================================
+# Email 驗證相關端點
+# ============================================
+
+@router.post(
+    "/send-verification-email",
+    response_model=EmailVerificationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="發送 Email 驗證信",
+    description="向指定的電子郵件地址發送驗證信"
+)
+async def send_verification_email(
+    request: Request,
+    payload: EmailVerificationRequest
+):
+    """
+    發送 Email 驗證信
+
+    - 檢查 Email 是否已註冊
+    - 如果已驗證，返回提示
+    - 如果未驗證，發送驗證信
+    """
+    try:
+        # 查找用戶
+        user = await Users.get(email=payload.email)
+
+        # 檢查是否已驗證
+        if user.email_verified:
+            return EmailVerificationResponse(
+                message="此電子郵件已完成驗證",
+                success=True,
+                email=user.email
+            )
+
+        # 發送驗證信
+        email_service = EmailService()
+        success = await email_service.send_verification_email(
+            user=user,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent")
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="驗證信發送失敗，請稍後再試"
+            )
+
+        return EmailVerificationResponse(
+            message="驗證信已發送至您的電子郵件",
+            success=True,
+            email=user.email
+        )
+
+    except DoesNotExist:
+        # 安全考量：即使 Email 不存在也返回成功訊息（避免帳號探測）
+        return EmailVerificationResponse(
+            message="如果該電子郵件已註冊，您將收到驗證信",
+            success=True
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"系統錯誤：{str(e)}"
+        )
+
+
+@router.post(
+    "/verify-email",
+    response_model=EmailVerificationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="驗證 Email",
+    description="使用 Token 驗證電子郵件地址"
+)
+async def verify_email(payload: EmailVerificationConfirm):
+    """
+    驗證 Email
+
+    - 驗證 Token 有效性
+    - 標記用戶 Email 為已驗證
+    - 返回驗證結果
+    """
+    try:
+        email_service = EmailService()
+
+        # 驗證 Token
+        user = await email_service.verify_token(
+            token=payload.token,
+            token_type=AuthTokenType.EMAIL_VERIFICATION
+        )
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="驗證連結無效或已過期，請重新申請驗證信"
+            )
+
+        # 標記 Email 為已驗證
+        user.email_verified = True
+        await user.save()
+
+        return EmailVerificationResponse(
+            message="電子郵件驗證成功",
+            success=True,
+            email=user.email
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"系統錯誤：{str(e)}"
+        )
+
+
+# ============================================
+# 密碼重設相關端點
+# ============================================
+
+@router.post(
+    "/request-password-reset",
+    response_model=PasswordResetResponse,
+    status_code=status.HTTP_200_OK,
+    summary="請求密碼重設",
+    description="發送密碼重設信到指定的電子郵件"
+)
+async def request_password_reset(
+    request: Request,
+    payload: PasswordResetRequest
+):
+    """
+    請求密碼重設
+
+    - 檢查 Email 是否已註冊
+    - 如果已註冊，發送密碼重設信
+    """
+    try:
+        # 查找用戶
+        user = await Users.get(email=payload.email, is_active=True)
+
+        # 發送密碼重設信
+        email_service = EmailService()
+        success = await email_service.send_password_reset_email(
+            user=user,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent")
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="密碼重設信發送失敗，請稍後再試"
+            )
+
+        return PasswordResetResponse(
+            message="密碼重設信已發送至您的電子郵件",
+            success=True
+        )
+
+    except DoesNotExist:
+        # 安全考量：即使 Email 不存在也返回成功訊息（避免帳號探測）
+        return PasswordResetResponse(
+            message="如果該電子郵件已註冊，您將收到密碼重設信",
+            success=True
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"系統錯誤：{str(e)}"
+        )
+
+
+@router.post(
+    "/reset-password",
+    response_model=PasswordResetResponse,
+    status_code=status.HTTP_200_OK,
+    summary="重設密碼",
+    description="使用 Token 重設密碼"
+)
+async def reset_password(payload: PasswordResetConfirm):
+    """
+    重設密碼
+
+    - 驗證 Token 有效性
+    - 更新用戶密碼
+    - 返回重設結果
+    """
+    try:
+        email_service = EmailService()
+
+        # 驗證 Token
+        user = await email_service.verify_token(
+            token=payload.token,
+            token_type=AuthTokenType.PASSWORD_RESET
+        )
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="重設連結無效或已過期，請重新申請密碼重設"
+            )
+
+        # 更新密碼
+        user.password = get_password_hash(payload.new_password)
+        await user.save()
+
+        return PasswordResetResponse(
+            message="密碼重設成功，請使用新密碼登入",
+            success=True
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"系統錯誤：{str(e)}"
+        )
