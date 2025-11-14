@@ -143,33 +143,93 @@
                 </v-text-field>
 
                 <!-- Password Requirements -->
-                <div class="password-requirements mb-4">
-                  <p class="text-caption mb-1">
-                    密碼要求：
-                  </p>
-                  <ul class="text-caption">
-                    <li :class="{ 'requirement-met': passwordRequirements.length }">
-                      至少 8 個字元
-                    </li>
-                    <li :class="{ 'requirement-met': passwordRequirements.characterTypesValid }">
-                      以下 4 項至少符合 3 項 (目前符合 {{ passwordRequirements.characterTypesMet }}/4)
-                    </li>
-                  </ul>
-                  <ul class="text-caption ml-4">
-                    <li :class="{ 'requirement-met': passwordRequirements.number }">
-                      包含數字
-                    </li>
-                    <li :class="{ 'requirement-met': passwordRequirements.uppercase }">
-                      包含英文大寫
-                    </li>
-                    <li :class="{ 'requirement-met': passwordRequirements.lowercase }">
-                      包含英文小寫
-                    </li>
-                    <li :class="{ 'requirement-met': passwordRequirements.special }">
-                      包含特殊符號 (!@#$%^&* 等)
-                    </li>
-                  </ul>
-                </div>
+                <v-alert
+                  :type="isPasswordValid ? 'success' : 'info'"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-4"
+                >
+                  <div class="text-caption">
+                    <div class="font-weight-medium mb-2">密碼要求：</div>
+                    <v-list density="compact" class="pa-0 bg-transparent">
+                      <v-list-item class="px-0 py-1 min-h-0">
+                        <template #prepend>
+                          <v-icon
+                            :icon="passwordRequirements.length ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                            :color="passwordRequirements.length ? 'success' : 'grey'"
+                            size="small"
+                            class="mr-2"
+                          />
+                        </template>
+                        <v-list-item-title class="text-caption">至少 8 個字元</v-list-item-title>
+                      </v-list-item>
+
+                      <v-list-item class="px-0 py-1 min-h-0">
+                        <template #prepend>
+                          <v-icon
+                            :icon="passwordRequirements.characterTypesValid ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                            :color="passwordRequirements.characterTypesValid ? 'success' : 'grey'"
+                            size="small"
+                            class="mr-2"
+                          />
+                        </template>
+                        <v-list-item-title class="text-caption">
+                          以下 4 項至少符合 3 項 (目前符合 {{ passwordRequirements.characterTypesMet }}/4)
+                        </v-list-item-title>
+                      </v-list-item>
+
+                      <v-list density="compact" class="pa-0 ml-6 bg-transparent">
+                        <v-list-item class="px-0 py-1 min-h-0">
+                          <template #prepend>
+                            <v-icon
+                              :icon="passwordRequirements.number ? 'mdi-check' : 'mdi-minus'"
+                              :color="passwordRequirements.number ? 'success' : 'grey'"
+                              size="x-small"
+                              class="mr-2"
+                            />
+                          </template>
+                          <v-list-item-title class="text-caption">包含數字</v-list-item-title>
+                        </v-list-item>
+
+                        <v-list-item class="px-0 py-1 min-h-0">
+                          <template #prepend>
+                            <v-icon
+                              :icon="passwordRequirements.uppercase ? 'mdi-check' : 'mdi-minus'"
+                              :color="passwordRequirements.uppercase ? 'success' : 'grey'"
+                              size="x-small"
+                              class="mr-2"
+                            />
+                          </template>
+                          <v-list-item-title class="text-caption">包含英文大寫</v-list-item-title>
+                        </v-list-item>
+
+                        <v-list-item class="px-0 py-1 min-h-0">
+                          <template #prepend>
+                            <v-icon
+                              :icon="passwordRequirements.lowercase ? 'mdi-check' : 'mdi-minus'"
+                              :color="passwordRequirements.lowercase ? 'success' : 'grey'"
+                              size="x-small"
+                              class="mr-2"
+                            />
+                          </template>
+                          <v-list-item-title class="text-caption">包含英文小寫</v-list-item-title>
+                        </v-list-item>
+
+                        <v-list-item class="px-0 py-1 min-h-0">
+                          <template #prepend>
+                            <v-icon
+                              :icon="passwordRequirements.special ? 'mdi-check' : 'mdi-minus'"
+                              :color="passwordRequirements.special ? 'success' : 'grey'"
+                              size="x-small"
+                              class="mr-2"
+                            />
+                          </template>
+                          <v-list-item-title class="text-caption">包含特殊符號 (!@#$%^&* 等)</v-list-item-title>
+                        </v-list-item>
+                      </v-list>
+                    </v-list>
+                  </div>
+                </v-alert>
 
                 <v-btn
                   type="submit"
@@ -193,26 +253,32 @@
             </div>
 
             <!-- Success Message -->
-            <div
-              v-else-if="successMessage"
-              class="text-center"
-            >
-              <v-icon
-                icon="mdi-check-circle"
-                size="64"
-                color="success"
-                class="mb-4"
-              />
-              <h2 class="login-title mb-4">
-                {{ successTitle }}
-              </h2>
-              <p class="text-body-1 mb-6 subtitle-text">
-                {{ successMessage }}
-              </p>
+            <div v-else-if="successMessage">
+              <v-alert
+                type="success"
+                variant="tonal"
+                prominent
+                class="mb-6"
+              >
+                <template #prepend>
+                  <v-icon
+                    icon="mdi-check-circle"
+                    size="x-large"
+                  />
+                </template>
+                <v-alert-title class="text-h6 mb-2">
+                  {{ successTitle }}
+                </v-alert-title>
+                <div class="text-body-2">
+                  {{ successMessage }}
+                </div>
+              </v-alert>
+
               <v-btn
                 color="primary"
                 size="large"
                 class="login-button"
+                block
                 @click="router.push('/login')"
               >
                 前往登入
@@ -338,33 +404,93 @@
                   </v-text-field>
 
                   <!-- Password Requirements -->
-                  <div class="password-requirements mb-4">
-                    <p class="text-caption mb-1">
-                      密碼要求：
-                    </p>
-                    <ul class="text-caption">
-                      <li :class="{ 'requirement-met': passwordRequirements.length }">
-                        至少 8 個字元
-                      </li>
-                      <li :class="{ 'requirement-met': passwordRequirements.characterTypesValid }">
-                        以下 4 項至少符合 3 項 (目前符合 {{ passwordRequirements.characterTypesMet }}/4)
-                      </li>
-                    </ul>
-                    <ul class="text-caption ml-4">
-                      <li :class="{ 'requirement-met': passwordRequirements.number }">
-                        包含數字
-                      </li>
-                      <li :class="{ 'requirement-met': passwordRequirements.uppercase }">
-                        包含英文大寫
-                      </li>
-                      <li :class="{ 'requirement-met': passwordRequirements.lowercase }">
-                        包含英文小寫
-                      </li>
-                      <li :class="{ 'requirement-met': passwordRequirements.special }">
-                        包含特殊符號 (!@#$%^&* 等)
-                      </li>
-                    </ul>
-                  </div>
+                  <v-alert
+                    :type="isPasswordValid ? 'success' : 'info'"
+                    variant="tonal"
+                    density="compact"
+                    class="mb-4"
+                  >
+                    <div class="text-caption">
+                      <div class="font-weight-medium mb-2">密碼要求：</div>
+                      <v-list density="compact" class="pa-0 bg-transparent">
+                        <v-list-item class="px-0 py-1 min-h-0">
+                          <template #prepend>
+                            <v-icon
+                              :icon="passwordRequirements.length ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                              :color="passwordRequirements.length ? 'success' : 'grey'"
+                              size="small"
+                              class="mr-2"
+                            />
+                          </template>
+                          <v-list-item-title class="text-caption">至少 8 個字元</v-list-item-title>
+                        </v-list-item>
+
+                        <v-list-item class="px-0 py-1 min-h-0">
+                          <template #prepend>
+                            <v-icon
+                              :icon="passwordRequirements.characterTypesValid ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                              :color="passwordRequirements.characterTypesValid ? 'success' : 'grey'"
+                              size="small"
+                              class="mr-2"
+                            />
+                          </template>
+                          <v-list-item-title class="text-caption">
+                            以下 4 項至少符合 3 項 (目前符合 {{ passwordRequirements.characterTypesMet }}/4)
+                          </v-list-item-title>
+                        </v-list-item>
+
+                        <v-list density="compact" class="pa-0 ml-6 bg-transparent">
+                          <v-list-item class="px-0 py-1 min-h-0">
+                            <template #prepend>
+                              <v-icon
+                                :icon="passwordRequirements.number ? 'mdi-check' : 'mdi-minus'"
+                                :color="passwordRequirements.number ? 'success' : 'grey'"
+                                size="x-small"
+                                class="mr-2"
+                              />
+                            </template>
+                            <v-list-item-title class="text-caption">包含數字</v-list-item-title>
+                          </v-list-item>
+
+                          <v-list-item class="px-0 py-1 min-h-0">
+                            <template #prepend>
+                              <v-icon
+                                :icon="passwordRequirements.uppercase ? 'mdi-check' : 'mdi-minus'"
+                                :color="passwordRequirements.uppercase ? 'success' : 'grey'"
+                                size="x-small"
+                                class="mr-2"
+                              />
+                            </template>
+                            <v-list-item-title class="text-caption">包含英文大寫</v-list-item-title>
+                          </v-list-item>
+
+                          <v-list-item class="px-0 py-1 min-h-0">
+                            <template #prepend>
+                              <v-icon
+                                :icon="passwordRequirements.lowercase ? 'mdi-check' : 'mdi-minus'"
+                                :color="passwordRequirements.lowercase ? 'success' : 'grey'"
+                                size="x-small"
+                                class="mr-2"
+                              />
+                            </template>
+                            <v-list-item-title class="text-caption">包含英文小寫</v-list-item-title>
+                          </v-list-item>
+
+                          <v-list-item class="px-0 py-1 min-h-0">
+                            <template #prepend>
+                              <v-icon
+                                :icon="passwordRequirements.special ? 'mdi-check' : 'mdi-minus'"
+                                :color="passwordRequirements.special ? 'success' : 'grey'"
+                                size="x-small"
+                                class="mr-2"
+                              />
+                            </template>
+                            <v-list-item-title class="text-caption">包含特殊符號 (!@#$%^&* 等)</v-list-item-title>
+                          </v-list-item>
+                        </v-list>
+                      </v-list>
+                    </div>
+                  </v-alert>
 
                   <v-btn
                     type="submit"
@@ -388,26 +514,32 @@
               </div>
 
               <!-- Success Message -->
-              <div
-                v-else-if="successMessage"
-                class="text-center"
-              >
-                <v-icon
-                  icon="mdi-check-circle"
-                  size="64"
-                  color="success"
-                  class="mb-4"
-                />
-                <h2 class="login-title mb-4">
-                  {{ successTitle }}
-                </h2>
-                <p class="text-body-1 mb-6 subtitle-text">
-                  {{ successMessage }}
-                </p>
+              <div v-else-if="successMessage">
+                <v-alert
+                  type="success"
+                  variant="tonal"
+                  prominent
+                  class="mb-6"
+                >
+                  <template #prepend>
+                    <v-icon
+                      icon="mdi-check-circle"
+                      size="x-large"
+                    />
+                  </template>
+                  <v-alert-title class="text-h6 mb-2">
+                    {{ successTitle }}
+                  </v-alert-title>
+                  <div class="text-body-2">
+                    {{ successMessage }}
+                  </div>
+                </v-alert>
+
                 <v-btn
                   color="primary"
                   size="large"
                   class="login-button"
+                  block
                   @click="router.push('/login')"
                 >
                   前往登入
@@ -875,51 +1007,6 @@ onMounted(async () => {
 
 .password-toggle-icon:hover {
   color: #3ea0a3 !important;
-}
-
-/* Password Requirements */
-.password-requirements {
-  padding: 12px 16px;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  border-left: 3px solid #3ea0a3;
-}
-
-.password-requirements p {
-  font-family: 'HunInn', sans-serif !important;
-  color: #333333;
-  font-weight: 500;
-}
-
-.password-requirements ul {
-  list-style: none;
-  padding-left: 0;
-  margin: 0;
-}
-
-.password-requirements li {
-  font-family: 'HunInn', sans-serif !important;
-  color: #999999;
-  padding: 2px 0;
-  position: relative;
-  padding-left: 20px;
-}
-
-.password-requirements li::before {
-  content: '○';
-  position: absolute;
-  left: 0;
-  color: #999999;
-}
-
-.password-requirements li.requirement-met {
-  color: #4caf50;
-}
-
-.password-requirements li.requirement-met::before {
-  content: '✓';
-  color: #4caf50;
-  font-weight: bold;
 }
 </style>
 
