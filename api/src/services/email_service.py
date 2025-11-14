@@ -277,7 +277,7 @@ class EmailService:
         )
 
         # 生成重設連結
-        reset_url = f"{EmailConfig.FRONTEND_URL}/reset-password?token={auth_token.token}"
+        reset_url = f"{EmailConfig.FRONTEND_URL}/login/reset?token={auth_token.token}"
 
         # 遮罩姓名（隱私保護）
         display_name = user.full_name or user.username

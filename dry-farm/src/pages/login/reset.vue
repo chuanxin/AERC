@@ -151,14 +151,22 @@
                     <li :class="{ 'requirement-met': passwordRequirements.length }">
                       至少 8 個字元
                     </li>
+                    <li :class="{ 'requirement-met': passwordRequirements.characterTypesValid }">
+                      以下 4 項至少符合 3 項 (目前符合 {{ passwordRequirements.characterTypesMet }}/4)
+                    </li>
+                  </ul>
+                  <ul class="text-caption ml-4">
+                    <li :class="{ 'requirement-met': passwordRequirements.number }">
+                      包含數字
+                    </li>
                     <li :class="{ 'requirement-met': passwordRequirements.uppercase }">
-                      包含至少一個大寫字母
+                      包含英文大寫
                     </li>
                     <li :class="{ 'requirement-met': passwordRequirements.lowercase }">
-                      包含至少一個小寫字母
+                      包含英文小寫
                     </li>
-                    <li :class="{ 'requirement-met': passwordRequirements.number }">
-                      包含至少一個數字
+                    <li :class="{ 'requirement-met': passwordRequirements.special }">
+                      包含特殊符號 (!@#$%^&* 等)
                     </li>
                   </ul>
                 </div>
@@ -338,14 +346,22 @@
                       <li :class="{ 'requirement-met': passwordRequirements.length }">
                         至少 8 個字元
                       </li>
+                      <li :class="{ 'requirement-met': passwordRequirements.characterTypesValid }">
+                        以下 4 項至少符合 3 項 (目前符合 {{ passwordRequirements.characterTypesMet }}/4)
+                      </li>
+                    </ul>
+                    <ul class="text-caption ml-4">
+                      <li :class="{ 'requirement-met': passwordRequirements.number }">
+                        包含數字
+                      </li>
                       <li :class="{ 'requirement-met': passwordRequirements.uppercase }">
-                        包含至少一個大寫字母
+                        包含英文大寫
                       </li>
                       <li :class="{ 'requirement-met': passwordRequirements.lowercase }">
-                        包含至少一個小寫字母
+                        包含英文小寫
                       </li>
-                      <li :class="{ 'requirement-met': passwordRequirements.number }">
-                        包含至少一個數字
+                      <li :class="{ 'requirement-met': passwordRequirements.special }">
+                        包含特殊符號 (!@#$%^&* 等)
                       </li>
                     </ul>
                   </div>
@@ -457,19 +473,34 @@ const successMessage = ref('')
 const successTitle = ref('')
 
 // Password requirements validation
-const passwordRequirements = computed(() => ({
-  length: newPassword.value.length >= 8,
-  uppercase: /[A-Z]/.test(newPassword.value),
-  lowercase: /[a-z]/.test(newPassword.value),
-  number: /\d/.test(newPassword.value),
-}))
+const passwordRequirements = computed(() => {
+  const reqs = {
+    length: newPassword.value.length >= 8,
+    uppercase: /[A-Z]/.test(newPassword.value),
+    lowercase: /[a-z]/.test(newPassword.value),
+    number: /\d/.test(newPassword.value),
+    special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword.value),
+  }
+
+  // 計算符合的項目數（不包含長度）
+  const characterTypesMet = [
+    reqs.uppercase,
+    reqs.lowercase,
+    reqs.number,
+    reqs.special,
+  ].filter(Boolean).length
+
+  return {
+    ...reqs,
+    characterTypesMet, // 符合的字元類型數量
+    characterTypesValid: characterTypesMet >= 3, // 至少3項
+  }
+})
 
 const isPasswordValid = computed(() => {
   return (
     passwordRequirements.value.length &&
-    passwordRequirements.value.uppercase &&
-    passwordRequirements.value.lowercase &&
-    passwordRequirements.value.number &&
+    passwordRequirements.value.characterTypesValid &&
     newPassword.value === confirmPassword.value
   )
 })
