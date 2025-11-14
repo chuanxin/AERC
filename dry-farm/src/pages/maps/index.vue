@@ -926,16 +926,15 @@ import { useDomicileStore } from '@/stores/domicile';
 import { fetchLandSectionsByLandCodes, type LandSection } from '@/services/landSectionNlscService';
 import { storeToRefs } from 'pinia';
 import 'ol/ol.css';
-import Map from 'ol/Map';
-import View from 'ol/View';
-import {defaults as defaultControls} from 'ol/control/defaults.js';
+import { Map, View, Feature } from 'ol';
+import { defaults as defaultControls } from 'ol/control/defaults.js';
 import ScaleLine from 'ol/control/ScaleLine.js';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Cluster from 'ol/source/Cluster';
 // import { Heatmap as HeatmapLayer } from 'ol/layer'; // 註解熱區圖
-import { Polygon, LineString } from 'ol/geom';
+import { Polygon, LineString, Point } from 'ol/geom';
 import Draw from 'ol/interaction/Draw';
 import Overlay from 'ol/Overlay';
 import { getArea, getLength } from 'ol/sphere';
@@ -945,13 +944,10 @@ import StadiaMaps from 'ol/source/StadiaMaps';
 import TileWMS from 'ol/source/TileWMS';
 import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS';
 import WMTSTileGrid from 'ol/tilegrid/WMTS';
-import { get as getProjection } from 'ol/proj';
+import { get as getProjection, transform, fromLonLat, toLonLat } from 'ol/proj';
 import { getTopLeft, getWidth } from 'ol/extent';
-import { fromLonLat, toLonLat } from 'ol/proj';
 import { Style, Fill, Stroke, Circle, Text } from 'ol/style';
-import { Point } from 'ol/geom';
-import { Feature } from 'ol';
-import type { FeatureLike } from 'ol/Feature';
+// import type { FeatureLike } from 'ol/Feature';
 import GeoJSON from 'ol/format/GeoJSON';
 import type { LocationQueryValue } from 'vue-router';
 import type { GeoJsonFeature, GeoJsonFeatureCollection } from '@/types/gis';
@@ -961,6 +957,7 @@ import {
   getInitialOverlayLoadingParams as getInitialParams,
   type FilterCriteria
 } from '@/utils/frontendFilters';
+import { validateTWD97Coordinates } from '@/utils/proj4Config';
 
 import FilterToolbar from './filter-toolbar.vue';
 import LayerManagement from './layers-drawer.vue';
@@ -2295,14 +2292,23 @@ const locateByCoordinate = () => {
       return;
     }
 
-    // TW97 使用 EPSG:3826，與 Web Mercator (EPSG:3857) 不同
-    // 這裡簡化處理：TW97 的 X 大約在 140000-360000，Y 大約在 2400000-2800000
-    // 實際應用中應使用 proj4 進行精確轉換
-    // 暫時使用近似轉換公式
-    const lon = tw97X / 100000 + 119;
-    const lat = tw97Y / 110000 - 2;
+    // 驗證 TWD97 坐標範圍
+    if (!validateTWD97Coordinates(tw97X, tw97Y)) {
+      snackbarMessage.value = 'TWD97 坐標超出有效範圍（X: 140000-360000, Y: 2400000-2800000）';
+      showSnackbar.value = true;
+      return;
+    }
 
-    center = fromLonLat([lon, lat]);
+    // 使用 proj4 進行精確轉換：EPSG:3826 (TWD97) → EPSG:3857 (Web Mercator)
+    // proj4 已在應用初始化時註冊，transform 函數可直接使用
+    try {
+      center = transform([tw97X, tw97Y], 'EPSG:3826', 'EPSG:3857');
+    } catch (error) {
+      console.error('TWD97 coordinate transformation failed:', error);
+      snackbarMessage.value = 'TWD97 坐標轉換失敗，請檢查坐標是否正確';
+      showSnackbar.value = true;
+      return;
+    }
   }
 
   // 添加標記
