@@ -9,6 +9,7 @@ Two-Layer Architecture (Simple Service):
 
 import os
 import uuid
+import random
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
@@ -156,11 +157,18 @@ class EmailService:
 
         expires_at = datetime.now(timezone.utc) + timedelta(hours=expire_hours)
 
+        # 生成 OTP（僅密碼重設使用）
+        otp_code = None
+        if token_type == AuthTokenType.PASSWORD_RESET:
+            otp_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+
         # 建立新 Token
         auth_token = await AuthToken.create(
             user=user,
             token_type=token_type,
             token=str(uuid.uuid4()),
+            otp=otp_code,
+            otp_verified=False,
             status=AuthTokenStatus.PENDING,
             expires_at=expires_at,
             ip_address=ip_address,
@@ -268,7 +276,7 @@ class EmailService:
         Returns:
             bool: 是否發送成功
         """
-        # 建立 Token
+        # 建立 Token（包含 OTP）
         auth_token = await self.create_auth_token(
             user=user,
             token_type=AuthTokenType.PASSWORD_RESET,
@@ -289,6 +297,7 @@ class EmailService:
             username=user.username,
             full_name=masked_name,
             reset_url=reset_url,
+            otp=auth_token.otp,
             expire_hours=EmailConfig.PASSWORD_RESET_EXPIRE_HOURS,
             frontend_url=EmailConfig.FRONTEND_URL
         )
@@ -523,18 +532,47 @@ PASSWORD_RESET_HTML_TEMPLATE = """
                                 <!-- Message -->
                                 <tr>
                                     <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #4a4a4a; padding-bottom: 30px;">
-                                        我們收到了您的密碼重設請求。為了確保帳戶安全，請點擊下方按鈕完成密碼重設。
+                                        我們收到了您的密碼重設請求。為了確保帳戶安全，請點擊下方按鈕並使用以下驗證碼完成密碼重設。
+                                    </td>
+                                </tr>
+
+                                <!-- OTP Section -->
+                                <tr>
+                                    <td align="center" style="padding: 20px 0;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; color: #6c757d; padding-bottom: 12px; font-weight: 500;">
+                                                    您的驗證碼
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center">
+                                                    <table border="0" cellpadding="0" cellspacing="0">
+                                                        <tr>
+                                                            <td align="center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; padding: 20px 40px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">
+                                                                <span style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: bold; color: #ffffff; letter-spacing: 8px;">{{ otp }}</span>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #6c757d; padding-top: 12px;">
+                                                    此驗證碼將於 <strong>{{ expire_hours }} 小時</strong> 後失效
+                                                </td>
+                                            </tr>
+                                        </table>
                                     </td>
                                 </tr>
 
                                 <!-- CTA Button -->
                                 <tr>
-                                    <td align="center" style="padding: 20px 0 30px 0;">
+                                    <td align="center" style="padding: 30px 0;">
                                         <table border="0" cellpadding="0" cellspacing="0">
                                             <tr>
                                                 <td align="center" style="background-color: #E74C3C; border-radius: 6px;">
                                                     <a href="{{ reset_url }}" target="_blank" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; padding: 16px 48px; display: inline-block;">
-                                                        重設密碼
+                                                        前往重設密碼
                                                     </a>
                                                 </td>
                                             </tr>

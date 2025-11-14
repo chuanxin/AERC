@@ -12,6 +12,7 @@ export const AUTH = {
   REFRESH: `${BASE}/auth/refresh`,
   ME: `${BASE}/auth/me`,
   REQUEST_PASSWORD_RESET: `${BASE}/auth/request-password-reset`,
+  VERIFY_OTP: `${BASE}/auth/verify-otp`,
   RESET_PASSWORD: `${BASE}/auth/reset-password`,
   SEND_VERIFICATION_EMAIL: `${BASE}/auth/send-verification-email`,
   VERIFY_EMAIL: `${BASE}/auth/verify-email`,

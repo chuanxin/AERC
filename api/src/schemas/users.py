@@ -170,3 +170,39 @@ class PasswordResetResponse(BaseModel):
                 "success": True
             }
         }
+
+
+class OTPVerificationRequest(BaseModel):
+    """OTP 驗證請求"""
+    token: str = Field(..., min_length=36, max_length=36, description="重設 Token (UUID)")
+    otp: str = Field(..., min_length=6, max_length=6, description="6位數字 OTP")
+
+    @field_validator('otp')
+    @classmethod
+    def validate_otp(cls, v: str) -> str:
+        """驗證 OTP 格式"""
+        if not v.isdigit():
+            raise ValueError('OTP 必須是 6 位數字')
+        return v
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "token": "550e8400-e29b-41d4-a716-446655440000",
+                "otp": "123456"
+            }
+        }
+
+
+class OTPVerificationResponse(BaseModel):
+    """OTP 驗證回應"""
+    message: str
+    success: bool
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "OTP 驗證成功",
+                "success": True
+            }
+        }

@@ -51,6 +51,10 @@ class AuthToken(models.Model):
     token = fields.CharField(max_length=128, unique=True, description="Token 值（UUID）")
     status = fields.CharEnumField(AuthTokenStatus, default=AuthTokenStatus.PENDING, description="Token 狀態")
 
+    # OTP 驗證（用於密碼重設）
+    otp = fields.CharField(max_length=6, null=True, description="6位數字 OTP（僅密碼重設使用）")
+    otp_verified = fields.BooleanField(default=False, description="OTP 是否已驗證")
+
     # 時效性
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
     expires_at = fields.DatetimeField(description="過期時間")

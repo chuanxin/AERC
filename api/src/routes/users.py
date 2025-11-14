@@ -19,9 +19,12 @@ from src.schemas.users import (
     PasswordResetRequest,
     PasswordResetConfirm,
     PasswordResetResponse,
+    OTPVerificationRequest,
+    OTPVerificationResponse,
 )
-from src.database.models import Users, AuthTokenType
+from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus
 from src.services.email_service import EmailService
+from datetime import datetime, timezone
 
 from src.auth.jwthandler import (
     create_access_token,
@@ -299,6 +302,68 @@ async def request_password_reset(
 
 
 @router.post(
+    "/verify-otp",
+    response_model=OTPVerificationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="驗證 OTP",
+    description="驗證密碼重設的 OTP 驗證碼"
+)
+async def verify_otp(payload: OTPVerificationRequest):
+    """
+    驗證 OTP
+
+    - 驗證 Token 和 OTP 有效性
+    - 標記 OTP 為已驗證
+    - 返回驗證結果
+    """
+    try:
+        # 查找 AuthToken
+        auth_token = await AuthToken.get(
+            token=payload.token,
+            token_type=AuthTokenType.PASSWORD_RESET,
+            status=AuthTokenStatus.PENDING
+        ).prefetch_related("user")
+
+        # 檢查是否過期
+        if auth_token.expires_at < datetime.now(timezone.utc):
+            auth_token.status = AuthTokenStatus.EXPIRED
+            await auth_token.save()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="驗證碼已過期，請重新申請密碼重設"
+            )
+
+        # 驗證 OTP
+        if auth_token.otp != payload.otp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="驗證碼錯誤，請檢查您的電子郵件"
+            )
+
+        # 標記 OTP 為已驗證
+        auth_token.otp_verified = True
+        await auth_token.save()
+
+        return OTPVerificationResponse(
+            message="驗證碼驗證成功",
+            success=True
+        )
+
+    except HTTPException:
+        raise
+    except DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="重設連結無效或已過期，請重新申請密碼重設"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"系統錯誤：{str(e)}"
+        )
+
+
+@router.post(
     "/reset-password",
     response_model=PasswordResetResponse,
     status_code=status.HTTP_200_OK,
@@ -309,26 +374,41 @@ async def reset_password(payload: PasswordResetConfirm):
     """
     重設密碼
 
-    - 驗證 Token 有效性
+    - 驗證 Token 有效性和 OTP 已驗證
     - 更新用戶密碼
     - 返回重設結果
     """
     try:
-        email_service = EmailService()
-
-        # 驗證 Token
-        user = await email_service.verify_token(
+        # 查找 AuthToken
+        auth_token = await AuthToken.get(
             token=payload.token,
-            token_type=AuthTokenType.PASSWORD_RESET
-        )
+            token_type=AuthTokenType.PASSWORD_RESET,
+            status=AuthTokenStatus.PENDING
+        ).prefetch_related("user")
 
-        if not user:
+        # 檢查是否過期
+        if auth_token.expires_at < datetime.now(timezone.utc):
+            auth_token.status = AuthTokenStatus.EXPIRED
+            await auth_token.save()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="重設連結無效或已過期，請重新申請密碼重設"
             )
 
+        # 檢查 OTP 是否已驗證
+        if not auth_token.otp_verified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="請先完成驗證碼驗證"
+            )
+
+        # 標記為已使用
+        auth_token.status = AuthTokenStatus.USED
+        auth_token.used_at = datetime.now(timezone.utc)
+        await auth_token.save()
+
         # 更新密碼
+        user = auth_token.user
         user.password = get_password_hash(payload.new_password)
         await user.save()
 
@@ -339,6 +419,11 @@ async def reset_password(payload: PasswordResetConfirm):
 
     except HTTPException:
         raise
+    except DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="重設連結無效或已過期，請重新申請密碼重設"
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

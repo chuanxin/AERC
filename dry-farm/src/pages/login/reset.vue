@@ -90,8 +90,57 @@
               </v-form>
             </div>
 
+            <!-- OTP Verification Mode -->
+            <div v-else-if="hasToken && !otpVerified && !successMessage">
+              <h2 class="login-title text-center mb-2">
+                驗證身份
+              </h2>
+              <p class="text-center text-body-2 mb-6 subtitle-text">
+                請輸入寄送至您電子郵件的 6 位數驗證碼
+              </p>
+
+              <v-form @submit.prevent="handleVerifyOTP">
+                <v-otp-input
+                  v-model="otp"
+                  :length="6"
+                  variant="outlined"
+                  class="mb-3"
+                  :error="!!otpError"
+                />
+
+                <v-alert
+                  v-if="otpError"
+                  type="error"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-4"
+                >
+                  {{ otpError }}
+                </v-alert>
+
+                <v-btn
+                  type="submit"
+                  color="primary"
+                  size="x-large"
+                  class="login-button"
+                  block
+                  :loading="isSubmitting"
+                  :disabled="isSubmitting || otp.length !== 6"
+                >
+                  驗證
+                </v-btn>
+
+                <div class="login-footer-links">
+                  <a
+                    href="/login"
+                    class="footer-link"
+                  >返回登入</a>
+                </div>
+              </v-form>
+            </div>
+
             <!-- Reset Password Mode -->
-            <div v-else-if="hasToken && !successMessage">
+            <div v-else-if="hasToken && otpVerified && !successMessage">
               <h2 class="login-title text-center mb-2">
                 重設密碼
               </h2>
@@ -327,8 +376,57 @@
                 </v-form>
               </div>
 
+              <!-- OTP Verification Mode -->
+              <div v-else-if="hasToken && !otpVerified && !successMessage">
+                <h2 class="login-title text-center mb-2">
+                  驗證身份
+                </h2>
+                <p class="text-center text-body-2 mb-6 subtitle-text">
+                  請輸入寄送至您電子郵件的 6 位數驗證碼
+                </p>
+
+                <v-form @submit.prevent="handleVerifyOTP">
+                  <v-otp-input
+                    v-model="otp"
+                    :length="6"
+                    variant="outlined"
+                    class="mb-3"
+                    :error="!!otpError"
+                  />
+
+                  <v-alert
+                    v-if="otpError"
+                    type="error"
+                    variant="tonal"
+                    density="compact"
+                    class="mb-4"
+                  >
+                    {{ otpError }}
+                  </v-alert>
+
+                  <v-btn
+                    type="submit"
+                    color="primary"
+                    :size="$vuetify.display.xs ? 'large' : 'x-large'"
+                    class="login-button"
+                    block
+                    :loading="isSubmitting"
+                    :disabled="isSubmitting || otp.length !== 6"
+                  >
+                    驗證
+                  </v-btn>
+
+                  <div class="login-footer-links">
+                    <a
+                      href="/login"
+                      class="footer-link"
+                    >返回登入</a>
+                  </div>
+                </v-form>
+              </div>
+
               <!-- Reset Password Mode -->
-              <div v-else-if="hasToken && !successMessage">
+              <div v-else-if="hasToken && otpVerified && !successMessage">
                 <h2 class="login-title text-center mb-2">
                   重設密碼
                 </h2>
@@ -541,6 +639,8 @@ const token = computed(() => route.query.token as string)
 
 // Form state
 const email = ref('')
+const otp = ref('')
+const otpVerified = ref(false)
 const newPassword = ref('')
 const confirmPassword = ref('')
 const showPassword = ref(false)
@@ -549,6 +649,7 @@ const isSubmitting = ref(false)
 
 // Error state
 const emailError = ref('')
+const otpError = ref('')
 const passwordError = ref('')
 const confirmPasswordError = ref('')
 
@@ -593,6 +694,47 @@ const isPasswordValid = computed(() => {
 const isValidEmail = (email: string): boolean => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
+}
+
+// Handle OTP verification
+const handleVerifyOTP = async () => {
+  otpError.value = ''
+
+  if (!otp.value) {
+    otpError.value = '請輸入驗證碼'
+    return
+  }
+
+  if (otp.value.length !== 6) {
+    otpError.value = '驗證碼必須是 6 位數字'
+    return
+  }
+
+  if (!/^\d{6}$/.test(otp.value)) {
+    otpError.value = '驗證碼必須是數字'
+    return
+  }
+
+  isSubmitting.value = true
+
+  try {
+    const response: any = await apiService.post(AUTH.VERIFY_OTP, {
+      token: token.value,
+      otp: otp.value,
+    })
+
+    if (response.success) {
+      otpVerified.value = true
+    }
+  } catch (error: any) {
+    if (error.response?.status === 400) {
+      otpError.value = error.response?.data?.detail || '驗證碼錯誤或已過期'
+    } else {
+      otpError.value = '驗證失敗，請稍後再試'
+    }
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 // Handle request password reset
