@@ -115,9 +115,8 @@
 
               <div class="login-footer-links">
                 <a
-                  href="/password/reset"
+                  href="/login/reset"
                   class="footer-link"
-                  target="_blank"
                 >忘記密碼?</a>
                 <span class="footer-separator">|</span>
                 <a
@@ -217,9 +216,8 @@
 
                 <div class="login-footer-links">
                   <a
-                    href="/password/reset"
+                    href="/login/reset"
                     class="footer-link"
-                    target="_blank"
                   >忘記密碼?</a>
                   <span class="footer-separator">|</span>
                   <a

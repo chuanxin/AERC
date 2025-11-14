@@ -11,11 +11,10 @@ export const AUTH = {
   LOGOUT: `${BASE}/auth/logout`,
   REFRESH: `${BASE}/auth/refresh`,
   ME: `${BASE}/auth/me`,
-  FORGOT_PASSWORD: `${BASE}/auth/forgot-password`,
+  REQUEST_PASSWORD_RESET: `${BASE}/auth/request-password-reset`,
   RESET_PASSWORD: `${BASE}/auth/reset-password`,
-  CHANGE_PASSWORD: `${BASE}/auth/change-password`,
+  SEND_VERIFICATION_EMAIL: `${BASE}/auth/send-verification-email`,
   VERIFY_EMAIL: `${BASE}/auth/verify-email`,
-  RESEND_VERIFICATION: `${BASE}/auth/resend-verification`,
 }
 
 // user management related endpoints
