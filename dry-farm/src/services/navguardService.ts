@@ -16,7 +16,7 @@ export interface AuthMiddlewareOptions {
  */
 export function createAuthMiddleware(options: AuthMiddlewareOptions = {}) {
   const {
-    publicRoutes = ['/login'],
+    publicRoutes = ['/login', '/login/reset'],
     loginRedirectPath = '/login',
     onAuthFailure
   } = options;

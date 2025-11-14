@@ -52,7 +52,7 @@
                 忘記密碼
               </h2>
               <p class="text-center text-body-2 mb-6 subtitle-text">
-                請輸入您的註冊信箱，我們將發送密碼重設連結給您
+                請輸入您的註冊信箱，我們將寄送密碼重設連結給您
               </p>
 
               <v-form @submit.prevent="handleRequestReset">
@@ -78,7 +78,7 @@
                   :loading="isSubmitting"
                   :disabled="isSubmitting || !email"
                 >
-                  發送重設連結
+                  寄送重設連結
                 </v-btn>
 
                 <div class="login-footer-links">
@@ -239,7 +239,7 @@
                   忘記密碼
                 </h2>
                 <p class="text-center text-body-2 mb-6 subtitle-text">
-                  請輸入您的註冊信箱，我們將發送密碼重設連結給您
+                  請輸入您的註冊信箱，我們將寄送密碼重設連結給您
                 </p>
 
                 <v-form @submit.prevent="handleRequestReset">
@@ -265,7 +265,7 @@
                     :loading="isSubmitting"
                     :disabled="isSubmitting || !email"
                   >
-                    發送重設連結
+                    寄送重設連結
                   </v-btn>
 
                   <div class="login-footer-links">
@@ -502,13 +502,13 @@ const handleRequestReset = async () => {
     })
 
     if (response.success) {
-      successTitle.value = '重設連結已發送'
+      successTitle.value = '重設連結已寄送'
       // 使用後端返回的訊息（避免洩漏帳號存在）
       successMessage.value = response.message || '如果該電子郵件已註冊，您將收到密碼重設信。'
     }
   } catch (error: any) {
     // 只顯示通用錯誤訊息，不洩漏系統資訊
-    emailError.value = '發送失敗，請稍後再試或聯繫系統管理員'
+    emailError.value = '寄送失敗，請稍後再試或聯繫系統管理員'
   } finally {
     isSubmitting.value = false
   }
