@@ -503,14 +503,12 @@ const handleRequestReset = async () => {
 
     if (response.success) {
       successTitle.value = '重設連結已發送'
-      successMessage.value = '我們已將密碼重設連結發送至您的電子郵件，請查收並點擊連結完成密碼重設。'
+      // 使用後端返回的訊息（避免洩漏帳號存在）
+      successMessage.value = response.message || '如果該電子郵件已註冊，您將收到密碼重設信。'
     }
   } catch (error: any) {
-    if (error.response?.data?.detail) {
-      emailError.value = error.response.data.detail
-    } else {
-      emailError.value = '發送失敗，請稍後再試'
-    }
+    // 只顯示通用錯誤訊息，不洩漏系統資訊
+    emailError.value = '發送失敗，請稍後再試或聯繫系統管理員'
   } finally {
     isSubmitting.value = false
   }
@@ -568,15 +566,19 @@ const handleResetPassword = async () => {
 
     if (response.success) {
       successTitle.value = '密碼重設成功'
-      successMessage.value = '您的密碼已成功重設，請使用新密碼登入系統。'
+      // 使用後端返回的訊息
+      successMessage.value = response.message || '您的密碼已成功重設，請使用新密碼登入系統。'
     }
   } catch (error: any) {
+    // 統一的錯誤處理，避免洩漏系統資訊
     if (error.response?.status === 400) {
       passwordError.value = '重設連結無效或已過期，請重新申請密碼重設'
-    } else if (error.response?.data?.detail) {
-      passwordError.value = error.response.data.detail
+    } else if (error.response?.status === 422) {
+      // Pydantic 驗證錯誤（密碼格式不符）
+      passwordError.value = '密碼格式不符合要求，請檢查密碼強度'
     } else {
-      passwordError.value = '重設失敗，請稍後再試'
+      // 其他錯誤不顯示詳細訊息
+      passwordError.value = '重設失敗，請稍後再試或聯繫系統管理員'
     }
   } finally {
     isSubmitting.value = false
@@ -893,4 +895,5 @@ onMounted(async () => {
 <route lang="yaml">
 meta:
   layout: auth
+  public: true
 </route>
