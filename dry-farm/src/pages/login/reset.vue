@@ -787,18 +787,9 @@ const handleResetPassword = async () => {
     return
   }
 
-  if (!passwordRequirements.value.uppercase) {
-    passwordError.value = '密碼需包含至少一個大寫字母'
-    return
-  }
-
-  if (!passwordRequirements.value.lowercase) {
-    passwordError.value = '密碼需包含至少一個小寫字母'
-    return
-  }
-
-  if (!passwordRequirements.value.number) {
-    passwordError.value = '密碼需包含至少一個數字'
+  // 檢查密碼強度：4 項至少符合 3 項
+  if (!passwordRequirements.value.characterTypesValid) {
+    passwordError.value = '密碼需符合以下 4 項中的至少 3 項：包含數字、包含英文大寫、包含英文小寫、包含特殊符號'
     return
   }
 
