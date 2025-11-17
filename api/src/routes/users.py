@@ -42,7 +42,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/auth/captcha",
+    "/captcha",
     response_model=CaptchaResponse,
     status_code=status.HTTP_200_OK,
     summary="生成登入驗證碼",
@@ -66,7 +66,7 @@ async def generate_captcha():
 # 帳號註冊相關端點
 # ============================================
 
-@router.get("/users/check-username/{username}")
+@router.get("/check-username/{username}")
 async def check_username_availability(username: str):
     """
     即時檢查帳號是否可用
@@ -95,7 +95,7 @@ async def check_username_availability(username: str):
     return {"available": True, "message": "帳號可用"}
 
 
-@router.post("/users/send-registration-otp")
+@router.post("/send-registration-otp")
 async def send_registration_otp(payload: EmailVerificationRequest):
     """
     發送註冊驗證碼到指定 Email
@@ -192,7 +192,7 @@ async def send_registration_otp(payload: EmailVerificationRequest):
         )
 
 
-@router.post("/users/verify-registration-otp")
+@router.post("/verify-registration-otp")
 async def verify_registration_otp(token: str, otp: str):
     """
     驗證註冊 OTP
@@ -277,7 +277,7 @@ async def verify_registration_otp(token: str, otp: str):
         )
 
 
-@router.post("/users/register", response_model=UserRegistrationResponse)
+@router.post("/register", response_model=UserRegistrationResponse)
 async def create_user(payload: UserRegistrationRequest) -> UserRegistrationResponse:
     """
     帳號申請
@@ -401,7 +401,7 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
         )
 
 
-@router.post("/auth/login")
+@router.post("/login")
 async def login(user: OAuth2PasswordRequestForm = Depends()):
     user = await validate_user(user)
 
@@ -444,7 +444,7 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
     return response
 
 
-@router.post("/auth/login-secure")
+@router.post("/login-secure")
 async def login_with_captcha(payload: LoginWithCaptchaRequest):
     """
     帶驗證碼的安全登入
@@ -509,7 +509,7 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
     return response
 
 
-@router.post("/auth/refresh")
+@router.post("/refresh")
 async def refresh_token(current_user: UserInfoSchema = Depends(get_current_user)):
     """
     刷新用戶的 access token
@@ -704,7 +704,7 @@ async def verify_email(payload: EmailVerificationConfirm):
 # ============================================
 
 @router.post(
-    "/auth/request-password-reset",
+    "/request-password-reset",
     response_model=PasswordResetResponse,
     status_code=status.HTTP_200_OK,
     summary="請求密碼重設",
@@ -782,7 +782,7 @@ async def request_password_reset(
 
 
 @router.post(
-    "/auth/verify-otp",
+    "/verify-otp",
     response_model=OTPVerificationResponse,
     status_code=status.HTTP_200_OK,
     summary="驗證 OTP",
@@ -844,7 +844,7 @@ async def verify_otp(payload: OTPVerificationRequest):
 
 
 @router.post(
-    "/auth/reset-password",
+    "/reset-password",
     response_model=PasswordResetResponse,
     status_code=status.HTTP_200_OK,
     summary="重設密碼",
