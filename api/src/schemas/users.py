@@ -210,13 +210,13 @@ class OTPVerificationResponse(BaseModel):
 
 class CaptchaResponse(BaseModel):
     """驗證碼生成回應"""
-    captcha_id: str = Field(..., description="驗證碼 session ID")
+    captcha_token: str = Field(..., description="HMAC 簽名的驗證碼 token")
     captcha_code: str = Field(..., description="4位數字驗證碼")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "captcha_id": "550e8400-e29b-41d4-a716-446655440000",
+                "captcha_token": "MTczMTg1NjAwMDoxYTJiM2M0ZDVlNmY3ZzhoOWkwag==",
                 "captcha_code": "1234"
             }
         }
@@ -226,7 +226,7 @@ class LoginWithCaptchaRequest(BaseModel):
     """含驗證碼的登入請求"""
     username: str = Field(..., min_length=1, description="使用者帳號")
     password: str = Field(..., min_length=1, description="使用者密碼")
-    captcha_id: str = Field(..., min_length=36, max_length=36, description="驗證碼 session ID")
+    captcha_token: str = Field(..., min_length=1, description="HMAC 簽名的驗證碼 token")
     captcha_code: str = Field(..., min_length=4, max_length=4, description="使用者輸入的驗證碼")
 
     @field_validator('captcha_code')

@@ -1,100 +1,108 @@
 """
-CAPTCHA 服務模組 - 處理登入驗證碼的生成與驗證
+CAPTCHA 服務模組 - 使用 HMAC Token 的無狀態實現
 
-簡單實用的實現：
-- 使用內存緩存存儲驗證碼
-- 自動過期機制（5分鐘）
-- 線程安全的存取
+完全無狀態設計，支援多進程環境：
+- 使用 HMAC 簽名確保 Token 不可偽造
+- 時間戳驗證確保過期機制
+- 無需資料庫或記憶體存儲
 """
 
+import hmac
+import hashlib
 import random
-import uuid
+import base64
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Tuple
-import threading
+from typing import Tuple
+import os
 
 
 class CaptchaService:
-    """CAPTCHA 服務 - 生成與驗證登入驗證碼"""
-
-    # 類級別的緩存（單例模式）
-    _cache: Dict[str, Tuple[str, datetime]] = {}
-    _lock = threading.Lock()
+    """CAPTCHA 服務 - 無狀態 HMAC Token 實現"""
 
     # 驗證碼過期時間（分鐘）
     EXPIRE_MINUTES = 5
 
+    # HMAC 密鑰（生產環境應從環境變數或配置文件讀取）
+    _secret_key: bytes = os.environ.get(
+        'CAPTCHA_SECRET_KEY',
+        'aerc-captcha-secret-key-change-in-production'
+    ).encode('utf-8')
+
     @classmethod
     def generate(cls) -> Tuple[str, str]:
         """
-        生成新的驗證碼
+        生成新的驗證碼（同步方法，無狀態）
 
         Returns:
-            Tuple[str, str]: (captcha_id, captcha_code)
+            Tuple[str, str]: (captcha_token, captcha_code)
+            - captcha_token: 包含 HMAC 簽名的 token（傳給前端保存）
+            - captcha_code: 4 位數字驗證碼（顯示給用戶）
         """
         # 生成 4 位數字驗證碼
         captcha_code = ''.join([str(random.randint(0, 9)) for _ in range(4)])
 
-        # 生成唯一的 session ID
-        captcha_id = str(uuid.uuid4())
+        # 設定過期時間戳（Unix timestamp）
+        expires_at = int((datetime.now(timezone.utc) + timedelta(minutes=cls.EXPIRE_MINUTES)).timestamp())
 
-        # 設定過期時間
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=cls.EXPIRE_MINUTES)
+        # 生成 HMAC 簽名
+        # Token 結構: expires_at:signature
+        # signature = HMAC(captcha_code + ":" + expires_at, secret_key)
+        message = f"{captcha_code}:{expires_at}".encode('utf-8')
+        signature = hmac.new(cls._secret_key, message, hashlib.sha256).hexdigest()
 
-        # 存入緩存
-        with cls._lock:
-            # 清理過期的驗證碼
-            cls._cleanup_expired()
+        # 組合 token（base64 編碼以便傳輸）
+        token_data = f"{expires_at}:{signature}"
+        captcha_token = base64.urlsafe_b64encode(token_data.encode('utf-8')).decode('utf-8')
 
-            # 存儲新驗證碼
-            cls._cache[captcha_id] = (captcha_code, expires_at)
-
-        return captcha_id, captcha_code
+        return captcha_token, captcha_code
 
     @classmethod
-    def verify(cls, captcha_id: str, user_input: str) -> bool:
+    def verify(cls, captcha_token: str, user_input: str) -> bool:
         """
-        驗證使用者輸入的驗證碼
+        驗證使用者輸入的驗證碼（同步方法，無狀態）
 
         Args:
-            captcha_id: 驗證碼 session ID
+            captcha_token: 前端傳回的 token（包含過期時間和簽名）
             user_input: 使用者輸入的驗證碼
 
         Returns:
             bool: 驗證是否成功
         """
-        with cls._lock:
-            if captcha_id not in cls._cache:
+        try:
+            # 解碼 token
+            token_data = base64.urlsafe_b64decode(captcha_token.encode('utf-8')).decode('utf-8')
+            parts = token_data.split(':')
+
+            if len(parts) != 2:
                 return False
 
-            captcha_code, expires_at = cls._cache[captcha_id]
+            expires_at_str, original_signature = parts
+            expires_at = int(expires_at_str)
 
             # 檢查是否過期
-            if expires_at < datetime.now(timezone.utc):
-                # 過期則刪除
-                del cls._cache[captcha_id]
+            now = int(datetime.now(timezone.utc).timestamp())
+            if now > expires_at:
                 return False
 
-            # 驗證碼比對（使用後即刪除，防止重複使用）
-            if captcha_code == user_input:
-                del cls._cache[captcha_id]
+            # 重新計算 HMAC 簽名
+            message = f"{user_input}:{expires_at}".encode('utf-8')
+            expected_signature = hmac.new(cls._secret_key, message, hashlib.sha256).hexdigest()
+
+            # 使用時間常數比較防止時序攻擊
+            if hmac.compare_digest(original_signature, expected_signature):
                 return True
 
             return False
 
-    @classmethod
-    def _cleanup_expired(cls) -> None:
-        """清理過期的驗證碼（內部方法，需在 lock 內調用）"""
-        now = datetime.now(timezone.utc)
-        expired_keys = [
-            key for key, (_, expires_at) in cls._cache.items()
-            if expires_at < now
-        ]
-        for key in expired_keys:
-            del cls._cache[key]
+        except (ValueError, TypeError, UnicodeDecodeError):
+            return False
 
     @classmethod
-    def get_cache_size(cls) -> int:
-        """取得目前緩存中的驗證碼數量（用於監控）"""
-        with cls._lock:
-            return len(cls._cache)
+    def set_secret_key(cls, key: str) -> None:
+        """
+        設定 HMAC 密鑰（用於初始化或測試）
+
+        Args:
+            key: 密鑰字串
+        """
+        cls._secret_key = key.encode('utf-8')
