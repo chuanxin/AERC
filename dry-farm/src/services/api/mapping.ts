@@ -23,10 +23,12 @@ export const BACKEND_PATHS = {
   // 用戶認證相關
   AUTH: {
     LOGIN: '/login',
+    LOGIN_SECURE: '/login-secure',
     REGISTER: '/register',
     WHO_AM_I: '/users/whoami',
     LOGOUT: '/logout',
     REFRESH: '/refresh',
+    CAPTCHA: '/captcha',
     REQUEST_PASSWORD_RESET: '/request-password-reset',
     VERIFY_OTP: '/verify-otp',
     RESET_PASSWORD: '/reset-password',
@@ -128,9 +130,11 @@ export const BACKEND_PATHS = {
 // 前端到後端的直接映射表
 export const API_MAPPING: Record<string, string> = {
   [AUTH.LOGIN]: BACKEND_PATHS.AUTH.LOGIN,
+  [AUTH.LOGIN_SECURE]: BACKEND_PATHS.AUTH.LOGIN_SECURE,
   [AUTH.REGISTER]: BACKEND_PATHS.AUTH.REGISTER,
   [AUTH.REFRESH]: BACKEND_PATHS.AUTH.REFRESH,
   [AUTH.ME]: BACKEND_PATHS.AUTH.WHO_AM_I,
+  [AUTH.CAPTCHA]: BACKEND_PATHS.AUTH.CAPTCHA,
   [AUTH.REQUEST_PASSWORD_RESET]: BACKEND_PATHS.AUTH.REQUEST_PASSWORD_RESET,
   [AUTH.VERIFY_OTP]: BACKEND_PATHS.AUTH.VERIFY_OTP,
   [AUTH.RESET_PASSWORD]: BACKEND_PATHS.AUTH.RESET_PASSWORD,
