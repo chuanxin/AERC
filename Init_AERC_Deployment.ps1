@@ -1,8 +1,48 @@
 # AERC Deployment Directory Structure Initialization Script
 # This script creates the necessary directory structure for AERC deployment
 
-# Step 1: Get the deployment root directory from user
-$deployRoot = Read-Host "Please enter the project directory path (e.g., C:\AERC or D:\Projects\AERC)"
+param(
+    [switch]$ScriptsOnly,
+    [string]$DeployRoot
+)
+
+# If ScriptsOnly mode, only generate service installation scripts
+if ($ScriptsOnly) {
+    Write-Host "`n=== Scripts Generation Mode ===" -ForegroundColor Magenta
+    Write-Host "This will only generate service installation scripts." -ForegroundColor Cyan
+    
+    # If DeployRoot not provided, ask for it
+    if ([string]::IsNullOrEmpty($DeployRoot)) {
+        $DeployRoot = Read-Host "Please enter the project directory path (e.g., C:\AERC)"
+    }
+    
+    # Verify the directory exists
+    if (-not (Test-Path $DeployRoot)) {
+        Write-Host "Error: Project directory does not exist: $DeployRoot" -ForegroundColor Red
+        Write-Host "Please run the full initialization first, or specify an existing directory." -ForegroundColor Yellow
+        exit 1
+    }
+    
+    $scriptsPath = Join-Path $DeployRoot "AERC-Deploy\scripts"
+    
+    # Create scripts directory if it doesn't exist
+    if (-not (Test-Path $scriptsPath)) {
+        Write-Host "Creating scripts directory: $scriptsPath" -ForegroundColor Yellow
+        New-Item -ItemType Directory -Path $scriptsPath -Force | Out-Null
+    }
+    
+    Write-Host "Project root directory: $DeployRoot" -ForegroundColor Cyan
+    Write-Host "Scripts will be generated in: $scriptsPath" -ForegroundColor Cyan
+}
+else {
+    # Full initialization mode
+    
+    # Step 1: Get the deployment root directory from user
+    if ([string]::IsNullOrEmpty($DeployRoot)) {
+        $deployRoot = Read-Host "Please enter the project directory path (e.g., C:\AERC or D:\Projects\AERC)"
+    } else {
+        $deployRoot = $DeployRoot
+    }
 
 # Create the root directory if it doesn't exist
 if (-not (Test-Path $deployRoot)) {
@@ -172,12 +212,15 @@ PASSWORD_RESET_EXPIRE_HOURS=1
 "@
     Set-Content -Path $envFilePath -Value $envContent -Encoding UTF8
     Write-Host "Created .env file at: $envFilePath" -ForegroundColor Green
-} else {
-    Write-Host "`n.env file already exists, skipping configuration." -ForegroundColor Yellow
+    } else {
+        Write-Host "`n.env file already exists, skipping configuration." -ForegroundColor Yellow
+    }
+    
+    # Set scriptsPath for full initialization mode
+    $scriptsPath = Join-Path $deployRoot "AERC-Deploy\scripts"
 }
 
 # Step 5: Generate deployment scripts
-$scriptsPath = Join-Path $deployRoot "AERC-Deploy\scripts"
 Write-Host "`nGenerating deployment scripts..." -ForegroundColor Cyan
 
 # Generate Bootstrap_DB.ps1
@@ -1367,7 +1410,17 @@ Write-Host "Generated: Manage_Services.ps1" -ForegroundColor Green
 
 Write-Host "`nAll deployment scripts generated successfully!" -ForegroundColor Green
 
-# Step 6: Show next steps
+# Step 6: Show next steps (only if not in scripts-only mode)
+if ($ScriptsOnly) {
+    Write-Host "`nScripts have been regenerated in: $scriptsPath" -ForegroundColor Green
+    Write-Host "`nYou can now use these scripts to manage your AERC services:" -ForegroundColor Cyan
+    Write-Host "  .\Bootstrap_DB.ps1              - Initialize PostgreSQL database" -ForegroundColor White
+    Write-Host "  .\Install_Backend_Service.ps1   - Install/start API service" -ForegroundColor White
+    Write-Host "  .\Install_Frontend_Service.ps1  - Install/start frontend service" -ForegroundColor White
+    Write-Host "  .\Manage_Services.ps1           - Manage services (start/stop/restart/etc.)" -ForegroundColor White
+    exit 0
+}
+
 Write-Host "`nNext steps:" -ForegroundColor Cyan
 Write-Host "1. Checkout project from SVN:" -ForegroundColor White
 Write-Host "   svn checkout https://IRR/svn/Project-IRR/trunk $deployRoot\AERC-Deploy\temp\checkout" -ForegroundColor Gray
