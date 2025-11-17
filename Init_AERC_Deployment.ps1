@@ -90,6 +90,43 @@ if (-not (Test-Path $envFilePath)) {
         $apiVersion = "v1" 
     }
     
+    # Email configuration
+    Write-Host "`nEmail Configuration (for password reset, etc.):" -ForegroundColor Cyan
+    $mailUsername = Read-Host "Enter MAIL_USERNAME [services.cxin@gmail.com]"
+    if ([string]::IsNullOrWhiteSpace($mailUsername)) { 
+        $mailUsername = "services.cxin@gmail.com" 
+    }
+    
+    $mailPassword = Read-Host "Enter MAIL_PASSWORD [vevhydanqgcgbmbo]"
+    if ([string]::IsNullOrWhiteSpace($mailPassword)) { 
+        $mailPassword = "vevhydanqgcgbmbo" 
+    }
+    
+    $mailFrom = Read-Host "Enter MAIL_FROM [noreply@aerc.gov.tw]"
+    if ([string]::IsNullOrWhiteSpace($mailFrom)) { 
+        $mailFrom = "noreply@aerc.gov.tw" 
+    }
+    
+    $mailPort = Read-Host "Enter MAIL_PORT [587]"
+    if ([string]::IsNullOrWhiteSpace($mailPort)) { 
+        $mailPort = "587" 
+    }
+    
+    $mailServer = Read-Host "Enter MAIL_SERVER [smtp.gmail.com]"
+    if ([string]::IsNullOrWhiteSpace($mailServer)) { 
+        $mailServer = "smtp.gmail.com" 
+    }
+    
+    $mailFromName = Read-Host "Enter MAIL_FROM_NAME [AERC Irrigation Management System]"
+    if ([string]::IsNullOrWhiteSpace($mailFromName)) { 
+        $mailFromName = "AERC Irrigation Management System" 
+    }
+    
+    $frontendUrl = Read-Host "Enter FRONTEND_URL [https://localhost:3001]"
+    if ([string]::IsNullOrWhiteSpace($frontendUrl)) { 
+        $frontendUrl = "https://localhost:3001" 
+    }
+    
     # Generate DATABASE_URL
     $databaseUrl = "postgres://${postgresUser}:${postgresPassword}@localhost:5432/${postgresDb}"
     
@@ -109,6 +146,29 @@ FAST_API_VERSION=$apiVersion
 
 POSTGRES_PASSWORD=$postgresPassword
 DATABASE_URL=$databaseUrl
+
+MAX_FILE_SIZE=10485760
+MAX_FILES_PER_UPLOAD=5
+AERC_ENV=docker
+
+# Email SMTP Configuration
+MAIL_USERNAME=$mailUsername
+MAIL_PASSWORD=$mailPassword
+MAIL_FROM=$mailFrom
+MAIL_PORT=$mailPort
+MAIL_SERVER=$mailServer
+MAIL_FROM_NAME=$mailFromName
+MAIL_STARTTLS=True
+MAIL_SSL_TLS=False
+USE_CREDENTIALS=True
+VALIDATE_CERTS=True
+
+# Frontend URL (used for generating verification links)
+FRONTEND_URL=$frontendUrl
+
+# Token expiration time (hours)
+EMAIL_VERIFICATION_EXPIRE_HOURS=24
+PASSWORD_RESET_EXPIRE_HOURS=1
 "@
     Set-Content -Path $envFilePath -Value $envContent -Encoding UTF8
     Write-Host "Created .env file at: $envFilePath" -ForegroundColor Green
@@ -445,7 +505,33 @@ if ($serviceChoice -eq 'y' -or $serviceChoice -eq 'Y') {
         
         # Set environment variables for the service
         $envString = "PATH=$env:PATH"
-        foreach ($envVar in @("SECRET_KEY", "POSTGRES_USER", "POSTGRES_DB", "POSTGRES_PASSWORD", "DATABASE_URL", "FAST_API_BASE_URL", "FAST_API_TARGET", "FAST_API_VERSION")) {
+        foreach ($envVar in @(
+            "SECRET_KEY", 
+            "POSTGRES_USER", 
+            "POSTGRES_DB", 
+            "POSTGRES_PASSWORD", 
+            "DATABASE_URL", 
+            "FAST_API_BASE_URL", 
+            "FAST_API_TARGET", 
+            "FAST_API_VERSION",
+            "GEMINI_API_KEY",
+            "MAX_FILE_SIZE",
+            "MAX_FILES_PER_UPLOAD",
+            "AERC_ENV",
+            "MAIL_USERNAME",
+            "MAIL_PASSWORD",
+            "MAIL_FROM",
+            "MAIL_PORT",
+            "MAIL_SERVER",
+            "MAIL_FROM_NAME",
+            "MAIL_STARTTLS",
+            "MAIL_SSL_TLS",
+            "USE_CREDENTIALS",
+            "VALIDATE_CERTS",
+            "FRONTEND_URL",
+            "EMAIL_VERIFICATION_EXPIRE_HOURS",
+            "PASSWORD_RESET_EXPIRE_HOURS"
+        )) {
             $envValue = [Environment]::GetEnvironmentVariable($envVar, [EnvironmentVariableTarget]::Process)
             if ($envValue) {
                 $envString += "`n$envVar=$envValue"
