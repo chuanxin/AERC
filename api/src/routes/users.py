@@ -514,12 +514,13 @@ async def verify_otp(payload: OTPVerificationRequest):
     summary="重設密碼",
     description="使用 Token 重設密碼"
 )
-async def reset_password(payload: PasswordResetConfirm):
+async def reset_password(payload: PasswordResetConfirm, request: Request):
     """
     重設密碼
 
     - 驗證 Token 有效性和 OTP 已驗證
     - 更新用戶密碼
+    - 寄送密碼變更通知信
     - 返回重設結果
     """
     try:
@@ -555,6 +556,18 @@ async def reset_password(payload: PasswordResetConfirm):
         user = auth_token.user
         user.password = get_password_hash(payload.new_password)
         await user.save()
+
+        # 寄送密碼變更成功通知信
+        try:
+            email_service = EmailService()
+            await email_service.send_password_changed_notification(
+                user=user,
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent")
+            )
+        except Exception as email_error:
+            # 記錄但不阻止密碼重設成功
+            print(f"Warning: Failed to send password change notification email: {email_error}")
 
         return PasswordResetResponse(
             message="密碼重設成功，請使用新密碼登入",
