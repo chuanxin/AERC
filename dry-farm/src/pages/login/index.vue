@@ -131,7 +131,7 @@
                 >忘記密碼?</a>
                 <span class="footer-separator">|</span>
                 <a
-                  href="#"
+                  href="/login/signup"
                   class="footer-link"
                 >帳號申請</a>
               </div>

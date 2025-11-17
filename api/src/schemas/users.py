@@ -246,3 +246,87 @@ class LoginWithCaptchaRequest(BaseModel):
                 "captcha_code": "1234"
             }
         }
+
+
+# ============================================
+# 帳號註冊相關 Schemas
+# ============================================
+
+class UserRegistrationRequest(BaseModel):
+    """帳號註冊請求"""
+    username: str = Field(..., min_length=3, max_length=50, description="使用者帳號")
+    email: EmailStr = Field(..., description="電子郵件地址")
+    full_name: str = Field(..., min_length=1, max_length=50, description="使用者姓名")
+    office_id: int = Field(..., description="所屬單位 ID")
+    password: str = Field(..., min_length=8, max_length=128, description="密碼")
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """
+        驗證密碼強度
+
+        規則：
+        1. 至少 8 個字元
+        2. 以下 4 項至少符合 3 項：
+           - 包含數字
+           - 包含英文大寫
+           - 包含英文小寫
+           - 包含特殊符號
+        """
+        import re
+
+        if len(v) < 8:
+            raise ValueError('密碼長度至少需要 8 個字元')
+
+        # 檢查各項條件
+        has_digit = any(c.isdigit() for c in v)
+        has_upper = any(c.isupper() for c in v)
+        has_lower = any(c.islower() for c in v)
+        has_special = bool(re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]', v))
+
+        # 計算符合的項目數
+        conditions_met = sum([has_digit, has_upper, has_lower, has_special])
+
+        if conditions_met < 3:
+            raise ValueError(
+                '密碼需符合以下 4 項中的至少 3 項：包含數字、包含英文大寫、包含英文小寫、包含特殊符號'
+            )
+
+        return v
+
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v: str) -> str:
+        """驗證使用者帳號格式"""
+        import re
+        if not re.match(r'^[a-zA-Z0-9_]+$', v):
+            raise ValueError('帳號只能包含英文字母、數字和底線')
+        return v
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "username": "john_doe",
+                "email": "john@example.com",
+                "full_name": "王小明",
+                "office_id": 1,
+                "password": "SecurePass123!"
+            }
+        }
+
+
+class UserRegistrationResponse(BaseModel):
+    """帳號註冊回應"""
+    message: str
+    success: bool
+    user_id: Optional[int] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "帳號申請已送出，請等待管理員審核",
+                "success": True,
+                "user_id": 123
+            }
+        }

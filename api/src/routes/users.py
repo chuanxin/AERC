@@ -23,6 +23,8 @@ from src.schemas.users import (
     OTPVerificationResponse,
     CaptchaResponse,
     LoginWithCaptchaRequest,
+    UserRegistrationRequest,
+    UserRegistrationResponse,
 )
 from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus
 from src.services.email_service import EmailService
@@ -60,9 +62,67 @@ async def generate_captcha():
     )
 
 
-@router.post("/register", response_model=UserOutSchema)
-async def create_user(user: UserInSchema) -> UserOutSchema:
-    return await crud.create_user(user)
+@router.post("/register", response_model=UserRegistrationResponse)
+async def create_user(payload: UserRegistrationRequest) -> UserRegistrationResponse:
+    """
+    帳號申請
+
+    - 驗證使用者資料完整性
+    - 檢查帳號/Email 是否重複
+    - 建立待審核帳號（is_active=False）
+    """
+    from src.database.models import Offices
+
+    try:
+        # 檢查帳號是否已存在
+        existing_user = await Users.filter(username=payload.username).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="此帳號已被使用"
+            )
+
+        # 檢查 Email 是否已存在
+        existing_email = await Users.filter(email=payload.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="此電子郵件已被使用"
+            )
+
+        # 驗證所屬單位是否存在
+        office = await Offices.filter(id=payload.office_id).first()
+        if not office:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="所選單位不存在"
+            )
+
+        # 使用現有的 crud.create_user 邏輯建立帳號
+        # 但設定為停用狀態，需管理員審核
+        new_user = await Users.create(
+            username=payload.username,
+            email=payload.email,
+            full_name=payload.full_name,
+            office_id=payload.office_id,
+            password=get_password_hash(payload.password),
+            is_active=False,  # 預設停用，需管理員審核
+            role="user"
+        )
+
+        return UserRegistrationResponse(
+            message="帳號申請已送出，請等待管理員審核。審核通過後將會寄送通知至您的電子郵件。",
+            success=True,
+            user_id=new_user.id
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"系統錯誤：{str(e)}"
+        )
 
 
 @router.post("/login")
