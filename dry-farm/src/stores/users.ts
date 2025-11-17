@@ -512,6 +512,11 @@ export const useUserStore = defineStore('user', () => {
   // 立即初始化
   init()
 
+  // 設置 token（供外部直接設置使用）
+  const setToken = (newToken: string) => {
+    token.value = newToken
+  }
+
   // 返回公開的狀態和方法
   return {
     // 狀態
@@ -542,6 +547,7 @@ export const useUserStore = defineStore('user', () => {
     deleteAccount,
     checkAuth,
     attemptAutoLogin,
+    setToken,
 
     // 手動提醒相關方法
     scheduleExpiryNotification,

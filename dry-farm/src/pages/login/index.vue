@@ -101,6 +101,17 @@
                 </template>
               </v-text-field>
 
+              <!-- Error Message Display -->
+              <v-alert
+                v-if="errorMessage"
+                type="error"
+                variant="tonal"
+                density="compact"
+                class="mb-3"
+              >
+                {{ errorMessage }}
+              </v-alert>
+
               <v-btn
                 type="submit"
                 color="primary"
@@ -188,7 +199,7 @@
                   placeholder="驗證碼"
                   variant="outlined"
                   density="comfortable"
-                  class="login-input captcha-input mb-0"
+                  class="login-input captcha-input mb-2"
                   :error="captchaError"
                   :error-messages="captchaError ? '驗證碼不正確' : ''"
                 >
@@ -201,6 +212,17 @@
                     </div>
                   </template>
                 </v-text-field>
+
+                <!-- Error Message Display -->
+                <v-alert
+                  v-if="errorMessage"
+                  type="error"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3"
+                >
+                  {{ errorMessage }}
+                </v-alert>
 
                 <v-btn
                   type="submit"
@@ -383,9 +405,11 @@
         console.log('Login response:', response)
 
         // 處理 token
-        const token = response?.access_token
-        if (token) {
-          localStorage.setItem('auth_token', token)
+        const accessToken = response?.access_token
+        if (accessToken) {
+          // Update both localStorage and store's token ref
+          localStorage.setItem('auth_token', accessToken)
+          userStore.setToken(accessToken)
 
           // Fetch current user info
           await userStore.fetchCurrentUser()
@@ -398,7 +422,7 @@
           // Navigate to the redirect path or home page
           await router.push(redirectPath.value)
         } else {
-          alert('登入失敗，未收到有效 token')
+          errorMessage.value = '登入失敗，未收到有效 token'
           await generateCaptcha() // Refresh captcha on failure
         }
       } else {
