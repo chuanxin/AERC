@@ -149,13 +149,28 @@ async def send_verification_email(
     - 檢查 Email 是否已註冊
     - 如果已驗證，返回提示
     - 如果未驗證，發送驗證信
+    - 統一響應時間（防止 Timing Attack）
     """
+    import asyncio
+    import time
+
+    # 記錄開始時間
+    start_time = time.time()
+
+    # 設定最小響應時間（秒）- 模擬真實發信延遲
+    MIN_RESPONSE_TIME = 1.5
+
     try:
         # 查找用戶
         user = await Users.get(email=payload.email)
 
         # 檢查是否已驗證
         if user.email_verified:
+            # 統一響應時間
+            elapsed = time.time() - start_time
+            if elapsed < MIN_RESPONSE_TIME:
+                await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
+
             return EmailVerificationResponse(
                 message="此電子郵件已完成驗證",
                 success=True,
@@ -176,6 +191,11 @@ async def send_verification_email(
                 detail="驗證信發送失敗，請稍後再試"
             )
 
+        # 統一響應時間
+        elapsed = time.time() - start_time
+        if elapsed < MIN_RESPONSE_TIME:
+            await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
+
         return EmailVerificationResponse(
             message="驗證信已發送至您的電子郵件",
             success=True,
@@ -184,11 +204,21 @@ async def send_verification_email(
 
     except DoesNotExist:
         # 安全考量：即使 Email 不存在也返回成功訊息（避免帳號探測）
+        # 並且延遲到最小響應時間，防止 Timing Attack
+        elapsed = time.time() - start_time
+        if elapsed < MIN_RESPONSE_TIME:
+            await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
+
         return EmailVerificationResponse(
             message="如果該電子郵件已註冊，您將收到驗證信",
             success=True
         )
     except Exception as e:
+        # 統一錯誤響應時間
+        elapsed = time.time() - start_time
+        if elapsed < MIN_RESPONSE_TIME:
+            await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"系統錯誤：{str(e)}"
@@ -264,7 +294,17 @@ async def request_password_reset(
 
     - 檢查 Email 是否已註冊
     - 如果已註冊，發送密碼重設信
+    - 統一響應時間（防止 Timing Attack）
     """
+    import asyncio
+    import time
+
+    # 記錄開始時間
+    start_time = time.time()
+
+    # 設定最小響應時間（秒）- 模擬真實發信延遲
+    MIN_RESPONSE_TIME = 1.5
+
     try:
         # 查找用戶
         user = await Users.get(email=payload.email, is_active=True)
@@ -283,6 +323,11 @@ async def request_password_reset(
                 detail="密碼重設信發送失敗，請稍後再試"
             )
 
+        # 計算剩餘時間並延遲（確保總時間至少為 MIN_RESPONSE_TIME）
+        elapsed = time.time() - start_time
+        if elapsed < MIN_RESPONSE_TIME:
+            await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
+
         return PasswordResetResponse(
             message="密碼重設信已發送至您的電子郵件",
             success=True
@@ -290,11 +335,21 @@ async def request_password_reset(
 
     except DoesNotExist:
         # 安全考量：即使 Email 不存在也返回成功訊息（避免帳號探測）
+        # 並且延遲到最小響應時間，防止 Timing Attack
+        elapsed = time.time() - start_time
+        if elapsed < MIN_RESPONSE_TIME:
+            await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
+
         return PasswordResetResponse(
             message="如果該電子郵件已註冊，您將收到密碼重設信",
             success=True
         )
     except Exception as e:
+        # 統一錯誤響應時間
+        elapsed = time.time() - start_time
+        if elapsed < MIN_RESPONSE_TIME:
+            await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"系統錯誤：{str(e)}"

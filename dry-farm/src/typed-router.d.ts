@@ -45,6 +45,7 @@ declare module 'vue-router/auto-routes' {
     '/grants/steps/step7': RouteRecordInfo<'/grants/steps/step7', '/grants/steps/step7', Record<never, never>, Record<never, never>>,
     '/grants/steps/step8': RouteRecordInfo<'/grants/steps/step8', '/grants/steps/step8', Record<never, never>, Record<never, never>>,
     '/login/': RouteRecordInfo<'/login/', '/login', Record<never, never>, Record<never, never>>,
+    '/login/reset': RouteRecordInfo<'/login/reset', '/login/reset', Record<never, never>, Record<never, never>>,
     '/maps/': RouteRecordInfo<'/maps/', '/maps', Record<never, never>, Record<never, never>>,
     '/maps/custom-layer-dialog': RouteRecordInfo<'/maps/custom-layer-dialog', '/maps/custom-layer-dialog', Record<never, never>, Record<never, never>>,
     '/maps/filter-toolbar': RouteRecordInfo<'/maps/filter-toolbar', '/maps/filter-toolbar', Record<never, never>, Record<never, never>>,
