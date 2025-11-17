@@ -1899,14 +1899,11 @@
 <script setup lang="ts">
 // Import OpenLayers dependencies
 import 'ol/ol.css';
-import Map from 'ol/Map';
-import View from 'ol/View';
+import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import OSM from 'ol/source/OSM';
 import { fromLonLat, transform } from 'ol/proj';
-import Point from 'ol/geom/Point';
-import Polygon from 'ol/geom/Polygon';
-import MultiPolygon from 'ol/geom/MultiPolygon';
+import { Point, Polygon, MultiPolygon } from 'ol/geom';
 import { Vector as VectorLayer } from 'ol/layer';
 import { Vector as VectorSource } from 'ol/source';
 import { Style, Icon, Stroke, Fill } from 'ol/style';

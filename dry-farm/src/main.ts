@@ -14,6 +14,9 @@ import App from './App.vue'
 import { createApp } from 'vue'
 import { useUserStore } from '@/stores/users'
 
+// Projection Configuration
+import { initProj4 } from '@/utils/proj4Config'
+
 // FontAwesome
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
@@ -22,6 +25,10 @@ import { far } from '@fortawesome/free-regular-svg-icons' // 引入 Regular 圖�
 import { fab } from '@fortawesome/free-brands-svg-icons' // 引入 Brands 圖示
 
 library.add(fas, far, fab)
+
+// Initialize proj4 projections before creating the app
+// This ensures TWD97 and other custom projections are available for OpenLayers
+initProj4()
 
 // Create the Vue application
 const app = createApp(App)

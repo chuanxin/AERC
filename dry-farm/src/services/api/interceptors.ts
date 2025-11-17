@@ -121,25 +121,33 @@ export function setupInterceptors(
 
       // 處理未授權錯誤 (401)
       if (error.response?.status === 401) {
-        // 清除認證信息
-        localStorage.removeItem('auth_token')
+        // Check if this is a login-related request (credentials error, not session expiry)
+        const requestUrl = error.config?.url || ''
+        const isLoginAttempt = requestUrl.includes('/login') || requestUrl.includes('/login-secure')
 
-        // Emit auth error event
-        authEvents.emit('unauthorized', { source: 'api', error })
+        // Only handle as session expiry if NOT a login attempt
+        if (!isLoginAttempt) {
+          // 清除認證信息
+          localStorage.removeItem('auth_token')
 
-        // 調用自定義未授權處理函數
-        if (onUnauthorized) {
-          onUnauthorized();
-        } else {
-          // Default behavior: redirect to login page
-          if (typeof window !== 'undefined') {
-            const currentPath = window.location.pathname
-            // Avoid redirect loops
-            if (currentPath !== '/login') {
-              window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`
+          // Emit auth error event
+          authEvents.emit('unauthorized', { source: 'api', error })
+
+          // 調用自定義未授權處理函數
+          if (onUnauthorized) {
+            onUnauthorized();
+          } else {
+            // Default behavior: redirect to login page
+            if (typeof window !== 'undefined') {
+              const currentPath = window.location.pathname
+              // Avoid redirect loops
+              if (currentPath !== '/login') {
+                window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`
+              }
             }
           }
         }
+        // For login attempts, let the error propagate naturally without side effects
       }
 
       // 處理禁止訪問錯誤 (403)

@@ -8,14 +8,16 @@ const BASE = `${import.meta.env.FAST_API_BASE_URL || ''}/${API_VERSION}`
 export const AUTH = {
   REGISTER: `${BASE}/auth/register`,
   LOGIN: `${BASE}/auth/login`,
+  LOGIN_SECURE: `${BASE}/auth/login-secure`,
   LOGOUT: `${BASE}/auth/logout`,
   REFRESH: `${BASE}/auth/refresh`,
   ME: `${BASE}/auth/me`,
-  FORGOT_PASSWORD: `${BASE}/auth/forgot-password`,
+  CAPTCHA: `${BASE}/auth/captcha`,
+  REQUEST_PASSWORD_RESET: `${BASE}/auth/request-password-reset`,
+  VERIFY_OTP: `${BASE}/auth/verify-otp`,
   RESET_PASSWORD: `${BASE}/auth/reset-password`,
-  CHANGE_PASSWORD: `${BASE}/auth/change-password`,
+  SEND_VERIFICATION_EMAIL: `${BASE}/auth/send-verification-email`,
   VERIFY_EMAIL: `${BASE}/auth/verify-email`,
-  RESEND_VERIFICATION: `${BASE}/auth/resend-verification`,
 }
 
 // user management related endpoints

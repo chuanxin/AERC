@@ -16,7 +16,7 @@ export interface AuthMiddlewareOptions {
  */
 export function createAuthMiddleware(options: AuthMiddlewareOptions = {}) {
   const {
-    publicRoutes = ['/login'],
+    publicRoutes = [],  // 預設為空陣列，強制在 router 中定義
     loginRedirectPath = '/login',
     onAuthFailure
   } = options;

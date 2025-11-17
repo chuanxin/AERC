@@ -7,6 +7,7 @@ class Users(models.Model):
     username = fields.CharField(max_length=20, unique=True, description="使用者帳號")
     full_name = fields.CharField(max_length=50, null=True, description="使用者姓名")
     email = fields.CharField(max_length=255, null=True, description="電子郵件")
+    email_verified = fields.BooleanField(default=False, description="電子郵件是否已驗證")
     password = fields.CharField(max_length=128, null=True, description="密碼")
 
     office = fields.ForeignKeyField("models.Offices", related_name="user", null=True, description="所屬單位/管理處")
@@ -26,7 +27,56 @@ class Users(models.Model):
     
     def __str__(self):
         return f"{self.username} ({self.full_name})"
-    
+
+
+class AuthTokenType(str, Enum):
+    """認證 Token 類型枚舉"""
+    EMAIL_VERIFICATION = "email_verification"  # Email 驗證
+    PASSWORD_RESET = "password_reset"          # 密碼重設
+
+
+class AuthTokenStatus(str, Enum):
+    """認證 Token 狀態枚舉"""
+    PENDING = "pending"    # 待使用
+    USED = "used"          # 已使用
+    EXPIRED = "expired"    # 已過期
+    REVOKED = "revoked"    # 已撤銷
+
+
+class AuthToken(models.Model):
+    """認證 Token 資料表 - 統一處理 Email 驗證和密碼重設"""
+    id = fields.IntField(pk=True)
+    user = fields.ForeignKeyField("models.Users", related_name="auth_tokens", description="所屬用戶")
+    token_type = fields.CharEnumField(AuthTokenType, description="Token 類型")
+    token = fields.CharField(max_length=128, unique=True, description="Token 值（UUID）")
+    status = fields.CharEnumField(AuthTokenStatus, default=AuthTokenStatus.PENDING, description="Token 狀態")
+
+    # OTP 驗證（用於密碼重設）
+    otp = fields.CharField(max_length=6, null=True, description="6位數字 OTP（僅密碼重設使用）")
+    otp_verified = fields.BooleanField(default=False, description="OTP 是否已驗證")
+
+    # 時效性
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    expires_at = fields.DatetimeField(description="過期時間")
+    used_at = fields.DatetimeField(null=True, description="使用時間")
+
+    # 安全審計
+    ip_address = fields.CharField(max_length=45, null=True, description="請求 IP 地址")
+    user_agent = fields.CharField(max_length=255, null=True, description="請求 User-Agent")
+
+    class Meta:
+        table = "auth_tokens"
+        table_description = "認證 Token 資料表"
+        indexes = [
+            ("token",),
+            ("user", "token_type", "status"),
+            ("expires_at",),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.token_type.value} - {self.status.value}"
+
+
 # class Notes(models.Model):
 #     id = fields.IntField(pk=True)
 #     title = fields.CharField(max_length=225)

@@ -101,6 +101,17 @@
                 </template>
               </v-text-field>
 
+              <!-- Error Message Display -->
+              <v-alert
+                v-if="errorMessage"
+                type="error"
+                variant="tonal"
+                density="compact"
+                class="mb-3"
+              >
+                {{ errorMessage }}
+              </v-alert>
+
               <v-btn
                 type="submit"
                 color="primary"
@@ -115,9 +126,8 @@
 
               <div class="login-footer-links">
                 <a
-                  href="/password/reset"
+                  href="/login/reset"
                   class="footer-link"
-                  target="_blank"
                 >忘記密碼?</a>
                 <span class="footer-separator">|</span>
                 <a
@@ -189,7 +199,7 @@
                   placeholder="驗證碼"
                   variant="outlined"
                   density="comfortable"
-                  class="login-input captcha-input mb-0"
+                  class="login-input captcha-input mb-2"
                   :error="captchaError"
                   :error-messages="captchaError ? '驗證碼不正確' : ''"
                 >
@@ -202,6 +212,17 @@
                     </div>
                   </template>
                 </v-text-field>
+
+                <!-- Error Message Display -->
+                <v-alert
+                  v-if="errorMessage"
+                  type="error"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3"
+                >
+                  {{ errorMessage }}
+                </v-alert>
 
                 <v-btn
                   type="submit"
@@ -217,9 +238,8 @@
 
                 <div class="login-footer-links">
                   <a
-                    href="/password/reset"
+                    href="/login/reset"
                     class="footer-link"
-                    target="_blank"
                   >忘記密碼?</a>
                   <span class="footer-separator">|</span>
                   <a
@@ -284,6 +304,8 @@
 <script lang="ts" setup>
   import { useUserStore } from '@/stores/users'
   import { useOfficesStore } from '@/stores/offices'
+  import { apiService } from '@/services/api/http'
+  import { AUTH } from '@/services/api/endpoints'
   import packageInfo from '../../../package.json'
 // import { de } from 'vuetify/locale'
 
@@ -301,23 +323,38 @@
   const showConfirmPassword = ref(false)
   const rememberMe = ref(false)
 
+  const captchaId = ref('')
   const captcha = ref('')
   const userCaptcha = ref('')
   const captchaError = ref(false)
+  const captchaLoading = ref(false)
 
   const errorMessage = ref('');
   const isSubmitting = ref(false);
 
-  const generateCaptcha = () => {
-    const characters = '0123456789'
-    const length = 4
-    let result = ''
-    for (let i = 0; i < length; i++) {
-      result += characters.charAt(Math.floor(Math.random() * characters.length))
-    }
-    captcha.value = result
+  const generateCaptcha = async () => {
+    captchaLoading.value = true
+    captchaError.value = false
     userCaptcha.value = '' // Clear user input
-    captchaError.value = false // Reset error state
+
+    try {
+      const response: any = await apiService.get(AUTH.CAPTCHA)
+      captchaId.value = response.captcha_id
+      captcha.value = response.captcha_code
+    } catch (error) {
+      console.error('Failed to generate captcha:', error)
+      // Fallback to client-side generation if backend fails
+      const characters = '0123456789'
+      const length = 4
+      let result = ''
+      for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length))
+      }
+      captcha.value = result
+      captchaId.value = '' // No backend captcha
+    } finally {
+      captchaLoading.value = false
+    }
   }
 
   // Watch for user input changes to clear error state
@@ -329,7 +366,7 @@
 
   // Generate initial CAPTCHA on component mount
   onMounted(async () => {
-    generateCaptcha()
+    await generateCaptcha()
 
     // Load offices if not already loaded
     if (!officesStore.isOfficesLoaded) {
@@ -345,77 +382,99 @@
   })
 
   const handleLogin = async () => {
-    // try {
-    //   if (userCaptcha.value !== captcha.value) {
-    //     // console.log('Captcha value is:', captcha.value)
-    //     captchaError.value = true
-    //     return
-    //   }
-    //   // Add your login API call here
-    //   console.log('Login attempted:', loginForm.value)
-
-    //   // Simulate successful login
-    //   await router.push('/')
-    // } catch (error) {
-    //   console.error('Login failed:', error)
-    //   // Add error handling here
-    // }
     try {
       // First clear any previous error
       errorMessage.value = ''
-
-      // Validate captcha
-      if (userCaptcha.value !== captcha.value) {
-        captchaError.value = true
-        return
-      }
-
-      // Reset error state
       captchaError.value = false
+      isSubmitting.value = true
 
-      // Ensure field names match backend expectations
-      const loginData = {
-        username: loginForm.value.account,
-        password: loginForm.value.password
-      }
-
-      console.log('Attempting login, sending data:', loginData)
-
-      // Call store login method
-      const result = await userStore.login(loginData)
-
-      console.log('Login result:', result ? 'success' : 'failure')
-
-      if (result) {
-        // If remember me is selected, set longer expiration
-        if (rememberMe.value) {
-          localStorage.setItem('remember_login', 'true')
+      // Check if we have backend captcha
+      if (captchaId.value) {
+        // Use backend validation
+        const loginData = {
+          username: loginForm.value.account,
+          password: loginForm.value.password,
+          captcha_id: captchaId.value,
+          captcha_code: userCaptcha.value
         }
 
-        // Navigate to the redirect path or home page
-        await router.push(redirectPath.value)
+        console.log('Attempting secure login with backend captcha')
+
+        const response: any = await apiService.post(AUTH.LOGIN_SECURE, loginData)
+
+        console.log('Login response:', response)
+
+        // 處理 token
+        const accessToken = response?.access_token
+        if (accessToken) {
+          // Update both localStorage and store's token ref
+          localStorage.setItem('auth_token', accessToken)
+          userStore.setToken(accessToken)
+
+          // Fetch current user info
+          await userStore.fetchCurrentUser()
+
+          // If remember me is selected, set longer expiration
+          if (rememberMe.value) {
+            localStorage.setItem('remember_login', 'true')
+          }
+
+          // Navigate to the redirect path or home page
+          await router.push(redirectPath.value)
+        } else {
+          errorMessage.value = '登入失敗，未收到有效 token'
+          await generateCaptcha() // Refresh captcha on failure
+        }
       } else {
-        // Show error message
-        alert(userStore.error || '登入失敗，請檢查帳號和密碼')
+        // Fallback to client-side validation (when backend captcha not available)
+        if (userCaptcha.value !== captcha.value) {
+          captchaError.value = true
+          return
+        }
+
+        // Use original login flow
+        const loginData = {
+          username: loginForm.value.account,
+          password: loginForm.value.password
+        }
+
+        console.log('Attempting login with client-side captcha')
+
+        const result = await userStore.login(loginData)
+
+        if (result) {
+          if (rememberMe.value) {
+            localStorage.setItem('remember_login', 'true')
+          }
+          await router.push(redirectPath.value)
+        } else {
+          alert(userStore.error || '登入失敗，請檢查帳號和密碼')
+          await generateCaptcha()
+        }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error during login:', error)
 
-      errorMessage.value = '登入時發生未知錯誤'
-
-      if (error && typeof error === 'object') {
-        // Handle Axios error types
-        if ('response' in error && error.response && typeof error.response === 'object') {
-          const response = error.response as { data?: { detail?: string } }
-          if (response.data && response.data.detail) {
-            errorMessage.value = response.data.detail
-          }
-        }
-        // Handle standard Error types
-        else if ('message' in error && typeof error.message === 'string') {
-          errorMessage.value = error.message
-        }
+      // Handle specific error types
+      if (error?.response?.status === 400) {
+        // Captcha error
+        captchaError.value = true
+        errorMessage.value = error.response?.data?.detail || '驗證碼錯誤或已過期'
+      } else if (error?.response?.status === 401) {
+        // Authentication error
+        errorMessage.value = error.response?.data?.detail || '使用者名稱或密碼不正確'
+      } else if (error?.response?.data?.detail) {
+        errorMessage.value = error.response.data.detail
+      } else if (error?.message) {
+        errorMessage.value = error.message
+      } else {
+        errorMessage.value = '登入時發生未知錯誤'
       }
+
+      // Refresh captcha after any error
+      await generateCaptcha()
+    } finally {
+      isSubmitting.value = false
     }
   }
   // const handleForgotPassword = () => {
