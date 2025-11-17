@@ -21,9 +21,12 @@ from src.schemas.users import (
     PasswordResetResponse,
     OTPVerificationRequest,
     OTPVerificationResponse,
+    CaptchaResponse,
+    LoginWithCaptchaRequest,
 )
 from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus
 from src.services.email_service import EmailService
+from src.services.captcha_service import CaptchaService
 from datetime import datetime, timezone
 
 from src.auth.jwthandler import (
@@ -34,6 +37,27 @@ from src.auth.jwthandler import (
 
 
 router = APIRouter()
+
+
+@router.get(
+    "/captcha",
+    response_model=CaptchaResponse,
+    status_code=status.HTTP_200_OK,
+    summary="生成登入驗證碼",
+    description="生成 4 位數字驗證碼供登入使用"
+)
+async def generate_captcha():
+    """
+    生成登入驗證碼
+
+    Returns:
+        CaptchaResponse: 包含 captcha_id 和 captcha_code
+    """
+    captcha_id, captcha_code = CaptchaService.generate()
+    return CaptchaResponse(
+        captcha_id=captcha_id,
+        captcha_code=captcha_code
+    )
 
 
 @router.post("/register", response_model=UserOutSchema)
@@ -77,6 +101,71 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
         httponly=True,
         # max_age=1800,
         # expires=1800,
+        samesite="Lax",
+        secure=True,
+    )
+
+    return response
+
+
+@router.post("/login-secure")
+async def login_with_captcha(payload: LoginWithCaptchaRequest):
+    """
+    帶驗證碼的安全登入
+
+    - 先驗證驗證碼
+    - 再驗證帳號密碼
+    - 返回 JWT Token
+    """
+    # 1. 驗證驗證碼
+    if not CaptchaService.verify(payload.captcha_id, payload.captcha_code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="驗證碼錯誤或已過期"
+        )
+
+    # 2. 驗證帳號密碼
+    from src.auth.users import verify_password
+    try:
+        user = await Users.get(username=payload.username)
+        if not verify_password(payload.password, user.password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="使用者名稱或密碼不正確",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="使用者名稱或密碼不正確",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="使用者名稱或密碼不正確",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # 3. 更新最後登入時間
+    await crud.update_last_login(user.id)
+
+    # 4. 生成 JWT Token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = await create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    token = jsonable_encoder(access_token)
+    content = {
+        "message": "You've successfully logged in. Welcome back!",
+        "access_token": token,
+    }
+    response = JSONResponse(content=content)
+    response.set_cookie(
+        "Authorization",
+        value=f"Bearer {token}",
+        httponly=True,
         samesite="Lax",
         secure=True,
     )

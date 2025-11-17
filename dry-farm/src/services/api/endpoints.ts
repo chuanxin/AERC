@@ -8,9 +8,11 @@ const BASE = `${import.meta.env.FAST_API_BASE_URL || ''}/${API_VERSION}`
 export const AUTH = {
   REGISTER: `${BASE}/auth/register`,
   LOGIN: `${BASE}/auth/login`,
+  LOGIN_SECURE: `${BASE}/auth/login-secure`,
   LOGOUT: `${BASE}/auth/logout`,
   REFRESH: `${BASE}/auth/refresh`,
   ME: `${BASE}/auth/me`,
+  CAPTCHA: `${BASE}/auth/captcha`,
   REQUEST_PASSWORD_RESET: `${BASE}/auth/request-password-reset`,
   VERIFY_OTP: `${BASE}/auth/verify-otp`,
   RESET_PASSWORD: `${BASE}/auth/reset-password`,
