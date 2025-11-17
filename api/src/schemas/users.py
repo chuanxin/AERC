@@ -254,11 +254,25 @@ class LoginWithCaptchaRequest(BaseModel):
 
 class UserRegistrationRequest(BaseModel):
     """帳號註冊請求"""
-    username: str = Field(..., min_length=3, max_length=50, description="使用者帳號")
+    username: str = Field(..., min_length=3, max_length=20, description="使用者帳號")
     email: EmailStr = Field(..., description="電子郵件地址")
     full_name: str = Field(..., min_length=1, max_length=50, description="使用者姓名")
-    office_id: int = Field(..., description="所屬單位 ID")
+    office_id: int = Field(..., description="所屬單位/管理處 ID")
+    department: str = Field(..., min_length=1, max_length=100, description="所屬部門/工作站")
     password: str = Field(..., min_length=8, max_length=128, description="密碼")
+
+    # 聯絡資訊
+    job_title: Optional[str] = Field(None, max_length=50, description="職稱")
+    phone: str = Field(..., min_length=1, max_length=20, description="聯絡電話")
+    phone_ext: Optional[str] = Field(None, max_length=10, description="分機")
+    mobile: Optional[str] = Field(None, max_length=20, description="手機")
+
+    # 申請原因
+    application_reason: str = Field(..., min_length=1, max_length=1000, description="申請原因說明")
+
+    # 驗證碼
+    captcha_token: str = Field(..., description="HMAC 簽名的驗證碼 token")
+    captcha_code: str = Field(..., min_length=4, max_length=4, description="使用者輸入的驗證碼")
 
     @field_validator('password')
     @classmethod
@@ -304,6 +318,14 @@ class UserRegistrationRequest(BaseModel):
             raise ValueError('帳號只能包含英文字母、數字和底線')
         return v
 
+    @field_validator('captcha_code')
+    @classmethod
+    def validate_captcha_code(cls, v: str) -> str:
+        """驗證驗證碼格式"""
+        if not v.isdigit():
+            raise ValueError('驗證碼必須是 4 位數字')
+        return v
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -311,7 +333,15 @@ class UserRegistrationRequest(BaseModel):
                 "email": "john@example.com",
                 "full_name": "王小明",
                 "office_id": 1,
-                "password": "SecurePass123!"
+                "department": "北區工作站",
+                "password": "SecurePass123!",
+                "job_title": "技術員",
+                "phone": "02-12345678",
+                "phone_ext": "123",
+                "mobile": "0912345678",
+                "application_reason": "因業務需要，申請系統帳號以便查詢補助案件資料。",
+                "captcha_token": "MTczMTg1NjAwMDoxYTJiM2M0ZDVlNmY3ZzhoOWkwag==",
+                "captcha_code": "1234"
             }
         }
 

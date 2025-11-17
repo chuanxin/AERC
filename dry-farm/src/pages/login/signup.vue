@@ -46,11 +46,25 @@
             ref="formRef"
             @submit.prevent="handleSignup"
           >
+            <!-- Step Indicator -->
+            <div class="step-indicator mb-4">
+              <div
+                v-for="step in totalSteps"
+                :key="step"
+                class="step-dot"
+                :class="{ active: currentStep >= step }"
+              />
+            </div>
+
             <!-- Step 1: Basic Info -->
             <div v-if="currentStep === 1">
+              <div class="step-title mb-3">
+                步驟 1/3：基本資料
+              </div>
+
               <v-text-field
                 v-model="signupForm.username"
-                label="帳號"
+                label="擬申請帳號 *"
                 placeholder="請輸入帳號（至少 3 個字元）"
                 variant="outlined"
                 density="comfortable"
@@ -61,7 +75,7 @@
 
               <v-text-field
                 v-model="signupForm.email"
-                label="電子郵件"
+                label="E-Mail *"
                 placeholder="請輸入電子郵件"
                 type="email"
                 variant="outlined"
@@ -73,7 +87,7 @@
 
               <v-text-field
                 v-model="signupForm.full_name"
-                label="姓名"
+                label="姓名 *"
                 placeholder="請輸入您的姓名"
                 variant="outlined"
                 density="comfortable"
@@ -84,7 +98,7 @@
 
               <v-select
                 v-model="signupForm.office_id"
-                label="所屬單位"
+                label="所屬單位（管理處）*"
                 :items="offices"
                 item-title="name"
                 item-value="id"
@@ -95,13 +109,99 @@
                 :error-messages="formErrors.office_id"
                 @update:model-value="clearError('office_id')"
               />
+
+              <v-text-field
+                v-model="signupForm.department"
+                label="所屬部門（工作站）*"
+                placeholder="請輸入所屬部門或工作站"
+                variant="outlined"
+                density="comfortable"
+                class="mb-3"
+                :error-messages="formErrors.department"
+                @input="clearError('department')"
+              />
             </div>
 
-            <!-- Step 2: Password -->
+            <!-- Step 2: Contact Info -->
             <div v-if="currentStep === 2">
+              <div class="step-title mb-3">
+                步驟 2/3：聯絡資訊
+              </div>
+
+              <v-text-field
+                v-model="signupForm.job_title"
+                label="職稱"
+                placeholder="請輸入您的職稱（選填）"
+                variant="outlined"
+                density="comfortable"
+                class="mb-3"
+                :error-messages="formErrors.job_title"
+                @input="clearError('job_title')"
+              />
+
+              <v-row no-gutters>
+                <v-col
+                  cols="8"
+                  class="pr-2"
+                >
+                  <v-text-field
+                    v-model="signupForm.phone"
+                    label="聯絡電話 *"
+                    placeholder="例：02-12345678"
+                    variant="outlined"
+                    density="comfortable"
+                    class="mb-3"
+                    :error-messages="formErrors.phone"
+                    @input="clearError('phone')"
+                  />
+                </v-col>
+                <v-col cols="4">
+                  <v-text-field
+                    v-model="signupForm.phone_ext"
+                    label="分機"
+                    placeholder="選填"
+                    variant="outlined"
+                    density="comfortable"
+                    class="mb-3"
+                    :error-messages="formErrors.phone_ext"
+                    @input="clearError('phone_ext')"
+                  />
+                </v-col>
+              </v-row>
+
+              <v-text-field
+                v-model="signupForm.mobile"
+                label="手機"
+                placeholder="例：0912345678（選填）"
+                variant="outlined"
+                density="comfortable"
+                class="mb-3"
+                :error-messages="formErrors.mobile"
+                @input="clearError('mobile')"
+              />
+
+              <v-textarea
+                v-model="signupForm.application_reason"
+                label="申請原因說明 *"
+                placeholder="請說明申請帳號的原因與用途"
+                variant="outlined"
+                density="comfortable"
+                rows="4"
+                class="mb-3"
+                :error-messages="formErrors.application_reason"
+                @input="clearError('application_reason')"
+              />
+            </div>
+
+            <!-- Step 3: Password and Captcha -->
+            <div v-if="currentStep === 3">
+              <div class="step-title mb-3">
+                步驟 3/3：密碼設定
+              </div>
+
               <v-text-field
                 v-model="signupForm.password"
-                label="密碼"
+                label="密碼 *"
                 placeholder="請輸入密碼"
                 :type="showPassword ? 'text' : 'password'"
                 variant="outlined"
@@ -187,7 +287,7 @@
 
               <v-text-field
                 v-model="signupForm.confirmPassword"
-                label="確認密碼"
+                label="確認密碼 *"
                 placeholder="請再次輸入密碼"
                 :type="showConfirmPassword ? 'text' : 'password'"
                 variant="outlined"
@@ -201,6 +301,27 @@
                     :icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
                     @click="showConfirmPassword = !showConfirmPassword"
                   />
+                </template>
+              </v-text-field>
+
+              <!-- Captcha -->
+              <v-text-field
+                v-model="userCaptcha"
+                label="驗證碼 *"
+                placeholder="請輸入 4 位數字驗證碼"
+                variant="outlined"
+                density="comfortable"
+                class="mb-3"
+                :error-messages="formErrors.captcha"
+                @input="clearError('captcha')"
+              >
+                <template #append-inner>
+                  <div
+                    class="captcha-display"
+                    @click="generateCaptcha"
+                  >
+                    {{ captchaCode }}
+                  </div>
                 </template>
               </v-text-field>
             </div>
@@ -238,9 +359,9 @@
           </v-btn>
           <v-spacer />
           <v-btn
-            v-if="currentStep === 2"
+            v-if="currentStep > 1"
             variant="text"
-            @click="currentStep = 1"
+            @click="handlePrevStep"
           >
             上一步
           </v-btn>
@@ -251,7 +372,7 @@
             :disabled="isSubmitting"
             @click="handleNextOrSubmit"
           >
-            {{ currentStep === 1 ? '下一步' : '送出申請' }}
+            {{ getStepButtonText }}
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -274,13 +395,14 @@
 <script lang="ts" setup>
   import { useOfficesStore } from '@/stores/offices'
   import { apiService } from '@/services/api/http'
-  import { USERS } from '@/services/api/endpoints'
+  import { USERS, AUTH } from '@/services/api/endpoints'
 
   const router = useRouter()
   const officesStore = useOfficesStore()
 
   const showDialog = ref(true)
   const currentStep = ref(1)
+  const totalSteps = 3
   const showPassword = ref(false)
   const showConfirmPassword = ref(false)
   const isSubmitting = ref(false)
@@ -289,11 +411,23 @@
   const successMessage = ref('')
   const formRef = ref()
 
+  // 驗證碼
+  const captchaToken = ref('')
+  const captchaCode = ref('')
+  const userCaptcha = ref('')
+  const captchaLoading = ref(false)
+
   const signupForm = ref({
     username: '',
     email: '',
     full_name: '',
     office_id: null as number | null,
+    department: '',
+    job_title: '',
+    phone: '',
+    phone_ext: '',
+    mobile: '',
+    application_reason: '',
     password: '',
     confirmPassword: ''
   })
@@ -303,8 +437,15 @@
     email: '',
     full_name: '',
     office_id: '',
+    department: '',
+    job_title: '',
+    phone: '',
+    phone_ext: '',
+    mobile: '',
+    application_reason: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    captcha: ''
   })
 
   const offices = computed(() => officesStore.items)
@@ -334,11 +475,39 @@
     submitError.value = ''
   }
 
+  // 生成驗證碼
+  const generateCaptcha = async () => {
+    captchaLoading.value = true
+    userCaptcha.value = ''
+    formErrors.value.captcha = ''
+
+    try {
+      const response: any = await apiService.get(AUTH.CAPTCHA)
+      captchaToken.value = response.captcha_token
+      captchaCode.value = response.captcha_code
+    } catch (error) {
+      console.error('Failed to generate captcha:', error)
+      // Fallback
+      const characters = '0123456789'
+      let result = ''
+      for (let i = 0; i < 4; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length))
+      }
+      captchaCode.value = result
+      captchaToken.value = ''
+    } finally {
+      captchaLoading.value = false
+    }
+  }
+
   const validateStep1 = (): boolean => {
     let isValid = true
 
     if (!signupForm.value.username || signupForm.value.username.length < 3) {
       formErrors.value.username = '帳號長度至少需要 3 個字元'
+      isValid = false
+    } else if (!/^[a-zA-Z0-9_]+$/.test(signupForm.value.username)) {
+      formErrors.value.username = '帳號只能包含英文字母、數字和底線'
       isValid = false
     }
 
@@ -360,10 +529,31 @@
       isValid = false
     }
 
+    if (!signupForm.value.department) {
+      formErrors.value.department = '請輸入所屬部門/工作站'
+      isValid = false
+    }
+
     return isValid
   }
 
   const validateStep2 = (): boolean => {
+    let isValid = true
+
+    if (!signupForm.value.phone) {
+      formErrors.value.phone = '請輸入聯絡電話'
+      isValid = false
+    }
+
+    if (!signupForm.value.application_reason) {
+      formErrors.value.application_reason = '請輸入申請原因說明'
+      isValid = false
+    }
+
+    return isValid
+  }
+
+  const validateStep3 = (): boolean => {
     let isValid = true
 
     if (!signupForm.value.password) {
@@ -385,6 +575,14 @@
       isValid = false
     }
 
+    if (!userCaptcha.value) {
+      formErrors.value.captcha = '請輸入驗證碼'
+      isValid = false
+    } else if (userCaptcha.value.length !== 4 || !/^\d+$/.test(userCaptcha.value)) {
+      formErrors.value.captcha = '驗證碼必須是 4 位數字'
+      isValid = false
+    }
+
     return isValid
   }
 
@@ -393,13 +591,25 @@
       if (validateStep1()) {
         currentStep.value = 2
       }
+    } else if (currentStep.value === 2) {
+      if (validateStep2()) {
+        currentStep.value = 3
+        // 進入第三步時生成驗證碼
+        generateCaptcha()
+      }
     } else {
       handleSignup()
     }
   }
 
+  const handlePrevStep = () => {
+    if (currentStep.value > 1) {
+      currentStep.value--
+    }
+  }
+
   const handleSignup = async () => {
-    if (!validateStep2()) {
+    if (!validateStep3()) {
       return
     }
 
@@ -412,7 +622,15 @@
         email: signupForm.value.email,
         full_name: signupForm.value.full_name,
         office_id: signupForm.value.office_id,
-        password: signupForm.value.password
+        department: signupForm.value.department,
+        job_title: signupForm.value.job_title || null,
+        phone: signupForm.value.phone,
+        phone_ext: signupForm.value.phone_ext || null,
+        mobile: signupForm.value.mobile || null,
+        application_reason: signupForm.value.application_reason,
+        password: signupForm.value.password,
+        captcha_token: captchaToken.value,
+        captcha_code: userCaptcha.value
       }
 
       await apiService.post(USERS.BASE + '/register', payload)
@@ -427,7 +645,12 @@
       console.error('Registration error:', error)
 
       if (error?.response?.status === 400) {
-        submitError.value = error.response?.data?.detail || '申請資料有誤，請檢查後重新送出'
+        const detail = error.response?.data?.detail || '申請資料有誤，請檢查後重新送出'
+        submitError.value = detail
+        if (detail.includes('驗證碼')) {
+          formErrors.value.captcha = detail
+          await generateCaptcha()
+        }
       } else if (error?.response?.status === 409) {
         submitError.value = error.response?.data?.detail || '帳號或電子郵件已被使用'
       } else if (error?.response?.data?.detail) {
@@ -443,6 +666,11 @@
   const handleCancel = () => {
     router.push('/login')
   }
+
+  const getStepButtonText = computed(() => {
+    if (currentStep.value < totalSteps) return '下一步'
+    return '送出申請'
+  })
 
   // Load offices on mount
   onMounted(async () => {
@@ -577,6 +805,70 @@
   .requirement-header {
     font-weight: 500;
     color: #333333;
+  }
+
+  /* ============================================== */
+  /* Step Indicator */
+  /* ============================================== */
+  .step-indicator {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .step-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #e0e0e0;
+    transition: background-color 0.3s ease;
+  }
+
+  .step-dot.active {
+    background-color: #3ea0a3;
+  }
+
+  .step-title {
+    font-weight: 600;
+    color: #333333;
+    font-size: 1rem;
+  }
+
+  /* ============================================== */
+  /* Captcha Display */
+  /* ============================================== */
+  .captcha-display {
+    font-family: 'HunInn', sans-serif;
+    font-size: 12pt;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 0px 0px 3px rgba(0, 0, 0, 0.5), 1px 1px 1px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(135deg,
+      #3ea0a3 0%,
+      #5bb5b8 25%,
+      #78c9cc 50%,
+      #4da8ab 75%,
+      #3ea0a3 100%);
+    background-size: 200% 200%;
+    animation: captcha-gradient 1.5s ease infinite;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+    letter-spacing: 3px;
+    transition: filter 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    opacity: 0.95;
+  }
+
+  @keyframes captcha-gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .captcha-display:hover {
+    filter: brightness(1.1);
   }
 </style>
 

@@ -67,13 +67,22 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
     """
     帳號申請
 
-    - 驗證使用者資料完整性
+    - 驗證驗證碼
     - 檢查帳號/Email 是否重複
     - 建立待審核帳號（is_active=False）
+    - 建立申請記錄（含申請原因）
     """
-    from src.database.models import Offices
+    from src.database.models import Offices, UserRegistration
 
     try:
+        # 驗證驗證碼
+        captcha_service = CaptchaService()
+        if not captcha_service.verify_captcha(payload.captcha_token, payload.captcha_code):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="驗證碼錯誤或已過期"
+            )
+
         # 檢查帳號是否已存在
         existing_user = await Users.filter(username=payload.username).first()
         if existing_user:
@@ -98,16 +107,26 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
                 detail="所選單位不存在"
             )
 
-        # 使用現有的 crud.create_user 邏輯建立帳號
-        # 但設定為停用狀態，需管理員審核
+        # 建立使用者帳號（停用狀態，需管理員審核）
         new_user = await Users.create(
             username=payload.username,
             email=payload.email,
             full_name=payload.full_name,
             office_id=payload.office_id,
+            department=payload.department,
+            job_title=payload.job_title,
+            phone=payload.phone,
+            phone_ext=payload.phone_ext,
+            mobile=payload.mobile,
             password=get_password_hash(payload.password),
             is_active=False,  # 預設停用，需管理員審核
             role="user"
+        )
+
+        # 建立申請記錄（儲存申請原因）
+        await UserRegistration.create(
+            user_id=new_user.id,
+            application_reason=payload.application_reason
         )
 
         return UserRegistrationResponse(
