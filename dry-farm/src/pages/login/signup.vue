@@ -33,7 +33,7 @@
     <!-- Signup Dialog -->
     <v-dialog
       v-model="showDialog"
-      max-width="500"
+      max-width="550"
       persistent
     >
       <v-card class="signup-card">
@@ -44,7 +44,7 @@
         <v-card-text class="px-6">
           <v-form
             ref="formRef"
-            @submit.prevent="handleSignup"
+            @submit.prevent="handleNextOrSubmit"
           >
             <!-- Step Indicator -->
             <div class="step-indicator mb-4">
@@ -56,10 +56,10 @@
               />
             </div>
 
-            <!-- Step 1: Basic Info -->
+            <!-- Step 1: All Info (except password) -->
             <div v-if="currentStep === 1">
               <div class="step-title mb-3">
-                步驟 1/3：基本資料
+                步驟 1/3：填寫申請資料
               </div>
 
               <v-text-field
@@ -70,8 +70,22 @@
                 density="comfortable"
                 class="mb-3"
                 :error-messages="formErrors.username"
-                @input="clearError('username')"
-              />
+                :loading="usernameChecking"
+                @input="handleUsernameInput"
+              >
+                <template #append-inner>
+                  <v-icon
+                    v-if="usernameAvailable === true"
+                    color="success"
+                    icon="mdi-check-circle"
+                  />
+                  <v-icon
+                    v-else-if="usernameAvailable === false"
+                    color="error"
+                    icon="mdi-close-circle"
+                  />
+                </template>
+              </v-text-field>
 
               <v-text-field
                 v-model="signupForm.email"
@@ -120,13 +134,6 @@
                 :error-messages="formErrors.department"
                 @input="clearError('department')"
               />
-            </div>
-
-            <!-- Step 2: Contact Info -->
-            <div v-if="currentStep === 2">
-              <div class="step-title mb-3">
-                步驟 2/3：聯絡資訊
-              </div>
 
               <v-text-field
                 v-model="signupForm.job_title"
@@ -135,8 +142,6 @@
                 variant="outlined"
                 density="comfortable"
                 class="mb-3"
-                :error-messages="formErrors.job_title"
-                @input="clearError('job_title')"
               />
 
               <v-row no-gutters>
@@ -163,8 +168,6 @@
                     variant="outlined"
                     density="comfortable"
                     class="mb-3"
-                    :error-messages="formErrors.phone_ext"
-                    @input="clearError('phone_ext')"
                   />
                 </v-col>
               </v-row>
@@ -176,8 +179,6 @@
                 variant="outlined"
                 density="comfortable"
                 class="mb-3"
-                :error-messages="formErrors.mobile"
-                @input="clearError('mobile')"
               />
 
               <v-textarea
@@ -186,17 +187,104 @@
                 placeholder="請說明申請帳號的原因與用途"
                 variant="outlined"
                 density="comfortable"
-                rows="4"
+                rows="3"
                 class="mb-3"
                 :error-messages="formErrors.application_reason"
                 @input="clearError('application_reason')"
               />
             </div>
 
-            <!-- Step 3: Password and Captcha -->
+            <!-- Step 2: Email OTP Verification -->
+            <div v-if="currentStep === 2">
+              <div class="step-title mb-3">
+                步驟 2/3：電子郵件驗證
+              </div>
+
+              <v-alert
+                v-if="!otpSent"
+                type="info"
+                variant="tonal"
+                class="mb-4"
+              >
+                我們將發送驗證碼至您的電子郵件：<br>
+                <strong>{{ signupForm.email }}</strong>
+              </v-alert>
+
+              <v-alert
+                v-if="otpSent && !emailVerified"
+                type="success"
+                variant="tonal"
+                class="mb-4"
+              >
+                驗證碼已發送至 <strong>{{ signupForm.email }}</strong><br>
+                請在 {{ otpCountdown }} 秒內輸入驗證碼
+              </v-alert>
+
+              <v-alert
+                v-if="emailVerified"
+                type="success"
+                variant="tonal"
+                class="mb-4"
+              >
+                <v-icon icon="mdi-check-circle" />
+                電子郵件驗證成功！
+              </v-alert>
+
+              <div
+                v-if="!otpSent"
+                class="text-center"
+              >
+                <v-btn
+                  color="primary"
+                  size="large"
+                  :loading="sendingOtp"
+                  @click="sendOtp"
+                >
+                  發送驗證碼
+                </v-btn>
+              </div>
+
+              <div v-if="otpSent && !emailVerified">
+                <v-otp-input
+                  v-model="otpCode"
+                  :length="6"
+                  type="number"
+                  variant="outlined"
+                  class="mb-3"
+                  :error="!!formErrors.otp"
+                />
+                <div
+                  v-if="formErrors.otp"
+                  class="text-error text-caption mb-2"
+                >
+                  {{ formErrors.otp }}
+                </div>
+
+                <div class="d-flex justify-space-between align-center mb-3">
+                  <v-btn
+                    variant="text"
+                    size="small"
+                    :disabled="otpCountdown > 0 || sendingOtp"
+                    @click="resendOtp"
+                  >
+                    重新發送
+                  </v-btn>
+                  <v-btn
+                    color="primary"
+                    :loading="verifyingOtp"
+                    :disabled="otpCode.length !== 6"
+                    @click="verifyOtp"
+                  >
+                    驗證
+                  </v-btn>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3: Password Setup -->
             <div v-if="currentStep === 3">
               <div class="step-title mb-3">
-                步驟 3/3：密碼設定
+                步驟 3/3：設定密碼
               </div>
 
               <v-text-field
@@ -303,27 +391,6 @@
                   />
                 </template>
               </v-text-field>
-
-              <!-- Captcha -->
-              <v-text-field
-                v-model="userCaptcha"
-                label="驗證碼 *"
-                placeholder="請輸入 4 位數字驗證碼"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :error-messages="formErrors.captcha"
-                @input="clearError('captcha')"
-              >
-                <template #append-inner>
-                  <div
-                    class="captcha-display"
-                    @click="generateCaptcha"
-                  >
-                    {{ captchaCode }}
-                  </div>
-                </template>
-              </v-text-field>
             </div>
 
             <!-- Error Alert -->
@@ -359,17 +426,18 @@
           </v-btn>
           <v-spacer />
           <v-btn
-            v-if="currentStep > 1"
+            v-if="currentStep > 1 && !emailVerified"
             variant="text"
             @click="handlePrevStep"
           >
             上一步
           </v-btn>
           <v-btn
+            v-if="currentStep !== 2 || emailVerified"
             color="primary"
             variant="flat"
             :loading="isSubmitting"
-            :disabled="isSubmitting"
+            :disabled="isSubmitting || (currentStep === 2 && !emailVerified)"
             @click="handleNextOrSubmit"
           >
             {{ getStepButtonText }}
@@ -411,11 +479,21 @@
   const successMessage = ref('')
   const formRef = ref()
 
-  // 驗證碼
-  const captchaToken = ref('')
-  const captchaCode = ref('')
-  const userCaptcha = ref('')
-  const captchaLoading = ref(false)
+  // Username real-time check
+  const usernameChecking = ref(false)
+  const usernameAvailable = ref<boolean | null>(null)
+  let usernameCheckTimeout: ReturnType<typeof setTimeout> | null = null
+
+  // OTP verification
+  const otpSent = ref(false)
+  const otpToken = ref('')
+  const otpCode = ref('')
+  const otpCountdown = ref(0)
+  const sendingOtp = ref(false)
+  const verifyingOtp = ref(false)
+  const emailVerified = ref(false)
+  const verifiedToken = ref('')
+  let countdownInterval: ReturnType<typeof setInterval> | null = null
 
   const signupForm = ref({
     username: '',
@@ -438,14 +516,11 @@
     full_name: '',
     office_id: '',
     department: '',
-    job_title: '',
     phone: '',
-    phone_ext: '',
-    mobile: '',
     application_reason: '',
     password: '',
     confirmPassword: '',
-    captcha: ''
+    otp: ''
   })
 
   const offices = computed(() => officesStore.items)
@@ -475,28 +550,103 @@
     submitError.value = ''
   }
 
-  // 生成驗證碼
-  const generateCaptcha = async () => {
-    captchaLoading.value = true
-    userCaptcha.value = ''
-    formErrors.value.captcha = ''
+  // Real-time username availability check
+  const handleUsernameInput = () => {
+    clearError('username')
+    usernameAvailable.value = null
+
+    if (usernameCheckTimeout) {
+      clearTimeout(usernameCheckTimeout)
+    }
+
+    const username = signupForm.value.username
+    if (username.length < 3) {
+      return
+    }
+
+    usernameCheckTimeout = setTimeout(async () => {
+      usernameChecking.value = true
+      try {
+        const response: any = await apiService.get(`${USERS.BASE}/check-username/${username}`)
+        usernameAvailable.value = response.available
+        if (!response.available) {
+          formErrors.value.username = response.message
+        }
+      } catch (error) {
+        console.error('Username check failed:', error)
+      } finally {
+        usernameChecking.value = false
+      }
+    }, 500) // Debounce 500ms
+  }
+
+  // Send OTP
+  const sendOtp = async () => {
+    sendingOtp.value = true
+    submitError.value = ''
+    formErrors.value.otp = ''
 
     try {
-      const response: any = await apiService.get(AUTH.CAPTCHA)
-      captchaToken.value = response.captcha_token
-      captchaCode.value = response.captcha_code
-    } catch (error) {
-      console.error('Failed to generate captcha:', error)
-      // Fallback
-      const characters = '0123456789'
-      let result = ''
-      for (let i = 0; i < 4; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length))
+      const response: any = await apiService.post(`${USERS.BASE}/send-registration-otp`, {
+        email: signupForm.value.email
+      })
+
+      otpToken.value = response.token
+      otpSent.value = true
+      otpCountdown.value = response.expires_in || 900
+
+      // Start countdown
+      if (countdownInterval) clearInterval(countdownInterval)
+      countdownInterval = setInterval(() => {
+        if (otpCountdown.value > 0) {
+          otpCountdown.value--
+        } else {
+          if (countdownInterval) clearInterval(countdownInterval)
+        }
+      }, 1000)
+    } catch (error: any) {
+      console.error('Send OTP failed:', error)
+      if (error?.response?.status === 409) {
+        submitError.value = error.response?.data?.detail || '此電子郵件已被使用'
+      } else {
+        submitError.value = error.response?.data?.detail || '發送驗證碼失敗，請稍後再試'
       }
-      captchaCode.value = result
-      captchaToken.value = ''
     } finally {
-      captchaLoading.value = false
+      sendingOtp.value = false
+    }
+  }
+
+  const resendOtp = () => {
+    otpSent.value = false
+    otpCode.value = ''
+    sendOtp()
+  }
+
+  // Verify OTP
+  const verifyOtp = async () => {
+    if (otpCode.value.length !== 6) {
+      formErrors.value.otp = '請輸入 6 位數驗證碼'
+      return
+    }
+
+    verifyingOtp.value = true
+    formErrors.value.otp = ''
+
+    try {
+      const response: any = await apiService.post(
+        `${USERS.BASE}/verify-registration-otp?token=${encodeURIComponent(otpToken.value)}&otp=${otpCode.value}`
+      )
+
+      if (response.success) {
+        emailVerified.value = true
+        verifiedToken.value = response.verified_token
+        if (countdownInterval) clearInterval(countdownInterval)
+      }
+    } catch (error: any) {
+      console.error('Verify OTP failed:', error)
+      formErrors.value.otp = error.response?.data?.detail || '驗證碼錯誤'
+    } finally {
+      verifyingOtp.value = false
     }
   }
 
@@ -508,6 +658,9 @@
       isValid = false
     } else if (!/^[a-zA-Z0-9_]+$/.test(signupForm.value.username)) {
       formErrors.value.username = '帳號只能包含英文字母、數字和底線'
+      isValid = false
+    } else if (usernameAvailable.value === false) {
+      formErrors.value.username = '此帳號已被使用'
       isValid = false
     }
 
@@ -533,12 +686,6 @@
       formErrors.value.department = '請輸入所屬部門/工作站'
       isValid = false
     }
-
-    return isValid
-  }
-
-  const validateStep2 = (): boolean => {
-    let isValid = true
 
     if (!signupForm.value.phone) {
       formErrors.value.phone = '請輸入聯絡電話'
@@ -575,14 +722,6 @@
       isValid = false
     }
 
-    if (!userCaptcha.value) {
-      formErrors.value.captcha = '請輸入驗證碼'
-      isValid = false
-    } else if (userCaptcha.value.length !== 4 || !/^\d+$/.test(userCaptcha.value)) {
-      formErrors.value.captcha = '驗證碼必須是 4 位數字'
-      isValid = false
-    }
-
     return isValid
   }
 
@@ -592,10 +731,8 @@
         currentStep.value = 2
       }
     } else if (currentStep.value === 2) {
-      if (validateStep2()) {
+      if (emailVerified.value) {
         currentStep.value = 3
-        // 進入第三步時生成驗證碼
-        generateCaptcha()
       }
     } else {
       handleSignup()
@@ -610,6 +747,11 @@
 
   const handleSignup = async () => {
     if (!validateStep3()) {
+      return
+    }
+
+    if (!emailVerified.value || !verifiedToken.value) {
+      submitError.value = '請先完成 Email 驗證'
       return
     }
 
@@ -629,8 +771,7 @@
         mobile: signupForm.value.mobile || null,
         application_reason: signupForm.value.application_reason,
         password: signupForm.value.password,
-        captcha_token: captchaToken.value,
-        captcha_code: userCaptcha.value
+        verified_token: verifiedToken.value
       }
 
       await apiService.post(USERS.BASE + '/register', payload)
@@ -645,12 +786,7 @@
       console.error('Registration error:', error)
 
       if (error?.response?.status === 400) {
-        const detail = error.response?.data?.detail || '申請資料有誤，請檢查後重新送出'
-        submitError.value = detail
-        if (detail.includes('驗證碼')) {
-          formErrors.value.captcha = detail
-          await generateCaptcha()
-        }
+        submitError.value = error.response?.data?.detail || '申請資料有誤，請檢查後重新送出'
       } else if (error?.response?.status === 409) {
         submitError.value = error.response?.data?.detail || '帳號或電子郵件已被使用'
       } else if (error?.response?.data?.detail) {
@@ -664,11 +800,13 @@
   }
 
   const handleCancel = () => {
+    if (countdownInterval) clearInterval(countdownInterval)
     router.push('/login')
   }
 
   const getStepButtonText = computed(() => {
-    if (currentStep.value < totalSteps) return '下一步'
+    if (currentStep.value === 1) return '下一步'
+    if (currentStep.value === 2) return '下一步'
     return '送出申請'
   })
 
@@ -686,6 +824,12 @@
     }
   })
 
+  // Cleanup on unmount
+  onUnmounted(() => {
+    if (countdownInterval) clearInterval(countdownInterval)
+    if (usernameCheckTimeout) clearTimeout(usernameCheckTimeout)
+  })
+
   // Watch dialog close
   watch(showDialog, (newVal) => {
     if (!newVal) {
@@ -695,9 +839,7 @@
 </script>
 
 <style scoped>
-  /* ============================================== */
-  /* 背景圖響應式設定 */
-  /* ============================================== */
+  /* Background styling */
   .login-background {
     min-height: 100vh;
     background-size: cover;
@@ -717,9 +859,7 @@
     }
   }
 
-  /* ============================================== */
   /* Desktop Layout */
-  /* ============================================== */
   .desktop-header {
     position: absolute;
     top: 20px;
@@ -767,9 +907,7 @@
     font-weight: 500;
   }
 
-  /* ============================================== */
   /* Signup Dialog Styles */
-  /* ============================================== */
   .signup-card {
     border-radius: 12px !important;
   }
@@ -780,9 +918,7 @@
     color: #333333;
   }
 
-  /* ============================================== */
   /* Password Requirements */
-  /* ============================================== */
   .password-requirements {
     background-color: #f5f5f5;
     padding: 12px;
@@ -807,9 +943,7 @@
     color: #333333;
   }
 
-  /* ============================================== */
   /* Step Indicator */
-  /* ============================================== */
   .step-indicator {
     display: flex;
     justify-content: center;
@@ -832,43 +966,6 @@
     font-weight: 600;
     color: #333333;
     font-size: 1rem;
-  }
-
-  /* ============================================== */
-  /* Captcha Display */
-  /* ============================================== */
-  .captcha-display {
-    font-family: 'HunInn', sans-serif;
-    font-size: 12pt;
-    font-weight: bold;
-    color: #ffffff;
-    text-shadow: 0px 0px 3px rgba(0, 0, 0, 0.5), 1px 1px 1px rgba(0, 0, 0, 0.3);
-    background: linear-gradient(135deg,
-      #3ea0a3 0%,
-      #5bb5b8 25%,
-      #78c9cc 50%,
-      #4da8ab 75%,
-      #3ea0a3 100%);
-    background-size: 200% 200%;
-    animation: captcha-gradient 1.5s ease infinite;
-    padding: 8px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    user-select: none;
-    letter-spacing: 3px;
-    transition: filter 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    opacity: 0.95;
-  }
-
-  @keyframes captcha-gradient {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  .captcha-display:hover {
-    filter: brightness(1.1);
   }
 </style>
 

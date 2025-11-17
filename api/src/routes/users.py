@@ -62,25 +62,282 @@ async def generate_captcha():
     )
 
 
+# ============================================
+# 帳號註冊相關端點
+# ============================================
+
+@router.get("/check-username/{username}")
+async def check_username_availability(username: str):
+    """
+    即時檢查帳號是否可用
+
+    Returns:
+        available: bool - 是否可用
+        message: str - 說明訊息
+    """
+    import re
+
+    # 驗證帳號格式
+    if len(username) < 3:
+        return {"available": False, "message": "帳號長度至少需要 3 個字元"}
+
+    if len(username) > 20:
+        return {"available": False, "message": "帳號長度不得超過 20 個字元"}
+
+    if not re.match(r'^[a-zA-Z0-9_]+$', username):
+        return {"available": False, "message": "帳號只能包含英文字母、數字和底線"}
+
+    # 檢查是否已存在
+    existing_user = await Users.filter(username=username).first()
+    if existing_user:
+        return {"available": False, "message": "此帳號已被使用"}
+
+    return {"available": True, "message": "帳號可用"}
+
+
+@router.post("/send-registration-otp")
+async def send_registration_otp(payload: EmailVerificationRequest):
+    """
+    發送註冊驗證碼到指定 Email
+
+    - 驗證 Email 是否已被使用
+    - 發送 6 位數 OTP 到 Email
+    - 返回 Token 供後續驗證使用
+    """
+    import secrets
+    from datetime import datetime, timezone, timedelta
+
+    try:
+        # 檢查 Email 是否已存在
+        existing_email = await Users.filter(email=payload.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="此電子郵件已被使用"
+            )
+
+        # 生成 6 位數 OTP
+        otp = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+
+        # 建立臨時 token（不關聯到用戶，因為用戶還未建立）
+        token = str(secrets.token_urlsafe(32))
+
+        # 儲存到 AuthToken（使用特殊方式，user_id 暫時為空）
+        # 我們使用 metadata 欄位儲存 email 和 otp
+        from src.services.email_service import EmailService
+
+        # 先發送 Email
+        email_service = EmailService()
+
+        # 使用現有的 OTP Email 模板（需要創建新的）
+        from jinja2 import Template
+        html_template = Template("""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background-color: #3ea0a3; padding: 20px; text-align: center;">
+                <h1 style="color: white; margin: 0;">帳號申請驗證</h1>
+            </div>
+            <div style="padding: 20px; background-color: #f5f5f5;">
+                <p>您好，</p>
+                <p>您正在申請系統帳號。請使用以下驗證碼完成 Email 驗證：</p>
+                <div style="background-color: #ffffff; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+                    <h2 style="color: #3ea0a3; letter-spacing: 8px; font-size: 32px; margin: 0;">{{ otp }}</h2>
+                </div>
+                <p><strong>此驗證碼將在 15 分鐘後失效。</strong></p>
+                <p>如果這不是您本人的操作，請忽略此郵件。</p>
+            </div>
+            <div style="padding: 10px; text-align: center; color: #666666; font-size: 12px;">
+                <p>此為系統自動發送的郵件，請勿直接回覆。</p>
+            </div>
+        </div>
+        """)
+
+        body_html = html_template.render(otp=otp)
+
+        await email_service.send_email(
+            recipients=[payload.email],
+            subject="帳號申請驗證碼",
+            body_html=body_html
+        )
+
+        # 將 OTP 和 Email 暫存（使用 token 作為 key）
+        # 這裡我們將資訊編碼到 token 中，使用 HMAC 方式
+        from src.services.captcha_service import CaptchaService
+        import hmac
+        import hashlib
+        import base64
+        import time
+
+        # 建立包含 email, otp, timestamp 的 token
+        timestamp = int(time.time())
+        expires_at = timestamp + (15 * 60)  # 15 分鐘後過期
+        data = f"{payload.email}:{otp}:{expires_at}"
+
+        # 使用 HMAC 簽名
+        secret_key = CaptchaService().secret_key.encode()
+        signature = hmac.new(secret_key, data.encode(), hashlib.sha256).hexdigest()
+        token = base64.urlsafe_b64encode(f"{data}:{signature}".encode()).decode()
+
+        return {
+            "message": "驗證碼已發送至您的電子郵件",
+            "token": token,
+            "expires_in": 900  # 15 分鐘
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"發送驗證碼失敗：{str(e)}"
+        )
+
+
+@router.post("/verify-registration-otp")
+async def verify_registration_otp(token: str, otp: str):
+    """
+    驗證註冊 OTP
+
+    Args:
+        token: 包含 email 資訊的加密 token
+        otp: 使用者輸入的 6 位數 OTP
+
+    Returns:
+        success: bool
+        email: str - 已驗證的 email
+    """
+    from src.services.captcha_service import CaptchaService
+    import hmac
+    import hashlib
+    import base64
+    import time
+
+    try:
+        # 解碼 token
+        decoded = base64.urlsafe_b64decode(token.encode()).decode()
+        parts = decoded.rsplit(':', 1)
+        if len(parts) != 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的驗證 Token"
+            )
+
+        data, signature = parts
+        data_parts = data.split(':')
+        if len(data_parts) != 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的驗證 Token"
+            )
+
+        email, stored_otp, expires_at = data_parts
+
+        # 驗證簽名
+        secret_key = CaptchaService().secret_key.encode()
+        expected_signature = hmac.new(secret_key, data.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature, expected_signature):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的驗證 Token"
+            )
+
+        # 檢查是否過期
+        if int(time.time()) > int(expires_at):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="驗證碼已過期，請重新發送"
+            )
+
+        # 驗證 OTP
+        if otp != stored_otp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="驗證碼錯誤"
+            )
+
+        # 驗證成功，建立已驗證的 token（用於最終註冊）
+        timestamp = int(time.time())
+        expires_at = timestamp + (30 * 60)  # 30 分鐘內完成註冊
+        verified_data = f"{email}:verified:{expires_at}"
+        verified_signature = hmac.new(secret_key, verified_data.encode(), hashlib.sha256).hexdigest()
+        verified_token = base64.urlsafe_b64encode(f"{verified_data}:{verified_signature}".encode()).decode()
+
+        return {
+            "success": True,
+            "message": "Email 驗證成功",
+            "email": email,
+            "verified_token": verified_token
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="驗證失敗"
+        )
+
+
 @router.post("/register", response_model=UserRegistrationResponse)
 async def create_user(payload: UserRegistrationRequest) -> UserRegistrationResponse:
     """
     帳號申請
 
-    - 驗證驗證碼
+    - 驗證 Email 已通過 OTP 驗證
     - 檢查帳號/Email 是否重複
     - 建立待審核帳號（is_active=False）
     - 建立申請記錄（含申請原因）
     """
     from src.database.models import Offices, UserRegistration
+    import hmac
+    import hashlib
+    import base64
+    import time
 
     try:
-        # 驗證驗證碼
-        captcha_service = CaptchaService()
-        if not captcha_service.verify_captcha(payload.captcha_token, payload.captcha_code):
+        # 驗證 Email Token
+        try:
+            decoded = base64.urlsafe_b64decode(payload.verified_token.encode()).decode()
+            parts = decoded.rsplit(':', 1)
+            if len(parts) != 2:
+                raise ValueError("Invalid token format")
+
+            data, signature = parts
+            data_parts = data.split(':')
+            if len(data_parts) != 3:
+                raise ValueError("Invalid token data")
+
+            token_email, status_flag, expires_at = data_parts
+
+            # 驗證簽名
+            secret_key = CaptchaService().secret_key.encode()
+            expected_signature = hmac.new(secret_key, data.encode(), hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(signature, expected_signature):
+                raise ValueError("Invalid signature")
+
+            # 檢查是否過期
+            if int(time.time()) > int(expires_at):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email 驗證已過期，請重新驗證"
+                )
+
+            # 確認 Email 匹配
+            if token_email != payload.email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email 與驗證的 Email 不符"
+                )
+
+            # 確認是已驗證狀態
+            if status_flag != "verified":
+                raise ValueError("Token not verified")
+
+        except HTTPException:
+            raise
+        except Exception:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="驗證碼錯誤或已過期"
+                detail="Email 驗證無效，請重新驗證"
             )
 
         # 檢查帳號是否已存在
