@@ -323,7 +323,7 @@
   const showConfirmPassword = ref(false)
   const rememberMe = ref(false)
 
-  const captchaId = ref('')
+  const captchaToken = ref('')
   const captcha = ref('')
   const userCaptcha = ref('')
   const captchaError = ref(false)
@@ -339,7 +339,7 @@
 
     try {
       const response: any = await apiService.get(AUTH.CAPTCHA)
-      captchaId.value = response.captcha_id
+      captchaToken.value = response.captcha_token
       captcha.value = response.captcha_code
     } catch (error) {
       console.error('Failed to generate captcha:', error)
@@ -351,7 +351,7 @@
         result += characters.charAt(Math.floor(Math.random() * characters.length))
       }
       captcha.value = result
-      captchaId.value = '' // No backend captcha
+      captchaToken.value = '' // No backend captcha
     } finally {
       captchaLoading.value = false
     }
@@ -389,12 +389,12 @@
       isSubmitting.value = true
 
       // Check if we have backend captcha
-      if (captchaId.value) {
+      if (captchaToken.value) {
         // Use backend validation
         const loginData = {
           username: loginForm.value.account,
           password: loginForm.value.password,
-          captcha_id: captchaId.value,
+          captcha_token: captchaToken.value,
           captcha_code: userCaptcha.value
         }
 

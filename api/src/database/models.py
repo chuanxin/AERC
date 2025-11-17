@@ -77,26 +77,6 @@ class AuthToken(models.Model):
         return f"{self.user.username} - {self.token_type.value} - {self.status.value}"
 
 
-class Captcha(models.Model):
-    """CAPTCHA 驗證碼資料表 - 支援多進程環境"""
-    id = fields.IntField(pk=True)
-    captcha_id = fields.CharField(max_length=36, unique=True, description="驗證碼 Session ID (UUID)")
-    captcha_code = fields.CharField(max_length=10, description="驗證碼內容")
-    expires_at = fields.DatetimeField(description="過期時間")
-    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
-
-    class Meta:
-        table = "captchas"
-        table_description = "CAPTCHA 驗證碼資料表"
-        indexes = [
-            ("captcha_id",),
-            ("expires_at",),
-        ]
-
-    def __str__(self):
-        return f"Captcha {self.captcha_id[:8]}... expires at {self.expires_at}"
-
-
 # class Notes(models.Model):
 #     id = fields.IntField(pk=True)
 #     title = fields.CharField(max_length=225)
