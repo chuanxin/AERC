@@ -305,7 +305,7 @@ class EmailService:
         # 發送郵件
         return await self.send_email(
             recipients=[user.email],
-            subject="[AERC] 密碼重設請求",
+            subject="重設您的密碼",
             body_html=body_html
         )
 
@@ -491,25 +491,15 @@ PASSWORD_RESET_HTML_TEMPLATE = """
                         <td align="center" style="padding: 40px 30px 20px 30px;">
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
-                                    <td align="center" style="font-size: 48px; line-height: 48px; padding-bottom: 15px;">
-                                        🔐
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 24px; font-weight: bold; color: #E74C3C; padding-bottom: 8px;">
-                                        密碼重設
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; color: #6c757d;">
-                                        推廣管路灌溉設施管理資料庫
+                                    <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 24px; font-weight: bold; color: #3ea0a3; padding-bottom: 8px;">
+                                        您的驗證碼是： {{ otp }}
                                     </td>
                                 </tr>
                                 <tr>
                                     <td style="padding-top: 20px;">
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                             <tr>
-                                                <td style="border-top: 2px solid #E74C3C;"></td>
+                                                <td style="border-top: 2px solid #3ea0a3;"></td>
                                             </tr>
                                         </table>
                                     </td>
@@ -525,43 +515,14 @@ PASSWORD_RESET_HTML_TEMPLATE = """
                                 <!-- Greeting -->
                                 <tr>
                                     <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 20px; font-weight: 500; color: #1a1a1a; padding-bottom: 20px;">
-                                        您好，{{ full_name }}！
+                                        親愛的 {{ full_name }} 先生/小姐 您好：
                                     </td>
                                 </tr>
 
                                 <!-- Message -->
                                 <tr>
                                     <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #4a4a4a; padding-bottom: 30px;">
-                                        我們收到了您的密碼重設請求。為了確保帳戶安全，請點擊下方按鈕並使用以下驗證碼完成密碼重設。
-                                    </td>
-                                </tr>
-
-                                <!-- OTP Section -->
-                                <tr>
-                                    <td align="center" style="padding: 20px 0;">
-                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                            <tr>
-                                                <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; color: #6c757d; padding-bottom: 12px; font-weight: 500;">
-                                                    您的驗證碼
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td align="center">
-                                                    <table border="0" cellpadding="0" cellspacing="0">
-                                                        <tr>
-                                                            <td align="center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; padding: 20px 40px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">
-                                                                <span style="font-family: 'Courier New', monospace; font-size: 32px; font-weight: bold; color: #ffffff; letter-spacing: 8px;">{{ otp }}</span>
-                                                            </td>
-                                                        </tr>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #6c757d; padding-top: 12px;">
-                                                    此驗證碼將於 <strong>{{ expire_hours }} 小時</strong> 後失效
-                                                </td>
-                                            </tr>
-                                        </table>
+                                        我們收到了您的密碼重設請求。為了確保帳戶安全，請點擊下方按鈕並使用驗證碼完成密碼重設。
                                     </td>
                                 </tr>
 
@@ -570,7 +531,7 @@ PASSWORD_RESET_HTML_TEMPLATE = """
                                     <td align="center" style="padding: 30px 0;">
                                         <table border="0" cellpadding="0" cellspacing="0">
                                             <tr>
-                                                <td align="center" style="background-color: #E74C3C; border-radius: 6px;">
+                                                <td align="center" style="background-color: #3ea0a3; border-radius: 6px;">
                                                     <a href="{{ reset_url }}" target="_blank" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; padding: 16px 48px; display: inline-block;">
                                                         前往重設密碼
                                                     </a>
@@ -611,19 +572,18 @@ PASSWORD_RESET_HTML_TEMPLATE = """
 
                                 <!-- Warning Box -->
                                 <tr>
-                                    <td style="background-color: #ffebee; border-left: 4px solid #E74C3C; border-radius: 6px; padding: 20px;">
+                                    <td style="background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 6px; padding: 16px;">
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                             <tr>
                                                 <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; font-weight: 600; color: #c62828; padding-bottom: 12px;">
-                                                    🔐 安全提醒
+                                                    注意事項
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #b71c1c; line-height: 1.7;">
                                                     • 此重設連結將於 <strong>{{ expire_hours }} 小時</strong> 後失效<br/>
                                                     • 如果您未提出密碼重設請求，請立即聯繫管理員<br/>
-                                                    • 請勿將此連結分享給任何人<br/>
-                                                    • 重設密碼後，所有裝置上的登入狀態將會登出
+                                                    • 請勿將此連結或驗證碼分享給任何人
                                                 </td>
                                             </tr>
                                         </table>
@@ -636,7 +596,7 @@ PASSWORD_RESET_HTML_TEMPLATE = """
 
                     <!-- Footer -->
                     <tr>
-                        <td align="center" style="background-color: #E74C3C; padding: 30px 40px; border-radius: 0 0 8px 8px;">
+                        <td align="center" style="background-color: #3ea0a3; padding: 9px 12px; border-radius: 0 0 8px 8px;">
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
                                     <td align="center" style="padding-bottom: 12px;">
