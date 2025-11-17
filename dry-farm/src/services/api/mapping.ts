@@ -39,7 +39,9 @@ export const BACKEND_PATHS = {
   USERS: {
     LIST: '/users',
     DETAIL: (id: number | string) => `/user/${id}`,
-    DELETE: (id: number | string) => `/user/${id}`
+    DELETE: (id: number | string) => `/user/${id}`,
+    CHECK_USERNAME: (username: string) => `/check-username/${username}`,
+    REGISTER: '/register'
   },
   OFFICES: {
     LIST: '/offices',
@@ -187,6 +189,16 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配用戶詳情路徑 {API_PREFIX}/users/123
     pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/([\\d]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USERS.DETAIL(matches[1])
+  },
+  {
+    // 匹配帳號檢查路徑 {API_PREFIX}/users/check-username/{username}
+    pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/check-username/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USERS.CHECK_USERNAME(matches[1])
+  },
+  {
+    // 匹配帳號註冊路徑 {API_PREFIX}/users/register
+    pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/register$`),
+    transform: () => BACKEND_PATHS.USERS.REGISTER
   },
   {
     // 匹配管道配件相關路徑
