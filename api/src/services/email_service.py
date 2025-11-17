@@ -327,6 +327,50 @@ class EmailService:
             body_html=body_html
         )
 
+    async def send_password_changed_notification(
+        self,
+        user: Users,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> bool:
+        """
+        發送密碼變更成功通知信
+
+        Args:
+            user: 使用者物件
+            ip_address: 變更密碼時的請求 IP
+            user_agent: 變更密碼時的請求 User-Agent
+
+        Returns:
+            bool: 是否發送成功
+        """
+        from datetime import datetime, timezone
+
+        # 遮罩姓名（隱私保護）
+        display_name = user.full_name or user.username
+        masked_name = self.mask_name(display_name)
+
+        # 格式化變更時間
+        change_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        # 渲染 HTML 模板
+        html_template = Template(PASSWORD_CHANGED_HTML_TEMPLATE)
+        body_html = html_template.render(
+            username=user.username,
+            full_name=masked_name,
+            change_time=change_time,
+            ip_address=ip_address or "未知",
+            user_agent=user_agent or "未知",
+            frontend_url=EmailConfig.FRONTEND_URL
+        )
+
+        # 發送郵件
+        return await self.send_email(
+            recipients=[user.email],
+            subject="您的密碼已成功變更",
+            body_html=body_html
+        )
+
 
 # ============================================
 # Email 模板定義
@@ -602,6 +646,152 @@ PASSWORD_RESET_HTML_TEMPLATE = """
                                                     • 此重設連結將於 <strong>{{ expire_hours }} 小時</strong> 後失效<br/>
                                                     • 如果您未提出密碼重設請求，請立即聯繫管理員<br/>
                                                     • 請勿將此連結或驗證碼分享給任何人
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td align="center" style="background-color: #3ea0a3; padding: 9px 12px; border-radius: 0 0 8px 8px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center" style="padding-bottom: 12px;">
+                                        <a href="{{ frontend_url }}" target="_blank" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none;">
+                                            農業部農田水利署-推廣管路灌溉設施管理資料庫
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #ffffff; opacity: 0.9; line-height: 1.6;">
+                                        本郵件由系統自動發送，請勿直接回覆<br/>
+                                        &copy; 2025 農田水利署 版權所有
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+PASSWORD_CHANGED_HTML_TEMPLATE = """
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-TW">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>密碼變更成功通知</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f5f5;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f5f5f5;">
+        <tr>
+            <td align="center" style="padding: 40px 15px;">
+                <!-- 主容器 -->
+                <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 40px 30px 20px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 24px; font-weight: bold; color: #4CAF50; padding-bottom: 8px;">
+                                        ✓ 密碼已成功變更
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; color: #6c757d;">
+                                        推廣管路灌溉設施管理資料庫
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-top: 20px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="border-top: 2px solid #4CAF50;"></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px 40px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <!-- Greeting -->
+                                <tr>
+                                    <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 20px; font-weight: 500; color: #1a1a1a; padding-bottom: 20px;">
+                                        親愛的 {{ full_name }} 先生/小姐 您好：
+                                    </td>
+                                </tr>
+
+                                <!-- Message -->
+                                <tr>
+                                    <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #4a4a4a; padding-bottom: 30px;">
+                                        您的帳戶密碼已於 <strong>{{ change_time }}</strong> 成功變更。如果這是您本人的操作，您可以忽略此郵件。
+                                    </td>
+                                </tr>
+
+                                <!-- Info Box -->
+                                <tr>
+                                    <td style="background-color: #e8f5e9; border-left: 4px solid #4CAF50; border-radius: 6px; padding: 16px; margin-bottom: 20px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; font-weight: 600; color: #2E7D32; padding-bottom: 12px;">
+                                                    變更資訊
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #1B5E20; line-height: 1.7;">
+                                                    • 帳號：{{ username }}<br/>
+                                                    • 變更時間：{{ change_time }}<br/>
+                                                    • IP 位址：{{ ip_address }}<br/>
+                                                    • 裝置資訊：{{ user_agent }}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <!-- Divider -->
+                                <tr>
+                                    <td align="center" style="padding: 30px 0;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100">
+                                            <tr>
+                                                <td style="border-top: 1px solid #e0e0e0;"></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <!-- Warning Box -->
+                                <tr>
+                                    <td style="background-color: #ffebee; border-left: 4px solid #F44336; border-radius: 6px; padding: 16px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; font-weight: 600; color: #c62828; padding-bottom: 12px;">
+                                                    重要安全提醒
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #b71c1c; line-height: 1.7;">
+                                                    如果您<strong>未曾</strong>進行此密碼變更操作，您的帳戶可能已被他人存取。請立即：<br/>
+                                                    • 使用「忘記密碼」功能重設您的密碼<br/>
+                                                    • 檢查您的帳戶活動記錄<br/>
+                                                    • 聯繫系統管理員尋求協助
                                                 </td>
                                             </tr>
                                         </table>
