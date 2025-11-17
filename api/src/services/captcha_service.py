@@ -1,31 +1,27 @@
 """
 CAPTCHA 服務模組 - 處理登入驗證碼的生成與驗證
 
-簡單實用的實現：
-- 使用內存緩存存儲驗證碼
+使用資料庫存儲驗證碼，支援多進程（Worker）環境：
+- 跨進程共享驗證碼狀態
 - 自動過期機制（5分鐘）
-- 線程安全的存取
+- 防止重複使用
 """
 
 import random
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Tuple
-import threading
+
+from ..database.models import Captcha
 
 
 class CaptchaService:
-    """CAPTCHA 服務 - 生成與驗證登入驗證碼"""
-
-    # 類級別的緩存（單例模式）
-    _cache: Dict[str, Tuple[str, datetime]] = {}
-    _lock = threading.Lock()
+    """CAPTCHA 服務 - 生成與驗證登入驗證碼（使用資料庫存儲）"""
 
     # 驗證碼過期時間（分鐘）
     EXPIRE_MINUTES = 5
 
     @classmethod
-    def generate(cls) -> Tuple[str, str]:
+    async def generate(cls) -> tuple[str, str]:
         """
         生成新的驗證碼
 
@@ -41,18 +37,20 @@ class CaptchaService:
         # 設定過期時間
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=cls.EXPIRE_MINUTES)
 
-        # 存入緩存
-        with cls._lock:
-            # 清理過期的驗證碼
-            cls._cleanup_expired()
+        # 清理過期的驗證碼（背景維護）
+        await cls._cleanup_expired()
 
-            # 存儲新驗證碼
-            cls._cache[captcha_id] = (captcha_code, expires_at)
+        # 存入資料庫
+        await Captcha.create(
+            captcha_id=captcha_id,
+            captcha_code=captcha_code,
+            expires_at=expires_at
+        )
 
         return captcha_id, captcha_code
 
     @classmethod
-    def verify(cls, captcha_id: str, user_input: str) -> bool:
+    async def verify(cls, captcha_id: str, user_input: str) -> bool:
         """
         驗證使用者輸入的驗證碼
 
@@ -63,38 +61,33 @@ class CaptchaService:
         Returns:
             bool: 驗證是否成功
         """
-        with cls._lock:
-            if captcha_id not in cls._cache:
-                return False
+        # 從資料庫查詢驗證碼
+        captcha = await Captcha.filter(captcha_id=captcha_id).first()
 
-            captcha_code, expires_at = cls._cache[captcha_id]
-
-            # 檢查是否過期
-            if expires_at < datetime.now(timezone.utc):
-                # 過期則刪除
-                del cls._cache[captcha_id]
-                return False
-
-            # 驗證碼比對（使用後即刪除，防止重複使用）
-            if captcha_code == user_input:
-                del cls._cache[captcha_id]
-                return True
-
+        if not captcha:
             return False
 
-    @classmethod
-    def _cleanup_expired(cls) -> None:
-        """清理過期的驗證碼（內部方法，需在 lock 內調用）"""
-        now = datetime.now(timezone.utc)
-        expired_keys = [
-            key for key, (_, expires_at) in cls._cache.items()
-            if expires_at < now
-        ]
-        for key in expired_keys:
-            del cls._cache[key]
+        # 檢查是否過期
+        if captcha.expires_at < datetime.now(timezone.utc):
+            # 過期則刪除
+            await captcha.delete()
+            return False
+
+        # 驗證碼比對
+        if captcha.captcha_code == user_input:
+            # 使用後即刪除，防止重複使用
+            await captcha.delete()
+            return True
+
+        return False
 
     @classmethod
-    def get_cache_size(cls) -> int:
-        """取得目前緩存中的驗證碼數量（用於監控）"""
-        with cls._lock:
-            return len(cls._cache)
+    async def _cleanup_expired(cls) -> None:
+        """清理過期的驗證碼"""
+        now = datetime.now(timezone.utc)
+        await Captcha.filter(expires_at__lt=now).delete()
+
+    @classmethod
+    async def get_cache_size(cls) -> int:
+        """取得目前資料庫中的驗證碼數量（用於監控）"""
+        return await Captcha.all().count()

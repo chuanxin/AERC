@@ -53,7 +53,7 @@ async def generate_captcha():
     Returns:
         CaptchaResponse: 包含 captcha_id 和 captcha_code
     """
-    captcha_id, captcha_code = CaptchaService.generate()
+    captcha_id, captcha_code = await CaptchaService.generate()
     return CaptchaResponse(
         captcha_id=captcha_id,
         captcha_code=captcha_code
@@ -118,7 +118,7 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
     - 返回 JWT Token
     """
     # 1. 驗證驗證碼
-    if not CaptchaService.verify(payload.captcha_id, payload.captcha_code):
+    if not await CaptchaService.verify(payload.captcha_id, payload.captcha_code):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="驗證碼錯誤或已過期"
