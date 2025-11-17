@@ -344,14 +344,16 @@ class EmailService:
         Returns:
             bool: 是否發送成功
         """
-        from datetime import datetime, timezone
+        from datetime import datetime, timezone, timedelta
 
         # 遮罩姓名（隱私保護）
         display_name = user.full_name or user.username
         masked_name = self.mask_name(display_name)
 
-        # 格式化變更時間
-        change_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        # 格式化變更時間（UTC+8 台灣時區）
+        utc_now = datetime.now(timezone.utc)
+        utc_plus_8 = utc_now + timedelta(hours=8)
+        change_time = utc_plus_8.strftime("%Y-%m-%d %H:%M:%S") + " (UTC+8)"
 
         # 渲染 HTML 模板
         html_template = Template(PASSWORD_CHANGED_HTML_TEMPLATE)
