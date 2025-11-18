@@ -22,6 +22,8 @@ from src.schemas.users import (
     OTPVerificationRequest,
     OTPVerificationResponse,
     CaptchaResponse,
+    RegistrationOTPResponse,
+    RegistrationOTPVerificationResponse,
     LoginWithCaptchaRequest,
     UserRegistrationRequest,
     UserRegistrationResponse,
@@ -95,7 +97,7 @@ async def check_username_availability(username: str):
     return {"available": True, "message": "帳號可用"}
 
 
-@router.post("/send-registration-otp")
+@router.post("/send-registration-otp", response_model=RegistrationOTPResponse)
 async def send_registration_otp(payload: EmailVerificationRequest):
     """
     發送註冊驗證碼到指定 Email
@@ -192,7 +194,7 @@ async def send_registration_otp(payload: EmailVerificationRequest):
         )
 
 
-@router.post("/verify-registration-otp")
+@router.post("/verify-registration-otp", response_model=RegistrationOTPVerificationResponse)
 async def verify_registration_otp(token: str, otp: str):
     """
     驗證註冊 OTP

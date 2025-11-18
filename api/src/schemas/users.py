@@ -222,6 +222,40 @@ class CaptchaResponse(BaseModel):
         }
 
 
+class RegistrationOTPResponse(BaseModel):
+    """註冊 OTP 發送回應"""
+    message: str = Field(..., description="回應訊息")
+    token: str = Field(..., description="HMAC 簽名的驗證 token")
+    expires_in: int = Field(..., description="過期時間（秒）")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "驗證碼已發送至您的電子郵件",
+                "token": "eyJhbGc...",
+                "expires_in": 900
+            }
+        }
+
+
+class RegistrationOTPVerificationResponse(BaseModel):
+    """註冊 OTP 驗證回應"""
+    message: str = Field(..., description="回應訊息")
+    success: bool = Field(..., description="驗證是否成功")
+    email: str = Field(..., description="已驗證的 Email")
+    verified_token: str = Field(..., description="Email 已驗證的 token，用於最終註冊")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "Email 驗證成功",
+                "success": True,
+                "email": "user@example.com",
+                "verified_token": "eyJhbGc..."
+            }
+        }
+
+
 class LoginWithCaptchaRequest(BaseModel):
     """含驗證碼的登入請求"""
     username: str = Field(..., min_length=1, description="使用者帳號")
