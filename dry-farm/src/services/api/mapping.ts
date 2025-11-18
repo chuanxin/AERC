@@ -41,6 +41,8 @@ export const BACKEND_PATHS = {
     DETAIL: (id: number | string) => `/user/${id}`,
     DELETE: (id: number | string) => `/user/${id}`,
     CHECK_USERNAME: (username: string) => `/check-username/${username}`,
+    SEND_REGISTRATION_OTP: '/send-registration-otp',
+    VERIFY_REGISTRATION_OTP: '/verify-registration-otp',
     REGISTER: '/register'
   },
   OFFICES: {
@@ -194,6 +196,16 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配帳號檢查路徑 {API_PREFIX}/users/check-username/{username}
     pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/check-username/([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USERS.CHECK_USERNAME(matches[1])
+  },
+  {
+    // 匹配發送註冊 OTP 路徑 {API_PREFIX}/users/send-registration-otp
+    pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/send-registration-otp$`),
+    transform: () => BACKEND_PATHS.USERS.SEND_REGISTRATION_OTP
+  },
+  {
+    // 匹配驗證註冊 OTP 路徑 {API_PREFIX}/users/verify-registration-otp
+    pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/verify-registration-otp$`),
+    transform: () => BACKEND_PATHS.USERS.VERIFY_REGISTRATION_OTP
   },
   {
     // 匹配帳號註冊路徑 {API_PREFIX}/users/register
