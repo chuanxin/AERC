@@ -108,17 +108,14 @@ async def send_registration_otp(payload: EmailVerificationRequest):
     """
     import secrets
     from datetime import datetime, timezone, timedelta
-    import logging
-
-    logger = logging.getLogger(__name__)
 
     try:
-        logger.info(f"[send_registration_otp] 開始處理: email={payload.email}")
+        print(f"[send_registration_otp] 開始處理: email={payload.email}")
 
         # 檢查 Email 是否已存在
         existing_email = await Users.filter(email=payload.email).first()
         if existing_email:
-            logger.warning(f"[send_registration_otp] Email 已存在: {payload.email}")
+            print(f"[send_registration_otp] Email 已存在: {payload.email}")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="此電子郵件已被使用"
@@ -126,19 +123,19 @@ async def send_registration_otp(payload: EmailVerificationRequest):
 
         # 生成 6 位數 OTP
         otp = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
-        logger.info(f"[send_registration_otp] OTP 已生成")
+        print(f"[send_registration_otp] OTP 已生成: {otp}")
 
         # 發送 OTP Email（使用 EmailService 的標準模板）
         email_service = EmailService()
-        logger.info(f"[send_registration_otp] 開始發送郵件")
+        print(f"[send_registration_otp] 開始發送郵件")
         success = await email_service.send_registration_otp_email(
             email=payload.email,
             otp=otp
         )
-        logger.info(f"[send_registration_otp] 郵件發送結果: success={success}, type={type(success)}")
+        print(f"[send_registration_otp] 郵件發送結果: success={success}, type={type(success)}")
 
         if not success:
-            logger.error(f"[send_registration_otp] 郵件發送失敗")
+            print(f"[send_registration_otp] 郵件發送失敗")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="驗證碼郵件發送失敗"
@@ -146,39 +143,41 @@ async def send_registration_otp(payload: EmailVerificationRequest):
 
         # 將 OTP 和 Email 暫存（使用 token 作為 key）
         # 這裡我們將資訊編碼到 token 中，使用 HMAC 方式
-        from src.services.captcha_service import CaptchaService
         import hmac
         import hashlib
         import base64
         import time
 
-        logger.info(f"[send_registration_otp] 開始生成 token")
+        print(f"[send_registration_otp] 開始生成 token")
 
         # 建立包含 email, otp, timestamp 的 token
         timestamp = int(time.time())
         expires_at = timestamp + (15 * 60)  # 15 分鐘後過期
         data = f"{payload.email}:{otp}:{expires_at}"
 
-        # 使用 HMAC 簽名
-        secret_key = CaptchaService().secret_key.encode()
+        # 使用 HMAC 簽名（使用 CaptchaService 的 secret key）
+        secret_key = CaptchaService._secret_key
         signature = hmac.new(secret_key, data.encode(), hashlib.sha256).hexdigest()
         token = base64.urlsafe_b64encode(f"{data}:{signature}".encode()).decode()
 
-        logger.info(f"[send_registration_otp] Token 已生成")
+        print(f"[send_registration_otp] Token 已生成")
 
         response_data = {
             "message": "驗證碼已發送至您的電子郵件",
             "token": token,
             "expires_in": 900  # 15 分鐘
         }
-        logger.info(f"[send_registration_otp] 準備返回響應: {response_data}")
+        print(f"[send_registration_otp] 準備返回響應: {response_data}")
+        print(f"[send_registration_otp] 響應類型檢查 - message: {type(response_data['message'])}, token: {type(response_data['token'])}, expires_in: {type(response_data['expires_in'])}")
 
         return response_data
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[send_registration_otp] 發生異常: {type(e).__name__}: {str(e)}", exc_info=True)
+        print(f"[send_registration_otp] 發生異常: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"發送驗證碼失敗：{str(e)}"
@@ -225,7 +224,7 @@ async def verify_registration_otp(token: str, otp: str):
         email, stored_otp, expires_at = data_parts
 
         # 驗證簽名
-        secret_key = CaptchaService().secret_key.encode()
+        secret_key = CaptchaService._secret_key
         expected_signature = hmac.new(secret_key, data.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(signature, expected_signature):
             raise HTTPException(
@@ -302,7 +301,7 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
             token_email, status_flag, expires_at = data_parts
 
             # 驗證簽名
-            secret_key = CaptchaService().secret_key.encode()
+            secret_key = CaptchaService._secret_key
             expected_signature = hmac.new(secret_key, data.encode(), hashlib.sha256).hexdigest()
             if not hmac.compare_digest(signature, expected_signature):
                 raise ValueError("Invalid signature")
