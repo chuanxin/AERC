@@ -373,6 +373,35 @@ class EmailService:
             body_html=body_html
         )
 
+    async def send_registration_otp_email(
+        self,
+        email: str,
+        otp: str
+    ) -> bool:
+        """
+        發送註冊驗證碼 Email（無需使用者物件）
+
+        Args:
+            email: 收件人 Email
+            otp: 6 位數 OTP 驗證碼
+
+        Returns:
+            bool: 是否發送成功
+        """
+        # 渲染 HTML 模板
+        html_template = Template(REGISTRATION_OTP_HTML_TEMPLATE)
+        body_html = html_template.render(
+            otp=otp,
+            frontend_url=EmailConfig.FRONTEND_URL
+        )
+
+        # 發送郵件
+        return await self.send_email(
+            recipients=[email],
+            subject="帳號申請驗證碼",
+            body_html=body_html
+        )
+
 
 # ============================================
 # Email 模板定義
@@ -794,6 +823,125 @@ PASSWORD_CHANGED_HTML_TEMPLATE = """
                                                     • 使用「忘記密碼」功能重設您的密碼<br/>
                                                     • 檢查您的帳戶活動記錄<br/>
                                                     • 聯繫系統管理員尋求協助
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td align="center" style="background-color: #3ea0a3; padding: 9px 12px; border-radius: 0 0 8px 8px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center" style="padding-bottom: 12px;">
+                                        <a href="{{ frontend_url }}" target="_blank" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none;">
+                                            農業部農田水利署-推廣管路灌溉設施管理資料庫
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #ffffff; opacity: 0.9; line-height: 1.6;">
+                                        本郵件由系統自動發送，請勿直接回覆<br/>
+                                        &copy; 2025 農田水利署 版權所有
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+REGISTRATION_OTP_HTML_TEMPLATE = """
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-TW">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>帳號申請驗證碼</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f5f5;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f5f5f5;">
+        <tr>
+            <td align="center" style="padding: 40px 15px;">
+                <!-- 主容器 -->
+                <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 40px 30px 20px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 24px; font-weight: bold; color: #3ea0a3; padding-bottom: 8px;">
+                                        您的驗證碼是： {{ otp }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-top: 20px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="border-top: 2px solid #3ea0a3;"></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px 40px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <!-- Greeting -->
+                                <tr>
+                                    <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 20px; font-weight: 500; color: #1a1a1a; padding-bottom: 20px;">
+                                        您好：
+                                    </td>
+                                </tr>
+
+                                <!-- Message -->
+                                <tr>
+                                    <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #4a4a4a; padding-bottom: 30px;">
+                                        您正在申請「推廣管路灌溉設施管理資料庫」帳號。請在申請頁面輸入以上驗證碼以完成 Email 驗證。
+                                    </td>
+                                </tr>
+
+                                <!-- Divider -->
+                                <tr>
+                                    <td align="center" style="padding: 30px 0;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100">
+                                            <tr>
+                                                <td style="border-top: 1px solid #e0e0e0;"></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <!-- Warning Box -->
+                                <tr>
+                                    <td style="background-color: #fff3e0; border-left: 4px solid #ff9800; border-radius: 6px; padding: 16px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; font-weight: 600; color: #e65100; padding-bottom: 12px;">
+                                                    注意事項
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #5d4037; line-height: 1.7;">
+                                                    • 此驗證碼將於 <strong>15 分鐘</strong> 後失效<br/>
+                                                    • 如果您未曾於「推廣管路灌溉設施管理資料庫」申請帳號，請忽略此郵件<br/>
+                                                    • 為保障帳戶安全，請勿將驗證碼分享給任何人
                                                 </td>
                                             </tr>
                                         </table>

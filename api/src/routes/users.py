@@ -121,45 +121,18 @@ async def send_registration_otp(payload: EmailVerificationRequest):
         # 生成 6 位數 OTP
         otp = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
 
-        # 建立臨時 token（不關聯到用戶，因為用戶還未建立）
-        token = str(secrets.token_urlsafe(32))
-
-        # 儲存到 AuthToken（使用特殊方式，user_id 暫時為空）
-        # 我們使用 metadata 欄位儲存 email 和 otp
-        from src.services.email_service import EmailService
-
-        # 先發送 Email
+        # 發送 OTP Email（使用 EmailService 的標準模板）
         email_service = EmailService()
-
-        # 使用現有的 OTP Email 模板（需要創建新的）
-        from jinja2 import Template
-        html_template = Template("""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #3ea0a3; padding: 20px; text-align: center;">
-                <h1 style="color: white; margin: 0;">帳號申請驗證</h1>
-            </div>
-            <div style="padding: 20px; background-color: #f5f5f5;">
-                <p>您好，</p>
-                <p>您正在申請系統帳號。請使用以下驗證碼完成 Email 驗證：</p>
-                <div style="background-color: #ffffff; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-                    <h2 style="color: #3ea0a3; letter-spacing: 8px; font-size: 32px; margin: 0;">{{ otp }}</h2>
-                </div>
-                <p><strong>此驗證碼將在 15 分鐘後失效。</strong></p>
-                <p>如果這不是您本人的操作，請忽略此郵件。</p>
-            </div>
-            <div style="padding: 10px; text-align: center; color: #666666; font-size: 12px;">
-                <p>此為系統自動發送的郵件，請勿直接回覆。</p>
-            </div>
-        </div>
-        """)
-
-        body_html = html_template.render(otp=otp)
-
-        await email_service.send_email(
-            recipients=[payload.email],
-            subject="帳號申請驗證碼",
-            body_html=body_html
+        success = await email_service.send_registration_otp_email(
+            email=payload.email,
+            otp=otp
         )
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="驗證碼郵件發送失敗"
+            )
 
         # 將 OTP 和 Email 暫存（使用 token 作為 key）
         # 這裡我們將資訊編碼到 token 中，使用 HMAC 方式
