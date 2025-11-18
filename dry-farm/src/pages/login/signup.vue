@@ -84,8 +84,22 @@
                 density="comfortable"
                 class="mb-3"
                 :error-messages="formErrors.email"
-                @input="clearError('email')"
-              />
+                :loading="emailChecking"
+                @input="handleEmailInput"
+              >
+                <template #append-inner>
+                  <v-icon
+                    v-if="emailAvailable === true"
+                    color="success"
+                    icon="mdi-check-circle"
+                  />
+                  <v-icon
+                    v-else-if="emailAvailable === false"
+                    color="error"
+                    icon="mdi-close-circle"
+                  />
+                </template>
+              </v-text-field>
 
               <v-text-field
                 v-model="signupForm.full_name"
@@ -463,6 +477,11 @@
   const usernameAvailable = ref<boolean | null>(null)
   let usernameCheckTimeout: ReturnType<typeof setTimeout> | null = null
 
+  // Email real-time check
+  const emailChecking = ref(false)
+  const emailAvailable = ref<boolean | null>(null)
+  let emailCheckTimeout: ReturnType<typeof setTimeout> | null = null
+
   // OTP verification
   const otpSent = ref(false)
   const otpToken = ref('')
@@ -578,6 +597,38 @@
     }, 500) // Debounce 500ms
   }
 
+  // Real-time email availability check
+  const handleEmailInput = () => {
+    clearError('email')
+    emailAvailable.value = null
+
+    if (emailCheckTimeout) {
+      clearTimeout(emailCheckTimeout)
+    }
+
+    const email = signupForm.value.email
+    // Basic format check before API call
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailPattern.test(email)) {
+      return
+    }
+
+    emailCheckTimeout = setTimeout(async () => {
+      emailChecking.value = true
+      try {
+        const response: any = await apiService.get(`${USERS.BASE}/check-email/${encodeURIComponent(email)}`)
+        emailAvailable.value = response.available
+        if (!response.available) {
+          formErrors.value.email = response.message
+        }
+      } catch (error) {
+        console.error('Email check failed:', error)
+      } finally {
+        emailChecking.value = false
+      }
+    }, 500) // Debounce 500ms
+  }
+
   // Send OTP
   const sendOtp = async () => {
     sendingOtp.value = true
@@ -667,6 +718,9 @@
       isValid = false
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signupForm.value.email)) {
       formErrors.value.email = '請輸入有效的電子郵件格式'
+      isValid = false
+    } else if (emailAvailable.value === false) {
+      formErrors.value.email = '此電子郵件已被使用'
       isValid = false
     }
 
@@ -826,6 +880,7 @@
   onUnmounted(() => {
     if (countdownInterval) clearInterval(countdownInterval)
     if (usernameCheckTimeout) clearTimeout(usernameCheckTimeout)
+    if (emailCheckTimeout) clearTimeout(emailCheckTimeout)
   })
 
   // Watch dialog close

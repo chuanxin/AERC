@@ -97,6 +97,30 @@ async def check_username_availability(username: str):
     return {"available": True, "message": "帳號可用"}
 
 
+@router.get("/check-email/{email}")
+async def check_email_availability(email: str):
+    """
+    即時檢查 Email 是否可用
+
+    Returns:
+        available: bool - 是否可用
+        message: str - 說明訊息
+    """
+    import re
+
+    # 驗證 Email 格式
+    email_pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    if not re.match(email_pattern, email):
+        return {"available": False, "message": "請輸入有效的電子郵件格式"}
+
+    # 檢查是否已存在
+    existing_user = await Users.filter(email=email).first()
+    if existing_user:
+        return {"available": False, "message": "此電子郵件已被使用"}
+
+    return {"available": True, "message": "電子郵件可用"}
+
+
 @router.post("/send-registration-otp", response_model=RegistrationOTPResponse)
 async def send_registration_otp(payload: EmailVerificationRequest):
     """
