@@ -33,7 +33,7 @@
     <!-- Signup Dialog -->
     <v-dialog
       v-model="showDialog"
-      max-width="550"
+      max-width="600"
       persistent
     >
       <v-card class="signup-card">
@@ -42,26 +42,14 @@
         </v-card-title>
 
         <v-card-text class="px-6">
-          <v-form
-            ref="formRef"
-            @submit.prevent="handleNextOrSubmit"
+          <v-stepper
+            v-model="currentStep"
+            :items="stepperItems"
+            flat
+            hide-actions
           >
-            <!-- Step Indicator -->
-            <div class="step-indicator mb-4">
-              <div
-                v-for="step in totalSteps"
-                :key="step"
-                class="step-dot"
-                :class="{ active: currentStep >= step }"
-              />
-            </div>
-
             <!-- Step 1: All Info (except password) -->
-            <div v-if="currentStep === 1">
-              <div class="step-title mb-3">
-                步驟 1/3：填寫申請資料
-              </div>
-
+            <template #item.1>
               <v-text-field
                 v-model="signupForm.username"
                 label="擬申請帳號 *"
@@ -192,14 +180,10 @@
                 :error-messages="formErrors.application_reason"
                 @input="clearError('application_reason')"
               />
-            </div>
+            </template>
 
             <!-- Step 2: Email OTP Verification -->
-            <div v-if="currentStep === 2">
-              <div class="step-title mb-3">
-                步驟 2/3：電子郵件驗證
-              </div>
-
+            <template #item.2>
               <v-alert
                 v-if="!otpSent"
                 type="info"
@@ -279,14 +263,10 @@
                   </v-btn>
                 </div>
               </div>
-            </div>
+            </template>
 
             <!-- Step 3: Password Setup -->
-            <div v-if="currentStep === 3">
-              <div class="step-title mb-3">
-                步驟 3/3：設定密碼
-              </div>
-
+            <template #item.3>
               <v-text-field
                 v-model="signupForm.password"
                 label="密碼 *"
@@ -391,10 +371,11 @@
                   />
                 </template>
               </v-text-field>
-            </div>
+            </template>
+          </v-stepper>
 
-            <!-- Error Alert -->
-            <v-alert
+          <!-- Error Alert -->
+          <v-alert
               v-if="submitError"
               type="error"
               variant="tonal"
@@ -414,7 +395,6 @@
             >
               {{ successMessage }}
             </v-alert>
-          </v-form>
         </v-card-text>
 
         <v-card-actions class="px-6 pb-6">
@@ -470,7 +450,6 @@
 
   const showDialog = ref(true)
   const currentStep = ref(1)
-  const totalSteps = 3
   const showPassword = ref(false)
   const showConfirmPassword = ref(false)
   const isSubmitting = ref(false)
@@ -524,6 +503,25 @@
   })
 
   const offices = computed(() => officesStore.items)
+
+  // Stepper items configuration
+  const stepperItems = [
+    {
+      title: '填寫資料',
+      subtitle: '基本資料與申請原因',
+      value: 1
+    },
+    {
+      title: '驗證信箱',
+      subtitle: 'Email OTP 驗證',
+      value: 2
+    },
+    {
+      title: '設定密碼',
+      subtitle: '完成帳號申請',
+      value: 3
+    }
+  ]
 
   // Password requirements validation
   const passwordRequirements = computed(() => {
@@ -918,6 +916,33 @@
     color: #333333;
   }
 
+  /* Stepper Customization */
+  :deep(.v-stepper) {
+    box-shadow: none !important;
+  }
+
+  :deep(.v-stepper-header) {
+    box-shadow: none !important;
+  }
+
+  :deep(.v-stepper-item__avatar.v-avatar) {
+    background-color: #e0e0e0;
+  }
+
+  :deep(.v-stepper-item--selected .v-stepper-item__avatar.v-avatar),
+  :deep(.v-stepper-item--complete .v-stepper-item__avatar.v-avatar) {
+    background-color: #3ea0a3;
+  }
+
+  :deep(.v-stepper-item__title) {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  :deep(.v-stepper-item__subtitle) {
+    font-size: 0.75rem;
+  }
+
   /* Password Requirements */
   .password-requirements {
     background-color: #f5f5f5;
@@ -941,31 +966,6 @@
   .requirement-header {
     font-weight: 500;
     color: #333333;
-  }
-
-  /* Step Indicator */
-  .step-indicator {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-  }
-
-  .step-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background-color: #e0e0e0;
-    transition: background-color 0.3s ease;
-  }
-
-  .step-dot.active {
-    background-color: #3ea0a3;
-  }
-
-  .step-title {
-    font-weight: 600;
-    color: #333333;
-    font-size: 1rem;
   }
 </style>
 
