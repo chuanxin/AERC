@@ -121,10 +121,13 @@ class PasswordPolicyService:
         """
         檢查新密碼是否與最近 N 代密碼重複
 
+        實際檢查範圍：當前密碼 + 歷史 N 代 = N+1 次密碼
+        例如：generations=3 → 檢查當前 + 歷史 3 代 = 4 次密碼
+
         Args:
             user_id: 使用者 ID
             new_password: 新密碼（明文）
-            generations: 檢查幾代（預設 3）
+            generations: 檢查歷史幾代（預設 3）
 
         Returns:
             tuple[bool, Optional[str]]: (是否可用, 錯誤訊息)
@@ -134,20 +137,23 @@ class PasswordPolicyService:
         # Lazy import to avoid circular dependency
         from src.auth.users import verify_password
 
-        # 取得使用者當前密碼
+        # 計算實際檢查次數：當前密碼 + 歷史 N 代
+        total_checks = 1 + generations
+        error_message = f"新密碼不得與最近 {total_checks} 次使用過的密碼相同"
+
+        # 檢查當前密碼（視為最近第 1 次）
         user = await Users.get(id=user_id)
         if user.password and verify_password(new_password, user.password):
-            return False, "新密碼不得與當前密碼相同"
+            return False, error_message
 
-        # 取得最近 N 代歷史密碼
+        # 檢查歷史 N 代密碼（最近第 2 至 N+1 次）
         recent_passwords = await PasswordHistory.filter(
             user_id=user_id
         ).order_by("-changed_at").limit(generations)
 
-        # 檢查是否與任一歷史密碼相同
-        for idx, history in enumerate(recent_passwords, 1):
+        for history in recent_passwords:
             if verify_password(new_password, history.password_hash):
-                return False, f"新密碼不得與最近 {generations} 次使用過的密碼相同"
+                return False, error_message
 
         return True, None
 
