@@ -108,7 +108,7 @@ class PasswordPolicyService:
     """密碼歷史政策服務 - 管理密碼歷史和三代不重複"""
 
     # 政策配置
-    PASSWORD_HISTORY_GENERATIONS = 3  # 三代不重複
+    PASSWORD_HISTORY_GENERATIONS = 3  # 三代不重複（總共檢查 3 次：當前 + 歷史 2 代）
     MAX_HISTORY_RECORDS = 10  # 最多保留 10 筆歷史記錄
 
     @classmethod
@@ -121,13 +121,16 @@ class PasswordPolicyService:
         """
         檢查新密碼是否與最近 N 代密碼重複
 
-        實際檢查範圍：當前密碼 + 歷史 N 代 = N+1 次密碼
-        例如：generations=3 → 檢查當前 + 歷史 3 代 = 4 次密碼
+        「N 代不重複」定義：總共檢查 N 次密碼（包括當前密碼）
+        例如：generations=3 → 檢查 3 次密碼：
+            - 第 1 次：當前密碼（users.password）
+            - 第 2 次：歷史第 1 代（password_history 最近一筆）
+            - 第 3 次：歷史第 2 代（password_history 第二近一筆）
 
         Args:
             user_id: 使用者 ID
             new_password: 新密碼（明文）
-            generations: 檢查歷史幾代（預設 3）
+            generations: 檢查幾代（預設 3，表示總共檢查 3 次密碼）
 
         Returns:
             tuple[bool, Optional[str]]: (是否可用, 錯誤訊息)
@@ -137,19 +140,19 @@ class PasswordPolicyService:
         # Lazy import to avoid circular dependency
         from src.auth.users import verify_password
 
-        # 計算實際檢查次數：當前密碼 + 歷史 N 代
-        total_checks = 1 + generations
-        error_message = f"新密碼不得與最近 {total_checks} 次使用過的密碼相同"
+        error_message = f"新密碼不得與最近 {generations} 次使用過的密碼相同"
 
-        # 檢查當前密碼（視為最近第 1 次）
+        # 檢查當前密碼（第 1 次）
         user = await Users.get(id=user_id)
         if user.password and verify_password(new_password, user.password):
             return False, error_message
 
-        # 檢查歷史 N 代密碼（最近第 2 至 N+1 次）
+        # 檢查歷史密碼（第 2 至第 N 次）
+        # 因為已經檢查了當前密碼（1 次），所以歷史只需檢查 N-1 次
+        history_limit = generations - 1
         recent_passwords = await PasswordHistory.filter(
             user_id=user_id
-        ).order_by("-changed_at").limit(generations)
+        ).order_by("-changed_at").limit(history_limit)
 
         for history in recent_passwords:
             if verify_password(new_password, history.password_hash):
