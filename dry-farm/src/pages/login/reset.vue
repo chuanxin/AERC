@@ -818,9 +818,10 @@ const handleResetPassword = async () => {
       successMessage.value = response.message || '您的密碼已成功重設，請使用新密碼登入系統。'
     }
   } catch (error: any) {
-    // 統一的錯誤處理，避免洩漏系統資訊
+    // 錯誤處理：顯示後端返回的具體錯誤訊息
     if (error.response?.status === 400) {
-      passwordError.value = '重設連結無效或已過期，請重新申請密碼重設'
+      // 使用後端返回的具體錯誤訊息（密碼歷史、Token 過期等）
+      passwordError.value = error.response?.data?.detail || '重設連結無效或已過期，請重新申請密碼重設'
     } else if (error.response?.status === 422) {
       // Pydantic 驗證錯誤（密碼格式不符）
       passwordError.value = '密碼格式不符合要求，請檢查密碼強度'
