@@ -900,11 +900,6 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
                 detail="請先完成驗證碼驗證"
             )
 
-        # 標記為已使用
-        auth_token.status = AuthTokenStatus.USED
-        auth_token.used_at = datetime.now(timezone.utc)
-        await auth_token.save()
-
         # 更新密碼（包含三代不重複檢查）
         user = auth_token.user
         success, error_msg = await PasswordPolicyService.change_password(
@@ -920,6 +915,11 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_msg
             )
+
+        # 密碼變更成功後，才標記 Token 為已使用
+        auth_token.status = AuthTokenStatus.USED
+        auth_token.used_at = datetime.now(timezone.utc)
+        await auth_token.save()
 
         # 寄送密碼變更成功通知信
         try:
