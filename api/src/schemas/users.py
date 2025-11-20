@@ -4,6 +4,7 @@ from typing import Optional, NewType
 from datetime import datetime
 
 from src.database.models import Users
+from src.validators.password import validate_password_strength
 
 
 UserInSchema = pydantic_model_creator(
@@ -117,37 +118,8 @@ class PasswordResetConfirm(BaseModel):
     @field_validator('new_password')
     @classmethod
     def validate_password(cls, v: str) -> str:
-        """
-        驗證密碼強度
-
-        規則：
-        1. 至少 8 個字元
-        2. 以下 4 項至少符合 3 項：
-           - 包含數字
-           - 包含英文大寫
-           - 包含英文小寫
-           - 包含特殊符號
-        """
-        import re
-
-        if len(v) < 8:
-            raise ValueError('密碼長度至少需要 8 個字元')
-
-        # 檢查各項條件
-        has_digit = any(c.isdigit() for c in v)
-        has_upper = any(c.isupper() for c in v)
-        has_lower = any(c.islower() for c in v)
-        has_special = bool(re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]', v))
-
-        # 計算符合的項目數
-        conditions_met = sum([has_digit, has_upper, has_lower, has_special])
-
-        if conditions_met < 3:
-            raise ValueError(
-                '密碼需符合以下 4 項中的至少 3 項：包含數字、包含英文大寫、包含英文小寫、包含特殊符號'
-            )
-
-        return v
+        """使用統一的密碼強度驗證"""
+        return validate_password_strength(v)
 
     class Config:
         json_schema_extra = {
@@ -310,37 +282,8 @@ class UserRegistrationRequest(BaseModel):
     @field_validator('password')
     @classmethod
     def validate_password(cls, v: str) -> str:
-        """
-        驗證密碼強度
-
-        規則：
-        1. 至少 8 個字元
-        2. 以下 4 項至少符合 3 項：
-           - 包含數字
-           - 包含英文大寫
-           - 包含英文小寫
-           - 包含特殊符號
-        """
-        import re
-
-        if len(v) < 8:
-            raise ValueError('密碼長度至少需要 8 個字元')
-
-        # 檢查各項條件
-        has_digit = any(c.isdigit() for c in v)
-        has_upper = any(c.isupper() for c in v)
-        has_lower = any(c.islower() for c in v)
-        has_special = bool(re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]', v))
-
-        # 計算符合的項目數
-        conditions_met = sum([has_digit, has_upper, has_lower, has_special])
-
-        if conditions_met < 3:
-            raise ValueError(
-                '密碼需符合以下 4 項中的至少 3 項：包含數字、包含英文大寫、包含英文小寫、包含特殊符號'
-            )
-
-        return v
+        """使用統一的密碼強度驗證"""
+        return validate_password_strength(v)
 
     @field_validator('username')
     @classmethod
