@@ -118,6 +118,30 @@ class UserRegistration(models.Model):
         return f"{self.user.username} - {self.status.value}"
 
 
+class PasswordHistory(models.Model):
+    """密碼歷史記錄表 - 用於實作密碼三代不重複政策"""
+    id = fields.IntField(pk=True)
+    user = fields.ForeignKeyField("models.Users", related_name="password_history", description="使用者")
+    password_hash = fields.CharField(max_length=128, description="歷史密碼 hash")
+
+    # 審計資訊
+    changed_at = fields.DatetimeField(auto_now_add=True, description="密碼變更時間")
+    changed_by_ip = fields.CharField(max_length=45, null=True, description="變更來源 IP")
+    user_agent = fields.CharField(max_length=255, null=True, description="User Agent")
+    change_method = fields.CharField(max_length=50, null=True, description="變更方式: password_reset, user_change, admin_reset")
+
+    class Meta:
+        table = "password_history"
+        table_description = "密碼歷史記錄表"
+        ordering = ["-changed_at"]  # 最新的在前
+        indexes = [
+            ("user", "changed_at"),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.changed_at.strftime('%Y-%m-%d %H:%M')}"
+
+
 # class Notes(models.Model):
 #     id = fields.IntField(pk=True)
 #     title = fields.CharField(max_length=225)

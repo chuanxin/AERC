@@ -31,6 +31,7 @@ from src.schemas.users import (
 from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus
 from src.services.email_service import EmailService
 from src.services.captcha_service import CaptchaService
+from src.services.password_policy import PasswordPolicyService
 from datetime import datetime, timezone
 
 from src.auth.jwthandler import (
@@ -904,10 +905,21 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
         auth_token.used_at = datetime.now(timezone.utc)
         await auth_token.save()
 
-        # 更新密碼
+        # 更新密碼（包含三代不重複檢查）
         user = auth_token.user
-        user.password = get_password_hash(payload.new_password)
-        await user.save()
+        success, error_msg = await PasswordPolicyService.change_password(
+            user_id=user.id,
+            new_password=payload.new_password,
+            change_method="password_reset",
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent")
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
 
         # 寄送密碼變更成功通知信
         try:
