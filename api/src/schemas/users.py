@@ -4,7 +4,7 @@ from typing import Optional, NewType
 from datetime import datetime
 
 from src.database.models import Users
-from src.validators.password import validate_password_strength
+from src.services.password_policy import PasswordPolicyService
 
 
 UserInSchema = pydantic_model_creator(
@@ -119,7 +119,7 @@ class PasswordResetConfirm(BaseModel):
     @classmethod
     def validate_password(cls, v: str) -> str:
         """使用統一的密碼強度驗證"""
-        return validate_password_strength(v)
+        return PasswordPolicyService.validate_password_strength(v)
 
     class Config:
         json_schema_extra = {
@@ -283,7 +283,7 @@ class UserRegistrationRequest(BaseModel):
     @classmethod
     def validate_password(cls, v: str) -> str:
         """使用統一的密碼強度驗證"""
-        return validate_password_strength(v)
+        return PasswordPolicyService.validate_password_strength(v)
 
     @field_validator('username')
     @classmethod

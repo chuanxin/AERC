@@ -1,23 +1,115 @@
 """
 密碼政策服務模組
 
-實作密碼安全政策：
+實作所有密碼相關政策：
+- 格式驗證（長度、複雜度）
 - 三代不重複
 - 密碼歷史記錄
 - 審計追蹤
 """
 
+import re
 from typing import Optional
 from src.database.models import Users, PasswordHistory
 from src.auth.users import verify_password, get_password_hash
 
 
 class PasswordPolicyService:
-    """密碼政策服務"""
+    """密碼政策服務 - 統一管理所有密碼規則"""
 
     # 政策配置
     PASSWORD_HISTORY_GENERATIONS = 3  # 三代不重複
     MAX_HISTORY_RECORDS = 10  # 最多保留 10 筆歷史記錄
+
+    # 格式要求
+    MIN_LENGTH = 8
+    MAX_LENGTH = 128
+    REQUIRED_TYPES_COUNT = 3  # 4 選 3
+
+    # ============================================
+    # 格式驗證（純函數，無副作用）
+    # ============================================
+
+    @classmethod
+    def validate_password_strength(cls, password: str) -> str:
+        """
+        驗證密碼強度（可重用於 Pydantic validator）
+
+        規則：
+        1. 至少 8 個字元
+        2. 以下 4 項至少符合 3 項：
+           - 包含數字
+           - 包含英文大寫
+           - 包含英文小寫
+           - 包含特殊符號
+
+        Args:
+            password: 密碼明文
+
+        Returns:
+            str: 驗證通過後的密碼
+
+        Raises:
+            ValueError: 驗證失敗時拋出，包含具體錯誤訊息
+        """
+        if len(password) < cls.MIN_LENGTH:
+            raise ValueError(f'密碼長度至少需要 {cls.MIN_LENGTH} 個字元')
+
+        # 檢查各項條件
+        has_digit = any(c.isdigit() for c in password)
+        has_upper = any(c.isupper() for c in password)
+        has_lower = any(c.islower() for c in password)
+        has_special = bool(re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]', password))
+
+        # 計算符合的項目數
+        conditions_met = sum([has_digit, has_upper, has_lower, has_special])
+
+        if conditions_met < cls.REQUIRED_TYPES_COUNT:
+            raise ValueError(
+                '密碼需符合以下 4 項中的至少 3 項：包含數字、包含英文大寫、包含英文小寫、包含特殊符號'
+            )
+
+        return password
+
+    @classmethod
+    def check_password_requirements(cls, password: str) -> dict:
+        """
+        檢查密碼是否符合各項要求（用於前端即時反饋）
+
+        Args:
+            password: 密碼明文
+
+        Returns:
+            dict: 包含各項檢查結果
+            {
+                "min_length": bool,
+                "has_digit": bool,
+                "has_upper": bool,
+                "has_lower": bool,
+                "has_special": bool,
+                "types_count": int,
+                "character_types_valid": bool
+            }
+        """
+        has_digit = any(c.isdigit() for c in password)
+        has_upper = any(c.isupper() for c in password)
+        has_lower = any(c.islower() for c in password)
+        has_special = bool(re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]', password))
+        types_count = sum([has_digit, has_upper, has_lower, has_special])
+
+        return {
+            "min_length": len(password) >= cls.MIN_LENGTH,
+            "has_digit": has_digit,
+            "has_upper": has_upper,
+            "has_lower": has_lower,
+            "has_special": has_special,
+            "types_count": types_count,
+            "character_types_valid": types_count >= cls.REQUIRED_TYPES_COUNT
+        }
+
+    # ============================================
+    # 歷史驗證（涉及數據庫查詢）
+    # ============================================
 
     @classmethod
     async def validate_password_not_reused(
