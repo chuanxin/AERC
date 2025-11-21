@@ -9,5 +9,8 @@ TORTOISE_ORM = {
             ],
             "default_connection": "default"
         }
-    }
+    },
+    # 使用 naive datetime (UTC) 避免時區混用問題
+    "use_tz": False,
+    "timezone": "UTC"
 }
