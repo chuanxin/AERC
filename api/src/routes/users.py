@@ -791,12 +791,12 @@ async def request_password_reset(
             await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
 
         return PasswordResetResponse(
-            message="密碼重設信已發送至您的電子郵件",
+            message="如果該電子郵件已註冊，您將收到密碼重設信",
             success=True
         )
 
     except DoesNotExist:
-        # 安全考量：即使 Email 不存在也返回成功訊息（避免帳號探測）
+        # 安全考量：即使 Email 不存在也返回相同訊息（避免帳號探測）
         # 並且延遲到最小響應時間，防止 Timing Attack
         elapsed = time.time() - start_time
         if elapsed < MIN_RESPONSE_TIME:
