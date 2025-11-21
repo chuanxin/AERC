@@ -22,11 +22,16 @@ from src.schemas.users import (
     OTPVerificationRequest,
     OTPVerificationResponse,
     CaptchaResponse,
+    RegistrationOTPResponse,
+    RegistrationOTPVerificationResponse,
     LoginWithCaptchaRequest,
+    UserRegistrationRequest,
+    UserRegistrationResponse,
 )
 from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus
 from src.services.email_service import EmailService
 from src.services.captcha_service import CaptchaService
+from src.services.password_policy import PasswordPolicyService
 from datetime import datetime, timezone
 
 from src.auth.jwthandler import (
@@ -60,9 +65,357 @@ async def generate_captcha():
     )
 
 
-@router.post("/register", response_model=UserOutSchema)
-async def create_user(user: UserInSchema) -> UserOutSchema:
-    return await crud.create_user(user)
+# ============================================
+# 帳號註冊相關端點
+# ============================================
+
+@router.get("/check-username/{username}")
+async def check_username_availability(username: str):
+    """
+    即時檢查帳號是否可用
+
+    Returns:
+        available: bool - 是否可用
+        message: str - 說明訊息
+    """
+    import re
+
+    # 驗證帳號格式
+    if len(username) < 3:
+        return {"available": False, "message": "帳號長度至少需要 3 個字元"}
+
+    if len(username) > 20:
+        return {"available": False, "message": "帳號長度不得超過 20 個字元"}
+
+    if not re.match(r'^[a-zA-Z0-9_]+$', username):
+        return {"available": False, "message": "帳號只能包含英文字母、數字和底線"}
+
+    # 檢查是否已存在
+    existing_user = await Users.filter(username=username).first()
+    if existing_user:
+        return {"available": False, "message": "此帳號已被使用"}
+
+    return {"available": True, "message": "帳號可用"}
+
+
+@router.get("/check-email/{email}")
+async def check_email_availability(email: str):
+    """
+    即時檢查 Email 是否可用
+
+    Returns:
+        available: bool - 是否可用
+        message: str - 說明訊息
+    """
+    import re
+
+    # 驗證 Email 格式
+    email_pattern = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+    if not re.match(email_pattern, email):
+        return {"available": False, "message": "請輸入有效的電子郵件格式"}
+
+    # 檢查是否已存在
+    existing_user = await Users.filter(email=email).first()
+    if existing_user:
+        return {"available": False, "message": "此電子郵件已被使用"}
+
+    return {"available": True, "message": "電子郵件可用"}
+
+
+@router.post("/send-registration-otp", response_model=RegistrationOTPResponse)
+async def send_registration_otp(payload: EmailVerificationRequest):
+    """
+    發送註冊驗證碼到指定 Email
+
+    - 驗證 Email 是否已被使用
+    - 發送 6 位數 OTP 到 Email
+    - 返回 Token 供後續驗證使用
+    """
+    import secrets
+    from datetime import datetime, timezone, timedelta
+
+    try:
+        print(f"[send_registration_otp] 開始處理: email={payload.email}")
+
+        # 檢查 Email 是否已存在
+        existing_email = await Users.filter(email=payload.email).first()
+        if existing_email:
+            print(f"[send_registration_otp] Email 已存在: {payload.email}")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="此電子郵件已被使用"
+            )
+
+        # 生成 6 位數 OTP
+        otp = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+        print(f"[send_registration_otp] OTP 已生成: {otp}")
+
+        # 發送 OTP Email（使用 EmailService 的標準模板）
+        email_service = EmailService()
+        print(f"[send_registration_otp] 開始發送郵件")
+        success = await email_service.send_registration_otp_email(
+            email=payload.email,
+            otp=otp
+        )
+        print(f"[send_registration_otp] 郵件發送結果: success={success}, type={type(success)}")
+
+        if not success:
+            print(f"[send_registration_otp] 郵件發送失敗")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="驗證碼郵件發送失敗"
+            )
+
+        # 將 OTP 和 Email 暫存（使用 token 作為 key）
+        # 這裡我們將資訊編碼到 token 中，使用 HMAC 方式
+        import hmac
+        import hashlib
+        import base64
+        import time
+
+        print(f"[send_registration_otp] 開始生成 token")
+
+        # 建立包含 email, otp, timestamp 的 token
+        timestamp = int(time.time())
+        expires_at = timestamp + (15 * 60)  # 15 分鐘後過期
+        data = f"{payload.email}:{otp}:{expires_at}"
+
+        # 使用 HMAC 簽名（使用 CaptchaService 的 secret key）
+        secret_key = CaptchaService._secret_key
+        signature = hmac.new(secret_key, data.encode(), hashlib.sha256).hexdigest()
+        token = base64.urlsafe_b64encode(f"{data}:{signature}".encode()).decode()
+
+        print(f"[send_registration_otp] Token 已生成")
+
+        response_data = {
+            "message": "驗證碼已發送至您的電子郵件",
+            "token": token,
+            "expires_in": 900  # 15 分鐘
+        }
+        print(f"[send_registration_otp] 準備返回響應: {response_data}")
+        print(f"[send_registration_otp] 響應類型檢查 - message: {type(response_data['message'])}, token: {type(response_data['token'])}, expires_in: {type(response_data['expires_in'])}")
+
+        return response_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[send_registration_otp] 發生異常: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"發送驗證碼失敗：{str(e)}"
+        )
+
+
+@router.post("/verify-registration-otp", response_model=RegistrationOTPVerificationResponse)
+async def verify_registration_otp(token: str, otp: str):
+    """
+    驗證註冊 OTP
+
+    Args:
+        token: 包含 email 資訊的加密 token
+        otp: 使用者輸入的 6 位數 OTP
+
+    Returns:
+        success: bool
+        email: str - 已驗證的 email
+    """
+    from src.services.captcha_service import CaptchaService
+    import hmac
+    import hashlib
+    import base64
+    import time
+
+    try:
+        # 解碼 token
+        decoded = base64.urlsafe_b64decode(token.encode()).decode()
+        parts = decoded.rsplit(':', 1)
+        if len(parts) != 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的驗證 Token"
+            )
+
+        data, signature = parts
+        data_parts = data.split(':')
+        if len(data_parts) != 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的驗證 Token"
+            )
+
+        email, stored_otp, expires_at = data_parts
+
+        # 驗證簽名
+        secret_key = CaptchaService._secret_key
+        expected_signature = hmac.new(secret_key, data.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature, expected_signature):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的驗證 Token"
+            )
+
+        # 檢查是否過期
+        if int(time.time()) > int(expires_at):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="驗證碼已過期，請重新發送"
+            )
+
+        # 驗證 OTP
+        if otp != stored_otp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="驗證碼錯誤"
+            )
+
+        # 驗證成功，建立已驗證的 token（用於最終註冊）
+        timestamp = int(time.time())
+        expires_at = timestamp + (30 * 60)  # 30 分鐘內完成註冊
+        verified_data = f"{email}:verified:{expires_at}"
+        verified_signature = hmac.new(secret_key, verified_data.encode(), hashlib.sha256).hexdigest()
+        verified_token = base64.urlsafe_b64encode(f"{verified_data}:{verified_signature}".encode()).decode()
+
+        return {
+            "success": True,
+            "message": "Email 驗證成功",
+            "email": email,
+            "verified_token": verified_token
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="驗證失敗"
+        )
+
+
+@router.post("/register", response_model=UserRegistrationResponse)
+async def create_user(payload: UserRegistrationRequest) -> UserRegistrationResponse:
+    """
+    帳號申請
+
+    - 驗證 Email 已通過 OTP 驗證
+    - 檢查帳號/Email 是否重複
+    - 建立待審核帳號（is_active=False）
+    - 建立申請記錄（含申請原因）
+    """
+    from src.database.models import Offices, UserRegistration
+    import hmac
+    import hashlib
+    import base64
+    import time
+
+    try:
+        # 驗證 Email Token
+        try:
+            decoded = base64.urlsafe_b64decode(payload.verified_token.encode()).decode()
+            parts = decoded.rsplit(':', 1)
+            if len(parts) != 2:
+                raise ValueError("Invalid token format")
+
+            data, signature = parts
+            data_parts = data.split(':')
+            if len(data_parts) != 3:
+                raise ValueError("Invalid token data")
+
+            token_email, status_flag, expires_at = data_parts
+
+            # 驗證簽名
+            secret_key = CaptchaService._secret_key
+            expected_signature = hmac.new(secret_key, data.encode(), hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(signature, expected_signature):
+                raise ValueError("Invalid signature")
+
+            # 檢查是否過期
+            if int(time.time()) > int(expires_at):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email 驗證已過期，請重新驗證"
+                )
+
+            # 確認 Email 匹配
+            if token_email != payload.email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email 與驗證的 Email 不符"
+                )
+
+            # 確認是已驗證狀態
+            if status_flag != "verified":
+                raise ValueError("Token not verified")
+
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email 驗證無效，請重新驗證"
+            )
+
+        # 檢查帳號是否已存在
+        existing_user = await Users.filter(username=payload.username).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="此帳號已被使用"
+            )
+
+        # 檢查 Email 是否已存在
+        existing_email = await Users.filter(email=payload.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="此電子郵件已被使用"
+            )
+
+        # 驗證所屬單位是否存在
+        office = await Offices.filter(id=payload.office_id).first()
+        if not office:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="所選單位不存在"
+            )
+
+        # 建立使用者帳號（停用狀態，需管理員審核）
+        new_user = await Users.create(
+            username=payload.username,
+            email=payload.email,
+            full_name=payload.full_name,
+            office_id=payload.office_id,
+            department=payload.department,
+            job_title=payload.job_title,
+            phone=payload.phone,
+            phone_ext=payload.phone_ext,
+            mobile=payload.mobile,
+            password=get_password_hash(payload.password),
+            is_active=False,  # 預設停用，需管理員審核
+            role="user"
+        )
+
+        # 建立申請記錄（儲存申請原因）
+        await UserRegistration.create(
+            user_id=new_user.id,
+            application_reason=payload.application_reason
+        )
+
+        return UserRegistrationResponse(
+            message="帳號申請已送出，請等待管理員審核。審核通過後將會寄送通知至您的電子郵件。",
+            success=True,
+            user_id=new_user.id
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"系統錯誤：{str(e)}"
+        )
 
 
 @router.post("/login")
@@ -514,12 +867,13 @@ async def verify_otp(payload: OTPVerificationRequest):
     summary="重設密碼",
     description="使用 Token 重設密碼"
 )
-async def reset_password(payload: PasswordResetConfirm):
+async def reset_password(payload: PasswordResetConfirm, request: Request):
     """
     重設密碼
 
     - 驗證 Token 有效性和 OTP 已驗證
     - 更新用戶密碼
+    - 寄送密碼變更通知信
     - 返回重設結果
     """
     try:
@@ -546,15 +900,38 @@ async def reset_password(payload: PasswordResetConfirm):
                 detail="請先完成驗證碼驗證"
             )
 
-        # 標記為已使用
+        # 更新密碼（包含三代不重複檢查）
+        user = auth_token.user
+        success, error_msg = await PasswordPolicyService.change_password(
+            user_id=user.id,
+            new_password=payload.new_password,
+            change_method="password_reset",
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent")
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
+
+        # 密碼變更成功後，才標記 Token 為已使用
         auth_token.status = AuthTokenStatus.USED
         auth_token.used_at = datetime.now(timezone.utc)
         await auth_token.save()
 
-        # 更新密碼
-        user = auth_token.user
-        user.password = get_password_hash(payload.new_password)
-        await user.save()
+        # 寄送密碼變更成功通知信
+        try:
+            email_service = EmailService()
+            await email_service.send_password_changed_notification(
+                user=user,
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent")
+            )
+        except Exception as email_error:
+            # 記錄但不阻止密碼重設成功
+            print(f"Warning: Failed to send password change notification email: {email_error}")
 
         return PasswordResetResponse(
             message="密碼重設成功，請使用新密碼登入",

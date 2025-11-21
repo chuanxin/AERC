@@ -4,6 +4,7 @@ from typing import Optional, NewType
 from datetime import datetime
 
 from src.database.models import Users
+from src.services.password_policy import validate_password_strength
 
 
 UserInSchema = pydantic_model_creator(
@@ -117,37 +118,8 @@ class PasswordResetConfirm(BaseModel):
     @field_validator('new_password')
     @classmethod
     def validate_password(cls, v: str) -> str:
-        """
-        驗證密碼強度
-
-        規則：
-        1. 至少 8 個字元
-        2. 以下 4 項至少符合 3 項：
-           - 包含數字
-           - 包含英文大寫
-           - 包含英文小寫
-           - 包含特殊符號
-        """
-        import re
-
-        if len(v) < 8:
-            raise ValueError('密碼長度至少需要 8 個字元')
-
-        # 檢查各項條件
-        has_digit = any(c.isdigit() for c in v)
-        has_upper = any(c.isupper() for c in v)
-        has_lower = any(c.islower() for c in v)
-        has_special = bool(re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]', v))
-
-        # 計算符合的項目數
-        conditions_met = sum([has_digit, has_upper, has_lower, has_special])
-
-        if conditions_met < 3:
-            raise ValueError(
-                '密碼需符合以下 4 項中的至少 3 項：包含數字、包含英文大寫、包含英文小寫、包含特殊符號'
-            )
-
-        return v
+        """使用統一的密碼強度驗證"""
+        return validate_password_strength(v)
 
     class Config:
         json_schema_extra = {
@@ -222,6 +194,40 @@ class CaptchaResponse(BaseModel):
         }
 
 
+class RegistrationOTPResponse(BaseModel):
+    """註冊 OTP 發送回應"""
+    message: str = Field(..., description="回應訊息")
+    token: str = Field(..., description="HMAC 簽名的驗證 token")
+    expires_in: int = Field(..., description="過期時間（秒）")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "驗證碼已發送至您的電子郵件",
+                "token": "eyJhbGc...",
+                "expires_in": 900
+            }
+        }
+
+
+class RegistrationOTPVerificationResponse(BaseModel):
+    """註冊 OTP 驗證回應"""
+    message: str = Field(..., description="回應訊息")
+    success: bool = Field(..., description="驗證是否成功")
+    email: str = Field(..., description="已驗證的 Email")
+    verified_token: str = Field(..., description="Email 已驗證的 token，用於最終註冊")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "Email 驗證成功",
+                "success": True,
+                "email": "user@example.com",
+                "verified_token": "eyJhbGc..."
+            }
+        }
+
+
 class LoginWithCaptchaRequest(BaseModel):
     """含驗證碼的登入請求"""
     username: str = Field(..., min_length=1, description="使用者帳號")
@@ -244,5 +250,80 @@ class LoginWithCaptchaRequest(BaseModel):
                 "password": "password123",
                 "captcha_id": "550e8400-e29b-41d4-a716-446655440000",
                 "captcha_code": "1234"
+            }
+        }
+
+
+# ============================================
+# 帳號註冊相關 Schemas
+# ============================================
+
+class UserRegistrationRequest(BaseModel):
+    """帳號註冊請求"""
+    username: str = Field(..., min_length=3, max_length=20, description="使用者帳號")
+    email: EmailStr = Field(..., description="電子郵件地址")
+    full_name: str = Field(..., min_length=1, max_length=50, description="使用者姓名")
+    office_id: int = Field(..., description="所屬單位/管理處 ID")
+    department: str = Field(..., min_length=1, max_length=100, description="所屬部門/工作站")
+    password: str = Field(..., min_length=8, max_length=128, description="密碼")
+
+    # 聯絡資訊
+    job_title: Optional[str] = Field(None, max_length=50, description="職稱")
+    phone: str = Field(..., min_length=1, max_length=20, description="聯絡電話")
+    phone_ext: Optional[str] = Field(None, max_length=10, description="分機")
+    mobile: Optional[str] = Field(None, max_length=20, description="手機")
+
+    # 申請原因
+    application_reason: str = Field(..., min_length=1, max_length=1000, description="申請原因說明")
+
+    # Email 驗證 Token（由 verify-registration-otp 返回）
+    verified_token: str = Field(..., description="Email 驗證成功後的 Token")
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """使用統一的密碼強度驗證"""
+        return validate_password_strength(v)
+
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v: str) -> str:
+        """驗證使用者帳號格式"""
+        import re
+        if not re.match(r'^[a-zA-Z0-9_]+$', v):
+            raise ValueError('帳號只能包含英文字母、數字和底線')
+        return v
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "username": "john_doe",
+                "email": "john@example.com",
+                "full_name": "王小明",
+                "office_id": 1,
+                "department": "北區工作站",
+                "password": "SecurePass123!",
+                "job_title": "技術員",
+                "phone": "02-12345678",
+                "phone_ext": "123",
+                "mobile": "0912345678",
+                "application_reason": "因業務需要，申請系統帳號以便查詢補助案件資料。",
+                "verified_token": "dXNlckBleGFtcGxlLmNvbTp2ZXJpZmllZDoxNzMxODU2MDAwOmFiY2RlZjEyMzQ1Ng=="
+            }
+        }
+
+
+class UserRegistrationResponse(BaseModel):
+    """帳號註冊回應"""
+    message: str
+    success: bool
+    user_id: Optional[int] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "帳號申請已送出，請等待管理員審核",
+                "success": True,
+                "user_id": 123
             }
         }

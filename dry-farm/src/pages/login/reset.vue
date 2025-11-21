@@ -787,18 +787,9 @@ const handleResetPassword = async () => {
     return
   }
 
-  if (!passwordRequirements.value.uppercase) {
-    passwordError.value = '密碼需包含至少一個大寫字母'
-    return
-  }
-
-  if (!passwordRequirements.value.lowercase) {
-    passwordError.value = '密碼需包含至少一個小寫字母'
-    return
-  }
-
-  if (!passwordRequirements.value.number) {
-    passwordError.value = '密碼需包含至少一個數字'
+  // 檢查密碼強度：4 項至少符合 3 項
+  if (!passwordRequirements.value.characterTypesValid) {
+    passwordError.value = '密碼需符合以下 4 項中的至少 3 項：包含數字、包含英文大寫、包含英文小寫、包含特殊符號'
     return
   }
 
@@ -827,9 +818,10 @@ const handleResetPassword = async () => {
       successMessage.value = response.message || '您的密碼已成功重設，請使用新密碼登入系統。'
     }
   } catch (error: any) {
-    // 統一的錯誤處理，避免洩漏系統資訊
+    // 錯誤處理：顯示後端返回的具體錯誤訊息
     if (error.response?.status === 400) {
-      passwordError.value = '重設連結無效或已過期，請重新申請密碼重設'
+      // 使用後端返回的具體錯誤訊息（密碼歷史、Token 過期等）
+      passwordError.value = error.response?.data?.detail || '重設連結無效或已過期，請重新申請密碼重設'
     } else if (error.response?.status === 422) {
       // Pydantic 驗證錯誤（密碼格式不符）
       passwordError.value = '密碼格式不符合要求，請檢查密碼強度'
