@@ -22,6 +22,11 @@ class Users(models.Model):
     permissions = fields.JSONField(null=True, description="特定權限設定(JSON格式)")
     last_login = fields.DatetimeField(null=True, description="最後登入時間")
 
+    # 密碼政策相關欄位
+    password_changed_at = fields.DatetimeField(null=True, description="密碼最後更改時間")
+    failed_login_count = fields.IntField(default=0, description="連續登入失敗次數")
+    locked_until = fields.DatetimeField(null=True, description="帳號鎖定截止時間")
+
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
     modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
 

@@ -32,6 +32,7 @@ class UserDatabaseSchema(BaseSchema):
     role: Optional[str] = None
     permissions: Optional[list] = None
     last_login: Optional[datetime] = None
+    password_expired: bool = False  # 密碼是否已過期
 
 class UserInfoSchema(BaseSchema):
     id: int

@@ -446,14 +446,13 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
     content = {
         "message": "You've successfully logged in. Welcome back!",
         "access_token": token,
+        "password_expired": user.password_expired,  # 密碼是否已過期
     }
     response = JSONResponse(content=content)
     response.set_cookie(
         "Authorization",
         value=f"Bearer {token}",
         httponly=True,
-        # max_age=1800,
-        # expires=1800,
         samesite="Lax",
         secure=True,
     )
