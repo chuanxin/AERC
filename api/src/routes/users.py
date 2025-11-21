@@ -947,6 +947,11 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
         # 密碼變更成功後，才標記 Token 為已使用
         auth_token.status = AuthTokenStatus.USED
         auth_token.used_at = datetime.utcnow()
+        # 確保所有 datetime 欄位都是 naive (無時區)
+        if auth_token.expires_at and auth_token.expires_at.tzinfo is not None:
+            auth_token.expires_at = auth_token.expires_at.replace(tzinfo=None)
+        if auth_token.created_at and auth_token.created_at.tzinfo is not None:
+            auth_token.created_at = auth_token.created_at.replace(tzinfo=None)
         await auth_token.save()
 
         # 寄送密碼變更成功通知信

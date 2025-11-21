@@ -295,6 +295,13 @@ class PasswordPolicyService:
         # 4. 更新為新密碼和更新時間（使用 naive datetime）
         user.password = get_password_hash(new_password)
         user.password_changed_at = datetime.utcnow()
+        # 確保其他 datetime 欄位也是 naive (無時區) - 避免混用錯誤
+        if user.last_login and user.last_login.tzinfo is not None:
+            user.last_login = user.last_login.replace(tzinfo=None)
+        if user.locked_until and user.locked_until.tzinfo is not None:
+            user.locked_until = user.locked_until.replace(tzinfo=None)
+        if user.created_at and user.created_at.tzinfo is not None:
+            user.created_at = user.created_at.replace(tzinfo=None)
         await user.save()
 
         # 5. 記錄歷史（只在有舊密碼時記錄）
