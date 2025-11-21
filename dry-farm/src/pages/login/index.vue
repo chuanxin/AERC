@@ -388,6 +388,21 @@
       captchaError.value = false
       isSubmitting.value = true
 
+      // 前端驗證：檢查 captcha 是否已輸入且為 4 位數字
+      if (!userCaptcha.value || userCaptcha.value.length !== 4) {
+        captchaError.value = true
+        errorMessage.value = '請輸入 4 位數字驗證碼'
+        isSubmitting.value = false
+        return
+      }
+
+      if (!/^\d{4}$/.test(userCaptcha.value)) {
+        captchaError.value = true
+        errorMessage.value = '驗證碼必須是 4 位數字'
+        isSubmitting.value = false
+        return
+      }
+
       // Check if we have backend captcha
       if (captchaToken.value) {
         // Use backend validation
