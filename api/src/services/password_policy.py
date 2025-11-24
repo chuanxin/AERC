@@ -5,12 +5,27 @@
 - 格式驗證（長度、複雜度）
 - 三代不重複
 - 密碼歷史記錄
+- 密碼效期（最短/最長）
+- 登入失敗鎖定
 - 審計追蹤
 """
 
 import re
 from typing import Optional
 from src.database.models import Users, PasswordHistory
+
+
+# ============================================
+# 密碼效期與鎖定設定
+# ============================================
+
+# 密碼效期設定 (天)
+PASSWORD_MIN_AGE_DAYS = 1      # N: 密碼最短效期 - 更改後 1 天內不能再次更改
+PASSWORD_MAX_AGE_DAYS = 90     # M: 密碼最長效期 - 超過 90 天必須更改
+
+# 登入失敗鎖定設定
+MAX_FAILED_LOGIN_ATTEMPTS = 5  # X: 連續失敗次數閾值
+ACCOUNT_LOCKOUT_MINUTES = 15   # Y: 帳號鎖定時間 (分鐘)
 
 
 # ============================================
@@ -236,7 +251,7 @@ class PasswordPolicyService:
         generations: int = PASSWORD_HISTORY_GENERATIONS
     ) -> tuple[bool, Optional[str]]:
         """
-        變更密碼（包含三代不重複檢查和歷史記錄）
+        變更密碼（包含最短效期檢查、三代不重複檢查和歷史記錄）
 
         Args:
             user_id: 使用者 ID
@@ -249,25 +264,35 @@ class PasswordPolicyService:
         Returns:
             tuple[bool, Optional[str]]: (是否成功, 錯誤訊息)
         """
+        from datetime import datetime, timedelta, timezone
         # Lazy import to avoid circular dependency
         from src.auth.users import get_password_hash
 
-        # 1. 檢查三代不重複
+        # 0. 取得使用者
+        user = await Users.get(id=user_id)
+
+        # 1. 檢查密碼最短效期（使用 timezone-aware datetime）
+        if user.password_changed_at:
+            min_age_date = user.password_changed_at + timedelta(days=PASSWORD_MIN_AGE_DAYS)
+            if datetime.now(timezone.utc) < min_age_date:
+                return False, f"密碼更改後 {PASSWORD_MIN_AGE_DAYS} 天內不能再次更改"
+
+        # 2. 檢查三代不重複
         is_valid, error_msg = await cls.validate_password_not_reused(
             user_id, new_password, generations
         )
         if not is_valid:
             return False, error_msg
 
-        # 2. 取得使用者和舊密碼
-        user = await Users.get(id=user_id)
+        # 3. 取得舊密碼
         old_password_hash = user.password
 
-        # 3. 更新為新密碼
+        # 4. 更新為新密碼和更新時間（使用 timezone-aware datetime）
         user.password = get_password_hash(new_password)
+        user.password_changed_at = datetime.now(timezone.utc)
         await user.save()
 
-        # 4. 記錄歷史（只在有舊密碼時記錄）
+        # 5. 記錄歷史（只在有舊密碼時記錄）
         if old_password_hash:
             await cls.record_password_change(
                 user_id=user_id,

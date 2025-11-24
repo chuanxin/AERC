@@ -446,14 +446,13 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
     content = {
         "message": "You've successfully logged in. Welcome back!",
         "access_token": token,
+        "password_expired": user.password_expired,  # 密碼是否已過期
     }
     response = JSONResponse(content=content)
     response.set_cookie(
         "Authorization",
         value=f"Bearer {token}",
         httponly=True,
-        # max_age=1800,
-        # expires=1800,
         samesite="Lax",
         secure=True,
     )
@@ -467,7 +466,7 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
     帶驗證碼的安全登入
 
     - 先驗證驗證碼
-    - 再驗證帳號密碼
+    - 再驗證帳號密碼（含鎖定檢查）
     - 返回 JWT Token
     """
     # 1. 驗證驗證碼
@@ -477,16 +476,17 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
             detail="驗證碼錯誤或已過期"
         )
 
-    # 2. 驗證帳號密碼
-    from src.auth.users import verify_password
+    # 2. 驗證帳號密碼（含鎖定檢查）
+    from src.auth.users import (
+        verify_password,
+        check_account_locked,
+        record_failed_login,
+        reset_failed_login,
+        check_password_expired,
+    )
+
     try:
         user = await Users.get(username=payload.username)
-        if not verify_password(payload.password, user.password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="使用者名稱或密碼不正確",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
     except DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -494,6 +494,7 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # 檢查帳號是否啟用
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -501,10 +502,28 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # 檢查帳號是否被鎖定
+    await check_account_locked(user)
+
+    # 驗證密碼
+    if not verify_password(payload.password, user.password):
+        await record_failed_login(user)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="使用者名稱或密碼不正確",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # 登入成功，重置失敗計數
+    await reset_failed_login(user)
+
     # 3. 更新最後登入時間
     await crud.update_last_login(user.id)
 
-    # 4. 生成 JWT Token
+    # 4. 檢查密碼是否過期
+    password_expired = check_password_expired(user)
+
+    # 5. 生成 JWT Token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = await create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
@@ -513,6 +532,7 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
     content = {
         "message": "You've successfully logged in. Welcome back!",
         "access_token": token,
+        "password_expired": password_expired,  # 密碼是否已過期
     }
     response = JSONResponse(content=content)
     response.set_cookie(
@@ -771,12 +791,12 @@ async def request_password_reset(
             await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
 
         return PasswordResetResponse(
-            message="密碼重設信已發送至您的電子郵件",
+            message="如果該電子郵件已註冊，您將收到密碼重設信",
             success=True
         )
 
     except DoesNotExist:
-        # 安全考量：即使 Email 不存在也返回成功訊息（避免帳號探測）
+        # 安全考量：即使 Email 不存在也返回相同訊息（避免帳號探測）
         # 並且延遲到最小響應時間，防止 Timing Attack
         elapsed = time.time() - start_time
         if elapsed < MIN_RESPONSE_TIME:
@@ -822,7 +842,11 @@ async def verify_otp(payload: OTPVerificationRequest):
         ).prefetch_related("user")
 
         # 檢查是否過期
-        if auth_token.expires_at < datetime.now(timezone.utc):
+        # 使用 naive datetime (UTC) 以匹配資料庫格式
+        expires_at = auth_token.expires_at
+        if expires_at.tzinfo is not None:
+            expires_at = expires_at.replace(tzinfo=None)
+        if expires_at < datetime.utcnow():
             auth_token.status = AuthTokenStatus.EXPIRED
             await auth_token.save()
             raise HTTPException(
@@ -885,7 +909,11 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
         ).prefetch_related("user")
 
         # 檢查是否過期
-        if auth_token.expires_at < datetime.now(timezone.utc):
+        # 使用 naive datetime (UTC) 以匹配資料庫格式
+        expires_at = auth_token.expires_at
+        if expires_at.tzinfo is not None:
+            expires_at = expires_at.replace(tzinfo=None)
+        if expires_at < datetime.utcnow():
             auth_token.status = AuthTokenStatus.EXPIRED
             await auth_token.save()
             raise HTTPException(
@@ -918,7 +946,12 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
 
         # 密碼變更成功後，才標記 Token 為已使用
         auth_token.status = AuthTokenStatus.USED
-        auth_token.used_at = datetime.now(timezone.utc)
+        auth_token.used_at = datetime.utcnow()
+        # 確保所有 datetime 欄位都是 naive (無時區)
+        if auth_token.expires_at and auth_token.expires_at.tzinfo is not None:
+            auth_token.expires_at = auth_token.expires_at.replace(tzinfo=None)
+        if auth_token.created_at and auth_token.created_at.tzinfo is not None:
+            auth_token.created_at = auth_token.created_at.replace(tzinfo=None)
         await auth_token.save()
 
         # 寄送密碼變更成功通知信
