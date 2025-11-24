@@ -13,6 +13,8 @@ import { createAuthMiddleware } from '@/services/navguardService'
 // Define which routes are accessible without authentication
 const publicRoutes = [
   '/login',
+  '/login/reset',
+  '/login/signup'
   // Add other public routes here
 ]
 

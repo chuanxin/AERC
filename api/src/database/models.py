@@ -11,12 +11,21 @@ class Users(models.Model):
     password = fields.CharField(max_length=128, null=True, description="密碼")
 
     office = fields.ForeignKeyField("models.Offices", related_name="user", null=True, description="所屬單位/管理處")
+    department = fields.CharField(max_length=100, null=True, description="所屬部門/工作站")
     job_title = fields.CharField(max_length=50, null=True, description="職稱")
+    phone = fields.CharField(max_length=20, null=True, description="聯絡電話")
+    phone_ext = fields.CharField(max_length=10, null=True, description="分機")
+    mobile = fields.CharField(max_length=20, null=True, description="手機")
 
     is_active = fields.BooleanField(default=True, description="是否啟用")
     role = fields.CharField(max_length=50, default="user", description="角色: admin, manager, user 等")
     permissions = fields.JSONField(null=True, description="特定權限設定(JSON格式)")
     last_login = fields.DatetimeField(null=True, description="最後登入時間")
+
+    # 密碼政策相關欄位
+    password_changed_at = fields.DatetimeField(null=True, description="密碼最後更改時間")
+    failed_login_count = fields.IntField(default=0, description="連續登入失敗次數")
+    locked_until = fields.DatetimeField(null=True, description="帳號鎖定截止時間")
 
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
     modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
@@ -51,6 +60,10 @@ class AuthToken(models.Model):
     token = fields.CharField(max_length=128, unique=True, description="Token 值（UUID）")
     status = fields.CharEnumField(AuthTokenStatus, default=AuthTokenStatus.PENDING, description="Token 狀態")
 
+    # OTP 驗證（用於密碼重設）
+    otp = fields.CharField(max_length=6, null=True, description="6位數字 OTP（僅密碼重設使用）")
+    otp_verified = fields.BooleanField(default=False, description="OTP 是否已驗證")
+
     # 時效性
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
     expires_at = fields.DatetimeField(description="過期時間")
@@ -71,6 +84,67 @@ class AuthToken(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.token_type.value} - {self.status.value}"
+
+
+class RegistrationStatus(str, Enum):
+    """帳號申請狀態枚舉"""
+    PENDING = "pending"      # 待審核
+    APPROVED = "approved"    # 已核准
+    REJECTED = "rejected"    # 已拒絕
+
+
+class UserRegistration(models.Model):
+    """帳號申請記錄表 - 儲存申請原因和審核流程"""
+    id = fields.IntField(pk=True)
+    user = fields.OneToOneField("models.Users", related_name="registration", description="申請的使用者帳號")
+
+    # 申請資訊
+    application_reason = fields.TextField(description="申請原因說明")
+
+    # 審核流程
+    status = fields.CharEnumField(RegistrationStatus, default=RegistrationStatus.PENDING, description="申請狀態")
+    reviewed_by = fields.ForeignKeyField("models.Users", null=True, related_name="reviewed_registrations", description="審核人員")
+    reviewed_at = fields.DatetimeField(null=True, description="審核時間")
+    review_comment = fields.TextField(null=True, description="審核意見")
+
+    # 時間戳記
+    created_at = fields.DatetimeField(auto_now_add=True, description="申請時間")
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
+
+    class Meta:
+        table = "user_registrations"
+        table_description = "帳號申請記錄表"
+        indexes = [
+            ("status",),
+            ("created_at",),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.status.value}"
+
+
+class PasswordHistory(models.Model):
+    """密碼歷史記錄表 - 用於實作密碼三代不重複政策"""
+    id = fields.IntField(pk=True)
+    user = fields.ForeignKeyField("models.Users", related_name="password_history", description="使用者")
+    password_hash = fields.CharField(max_length=128, description="歷史密碼 hash")
+
+    # 審計資訊
+    changed_at = fields.DatetimeField(auto_now_add=True, description="密碼變更時間")
+    changed_by_ip = fields.CharField(max_length=45, null=True, description="變更來源 IP")
+    user_agent = fields.CharField(max_length=255, null=True, description="User Agent")
+    change_method = fields.CharField(max_length=50, null=True, description="變更方式: password_reset, user_change, admin_reset")
+
+    class Meta:
+        table = "password_history"
+        table_description = "密碼歷史記錄表"
+        ordering = ["-changed_at"]  # 最新的在前
+        indexes = [
+            ("user", "changed_at"),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.changed_at.strftime('%Y-%m-%d %H:%M')}"
 
 
 # class Notes(models.Model):

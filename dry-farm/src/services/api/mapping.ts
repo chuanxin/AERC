@@ -23,16 +23,27 @@ export const BACKEND_PATHS = {
   // 用戶認證相關
   AUTH: {
     LOGIN: '/login',
+    LOGIN_SECURE: '/login-secure',
     REGISTER: '/register',
     WHO_AM_I: '/users/whoami',
     LOGOUT: '/logout',
-    REFRESH: '/refresh'
+    REFRESH: '/refresh',
+    CAPTCHA: '/captcha',
+    REQUEST_PASSWORD_RESET: '/request-password-reset',
+    VERIFY_OTP: '/verify-otp',
+    RESET_PASSWORD: '/reset-password',
+    SEND_VERIFICATION_EMAIL: '/send-verification-email',
+    VERIFY_EMAIL: '/verify-email'
   },
   // 用戶管理相關
   USERS: {
     LIST: '/users',
     DETAIL: (id: number | string) => `/user/${id}`,
-    DELETE: (id: number | string) => `/user/${id}`
+    DELETE: (id: number | string) => `/user/${id}`,
+    CHECK_USERNAME: (username: string) => `/check-username/${username}`,
+    SEND_REGISTRATION_OTP: '/send-registration-otp',
+    VERIFY_REGISTRATION_OTP: '/verify-registration-otp',
+    REGISTER: '/register'
   },
   OFFICES: {
     LIST: '/offices',
@@ -123,9 +134,16 @@ export const BACKEND_PATHS = {
 // 前端到後端的直接映射表
 export const API_MAPPING: Record<string, string> = {
   [AUTH.LOGIN]: BACKEND_PATHS.AUTH.LOGIN,
+  [AUTH.LOGIN_SECURE]: BACKEND_PATHS.AUTH.LOGIN_SECURE,
   [AUTH.REGISTER]: BACKEND_PATHS.AUTH.REGISTER,
   [AUTH.REFRESH]: BACKEND_PATHS.AUTH.REFRESH,
   [AUTH.ME]: BACKEND_PATHS.AUTH.WHO_AM_I,
+  [AUTH.CAPTCHA]: BACKEND_PATHS.AUTH.CAPTCHA,
+  [AUTH.REQUEST_PASSWORD_RESET]: BACKEND_PATHS.AUTH.REQUEST_PASSWORD_RESET,
+  [AUTH.VERIFY_OTP]: BACKEND_PATHS.AUTH.VERIFY_OTP,
+  [AUTH.RESET_PASSWORD]: BACKEND_PATHS.AUTH.RESET_PASSWORD,
+  [AUTH.SEND_VERIFICATION_EMAIL]: BACKEND_PATHS.AUTH.SEND_VERIFICATION_EMAIL,
+  [AUTH.VERIFY_EMAIL]: BACKEND_PATHS.AUTH.VERIFY_EMAIL,
   [USERS.LIST]: BACKEND_PATHS.USERS.LIST,
   [OFFICES.LIST]: BACKEND_PATHS.OFFICES.LIST,
   [DOMICILE.COUNTIES_LIST]: BACKEND_PATHS.DOMICILE.COUNTIES_LIST,
@@ -173,6 +191,26 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配用戶詳情路徑 {API_PREFIX}/users/123
     pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/([\\d]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USERS.DETAIL(matches[1])
+  },
+  {
+    // 匹配帳號檢查路徑 {API_PREFIX}/users/check-username/{username}
+    pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/check-username/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USERS.CHECK_USERNAME(matches[1])
+  },
+  {
+    // 匹配發送註冊 OTP 路徑 {API_PREFIX}/users/send-registration-otp
+    pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/send-registration-otp$`),
+    transform: () => BACKEND_PATHS.USERS.SEND_REGISTRATION_OTP
+  },
+  {
+    // 匹配驗證註冊 OTP 路徑 {API_PREFIX}/users/verify-registration-otp
+    pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/verify-registration-otp$`),
+    transform: () => BACKEND_PATHS.USERS.VERIFY_REGISTRATION_OTP
+  },
+  {
+    // 匹配帳號註冊路徑 {API_PREFIX}/users/register
+    pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/register$`),
+    transform: () => BACKEND_PATHS.USERS.REGISTER
   },
   {
     // 匹配管道配件相關路徑

@@ -6,16 +6,18 @@ const BASE = `${import.meta.env.FAST_API_BASE_URL || ''}/${API_VERSION}`
 
 // authentication related endpoints
 export const AUTH = {
-  REGISTER: `${BASE}/auth/register`,
-  LOGIN: `${BASE}/auth/login`,
-  LOGOUT: `${BASE}/auth/logout`,
-  REFRESH: `${BASE}/auth/refresh`,
-  ME: `${BASE}/auth/me`,
-  FORGOT_PASSWORD: `${BASE}/auth/forgot-password`,
-  RESET_PASSWORD: `${BASE}/auth/reset-password`,
-  CHANGE_PASSWORD: `${BASE}/auth/change-password`,
-  VERIFY_EMAIL: `${BASE}/auth/verify-email`,
-  RESEND_VERIFICATION: `${BASE}/auth/resend-verification`,
+  REGISTER: `${BASE}/register`,
+  LOGIN: `${BASE}/login`,
+  LOGIN_SECURE: `${BASE}/login-secure`,
+  LOGOUT: `${BASE}/logout`,
+  REFRESH: `${BASE}/refresh`,
+  ME: `${BASE}/users/whoami`,
+  CAPTCHA: `${BASE}/captcha`,
+  REQUEST_PASSWORD_RESET: `${BASE}/request-password-reset`,
+  VERIFY_OTP: `${BASE}/verify-otp`,
+  RESET_PASSWORD: `${BASE}/reset-password`,
+  SEND_VERIFICATION_EMAIL: `${BASE}/send-verification-email`,
+  VERIFY_EMAIL: `${BASE}/verify-email`,
 }
 
 // user management related endpoints
