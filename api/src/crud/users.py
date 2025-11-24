@@ -4,7 +4,7 @@ from src.auth.users import get_password_hash
 from src.database.models import Users, Offices
 from src.schemas.token import Status
 from src.schemas.users import UserOutSchema, UserInSchema, SimpleOfficeSchema, UserId
-from datetime import datetime
+from datetime import datetime, timezone
 
 async def create_user(user_in: UserInSchema) -> UserOutSchema: # type: ignore[UserInSchema, UserOutSchema]
     # user_in.password = pwd_context.encrypt(user_in.password)
@@ -44,7 +44,7 @@ async def delete_user(user_id: UserId, current_user: UserOutSchema) -> Status: #
 async def update_last_login(user_id: UserId) -> None:
     try:
         user = await Users.get(id=user_id)
-        user.last_login = datetime.now()
+        user.last_login = datetime.now(timezone.utc)
         await user.save()
 
     except DoesNotExist:

@@ -264,22 +264,17 @@ class PasswordPolicyService:
         Returns:
             tuple[bool, Optional[str]]: (是否成功, 錯誤訊息)
         """
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
         # Lazy import to avoid circular dependency
         from src.auth.users import get_password_hash
 
         # 0. 取得使用者
         user = await Users.get(id=user_id)
 
-        # 1. 檢查密碼最短效期
+        # 1. 檢查密碼最短效期（使用 timezone-aware datetime）
         if user.password_changed_at:
-            # 使用 naive datetime (UTC) 進行比較
-            password_changed_at = user.password_changed_at
-            if password_changed_at.tzinfo is not None:
-                password_changed_at = password_changed_at.replace(tzinfo=None)
-
-            min_age_date = password_changed_at + timedelta(days=PASSWORD_MIN_AGE_DAYS)
-            if datetime.utcnow() < min_age_date:
+            min_age_date = user.password_changed_at + timedelta(days=PASSWORD_MIN_AGE_DAYS)
+            if datetime.now(timezone.utc) < min_age_date:
                 return False, f"密碼更改後 {PASSWORD_MIN_AGE_DAYS} 天內不能再次更改"
 
         # 2. 檢查三代不重複
@@ -292,16 +287,9 @@ class PasswordPolicyService:
         # 3. 取得舊密碼
         old_password_hash = user.password
 
-        # 4. 更新為新密碼和更新時間（使用 naive datetime）
+        # 4. 更新為新密碼和更新時間（使用 timezone-aware datetime）
         user.password = get_password_hash(new_password)
-        user.password_changed_at = datetime.utcnow()
-        # 確保其他 datetime 欄位也是 naive (無時區) - 避免混用錯誤
-        if user.last_login and user.last_login.tzinfo is not None:
-            user.last_login = user.last_login.replace(tzinfo=None)
-        if user.locked_until and user.locked_until.tzinfo is not None:
-            user.locked_until = user.locked_until.replace(tzinfo=None)
-        if user.created_at and user.created_at.tzinfo is not None:
-            user.created_at = user.created_at.replace(tzinfo=None)
+        user.password_changed_at = datetime.now(timezone.utc)
         await user.save()
 
         # 5. 記錄歷史（只在有舊密碼時記錄）

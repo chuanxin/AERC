@@ -75,15 +75,11 @@ async def get_user(username: str):
 async def check_account_locked(user: Users) -> None:
     """檢查帳號是否被鎖定"""
     if user.locked_until:
-        # 使用 naive datetime (UTC) 進行比較
-        now = datetime.utcnow()
-        locked_until = user.locked_until
-        # 如果資料庫返回 aware datetime，轉換為 naive
-        if locked_until.tzinfo is not None:
-            locked_until = locked_until.replace(tzinfo=None)
+        # 使用 timezone-aware datetime (UTC) 進行比較
+        now = datetime.now(timezone.utc)
 
-        if now < locked_until:
-            remaining = int((locked_until - now).total_seconds() / 60) + 1
+        if now < user.locked_until:
+            remaining = int((user.locked_until - now).total_seconds() / 60) + 1
             raise HTTPException(
                 status_code=status.HTTP_423_LOCKED,
                 detail=f"帳號已被鎖定，請於 {remaining} 分鐘後再試",
@@ -99,8 +95,8 @@ async def record_failed_login(user: Users) -> None:
     user.failed_login_count = (user.failed_login_count or 0) + 1
 
     if user.failed_login_count >= MAX_FAILED_LOGIN_ATTEMPTS:
-        # 使用 naive datetime (UTC) 以符合資料庫欄位格式
-        user.locked_until = datetime.utcnow() + timedelta(minutes=ACCOUNT_LOCKOUT_MINUTES)
+        # 使用 timezone-aware datetime (UTC)
+        user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=ACCOUNT_LOCKOUT_MINUTES)
 
     await user.save()
 
@@ -118,13 +114,9 @@ def check_password_expired(user: Users) -> bool:
     if not user.password_changed_at:
         return False  # 未記錄更改時間，視為未過期
 
-    # 使用 naive datetime (UTC) 進行比較
-    password_changed_at = user.password_changed_at
-    if password_changed_at.tzinfo is not None:
-        password_changed_at = password_changed_at.replace(tzinfo=None)
-
-    expiry_date = password_changed_at + timedelta(days=PASSWORD_MAX_AGE_DAYS)
-    return datetime.utcnow() > expiry_date
+    # 使用 timezone-aware datetime (UTC) 進行比較
+    expiry_date = user.password_changed_at + timedelta(days=PASSWORD_MAX_AGE_DAYS)
+    return datetime.now(timezone.utc) > expiry_date
 
 
 async def validate_user(user: OAuth2PasswordRequestForm = Depends()):
