@@ -2033,7 +2033,7 @@ onMounted(async () => {
   try {
     console.log(`[edit.vue onMounted] Calling grantsStore.loadGrant with caseNumber: ${caseNumberFromRoute}`);
     await grantsStore.loadGrant(caseNumberFromRoute);
-    console.log('[edit.vue onMounted] grantsStore.loadGrant successful. Current grant:', JSON.stringify(grantsStore.currentGrant, null, 2));
+    // console.log('[edit.vue onMounted] grantsStore.loadGrant successful. Current grant:', JSON.stringify(grantsStore.currentGrant, null, 2));
 
     // 檢查 localStorage 中是否有已保存的 currentStep
     const grantData = GrantStorage.getGrant(caseNumberFromRoute);
@@ -2121,7 +2121,10 @@ onMounted(async () => {
     isDataLoaded.value = true;
   } catch (error) {
     console.error('[edit.vue onMounted] Failed to initialize grant data:', error);
-    // grantsStore.handleError might be called internally, or add a specific error display here
+    // 即使初始化失敗，也要設置 isDataLoaded 避免頁面永久停止渲染
+    isDataLoaded.value = true;
+    // 可以選擇顯示錯誤訊息給用戶
+    // TODO: 添加 UI 錯誤提示
   }
 });
 

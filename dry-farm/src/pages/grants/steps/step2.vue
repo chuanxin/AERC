@@ -1994,6 +1994,7 @@ interface LandManagementState {
 // Import store
 import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
+import { useCropsStore } from '@/stores/crops';
 import { useRoute } from 'vue-router';
 import { fetchLandSectionsByLandCodes, type LandSection } from '@/services/landSectionNlscService';
 import { markRaw, nextTick, reactive } from 'vue';
@@ -2055,6 +2056,7 @@ const showCoOwnerSettings = ref(false);
 // Access the grants store
 const grantsStore = useGrantsStore();
 const domicileStore = useDomicileStore();
+const cropsStore = useCropsStore();
 
 // 統一步驟組件架構：初始化保護與事件管理系統
 interface StepInitializationGuard {
@@ -2691,17 +2693,9 @@ const loadTownsForCounty = async (countyValue: number | string) => {
 
 // 已移除 loadVillagesForTown 函數，改用 loadLandSections 處理 NLSC API
 
-// Crop data
-const cropCategoriesData = {
-  '糧食作物': ['稻米', '小麥', '玉米', '大豆'],
-  '特用作物': ['茶葉', '咖啡', '香蕉'],
-  '果樹作物': ['橘', '香蕉', '芒果', '鳳梨'],
-  '蔬菜作物': ['番茄', '青椒', '茄子', '胡蘿蔔'],
-  '景觀花卉作物': ['玫瑰', '百合', '康乃馨'],
-  '其他作物': ['其他']
-};
-
-const cropCategories = Object.keys(cropCategoriesData);
+// 🌾 Crop data - 從資料庫動態載入（透過 cropsStore）
+const cropCategories = computed(() => cropsStore.categoryNames);
+const cropCategoriesData = computed(() => cropsStore.cropNamesByCategoryName);
 
 // Computed properties for reactive filtering
 const towns = computed(() => {
@@ -2940,7 +2934,7 @@ const ownerVillages = computed(() => {
 });
 
 const crops = computed(() => {
-  return localFormData.cropCategory ? (cropCategoriesData[localFormData.cropCategory as keyof typeof cropCategoriesData] || []) : [];
+  return localFormData.cropCategory ? cropsStore.getCropNamesForCategory(localFormData.cropCategory) : [];
 });
 
 const currentShare = computed(() => {
@@ -4108,8 +4102,23 @@ const initializeStep2WithCascadeData = async () => {
 onMounted(async () => {
   window.addEventListener('beforeunload', beforeUnloadHandler)
 
+  // 🌾 載入作物資料 (從資料庫)
+  try {
+    if (!cropsStore.isInitialized) {
+      await cropsStore.initializeStore()
+    }
+  } catch (error) {
+    console.error('❌ [step2.vue] Failed to initialize crops store:', error)
+    // 即使作物資料載入失敗，仍允許頁面繼續渲染
+  }
+
   // 🔥 P0 修復：使用新的初始化邏輯
-  await initializeStep2WithCascadeData()
+  try {
+    await initializeStep2WithCascadeData()
+  } catch (error) {
+    console.error('❌ [step2.vue] Failed to initialize step2 cascade data:', error)
+    // 錯誤已記錄，允許頁面繼續渲染
+  }
 })
 
 onUnmounted(() => {
