@@ -1784,8 +1784,8 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
 }
 
 // Handle form data updates from step components - 修復無限循環問題
-const handleFormDataUpdate = (dataStep: number, data: Record<string, unknown>) => {
-  console.log(`🔄 edit.vue handleFormDataUpdate called for dataStep ${dataStep}`);
+const handleFormDataUpdate = (dataStep: number, data: Record<string, unknown>, immediate = false) => {
+  console.log(`🔄 edit.vue handleFormDataUpdate called for dataStep ${dataStep}, immediate: ${immediate}`);
   console.log('📤 Received data keys:', Object.keys(data));
 
   // 🔥 關鍵修復：不修改 currentStep，只更新對應 dataStep 的資料
@@ -1796,7 +1796,22 @@ const handleFormDataUpdate = (dataStep: number, data: Record<string, unknown>) =
   console.log('📊 Updated formData for dataStep:', dataStep);
   console.log('📊 UI currentStep remains:', currentStep.value);
 
-  // Setup autosave if changes are made
+  // 🔥 立即儲存邏輯：如果 immediate=true，立即儲存而不等待
+  if (immediate && grantsStore.hasUnsavedChanges) {
+    console.log('💾 Immediate save requested - saving now without delay');
+    // 清除現有的自動儲存 timer（如果有）
+    if (autoSaveTimer.value) {
+      clearTimeout(autoSaveTimer.value)
+      autoSaveTimer.value = null
+    }
+    // 立即儲存
+    grantsStore.saveAllChanges(dataStep).catch(error => {
+      console.error('❌ Immediate save failed:', error)
+    })
+    return
+  }
+
+  // Setup autosave if changes are made（正常流程：3 秒延遲）
   if (grantsStore.hasUnsavedChanges && !autoSaveTimer.value) {
     console.log('⏰ Setting up autosave timer (3 seconds)');
     autoSaveTimer.value = window.setTimeout(async () => {
@@ -1816,16 +1831,17 @@ interface StepEventData {
   step: number
   data: Record<string, unknown>
   valid: boolean
+  immediate?: boolean  // 🔥 是否立即儲存（跳過 3 秒自動儲存延遲）
 }
 
 // 🆕 統一資料變更事件處理
 const handleStepDataChanged = (eventData: StepEventData) => {
-  const { step, data, valid } = eventData
+  const { step, data, valid, immediate } = eventData
   console.log(`📥 edit.vue: Received step-data-changed event from step${step}`)
-  console.log(`📊 Step: ${step}, Valid: ${valid}, Data keys:`, Object.keys(data))
+  console.log(`📊 Step: ${step}, Valid: ${valid}, Immediate: ${immediate}, Data keys:`, Object.keys(data))
 
   // 使用現有的 handleFormDataUpdate 邏輯處理資料
-  handleFormDataUpdate(step, { ...data, valid })
+  handleFormDataUpdate(step, { ...data, valid }, immediate)
 }
 
 // 🆕 統一驗證狀態變更事件處理
