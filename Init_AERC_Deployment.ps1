@@ -1290,7 +1290,7 @@ function Invoke-FullDeploy {
     Start-AercService $apiServiceName
     Start-AercService $frontendServiceName
     
-    Write-Host "`nDeployment completed successfully! 🎉" -ForegroundColor Green
+    Write-Host "`nDeployment completed successfully!" -ForegroundColor Green
     Write-Host "Please verify the services are running correctly." -ForegroundColor Yellow
     
     return $true
