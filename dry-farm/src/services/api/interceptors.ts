@@ -62,7 +62,8 @@ export function setupInterceptors(
       const token = localStorage.getItem('auth_token');
 
       // 檢查是否為 refresh 請求（使用原始 URL 檢查）
-      const isRefreshRequest = originalUrl && originalUrl.includes('/auth/refresh');
+      // 🔥 修復：檢查 '/refresh' 而非 '/auth/refresh'（AUTH.REFRESH 路徑為 /api/v1/refresh）
+      const isRefreshRequest = originalUrl && originalUrl.includes('/refresh');
 
       if (token && !isRefreshRequest) {
         // 非 refresh 請求：檢查並自動刷新 Token
@@ -71,8 +72,16 @@ export function setupInterceptors(
           const { useUserStore } = await import('../../stores/users')
           const userStore = useUserStore()
 
-          // 檢查並自動刷新 Token
-          await userStore.checkAndRefreshToken()
+          // 🔥 添加超時保護：最多等待 5 秒
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Token refresh timeout')), 5000)
+          )
+
+          // 檢查並自動刷新 Token（帶超時保護）
+          await Promise.race([
+            userStore.checkAndRefreshToken(),
+            timeoutPromise
+          ])
 
           // 獲取最新的 Token（可能已經被刷新）
           const latestToken = localStorage.getItem('auth_token')
@@ -81,7 +90,7 @@ export function setupInterceptors(
           }
         } catch (error) {
           console.warn('Token refresh check failed:', error)
-          // 如果刷新失敗，使用原有 Token 繼續請求
+          // 如果刷新失敗或超時，使用原有 Token 繼續請求
           config.headers.set('Authorization', `Bearer ${token}`)
         }
       } else if (token) {

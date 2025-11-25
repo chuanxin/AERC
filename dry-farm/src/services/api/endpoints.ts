@@ -149,6 +149,16 @@ export const IRRIGATION_TYPES = {
   DETAIL: (id: number | string) => `${BASE}/irrigation_types/${id}`,
 }
 
+// crops related endpoints
+export const CROPS = {
+  CATEGORIES: `${BASE}/crop-categories`,
+  CATEGORY_DETAIL: (id: number) => `${BASE}/crop-categories/${id}`,
+  NAMES: `${BASE}/crop-names`,
+  NAMES_BY_CATEGORY: (categoryId: number) => `${BASE}/crop-names/category/${categoryId}`,
+  GROUPED: `${BASE}/crops/grouped`,
+  DICT: `${BASE}/crops/dict`,
+}
+
 // downloads related endpoints
 export const DOWNLOADS = {
   BASE: `${BASE}/download`,

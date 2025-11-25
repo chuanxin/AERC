@@ -1994,6 +1994,7 @@ interface LandManagementState {
 // Import store
 import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
+import { useCropsStore } from '@/stores/crops';
 import { useRoute } from 'vue-router';
 import { fetchLandSectionsByLandCodes, type LandSection } from '@/services/landSectionNlscService';
 import { markRaw, nextTick, reactive } from 'vue';
@@ -2055,6 +2056,7 @@ const showCoOwnerSettings = ref(false);
 // Access the grants store
 const grantsStore = useGrantsStore();
 const domicileStore = useDomicileStore();
+const cropsStore = useCropsStore();
 
 // 統一步驟組件架構：初始化保護與事件管理系統
 interface StepInitializationGuard {
@@ -2064,7 +2066,7 @@ interface StepInitializationGuard {
 }
 
 interface StepEventEmitter {
-  emitDataChanged: () => void
+  emitDataChanged: (immediate?: boolean) => void  // 🔥 添加 immediate 參數
   emitValidationChanged: (valid: boolean) => void
   emitReadyToProceed: () => void
   emitGoBackRequested: () => void
@@ -2141,7 +2143,7 @@ const createProtectedFunctionFactory = (
 // 統一的事件發送器
 const createEventEmitter = (
   stepNumber: number,
-  emit: ((evt: "step-data-changed", eventData: { step: number; data: Record<string, unknown>; valid: boolean; }) => void) &
+  emit: ((evt: "step-data-changed", eventData: { step: number; data: Record<string, unknown>; valid: boolean; immediate?: boolean; }) => void) &
         ((evt: "validation-changed", eventData: { step: number; valid: boolean; }) => void) &
         ((evt: "ready-to-proceed", eventData: { step: number; data: Record<string, unknown>; }) => void) &
         ((evt: "go-back-requested", eventData: { step: number; }) => void),
@@ -2149,7 +2151,8 @@ const createEventEmitter = (
   validationState: Ref<boolean>,
   guard: StepInitializationGuard
 ): StepEventEmitter => {
-  const debouncedEmitDataChanged = debounce(() => {
+  // 內部 emit 邏輯（可被 debounce 或立即調用）
+  const emitDataChangedInternal = (immediate = false) => {
     if (!guard.isInitialized || guard.isInitializing) return
 
     // 🔥 Good Taste: 只發送持久化資料（lands 陣列 + 計算欄位），單筆編輯欄位不發送
@@ -2160,7 +2163,7 @@ const createEventEmitter = (
       valid: formData.valid
     }
 
-    console.log(`🚀 step${stepNumber}.vue: Emitting step-data-changed event (lands + totals)`, {
+    console.log(`🚀 step${stepNumber}.vue: Emitting step-data-changed event (lands + totals, immediate: ${immediate})`, {
       landsCount: persistentData.lands?.length || 0,
       totalFacilityArea: persistentData.totalFacilityArea,
       totalFacilityAreaHa: persistentData.totalFacilityAreaHa
@@ -2168,17 +2171,25 @@ const createEventEmitter = (
     emit('step-data-changed', {
       step: stepNumber,
       data: persistentData,
-      valid: validationState.value
+      valid: validationState.value,
+      immediate
     })
-  }, 300)
+  }
+
+  const debouncedEmitDataChanged = debounce(() => emitDataChangedInternal(false), 300)
 
   return {
-    emitDataChanged: () => {
+    emitDataChanged: (immediate = false) => {
       if (!guard.isInitialized || guard.isInitializing) {
         console.log(`⏸️ step${stepNumber}.vue: Skipping event emission during initialization`)
         return
       }
-      debouncedEmitDataChanged()
+      // 🔥 如果 immediate=true，立即發送事件；否則使用 debounce
+      if (immediate) {
+        emitDataChangedInternal(true)
+      } else {
+        debouncedEmitDataChanged()
+      }
     },
 
     emitValidationChanged: (valid: boolean) => {
@@ -2691,17 +2702,9 @@ const loadTownsForCounty = async (countyValue: number | string) => {
 
 // 已移除 loadVillagesForTown 函數，改用 loadLandSections 處理 NLSC API
 
-// Crop data
-const cropCategoriesData = {
-  '糧食作物': ['稻米', '小麥', '玉米', '大豆'],
-  '特用作物': ['茶葉', '咖啡', '香蕉'],
-  '果樹作物': ['橘', '香蕉', '芒果', '鳳梨'],
-  '蔬菜作物': ['番茄', '青椒', '茄子', '胡蘿蔔'],
-  '景觀花卉作物': ['玫瑰', '百合', '康乃馨'],
-  '其他作物': ['其他']
-};
-
-const cropCategories = Object.keys(cropCategoriesData);
+// 🌾 Crop data - 從資料庫動態載入（透過 cropsStore）
+const cropCategories = computed(() => cropsStore.categoryNames);
+const cropCategoriesData = computed(() => cropsStore.cropNamesByCategoryName);
 
 // Computed properties for reactive filtering
 const towns = computed(() => {
@@ -2940,7 +2943,7 @@ const ownerVillages = computed(() => {
 });
 
 const crops = computed(() => {
-  return localFormData.cropCategory ? (cropCategoriesData[localFormData.cropCategory as keyof typeof cropCategoriesData] || []) : [];
+  return localFormData.cropCategory ? cropsStore.getCropNamesForCategory(localFormData.cropCategory) : [];
 });
 
 const currentShare = computed(() => {
@@ -3806,9 +3809,10 @@ const saveLandEdit = () => {
   // 同步到 localFormData.lands 以便儲存
   localFormData.lands = [...landManagement.lands]
 
-  // 觸發資料更新
+  // 🔥 立即觸發資料儲存（不等待 3 秒自動儲存延遲）
   if (!initGuard.isInitializing && initGuard.isInitialized) {
-    eventEmitter.emitDataChanged()
+    console.log('💾 step2.vue: Triggering immediate save after land edit')
+    eventEmitter.emitDataChanged(true)  // 傳遞 immediate=true
   }
 }
 
@@ -4108,8 +4112,23 @@ const initializeStep2WithCascadeData = async () => {
 onMounted(async () => {
   window.addEventListener('beforeunload', beforeUnloadHandler)
 
+  // 🌾 載入作物資料 (從資料庫)
+  try {
+    if (!cropsStore.isInitialized) {
+      await cropsStore.initializeStore()
+    }
+  } catch (error) {
+    console.error('❌ [step2.vue] Failed to initialize crops store:', error)
+    // 即使作物資料載入失敗，仍允許頁面繼續渲染
+  }
+
   // 🔥 P0 修復：使用新的初始化邏輯
-  await initializeStep2WithCascadeData()
+  try {
+    await initializeStep2WithCascadeData()
+  } catch (error) {
+    console.error('❌ [step2.vue] Failed to initialize step2 cascade data:', error)
+    // 錯誤已記錄，允許頁面繼續渲染
+  }
 })
 
 onUnmounted(() => {

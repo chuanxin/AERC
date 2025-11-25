@@ -19,7 +19,7 @@ import 'from src.routes import users, notes' must be after 'Tortoise.init_models
 why?
 https://stackoverflow.com/questions/65531387/tortoise-orm-for-python-no-returns-relations-of-entities-pyndantic-fastapi
 """
-from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads
+from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops
 
 app = FastAPI()
 
@@ -57,6 +57,7 @@ app.include_router(attachments.router)
 app.include_router(qualification.router)
 app.include_router(spatial_services.router)
 app.include_router(downloads.router)
+app.include_router(crops.router)
 
 
 register_tortoise(app, config=TORTOISE_ORM, generate_schemas=False)

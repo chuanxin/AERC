@@ -1,4 +1,4 @@
-import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, GIS, QUALIFICATION, SPATIAL, DOWNLOADS, ATTACHMENTS } from './endpoints';
+import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, CROPS, GIS, QUALIFICATION, SPATIAL, DOWNLOADS, ATTACHMENTS } from './endpoints';
 
 // 取得當前的 API 版本前綴
 const API_BASE_URL = import.meta.env.FAST_API_BASE_URL || '';
@@ -97,6 +97,14 @@ export const BACKEND_PATHS = {
     OPTIONS: '/irrigation_types/options',
     DETAIL: (id: number | string) => `/irrigation_types/${id}`,
   },
+  CROPS: {
+    CATEGORIES: '/crop-categories',
+    CATEGORY_DETAIL: (id: number) => `/crop-categories/${id}`,
+    NAMES: '/crop-names',
+    NAMES_BY_CATEGORY: (categoryId: number) => `/crop-names/category/${categoryId}`,
+    GROUPED: '/crops/grouped',
+    DICT: '/crops/dict',
+  },
   GIS: {
     POINTS: '/gis/points',
     STATS: '/gis/stats',
@@ -160,6 +168,10 @@ export const API_MAPPING: Record<string, string> = {
   [PF_MATERIALS.LIST]: BACKEND_PATHS.PF_MATERIALS.LIST,
   [IRRIGATION_TYPES.LIST]: BACKEND_PATHS.IRRIGATION_TYPES.LIST,
   [IRRIGATION_TYPES.OPTIONS]: BACKEND_PATHS.IRRIGATION_TYPES.OPTIONS,
+  [CROPS.CATEGORIES]: BACKEND_PATHS.CROPS.CATEGORIES,
+  [CROPS.NAMES]: BACKEND_PATHS.CROPS.NAMES,
+  [CROPS.GROUPED]: BACKEND_PATHS.CROPS.GROUPED,
+  [CROPS.DICT]: BACKEND_PATHS.CROPS.DICT,
   [GIS.POINTS]: BACKEND_PATHS.GIS.POINTS,
   [GIS.STATS]: BACKEND_PATHS.GIS.STATS,
   [GIS.SEARCH]: BACKEND_PATHS.GIS.SEARCH,
@@ -233,6 +245,16 @@ export const DYNAMIC_PATH_PATTERNS = [
   {
     pattern: new RegExp(`^${PF_ANNUAL_PRICES.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.PF_ANNUAL_PRICES.DETAIL(matches[1])
+  },
+  {
+    // 匹配作物類別詳情路徑 {API_PREFIX}/crop-categories/{id}
+    pattern: new RegExp(`^${CROPS.CATEGORIES.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.CROPS.CATEGORY_DETAIL(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配作物名稱（依類別）路徑 {API_PREFIX}/crop-names/category/{categoryId}
+    pattern: new RegExp(`^${CROPS.NAMES.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/category/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.CROPS.NAMES_BY_CATEGORY(parseInt(matches[1], 10))
   },
   {
     // 匹配靜態檔案下載路徑 {API_PREFIX}/download/static-file/{fileId}
