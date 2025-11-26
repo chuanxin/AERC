@@ -47,6 +47,75 @@ def get_taiwan_datetime():
 logger = logging.getLogger(__name__)
 
 
+async def generate_land_locations(lands: List[Dict[str, Any]]) -> str:
+    """生成土地位置摘要（不包含面積資訊）
+
+    從 step2 的 lands 陣列中提取縣市、鄉鎮、地段資訊，
+    轉換代碼為文字並組合成位置字串。
+
+    Args:
+        lands: step2 的 lands 陣列，包含 landCounty, landTown, landSecName 等欄位
+
+    Returns:
+        土地位置字串，例如："宜蘭縣宜蘭市○○段、花蓮縣花蓮市△△段"
+    """
+    if not lands:
+        return ""
+
+    # 建立縣市代碼到名稱的快取映射
+    county_cache = {}
+    town_cache = {}
+
+    # 收集所有唯一的縣市和鄉鎮代碼
+    county_codes = set()
+    town_keys = set()  # (county_code, town_code)
+
+    for land in lands:
+        county_code = str(land.get("landCounty", ""))
+        town_code = str(land.get("landTown", ""))
+
+        if county_code:
+            county_codes.add(county_code)
+            if town_code:
+                town_keys.add((county_code, town_code))
+
+    # 批次查詢縣市名稱（使用 id 而不是 code）
+    if county_codes:
+        county_ids = [int(code) for code in county_codes if code.isdigit()]
+        counties = await Counties.filter(id__in=county_ids).all()
+        for county in counties:
+            county_cache[str(county.id)] = county.name
+
+    # 批次查詢鄉鎮名稱（使用 id 而不是 code）
+    for county_code, town_code in town_keys:
+        if county_code.isdigit() and town_code.isdigit():
+            county = await Counties.filter(id=int(county_code)).first()
+            if county:
+                town = await Towns.filter(county=county, id=int(town_code)).first()
+                if town:
+                    town_cache[(county_code, town_code)] = town.name
+
+    # 建立地段列表（去重）
+    land_locations = set()
+    for land in lands:
+        county_code = str(land.get("landCounty", ""))
+        town_code = str(land.get("landTown", ""))
+        sec_name = land.get("landSecName", "")
+
+        county_name = county_cache.get(county_code, "")
+        town_name = town_cache.get((county_code, town_code), "")
+
+        if county_name and town_name and sec_name:
+            location = f"{county_name}{town_name}{sec_name}"
+            land_locations.add(location)
+
+    # 返回位置字串（不包含面積）
+    if land_locations:
+        return "、".join(sorted(land_locations))
+    else:
+        return ""
+
+
 async def get_grants(
     year: Optional[int] = None,
     office_id: Optional[int] = None,
@@ -134,19 +203,26 @@ async def get_grants(
             facility_area = None
             facility_area_m2 = None
             facility_type = None
+            land_locations = None
 
             if hasattr(grant, 'active_version') and grant.active_version:
                 try:
                     version_data = grant.active_version.all_steps_data
                     if version_data and isinstance(version_data, dict):
                         steps = version_data.get("steps", {})
-                        
+
                         # 從 step 2 取得土地/設施面積
                         # 🔥 Good Taste: 直接使用 totalFacilityArea (m²) 和 totalFacilityAreaHa (公頃)
                         step2_data = steps.get("2", {}) or steps.get(2, {})
                         if step2_data:
                             facility_area = step2_data.get("totalFacilityAreaHa")
                             facility_area_m2 = step2_data.get("totalFacilityArea")
+
+                            # 🔥 生成土地位置摘要（從 lands 陣列讀取縣市、鄉鎮、地段）
+                            # 關注點分離：後端返回原始資料，前端處理格式化和組合
+                            lands = step2_data.get("lands", [])
+                            if lands and isinstance(lands, list):
+                                land_locations = await generate_land_locations(lands)
 
                         # 從 step 4 取得設施類型/灌溉類型
                         step4_data = steps.get("4", {}) or steps.get(4, {})
@@ -165,8 +241,10 @@ async def get_grants(
             grant_data.update({
                 "facility_area": facility_area,
                 "facility_type": facility_type,
-                # 直接使用 totalFacilityArea (已經是 m²，不需要轉換)
-                "facility_area_m2": int(float(facility_area_m2)) if facility_area_m2 else None
+                # 🔥 關注點分離：返回未格式化的數字，讓前端處理格式化和搜尋
+                "facility_area_m2": int(float(facility_area_m2)) if facility_area_m2 else None,
+                # 🔥 土地位置摘要（僅包含縣市鄉鎮地段，不含面積）
+                "land_locations": land_locations
             })
             
             results.append(grant_data)

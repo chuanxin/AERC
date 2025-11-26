@@ -87,6 +87,7 @@ export interface GrantListItem {
   facility_type?: string;
   facility_area?: number;
   facility_area_m2?: number;
+  land_locations?: string; // 土地位置摘要（僅縣市鄉鎮地段，不含面積）
   status: string;
   current_step: number;
   is_disaster_case?: boolean;

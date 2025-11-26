@@ -113,7 +113,7 @@
                   <div>使用者：{{ userStore.currentUser?.username || '未登入' }} ({{ userStore.currentUser?.office?.name || '無管理處' }})</div>
                   <div>使用者管理處ID：{{ getUserOfficeId() ?? '未偵測到' }}</div>
                   <div>篩選條件：年度={{ filters.year || '無' }}, 管理處={{ filters.office_id || '無' }}</div>
-                  <div>已載入案件數：{{ filteredGrantsList.length }}</div>
+                  <div>已載入案件數：{{ displayGrantsList.length }}</div>
                   <div>API狀態：{{ isUsingApi ? '正常' : '離線模式' }}</div>
                 </div>
               </v-alert> -->
@@ -199,21 +199,20 @@
                   v-model:selected="selectedGrants"
                   fixed-header
                   :headers="headers"
-                  :items="filteredGrantsList"
+                  :items="displayGrantsList"
                   :loading="listLoading"
                   :height="500"
                   :search="search"
                   density="comfortable"
                   item-value="case_number"
-                  show-select
                   class="grants-table rounded-lg"
                 >
                   <!-- 自定義表頭：選取欄 -->
-                  <template #[`header.data-table-select`]>
+                  <!-- <template #[`header.data-table-select`]>
                     <div class="d-flex align-center">
                       <span class="ml-2 text-subtitle-2 font-weight-medium">選取</span>
                     </div>
-                  </template>
+                  </template> -->
                   <!-- 案件狀態欄位 -->
                   <template #[`item.status`]="{ item }">
                     <v-chip
@@ -225,6 +224,11 @@
                     >
                       {{ getStatusText(item.current_step, item.is_legacy, item.status) }}
                     </v-chip>
+                  </template>
+
+                  <!-- 承辦人姓名欄位 -->
+                  <template #[`item.created_by.full_name`]="{ item }">
+                    {{ item.created_by?.full_name || '-' }}
                   </template>
 
                   <!-- 公告狀態欄位 -->
@@ -239,9 +243,29 @@
                       {{ item.card }}
                     </v-chip>
                   </template> -->
-                  <!-- 設施面積欄位 -->
-                  <template #[`item.facility_area_m2`]="{ item }">
-                    {{ item.facility_area_m2 ? item.facility_area_m2.toLocaleString() : '-' }}
+                  <!-- 土地資料/施作面積欄位 -->
+                  <!-- 🔥 Framework-Native: 使用 land_data_search key，前端組合顯示 -->
+                  <template #[`item.land_data_search`]="{ item }">
+                    <div
+                      v-if="item.land_locations || item.facility_area_m2"
+                      class="land-summary-cell"
+                    >
+                      <!-- 土地位置 -->
+                      <div
+                        v-if="item.land_locations"
+                        class="land-location text-body-2"
+                      >
+                        {{ item.land_locations }}
+                      </div>
+                      <!-- 施作面積（前端格式化） -->
+                      <div
+                        v-if="item.facility_area_m2"
+                        class="land-area text-caption text-medium-emphasis"
+                      >
+                        共 {{ item.facility_area_m2.toLocaleString() }} m²
+                      </div>
+                    </div>
+                    <span v-else>-</span>
                   </template>
 
                   <!-- 操作按鈕 -->
@@ -294,7 +318,7 @@
                   <template #bottom>
                     <div class="d-flex align-center pa-3">
                       <span class="text-body-2 text-medium-emphasis">
-                        共 {{ filteredGrantsList.length }} 筆資料
+                        共 {{ displayGrantsList.length }} 筆資料
                         <span
                           v-if="!isUsingApi"
                           class="text-warning"
@@ -448,6 +472,7 @@ interface GrantItem {
   caseYear: number
   caseNumber: string
   officeName: string
+  land_summary?: string
 }
 
 // 響應式資料
@@ -477,6 +502,16 @@ const {
   // migrationResult,
   isUsingApi
 } = storeToRefs(grantsStore)
+
+// 🔥 Framework-Native Integration: 適配資料結構以支援原生搜尋
+// 添加可搜尋的土地資料欄位（包含位置和未格式化的面積數字）
+const displayGrantsList = computed(() => {
+  return filteredGrantsList.value.map(item => ({
+    ...item,
+    // 組合土地位置和未格式化面積，用於 Vuetify 原生搜尋
+    land_data_search: `${item.land_locations || ''} ${item.facility_area_m2 || ''}`.trim()
+  }))
+})
 
 // 計算選取案件數量，確保響應式更新
 const selectedCount = computed(() => selectedGrants.value.length)
@@ -537,13 +572,15 @@ const officeOptions = [
 
 // 表格標題
 const headers = ref([
-  { title: '申請年度', key: 'year', align: 'start' as const, width: '110px' },
+  // { title: '申請年度', key: 'year', align: 'start' as const, width: '110px' },
   { title: '案號', key: 'case_number', align: 'start' as const },
-  { title: '申請人姓名', key: 'applicant_name', align: 'start' as const },
-  { title: '管理處', key: 'office', align: 'start' as const },
-  { title: '末端形式', key: 'facility_type', align: 'end' as const },
-  { title: '施作面積 (m²)', key: 'facility_area_m2', align: 'end' as const },
-  { title: '案件狀態', key: 'status', align: 'end' as const },
+  { title: '申請人姓名', key: 'applicant_name', align: 'start' as const, width: '130px' },
+  { title: '承辦人姓名', key: 'created_by.full_name', align: 'start' as const, width: '130px' },
+  // { title: '管理處', key: 'office', align: 'start' as const },
+  // 🔥 使用 land_data_search 欄位，支援搜尋位置文字和未格式化數字
+  { title: '土地資料', key: 'land_data_search', align: 'start' as const, width: '280px'},
+  { title: '末端形式', key: 'facility_type', align: 'start' as const, width: '130px' },
+  { title: '案件狀態', key: 'status', align: 'start' as const, width: '150px' },
   // { title: '公告狀態（農民卡）', key: 'card', align: 'end' as const },
   { title: '操作', key: 'actions', align: 'end' as const, sortable: false },
 ])
@@ -720,11 +757,12 @@ const filteredItems = computed(() => {
     result = result.filter(item => {
       return (
         (item.applicantName && item.applicantName.toLowerCase().includes(searchTerm)) ||
-        (item.caseNumber && item.caseNumber.toLowerCase().includes(searchTerm)) ||
+        // (item.caseNumber && item.caseNumber.toLowerCase().includes(searchTerm)) ||
         (String(item.caseYear) && String(item.caseYear).includes(searchTerm)) ||
-        (item.officeName && item.officeName.toLowerCase().includes(searchTerm)) ||
+        // (item.officeName && item.officeName.toLowerCase().includes(searchTerm)) ||
         (item.irrigationName && item.irrigationName.toLowerCase().includes(searchTerm)) ||
-        (item.stepName && item.stepName.toLowerCase().includes(searchTerm))
+        (item.stepName && item.stepName.toLowerCase().includes(searchTerm)) ||
+        (item.land_summary && item.land_summary.toLowerCase().includes(searchTerm))
       )
     })
   }
@@ -991,7 +1029,7 @@ onMounted(async () => {
   // 直接載入案件清單（含預設篩選條件），避免重複調用updateFilters
   await grantsStore.loadGrantsList(filterParams)
 
-  console.log('✅ [grants/index] 頁面載入完成，共載入', filteredGrantsList.value.length, '筆案件')
+  console.log('✅ [grants/index] 頁面載入完成，共載入', displayGrantsList.value.length, '筆案件')
 })
 
 // Watch for changes in grantsStore currentStep to update status
@@ -1117,5 +1155,25 @@ watch(() => grantsStore.currentStep, (newStep) => {
   .filter-select {
     min-width: 100%;
   }
+}
+
+/* 土地資料欄位樣式 */
+.land-summary-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.3;
+}
+
+.land-summary-cell .land-location {
+  font-size: 0.875rem;
+  color: #333;
+  font-weight: 500;
+}
+
+.land-summary-cell .land-area {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 400;
 }
 </style>
