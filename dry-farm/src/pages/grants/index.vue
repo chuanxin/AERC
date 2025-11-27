@@ -197,22 +197,23 @@
               >
                 <v-data-table-virtual
                   v-model:selected="selectedGrants"
+                  show-select
                   fixed-header
                   :headers="headers"
                   :items="displayGrantsList"
                   :loading="listLoading"
                   :height="500"
                   :search="search"
-                  density="comfortable"
+                  density="compact"
                   item-value="case_number"
                   class="grants-table rounded-lg"
                 >
                   <!-- 自定義表頭：選取欄 -->
-                  <!-- <template #[`header.data-table-select`]>
+                  <template #[`header.data-table-select`]>
                     <div class="d-flex align-center">
                       <span class="ml-2 text-subtitle-2 font-weight-medium">選取</span>
                     </div>
-                  </template> -->
+                  </template>
                   <!-- 案件狀態欄位 -->
                   <template #[`item.status`]="{ item }">
                     <v-chip
@@ -572,17 +573,17 @@ const officeOptions = [
 
 // 表格標題
 const headers = ref([
-  // { title: '申請年度', key: 'year', align: 'start' as const, width: '110px' },
+  { title: '年度', key: 'year', align: 'start' as const, width: '60px' },
   { title: '案號', key: 'case_number', align: 'start' as const },
   { title: '申請人姓名', key: 'applicant_name', align: 'start' as const, width: '130px' },
-  { title: '承辦人姓名', key: 'created_by.full_name', align: 'start' as const, width: '130px' },
-  // { title: '管理處', key: 'office', align: 'start' as const },
+  { title: '填報人姓名', key: 'created_by.full_name', align: 'start' as const, width: '130px' },
+  { title: '管理處', key: 'office', align: 'start' as const, width: '120px'  },
   // 🔥 使用 land_data_search 欄位，支援搜尋位置文字和未格式化數字
   { title: '土地資料', key: 'land_data_search', align: 'start' as const, width: '280px'},
   { title: '末端形式', key: 'facility_type', align: 'start' as const, width: '130px' },
   { title: '案件狀態', key: 'status', align: 'start' as const, width: '150px' },
   // { title: '公告狀態（農民卡）', key: 'card', align: 'end' as const },
-  { title: '操作', key: 'actions', align: 'end' as const, sortable: false },
+  { title: '操作', key: 'actions', align: 'end' as const, sortable: false},
 ])
 
 // 根據公告狀態返回對應的顏色
@@ -1122,6 +1123,16 @@ watch(() => grantsStore.currentStep, (newStep) => {
   background-color: #e3f4f4 !important;
   color: #333 !important;
   font-weight: 900 !important;
+  padding: 4px 8px !important; /* 減少表頭內距 */
+}
+
+.grants-table :deep(tbody td) {
+  padding: 4px 8px !important; /* 減少儲存格內距 */
+}
+
+/* 🔥 修正 v-data-table-virtual 的空白行問題 */
+.grants-table :deep(tbody tr[style*="height: 0px"]) {
+  display: none !important;
 }
 
 .grants-table :deep(.v-data-table__tr:hover) {
