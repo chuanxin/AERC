@@ -195,7 +195,7 @@
                     設施地點
                   </div>
                   <div class="text-body-2">
-                    {{ (currentCase?.cover?.facility_location?.county || '') + (currentCase?.cover?.facility_location?.district || '') || '-' }}
+                    {{ (currentCase?.cover?.facility_location?.location_summary || '') || '-' }}
                   </div>
                 </div>
               </v-col>
@@ -908,16 +908,16 @@ const historicalCase = ref<HistoricalCaseData | null>(null)
 // 載入案件文件資料
 const loadGrantPapersData = async () => {
   if (!caseNumber.value) return
-  
+
   isLoading.value = true
   error.value = null
-  
+
   try {
     console.log('🔄 載入案件文件資料:', caseNumber.value, grantsId.value ? `(ID: ${grantsId.value})` : '')
-    
+
     // 從 grant_papers 表格載入預算報表資料
     const papersData = await getGrantPapers(caseNumber.value, 'budget_statement', grantsId.value)
-    
+
     if (papersData && papersData.document_data) {
       historicalCase.value = papersData.document_data
       console.log('✅ 成功載入案件文件資料')
@@ -925,18 +925,18 @@ const loadGrantPapersData = async () => {
     } else {
       throw new Error('文件資料格式不正確')
     }
-    
+
   } catch (err) {
     console.error('❌ 載入案件文件資料失敗:', err)
     error.value = err instanceof Error ? err.message : '載入失敗'
-    
+
     // 如果載入失敗，設定為空的預設結構
     historicalCase.value = {
       report: {
         cover: {},
         budget_table: { items: {}, summary: {} },
         lands_table: { lands: [], summary: {} },
-        power_storage_equipments_table: { 
+        power_storage_equipments_table: {
           power_equipment: { items: [] },
           storage_equipment: { items: [] }
         },

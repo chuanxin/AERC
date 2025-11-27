@@ -191,8 +191,8 @@ async def get_grants(
                 "is_legacy": grant.is_legacy,
             }
             
-            # 添加建立者資訊
-            if hasattr(grant, 'created_by') and grant.created_by:
+            # 添加建立者資訊（legacy 資料因 schema 不相容，不提供建立者資訊）
+            if not grant.is_legacy and hasattr(grant, 'created_by') and grant.created_by:
                 grant_data["created_by"] = {
                     "id": grant.created_by.id,
                     "username": grant.created_by.username,
@@ -631,11 +631,12 @@ async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
             "current_step": grant.current_step,
             "created_at": grant.created_at,
             "modified_at": grant.modified_at,
+            "is_legacy": grant.is_legacy,
             "created_by": {
                 "id": grant.created_by.id,
                 "username": grant.created_by.username,
                 "full_name": grant.created_by.full_name
-            } if hasattr(grant, "created_by") and grant.created_by else None,
+            } if not grant.is_legacy and hasattr(grant, "created_by") and grant.created_by else None,
             
             # Add active version information
             "active_version": {

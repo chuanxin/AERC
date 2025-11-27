@@ -3252,38 +3252,45 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
   localFormData.totalFacilityArea = area
   localFormData.totalFacilityAreaHa = areaHa
 
-  // 當設施面積發生變化時，清除 step3 和 step4 的資料
+  // 當設施面積發生變化時，清除 step4 和 step5 的資料
   // 因為補助額度計算依賴面積，面積變更後原有設施資料可能不再適用
+  // 🔥 修正：統一架構後 UI step N = data step N
   if (previousTotalFacilityArea.value !== 0 && oldArea !== area && grantsStore.caseNumber) {
-    const hasStep3Data = grantsStore.formData[3] && Object.keys(grantsStore.formData[3]).length > 1
-    const hasStep4Data = grantsStore.formData[4] && Object.keys(grantsStore.formData[4]).length > 1
+    // 🔥 排除元資料欄位，只檢查實際業務資料
+    const getActualDataKeys = (stepData: Record<string, any>) => {
+      if (!stepData) return []
+      return Object.keys(stepData).filter(key => !['_caseNumber', 'valid'].includes(key))
+    }
 
-    if (hasStep3Data || hasStep4Data) {
+    const hasStep4Data = grantsStore.formData[4] && getActualDataKeys(grantsStore.formData[4]).length > 0
+    const hasStep5Data = grantsStore.formData[5] && getActualDataKeys(grantsStore.formData[5]).length > 0
+
+    if (hasStep4Data || hasStep5Data) {
       // 顯示提示說明（不提供取消選項）
       alert(
         '⚠️ 設施面積已變更！\n\n' +
         `原面積：${(oldArea / 10000).toFixed(4)} 公頃\n` +
         `新面積：${(area / 10000).toFixed(4)} 公頃\n\n` +
         '面積變更會影響補助額度計算，系統將自動清除以下步驟的資料：\n' +
-        (hasStep3Data ? '• Step 4 - 灌溉調控設施\n' : '') +
-        (hasStep4Data ? '• Step 5 - 田間管路設施\n' : '') +
+        (hasStep4Data ? '• Step 4 - 灌溉調控設施\n' : '') +
+        (hasStep5Data ? '• Step 5 - 田間管路設施\n' : '') +
         '\n請於清除後重新填寫設施資訊。'
       )
 
       try {
         // 使用既有的 saveStepData 方法保存空物件來清除資料
-        if (hasStep3Data) {
-          console.log('🗑️ [Step2] 清除 Step4 資料（面積變更）')
-          await grantsStore.saveStepData(3, { _caseNumber: grantsStore.caseNumber })
-          // 同時清除 localStorage
-          grantsStore.formData[3] = { _caseNumber: grantsStore.caseNumber }
-        }
-
         if (hasStep4Data) {
-          console.log('🗑️ [Step2] 清除 Step5 資料（面積變更）')
+          console.log('🗑️ [Step2] 清除 Step4 資料（面積變更）')
           await grantsStore.saveStepData(4, { _caseNumber: grantsStore.caseNumber })
           // 同時清除 localStorage
           grantsStore.formData[4] = { _caseNumber: grantsStore.caseNumber }
+        }
+
+        if (hasStep5Data) {
+          console.log('🗑️ [Step2] 清除 Step5 資料（面積變更）')
+          await grantsStore.saveStepData(5, { _caseNumber: grantsStore.caseNumber })
+          // 同時清除 localStorage
+          grantsStore.formData[5] = { _caseNumber: grantsStore.caseNumber }
         }
 
         alert('✅ 已成功清除相關步驟資料，請重新填寫設施資訊。')

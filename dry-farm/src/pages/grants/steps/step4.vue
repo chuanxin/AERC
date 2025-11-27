@@ -581,6 +581,20 @@
                         <span>m</span>
                       </div>
                     </div>
+
+                    <!-- 設施型式 -->
+                    <v-select
+                      v-model="localFormData.facilityTypeId"
+                      :items="facilityTypeOptions"
+                      item-title="name"
+                      item-value="id"
+                      label="設施型式"
+                      variant="outlined"
+                      density="comfortable"
+                      class="me-3 mb-2"
+                      color="#3ea0a3"
+                      style="width: 160px"
+                    />
                   </div>
 
                   <div class="d-flex flex-wrap mt-2">
