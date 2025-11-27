@@ -224,14 +224,14 @@ async def get_grants(
                             if lands and isinstance(lands, list):
                                 land_locations = await generate_land_locations(lands)
 
-                        # 從 step 4 取得設施類型/灌溉類型
-                        step4_data = steps.get("4", {}) or steps.get(4, {})
-                        if step4_data:
+                        # 從 step 5 取得設施類型/灌溉類型
+                        step5_data = steps.get("5", {}) or steps.get(5, {})
+                        if step5_data:
                             facility_type = (
-                                step4_data.get("irrigationType") or
-                                step4_data.get("facilityType") or
-                                step4_data.get("irrigation_type") or
-                                step4_data.get("facility_type")
+                                step5_data.get("irrigationType")
+                                # step5_data.get("facilityType") or
+                                # step5_data.get("irrigation_type") or
+                                # step5_data.get("facility_type")
                             )
 
                 except Exception as e:
