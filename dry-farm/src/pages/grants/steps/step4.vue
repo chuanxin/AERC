@@ -106,7 +106,6 @@
                   class="me-3"
                   style="max-width: 300px;"
                   hide-details
-                  autofocus
                 />
                 <v-btn
                   color="#f57c00"
