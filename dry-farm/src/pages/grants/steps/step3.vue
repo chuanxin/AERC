@@ -1811,51 +1811,65 @@ const updateFormData = () => {
 };
 
 // 跳過灌溉調控設施步驟功能
-const skipStep = () => {
-  console.log('⏭️ Skipping step3 (灌溉調控設施)');
+const skipStep = async () => {
+  console.log('⏭️ [step3] Skipping step (灌溉調控設施) - using unified clearStepData');
 
-  // 重置所有表單數據為初始狀態
-  Object.assign(localFormData, {
-    fundingSourceId: 0,
+  try {
+    // 🔥 使用統一的原子性清除方法（與 step2 觸發的清除邏輯一致）
+    // 這會清除：API + Store (formData/previousFormData/changedFields) + localStorage
+    const success = await grantsStore.clearStepData(props.currentStep);
 
-    // 動力設備
-    powerEquipment: '',
+    if (!success) {
+      console.error('❌ [step3] clearStepData failed');
+      alert('清除資料失敗，請稍後再試');
+      return;
+    }
 
-    // 調蓄設施
-    storageType: '',
-    storageTonnage: '',
-    storageSource: '',
-    storageRemark: '',
+    console.log('✅ [step3] clearStepData succeeded (API + Store + localStorage cleared)');
 
-    // 調節控制設施
-    controlType: '',
-    controlName: '',
-    controlQuantity: 1,
-    controlUnitPrice: '',
-    controlSource: '',
+    // 🔥 清除本地 UI 狀態（確保即時響應）
+    Object.assign(localFormData, {
+      fundingSourceId: 0,
 
-    // 設施列表
-    facilities: [],
+      // 動力設備
+      powerEquipment: '',
 
-    valid: true
-  });
+      // 調蓄設施
+      storageType: '',
+      storageTonnage: '',
+      storageSource: '',
+      storageRemark: '',
 
-  // 關閉編輯模式
-  isEditingFundingSource.value = false;
+      // 調節控制設施
+      controlType: '',
+      controlName: '',
+      controlQuantity: 1,
+      controlUnitPrice: '',
+      controlSource: '',
 
-  // 設置為有效狀態，允許跳過
-  localValid.value = true;
+      // 設施列表
+      facilities: [],
 
-  // 更新父組件數據
-  updateFormData();
+      valid: true
+    });
 
-  // 觸發 validated 事件，進入下一步
-  emit('validated', {
-    valid: true,
-    step: props.currentStep
-  });
+    // 關閉編輯模式
+    isEditingFundingSource.value = false;
 
-  console.log('✅ Step3 skipped successfully');
+    // 設置為有效狀態，允許跳過
+    localValid.value = true;
+
+    // 觸發 validated 事件，進入下一步
+    emit('validated', {
+      valid: true,
+      step: props.currentStep
+    });
+
+    console.log('✅ [step3] Step skipped successfully');
+  } catch (error) {
+    console.error('❌ [step3] Skip step failed:', error);
+    alert('操作失敗，請稍後再試');
+  }
 };
 
 const onControlTypeChange = () => {

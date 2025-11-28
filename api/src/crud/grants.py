@@ -926,9 +926,23 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                     current_all_steps_data = current_version.all_steps_data or {"steps": {}}
                     if "steps" not in current_all_steps_data:
                         current_all_steps_data["steps"] = {}
-                    
-                    # 更新 step 2 的資料
-                    current_all_steps_data["steps"]["2"] = actual_data
+
+                    # 🔥 Phase 1: 檢查是否為清除操作（只有元資料欄位）
+                    metadata_fields = {'_caseNumber', 'valid', 'case_number', 'id', 'current_step', 'status'}
+                    actual_data_keys = set(actual_data.keys()) if isinstance(actual_data, dict) else set()
+                    business_data_keys = actual_data_keys - metadata_fields
+
+                    if len(business_data_keys) == 0:
+                        # 只有元資料 → 這是清除操作 → 刪除整個 step key
+                        if "2" in current_all_steps_data["steps"]:
+                            del current_all_steps_data["steps"]["2"]
+                            logger.info(f"🗑️ Step 2 清除完成（刪除 key），案件: {case_number}")
+                        else:
+                            logger.info(f"🗑️ Step 2 本來就是空的，無需清除，案件: {case_number}")
+                    else:
+                        # 有業務資料 → 正常更新
+                        current_all_steps_data["steps"]["2"] = actual_data
+                        logger.info(f"✅ Step 2 更新完成（{len(business_data_keys)} 個業務欄位），案件: {case_number}")
                     
                     # 計算新的雜湊值
                     new_data_hash = calculate_data_hash(current_all_steps_data)
@@ -1021,9 +1035,24 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                     current_all_steps_data = current_version.all_steps_data or {"steps": {}}
                     if "steps" not in current_all_steps_data:
                         current_all_steps_data["steps"] = {}
-                    
-                    # 更新對應步驟的資料
-                    current_all_steps_data["steps"][str(step)] = actual_data
+
+                    # 🔥 Phase 1: 檢查是否為清除操作（只有元資料欄位）
+                    # 元資料欄位不算真正的業務資料
+                    metadata_fields = {'_caseNumber', 'valid', 'case_number', 'id', 'current_step', 'status'}
+                    actual_data_keys = set(actual_data.keys()) if isinstance(actual_data, dict) else set()
+                    business_data_keys = actual_data_keys - metadata_fields
+
+                    if len(business_data_keys) == 0:
+                        # 只有元資料 → 這是清除操作 → 刪除整個 step key
+                        if str(step) in current_all_steps_data["steps"]:
+                            del current_all_steps_data["steps"][str(step)]
+                            logger.info(f"🗑️ Step {step} 清除完成（刪除 key），案件: {case_number}")
+                        else:
+                            logger.info(f"🗑️ Step {step} 本來就是空的，無需清除，案件: {case_number}")
+                    else:
+                        # 有業務資料 → 正常更新
+                        current_all_steps_data["steps"][str(step)] = actual_data
+                        logger.info(f"✅ Step {step} 更新完成（{len(business_data_keys)} 個業務欄位），案件: {case_number}")
                     
                     # 計算新的雜湊值
                     new_data_hash = calculate_data_hash(current_all_steps_data)
