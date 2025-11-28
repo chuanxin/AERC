@@ -514,6 +514,68 @@ export const useGrantsStore = defineStore('grants', () => {
   }
 
   /**
+   * 🔥 Phase 1: 原子性清除步驟資料
+   * Clear data for a specific step atomically (API + formData + previousFormData + localStorage)
+   * @param {number} step - The step number to clear
+   * @returns {Promise<boolean>} - Success status
+   */
+  const clearStepData = async (step: number): Promise<boolean> => {
+    if (!currentGrant.value?.case_number) {
+      error.value = '無法清除：尚未載入案件'
+      console.error('❌ [clearStepData] No case_number available')
+      return false
+    }
+
+    // 🚫 禁止清除 rejected 狀態的案件
+    if (currentGrant.value?.status === 'rejected') {
+      console.warn('🚫 [clearStepData] Cannot clear - Grant status is rejected')
+      error.value = '案件已不受理，無法清除資料'
+      return false
+    }
+
+    const caseNumber = currentGrant.value.case_number
+    const emptyData = { _caseNumber: caseNumber }
+
+    isSaving.value = true
+    error.value = null
+
+    try {
+      console.log(`🗑️ [clearStepData] Starting atomic clear for step ${step}, case ${caseNumber}`)
+
+      // 🔥 Step 1: API 清除（單一真實來源）
+      if (step >= 1 && step <= 8) {
+        await updateGrantStepData(caseNumber, step, emptyData)
+        console.log(`✅ [clearStepData] API cleared for step ${step}`)
+      }
+
+      // 🔥 Step 2: 原子性更新所有本地狀態（一次完成，不可分割）
+      formData[step] = { ...emptyData, valid: true }
+      previousFormData.value[step] = { ...emptyData, valid: true }  // ✅ 關鍵修復
+      changedFields.value[step] = []
+
+      // 🔥 Step 3: localStorage 同步清除
+      GrantStorage.saveStepData(caseNumber, step, emptyData)
+
+      console.log(`✅ [clearStepData] Step ${step} cleared atomically`)
+      console.log(`   - formData[${step}]:`, Object.keys(formData[step]))
+      console.log(`   - previousFormData[${step}]:`, Object.keys(previousFormData.value[step]))
+
+      // Update last saved timestamp
+      lastSavedAt.value = new Date()
+      hasUnsavedChanges.value = false
+
+      return true
+    } catch (err) {
+      console.error(`❌ [clearStepData] Failed to clear step ${step}:`, err)
+      handleError(err, 'clearStepData')
+      error.value = `清除步驟 ${step} 資料失敗：${err instanceof Error ? err.message : String(err)}`
+      return false
+    } finally {
+      isSaving.value = false
+    }
+  }
+
+  /**
    * Update form data for a specific step
    * @param {number} step - The step number
    * @param {Record<string, unknown>} data - The form data to update
@@ -1305,6 +1367,8 @@ export const useGrantsStore = defineStore('grants', () => {
     isSaving,
     error,
     formData,
+    previousFormData,  // 🔥 Phase 1: 暴露以供外部訪問
+    changedFields,     // 🔥 Phase 1: 暴露以供外部訪問
     lastSavedAt,
     hasUnsavedChanges,
 
@@ -1343,6 +1407,7 @@ export const useGrantsStore = defineStore('grants', () => {
     loadGrant,
     loadStepData,
     saveStepData,
+    clearStepData,  // 🔥 Phase 1: 新增原子性清除方法
     updateFormData,
     resetStepData,
     createProject,

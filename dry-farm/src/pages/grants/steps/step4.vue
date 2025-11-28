@@ -106,7 +106,7 @@
                   class="me-3"
                   style="max-width: 300px;"
                   hide-details
-                  autofocus
+                  @blur="updateFormData"
                 />
                 <v-btn
                   color="#f57c00"
@@ -4887,75 +4887,93 @@ const clearPipelineData = async (updateParent = true): Promise<void> => {
 
 // 跳過田間管路步驟功能
 const skipStep = async () => {
-  // 重置所有表單數據為初始狀態
-  Object.assign(localFormData, {
-    // 基本欄位
-    designerName: '',
-    fieldLength: null,
-    fieldWidth: null,
-    fundingSourceId: 0,
+  console.log('⏭️ [step4] Skipping step (田間管路) - using unified clearStepData');
 
-    // 主管相關
-    mainPipeLength: null,
-    mainPipeDiameterId: null,
-    mainPipeMaterialId: 1,
-    mainPipeUnitPrice: null,
-    mainPipeQuantity: null,
-    mainPipeStandardLength: 4,
+  try {
+    // 🔥 使用統一的原子性清除方法（與 step2 觸發的清除邏輯一致）
+    // 這會清除：API + Store (formData/previousFormData/changedFields) + localStorage
+    const success = await grantsStore.clearStepData(props.currentStep);
 
-    // 主管2相關
-    mainPipe2Enabled: false,
-    mainPipe2Length: null,
-    mainPipe2DiameterId: null,
-    mainPipe2MaterialId: 1,
-    mainPipe2UnitPrice: null,
-    mainPipe2Quantity: null,
-    mainPipe2StandardLength: 4,
+    if (!success) {
+      console.error('❌ [step4] clearStepData failed');
+      alert('清除資料失敗，請稍後再試');
+      return;
+    }
 
-    // 支管相關
-    branchPipeSpacing_SL: null,
-    sprinklerSpacing_SS: null,
-    riserHeight_H: null,
-    enableBranchDiameterChange: false,
-    changeBranchSpecId: null,
-    branchPipeMaterialId: null,
-    branchPipeDiameterId: null,
-    branchPipePomno: null,
+    console.log('✅ [step4] clearStepData succeeded (API + Store + localStorage cleared)');
 
-    // 末端設施相關
-    irrigationTypeId: null,
-    sprinklerSubtypeId: null,
-    dripperSubtypeId: null,
-    perforatedPipeDirection: 1,
-    facilityTypeId: null,
-    waterSourceId: null,
-    endFacilityPomno: null,
-    endFacilitySpecId: null,
-    riserPipeMaterialId: null,
-    riserPipeSpecId: null,
+    // 🔥 清除本地 UI 狀態（確保即時響應）
+    Object.assign(localFormData, {
+      // 基本欄位
+      designerName: '',
+      fieldLength: null,
+      fieldWidth: null,
+      fundingSourceId: 0,
 
-    // 管路列表和補助（透過統一函數清除）
-    pipes: [],
-    totalAmount: 0,
-    subsidyAmount: 0,
-    selfPaidAmount: 0,
-    designFee: 0,
-  });
+      // 主管相關
+      mainPipeLength: null,
+      mainPipeDiameterId: null,
+      mainPipeMaterialId: 1,
+      mainPipeUnitPrice: null,
+      mainPipeQuantity: null,
+      mainPipeStandardLength: 4,
 
-  // 使用 nextTick 確保響應式更新完成
-  await nextTick();
+      // 主管2相關
+      mainPipe2Enabled: false,
+      mainPipe2Length: null,
+      mainPipe2DiameterId: null,
+      mainPipe2MaterialId: 1,
+      mainPipe2UnitPrice: null,
+      mainPipe2Quantity: null,
+      mainPipe2StandardLength: 4,
 
-  // 設置為有效狀態，允許跳過
-  localValid.value = true;
+      // 支管相關
+      branchPipeSpacing_SL: null,
+      sprinklerSpacing_SS: null,
+      riserHeight_H: null,
+      enableBranchDiameterChange: false,
+      changeBranchSpecId: null,
+      branchPipeMaterialId: null,
+      branchPipeDiameterId: null,
+      branchPipePomno: null,
 
-  // 更新父組件數據
-  updateFormData();
+      // 末端設施相關
+      irrigationTypeId: null,
+      sprinklerSubtypeId: null,
+      dripperSubtypeId: null,
+      perforatedPipeDirection: 1,
+      facilityTypeId: null,
+      waterSourceId: null,
+      endFacilityPomno: null,
+      endFacilitySpecId: null,
+      riserPipeMaterialId: null,
+      riserPipeSpecId: null,
 
-  // 觸發 validated 事件，進入下一步
-  emit('validated', {
-    valid: true,
-    step: props.currentStep
-  });
+      // 管路列表和補助
+      pipes: [],
+      totalAmount: 0,
+      subsidyAmount: 0,
+      selfPaidAmount: 0,
+      designFee: 0,
+    });
+
+    // 使用 nextTick 確保響應式更新完成
+    await nextTick();
+
+    // 設置為有效狀態，允許跳過
+    localValid.value = true;
+
+    // 觸發 validated 事件，進入下一步
+    emit('validated', {
+      valid: true,
+      step: props.currentStep
+    });
+
+    console.log('✅ [step4] Step skipped successfully');
+  } catch (error) {
+    console.error('❌ [step4] Skip step failed:', error);
+    alert('操作失敗，請稍後再試');
+  }
 };
 
 // 顯示缺少的必填欄位詳細信息
@@ -7069,10 +7087,18 @@ watch(() => props.formData, (newVal, oldVal) => {
   }
 }, { deep: true });
 
-// 修改本地數據的 watch，添加防護
+// 🔧 Linus式修正：排除 designerName 的 watch 以避免 IME 衝突
+// 其他欄位使用 deep watch 即時同步，designerName 改用 @blur
+let previousDesignerName = localFormData.designerName;
 watch(localFormData, () => {
-  if (!isUpdating.value) {
-    updateFormData();
+  // 只在非 designerName 變化時觸發 updateFormData
+  if (localFormData.designerName === previousDesignerName) {
+    if (!isUpdating.value) {
+      updateFormData();
+    }
+  } else {
+    // 只更新追蹤值，不觸發 updateFormData（等 blur 時觸發）
+    previousDesignerName = localFormData.designerName;
   }
 }, { deep: true });
 

@@ -3256,14 +3256,29 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
   // 因為補助額度計算依賴面積，面積變更後原有設施資料可能不再適用
   // 🔥 修正：統一架構後 UI step N = data step N
   if (previousTotalFacilityArea.value !== 0 && oldArea !== area && grantsStore.caseNumber) {
-    // 🔥 排除元資料欄位，只檢查實際業務資料
-    const getActualDataKeys = (stepData: Record<string, any>) => {
-      if (!stepData) return []
-      return Object.keys(stepData).filter(key => !['_caseNumber', 'valid'].includes(key))
+    // 🔥 Phase 1: 從 API 查詢實際資料狀態（單一真實來源）
+    const checkStepHasData = async (step: number): Promise<boolean> => {
+      try {
+        // 從 API 載入步驟資料
+        const data = await grantsStore.loadStepData(grantsStore.caseNumber!, step)
+
+        // 排除元資料欄位，檢查是否有業務資料
+        const metadata_fields = ['_caseNumber', 'valid', 'case_number', 'id', 'current_step', 'status']
+        const actualDataKeys = Object.keys(data || {}).filter(
+          key => !metadata_fields.includes(key)
+        )
+
+        const hasData = actualDataKeys.length > 0
+        console.log(`📊 [Step2] Step ${step} API 檢查: ${hasData ? '有資料' : '無資料'} (${actualDataKeys.length} 個業務欄位)`)
+        return hasData
+      } catch (error) {
+        console.error(`❌ [Step2] 檢查 Step ${step} 失敗:`, error)
+        return false  // API 失敗時保守判斷（不清除）
+      }
     }
 
-    const hasStep4Data = grantsStore.formData[4] && getActualDataKeys(grantsStore.formData[4]).length > 0
-    const hasStep5Data = grantsStore.formData[5] && getActualDataKeys(grantsStore.formData[5]).length > 0
+    const hasStep4Data = await checkStepHasData(4)
+    const hasStep5Data = await checkStepHasData(5)
 
     if (hasStep4Data || hasStep5Data) {
       // 顯示提示說明（不提供取消選項）
@@ -3278,24 +3293,33 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
       )
 
       try {
-        // 使用既有的 saveStepData 方法保存空物件來清除資料
+        // 🔥 Phase 1: 使用新的原子性清除方法
+        let clearFailures: number[] = []
+
         if (hasStep4Data) {
           console.log('🗑️ [Step2] 清除 Step4 資料（面積變更）')
-          await grantsStore.saveStepData(4, { _caseNumber: grantsStore.caseNumber })
-          // 同時清除 localStorage
-          grantsStore.formData[4] = { _caseNumber: grantsStore.caseNumber }
+          const success = await grantsStore.clearStepData(4)
+          if (!success) {
+            clearFailures.push(4)
+          }
         }
 
         if (hasStep5Data) {
           console.log('🗑️ [Step2] 清除 Step5 資料（面積變更）')
-          await grantsStore.saveStepData(5, { _caseNumber: grantsStore.caseNumber })
-          // 同時清除 localStorage
-          grantsStore.formData[5] = { _caseNumber: grantsStore.caseNumber }
+          const success = await grantsStore.clearStepData(5)
+          if (!success) {
+            clearFailures.push(5)
+          }
         }
 
-        alert('✅ 已成功清除相關步驟資料，請重新填寫設施資訊。')
+        // 檢查是否有清除失敗
+        if (clearFailures.length > 0) {
+          alert(`❌ 清除步驟 ${clearFailures.join(', ')} 資料失敗，請稍後再試。`)
+        } else {
+          alert('✅ 已成功清除相關步驟資料，請重新填寫設施資訊。')
+        }
       } catch (error) {
-        console.error('❌ [Step2] 清除步驟資料失敗:', error)
+        console.error('❌ [Step2] 清除步驟資料時發生例外:', error)
         alert('❌ 清除步驟資料時發生錯誤，請稍後再試。')
       }
     }
