@@ -232,6 +232,11 @@
                     {{ item.created_by?.full_name || '-' }}
                   </template>
 
+                  <!-- 末端形式欄位 -->
+                  <template #[`item.facility_type`]="{ item }">
+                    {{ (item.current_step === 8 || item.status == 'rejected') && !item.facility_type ? '其他' : (item.facility_type || '-') }}
+                  </template>
+
                   <!-- 公告狀態欄位 -->
                   <!-- <template #[`item.card`]="{ item }">
                     <v-chip
@@ -573,15 +578,15 @@ const officeOptions = [
 
 // 表格標題
 const headers = ref([
+  { title: '管理處', key: 'office', align: 'start' as const, width: '120px' },
   { title: '年度', key: 'year', align: 'start' as const, width: '60px' },
   { title: '案號', key: 'case_number', align: 'start' as const },
   { title: '申請人姓名', key: 'applicant_name', align: 'start' as const, width: '130px' },
-  { title: '填報人姓名', key: 'created_by.full_name', align: 'start' as const, width: '130px' },
-  { title: '管理處', key: 'office', align: 'start' as const, width: '120px'  },
   // 🔥 使用 land_data_search 欄位，支援搜尋位置文字和未格式化數字
   { title: '土地資料', key: 'land_data_search', align: 'start' as const, width: '280px'},
   { title: '末端形式', key: 'facility_type', align: 'start' as const, width: '130px' },
   { title: '案件狀態', key: 'status', align: 'start' as const, width: '150px' },
+  { title: '填報人姓名', key: 'created_by.full_name', align: 'start' as const, width: '130px' },
   // { title: '公告狀態（農民卡）', key: 'card', align: 'end' as const },
   { title: '操作', key: 'actions', align: 'end' as const, sortable: false},
 ])

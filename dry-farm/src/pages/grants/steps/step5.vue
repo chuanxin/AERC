@@ -546,7 +546,7 @@ const reasonRules = computed(() => {
 
 // 新增：處理不受理案件歸檔
 const handleArchiveCase = async () => {
-  console.log('📦 [step5] Processing case archive - inspection not compliant');
+  console.log('📦 [step3] Processing case archive - inspection not compliant');
 
   try {
     // 1. 驗證必填欄位
@@ -557,11 +557,11 @@ const handleArchiveCase = async () => {
 
     // 2. 更新案件狀態為 rejected（不受理）
     if (grantsStore.currentGrant?.case_number) {
-      console.log('🔄 [step5] Updating grant status to rejected...')
+      console.log('🔄 [step3] Updating grant status to rejected...')
       await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'rejected')
-      console.log('✅ [step5] Grant status updated to rejected')
+      console.log('✅ [step3] Grant status updated to rejected')
     } else {
-      console.error('❌ [step5] No case_number available, cannot update status')
+      console.error('❌ [step3] No case_number available, cannot update status')
       alert('找不到案件編號，無法更新狀態')
       return
     }
@@ -597,17 +597,17 @@ const handleArchiveCase = async () => {
       reason: '案件已歸檔：勘查結果不符合'
     });
 
-    console.log('✅ [step5] Case archived successfully');
+    console.log('✅ [step3] Case archived successfully');
 
   } catch (error) {
-    console.error('❌ [step5] Failed to archive case:', error);
+    console.error('❌ [step3] Failed to archive case:', error);
     alert('歸檔失敗，請稍後再試');
   }
 };
 
 // 新增：處理正常進入下一步
 const handleProceedToNext = async () => {
-  console.log('➡️ [step5] Proceeding to next step');
+  console.log('➡️ [step3] Proceeding to next step');
 
   // 驗證表單
   if (!validateForm()) {
@@ -617,16 +617,16 @@ const handleProceedToNext = async () => {
   // 🆕 更新案件狀態為已核准（完成現場勘查）
   if (grantsStore.currentGrant?.case_number) {
     try {
-      console.log('🔄 [step5] Updating grant status to approved...')
+      console.log('🔄 [step3] Updating grant status to approved...')
       await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'approved')
-      console.log('✅ [step5] Grant status updated to approved')
+      console.log('✅ [step3] Grant status updated to approved')
     } catch (error) {
-      console.error('❌ [step5] Failed to update status:', error)
+      console.error('❌ [step3] Failed to update status:', error)
       alert('更新案件狀態失敗，請稍後再試')
       return
     }
   } else {
-    console.error('❌ [step5] No case_number available, cannot update status')
+    console.error('❌ [step3] No case_number available, cannot update status')
     alert('找不到案件編號，無法更新狀態')
     return
   }
@@ -673,7 +673,7 @@ const validateForm = () => {
 
 // 新增：處理按鈕動作請求（來自父組件）
 const handleActionRequest = (action: string) => {
-  console.log(`🎯 [step5] handleActionRequest called with action: ${action}`);
+  console.log(`🎯 [step3] handleActionRequest called with action: ${action}`);
 
   if (action === 'archive') {
     handleArchiveCase();
@@ -750,10 +750,10 @@ const removeBeforePhoto = async (index: number) => {
     // 如果是已上傳的照片，從後端刪除
     if (uploadedPhotos.value[index]) {
       const photoToDelete = uploadedPhotos.value[index];
-      console.log(`[step5] 刪除照片 ID: ${photoToDelete.id}`);
+      console.log(`[step3] 刪除照片 ID: ${photoToDelete.id}`);
 
       await attachmentService.delete(photoToDelete.id);
-      console.log(`[step5] 成功刪除照片 ID: ${photoToDelete.id}`);
+      console.log(`[step3] 成功刪除照片 ID: ${photoToDelete.id}`);
     }
 
     // 清除預覽
@@ -768,7 +768,7 @@ const removeBeforePhoto = async (index: number) => {
 
     updateFormData();
   } catch (error) {
-    console.error('[step5] 刪除照片失敗:', error);
+    console.error('[step3] 刪除照片失敗:', error);
     alert('刪除照片失敗，請稍後再試');
   }
 };
@@ -786,16 +786,16 @@ const triggerFileInput = () => {
 // 載入已上傳的照片
 const loadPhotos = async () => {
   if (!props.grantId || props.grantId === 0) {
-    console.warn('[step5] loadPhotos: grantId 無效，跳過載入', props.grantId);
+    console.warn('[step3] loadPhotos: grantId 無效，跳過載入', props.grantId);
     return;
   }
 
   try {
     const stepNumber = 5;
-    console.log(`[step5] 開始載入照片 - grantId: ${props.grantId}, step: ${stepNumber}`);
+    console.log(`[step3] 開始載入照片 - grantId: ${props.grantId}, step: ${stepNumber}`);
 
     const response = await attachmentService.list(props.grantId, stepNumber, 'inspection_before');
-    console.log(`[step5] API 回應:`, response);
+    console.log(`[step3] API 回應:`, response);
 
     uploadedPhotos.value = response.attachments || [];
 
@@ -811,13 +811,13 @@ const loadPhotos = async () => {
         const previewUrl = URL.createObjectURL(blob);
         localFormData.beforePhotoPreviews.push(previewUrl);
       } catch (error) {
-        console.error(`[step5] 載入照片預覽失敗 (ID: ${photo.id}):`, error);
+        console.error(`[step3] 載入照片預覽失敗 (ID: ${photo.id}):`, error);
       }
     }
 
-    console.log(`[step5] 成功載入 ${uploadedPhotos.value.length} 張照片`);
+    console.log(`[step3] 成功載入 ${uploadedPhotos.value.length} 張照片`);
   } catch (error: any) {
-    console.error('[step5] 載入照片列表失敗:', {
+    console.error('[step3] 載入照片列表失敗:', {
       error,
       message: error?.message,
       response: error?.response?.data,
@@ -854,7 +854,7 @@ const handleSinglePhotoUpload = async (event: Event) => {
     try {
       uploadProgress.value[progressKey] = 0;
 
-      console.log(`[step5] 上傳照片: ${file.name} 到類別 inspection_before`);
+      console.log(`[step3] 上傳照片: ${file.name} 到類別 inspection_before`);
 
       // 上傳到後端
       const response = await attachmentService.upload(
@@ -868,14 +868,14 @@ const handleSinglePhotoUpload = async (event: Event) => {
         }
       );
 
-      console.log('[step5] 照片上傳成功:', response);
+      console.log('[step3] 照片上傳成功:', response);
 
       // 重新載入照片列表
       await loadPhotos();
 
       delete uploadProgress.value[progressKey];
     } catch (error) {
-      console.error(`[step5] 上傳照片 ${file.name} 失敗:`, error);
+      console.error(`[step3] 上傳照片 ${file.name} 失敗:`, error);
       alert('照片上傳失敗，請稍後再試');
       delete uploadProgress.value[progressKey];
     } finally {
@@ -1112,7 +1112,7 @@ watch(localValid, (newVal) => {
 
 // 新增：監聽勘查結果變化，動態調整導航狀態和按鈕配置
 watch(() => localFormData.inspectionResult, (newValue, oldValue) => {
-  console.log(`🔄 [step5] Inspection result changed: ${oldValue} → ${newValue}`);
+  console.log(`🔄 [step3] Inspection result changed: ${oldValue} → ${newValue}`);
 
   if (newValue === 'notComply') {
     // 不符合時，仍允許編輯以填寫原因，但改變按鈕行為
