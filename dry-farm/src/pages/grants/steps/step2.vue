@@ -3278,24 +3278,33 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
       )
 
       try {
-        // 使用既有的 saveStepData 方法保存空物件來清除資料
+        // 🔥 Phase 1: 使用新的原子性清除方法
+        let clearFailures: number[] = []
+
         if (hasStep4Data) {
           console.log('🗑️ [Step2] 清除 Step4 資料（面積變更）')
-          await grantsStore.saveStepData(4, { _caseNumber: grantsStore.caseNumber })
-          // 同時清除 localStorage
-          grantsStore.formData[4] = { _caseNumber: grantsStore.caseNumber }
+          const success = await grantsStore.clearStepData(4)
+          if (!success) {
+            clearFailures.push(4)
+          }
         }
 
         if (hasStep5Data) {
           console.log('🗑️ [Step2] 清除 Step5 資料（面積變更）')
-          await grantsStore.saveStepData(5, { _caseNumber: grantsStore.caseNumber })
-          // 同時清除 localStorage
-          grantsStore.formData[5] = { _caseNumber: grantsStore.caseNumber }
+          const success = await grantsStore.clearStepData(5)
+          if (!success) {
+            clearFailures.push(5)
+          }
         }
 
-        alert('✅ 已成功清除相關步驟資料，請重新填寫設施資訊。')
+        // 檢查是否有清除失敗
+        if (clearFailures.length > 0) {
+          alert(`❌ 清除步驟 ${clearFailures.join(', ')} 資料失敗，請稍後再試。`)
+        } else {
+          alert('✅ 已成功清除相關步驟資料，請重新填寫設施資訊。')
+        }
       } catch (error) {
-        console.error('❌ [Step2] 清除步驟資料失敗:', error)
+        console.error('❌ [Step2] 清除步驟資料時發生例外:', error)
         alert('❌ 清除步驟資料時發生錯誤，請稍後再試。')
       }
     }
