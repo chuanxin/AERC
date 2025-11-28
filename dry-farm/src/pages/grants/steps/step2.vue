@@ -3256,14 +3256,29 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
   // 因為補助額度計算依賴面積，面積變更後原有設施資料可能不再適用
   // 🔥 修正：統一架構後 UI step N = data step N
   if (previousTotalFacilityArea.value !== 0 && oldArea !== area && grantsStore.caseNumber) {
-    // 🔥 排除元資料欄位，只檢查實際業務資料
-    const getActualDataKeys = (stepData: Record<string, any>) => {
-      if (!stepData) return []
-      return Object.keys(stepData).filter(key => !['_caseNumber', 'valid'].includes(key))
+    // 🔥 Phase 1: 從 API 查詢實際資料狀態（單一真實來源）
+    const checkStepHasData = async (step: number): Promise<boolean> => {
+      try {
+        // 從 API 載入步驟資料
+        const data = await grantsStore.loadStepData(grantsStore.caseNumber!, step)
+
+        // 排除元資料欄位，檢查是否有業務資料
+        const metadata_fields = ['_caseNumber', 'valid', 'case_number', 'id', 'current_step', 'status']
+        const actualDataKeys = Object.keys(data || {}).filter(
+          key => !metadata_fields.includes(key)
+        )
+
+        const hasData = actualDataKeys.length > 0
+        console.log(`📊 [Step2] Step ${step} API 檢查: ${hasData ? '有資料' : '無資料'} (${actualDataKeys.length} 個業務欄位)`)
+        return hasData
+      } catch (error) {
+        console.error(`❌ [Step2] 檢查 Step ${step} 失敗:`, error)
+        return false  // API 失敗時保守判斷（不清除）
+      }
     }
 
-    const hasStep4Data = grantsStore.formData[4] && getActualDataKeys(grantsStore.formData[4]).length > 0
-    const hasStep5Data = grantsStore.formData[5] && getActualDataKeys(grantsStore.formData[5]).length > 0
+    const hasStep4Data = await checkStepHasData(4)
+    const hasStep5Data = await checkStepHasData(5)
 
     if (hasStep4Data || hasStep5Data) {
       // 顯示提示說明（不提供取消選項）
