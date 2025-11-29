@@ -65,10 +65,15 @@ export const useUserStore = defineStore('user', () => {
   let isFetchingUser = false
   let fetchUserPromise: Promise<User | null> | null = null
 
-  // 手動提醒相關狀態
+  // 🔥 集中式 Token 狀態管理：從 token 實時計算過期時間（Single Source of Truth）
   const showExpiryNotification = ref(false)
-  const notificationExpiresAt = ref(0)
-  let notificationTimer: ReturnType<typeof setTimeout> | null = null
+
+  // 從 token 實時計算過期時間，而非存儲快照
+  const tokenExpiresAt = computed(() => {
+    if (!token.value) return 0
+    const decoded = parseJwt(token.value)
+    return decoded?.exp || 0
+  })
 
   // 計算屬性
   const isAuthenticated = computed(() => {
@@ -162,9 +167,6 @@ export const useUserStore = defineStore('user', () => {
       // 獲取用戶信息
       const result = await fetchCurrentUser()
 
-      // 登入成功後排程到期提醒
-      scheduleExpiryNotification()
-
       return result
     }
 
@@ -214,9 +216,6 @@ export const useUserStore = defineStore('user', () => {
       currentUser.value = null
       token.value = null
       localStorage.removeItem('auth_token')
-
-      // 清除到期提醒
-      dismissNotification()
     }
     return true
   }, asyncOptions)
@@ -247,9 +246,6 @@ export const useUserStore = defineStore('user', () => {
           token.value = response.access_token
           localStorage.setItem('auth_token', response.access_token)
           console.log('[UserStore] Token refreshed successfully')
-
-          // Token 刷新成功後重新排程提醒
-          scheduleExpiryNotification()
 
           return response.access_token
         }
@@ -296,77 +292,6 @@ export const useUserStore = defineStore('user', () => {
     return true // Token 還有效，不需刷新
   }
 
-  /**
-   * 排程到期提醒通知
-   */
-  const scheduleExpiryNotification = () => {
-    // 清除現有計時器
-    if (notificationTimer) {
-      clearTimeout(notificationTimer)
-      notificationTimer = null
-    }
-
-    if (!token.value) return
-
-    const decodedToken = parseJwt(token.value)
-    if (!decodedToken || !decodedToken.exp) return
-
-    const currentTime = Math.floor(Date.now() / 1000)
-    const tokenExpiresAt = decodedToken.exp
-
-    // 計算提醒時間：Token 到期前 1 分鐘顯示提醒
-    const notificationAdvance = 60 // 1 minutes in seconds
-    const notificationTime = tokenExpiresAt - notificationAdvance
-    const delayMs = Math.max(0, (notificationTime - currentTime) * 1000)
-
-    console.log(`[UserStore] Scheduling expiry notification in ${Math.floor(delayMs / 1000)} seconds`)
-
-    if (delayMs > 0) {
-      notificationTimer = setTimeout(() => {
-        // 再次檢查 Token 是否仍然有效且需要提醒
-        const latestToken = localStorage.getItem('auth_token')
-        if (latestToken && !isTokenExpired(latestToken)) {
-          const latestDecoded = parseJwt(latestToken)
-          if (latestDecoded && latestDecoded.exp) {
-            notificationExpiresAt.value = latestDecoded.exp
-            showExpiryNotification.value = true
-            console.log('[UserStore] Showing expiry notification')
-          }
-        }
-      }, delayMs)
-    }
-  }
-
-  /**
-   * 處理手動刷新請求（來自提醒彈窗）
-   */
-  const handleManualRefresh = async (): Promise<boolean> => {
-    try {
-      await refreshToken()
-
-      // 刷新成功後，關閉提醒並重新排程
-      dismissNotification()
-      scheduleExpiryNotification()
-
-      return true
-    } catch (error) {
-      console.error('[UserStore] Manual refresh from notification failed:', error)
-      return false
-    }
-  }
-
-  /**
-   * 關閉到期提醒
-   */
-  const dismissNotification = () => {
-    showExpiryNotification.value = false
-    notificationExpiresAt.value = 0
-
-    if (notificationTimer) {
-      clearTimeout(notificationTimer)
-      notificationTimer = null
-    }
-  }
 
   /**
    * 更新用戶資料
@@ -528,7 +453,7 @@ export const useUserStore = defineStore('user', () => {
 
     // 手動提醒相關狀態
     showExpiryNotification,
-    notificationExpiresAt,
+    tokenExpiresAt,
 
     // 計算屬性
     isAuthenticated,
@@ -548,10 +473,5 @@ export const useUserStore = defineStore('user', () => {
     checkAuth,
     attemptAutoLogin,
     setToken,
-
-    // 手動提醒相關方法
-    scheduleExpiryNotification,
-    handleManualRefresh,
-    dismissNotification,
   }
 })
