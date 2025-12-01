@@ -205,7 +205,7 @@
                   :height="500"
                   :search="search"
                   density="compact"
-                  item-value="case_number"
+                  item-value="id"
                   class="grants-table rounded-lg"
                 >
                   <!-- 自定義表頭：選取欄 -->
@@ -398,7 +398,7 @@
           </div>
 
           <div class="text-body-2 text-medium-emphasis">
-            選取的案件編號：{{ selectedGrants.join(', ') }}
+            選取的案件編號：{{ selectedGrants.map(id => grantsList.find(g => g.id === id)?.case_number).filter(Boolean).join(', ') }}
           </div>
         </v-card-text>
 
@@ -964,12 +964,14 @@ const confirmBatchCrossYear = async () => {
   batchProcessing.value = true
 
   try {
-    console.log('🔄 開始批次跨年度處理，選取案件:', selectedGrants.value)
+    console.log('🔄 開始批次跨年度處理，選取案件 ID:', selectedGrants.value)
 
-    // 獲取選取案件的詳細資料
-    const selectedItems = selectedGrants.value.map(caseNumber =>
-      grantsList.value.find(grant => grant.case_number === caseNumber)
+    // 獲取選取案件的詳細資料（使用 id 查找）
+    const selectedItems = selectedGrants.value.map(id =>
+      grantsList.value.find(grant => grant.id === id)
     ).filter(Boolean) as GrantListItem[]
+
+    console.log('🔄 選取的案件詳情:', selectedItems.map(item => ({ id: item.id, case_number: item.case_number })))
 
     // 調用批次跨年度服務
     const results = await batchCrossYearGrants(selectedItems)
