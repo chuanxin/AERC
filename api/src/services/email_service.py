@@ -173,8 +173,8 @@ class EmailService:
         else:  # PASSWORD_RESET
             expire_hours = EmailConfig.PASSWORD_RESET_EXPIRE_HOURS
 
-        # 使用 naive datetime (UTC) 以匹配資料庫格式
-        expires_at = datetime.utcnow() + timedelta(hours=expire_hours)
+        # 使用 timezone-aware datetime (UTC)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=expire_hours)
 
         # 生成 OTP（僅密碼重設使用）
         otp_code = None
@@ -214,18 +214,15 @@ class EmailService:
                 status=AuthTokenStatus.PENDING
             ).prefetch_related("user")
 
-            # 檢查是否過期（使用 naive datetime）
-            expires_at = auth_token.expires_at
-            if expires_at.tzinfo is not None:
-                expires_at = expires_at.replace(tzinfo=None)
-            if expires_at < datetime.utcnow():
+            # 檢查是否過期（使用 timezone-aware datetime）
+            if auth_token.expires_at < datetime.now(timezone.utc):
                 auth_token.status = AuthTokenStatus.EXPIRED
                 await auth_token.save()
                 return None
 
             # 標記為已使用
             auth_token.status = AuthTokenStatus.USED
-            auth_token.used_at = datetime.utcnow()
+            auth_token.used_at = datetime.now(timezone.utc)
             await auth_token.save()
 
             return auth_token.user
