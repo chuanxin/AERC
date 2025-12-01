@@ -841,12 +841,8 @@ async def verify_otp(payload: OTPVerificationRequest):
             status=AuthTokenStatus.PENDING
         ).prefetch_related("user")
 
-        # 檢查是否過期
-        # 使用 naive datetime (UTC) 以匹配資料庫格式
-        expires_at = auth_token.expires_at
-        if expires_at.tzinfo is not None:
-            expires_at = expires_at.replace(tzinfo=None)
-        if expires_at < datetime.utcnow():
+        # 檢查是否過期（使用 timezone-aware datetime）
+        if auth_token.expires_at < datetime.now(timezone.utc):
             auth_token.status = AuthTokenStatus.EXPIRED
             await auth_token.save()
             raise HTTPException(
@@ -908,12 +904,8 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
             status=AuthTokenStatus.PENDING
         ).prefetch_related("user")
 
-        # 檢查是否過期
-        # 使用 naive datetime (UTC) 以匹配資料庫格式
-        expires_at = auth_token.expires_at
-        if expires_at.tzinfo is not None:
-            expires_at = expires_at.replace(tzinfo=None)
-        if expires_at < datetime.utcnow():
+        # 檢查是否過期（使用 timezone-aware datetime）
+        if auth_token.expires_at < datetime.now(timezone.utc):
             auth_token.status = AuthTokenStatus.EXPIRED
             await auth_token.save()
             raise HTTPException(
@@ -946,12 +938,7 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
 
         # 密碼變更成功後，才標記 Token 為已使用
         auth_token.status = AuthTokenStatus.USED
-        auth_token.used_at = datetime.utcnow()
-        # 確保所有 datetime 欄位都是 naive (無時區)
-        if auth_token.expires_at and auth_token.expires_at.tzinfo is not None:
-            auth_token.expires_at = auth_token.expires_at.replace(tzinfo=None)
-        if auth_token.created_at and auth_token.created_at.tzinfo is not None:
-            auth_token.created_at = auth_token.created_at.replace(tzinfo=None)
+        auth_token.used_at = datetime.now(timezone.utc)
         await auth_token.save()
 
         # 寄送密碼變更成功通知信
