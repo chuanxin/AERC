@@ -5,7 +5,10 @@
     persistent
     class="token-expiry-dialog"
   >
-    <v-card class="pa-0">
+    <v-card
+      rounded="xl"
+      elevation="8"
+    >
       <!-- 標題區域 -->
       <v-card-title class="d-flex align-center bg-warning text-warning-darken-4 pa-4">
         <v-icon
@@ -26,6 +29,7 @@
               size="large"
               color="warning"
               variant="outlined"
+              rounded="lg"
               class="countdown-chip"
             >
               <v-icon class="me-2">
@@ -50,6 +54,7 @@
             type="error"
             variant="tonal"
             density="compact"
+            rounded="lg"
             class="mt-4 text-start"
             closable
             @click:close="refreshError = null"
@@ -61,21 +66,6 @@
               請檢查網路連線後重試，或選擇登出重新登入
             </div>
           </v-alert>
-
-          <!-- 調試信息 (開發用) -->
-          <v-alert
-            v-if="debugInfo"
-            type="info"
-            variant="tonal"
-            density="compact"
-            class="mt-2 text-start"
-            closable
-            @click:close="debugInfo = ''"
-          >
-            <div class="text-caption font-mono">
-              {{ debugInfo }}
-            </div>
-          </v-alert>
         </div>
       </v-card-text>
 
@@ -84,6 +74,7 @@
         <v-btn
           variant="outlined"
           color="grey-darken-1"
+          rounded="lg"
           :disabled="isRefreshing"
           @click="handleLogout"
         >
@@ -98,6 +89,7 @@
         <v-btn
           color="primary"
           variant="flat"
+          rounded="lg"
           :loading="isRefreshing"
           :disabled="isRefreshing"
           @click.stop.prevent="handleRefresh"
@@ -113,42 +105,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/users'
 
-// Props 定義
-interface TokenExpiryNotificationProps {
-  visible: boolean
-  expiresAt: number // Token 到期時間戳 (秒)
-}
-
-const props = defineProps<TokenExpiryNotificationProps>()
+// 狀態管理
+const userStore = useUserStore()
 
 // Emits 定義
 const emit = defineEmits<{
-  'update:visible': [visible: boolean]
   'refresh-success': []
   'refresh-failed': []
   'logout': []
 }>()
 
-// 狀態管理
-const userStore = useUserStore()
-
 // 內部狀態
 const isRefreshing = ref(false)
 const currentTime = ref(Math.floor(Date.now() / 1000))
 const refreshError = ref<string | null>(null)
-const debugInfo = ref<string>('') // 調試信息顯示在 UI 上
 
-// 計算屬性
+// 🔥 計算屬性：從 userStore 獲取集中管理的狀態
 const isVisible = computed({
-  get: () => props.visible,
-  set: (value: boolean) => emit('update:visible', value)
+  get: () => userStore.showExpiryNotification,
+  set: (value: boolean) => {
+    userStore.showExpiryNotification = value
+  }
 })
 
+const tokenExpiresAt = computed(() => userStore.tokenExpiresAt)
+
 const remainingTime = computed(() => {
-  return Math.max(0, props.expiresAt - currentTime.value)
+  return Math.max(0, tokenExpiresAt.value - currentTime.value)
 })
 
 // 時間格式化函數
@@ -163,84 +149,91 @@ const formatTime = (seconds: number): string => {
   }
 }
 
-// 倒數計時器
-let countdownTimer: ReturnType<typeof setInterval> | null = null
+// 🔥 使用 requestAnimationFrame 實現精確計時（不受標籤頁節流影響）
+let rafId: number | null = null
+let lastCheckTime = 0
+const CHECK_INTERVAL_MS = 1000 // 每秒檢查一次
 
-const startCountdown = () => {
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-  }
-
-  countdownTimer = setInterval(() => {
+const checkTokenExpiry = (timestamp: number) => {
+  // 節流：每秒最多更新一次
+  if (timestamp - lastCheckTime >= CHECK_INTERVAL_MS) {
+    lastCheckTime = timestamp
     currentTime.value = Math.floor(Date.now() / 1000)
 
-    // 時間到了自動關閉對話框
-    if (remainingTime.value <= 0) {
-      handleTimeout()
+    const remaining = remainingTime.value
+
+    // 🎯 觸發彈窗的條件：剩餘時間 <= 60 秒且 > 0
+    if (remaining <= 60 && remaining > 0 && !isVisible.value) {
+      console.log(`[TokenExpiryNotification] Token expiring in ${remaining}s, showing notification`)
+      isVisible.value = true
     }
-  }, 1000)
+
+    // 時間到了自動登出
+    if (remaining <= 0 && userStore.token) {
+      console.log('[TokenExpiryNotification] Token expired, auto logout')
+      handleTimeout()
+      return // 停止檢查
+    }
+  }
+
+  // 持續檢查
+  rafId = requestAnimationFrame(checkTokenExpiry)
 }
 
-const stopCountdown = () => {
-  if (countdownTimer) {
-    clearInterval(countdownTimer)
-    countdownTimer = null
+const startMonitoring = () => {
+  if (rafId) {
+    cancelAnimationFrame(rafId)
+  }
+  lastCheckTime = 0
+  rafId = requestAnimationFrame(checkTokenExpiry)
+  console.log('[TokenExpiryNotification] Started token expiry monitoring')
+}
+
+const stopMonitoring = () => {
+  if (rafId) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+    console.log('[TokenExpiryNotification] Stopped token expiry monitoring')
   }
 }
 
 // 事件處理函數
 const handleRefresh = async () => {
-  console.log('[TokenExpiryNotification] ===== handleRefresh called =====')
-  debugInfo.value = `[1] 開始刷新... Token存在: ${!!userStore.token}`
-  console.log('[TokenExpiryNotification] isRefreshing before:', isRefreshing.value)
-  console.log('[TokenExpiryNotification] userStore.token exists:', !!userStore.token)
+  console.log('[TokenExpiryNotification] User requested manual refresh')
 
   if (isRefreshing.value) {
     console.warn('[TokenExpiryNotification] Already refreshing, ignoring duplicate request')
-    debugInfo.value = '[X] 已在刷新中，忽略重複請求'
     return
   }
 
   isRefreshing.value = true
-  refreshError.value = null // 清除之前的錯誤訊息
+  refreshError.value = null
 
   // 添加超時保護機制 - 30秒後自動重置狀態
   const timeoutId = setTimeout(() => {
     console.error('[TokenExpiryNotification] Refresh timeout after 30 seconds')
-    debugInfo.value = '[X] 請求逾時 (30秒)'
     refreshError.value = '請求逾時，請重試'
     isRefreshing.value = false
     emit('refresh-failed')
   }, 30000)
 
   try {
-    console.log('[TokenExpiryNotification] User requested manual refresh')
-    console.log('[TokenExpiryNotification] Current time:', new Date().toISOString())
-    console.log('[TokenExpiryNotification] Token expires at:', new Date(props.expiresAt * 1000).toISOString())
     console.log('[TokenExpiryNotification] Calling userStore.refreshToken()...')
-
-    debugInfo.value = '[2] 正在呼叫 API...'
     const result = await userStore.refreshToken()
 
     // 清除超時計時器
     clearTimeout(timeoutId)
 
     console.log('[TokenExpiryNotification] Refresh result:', result ? 'success' : 'null')
-    console.log('[TokenExpiryNotification] Result type:', typeof result)
-    console.log('[TokenExpiryNotification] Result value:', result)
-
-    debugInfo.value = `[3] API 回應: ${result ? 'success' : 'null'} (type: ${typeof result})`
 
     if (result) {
       // 刷新成功，關閉對話框
       console.log('[TokenExpiryNotification] Manual refresh successful, closing dialog')
-      debugInfo.value = '[✓] 刷新成功，關閉對話框'
       isVisible.value = false
       emit('refresh-success')
     } else {
       // 刷新失敗但沒有拋出錯誤
       console.warn('[TokenExpiryNotification] Token refresh returned null')
-      debugInfo.value = '[X] API 返回 null'
       refreshError.value = '無法取得新的登入憑證'
       emit('refresh-failed')
     }
@@ -249,14 +242,10 @@ const handleRefresh = async () => {
     clearTimeout(timeoutId)
 
     console.error('[TokenExpiryNotification] Manual refresh failed:', error)
-    console.error('[TokenExpiryNotification] Error type:', typeof error)
-    console.error('[TokenExpiryNotification] Error details:', JSON.stringify(error, null, 2))
 
     // 根據錯誤類型顯示不同訊息
     const errorMessage = error instanceof Error ? error.message : String(error)
     const errorResponse = (error as { response?: { status?: number } })?.response
-
-    debugInfo.value = `[X] 錯誤: ${errorMessage.substring(0, 100)}`
 
     if (errorMessage.includes('Network') || errorMessage.includes('network')) {
       refreshError.value = '網路連線異常，請檢查您的網路狀態'
@@ -279,7 +268,7 @@ const handleRefresh = async () => {
     }
   } finally {
     isRefreshing.value = false
-    console.log('[TokenExpiryNotification] Refresh process completed, isRefreshing:', false)
+    console.log('[TokenExpiryNotification] Refresh process completed')
   }
 }
 
@@ -292,31 +281,45 @@ const handleLogout = () => {
 
 const handleTimeout = () => {
   console.log('[TokenExpiryNotification] Countdown timeout, auto logout')
-  stopCountdown()
+  stopMonitoring()
   handleLogout()
 }
 
-// 監聽對話框顯示狀態
-watch(() => props.visible, (visible) => {
-  if (visible) {
-    currentTime.value = Math.floor(Date.now() / 1000)
-    startCountdown()
+// 🔥 監聽 token 變化：當 token 刷新時，tokenExpiresAt 會自動更新（computed）
+// 彈窗會自動根據新的過期時間重新計算倒數
+watch(() => userStore.token, (newToken) => {
+  if (newToken) {
+    console.log('[TokenExpiryNotification] Token updated, new expiry:', new Date(tokenExpiresAt.value * 1000).toISOString())
+    // Token 刷新後，如果剩餘時間 > 60 秒，自動關閉彈窗
+    if (remainingTime.value > 60) {
+      isVisible.value = false
+    }
   } else {
-    stopCountdown()
+    // Token 被清除，停止監控
+    stopMonitoring()
+    isVisible.value = false
   }
-}, { immediate: true })
+})
 
-// 組件卸載時清理
+// 組件生命週期
+onMounted(() => {
+  console.log('[TokenExpiryNotification] Component mounted, starting monitoring')
+  startMonitoring()
+})
+
 onUnmounted(() => {
-  stopCountdown()
+  console.log('[TokenExpiryNotification] Component unmounted, stopping monitoring')
+  stopMonitoring()
 })
 </script>
 
 <style scoped>
+/* 對話框外邊距 */
 .token-expiry-dialog :deep(.v-overlay__content) {
   margin: 24px;
 }
 
+/* 倒數計時 Chip 樣式 */
 .countdown-chip {
   font-size: 1.1rem;
   font-weight: 600;
@@ -327,7 +330,7 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-/* 警告樣式 */
+/* 警告顏色樣式 */
 .bg-warning {
   background-color: rgb(var(--v-theme-warning)) !important;
 }
@@ -336,12 +339,12 @@ onUnmounted(() => {
   color: rgb(var(--v-theme-warning-darken-4)) !important;
 }
 
-/* 按鈕樣式調整 */
+/* 按鈕最小寬度 */
 .v-card-actions .v-btn {
   min-width: 120px;
 }
 
-/* 響應式設計 */
+/* 響應式設計 - 小螢幕優化 */
 @media (max-width: 600px) {
   .token-expiry-dialog :deep(.v-overlay__content) {
     margin: 16px;

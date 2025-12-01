@@ -2,10 +2,8 @@
   <v-app :theme="themeStore.theme">
     <router-view />
 
-    <!-- 全域 Token 到期提醒彈窗 -->
+    <!-- 全域 Token 到期提醒彈窗 (自動從 userStore 讀取狀態) -->
     <TokenExpiryNotification
-      v-model:visible="userStore.showExpiryNotification"
-      :expires-at="userStore.notificationExpiresAt"
       @refresh-success="handleRefreshSuccess"
       @refresh-failed="handleRefreshFailed"
       @logout="handleLogout"
