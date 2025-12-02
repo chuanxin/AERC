@@ -120,20 +120,22 @@ async def get_grants(
     year: Optional[int] = None,
     office_id: Optional[int] = None,
     search: Optional[str] = None,
+    status: Optional[str] = None,
     skip: int = 0,
     limit: int = 10000,
     current_user = None  # 添加使用者權限控制
 ) -> List[Dict[str, Any]]:
     """取得補助申請案件列表，可依條件過濾
-    
+
     Args:
         year: 申請年度過濾
         office_id: 管理處過濾
         search: 搜尋關鍵字（案件編號、申請人姓名、身分證字號）
+        status: 案件狀態過濾（例如：'completed'）
         skip: 分頁跳過筆數
         limit: 分頁每頁筆數
         current_user: 當前使用者（用於權限控制）
-    
+
     Returns:
         案件列表
     """
@@ -153,10 +155,17 @@ async def get_grants(
             query = query.filter(year=year)
         if office_id:
             query = query.filter(office_id=office_id)
+        # 🔥 status 過濾只針對歷史案件（is_legacy=true），新系統案件不受限制
+        if status:
+            # 歷史案件必須符合 status，新系統案件不受限制
+            logger.info(f"應用 status 過濾: {status}，邏輯：(is_legacy=True & status={status}) | (is_legacy=False)")
+            query = query.filter(
+                (Q(is_legacy=True) & Q(status=status)) | Q(is_legacy=False)
+            )
         if search:
             # 使用 Q 物件進行多欄位搜尋
             query = query.filter(
-                Q(case_number__icontains=search) | 
+                Q(case_number__icontains=search) |
                 Q(applicant_name__icontains=search) |
                 Q(applicant_id__icontains=search)
             )
@@ -166,7 +175,12 @@ async def get_grants(
             'created_by',  # 建立者資訊
             'active_version'  # 啟用版本資訊
         ).offset(skip).limit(limit).order_by('-created_at')
-        
+
+        # 統計查詢結果
+        legacy_count = sum(1 for g in grants if g.is_legacy)
+        non_legacy_count = len(grants) - legacy_count
+        logger.info(f"查詢結果：總共 {len(grants)} 筆案件（歷史: {legacy_count}, 新系統: {non_legacy_count}）")
+
         # 格式化結果
         results = []
         for grant in grants:
@@ -227,7 +241,10 @@ async def get_grants(
 
                             # 從 cover 提取基本資訊
                             facility_area = cover.get("application_area")  # 公頃（字串）
-                            facility_type = cover.get("facility_type")
+                            # facility_type = cover.get("facility_type")
+
+                            # 從 engineering_parameters 提取灌溉型式
+                            facility_type = metadata.get("engineering_parameters", {}).get("irrigation_type", {})
 
                             # 從 metadata 提取平方公尺面積
                             land_summary = metadata.get("land_summary", {})
@@ -235,17 +252,44 @@ async def get_grants(
 
                             # 從 land_summary.sections_summary 提取位置並去重、去除地號資訊
                             sections_summary = metadata.get("land_summary", {}).get("sections_summary")
-                            if sections_summary:
+                            if sections_summary and sections_summary != "無土地資料":
                                 # 分割、去除地號資訊、去重
                                 sections = [s.strip() for s in sections_summary.split(",")]
-                                unique_sections = set()
+
+                                # 按縣市鄉鎮分組聚合
+                                location_groups = {}  # {(county, town): [section_names]}
+
                                 for section in sections:
                                     # 只保留不包含"地號:"的項目（即地段名稱）
                                     if section and "地號:" not in section:
-                                        unique_sections.add(section)
-                                land_locations = "、".join(sorted(unique_sections)) if unique_sections else None
+                                        # 解析格式：縣市鄉鎮-段名段
+                                        if "-" in section:
+                                            location_part, section_name = section.rsplit("-", 1)
+                                            # 提取段名（去除"段"字）
+                                            section_name = section_name.replace("段", "").strip()
+
+                                            # 以縣市鄉鎮為 key 分組
+                                            if location_part not in location_groups:
+                                                location_groups[location_part] = set()
+                                            location_groups[location_part].add(section_name)
+                                        # else:
+                                        #     # 格式異常，保留原樣
+                                        #     if "其他" not in location_groups:
+                                        #         location_groups["其他"] = set()
+                                        #     location_groups["其他"].add(section)
+
+                                # 組合顯示：縣市鄉鎮-段名1、段名2...段
+                                formatted_locations = []
+                                for location, section_names in sorted(location_groups.items()):
+                                    sorted_sections = sorted(section_names)
+                                    sections_str = "、".join(sorted_sections)
+                                    formatted_locations.append(f"{location}-{sections_str}段")
+
+                                # 🔥 如果解析後沒有符合格式的土地資料（即沒有包含"-"的段名），顯示"無土地資料"
+                                land_locations = "；".join(formatted_locations) if formatted_locations else "無土地資料"
                             else:
-                                land_locations = None
+                                # sections_summary 為空或已經是"無土地資料"
+                                land_locations = "無土地資料"
 
                     # 🔥 新系統案件：從 all_steps_data 提取
                     else:

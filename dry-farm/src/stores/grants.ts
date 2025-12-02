@@ -1078,6 +1078,7 @@ export const useGrantsStore = defineStore('grants', () => {
     year: undefined,
     office_id: undefined,
     search: '',
+    status: 'completed', // 🔥 歷史案件只顯示已完成狀態
     skip: 0,
     limit: undefined // 預設不限制數量
   })

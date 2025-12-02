@@ -234,7 +234,7 @@
 
                   <!-- 末端形式欄位 -->
                   <template #[`item.facility_type`]="{ item }">
-                    {{ (item.current_step === 8 || item.status == 'rejected') && !item.facility_type ? '其他' : (item.facility_type || '-') }}
+                    {{ (item.current_step === 8 || item.status == 'rejected') && !item.facility_type ? '其它' : (item.facility_type || '-') }}
                   </template>
 
                   <!-- 公告狀態欄位 -->
@@ -693,9 +693,11 @@ const updateFilters = async () => {
   grantsStore.clearSelectedGrants()
 
   // 明確設定篩選參數，包括移除數量限制
+  // 🔥 歷史案件只顯示 status=completed 的案件
   const filterParams = {
     year: filters.year || undefined,
     office_id: filters.office_id || undefined,
+    status: 'completed',  // 只顯示已完成的歷史案件
     limit: undefined, // 明確移除數量限制
     skip: 0
   }
@@ -809,7 +811,7 @@ const loadAllItems = () => {
         '噴頭式系統': '噴灌',
         '微噴系統': '微噴',
         '滴灌系統': '滴灌',
-        '其他': '其他'
+        '其它': '其它'
       }
       irrigationType = typeMap[step4Data.irrigationType] || step4Data.irrigationType
     }
@@ -1025,9 +1027,11 @@ onMounted(async () => {
   })
 
   // 明確設定篩選參數,包括移除數量限制
+  // 🔥 歷史案件只顯示 status=completed 的案件
   const filterParams = {
     year: filters.year || undefined,
     office_id: filters.office_id || undefined,
+    status: 'completed',  // 只顯示已完成的歷史案件
     limit: undefined, // 明確移除數量限制
     skip: 0
   }

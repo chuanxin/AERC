@@ -120,10 +120,7 @@ async def read_grants(
     current_user: UserOutSchema = Depends(get_current_user)
 ):
     """取得補助申請案件列表，可依條件過濾"""
-    if status:
-        # TODO: 實作 get_grants_by_status 並加入 current_user 參數
-        return await crud.get_grants_by_status(status, year, office_id, search, skip, limit, current_user)
-    return await crud.get_grants(year, office_id, search, skip, limit, current_user)
+    return await crud.get_grants(year, office_id, search, status, skip, limit, current_user)
 
 
 @router.get(
