@@ -196,6 +196,7 @@
                 elevation="0"
               >
                 <v-data-table-virtual
+                  :key="tableKey"
                   v-model:selected="selectedGrants"
                   show-select
                   fixed-header
@@ -429,7 +430,7 @@
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router'
 import type { GrantListItem } from '@/services/grantsService'
-import { generateKaiuPdf, downloadPdfBlob, batchCrossYearGrants } from '@/services/grantsService'
+import { generateKaiuPdf, downloadPdfBlob, batchCrossYearGrants, grantCacheService } from '@/services/grantsService'
 import { useGrantsStore } from '@/stores/grants'
 import { useUserStore } from '@/stores/users'
 import { GrantStorage, type GrantData } from '@/utils/grant-storage'
@@ -533,6 +534,9 @@ const allItems = ref<GrantItem[]>([])
 const loading = ref(true)
 const search = ref('')
 const selected = ref<string[]>([])
+
+// 🔥 用於強制 v-data-table 重新渲染的 key（清除選取狀態時使用）
+const tableKey = ref(0)
 
 // 篩選選項
 const selectedYear = ref(null)
@@ -710,8 +714,26 @@ const updateFilters = async () => {
 }
 
 const refreshList = async () => {
-  // refreshGrantsList 內部會自動清除選取狀態
-  await grantsStore.refreshGrantsList()
+  // 🔥 刷新時應該保留當前的篩選條件
+  const filterParams = {
+    year: filters.year || undefined,
+    office_id: filters.office_id || undefined,
+    status: 'completed',  // 只顯示已完成的歷史案件
+    limit: undefined,
+    skip: 0
+  }
+
+  console.log('🔄 [refreshList] Refreshing with current filters:', filterParams)
+
+  // 清除快取
+  grantCacheService.clear('grants-list')
+
+  // 清除選取狀態並強制 table 重新渲染
+  grantsStore.clearSelectedGrants()
+  tableKey.value += 1  // 🔥 強制 v-data-table 重新渲染，確保選取狀態被清除
+
+  // 使用當前篩選條件重新載入
+  await grantsStore.loadGrantsList(filterParams)
 }
 
 const tryReconnect = async () => {
