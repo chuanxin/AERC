@@ -301,15 +301,50 @@ watch(() => userStore.token, (newToken) => {
   }
 })
 
+// Page Visibility API: 偵測標籤頁從背景切回前景
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    console.log('[TokenExpiryNotification] Page became visible, checking token status')
+
+    // 立即更新當前時間並檢查 token 狀態
+    currentTime.value = Math.floor(Date.now() / 1000)
+    const remaining = remainingTime.value
+
+    console.log(`[TokenExpiryNotification] Token remaining: ${remaining}s`)
+
+    // 🎯 如果 token 已過期但還有 token（尚未被清除）
+    if (remaining <= 0 && userStore.token) {
+      console.log('[TokenExpiryNotification] Token expired while page was hidden, triggering logout')
+      handleTimeout()
+    }
+    // 🎯 如果剩餘時間 <= 60 秒，顯示彈窗
+    else if (remaining <= 60 && remaining > 0 && !isVisible.value) {
+      console.log(`[TokenExpiryNotification] Token expiring soon (${remaining}s), showing notification`)
+      isVisible.value = true
+    }
+
+    // 重新啟動監控（確保 RAF 正常運行）
+    startMonitoring()
+  }
+}
+
 // 組件生命週期
 onMounted(() => {
   console.log('[TokenExpiryNotification] Component mounted, starting monitoring')
   startMonitoring()
+
+  // 註冊 Page Visibility API 監聽器
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  console.log('[TokenExpiryNotification] Page visibility listener registered')
 })
 
 onUnmounted(() => {
   console.log('[TokenExpiryNotification] Component unmounted, stopping monitoring')
   stopMonitoring()
+
+  // 移除 Page Visibility API 監聽器
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  console.log('[TokenExpiryNotification] Page visibility listener removed')
 })
 </script>
 
