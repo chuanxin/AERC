@@ -109,12 +109,13 @@ async def generate_land_locations(lands: List[Dict[str, Any]]) -> str:
         county_name = county_cache.get(county_code, "")
         town_name = town_cache.get((county_code, town_code), "")
 
-        if county_name and town_name and sec_name:
+        # 🔥 修正：允許只有縣市+地段的土地資料（鄉鎮可選）
+        if county_name and sec_name:
             # 提取段名（去除"段"字，如果存在）
             section_name = sec_name.replace("段", "").strip()
 
-            # 以縣市鄉鎮為 key 分組
-            location_key = f"{county_name}{town_name}"
+            # 以縣市鄉鎮為 key 分組（如果沒有鄉鎮，只用縣市）
+            location_key = f"{county_name}{town_name}" if town_name else county_name
             if location_key not in location_groups:
                 location_groups[location_key] = set()
             location_groups[location_key].add(section_name)
