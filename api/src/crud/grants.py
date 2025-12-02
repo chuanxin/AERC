@@ -48,19 +48,22 @@ logger = logging.getLogger(__name__)
 
 
 async def generate_land_locations(lands: List[Dict[str, Any]]) -> str:
-    """生成土地位置摘要（不包含面積資訊）
+    """生成土地位置摘要（不包含面積資訊，按縣市鄉鎮聚合顯示）
 
     從 step2 的 lands 陣列中提取縣市、鄉鎮、地段資訊，
-    轉換代碼為文字並組合成位置字串。
+    轉換代碼為文字並按縣市鄉鎮分組聚合，相同縣市鄉鎮的段名會聚合顯示。
 
     Args:
         lands: step2 的 lands 陣列，包含 landCounty, landTown, landSecName 等欄位
 
     Returns:
-        土地位置字串，例如："宜蘭縣宜蘭市○○段、花蓮縣花蓮市△△段"
+        土地位置字串（聚合顯示），例如：
+        - 單一縣市鄉鎮："宜蘭縣宜蘭市-○○、△△、□□段"
+        - 多個縣市鄉鎮："宜蘭縣宜蘭市-○○、△△段；花蓮縣花蓮市-□□、◇◇段"
+        - 無土地資料："無土地資料"
     """
     if not lands:
-        return ""
+        return "無土地資料"
 
     # 建立縣市代碼到名稱的快取映射
     county_cache = {}
@@ -95,8 +98,9 @@ async def generate_land_locations(lands: List[Dict[str, Any]]) -> str:
                 if town:
                     town_cache[(county_code, town_code)] = town.name
 
-    # 建立地段列表（去重）
-    land_locations = set()
+    # 按縣市鄉鎮分組聚合（與歷史案件相同邏輯）
+    location_groups = {}  # {county_town: [section_names]}
+
     for land in lands:
         county_code = str(land.get("landCounty", ""))
         town_code = str(land.get("landTown", ""))
@@ -106,14 +110,26 @@ async def generate_land_locations(lands: List[Dict[str, Any]]) -> str:
         town_name = town_cache.get((county_code, town_code), "")
 
         if county_name and town_name and sec_name:
-            location = f"{county_name}{town_name}-{sec_name}"
-            land_locations.add(location)
+            # 提取段名（去除"段"字，如果存在）
+            section_name = sec_name.replace("段", "").strip()
 
-    # 返回位置字串（不包含面積）
-    if land_locations:
-        return "、".join(sorted(land_locations))
+            # 以縣市鄉鎮為 key 分組
+            location_key = f"{county_name}{town_name}"
+            if location_key not in location_groups:
+                location_groups[location_key] = set()
+            location_groups[location_key].add(section_name)
+
+    # 組合顯示：縣市鄉鎮-段名1、段名2...段
+    if location_groups:
+        formatted_locations = []
+        for location, section_names in sorted(location_groups.items()):
+            sorted_sections = sorted(section_names)
+            sections_str = "、".join(sorted_sections)
+            formatted_locations.append(f"{location}-{sections_str}段")
+
+        return "；".join(formatted_locations)
     else:
-        return ""
+        return "無土地資料"
 
 
 async def get_grants(
@@ -803,7 +819,7 @@ async def get_grant_step_data(case_number: str, step: int) -> Dict[str, Any]:
             
         elif step >= 2 and step <= 8:  # Steps 2-8 - 從 grant_versions.all_steps_data.steps[step] 讀取
             try:
-                # 🆕 從 grant_versions 表讀取步驟資料 - 優先使用 active_version
+                # 從 grant_versions 表讀取步驟資料 - 優先使用 active_version
                 logger.info(f"開始讀取 step {step} 資料，案件: {case_number}, grant.active_version_id: {grant.active_version_id}")
                 
                 current_version = None
@@ -1006,7 +1022,7 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                     if "steps" not in current_all_steps_data:
                         current_all_steps_data["steps"] = {}
 
-                    # 🔥 Phase 1: 檢查是否為清除操作（只有元資料欄位）
+                    # Phase 1: 檢查是否為清除操作（只有元資料欄位）
                     metadata_fields = {'_caseNumber', 'valid', 'case_number', 'id', 'current_step', 'status'}
                     actual_data_keys = set(actual_data.keys()) if isinstance(actual_data, dict) else set()
                     business_data_keys = actual_data_keys - metadata_fields

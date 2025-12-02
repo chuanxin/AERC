@@ -234,7 +234,7 @@
 
                   <!-- 末端形式欄位 -->
                   <template #[`item.facility_type`]="{ item }">
-                    {{ (item.current_step === 8 || item.status == 'rejected') && !item.facility_type ? '其它' : (item.facility_type || '-') }}
+                    {{ (item.current_step === 8) && !item.facility_type ? '其它' : (item.facility_type || '-') }}
                   </template>
 
                   <!-- 公告狀態欄位 -->
@@ -693,7 +693,7 @@ const updateFilters = async () => {
   grantsStore.clearSelectedGrants()
 
   // 明確設定篩選參數，包括移除數量限制
-  // 🔥 歷史案件只顯示 status=completed 的案件
+  // 歷史案件只顯示 status=completed 的案件
   const filterParams = {
     year: filters.year || undefined,
     office_id: filters.office_id || undefined,
@@ -1027,7 +1027,7 @@ onMounted(async () => {
   })
 
   // 明確設定篩選參數,包括移除數量限制
-  // 🔥 歷史案件只顯示 status=completed 的案件
+  // 歷史案件只顯示 status=completed 的案件
   const filterParams = {
     year: filters.year || undefined,
     office_id: filters.office_id || undefined,
