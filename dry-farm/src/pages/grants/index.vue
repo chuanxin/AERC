@@ -147,8 +147,10 @@
                       hide-details
                       class="filter-select mr-2"
                       style="min-width: 120px"
+                      clearable
                       bg-color="white"
                       rounded="lg"
+                      :disabled="listLoading"
                       @update:model-value="updateFilters"
                     />
                     <v-select
@@ -176,6 +178,7 @@
                       style="min-width: 200px"
                       bg-color="white"
                       rounded="lg"
+                      :disabled="listLoading"
                     />
                     <v-btn
                       title="重新整理"
