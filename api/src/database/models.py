@@ -42,6 +42,7 @@ class AuthTokenType(str, Enum):
     """認證 Token 類型枚舉"""
     EMAIL_VERIFICATION = "email_verification"  # Email 驗證
     PASSWORD_RESET = "password_reset"          # 密碼重設
+    ACCOUNT_MIGRATION = "account_migration"    # 帳號轉移（舊系統使用者啟用）
 
 
 class AuthTokenStatus(str, Enum):

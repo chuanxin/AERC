@@ -14,7 +14,8 @@ import { createAuthMiddleware } from '@/services/navguardService'
 const publicRoutes = [
   '/login',
   '/login/reset',
-  '/login/signup'
+  '/login/signup',
+  '/login/migrate',
   // Add other public routes here
 ]
 

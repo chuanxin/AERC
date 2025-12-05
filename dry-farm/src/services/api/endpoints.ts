@@ -27,6 +27,8 @@ export const USERS = {
   DETAIL: (id: number | string) => `${BASE}/users/${id}`,
   UPDATE: (id: number | string) => `${BASE}/users/${id}`,
   DELETE: (id: number | string) => `${BASE}/users/${id}`,
+  MIGRATE_VERIFY_OTP: `${BASE}/login/migrate/verify-otp`,
+  MIGRATE: `${BASE}/login/migrate/complete`,
 }
 
 // GIS related endpoints

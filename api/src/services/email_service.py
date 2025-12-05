@@ -170,15 +170,15 @@ class EmailService:
         # 計算過期時間
         if token_type == AuthTokenType.EMAIL_VERIFICATION:
             expire_hours = EmailConfig.EMAIL_VERIFICATION_EXPIRE_HOURS
-        else:  # PASSWORD_RESET
+        else:  # PASSWORD_RESET 或 ACCOUNT_MIGRATION
             expire_hours = EmailConfig.PASSWORD_RESET_EXPIRE_HOURS
 
         # 使用 timezone-aware datetime (UTC)
         expires_at = datetime.now(timezone.utc) + timedelta(hours=expire_hours)
 
-        # 生成 OTP（僅密碼重設使用）
+        # 生成 OTP（密碼重設和帳號轉移都需要 OTP）
         otp_code = None
-        if token_type == AuthTokenType.PASSWORD_RESET:
+        if token_type in [AuthTokenType.PASSWORD_RESET, AuthTokenType.ACCOUNT_MIGRATION]:
             otp_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
 
         # 建立新 Token
@@ -400,6 +400,55 @@ class EmailService:
         return await self.send_email(
             recipients=[email],
             subject="帳號申請驗證碼",
+            body_html=body_html
+        )
+
+    async def send_account_migration_email(
+        self,
+        user: Users,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> bool:
+        """
+        發送帳號轉移驗證信（舊系統使用者啟用）
+
+        Args:
+            user: 使用者物件
+            ip_address: 請求 IP
+            user_agent: 請求 User-Agent
+
+        Returns:
+            bool: 是否發送成功
+        """
+        # 建立 Token（包含 OTP）
+        auth_token = await self.create_auth_token(
+            user=user,
+            token_type=AuthTokenType.ACCOUNT_MIGRATION,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+
+        # 生成轉移連結
+        migration_url = f"{EmailConfig.FRONTEND_URL}/login/migrate?token={auth_token.token}"
+
+        # 顯示名稱（使用完整姓名，帳號轉移不需遮罩）
+        display_name = user.full_name or user.username
+
+        # 渲染 HTML 模板
+        html_template = Template(ACCOUNT_MIGRATION_HTML_TEMPLATE)
+        body_html = html_template.render(
+            username=user.username,
+            full_name=display_name,
+            migration_url=migration_url,
+            otp=auth_token.otp,
+            expire_hours=EmailConfig.PASSWORD_RESET_EXPIRE_HOURS,  # 使用相同的過期時間設定
+            frontend_url=EmailConfig.FRONTEND_URL
+        )
+
+        # 發送郵件
+        return await self.send_email(
+            recipients=[user.email],
+            subject="農田水利補助系統 - 帳號轉移通知",
             body_html=body_html
         )
 
@@ -981,3 +1030,113 @@ REGISTRATION_OTP_HTML_TEMPLATE = """
 </body>
 </html>
 """
+
+
+ACCOUNT_MIGRATION_HTML_TEMPLATE = """
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-TW">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>帳號轉移通知</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f5f5f5;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f5f5f5;">
+        <tr>
+            <td align="center" style="padding: 40px 15px;">
+                <!-- 主容器 -->
+                <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 40px 30px 20px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 24px; font-weight: bold; color: #3ea0a3; padding-bottom: 8px;">
+                                        您的驗證碼是： {{ otp }}
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 40px 30px 40px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 20px; font-weight: 500; color: #1a1a1a; padding-bottom: 20px;">
+                                        親愛的 {{ full_name }} 先生/小姐 您好：
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #4a4a4a; padding-bottom: 20px;">
+                                        農田水利補助系統已完成升級，為了確保您的帳戶安全，請完成帳號轉移程序。
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #4a4a4a; padding-bottom: 30px;">
+                                        請點擊下方按鈕並使用驗證碼完成帳號轉移。轉移過程中您需要：
+                                        <ul style="margin: 10px 0; padding-left: 20px;">
+                                            <li style="margin: 8px 0;">確認您的個人資訊</li>
+                                            <li style="margin: 8px 0;">設定新的登入密碼</li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                                <!-- CTA Button -->
+                                <tr>
+                                    <td align="center" style="padding: 30px 0;">
+                                        <table border="0" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center" style="background-color: #3ea0a3; border-radius: 6px;">
+                                                    <a href="{{ migration_url }}" target="_blank" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; padding: 16px 48px; display: inline-block;">
+                                                        立即轉移帳號
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                <!-- Warning -->
+                                <tr>
+                                    <td style="background-color: #fff8e1; border-left: 4px solid #ffc107; padding: 20px; border-radius: 4px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; font-weight: 600; color: #f57c00; padding-bottom: 8px;">
+                                                    ⚠️ 重要提醒
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #666666; line-height: 1.6;">
+                                                    • 此連結將在 <strong>{{ expire_hours }} 小時</strong>後失效<br/>
+                                                    • 驗證碼僅供本次使用，請勿轉發他人<br/>
+                                                    • 若您未申請帳號轉移，請忽略此郵件
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f9f9f9; padding: 30px 40px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #999999; text-align: center; line-height: 1.6;">
+                                        本郵件由系統自動發送，請勿直接回覆<br/>
+                                        如有任何問題，請聯繫系統管理員<br/><br/>
+                                        <a href="{{ frontend_url }}" style="color: #3ea0a3; text-decoration: none;">{{ frontend_url }}</a><br/><br/>
+                                        &copy; 2025 農田水利署 版權所有
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
