@@ -363,9 +363,13 @@ class AccountMigrationOTPVerifyResponse(BaseModel):
                     "username": "user001",
                     "full_name": "王小明",
                     "email": "user@example.com",
-                    "office_name": "北區水資源局",
-                    "department": "工務課",
-                    "job_title": "技士",
+                    "office_id": 11,
+                    "office_name": "嘉南管理處",
+                    "department": {
+                        "branch": {"code": "1", "name": "新化分處"},
+                        "station": {"code": "01", "name": "歸仁站"}
+                    },
+                    "job_title": "專員",
                     "phone": "02-12345678",
                     "phone_ext": "123",
                     "mobile": "0912345678"
@@ -381,6 +385,9 @@ class AccountMigrationCompleteRequest(BaseModel):
 
     # 使用者資訊（可選更新）
     full_name: Optional[str] = Field(None, min_length=2, max_length=50, description="姓名")
+    job_title: Optional[str] = Field(None, max_length=50, description="職稱")
+    office_id: Optional[int] = Field(None, description="所屬單位 ID")
+    department: Optional[str] = Field(None, description="部門詳細資訊 JSON 字串")
     phone: Optional[str] = Field(None, max_length=20, description="聯絡電話")
     phone_ext: Optional[str] = Field(None, max_length=10, description="分機")
     mobile: Optional[str] = Field(None, max_length=20, description="手機")

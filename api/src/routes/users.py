@@ -1039,6 +1039,7 @@ async def verify_migration_otp(payload: AccountMigrationOTPVerifyRequest):
             "username": user.username,
             "full_name": user.full_name,
             "email": user.email,
+            "office_id": user.office_id,
             "office_name": user.office.short_name if user.office else None,
             "department": user.department,
             "job_title": user.job_title,
@@ -1119,6 +1120,34 @@ async def complete_account_migration(payload: AccountMigrationCompleteRequest):
         # 更新使用者資訊（僅更新有提供的欄位）
         if payload.full_name:
             user.full_name = payload.full_name
+        if payload.job_title:
+            user.job_title = payload.job_title
+        if payload.office_id:
+            user.office_id = payload.office_id
+        if payload.department:
+            import json
+            try:
+                # 解析 JSON 字串並儲存為 JSONB
+                department_data = json.loads(payload.department)
+
+                # 驗證 JSON 結構（應該是 dict）
+                if not isinstance(department_data, dict):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="department 欄位必須是有效的 JSON 物件"
+                    )
+
+                user.department = department_data
+            except json.JSONDecodeError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"department 欄位包含無效的 JSON 格式: {str(e)}"
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"處理 department 欄位時發生錯誤: {str(e)}"
+                )
         if payload.phone:
             user.phone = payload.phone
         if payload.phone_ext:

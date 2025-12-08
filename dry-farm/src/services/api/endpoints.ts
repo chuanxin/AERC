@@ -131,6 +131,9 @@ export const OFFICES = {
   CREATE: `${BASE}/offices`,
   UPDATE: (id: number) => `${BASE}/offices/${id}`,
   DELETE: (id: number) => `${BASE}/offices/${id}`,
+  BRANCHES: (officeId: number) => `${BASE}/offices/branches/${officeId}`,
+  STATIONS: (officeId: number) => `${BASE}/offices/stations/${officeId}`,
+  STATIONS_BY_BRANCH: (officeId: number, branchCode: string) => `${BASE}/offices/stations/${officeId}/${branchCode}`,
 }
 
 export const DOMICILE = {
