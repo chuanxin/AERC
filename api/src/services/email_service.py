@@ -39,6 +39,7 @@ class EmailConfig:
     # Token 過期時間（小時）
     EMAIL_VERIFICATION_EXPIRE_HOURS: int = int(os.getenv("EMAIL_VERIFICATION_EXPIRE_HOURS", "24"))
     PASSWORD_RESET_EXPIRE_HOURS: int = int(os.getenv("PASSWORD_RESET_EXPIRE_HOURS", "1"))
+    ACCOUNT_MIGRATION_EXPIRE_HOURS: int = int(os.getenv("ACCOUNT_MIGRATION_EXPIRE_HOURS", "168"))  # 7天
 
     @classmethod
     def get_connection_config(cls) -> ConnectionConfig:
@@ -170,7 +171,9 @@ class EmailService:
         # 計算過期時間
         if token_type == AuthTokenType.EMAIL_VERIFICATION:
             expire_hours = EmailConfig.EMAIL_VERIFICATION_EXPIRE_HOURS
-        else:  # PASSWORD_RESET 或 ACCOUNT_MIGRATION
+        elif token_type == AuthTokenType.ACCOUNT_MIGRATION:
+            expire_hours = EmailConfig.ACCOUNT_MIGRATION_EXPIRE_HOURS
+        else:  # PASSWORD_RESET
             expire_hours = EmailConfig.PASSWORD_RESET_EXPIRE_HOURS
 
         # 使用 timezone-aware datetime (UTC)
@@ -431,24 +434,25 @@ class EmailService:
         # 生成轉移連結
         migration_url = f"{EmailConfig.FRONTEND_URL}/login/migrate?token={auth_token.token}"
 
-        # 顯示名稱（使用完整姓名，帳號轉移不需遮罩）
+        # 遮罩姓名（隱私保護）
         display_name = user.full_name or user.username
+        masked_name = self.mask_name(display_name)
 
         # 渲染 HTML 模板
         html_template = Template(ACCOUNT_MIGRATION_HTML_TEMPLATE)
         body_html = html_template.render(
             username=user.username,
-            full_name=display_name,
+            full_name=masked_name,
             migration_url=migration_url,
             otp=auth_token.otp,
-            expire_hours=EmailConfig.PASSWORD_RESET_EXPIRE_HOURS,  # 使用相同的過期時間設定
+            expire_hours=EmailConfig.ACCOUNT_MIGRATION_EXPIRE_HOURS // 24,  # 轉換為天數
             frontend_url=EmailConfig.FRONTEND_URL
         )
 
         # 發送郵件
         return await self.send_email(
             recipients=[user.email],
-            subject="農田水利補助系統 - 帳號轉移通知",
+            subject="帳號轉移通知",
             body_html=body_html
         )
 
@@ -1055,6 +1059,15 @@ ACCOUNT_MIGRATION_HTML_TEMPLATE = """
                                         您的驗證碼是： {{ otp }}
                                     </td>
                                 </tr>
+                                <tr>
+                                    <td style="padding-top: 20px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="border-top: 2px solid #3ea0a3;"></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
                             </table>
                         </td>
                     </tr>
@@ -1069,11 +1082,11 @@ ACCOUNT_MIGRATION_HTML_TEMPLATE = """
                                 </tr>
                                 <tr>
                                     <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #4a4a4a; padding-bottom: 20px;">
-                                        農田水利補助系統已完成升級，為了確保您的帳戶安全，請完成帳號轉移程序。
+                                        推廣管路灌溉設施管理資料庫已完成升級，為了確保您的帳戶安全，請完成帳號轉移程序。
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #4a4a4a; padding-bottom: 30px;">
+                                    <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 15px; line-height: 1.7; color: #4a4a4a; padding-bottom: 10px;">
                                         請點擊下方按鈕並使用驗證碼完成帳號轉移。轉移過程中您需要：
                                         <ul style="margin: 10px 0; padding-left: 20px;">
                                             <li style="margin: 8px 0;">確認您的個人資訊</li>
@@ -1095,18 +1108,48 @@ ACCOUNT_MIGRATION_HTML_TEMPLATE = """
                                         </table>
                                     </td>
                                 </tr>
-                                <!-- Warning -->
+
+                                <!-- Link Section -->
                                 <tr>
-                                    <td style="background-color: #fff8e1; border-left: 4px solid #ffc107; padding: 20px; border-radius: 4px;">
+                                    <td style="background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 16px;">
                                         <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                             <tr>
-                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; font-weight: 600; color: #f57c00; padding-bottom: 8px;">
-                                                    ⚠️ 重要提醒
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #6c757d; padding-bottom: 8px; font-weight: 500;">
+                                                    若按鈕無法使用，請複製以下連結至瀏覽器：
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #666666; line-height: 1.6;">
-                                                    • 此連結將在 <strong>{{ expire_hours }} 小時</strong>後失效<br/>
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #3ea0a3; word-break: break-all; line-height: 1.5;">
+                                                    {{ migration_url }}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <!-- Divider -->
+                                <tr>
+                                    <td align="center" style="padding: 30px 0;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100">
+                                            <tr>
+                                                <td style="border-top: 1px solid #e0e0e0;"></td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <!-- Warning -->
+                                <tr>
+                                    <td style="background-color: #fff8e1; border-left: 4px solid #ffc107; padding: 16px; border-radius: 6px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 14px; font-weight: 600; color: #f57c00; padding-bottom: 12px;">
+                                                    注意事項
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #666666; line-height: 1.7;">
+                                                    • 此連結將在 <strong>{{ expire_hours }} 天</strong> 後失效<br/>
                                                     • 驗證碼僅供本次使用，請勿轉發他人<br/>
                                                     • 若您未申請帳號轉移，請忽略此郵件
                                                 </td>
@@ -1119,13 +1162,18 @@ ACCOUNT_MIGRATION_HTML_TEMPLATE = """
                     </tr>
                     <!-- Footer -->
                     <tr>
-                        <td style="background-color: #f9f9f9; padding: 30px 40px;">
+                        <td align="center" style="background-color: #3ea0a3; padding: 9px 12px; border-radius: 0 0 8px 8px;">
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
-                                    <td style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #999999; text-align: center; line-height: 1.6;">
+                                    <td align="center" style="padding-bottom: 12px;">
+                                        <a href="{{ frontend_url }}" target="_blank" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none;">
+                                            農業部農田水利署-推廣管路灌溉設施管理資料庫
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #ffffff; opacity: 0.9; line-height: 1.6;">
                                         本郵件由系統自動發送，請勿直接回覆<br/>
-                                        如有任何問題，請聯繫系統管理員<br/><br/>
-                                        <a href="{{ frontend_url }}" style="color: #3ea0a3; text-decoration: none;">{{ frontend_url }}</a><br/><br/>
                                         &copy; 2025 農田水利署 版權所有
                                     </td>
                                 </tr>
