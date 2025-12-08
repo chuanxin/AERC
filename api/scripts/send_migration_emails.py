@@ -38,12 +38,12 @@ async def main(dry_run: bool = False, limit: int = None):
         limit: 限制發送數量
     """
     # 初始化資料庫連接
-    print("🔌 正在連接資料庫...")
+    print("[INFO] 正在連接資料庫...")
     await Tortoise.init(config=TORTOISE_ORM)
-    print("✅ 資料庫連接成功\n")
+    print("[OK] 資料庫連接成功\n")
 
     # 查詢符合條件的使用者
-    print("🔍 查詢待轉移的帳號...")
+    print("[INFO] 查詢待轉移的帳號...")
     query = Users.filter(
         is_active=False,
         email_verified=False
@@ -56,10 +56,10 @@ async def main(dry_run: bool = False, limit: int = None):
 
     users = await query.all()
 
-    print(f"📋 找到 {len(users)} 位待轉移帳號的使用者\n")
+    print(f"[INFO] 找到 {len(users)} 位待轉移帳號的使用者\n")
 
     if len(users) == 0:
-        print("⚠️  沒有符合條件的使用者，程式結束")
+        print("[WARN] 沒有符合條件的使用者，程式結束")
         await Tortoise.close_connections()
         return
 
@@ -74,20 +74,20 @@ async def main(dry_run: bool = False, limit: int = None):
     print()
 
     if dry_run:
-        print("⚠️  DRY-RUN 模式，未發送任何郵件")
-        print("💡 若要實際發送，請移除 --dry-run 參數")
+        print("[WARN] DRY-RUN 模式，未發送任何郵件")
+        print("[TIP] 若要實際發送，請移除 --dry-run 參數")
         await Tortoise.close_connections()
         return
 
     # 確認是否繼續
-    confirm = input(f"\n⚠️  即將發送 {len(users)} 封郵件，是否繼續？ (yes/no): ")
+    confirm = input(f"\n[WARN] 即將發送 {len(users)} 封郵件，是否繼續？ (yes/no): ")
     if confirm.lower() not in ['yes', 'y']:
-        print("❌ 使用者取消操作")
+        print("[CANCEL] 使用者取消操作")
         await Tortoise.close_connections()
         return
 
     # 發送郵件
-    print(f"\n📧 開始發送郵件...\n")
+    print(f"\n[INFO] 開始發送郵件...\n")
     email_service = EmailService()
     success_count = 0
     failed_count = 0
@@ -100,15 +100,15 @@ async def main(dry_run: bool = False, limit: int = None):
 
             if success:
                 success_count += 1
-                print("✅ 成功")
+                print("[OK]")
             else:
                 failed_count += 1
                 failed_users.append((user.username, user.email, "發送失敗"))
-                print("❌ 失敗")
+                print("[FAILED]")
         except Exception as e:
             failed_count += 1
             failed_users.append((user.username, user.email, str(e)))
-            print(f"❌ 錯誤: {str(e)}")
+            print(f"[ERROR] {str(e)}")
 
         # 每發送 10 封休息 1 秒（避免 SMTP 限制）
         if idx % 10 == 0:
@@ -116,15 +116,15 @@ async def main(dry_run: bool = False, limit: int = None):
 
     # 顯示統計結果
     print("\n" + "=" * 80)
-    print("📊 發送統計:")
-    print(f"  ✅ 成功: {success_count}")
-    print(f"  ❌ 失敗: {failed_count}")
-    print(f"  📈 總計: {len(users)}")
+    print("[STATS] 發送統計:")
+    print(f"  - 成功: {success_count}")
+    print(f"  - 失敗: {failed_count}")
+    print(f"  - 總計: {len(users)}")
     print("=" * 80)
 
     # 顯示失敗清單
     if failed_users:
-        print("\n❌ 失敗清單:")
+        print("\n[FAILED] 失敗清單:")
         print("-" * 80)
         for username, email, error in failed_users:
             print(f"  {username} ({email}) - {error}")
@@ -132,7 +132,7 @@ async def main(dry_run: bool = False, limit: int = None):
 
     # 關閉資料庫連接
     await Tortoise.close_connections()
-    print("\n✅ 程式執行完成")
+    print("\n[OK] 程式執行完成")
 
 
 if __name__ == "__main__":
