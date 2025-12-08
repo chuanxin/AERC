@@ -11,7 +11,7 @@ class Users(models.Model):
     password = fields.CharField(max_length=128, null=True, description="密碼")
 
     office = fields.ForeignKeyField("models.Offices", related_name="user", null=True, description="所屬單位/管理處")
-    department = fields.CharField(max_length=100, null=True, description="所屬部門/工作站")
+    department = fields.JSONField(null=True, description="部門詳細資訊 JSON: {'branch': {'code': '1', 'name': '北港分處'}, 'station': {'code': '01', 'name': '鹿寮站'}} 或 {'legacy_text': '自由輸入文字'}")
     job_title = fields.CharField(max_length=50, null=True, description="職稱")
     phone = fields.CharField(max_length=20, null=True, description="聯絡電話")
     phone_ext = fields.CharField(max_length=10, null=True, description="分機")
@@ -42,6 +42,7 @@ class AuthTokenType(str, Enum):
     """認證 Token 類型枚舉"""
     EMAIL_VERIFICATION = "email_verification"  # Email 驗證
     PASSWORD_RESET = "password_reset"          # 密碼重設
+    ACCOUNT_MIGRATION = "account_migration"    # 帳號轉移（舊系統使用者啟用）
 
 
 class AuthTokenStatus(str, Enum):

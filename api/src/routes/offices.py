@@ -15,6 +15,7 @@ from src.schemas.offices import (
 import src.crud.offices as crud
 from src.auth.jwthandler import get_current_user
 from src.schemas.users import UserOutSchema
+from src.database.geo_models import OfficeBoundaries
 
 router = APIRouter()
 
@@ -89,3 +90,100 @@ async def remove_office(
         )
     
     return await crud.delete_office(office_id)
+
+
+@router.get(
+    "/offices/branches/{office_id}",
+    status_code=status.HTTP_200_OK,
+    summary="取得管理處的分處列表",
+    description="根據管理處 ID 從 office_boundaries 取得分處列表"
+)
+async def get_office_branches(office_id: int):
+    """取得指定管理處的分處列表"""
+    try:
+        # 查詢該管理處的所有分處
+        branches = await OfficeBoundaries.filter(
+            ia_code=str(office_id).zfill(2)
+        ).distinct().values('mng_code', 'mng_name')
+
+        # 過濾掉空值並格式化回傳
+        result = [
+            {"code": b['mng_code'], "name": b['mng_name']}
+            for b in branches
+            if b['mng_name']
+        ]
+
+        # 依 code 排序
+        result.sort(key=lambda x: x['code'])
+
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查詢分處列表失敗: {str(e)}"
+        )
+
+
+@router.get(
+    "/offices/stations/{office_id}",
+    status_code=status.HTTP_200_OK,
+    summary="取得管理處的所有工作站列表",
+    description="根據管理處 ID 從 office_boundaries 取得所有工作站列表（不區分是否有分處）"
+)
+async def get_office_stations(office_id: int):
+    """取得指定管理處的所有工作站列表"""
+    try:
+        # 查詢該管理處的所有工作站
+        stations = await OfficeBoundaries.filter(
+            ia_code=str(office_id).zfill(2)
+        ).distinct().values('stn_code', 'stn_name')
+
+        # 過濾掉空值並格式化回傳
+        result = [
+            {"code": s['stn_code'], "name": s['stn_name']}
+            for s in stations
+            if s['stn_name']
+        ]
+
+        # 依 code 排序
+        result.sort(key=lambda x: x['code'])
+
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查詢工作站列表失敗: {str(e)}"
+        )
+
+
+@router.get(
+    "/offices/stations/{office_id}/{branch_code}",
+    status_code=status.HTTP_200_OK,
+    summary="取得分處的工作站列表",
+    description="根據管理處 ID 和分處代碼從 office_boundaries 取得工作站列表"
+)
+async def get_branch_stations(office_id: int, branch_code: str):
+    """取得指定分處的工作站列表"""
+    try:
+        # 查詢該分處的所有工作站
+        stations = await OfficeBoundaries.filter(
+            ia_code=str(office_id).zfill(2),
+            mng_code=branch_code
+        ).distinct().values('stn_code', 'stn_name')
+
+        # 過濾掉空值並格式化回傳
+        result = [
+            {"code": s['stn_code'], "name": s['stn_name']}
+            for s in stations
+            if s['stn_name']
+        ]
+
+        # 依 code 排序
+        result.sort(key=lambda x: x['code'])
+
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查詢工作站列表失敗: {str(e)}"
+        )

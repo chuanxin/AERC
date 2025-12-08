@@ -40,6 +40,13 @@ from src.auth.jwthandler import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 
+from src.schemas.users import (
+    AccountMigrationOTPVerifyRequest,
+    AccountMigrationOTPVerifyResponse,
+    AccountMigrationCompleteRequest,
+    AccountMigrationCompleteResponse
+)
+
 
 router = APIRouter()
 
@@ -965,6 +972,215 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="重設連結無效或已過期，請重新申請密碼重設"
         )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"系統錯誤：{str(e)}"
+        )
+    
+# ============================================
+# 帳號轉移相關端點（舊系統使用者啟用）
+# ============================================
+
+@router.post(
+    "/login/migrate/verify-otp",
+    response_model=AccountMigrationOTPVerifyResponse,
+    status_code=status.HTTP_200_OK,
+    summary="驗證帳號轉移 OTP",
+    description="驗證帳號轉移的 Token 和 OTP，返回使用者資訊"
+)
+async def verify_migration_otp(payload: AccountMigrationOTPVerifyRequest):
+    """
+    驗證帳號轉移 OTP
+
+    步驟:
+    1. 驗證 Token 是否有效（未過期、未使用）
+    2. 驗證 OTP 是否正確
+    3. 標記 OTP 為已驗證（otp_verified=True）
+    4. 返回使用者資訊供前端顯示和編輯
+    """
+    try:
+        # 查找 AuthToken
+        auth_token = await AuthToken.filter(
+            token=payload.token,
+            token_type=AuthTokenType.ACCOUNT_MIGRATION,
+            status=AuthTokenStatus.PENDING
+        ).prefetch_related("user", "user__office").first()
+
+        if not auth_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的轉移連結或連結已失效"
+            )
+
+        # 檢查是否過期
+        if auth_token.expires_at < datetime.now(timezone.utc):
+            auth_token.status = AuthTokenStatus.EXPIRED
+            await auth_token.save()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="轉移連結已過期，請重新申請"
+            )
+
+        # 驗證 OTP
+        if auth_token.otp != payload.otp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="驗證碼錯誤，請檢查您的郵件"
+            )
+
+        # 標記 OTP 為已驗證
+        auth_token.otp_verified = True
+        await auth_token.save()
+
+        # 準備使用者資訊
+        user = auth_token.user
+        user_info = {
+            "username": user.username,
+            "full_name": user.full_name,
+            "email": user.email,
+            "office_id": user.office_id,
+            "office_name": user.office.short_name if user.office else None,
+            "department": user.department,
+            "job_title": user.job_title,
+            "phone": user.phone,
+            "phone_ext": user.phone_ext,
+            "mobile": user.mobile
+        }
+
+        return AccountMigrationOTPVerifyResponse(
+            message="驗證成功，請設定您的帳號資訊",
+            success=True,
+            user_info=user_info
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"系統錯誤：{str(e)}"
+        )
+
+
+@router.post(
+    "/login/migrate/complete",
+    response_model=AccountMigrationCompleteResponse,
+    status_code=status.HTTP_200_OK,
+    summary="完成帳號轉移",
+    description="完成帳號轉移：更新使用者資訊、設定密碼、啟用帳號"
+)
+async def complete_account_migration(payload: AccountMigrationCompleteRequest):
+    """
+    完成帳號轉移
+
+    步驟:
+    1. 再次驗證 Token + OTP + otp_verified
+    2. 更新使用者資訊（full_name, phone, mobile等）
+    3. 設定新密碼並 hash
+    4. 啟用帳號：email_verified=True, is_active=True
+    5. 設定 password_changed_at=NOW()
+    6. 標記 Token 為 USED
+    7. 返回成功訊息
+    """
+    try:
+        # 查找 AuthToken
+        auth_token = await AuthToken.filter(
+            token=payload.token,
+            token_type=AuthTokenType.ACCOUNT_MIGRATION,
+            status=AuthTokenStatus.PENDING,
+            otp_verified=True  # 必須已驗證 OTP
+        ).prefetch_related("user").first()
+
+        if not auth_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="無效的請求或 OTP 尚未驗證"
+            )
+
+        # 再次驗證 OTP
+        if auth_token.otp != payload.otp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="驗證碼錯誤"
+            )
+
+        # 檢查是否過期
+        if auth_token.expires_at < datetime.now(timezone.utc):
+            auth_token.status = AuthTokenStatus.EXPIRED
+            await auth_token.save()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="轉移連結已過期"
+            )
+
+        # 獲取使用者
+        user = auth_token.user
+
+        # 更新使用者資訊（僅更新有提供的欄位）
+        if payload.full_name:
+            user.full_name = payload.full_name
+        if payload.job_title:
+            user.job_title = payload.job_title
+        if payload.office_id:
+            user.office_id = payload.office_id
+        if payload.department:
+            import json
+            try:
+                # 解析 JSON 字串並儲存為 JSONB
+                department_data = json.loads(payload.department)
+
+                # 驗證 JSON 結構（應該是 dict）
+                if not isinstance(department_data, dict):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="department 欄位必須是有效的 JSON 物件"
+                    )
+
+                user.department = department_data
+            except json.JSONDecodeError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"department 欄位包含無效的 JSON 格式: {str(e)}"
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"處理 department 欄位時發生錯誤: {str(e)}"
+                )
+        if payload.phone:
+            user.phone = payload.phone
+        if payload.phone_ext:
+            user.phone_ext = payload.phone_ext
+        if payload.mobile:
+            user.mobile = payload.mobile
+
+        # 設定新密碼
+        from passlib.context import CryptContext
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        user.password = pwd_context.hash(payload.new_password)
+
+        # 啟用帳號
+        user.email_verified = True
+        user.is_active = True
+        user.password_changed_at = datetime.now(timezone.utc)
+
+        # 儲存使用者
+        await user.save()
+
+        # 標記 Token 為已使用
+        auth_token.status = AuthTokenStatus.USED
+        auth_token.used_at = datetime.now(timezone.utc)
+        await auth_token.save()
+
+        return AccountMigrationCompleteResponse(
+            message="帳號啟用成功！請使用您的帳號和新密碼登入",
+            success=True,
+            username=user.username
+        )
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

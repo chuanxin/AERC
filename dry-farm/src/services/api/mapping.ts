@@ -43,10 +43,15 @@ export const BACKEND_PATHS = {
     CHECK_USERNAME: (username: string) => `/check-username/${username}`,
     SEND_REGISTRATION_OTP: '/send-registration-otp',
     VERIFY_REGISTRATION_OTP: '/verify-registration-otp',
-    REGISTER: '/register'
+    REGISTER: '/register',
+    MIGRATE_VERIFY_OTP: '/login/migrate/verify-otp',
+    MIGRATE: '/login/migrate/complete',
   },
   OFFICES: {
     LIST: '/offices',
+    BRANCHES: (officeId: number) => `/offices/branches/${officeId}`,
+    STATIONS: (officeId: number) => `/offices/stations/${officeId}`,
+    STATIONS_BY_BRANCH: (officeId: number, branchCode: string) => `/offices/stations/${officeId}/${branchCode}`,
   },
   DOMICILE: {
     COUNTIES_LIST: '/counties',
@@ -153,6 +158,8 @@ export const API_MAPPING: Record<string, string> = {
   [AUTH.SEND_VERIFICATION_EMAIL]: BACKEND_PATHS.AUTH.SEND_VERIFICATION_EMAIL,
   [AUTH.VERIFY_EMAIL]: BACKEND_PATHS.AUTH.VERIFY_EMAIL,
   [USERS.LIST]: BACKEND_PATHS.USERS.LIST,
+  [USERS.MIGRATE_VERIFY_OTP]: BACKEND_PATHS.USERS.MIGRATE_VERIFY_OTP,
+  [USERS.MIGRATE]: BACKEND_PATHS.USERS.MIGRATE,
   [OFFICES.LIST]: BACKEND_PATHS.OFFICES.LIST,
   [DOMICILE.COUNTIES_LIST]: BACKEND_PATHS.DOMICILE.COUNTIES_LIST,
   [DOMICILE.TOWNS_LIST]: BACKEND_PATHS.DOMICILE.TOWNS_LIST,
@@ -223,6 +230,21 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配帳號註冊路徑 {API_PREFIX}/users/register
     pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/register$`),
     transform: () => BACKEND_PATHS.USERS.REGISTER
+  },
+  {
+    // 匹配管理處分處列表路徑 {API_PREFIX}/offices/branches/{officeId}
+    pattern: new RegExp(`^${OFFICES.LIST.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/branches/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.OFFICES.BRANCHES(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配管理處工作站列表路徑 {API_PREFIX}/offices/stations/{officeId}
+    pattern: new RegExp(`^${OFFICES.LIST.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/stations/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.OFFICES.STATIONS(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配分處工作站列表路徑 {API_PREFIX}/offices/stations/{officeId}/{branchCode}
+    pattern: new RegExp(`^${OFFICES.LIST.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/stations/(\\d+)/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.OFFICES.STATIONS_BY_BRANCH(parseInt(matches[1], 10), matches[2])
   },
   {
     // 匹配管道配件相關路徑

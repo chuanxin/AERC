@@ -328,3 +328,115 @@ class UserRegistrationResponse(BaseModel):
                 "user_id": 123
             }
         }
+
+
+# ============================================
+# 帳號轉移相關 Schemas（舊系統使用者啟用）
+# ============================================
+
+class AccountMigrationOTPVerifyRequest(BaseModel):
+    """帳號轉移 OTP 驗證請求"""
+    token: str = Field(..., description="帳號轉移 Token (從 Email 連結取得)")
+    otp: str = Field(..., min_length=6, max_length=6, description="6位數字驗證碼")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "token": "abc123def456",
+                "otp": "123456"
+            }
+        }
+
+
+class AccountMigrationOTPVerifyResponse(BaseModel):
+    """帳號轉移 OTP 驗證回應"""
+    message: str
+    success: bool
+    user_info: Optional[dict] = Field(None, description="使用者基本資訊（驗證成功時返回）")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "驗證成功，請設定您的帳號資訊",
+                "success": True,
+                "user_info": {
+                    "username": "user001",
+                    "full_name": "王小明",
+                    "email": "user@example.com",
+                    "office_id": 11,
+                    "office_name": "嘉南管理處",
+                    "department": {
+                        "branch": {"code": "1", "name": "新化分處"},
+                        "station": {"code": "01", "name": "歸仁站"}
+                    },
+                    "job_title": "專員",
+                    "phone": "02-12345678",
+                    "phone_ext": "123",
+                    "mobile": "0912345678"
+                }
+            }
+        }
+
+
+class AccountMigrationCompleteRequest(BaseModel):
+    """完成帳號轉移請求"""
+    token: str = Field(..., description="帳號轉移 Token")
+    otp: str = Field(..., min_length=6, max_length=6, description="6位數字驗證碼")
+
+    # 使用者資訊（可選更新）
+    full_name: Optional[str] = Field(None, min_length=2, max_length=50, description="姓名")
+    job_title: Optional[str] = Field(None, max_length=50, description="職稱")
+    office_id: Optional[int] = Field(None, description="所屬單位 ID")
+    department: Optional[str] = Field(None, description="部門詳細資訊 JSON 字串")
+    phone: Optional[str] = Field(None, max_length=20, description="聯絡電話")
+    phone_ext: Optional[str] = Field(None, max_length=10, description="分機")
+    mobile: Optional[str] = Field(None, max_length=20, description="手機")
+
+    # 新密碼（必填）
+    new_password: str = Field(..., min_length=8, description="新密碼（至少8字元）")
+    confirm_password: str = Field(..., description="確認新密碼")
+
+    @field_validator('confirm_password')
+    @classmethod
+    def passwords_match(cls, v, info):
+        if 'new_password' in info.data and v != info.data['new_password']:
+            raise ValueError('密碼與確認密碼不符')
+        return v
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_password(cls, v):
+        """驗證密碼強度"""
+        # validate_password_strength 會在驗證失敗時拋出 ValueError
+        validate_password_strength(v)
+        return v
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "token": "abc123def456",
+                "otp": "123456",
+                "full_name": "王小明",
+                "phone": "02-12345678",
+                "phone_ext": "123",
+                "mobile": "0912345678",
+                "new_password": "SecurePass123!",
+                "confirm_password": "SecurePass123!"
+            }
+        }
+
+
+class AccountMigrationCompleteResponse(BaseModel):
+    """完成帳號轉移回應"""
+    message: str
+    success: bool
+    username: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "message": "帳號啟用成功，請使用新密碼登入",
+                "success": True,
+                "username": "user001"
+            }
+        }
