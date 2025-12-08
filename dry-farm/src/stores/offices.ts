@@ -28,9 +28,9 @@ export const useOfficesStore = defineStore('offices', () => {
     return map
   })
 
-  // Sorted offices for UI display
+  // Sorted offices for UI display (sorted by ID in ascending order)
   const sortedOffices = computed(() => {
-    return [...offices.value].sort((a, b) => a.name.localeCompare(b.name, 'zh-TW'))
+    return [...offices.value].sort((a, b) => a.id - b.id)
   })
 
   // Office select options for dropdowns - Updated for Vuetify compatibility

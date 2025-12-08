@@ -252,7 +252,10 @@
       <!-- Step 3: 完成 -->
       <div v-if="step === 'completed'">
         <v-card-text>
-          <v-alert type="success">
+          <v-alert
+            type="success"
+            rounded
+          >
             帳號轉移成功！3秒後將跳轉至登入頁面...
           </v-alert>
         </v-card-text>
@@ -333,6 +336,9 @@ const selectedManagementOffice = ref<number | null>(null)
 const selectedBranchOffice = ref<string | null>(null)  // 改為 string（mng_code）
 const selectedWorkStation = ref<string | null>(null)    // 改為 string（stn_code）
 
+// 暫存需要還原的部門資料（用於 OTP 驗證後自動還原選擇）
+const pendingDepartmentRestore = ref<{branch?: string, station?: string} | null>(null)
+
 // 下拉選單選項
 interface SelectOption {
   title: string
@@ -370,7 +376,7 @@ const jobTitleOptions = [
 // 管理處選項（從 officesStore 載入）
 const managementOffices = computed(() => {
   return officesStore.sortedOffices
-    .filter(office => office.classification === 1)
+    .filter(office => office.classification != 3)
     .map(office => ({
       title: office.name,
       value: office.id
@@ -411,6 +417,15 @@ watch(selectedManagementOffice, async (officeId) => {
           title: s.name,
           value: s.code
         }))
+
+        // 載入完成後，檢查是否有待還原的工作站
+        if (pendingDepartmentRestore.value?.station) {
+          selectedWorkStation.value = pendingDepartmentRestore.value.station
+          pendingDepartmentRestore.value = null
+        }
+      } else if (pendingDepartmentRestore.value?.branch) {
+        // 如果有待還原的分處，自動選擇
+        selectedBranchOffice.value = pendingDepartmentRestore.value.branch
       }
       // 如果有分處，等待使用者選擇分處後才載入工作站（由下面的 watch 處理）
     } catch (error) {
@@ -434,6 +449,12 @@ watch(selectedBranchOffice, async (branchCode) => {
         title: s.name,
         value: s.code
       }))
+
+      // 載入完成後，檢查是否有待還原的工作站
+      if (pendingDepartmentRestore.value?.station) {
+        selectedWorkStation.value = pendingDepartmentRestore.value.station
+        pendingDepartmentRestore.value = null
+      }
     } catch (error) {
       console.error('載入工作站列表失敗:', error)
     }
@@ -479,24 +500,20 @@ const verifyOTP = async () => {
         mobile: response.user_info.mobile || ''
       }
 
-      // 還原所屬管理處
-      if (response.user_info.office_id) {
-        selectedManagementOffice.value = response.user_info.office_id
-      }
-
-      // 解析並還原所屬部門（三級聯動）
+      // 解析並暫存需要還原的部門資料
       if (response.user_info.department && typeof response.user_info.department === 'object') {
         const dept = response.user_info.department as Record<string, { code: string, name: string }>
 
-        // 如果有分處資訊
-        if (dept.branch?.code) {
-          selectedBranchOffice.value = dept.branch.code
+        // 暫存部門資料，讓 watch 在載入完成後自動還原
+        pendingDepartmentRestore.value = {
+          branch: dept.branch?.code,
+          station: dept.station?.code
         }
+      }
 
-        // 如果有工作站資訊
-        if (dept.station?.code) {
-          selectedWorkStation.value = dept.station.code
-        }
+      // 還原所屬管理處（會觸發 watch 載入分處/工作站，並自動還原選擇）
+      if (response.user_info.office_id) {
+        selectedManagementOffice.value = response.user_info.office_id
       }
 
       step.value = 'update-info'
