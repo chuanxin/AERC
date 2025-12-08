@@ -174,7 +174,7 @@
                 v-model="userInfo.phone"
                 variant="outlined"
                 density="compact"
-                placeholder="例：02-12345678"
+                placeholder="區碼-號碼，例：04-12345678"
                 :rules="[v => !!v || '公務電話為必填欄位']"
                 required
                 hide-details
@@ -554,6 +554,44 @@ const completeMigration = async () => {
   if (!userInfo.value.phone) {
     alert('請填寫公務電話')
     return
+  }
+
+  // 驗證台灣市話格式：區碼-號碼（以連字號分隔）
+  // 台灣市話區碼規則：
+  // - 02: 台北/新北/基隆 (8位號碼)
+  // - 03: 桃園/新竹/宜蘭/花蓮 (7位號碼)
+  // - 04: 台中/彰化 (7-8位號碼)
+  // - 05: 雲林/嘉義 (7位號碼)
+  // - 06: 台南 (7位號碼)
+  // - 07: 高雄 (7位號碼)
+  // - 08: 屏東 (7位號碼)
+  // - 037: 苗栗 (6位號碼)
+  // - 049: 南投 (7位號碼)
+  // - 089: 台東 (6位號碼)
+  // - 082: 金門 (6位號碼)
+  // - 0836: 馬祖 (5位號碼)
+  const phonePatterns = [
+    /^02-\d{8}$/,           // 台北/新北/基隆: 02-12345678
+    /^0[3-8]-\d{7,8}$/,     // 桃園~屏東: 03-1234567, 04-12345678
+    /^037-\d{6}$/,          // 苗栗: 037-123456
+    /^049-\d{7}$/,          // 南投: 049-1234567
+    /^089-\d{6}$/,          // 台東: 089-123456
+    /^082-\d{6}$/,          // 金門: 082-123456
+    /^0836-\d{5}$/          // 馬祖: 0836-12345
+  ]
+  const isValidPhone = phonePatterns.some(pattern => pattern.test(userInfo.value.phone))
+  if (!isValidPhone) {
+    alert('公務電話格式不正確，請使用「區碼-號碼」格式\n\n範例：\n• 02-12345678（台北）\n• 04-12345678（台中）\n• 049-1234567（南投）')
+    return
+  }
+
+  // 驗證手機格式（選填，但若有填寫則需符合格式）
+  if (userInfo.value.mobile) {
+    const mobileRegex = /^09\d{8}$/
+    if (!mobileRegex.test(userInfo.value.mobile)) {
+      alert('手機號碼格式不正確，請使用格式：09開頭的10位數字（例：0912345678）')
+      return
+    }
   }
 
   if (!newPassword.value) {
