@@ -22,6 +22,7 @@ class OfficeBoundaries(Model):
     sg = fields.CharField(max_length=255, null=True, description="SG")
     stngrp = fields.CharField(max_length=255, null=True, description="工作站小組")
     part = fields.CharField(max_length=255, null=True, description="部分")
+    is_virtual = fields.BooleanField(default=False, description="是否為虛擬單位（無實際邊界）")
 
     class Meta:
         table = "office_boundaries"

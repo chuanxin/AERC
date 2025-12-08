@@ -42,7 +42,25 @@ def load_env_file(env_path: Path = None):
 
     Args:
         env_path: .env 文件路徑，若未指定則自動搜尋
+
+    Note:
+        在 Docker 環境中，環境變數已透過 docker-compose.yml 載入，
+        此函數會偵測並跳過載入。
     """
+    # 檢查是否已有必要的環境變數（Docker 環境）
+    required_vars = [
+        "DATABASE_URL",
+        "MAIL_USERNAME",
+        "MAIL_PASSWORD",
+        "MAIL_SERVER",
+        "FRONTEND_URL"
+    ]
+
+    existing_vars = [var for var in required_vars if os.environ.get(var)]
+    if len(existing_vars) == len(required_vars):
+        print("[INFO] 環境變數已存在（Docker 環境），跳過載入 .env")
+        return True
+
     if env_path is None:
         # 自動偵測 .env 位置
         # 1. 檢查 api 目錄的父目錄（開發環境: AERC/.env）
@@ -100,15 +118,7 @@ def load_env_file(env_path: Path = None):
 
         print(f"[OK] 環境變數載入成功")
 
-        # 驗證必要的環境變數
-        required_vars = [
-            "DATABASE_URL",
-            "MAIL_USERNAME",
-            "MAIL_PASSWORD",
-            "MAIL_SERVER",
-            "FRONTEND_URL"
-        ]
-
+        # 驗證必要的環境變數（required_vars 已在函數開頭定義）
         missing_vars = [var for var in required_vars if not os.environ.get(var)]
         if missing_vars:
             print(f"[WARN] 缺少以下環境變數: {', '.join(missing_vars)}")
