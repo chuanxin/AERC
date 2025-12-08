@@ -1,13 +1,19 @@
-"""
+r"""
 批次發送帳號轉移驗證信
 
 用法:
+    # 開發環境
     cd /Users/cxin/dev/AERC
     python api/scripts/send_migration_emails.py [--dry-run] [--limit N]
+
+    # 生產環境
+    cd C:\AERC\AERC-Deploy
+    runtime\.venv\Scripts\python.exe app\api\scripts\send_migration_emails.py [--dry-run] [--limit N]
 
 參數:
     --dry-run: 測試模式，僅列出符合條件的使用者，不實際發送
     --limit N: 限制發送數量（測試用）
+    --env-file PATH: 指定 .env 文件路徑（可選，預設自動偵測）
 
 篩選條件:
     - is_active = False
@@ -19,14 +25,100 @@ import asyncio
 import argparse
 import os
 import sys
+from pathlib import Path
 
 # 設定 Python 路徑以便 import 專案模組
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+script_dir = Path(__file__).resolve().parent
+api_dir = script_dir.parent
+sys.path.insert(0, str(api_dir))
 
-from tortoise import Tortoise
-from src.database.models import Users
-from src.services.email_service import EmailService
-from src.database.config import TORTOISE_ORM
+# NOTE: 不要在這裡 import 需要環境變數的模組
+# Tortoise, Models, EmailService 等需要在載入 .env 後才能 import
+
+
+def load_env_file(env_path: Path = None):
+    """
+    載入 .env 文件中的環境變數
+
+    Args:
+        env_path: .env 文件路徑，若未指定則自動搜尋
+    """
+    if env_path is None:
+        # 自動偵測 .env 位置
+        # 1. 檢查 api 目錄的父目錄（開發環境: AERC/.env）
+        dev_env = api_dir.parent / ".env"
+        # 2. 檢查生產環境路徑（C:\AERC\AERC-Deploy\.env）
+        if "AERC-Deploy" in str(api_dir):
+            # 生產環境: app/api -> AERC-Deploy
+            prod_env = api_dir.parent.parent / ".env"
+        else:
+            prod_env = None
+
+        # 優先使用生產環境
+        if prod_env and prod_env.exists():
+            env_path = prod_env
+        elif dev_env.exists():
+            env_path = dev_env
+        else:
+            print(f"[WARN] 找不到 .env 文件")
+            print(f"  嘗試的路徑:")
+            print(f"    - {dev_env}")
+            if prod_env:
+                print(f"    - {prod_env}")
+            print(f"  請確保環境變數已設定或使用 --env-file 參數指定路徑")
+            return False
+
+    if not env_path.exists():
+        print(f"[ERROR] .env 文件不存在: {env_path}")
+        return False
+
+    print(f"[INFO] 載入環境變數: {env_path}")
+
+    try:
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f, 1):
+                line = line.strip()
+                # 跳過空行和註解
+                if not line or line.startswith('#'):
+                    continue
+
+                # 解析 KEY=VALUE
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+
+                    # 移除引號
+                    if value.startswith('"') and value.endswith('"'):
+                        value = value[1:-1]
+                    elif value.startswith("'") and value.endswith("'"):
+                        value = value[1:-1]
+
+                    # 只設定尚未存在的環境變數（不覆蓋已設定的）
+                    if key not in os.environ:
+                        os.environ[key] = value
+
+        print(f"[OK] 環境變數載入成功")
+
+        # 驗證必要的環境變數
+        required_vars = [
+            "DATABASE_URL",
+            "MAIL_USERNAME",
+            "MAIL_PASSWORD",
+            "MAIL_SERVER",
+            "FRONTEND_URL"
+        ]
+
+        missing_vars = [var for var in required_vars if not os.environ.get(var)]
+        if missing_vars:
+            print(f"[WARN] 缺少以下環境變數: {', '.join(missing_vars)}")
+            return False
+
+        return True
+
+    except Exception as e:
+        print(f"[ERROR] 載入 .env 文件失敗: {e}")
+        return False
 
 
 async def main(dry_run: bool = False, limit: int = None):
@@ -37,6 +129,12 @@ async def main(dry_run: bool = False, limit: int = None):
         dry_run: 是否為測試模式
         limit: 限制發送數量
     """
+    # 在函數內部 import（確保環境變數已載入）
+    from tortoise import Tortoise
+    from src.database.models import Users
+    from src.services.email_service import EmailService
+    from src.database.config import TORTOISE_ORM
+
     # 初始化資料庫連接
     print("[INFO] 正在連接資料庫...")
     await Tortoise.init(config=TORTOISE_ORM)
@@ -141,21 +239,39 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 範例:
-  # 測試模式（不實際發送）
-  python api/scripts/send_migration_emails.py --dry-run
+  開發環境:
+    # 測試模式（不實際發送）
+    python api/scripts/send_migration_emails.py --dry-run
 
-  # 測試模式，只列出前 5 位使用者
-  python api/scripts/send_migration_emails.py --dry-run --limit 5
+    # 測試模式，只列出前 5 位使用者
+    python api/scripts/send_migration_emails.py --dry-run --limit 5
 
-  # 實際發送給所有符合條件的使用者
-  python api/scripts/send_migration_emails.py
+    # 實際發送給所有符合條件的使用者
+    python api/scripts/send_migration_emails.py
 
-  # 實際發送，但限制 10 位使用者（測試用）
-  python api/scripts/send_migration_emails.py --limit 10
+  生產環境:
+    # 測試模式
+    cd C:\\AERC\\AERC-Deploy
+    runtime\\.venv\\Scripts\\python.exe app\\api\\scripts\\send_migration_emails.py --dry-run
+
+    # 實際發送（限制 10 位測試）
+    runtime\\.venv\\Scripts\\python.exe app\\api\\scripts\\send_migration_emails.py --limit 10
+
+    # 指定 .env 路徑
+    runtime\\.venv\\Scripts\\python.exe app\\api\\scripts\\send_migration_emails.py --env-file C:\\AERC\\AERC-Deploy\\.env
         """
     )
     parser.add_argument("--dry-run", action="store_true", help="測試模式，不實際發送郵件")
     parser.add_argument("--limit", type=int, help="限制發送數量（測試用）")
+    parser.add_argument("--env-file", type=str, help="指定 .env 文件路徑（可選）")
     args = parser.parse_args()
 
+    # 載入環境變數
+    env_file_path = Path(args.env_file) if args.env_file else None
+    if not load_env_file(env_file_path):
+        print("\n[ERROR] 環境變數載入失敗，無法繼續執行")
+        print("[TIP] 請確認 .env 文件存在，或使用 --env-file 參數指定路徑")
+        sys.exit(1)
+
+    print()  # 空行分隔
     asyncio.run(main(dry_run=args.dry_run, limit=args.limit))
