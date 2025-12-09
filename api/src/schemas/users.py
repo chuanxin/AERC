@@ -5,6 +5,7 @@ from datetime import datetime
 
 from src.database.models import Users
 from src.services.password_policy import validate_password_strength
+from src.schemas.permissions import UserPermissionsSchema
 
 
 UserInSchema = pydantic_model_creator(
@@ -30,7 +31,7 @@ class UserDatabaseSchema(BaseSchema):
     password: str
     is_active: bool
     role: Optional[str] = None
-    permissions: Optional[list] = None
+    permissions: Optional[UserPermissionsSchema] = None
     last_login: Optional[datetime] = None
     password_expired: bool = False  # 密碼是否已過期
 
@@ -42,7 +43,7 @@ class UserInfoSchema(BaseSchema):
     job_title: Optional[str]
     is_active: bool
     role: Optional[str]
-    permissions: Optional[list]
+    permissions: Optional[UserPermissionsSchema]
     # last_login: Optional[datetime]
     office: Optional[SimpleOfficeSchema] = None
 

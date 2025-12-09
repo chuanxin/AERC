@@ -31,6 +31,26 @@ export const USERS = {
   MIGRATE: `${BASE}/login/migrate/complete`,
 }
 
+// user management (admin) related endpoints
+export const USER_MANAGEMENT = {
+  BASE: `${BASE}/user-management`,
+  LIST: `${BASE}/user-management`,
+  DETAIL: (id: number) => `${BASE}/user-management/${id}`,
+  UPDATE_PERMISSIONS: (id: number) => `${BASE}/user-management/${id}/permissions`,
+  BATCH_ACTIVATE: `${BASE}/user-management/batch-activate`,
+  BATCH_DEACTIVATE: `${BASE}/user-management/batch-deactivate`,
+  PENDING_APPROVAL: `${BASE}/user-management/pending-approval`,
+  APPROVE: (id: number) => `${BASE}/user-management/${id}/approve`,
+  REJECT: (id: number) => `${BASE}/user-management/${id}/reject`,
+}
+
+// permissions related endpoints
+export const PERMISSIONS = {
+  BASE: `${BASE}/permissions`,
+  CHECK: `${BASE}/permissions/check`,
+  SUMMARY: `${BASE}/permissions/summary`,
+}
+
 // GIS related endpoints
 export const GIS = {
   BASE: `${BASE}/gis`,

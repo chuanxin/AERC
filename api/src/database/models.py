@@ -19,7 +19,7 @@ class Users(models.Model):
 
     is_active = fields.BooleanField(default=True, description="是否啟用")
     role = fields.CharField(max_length=50, default="user", description="角色: admin, manager, user 等")
-    permissions = fields.JSONField(null=True, description="特定權限設定(JSON格式)")
+    permissions = fields.JSONField(null=True, description="使用者權限設定（JSONB）：{mode: 'default'|'scoped'|'custom', scope: {...}, custom: {...}}")
     last_login = fields.DatetimeField(null=True, description="最後登入時間")
 
     # 密碼政策相關欄位
