@@ -207,3 +207,12 @@ export const ATTACHMENTS = {
   DELETE: (attachmentId: number) => `${BASE}/attachments/${attachmentId}`,
   BATCH_OPERATION: `${BASE}/attachments/batch-operation`,
 }
+
+// leisure farms related endpoints
+export const LEISURE_FARMS = {
+  BASE: `${BASE}/leisure-farms`,
+  NEARBY: `${BASE}/leisure-farms/nearby`,
+  CHECK: `${BASE}/leisure-farms/check`,
+  BY_LOCATION: `${BASE}/leisure-farms/by-location`,
+  STATS: `${BASE}/leisure-farms/stats`,
+}

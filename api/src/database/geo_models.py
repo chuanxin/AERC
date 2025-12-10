@@ -68,3 +68,35 @@ class GrantLocations(Model):
         table = "grant_locations"
         # The unique constraint will be added manually in the migration script
         # to handle the PostGIS-specific parts correctly.
+
+
+class LeisureFarms(Model):
+    """
+    休閒農場資料表 - 來自農業部開放資料 API
+    
+    資料來源：農業部開放資料平台
+    API URL: https://data.moa.gov.tw/Service/OpenData/ODwsv/ODwsvQualityFarm.aspx?&UnitId=376
+    
+    此資料表由 PostGIS 直接管理，不透過 Tortoise migration
+    資料透過定期同步腳本從 MOA API 更新
+    """
+    id = fields.IntField(pk=True, description="主鍵 ID")
+    farm_name = fields.CharField(max_length=255, description="農場名稱 (對應 API: FarmNm_CH)")
+    county = fields.CharField(max_length=50, description="縣市名稱 (對應 API: County)")
+    township = fields.CharField(max_length=50, description="鄉鎮市區名稱 (對應 API: Township)")
+    address = fields.CharField(max_length=500, null=True, description="農場地址 (對應 API: Address_CH)")
+    phone = fields.CharField(max_length=50, null=True, description="聯絡電話 (對應 API: TEL)")
+    web_url = fields.CharField(max_length=500, null=True, description="農場網站 (對應 API: WebURL)")
+    certify_start_date = fields.DateField(null=True, description="認證起始日期 (對應 API: CertifySDate)")
+    certify_end_date = fields.DateField(null=True, description="認證結束日期 (對應 API: CertifyEDate)")
+    identify_item = fields.CharField(max_length=255, null=True, description="認證項目 (對應 API: IdentifyItem)")
+    photo_url = fields.CharField(max_length=500, null=True, description="農場照片 URL (對應 API: Photo)")
+    longitude = fields.DecimalField(max_digits=12, decimal_places=8, description="經度 WGS84 (對應 API: Longitude)")
+    latitude = fields.DecimalField(max_digits=12, decimal_places=8, description="緯度 WGS84 (對應 API: Latitude)")
+    # geom 欄位由 PostGIS 直接管理，在 ORM 中不定義
+    last_synced = fields.DatetimeField(null=True, description="最後同步時間")
+    created_at = fields.DatetimeField(null=True, description="建立時間")
+
+    class Meta:
+        table = "leisure_farms"
+        managed = False  # 不由 Tortoise ORM 管理遷移，由 PostGIS 直接管理
