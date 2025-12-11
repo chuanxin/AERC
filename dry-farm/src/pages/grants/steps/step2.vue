@@ -117,12 +117,12 @@
                   <div v-if="selectedFeatureInfo.Land_no">
                     <strong>地號:</strong> {{ selectedFeatureInfo.Land_no }}
                   </div>
-                  <div v-if="selectedFeatureInfo.SECT">
+                  <!-- <div v-if="selectedFeatureInfo.SECT">
                     <strong>地段號:</strong> {{ selectedFeatureInfo.SECT }}
-                  </div>
-                  <!-- <div v-if="selectedFeatureInfo.section">
-                    <strong>地段名稱:</strong> {{ selectedFeatureInfo.section }}
                   </div> -->
+                  <div v-if="selectedFeatureInfo.section">
+                    <strong>地段:</strong> {{ selectedFeatureInfo.section }}
+                  </div>
                   <div v-if="selectedFeatureInfo.area">
                     <strong>面積:</strong> {{ selectedFeatureInfo.area }} 平方公尺
                     <!-- <span class="text-caption text-grey-darken-1">
@@ -1931,7 +1931,7 @@ import WMTSTileGrid from 'ol/tilegrid/WMTS';
 import { get as getProjection } from 'ol/proj';
 import { getWidth } from 'ol/extent';
 import { fromLonLat, transform } from 'ol/proj';
-import { Point, Polygon, MultiPolygon } from 'ol/geom';
+import { Polygon, MultiPolygon } from 'ol/geom';
 import { Vector as VectorLayer } from 'ol/layer';
 import { Vector as VectorSource } from 'ol/source';
 import { Style, Icon, Stroke, Fill } from 'ol/style';
@@ -1941,7 +1941,6 @@ import { click } from 'ol/events/condition';
 import { unByKey } from 'ol/Observable';
 import type { EventsKey } from 'ol/events';
 import { getArea } from 'ol/sphere';
-import { createEmpty, extend } from 'ol/extent';
 import { debounce } from 'lodash-es';
 import type { Feature } from 'ol';
 import type { Geometry } from 'ol/geom';
@@ -2033,7 +2032,6 @@ interface LandManagementState {
 import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
 import { useCropsStore } from '@/stores/crops';
-import { useRoute } from 'vue-router';
 import { fetchLandSectionsByLandCodes, type LandSection } from '@/services/landSectionNlscService';
 import {
   queryCadastralMap,
@@ -2069,8 +2067,6 @@ const props = withDefaults(defineProps<{
 }>(), {
   readonly: false
 })
-
-const route = useRoute();
 
 // Reference to map element and map instance
 const mapElement = ref(null);
@@ -4407,10 +4403,10 @@ const initMap = async () => {
       }),
     });
 
-    // NLSC 疊加層：地籍圖
+    // NLSC 疊加層：地籍圖（透過後端 API 代理）
     const cadastralLayer = new TileLayer({
       source: new WMTS({
-        url: 'https://landmaps.nlsc.gov.tw/S_Maps/wmts/DMAPS/default/GoogleMapsCompatible/{TileMatrix}/{TileRow}/{TileCol}',
+        url: '/api/v1/nlsc/wmts/cadastral/{TileMatrix}/{TileRow}/{TileCol}',
         layer: 'DMAPS',
         matrixSet: 'GoogleMapsCompatible',
         format: 'image/png',
@@ -4981,7 +4977,7 @@ const loadCadastralMapFromAPI = async () => {
     }
 
     // 顯示查詢到的地籍圖（loading 會在 processFeatureAreaData 結束時設為 false）
-    displayCadastralFeatures(result.features);
+    await displayCadastralFeatures(result.features);
 
   } catch (error) {
     console.error('❌ Failed to load cadastral map from API:', error);
@@ -5019,7 +5015,7 @@ const handleMapClick = async (event: any) => {
     console.log(`✅ Found ${result.features.length} cadastral feature(s) at clicked point`);
 
     // 顯示查詢到的地籍圖（loading 會在 processFeatureAreaData 結束時設為 false）
-    displayCadastralFeatures(result.features);
+    await displayCadastralFeatures(result.features);
 
   } catch (error) {
     console.error('❌ Failed to query cadastral map by point:', error);
@@ -5028,7 +5024,7 @@ const handleMapClick = async (event: any) => {
 };
 
 // 顯示地籍圖 features 在地圖上
-const displayCadastralFeatures = (features: any[]) => {
+const displayCadastralFeatures = async (features: any[]) => {
   console.log(`🗺️ Displaying ${features.length} cadastral features`);
 
   // 檢查 features 是否有幾何資料
@@ -5111,11 +5107,70 @@ const displayCadastralFeatures = (features: any[]) => {
   }
 
   // 處理面積資料並更新表單
-  processFeatureAreaData(features);
+  await processFeatureAreaData(features);
+};
+
+/**
+ * 根據 NLSC API 返回的縣市和鄉鎮名稱動態載入地段清單並查找地段名稱
+ * @param cityName NLSC API 返回的縣市名稱（例如：臺中市）
+ * @param townName NLSC API 返回的鄉鎮名稱（例如：南區）
+ * @param sectionCode NLSC API 返回的地段代碼（例如：0532）
+ * @returns 地段中文名稱，找不到則返回空字串
+ */
+const fetchSectionNameByCityAndTown = async (
+  cityName: string,
+  townName: string,
+  sectionCode: string
+): Promise<string> => {
+  try {
+    // 1. 查找縣市資料
+    const county = domicileStore.countyOptions.find(c => c.title === cityName);
+    if (!county || !county.land_code) {
+      console.warn(`⚠️ 找不到縣市或缺少 land_code: ${cityName}`);
+      return '';
+    }
+
+    // 2. 確保該縣市的鄉鎮資料已載入
+    if (!domicileStore.townsByCountyId.get(county.value)?.length) {
+      console.log(`📥 載入縣市 ${cityName} 的鄉鎮資料...`);
+      await domicileStore.loadTownsByCountyId(county.value);
+    }
+
+    // 3. 查找鄉鎮資料
+    const towns = domicileStore.getTownsForCountyId(county.value);
+    const town = towns.find(t => t.title === townName);
+    if (!town || !town.land_code) {
+      console.warn(`⚠️ 找不到鄉鎮或缺少 land_code: ${cityName} ${townName}`);
+      return '';
+    }
+
+    // 4. 使用與下拉選單相同的方法載入地段清單
+    console.log(`📥 載入地段資料: ${cityName} ${townName} (${county.land_code}/${town.land_code})`);
+    const sectionsToSearch = await fetchLandSectionsByLandCodes(county.land_code, town.land_code);
+
+    // 5. 在載入的地段清單中查找地段名稱
+    const sectionCodeToFind = sectionCode.toString();
+    const matchedSection = sectionsToSearch.find(s =>
+      s.code === sectionCodeToFind ||
+      s.code === parseInt(sectionCodeToFind, 10).toString() ||
+      parseInt(s.code, 10) === parseInt(sectionCodeToFind, 10)
+    );
+
+    if (matchedSection) {
+      console.log(`✅ 找到地段名稱: ${matchedSection.name} (代碼: ${sectionCode})`);
+      return matchedSection.name;
+    } else {
+      console.warn(`⚠️ 找不到地段代碼 ${sectionCode} 在 ${cityName} ${townName}`);
+      return '';
+    }
+  } catch (error) {
+    console.error('❌ 動態載入地段清單失敗:', error);
+    return '';
+  }
 };
 
 // 處理 feature 的面積資料（從 NLSC API 返回的 GML 包含面積等屬性）
-const processFeatureAreaData = (features: any[]) => {
+const processFeatureAreaData = async (features: any[]) => {
   if (features.length === 0) return;
 
   // 取得第一個 feature（通常查詢單一地號只會返回一個 feature）
@@ -5178,17 +5233,29 @@ const processFeatureAreaData = (features: any[]) => {
     formattedLandNo = `${mainPart}-${subPart}`;
   }
 
-  // 🆕 獲取地段中文名稱（從已選擇的地段資料）
+  // 🆕 獲取地段中文名稱
   let sectionName = '';
-  if (localFormData.landSec) {
-    const currentSectionCode = localFormData.landSec.toString();
-    const selectedSection = sections.value.find(s =>
-      s.code === currentSectionCode ||
-      s.value === currentSectionCode ||
-      s.code === properties.SECT
-    );
-    if (selectedSection) {
-      sectionName = selectedSection.displayName || selectedSection.name || selectedSection.title || '';
+  const sectionCodeToFind = properties.SECT || localFormData.landSec?.toString();
+
+  if (sectionCodeToFind) {
+    // 🆕 優先使用 NLSC API 返回的 CITY 和 TOWN 動態載入地段清單（支援跨區查詢）
+    if (properties.CITY && properties.TOWN) {
+      sectionName = await fetchSectionNameByCityAndTown(
+        properties.CITY,
+        properties.TOWN,
+        sectionCodeToFind
+      );
+    }
+
+    // 如果動態載入失敗，回退到當前已載入的地段清單中查找
+    if (!sectionName) {
+      const selectedSection = sections.value.find(s =>
+        s.code === sectionCodeToFind ||
+        s.value === sectionCodeToFind
+      );
+      if (selectedSection) {
+        sectionName = selectedSection.displayName || selectedSection.name || selectedSection.title || '';
+      }
     }
   }
 
@@ -5225,182 +5292,6 @@ const processFeatureAreaData = (features: any[]) => {
 
   console.log('✅ Updated selectedFeatureInfo:', selectedFeatureInfo.value);
 };
-
-// 移除舊的 GeoJSON 處理邏輯（已被 NLSC API 取代）
-// - sharedGeoJSONSource (line 2049): 不再需要快取整個 13MB GeoJSON
-// - processFeatures: 不再需要前端過濾，改用 NLSC API 直接查詢指定地號
-
-// const findAndSelectFeatureByLandNumber = () => {
-//   if (!map) return;
-
-//   // 🆕 清除之前的查無地號 alert
-//   landParcelNotFoundAlert.value = false;
-//   landParcelNotFoundMessage.value = '';
-
-//   // Get the main and sub numbers
-//   const mainNumber = localFormData.landNumberMain;
-//   const subNumber = localFormData.landNumberSub;
-//   // const mainNumber = localFormData.landNumberMain ? localFormData.landNumberMain.replace(/^0+/, '') || '0' : ''
-//   // const subNumber = localFormData.landNumberSub ? localFormData.landNumberSub.replace(/^0+/, '') || '0' : ''
-
-//   if (!mainNumber) return false;
-
-//   // Format the search pattern based on available data
-//   const fullLandNumber = subNumber ? `${mainNumber}-${subNumber}` : mainNumber;
-
-//   // 🆕 即時查詢當前選中地段的 office 和 code，組合成 Section 查詢字串
-//   let querySection: string | null = null;
-//   if (localFormData.landSec) {
-//     const currentSectionCode = localFormData.landSec.toString();
-//     const selectedSection = sections.value.find(s =>
-//       s.code === currentSectionCode ||
-//       s.value === currentSectionCode ||
-//       s.code === localFormData.landSec ||
-//       s.value === localFormData.landSec
-//     );
-
-//     if (selectedSection && selectedSection.office && selectedSection.code) {
-//       querySection = `${selectedSection.office}${selectedSection.code}`;
-//       console.log(`Searching with Section filter: ${querySection} (office: ${selectedSection.office}, code: ${selectedSection.code})`);
-//     }
-//   }
-
-//   console.log(`Searching for land number: ${fullLandNumber}`);
-
-//   // Look through all vector layers
-//   const layers = map.getLayers().getArray().filter((layer): layer is VectorLayer<VectorSource> =>
-//     layer instanceof VectorLayer && layer.getSource() instanceof VectorSource
-//   );
-
-//   let exactMatch: Feature<Geometry> | null = null;
-//   let mainNumberMatch: Feature<Geometry> | null = null;
-
-//   // For each layer, try to find the feature
-//   for (const layer of layers) {
-//     const source = layer.getSource();
-//     if (!source) continue;
-//     const features = source.getFeatures();
-
-//     // First pass: look for exact matches
-//     features.forEach((feature: Feature<Geometry>) => {
-//       const featureNumber = feature.get('Land_no');
-//       if (!featureNumber) return;
-
-//       // 🆕 取得 feature 的 Section 屬性
-//       const featureSection = feature.get('Section');
-
-//       // 🆕 如果有 Section 查詢條件，先檢查 Section 是否匹配
-//       if (querySection && featureSection) {
-//         if (featureSection !== querySection) {
-//           // Section 不匹配，跳過此 feature
-//           return;
-//         }
-//       }
-
-//       // Check for exact match first
-//       if (featureNumber === fullLandNumber) {
-//         exactMatch = feature;
-//       }
-//       // If we're looking for a full number but no exact match yet, check for main number match
-//       else if (subNumber && exactMatch === null && featureNumber === mainNumber) {
-//         mainNumberMatch = feature;
-//       }
-//     });
-
-//     // If we found an exact match, use it
-//     if (exactMatch) {
-//       const matchedSection = (exactMatch as Feature<Geometry>).get('Section');
-//       console.log(`✅ Found exact match - Land_no: ${(exactMatch as Feature<Geometry>).get('Land_no')}${matchedSection ? `, Section: ${matchedSection}` : ''}`);
-//       selectFeature(exactMatch);
-//       return true;
-//     }
-//   }
-
-//   // If no exact match was found but we have a main number match, use that
-//   if (mainNumberMatch) {
-//     const matchedSection = (mainNumberMatch as Feature<Geometry>).get('Section');
-//     console.log(`✅ Found main number match - Land_no: ${(mainNumberMatch as Feature<Geometry>).get('Land_no')}${matchedSection ? `, Section: ${matchedSection}` : ''}`);
-//     selectFeature(mainNumberMatch);
-//     return true;
-//   }
-
-//   // 🆕 找不到匹配的地號時，嘗試縮放到整個 Section 的範圍
-//   console.log(`❌ No feature found with land number: ${fullLandNumber}${querySection ? ` in Section: ${querySection}` : ''}`);
-
-//   // 🆕 設置查無地號 alert（僅在未顯示「查無地段圖資」overlay 時）
-//   if (!noSectionDataOverlay.value) {
-//     const selectedSection = sections.value.find(s =>
-//       s.code === localFormData.landSec?.toString() ||
-//       s.value === localFormData.landSec?.toString()
-//     );
-//     const sectionName = selectedSection?.name || selectedSection?.displayName || '所選地段';
-
-//     landParcelNotFoundAlert.value = true;
-//     landParcelNotFoundMessage.value = querySection
-//       ? `在「${sectionName}」中找不到地號「${fullLandNumber}」，已自動縮放至地段範圍。`
-//       : `找不到地號「${fullLandNumber}」，請確認地號是否正確。`;
-//   }
-
-//   if (querySection && map) {
-//     // 收集所有符合 Section 的 features，計算其 bbox
-//     const sectionExtent = createEmpty();
-//     let sectionFeatureCount = 0;
-
-//     for (const layer of layers) {
-//       const source = layer.getSource();
-//       if (!source) continue;
-//       const features = source.getFeatures();
-
-//       features.forEach((feature: Feature<Geometry>) => {
-//         const featureSection = feature.get('Section');
-//         if (featureSection === querySection) {
-//           const geometry = feature.getGeometry();
-//           if (geometry) {
-//             extend(sectionExtent, geometry.getExtent());
-//             sectionFeatureCount++;
-//           }
-//         }
-//       });
-//     }
-
-//     // 如果找到該 Section 的 features，縮放到其範圍
-//     if (sectionFeatureCount > 0) {
-//       console.log(`🔍 Zooming to Section ${querySection} with ${sectionFeatureCount} features`);
-//       map.getView().fit(sectionExtent, {
-//         duration: 500,
-//         padding: [50, 50, 50, 50], // 添加邊距以便更好地顯示
-//         maxZoom: 16 // 限制最大縮放級別，避免過度放大
-//       });
-//       return true; // 雖然沒找到精確地號，但成功顯示了地段範圍
-//     }
-//   }
-
-//   return false;
-// };
-
-// Helper function to select a feature
-// const selectFeature = (feature: Feature<Geometry>) => {
-//   if (select) {
-//     select.getFeatures().clear(); // Clear any existing selection
-//     select.getFeatures().push(feature); // Add this feature to selection
-
-//     // Trigger the feature selection handler manually
-//     handleFeatureSelect({
-//       selected: [feature],
-//       deselected: []
-//     });
-
-//     // Center the map on this feature
-//     const geometry = feature.getGeometry();
-//     if (geometry && map) {
-//       // Get the extent of the geometry for fitting
-//       const extent = geometry.getExtent();
-//       map.getView().fit(extent, {
-//         duration: 500
-//       });
-//     }
-//   }
-// };
 
 // Clean up interactions when map is destroyed - 增強版本
 const cleanupMap = () => {
@@ -5529,18 +5420,6 @@ watch([() => localFormData.longitude, () => localFormData.latitude], () => {
     if (!isNaN(lon) && !isNaN(lat)) {
       // Update view center
       map.getView().setCenter(fromLonLat([lon, lat]));
-
-      // Update marker position
-      const vectorLayer = map.getLayers().getArray().find(layer =>
-        layer instanceof VectorLayer
-      );
-
-      if (vectorLayer) {
-        const feature = vectorLayer.getSource().getFeatures()[0];
-        if (feature) {
-          feature.setGeometry(new Point(fromLonLat([lon, lat])));
-        }
-      }
     }
   }
 });

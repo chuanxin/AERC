@@ -216,3 +216,12 @@ export const LEISURE_FARMS = {
   BY_LOCATION: `${BASE}/leisure-farms/by-location`,
   STATS: `${BASE}/leisure-farms/stats`,
 }
+
+// NLSC (國土測繪中心) related endpoints
+export const NLSC = {
+  BASE: `${BASE}/nlsc`,
+  CADASTRAL_QUERY_BY_LAND_NUMBER: `${BASE}/nlsc/cadastral/query-by-land-number`,
+  CADASTRAL_QUERY_BY_POINT: `${BASE}/nlsc/cadastral/query-by-point`,
+  WMTS_CADASTRAL_TILE: (tileMatrix: number, tileRow: number, tileCol: number) =>
+    `${BASE}/nlsc/wmts/cadastral/${tileMatrix}/${tileRow}/${tileCol}`,
+}
