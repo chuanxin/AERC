@@ -1,4 +1,4 @@
-import { AUTH, DOMICILE, OFFICES, USERS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, CROPS, GIS, QUALIFICATION, SPATIAL, DOWNLOADS, ATTACHMENTS } from './endpoints';
+import { AUTH, DOMICILE, OFFICES, USERS, USER_MANAGEMENT, PERMISSIONS, GRANTS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, CROPS, GIS, QUALIFICATION, SPATIAL, DOWNLOADS, ATTACHMENTS, LEISURE_FARMS, NLSC } from './endpoints';
 
 // 取得當前的 API 版本前綴
 const API_BASE_URL = import.meta.env.FAST_API_BASE_URL || '';
@@ -46,6 +46,22 @@ export const BACKEND_PATHS = {
     REGISTER: '/register',
     MIGRATE_VERIFY_OTP: '/login/migrate/verify-otp',
     MIGRATE: '/login/migrate/complete',
+  },
+  // 用戶管理（管理員）相關
+  USER_MANAGEMENT: {
+    LIST: '/user-management',
+    DETAIL: (id: number) => `/user-management/${id}`,
+    UPDATE_PERMISSIONS: (id: number) => `/user-management/${id}/permissions`,
+    BATCH_ACTIVATE: '/user-management/batch-activate',
+    BATCH_DEACTIVATE: '/user-management/batch-deactivate',
+    PENDING_APPROVAL: '/user-management/pending-approval',
+    APPROVE: (id: number) => `/user-management/${id}/approve`,
+    REJECT: (id: number) => `/user-management/${id}/reject`,
+  },
+  // 權限相關
+  PERMISSIONS: {
+    CHECK: '/permissions/check',
+    SUMMARY: '/permissions/summary',
   },
   OFFICES: {
     LIST: '/offices',
@@ -141,7 +157,21 @@ export const BACKEND_PATHS = {
     INFO: (attachmentId: number) => `/attachments/info/${attachmentId}`,
     DELETE: (attachmentId: number) => `/attachments/${attachmentId}`,
     BATCH_OPERATION: '/attachments/batch-operation',
-  }
+  },
+  // 休閒農場相關
+  LEISURE_FARMS: {
+    NEARBY: '/leisure-farms/nearby',
+    CHECK: '/leisure-farms/check',
+    BY_LOCATION: '/leisure-farms/by-location',
+    STATS: '/leisure-farms/stats',
+  },
+  // NLSC (國土測繪中心)
+  NLSC: {
+    CADASTRAL_QUERY_BY_LAND_NUMBER: '/nlsc/cadastral/query-by-land-number',
+    CADASTRAL_QUERY_BY_POINT: '/nlsc/cadastral/query-by-point',
+    WMTS_CADASTRAL_TILE: (tileMatrix: number, tileRow: number, tileCol: number) =>
+      `/nlsc/wmts/cadastral/${tileMatrix}/${tileRow}/${tileCol}`,
+  },
 };
 
 // 前端到後端的直接映射表
@@ -160,6 +190,14 @@ export const API_MAPPING: Record<string, string> = {
   [USERS.LIST]: BACKEND_PATHS.USERS.LIST,
   [USERS.MIGRATE_VERIFY_OTP]: BACKEND_PATHS.USERS.MIGRATE_VERIFY_OTP,
   [USERS.MIGRATE]: BACKEND_PATHS.USERS.MIGRATE,
+  // 用戶管理（管理員）
+  [USER_MANAGEMENT.LIST]: BACKEND_PATHS.USER_MANAGEMENT.LIST,
+  [USER_MANAGEMENT.BATCH_ACTIVATE]: BACKEND_PATHS.USER_MANAGEMENT.BATCH_ACTIVATE,
+  [USER_MANAGEMENT.BATCH_DEACTIVATE]: BACKEND_PATHS.USER_MANAGEMENT.BATCH_DEACTIVATE,
+  [USER_MANAGEMENT.PENDING_APPROVAL]: BACKEND_PATHS.USER_MANAGEMENT.PENDING_APPROVAL,
+  // 權限
+  [PERMISSIONS.CHECK]: BACKEND_PATHS.PERMISSIONS.CHECK,
+  [PERMISSIONS.SUMMARY]: BACKEND_PATHS.PERMISSIONS.SUMMARY,
   [OFFICES.LIST]: BACKEND_PATHS.OFFICES.LIST,
   [DOMICILE.COUNTIES_LIST]: BACKEND_PATHS.DOMICILE.COUNTIES_LIST,
   [DOMICILE.TOWNS_LIST]: BACKEND_PATHS.DOMICILE.TOWNS_LIST,
@@ -195,6 +233,14 @@ export const API_MAPPING: Record<string, string> = {
   [DOWNLOADS.STATIC_FILES_BATCH]: BACKEND_PATHS.DOWNLOADS.STATIC_FILES_BATCH,
   [DOWNLOADS.TEST]: BACKEND_PATHS.DOWNLOADS.TEST,
   [ATTACHMENTS.BATCH_OPERATION]: BACKEND_PATHS.ATTACHMENTS.BATCH_OPERATION,
+  // 休閒農場
+  [LEISURE_FARMS.NEARBY]: BACKEND_PATHS.LEISURE_FARMS.NEARBY,
+  [LEISURE_FARMS.CHECK]: BACKEND_PATHS.LEISURE_FARMS.CHECK,
+  [LEISURE_FARMS.BY_LOCATION]: BACKEND_PATHS.LEISURE_FARMS.BY_LOCATION,
+  [LEISURE_FARMS.STATS]: BACKEND_PATHS.LEISURE_FARMS.STATS,
+  //
+  [NLSC.CADASTRAL_QUERY_BY_LAND_NUMBER]: BACKEND_PATHS.NLSC.CADASTRAL_QUERY_BY_LAND_NUMBER,
+  [NLSC.CADASTRAL_QUERY_BY_POINT]: BACKEND_PATHS.NLSC.CADASTRAL_QUERY_BY_POINT,
   // 🔥 移除錯誤的靜態映射：APPLICANT_SUBSIDY_SUMMARY 是函數，不能作為 Record key
   // [GRANTS.APPLICANT_SUBSIDY_SUMMARY]: BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY,
 }
@@ -230,6 +276,27 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配帳號註冊路徑 {API_PREFIX}/users/register
     pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/register$`),
     transform: () => BACKEND_PATHS.USERS.REGISTER
+  },
+  // 用戶管理（管理員）動態路徑
+  {
+    // 匹配用戶管理詳情路徑 {API_PREFIX}/user-management/{id}
+    pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.DETAIL(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配更新用戶權限路徑 {API_PREFIX}/user-management/{id}/permissions
+    pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)/permissions$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.UPDATE_PERMISSIONS(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配用戶審核通過路徑 {API_PREFIX}/user-management/{id}/approve
+    pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)/approve$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.APPROVE(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配用戶審核拒絕路徑 {API_PREFIX}/user-management/{id}/reject
+    pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)/reject$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.REJECT(parseInt(matches[1], 10))
   },
   {
     // 匹配管理處分處列表路徑 {API_PREFIX}/offices/branches/{officeId}
@@ -308,6 +375,15 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 注意: 這個要放在最後，避免與 upload/list/download/info 衝突
     pattern: new RegExp(`^${ATTACHMENTS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(?!upload|list|download|info|batch-operation)(\\d+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ATTACHMENTS.DELETE(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配 NLSC WMTS 地籍圖磚塊路徑 {API_PREFIX}/nlsc/wmts/cadastral/{tileMatrix}/{tileRow}/{tileCol}
+    pattern: new RegExp(`^${NLSC.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/wmts/cadastral/(\\d+)/(\\d+)/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.NLSC.WMTS_CADASTRAL_TILE(
+      parseInt(matches[1], 10),
+      parseInt(matches[2], 10),
+      parseInt(matches[3], 10)
+    )
   }
 ];
 

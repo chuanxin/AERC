@@ -19,7 +19,7 @@ import 'from src.routes import users, notes' must be after 'Tortoise.init_models
 why?
 https://stackoverflow.com/questions/65531387/tortoise-orm-for-python-no-returns-relations-of-entities-pyndantic-fastapi
 """
-from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops
+from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops, user_management, permissions, leisure_farms, nlsc
 
 app = FastAPI()
 
@@ -41,6 +41,8 @@ app.add_middleware(
 )
 
 app.include_router(users.router)
+app.include_router(user_management.router, prefix="/user-management", tags=["User Management"])
+app.include_router(permissions.router, prefix="/permissions", tags=["Permissions"])
 app.include_router(offices.router)
 app.include_router(domicile.router)
 app.include_router(grants.router)
@@ -58,6 +60,8 @@ app.include_router(qualification.router)
 app.include_router(spatial_services.router)
 app.include_router(downloads.router)
 app.include_router(crops.router)
+app.include_router(leisure_farms.router)
+app.include_router(nlsc.router)
 
 
 register_tortoise(app, config=TORTOISE_ORM, generate_schemas=False)

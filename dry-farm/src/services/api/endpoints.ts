@@ -31,6 +31,26 @@ export const USERS = {
   MIGRATE: `${BASE}/login/migrate/complete`,
 }
 
+// user management (admin) related endpoints
+export const USER_MANAGEMENT = {
+  BASE: `${BASE}/user-management`,
+  LIST: `${BASE}/user-management`,
+  DETAIL: (id: number) => `${BASE}/user-management/${id}`,
+  UPDATE_PERMISSIONS: (id: number) => `${BASE}/user-management/${id}/permissions`,
+  BATCH_ACTIVATE: `${BASE}/user-management/batch-activate`,
+  BATCH_DEACTIVATE: `${BASE}/user-management/batch-deactivate`,
+  PENDING_APPROVAL: `${BASE}/user-management/pending-approval`,
+  APPROVE: (id: number) => `${BASE}/user-management/${id}/approve`,
+  REJECT: (id: number) => `${BASE}/user-management/${id}/reject`,
+}
+
+// permissions related endpoints
+export const PERMISSIONS = {
+  BASE: `${BASE}/permissions`,
+  CHECK: `${BASE}/permissions/check`,
+  SUMMARY: `${BASE}/permissions/summary`,
+}
+
 // GIS related endpoints
 export const GIS = {
   BASE: `${BASE}/gis`,
@@ -186,4 +206,22 @@ export const ATTACHMENTS = {
   INFO: (attachmentId: number) => `${BASE}/attachments/info/${attachmentId}`,
   DELETE: (attachmentId: number) => `${BASE}/attachments/${attachmentId}`,
   BATCH_OPERATION: `${BASE}/attachments/batch-operation`,
+}
+
+// leisure farms related endpoints
+export const LEISURE_FARMS = {
+  BASE: `${BASE}/leisure-farms`,
+  NEARBY: `${BASE}/leisure-farms/nearby`,
+  CHECK: `${BASE}/leisure-farms/check`,
+  BY_LOCATION: `${BASE}/leisure-farms/by-location`,
+  STATS: `${BASE}/leisure-farms/stats`,
+}
+
+// NLSC (國土測繪中心) related endpoints
+export const NLSC = {
+  BASE: `${BASE}/nlsc`,
+  CADASTRAL_QUERY_BY_LAND_NUMBER: `${BASE}/nlsc/cadastral/query-by-land-number`,
+  CADASTRAL_QUERY_BY_POINT: `${BASE}/nlsc/cadastral/query-by-point`,
+  WMTS_CADASTRAL_TILE: (tileMatrix: number, tileRow: number, tileCol: number) =>
+    `${BASE}/nlsc/wmts/cadastral/${tileMatrix}/${tileRow}/${tileCol}`,
 }
