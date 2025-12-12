@@ -1,8 +1,39 @@
+/**
+ * ⚠️ DEPRECATED SERVICE
+ *
+ * 此服務已棄用，請使用新的 NLSC API 集成方案。
+ *
+ * 替代方案：
+ * - 使用 `useDomicileStore()` 的 `loadLandSectionsByLandCodes()` 方法
+ * - 使用 `landSectionNlscService.ts` 的 `fetchLandSectionsByLandCodes()` 函數
+ *
+ * 棄用原因：
+ * - 此服務依賴內部資料庫的 town_id，資料可能過時或不完整
+ * - 新的 NLSC API 提供即時、準確的國土測繪中心官方資料
+ * - 統一資料來源，透過 Pinia store 管理狀態，遵循 Single Source of Truth 原則
+ *
+ * 遷移指南：
+ * 舊代碼：
+ *   const sections = await fetchLandSectionsByTown(townId)
+ *
+ * 新代碼：
+ *   const domicileStore = useDomicileStore()
+ *   const town = domicileStore.getTownById(townId)
+ *   const county = domicileStore.getCountyById(town.county_id)
+ *   await domicileStore.loadLandSectionsByLandCodes(county.land_code, town.land_code)
+ *   const sections = domicileStore.getLandSectionsForTownId(townId)
+ *
+ * @deprecated 自 2025-12-12 起棄用
+ */
+
 import { apiService } from './api/http'
 import { DOMICILE } from './api/endpoints'
 import { ApplicationError } from '@/utils/asyncHelpers'
 
 // Types for land section data
+/**
+ * @deprecated 使用 landSectionNlscService.ts 中的 LandSection 型別
+ */
 export interface LandSection {
   id: number
   name: string
@@ -57,6 +88,7 @@ const MOCK_LAND_SECTIONS: LandSection[] = [
  * Fetch land sections by town ID with mock data support
  * @param townId - The town ID to filter sections by
  * @returns Promise<LandSection[]> - Array of land sections
+ * @deprecated 使用 useDomicileStore().loadLandSectionsByLandCodes() 替代
  */
 export const fetchLandSectionsByTown = async (townId: number): Promise<LandSection[]> => {
   try {
@@ -96,6 +128,7 @@ export const fetchLandSectionsByTown = async (townId: number): Promise<LandSecti
 /**
  * Get all available land sections (for admin purposes)
  * @returns Promise<LandSection[]> - All land sections
+ * @deprecated 此函數依賴內部資料庫，請改用 NLSC API 查詢特定區域的地段資料
  */
 export const fetchAllLandSections = async (): Promise<LandSection[]> => {
   try {
@@ -112,6 +145,7 @@ export const fetchAllLandSections = async (): Promise<LandSection[]> => {
  * Get land section by ID
  * @param sectionId - The section ID
  * @returns Promise<LandSection | null> - The land section or null if not found
+ * @deprecated 使用 useDomicileStore() 的快取資料替代，避免額外的 API 請求
  */
 export const fetchLandSectionById = async (sectionId: number): Promise<LandSection | null> => {
   try {

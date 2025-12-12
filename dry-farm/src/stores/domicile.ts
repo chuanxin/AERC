@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { fetchAllCounties, fetchTownsByCounty, fetchVillagesByTown, type County, type Town, type Village } from '@/services/domicileService'
-import { fetchLandSectionsByTown, type LandSection } from '@/services/landSectionService'
+import { fetchLandSectionsByLandCodes, type LandSection } from '@/services/landSectionNlscService'
 import { ApplicationError, wrapAsync } from '@/utils/asyncHelpers'
 
 
@@ -63,11 +63,19 @@ export const useDomicileStore = defineStore('domicile', () => {
 
   const landSectionsByTownId = computed(() => {
     const map = new Map<number, LandSection[]>()
+    // 使用 land_code 建立對應關係
     landSections.value.forEach(section => {
-      if (!map.has(section.town_id)) {
-        map.set(section.town_id, [])
+      // 從 town_land_code 找到對應的 town_id
+      const town = towns.value.find(t =>
+        t.land_code === section.town_land_code &&
+        counties.value.find(c => c.id === t.county_id)?.land_code === section.county_land_code
+      )
+      if (town) {
+        if (!map.has(town.id)) {
+          map.set(town.id, [])
+        }
+        map.get(town.id)?.push(section)
       }
-      map.get(section.town_id)?.push(section)
     })
     return map
   })
@@ -183,10 +191,38 @@ export const useDomicileStore = defineStore('domicile', () => {
     error.value = null
 
     try {
-      const newLandSections = await fetchLandSectionsByTown(townId)
+      // 從 town_id 查找對應的 land_code
+      const town = townsById.value.get(townId)
+      if (!town || !town.land_code) {
+        throw new ApplicationError({
+          message: `Town ${townId} not found or missing land_code`,
+          status: 404,
+          source: 'domicile.loadLandSectionsByTownId'
+        })
+      }
 
-      // Append instead of replace to build up the cache
-      landSections.value = [...landSections.value.filter(s => s.town_id !== townId), ...newLandSections]
+      const county = counties.value.find(c => c.id === town.county_id)
+      if (!county || !county.land_code) {
+        throw new ApplicationError({
+          message: `County for town ${townId} not found or missing land_code`,
+          status: 404,
+          source: 'domicile.loadLandSectionsByTownId'
+        })
+      }
+
+      // 使用新的 NLSC API
+      const newLandSections = await fetchLandSectionsByLandCodes(
+        county.land_code,
+        town.land_code
+      )
+
+      // 更新快取（移除舊資料，添加新資料）
+      landSections.value = [
+        ...landSections.value.filter(s =>
+          !(s.county_land_code === county.land_code && s.town_land_code === town.land_code)
+        ),
+        ...newLandSections
+      ]
     } catch (err: unknown) {
       if (err instanceof ApplicationError) {
         error.value = err.message || `Failed to load land sections for town ${townId}`
@@ -194,6 +230,36 @@ export const useDomicileStore = defineStore('domicile', () => {
         error.value = `Failed to load land sections for town ${townId}`
       }
       console.error(`Error loading land sections for town ${townId}:`, err)
+    } finally {
+      isLoading.value = false
+    }
+  })
+
+  // 直接使用 land_code 載入地段（用於特殊城市或跨區查詢）
+  const loadLandSectionsByLandCodes = wrapAsync(async (countyLandCode: string, townLandCode: string) => {
+    isLoading.value = true
+    error.value = null
+
+    try {
+      const newLandSections = await fetchLandSectionsByLandCodes(
+        countyLandCode,
+        townLandCode
+      )
+
+      // 更新快取（移除舊資料，添加新資料）
+      landSections.value = [
+        ...landSections.value.filter(s =>
+          !(s.county_land_code === countyLandCode && s.town_land_code === townLandCode)
+        ),
+        ...newLandSections
+      ]
+    } catch (err: unknown) {
+      if (err instanceof ApplicationError) {
+        error.value = err.message || `Failed to load land sections for ${countyLandCode}/${townLandCode}`
+      } else {
+        error.value = `Failed to load land sections for ${countyLandCode}/${townLandCode}`
+      }
+      console.error(`Error loading land sections for ${countyLandCode}/${townLandCode}:`, err)
     } finally {
       isLoading.value = false
     }
@@ -225,9 +291,10 @@ export const useDomicileStore = defineStore('domicile', () => {
   const getLandSectionsForTown = (townId: number) => {
     return (landSectionsByTownId.value.get(townId) || []).map(section => ({
       title: section.name,
-      value: section.id,
+      value: section.code,  // 使用 code 作為 value（新資料沒有 id）
       code: section.code,
-      townId: section.town_id
+      county_land_code: section.county_land_code,
+      town_land_code: section.town_land_code
     }))
   }
 
@@ -295,6 +362,7 @@ export const useDomicileStore = defineStore('domicile', () => {
     loadVillagesByTownId,
     loadVillagesByTownName,
     loadLandSectionsByTownId,
+    loadLandSectionsByLandCodes,
     initializeStore,
 
     // Add the helper methods
