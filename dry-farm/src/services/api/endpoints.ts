@@ -166,6 +166,11 @@ export const DOMICILE = {
 export const SPATIAL = {
   OFFICE: `${BASE}/spatial/office`,
   COUNTY: `${BASE}/spatial/county`,
+  // 🗑️ Deprecated: 已遷移到 NLSC.SECTIONS
+  LAND_SECTIONS: (countyLandCode: string, townLandCode: string) =>
+    `${BASE}/spatial/land-sections/${countyLandCode}/${townLandCode}`, // @deprecated
+  // 🗑️ Deprecated: 已遷移到 NLSC.HEALTH
+  LAND_SECTIONS_HEALTH: `${BASE}/spatial/land-sections/health`, // @deprecated
 }
 
 export const IRRIGATION_TYPES = {
@@ -218,10 +223,29 @@ export const LEISURE_FARMS = {
 }
 
 // NLSC (國土測繪中心) related endpoints
+// ✅ 重構更新（2025-12-12）：RESTful 命名 + 統一資源端點
 export const NLSC = {
   BASE: `${BASE}/nlsc`,
-  CADASTRAL_QUERY_BY_LAND_NUMBER: `${BASE}/nlsc/cadastral/query-by-land-number`,
-  CADASTRAL_QUERY_BY_POINT: `${BASE}/nlsc/cadastral/query-by-point`,
+
+  // ✅ 地籍圖查詢（統一資源端點）- 推薦使用
+  CADASTRAL_MAP: `${BASE}/nlsc/cadastral/map`, // 統一端點：依地號或座標查詢
+
+  // ✅ WMTS 磚塊
+  CADASTRAL_TILES: (z: number, y: number, x: number) =>
+    `${BASE}/nlsc/cadastral/tiles/${z}/${y}/${x}`, // WMTS 磚塊
+
+  // ✅ 地段清單查詢（從 /spatial 遷移）
+  SECTIONS: (countyLandCode: string, townLandCode: string) =>
+    `${BASE}/nlsc/sections/${countyLandCode}/${townLandCode}`,
+
+  // ✅ NLSC API 健康檢查（從 /spatial 遷移）
+  HEALTH: `${BASE}/nlsc/health`,
+
+  // 🗑️ 舊端點（向後相容，已標記 deprecated）
+  CADASTRAL_LAND: `${BASE}/nlsc/cadastral/land`, // @deprecated - 請使用 CADASTRAL_MAP
+  CADASTRAL_POINT: `${BASE}/nlsc/cadastral/point`, // @deprecated - 請使用 CADASTRAL_MAP
+  CADASTRAL_QUERY_BY_LAND_NUMBER: `${BASE}/nlsc/cadastral/query-by-land-number`, // @deprecated - 請使用 CADASTRAL_MAP
+  CADASTRAL_QUERY_BY_POINT: `${BASE}/nlsc/cadastral/query-by-point`, // @deprecated - 請使用 CADASTRAL_MAP
   WMTS_CADASTRAL_TILE: (tileMatrix: number, tileRow: number, tileCol: number) =>
-    `${BASE}/nlsc/wmts/cadastral/${tileMatrix}/${tileRow}/${tileCol}`,
+    `${BASE}/nlsc/cadastral/tiles/${tileMatrix}/${tileRow}/${tileCol}`, // @deprecated - 請使用 CADASTRAL_TILES
 }

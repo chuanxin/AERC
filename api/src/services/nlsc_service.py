@@ -28,6 +28,7 @@ class NLSCService:
     CADASTRAL_QUERY_URL = "https://api.nlsc.gov.tw/dmaps/CadasMapQuery"
     CADASTRAL_POINT_QUERY_URL = "https://api.nlsc.gov.tw/dmaps/CadasMapPointQuery"
     CADASTRAL_WMTS_URL = "https://landmaps.nlsc.gov.tw/S_Maps/wmts/DMAPS/default/GoogleMapsCompatible"
+    LAND_SECTIONS_URL = "https://api.nlsc.gov.tw/other/ListLandSection"
 
     # GML 命名空間
     NAMESPACES = {
@@ -256,7 +257,7 @@ class NLSCService:
 
             logger.info(f"Found {len(feature_members)} feature members in GML")
 
-            for member in feature_members:
+            for index, member in enumerate(feature_members):
                 # 查找 CADASTRE feature
                 cadastre = member.find('.//WFS:CADASTRE', cls.NAMESPACES)
                 if cadastre is None:
@@ -273,8 +274,15 @@ class NLSCService:
                 geometry = cls._extract_geometry(cadastre, srid)
 
                 if geometry:
+                    # 🔧 構建語義化的唯一 ID：{地段代碼}-{地號}-{索引}
+                    # 例如：0532-00020003-0, 0532-00020003-1, ...
+                    sect = properties.get('SECT', 'unknown')
+                    landno = properties.get('LANDNO', 'unknown')
+                    feature_id = f"{sect}-{landno}-{index}"
+
                     feature = {
                         "type": "Feature",
+                        "id": feature_id,  # 設置唯一 ID
                         "properties": properties,
                         "geometry": geometry
                     }
@@ -424,3 +432,155 @@ class NLSCService:
         except Exception as e:
             logger.error(f"Failed to proxy WMTS tile: {e}", exc_info=True)
             raise
+
+    @classmethod
+    async def query_land_sections(
+        cls,
+        county_land_code: str,
+        town_land_code: str
+    ) -> Dict:
+        """
+        查詢地段清單（依地政代碼）
+
+        Args:
+            county_land_code: 縣市地政代碼（例如：'A' for 台北市）
+            town_land_code: 鄉鎮地政代碼（例如：'A01' for 中正區）
+
+        Returns:
+            地段清單資料（包含 sections, count, api_url）
+        """
+        # 建立 API URL
+        api_url = f"{cls.LAND_SECTIONS_URL}/{county_land_code}/{town_land_code}"
+        logger.info(f"Querying NLSC Land Sections API: {api_url}")
+
+        try:
+            # 發送 HTTP 請求（跳過 SSL 驗證）
+            async with httpx.AsyncClient(timeout=30.0, verify=False) as client:
+                response = await client.get(api_url)
+                response.raise_for_status()
+
+            # 解析 XML 回應
+            try:
+                import xml.etree.ElementTree as ET
+                root = ET.fromstring(response.text)
+                sections = []
+
+                # 解析 XML 結構: <sectItems><sectItem><sectcode>0001</sectcode><sectstr>東門段一小段</sectstr>...</sectItem></sectItems>
+                for sect_item in root.findall('.//sectItem'):
+                    sect_code = sect_item.find('sectcode')
+                    sect_str = sect_item.find('sectstr')
+                    office = sect_item.find('office')
+                    office_str = sect_item.find('officestr')
+
+                    if sect_str is not None and sect_str.text:
+                        section_data = {
+                            "name": sect_str.text.strip(),
+                            "code": sect_code.text.strip() if sect_code is not None and sect_code.text else "",
+                            "office": office.text.strip() if office is not None and office.text else "",
+                            "office_name": office_str.text.strip() if office_str is not None and office_str.text else "",
+                            "county_land_code": county_land_code,
+                            "town_land_code": town_land_code
+                        }
+                        sections.append(section_data)
+
+                logger.info(f"Parsed {len(sections)} land sections from NLSC API")
+
+                return {
+                    "success": True,
+                    "sections": sections,
+                    "count": len(sections),
+                    "county_land_code": county_land_code,
+                    "town_land_code": town_land_code,
+                    "source": "nlsc_api",
+                    "api_url": api_url
+                }
+
+            except ET.ParseError as e:
+                logger.error(f"Failed to parse NLSC XML response: {e}")
+                return {
+                    "success": False,
+                    "sections": [],
+                    "count": 0,
+                    "message": f"XML 解析失敗: {str(e)}",
+                    "error_type": "parse_error",
+                    "api_url": api_url
+                }
+
+        except httpx.TimeoutException:
+            logger.error(f"NLSC API request timeout: {api_url}")
+            return {
+                "success": False,
+                "sections": [],
+                "count": 0,
+                "message": "NLSC API 請求超時",
+                "error_type": "timeout",
+                "api_url": api_url
+            }
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"NLSC API HTTP error: {e}")
+            return {
+                "success": False,
+                "sections": [],
+                "count": 0,
+                "message": f"HTTP {e.response.status_code}: {e.response.reason_phrase}",
+                "error_type": "http_error",
+                "api_url": api_url
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to query NLSC Land Sections: {e}", exc_info=True)
+            return {
+                "success": False,
+                "sections": [],
+                "count": 0,
+                "message": f"查詢失敗: {str(e)}",
+                "error_type": "unknown_error",
+                "api_url": api_url
+            }
+
+    @classmethod
+    async def check_health(cls) -> Dict:
+        """
+        檢查 NLSC API 服務健康狀態
+
+        使用台北市中正區的地段查詢作為健康檢查測試
+
+        Returns:
+            健康狀態資訊
+        """
+        from datetime import datetime, timezone
+
+        # 使用已知的地政代碼進行測試（台北市中正區）
+        test_url = f"{cls.LAND_SECTIONS_URL}/A/A01"
+        logger.info(f"Checking NLSC API health: {test_url}")
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
+                response = await client.get(test_url)
+                is_online = response.status_code == 200
+
+                return {
+                    "nlsc_api_status": "online" if is_online else "offline",
+                    "status_code": response.status_code,
+                    "test_url": test_url,
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+
+        except httpx.TimeoutException:
+            logger.warning("NLSC API health check timeout")
+            return {
+                "nlsc_api_status": "timeout",
+                "test_url": test_url,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "error": "Request timeout"
+            }
+
+        except Exception as e:
+            logger.error(f"NLSC API health check failed: {e}")
+            return {
+                "nlsc_api_status": "error",
+                "test_url": test_url,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "error": str(e)
+            }

@@ -124,12 +124,12 @@
                     <strong>地段:</strong> {{ selectedFeatureInfo.section }}
                   </div>
                   <div v-if="selectedFeatureInfo.area">
-                    <strong>面積:</strong> {{ selectedFeatureInfo.area }} 平方公尺
+                    <strong>面積:</strong> {{ Number(selectedFeatureInfo.area).toFixed(2) }} 平方公尺
                     <!-- <span class="text-caption text-grey-darken-1">
                       ({{ (Number(selectedFeatureInfo.area) / 3.305785).toFixed(2) }} 坪)
                     </span> -->
                     <div class="text-caption text-grey-darken-1">
-                      來源: 地籍登記面積 (NLSC)
+                      來源: {{ selectedFeatureInfo.areaSource || '地籍登記面積 (NLSC)' }}
                     </div>
                   </div>
                   <div class="mt-2">
@@ -1948,9 +1948,10 @@ import { queryOfficeBoundaries, queryCountyBoundaries } from '@/services/spatial
 
 // Define type for selected feature info
 interface SelectedFeatureInfo {
-  Land_no?: string;       // 地號（格式：####-#### 或 ####）
+  Land_no?: string;       // 地號（格式：####-####）
   section?: string;       // 地段名稱
-  area?: string | number; // 面積（平方公尺）
+  area?: string | number; // 面積（平方公尺，多個 polygon 時為總和）
+  areaSource?: string;    // 面積來源（地籍登記面積、測量面積、地圖幾何計算）
 
   // 🆕 NLSC GML 欄位（從 CadasMapQuery API 獲取）
   LANDNO?: string;        // GML 地號 8 碼（例如：00010000）
@@ -4326,7 +4327,6 @@ const showLandInfoDialog = async () => {
   // 給地圖一點時間初始化
   setTimeout(async () => {
     if (mapState.isInitialized) {
-      console.log('🗺️ Map initialized, loading cadastral data...');
       await loadCadastralMapFromAPI();
     }
   }, 500);
@@ -4406,7 +4406,7 @@ const initMap = async () => {
     // NLSC 疊加層：地籍圖（透過後端 API 代理）
     const cadastralLayer = new TileLayer({
       source: new WMTS({
-        url: '/api/v1/nlsc/wmts/cadastral/{TileMatrix}/{TileRow}/{TileCol}',
+        url: '/api/v1/nlsc/cadastral/tiles/{TileMatrix}/{TileRow}/{TileCol}',
         layer: 'DMAPS',
         matrixSet: 'GoogleMapsCompatible',
         format: 'image/png',
@@ -4443,7 +4443,6 @@ const initMap = async () => {
 
     // 🆕 添加地圖點擊事件監聽器，用於點座標查詢地籍圖
     map.on('click', handleMapClick);
-    console.log('✅ Map click listener added for cadastral point query');
 
     // Load cadastral map from NLSC API (if land info is available)
     // 地圖初始化後，不自動載入地籍圖，等待用戶點擊「查詢地號」按鈕
@@ -5012,8 +5011,6 @@ const handleMapClick = async (event: any) => {
       return;
     }
 
-    console.log(`✅ Found ${result.features.length} cadastral feature(s) at clicked point`);
-
     // 顯示查詢到的地籍圖（loading 會在 processFeatureAreaData 結束時設為 false）
     await displayCadastralFeatures(result.features);
 
@@ -5025,8 +5022,6 @@ const handleMapClick = async (event: any) => {
 
 // 顯示地籍圖 features 在地圖上
 const displayCadastralFeatures = async (features: any[]) => {
-  console.log(`🗺️ Displaying ${features.length} cadastral features`);
-
   // 檢查 features 是否有幾何資料
   if (features.length === 0) {
     console.error('❌ No features to display');
@@ -5041,13 +5036,11 @@ const displayCadastralFeatures = async (features: any[]) => {
     return;
   }
 
-  console.log('✅ Feature geometry type:', geometry.getType());
-  console.log('✅ Feature extent:', geometry.getExtent());
+  // 建立新的 VectorSource（先創建空的）
+  const cadastralSource = new VectorSource();
 
-  // 建立新的 VectorSource 包含查詢到的 features
-  const cadastralSource = new VectorSource({
-    features: features
-  });
+  // 使用 addFeatures() 方法添加所有 features（避免 Vue Proxy 問題）
+  cadastralSource.addFeatures(features);
 
   // 移除舊的地籍圖層（如果存在）
   if (map) {
@@ -5078,7 +5071,6 @@ const displayCadastralFeatures = async (features: any[]) => {
     // 自動縮放到 features 範圍
     try {
       const extent = cadastralSource.getExtent();
-      console.log('📍 Source extent:', extent);
 
       // 檢查 extent 是否有效（不是 Infinity）
       if (extent && extent.every(val => isFinite(val))) {
@@ -5087,7 +5079,6 @@ const displayCadastralFeatures = async (features: any[]) => {
           maxZoom: 18,
           duration: 500
         });
-        console.log('✅ Cadastral layer added and view fitted to extent');
       } else {
         console.warn('⚠️ Invalid extent, using feature geometry directly');
         // 使用第一個 feature 的幾何範圍
@@ -5173,9 +5164,9 @@ const fetchSectionNameByCityAndTown = async (
 const processFeatureAreaData = async (features: any[]) => {
   if (features.length === 0) return;
 
-  // 取得第一個 feature（通常查詢單一地號只會返回一個 feature）
+  // 統一處理邏輯（使用第一筆 feature 的資料）
+  // NLSC API 回傳的每筆 feature.AREA 都是總面積，不需要累加
   const feature = features[0];
-
   const properties = feature.getProperties();
 
   // NLSC GML 實際欄位 (根據實際 API 回傳)：
@@ -5191,10 +5182,6 @@ const processFeatureAreaData = async (features: any[]) => {
   // - LANDDETATIS: 用地編定
 
   const area = properties.AREA;
-  const valueAssessed = properties.VALUESSESSED;
-  const valueAnnounce = properties.VALUEANNOUNCE;
-  const landUse = properties.LANDUSE;
-  const landDetatis = properties.LANDDETATIS;
 
   // 如果沒有面積資料，使用 OpenLayers 計算幾何面積
   let calculatedArea = area;
@@ -5202,25 +5189,6 @@ const processFeatureAreaData = async (features: any[]) => {
     const geometry = feature.getGeometry();
     if (geometry && (geometry.getType() === 'Polygon' || geometry.getType() === 'MultiPolygon')) {
       calculatedArea = geometry.getArea(); // 平方公尺
-      console.log('📐 Calculated area from geometry:', calculatedArea, 'square meters');
-    }
-  }
-
-  // 顯示地籍資訊摘要
-  if (calculatedArea) {
-    console.log('✅ 地籍資料:');
-    console.log(`   面積: ${calculatedArea} 平方公尺 (${(calculatedArea / 3.305785).toFixed(2)} 坪)`);
-    if (valueAssessed) {
-      console.log(`   公告地價: ${valueAssessed} 元/㎡ (總價: ${Math.round(calculatedArea * valueAssessed).toLocaleString()} 元)`);
-    }
-    if (valueAnnounce) {
-      console.log(`   公告現值: ${valueAnnounce} 元/㎡ (總價: ${Math.round(calculatedArea * valueAnnounce).toLocaleString()} 元)`);
-    }
-    if (landUse) {
-      console.log(`   使用分區: ${landUse}`);
-    }
-    if (landDetatis) {
-      console.log(`   用地編定: ${landDetatis}`);
     }
   }
 

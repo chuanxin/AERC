@@ -60,18 +60,6 @@ const MOCK_LAND_SECTIONS: LandSection[] = [
  */
 export const fetchLandSectionsByTown = async (townId: number): Promise<LandSection[]> => {
   try {
-    // Check if we should use mock data (when townId is 286)
-    if (townId === 286) {
-      console.log('Using mock data for land sections (townId: 286)')
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 200))
-
-      // Return mock data filtered by town_id
-      return MOCK_LAND_SECTIONS.filter(section => section.town_id === townId)
-    }
-
-    // For other town IDs, try to call the real API
     try {
       const response = await apiService.get<LandSection[]>(`${DOMICILE.SECTIONS_LIST}?town_id=${townId}`)
       return response

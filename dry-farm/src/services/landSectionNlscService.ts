@@ -1,4 +1,6 @@
 import { apiService } from './api/http'
+import { NLSC } from './api/endpoints'
+import { ApplicationError } from '@/utils/asyncHelpers'
 
 // 地段資料介面
 export interface LandSection {
@@ -31,6 +33,11 @@ export interface NlscApiHealthResponse {
 
 /**
  * 透過地政代碼取得地段清單
+ *
+ * ✅ 端點更新（2025-12-12）：
+ * - 舊路徑: /spatial/land-sections/{county}/{town} (@deprecated)
+ * - 新路徑: /nlsc/sections/{county}/{town}
+ *
  * @param countyLandCode 縣市地政代碼
  * @param townLandCode 鄉鎮地政代碼
  * @returns Promise<LandSection[]>
@@ -40,8 +47,9 @@ export const fetchLandSectionsByLandCodes = async (
   townLandCode: string
 ): Promise<LandSection[]> => {
   try {
+    // ✅ 正確使用：NLSC.SECTIONS 是函數，需要調用並傳入參數
     const response = await apiService.get<NlscLandSectionResponse>(
-      `/spatial/land-sections/${countyLandCode}/${townLandCode}`
+      NLSC.SECTIONS(countyLandCode, townLandCode)
     )
 
     return response.sections || []
@@ -56,11 +64,17 @@ export const fetchLandSectionsByLandCodes = async (
 
 /**
  * 檢查 NLSC API 健康狀態
+ *
+ * ✅ 端點更新（2025-12-12）：
+ * - 舊路徑: /spatial/land-sections/health (@deprecated)
+ * - 新路徑: /nlsc/health
+ *
  * @returns Promise<NlscApiHealthResponse>
  */
 export const checkNlscApiHealth = async (): Promise<NlscApiHealthResponse> => {
   try {
-    const response = await apiService.get<NlscApiHealthResponse>('/spatial/land-sections/health')
+    // ✅ 使用端點常量而非硬編碼路徑
+    const response = await apiService.get<NlscApiHealthResponse>(NLSC.HEALTH)
     return response
   } catch (error) {
     console.error('Failed to check NLSC API health:', error)
