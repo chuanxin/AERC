@@ -166,11 +166,25 @@ export const BACKEND_PATHS = {
     STATS: '/leisure-farms/stats',
   },
   // NLSC (國土測繪中心)
+  // ✅ 重構更新（2025-12-12）：RESTful 命名 + 統一資源端點
   NLSC: {
-    CADASTRAL_QUERY_BY_LAND_NUMBER: '/nlsc/cadastral/query-by-land-number',
-    CADASTRAL_QUERY_BY_POINT: '/nlsc/cadastral/query-by-point',
+    // ✅ 統一資源端點（推薦使用）
+    CADASTRAL_MAP: '/nlsc/cadastral/map', // 地籍圖統一查詢端點
+
+    // ✅ 其他端點
+    CADASTRAL_TILES: (z: number, y: number, x: number) =>
+      `/nlsc/cadastral/tiles/${z}/${y}/${x}`,
+    SECTIONS: (countyLandCode: string, townLandCode: string) =>
+      `/nlsc/sections/${countyLandCode}/${townLandCode}`,
+    HEALTH: '/nlsc/health',
+
+    // 🗑️ 舊端點（向後相容，deprecated）
+    CADASTRAL_LAND: '/nlsc/cadastral/land', // @deprecated - 請使用 CADASTRAL_MAP
+    CADASTRAL_POINT: '/nlsc/cadastral/point', // @deprecated - 請使用 CADASTRAL_MAP
+    CADASTRAL_QUERY_BY_LAND_NUMBER: '/nlsc/cadastral/query-by-land-number', // @deprecated - 請使用 CADASTRAL_MAP
+    CADASTRAL_QUERY_BY_POINT: '/nlsc/cadastral/query-by-point', // @deprecated - 請使用 CADASTRAL_MAP
     WMTS_CADASTRAL_TILE: (tileMatrix: number, tileRow: number, tileCol: number) =>
-      `/nlsc/wmts/cadastral/${tileMatrix}/${tileRow}/${tileCol}`,
+      `/nlsc/cadastral/tiles/${tileMatrix}/${tileRow}/${tileCol}`, // @deprecated - 請使用 CADASTRAL_TILES
   },
 };
 
@@ -238,9 +252,14 @@ export const API_MAPPING: Record<string, string> = {
   [LEISURE_FARMS.CHECK]: BACKEND_PATHS.LEISURE_FARMS.CHECK,
   [LEISURE_FARMS.BY_LOCATION]: BACKEND_PATHS.LEISURE_FARMS.BY_LOCATION,
   [LEISURE_FARMS.STATS]: BACKEND_PATHS.LEISURE_FARMS.STATS,
-  //
-  [NLSC.CADASTRAL_QUERY_BY_LAND_NUMBER]: BACKEND_PATHS.NLSC.CADASTRAL_QUERY_BY_LAND_NUMBER,
-  [NLSC.CADASTRAL_QUERY_BY_POINT]: BACKEND_PATHS.NLSC.CADASTRAL_QUERY_BY_POINT,
+  // NLSC - ✅ 統一資源端點（推薦使用）
+  [NLSC.CADASTRAL_MAP]: BACKEND_PATHS.NLSC.CADASTRAL_MAP,
+  [NLSC.HEALTH]: BACKEND_PATHS.NLSC.HEALTH,
+  // NLSC - 🗑️ 舊端點（deprecated，向後相容）
+  [NLSC.CADASTRAL_LAND]: BACKEND_PATHS.NLSC.CADASTRAL_LAND, // @deprecated
+  [NLSC.CADASTRAL_POINT]: BACKEND_PATHS.NLSC.CADASTRAL_POINT, // @deprecated
+  [NLSC.CADASTRAL_QUERY_BY_LAND_NUMBER]: BACKEND_PATHS.NLSC.CADASTRAL_QUERY_BY_LAND_NUMBER, // @deprecated
+  [NLSC.CADASTRAL_QUERY_BY_POINT]: BACKEND_PATHS.NLSC.CADASTRAL_QUERY_BY_POINT, // @deprecated
   // 🔥 移除錯誤的靜態映射：APPLICANT_SUBSIDY_SUMMARY 是函數，不能作為 Record key
   // [GRANTS.APPLICANT_SUBSIDY_SUMMARY]: BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY,
 }
@@ -377,13 +396,20 @@ export const DYNAMIC_PATH_PATTERNS = [
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ATTACHMENTS.DELETE(parseInt(matches[1], 10))
   },
   {
-    // 匹配 NLSC WMTS 地籍圖磚塊路徑 {API_PREFIX}/nlsc/wmts/cadastral/{tileMatrix}/{tileRow}/{tileCol}
-    pattern: new RegExp(`^${NLSC.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/wmts/cadastral/(\\d+)/(\\d+)/(\\d+)$`),
-    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.NLSC.WMTS_CADASTRAL_TILE(
+    // 匹配 NLSC 地籍圖磚塊路徑（新舊格式統一）
+    // 新格式: {API_PREFIX}/nlsc/cadastral/tiles/{z}/{y}/{x}
+    // 舊格式: {API_PREFIX}/nlsc/wmts/cadastral/{tileMatrix}/{tileRow}/{tileCol}
+    pattern: new RegExp(`^${NLSC.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(?:cadastral/tiles|wmts/cadastral)/(\\d+)/(\\d+)/(\\d+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.NLSC.CADASTRAL_TILES(
       parseInt(matches[1], 10),
       parseInt(matches[2], 10),
       parseInt(matches[3], 10)
     )
+  },
+  {
+    // 匹配 NLSC 地段清單路徑 {API_PREFIX}/nlsc/sections/{countyLandCode}/{townLandCode}
+    pattern: new RegExp(`^${NLSC.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/sections/([^/]+)/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.NLSC.SECTIONS(matches[1], matches[2])
   }
 ];
 

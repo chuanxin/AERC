@@ -74,12 +74,22 @@ const convertGeoJSONToOpenLayersFeatures = (geojsonFeatures: any[]): Feature<Geo
   const geojsonFormat = new GeoJSON();
   const features: Feature<Geometry>[] = [];
 
-  for (const geojsonFeature of geojsonFeatures) {
+  for (let i = 0; i < geojsonFeatures.length; i++) {
+    const geojsonFeature = geojsonFeatures[i];
     try {
       const olFeature = geojsonFormat.readFeature(geojsonFeature, {
         dataProjection: 'EPSG:4326',      // GeoJSON 使用 WGS84
         featureProjection: 'EPSG:3857'    // OpenLayers 地圖使用 Web Mercator
       }) as Feature<Geometry>;
+
+      // 🔧 設置唯一 ID（優先使用後端提供的 ID，否則生成臨時 ID）
+      if (geojsonFeature.id) {
+        // 使用後端提供的語義化 ID（例如：0532-00020003-0）
+        olFeature.setId(geojsonFeature.id);
+      } else {
+        // Fallback: 生成臨時 ID（避免相同屬性值導致 Feature 被覆蓋）
+        olFeature.setId(`cadastral-feature-${Date.now()}-${i}`);
+      }
 
       // 複製屬性
       if (geojsonFeature.properties) {
@@ -98,15 +108,16 @@ const convertGeoJSONToOpenLayersFeatures = (geojsonFeatures: any[]): Feature<Geo
 };
 
 /**
- * 查詢指定地號的地籍圖資料
+ * 查詢指定地號的地籍圖資料（使用統一資源端點）
  */
 export const queryCadastralMap = async (
   params: CadastralQueryParams
 ): Promise<CadastralQueryResult> => {
   try {
-    console.log('🗺️ Querying cadastral map:', params);
+    console.log('🗺️ Querying cadastral map by land number:', params);
 
-    const data = await apiService.post<CadastralApiResponse>(NLSC.CADASTRAL_QUERY_BY_LAND_NUMBER, {
+    // 使用統一的 /cadastral/map 端點，透過 query 參數區分查詢方式
+    const queryParams = new URLSearchParams({
       county_code: params.countyCode,
       section_code: params.sectionCode,
       land_number_main: params.landNumberMain,
@@ -114,6 +125,10 @@ export const queryCadastralMap = async (
       format: params.format || 'gml',
       srid: params.srid || '4326'
     });
+
+    const data = await apiService.get<CadastralApiResponse>(
+      `${NLSC.CADASTRAL_MAP}?${queryParams.toString()}`
+    );
 
     if (!data.success) {
       return {
@@ -126,8 +141,6 @@ export const queryCadastralMap = async (
 
     // 轉換為 OpenLayers Features
     const features = convertGeoJSONToOpenLayersFeatures(data.features);
-
-    console.log(`✅ Loaded ${features.length} cadastral features`);
 
     return {
       success: features.length > 0,
@@ -147,7 +160,7 @@ export const queryCadastralMap = async (
 };
 
 /**
- * 使用點座標查詢地籍圖資料
+ * 使用點座標查詢地籍圖資料（使用統一資源端點）
  */
 export const queryCadastralMapByPoint = async (
   lon: number,
@@ -158,12 +171,17 @@ export const queryCadastralMapByPoint = async (
   try {
     console.log(`🗺️ Querying cadastral map by point: [${lon}, ${lat}]`);
 
-    const data = await apiService.post<CadastralApiResponse>(NLSC.CADASTRAL_QUERY_BY_POINT, {
-      longitude: lon,
-      latitude: lat,
+    // 使用統一的 /cadastral/map 端點，透過 query 參數區分查詢方式
+    const queryParams = new URLSearchParams({
+      longitude: lon.toString(),
+      latitude: lat.toString(),
       srid: srid,
       format: format
     });
+
+    const data = await apiService.get<CadastralApiResponse>(
+      `${NLSC.CADASTRAL_MAP}?${queryParams.toString()}`
+    );
 
     if (!data.success) {
       return {
@@ -176,8 +194,6 @@ export const queryCadastralMapByPoint = async (
 
     // 轉換為 OpenLayers Features
     const features = convertGeoJSONToOpenLayersFeatures(data.features);
-
-    console.log(`✅ Loaded ${features.length} cadastral features (point query)`);
 
     return {
       success: features.length > 0,
