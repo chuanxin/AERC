@@ -3480,6 +3480,9 @@ const onCountyChange = stepManager.createCascadeHandler(async () => {
   localFormData.landSecName = '';
   nlscSections.value = [];
 
+  // 🆕 重置地號、坐標、面積等相關資訊（從 watch 整合過來）
+  resetLandRelatedInfo();
+
   // 強制重新渲染地段選單
   sectionSelectKey.value++;
 
@@ -3625,8 +3628,21 @@ const loadLandSections = async (preserveSelection = false) => {
 const onTownChange = stepManager.createCascadeHandler(async () => {
   cascadeManager.resetCascadeSelections('town');
 
+  // 🆕 重置地號、坐標、面積等相關資訊（從 watch 整合過來）
+  resetLandRelatedInfo();
+
   // 載入 NLSC 地段資料
   await loadLandSections();
+
+  // 🆕 檢查並更新原住民地區（從 watch 整合過來）
+  if (localFormData.landTown) {
+    const townId = typeof localFormData.landTown === 'number'
+      ? localFormData.landTown
+      : parseInt(localFormData.landTown);
+    if (!isNaN(townId)) {
+      checkAndUpdateIndigenousArea(townId);
+    }
+  }
 });
 
 const onOwnerCountyChange = stepManager.createProtectedHandler(() => {
@@ -5404,45 +5420,10 @@ const checkAndUpdateIndigenousArea = stepManager.createProtectedHandler((...args
   }
 });
 
-// Watchers for automatic town/village loading and indigenous area detection - 使用保護 Watch 工廠
-watch(() => localFormData.landCounty as string | number, stepManager.createProtectedWatch(async (...args: unknown[]) => {
-  const newCounty = args[0] as string | number;
-  const oldCounty = args[1] as string | number;
-
-  if (newCounty) {
-    localFormData.landTown = '';
-    localFormData.landSec = '';
-
-    // 🆕 只有在真正變更且非載入狀態時才重置（避免編輯模式載入時誤觸發）
-    if (!initGuard.isInitializing && oldCounty && oldCounty !== newCounty) {
-      resetLandRelatedInfo();
-    }
-
-    await loadTownsForCounty(newCounty);
-  }
-}));
-
-watch(() => localFormData.landTown, stepManager.createProtectedWatch(async (...args: unknown[]) => {
-  const newTown = args[0] as string | number;
-  const oldTown = args[1] as string | number;
-
-  if (newTown) {
-    const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
-
-    // 🆕 只有在真正變更且非載入狀態時才重置（避免編輯模式載入時誤觸發）
-    if (!initGuard.isInitializing && oldTown && oldTown !== newTown) {
-      resetLandRelatedInfo();
-    }
-
-    // 檢查是否為特殊城市的代碼，如果是則跳過處理
-    const isSpecialCityCode = newTown === 'O01' || newTown === 'I01';
-    if (!isSpecialCityCode) {
-      // 一般鄉鎮才載入地段資料
-      await loadLandSections();
-      checkAndUpdateIndigenousArea(townId);
-    }
-  }
-}));
+// 🔥 Linus 式修復：移除重複的 watch，統一使用事件處理機制
+// - 消除"兩個機制做同一件事"的特殊情況
+// - 與 qualification/index.vue、maps/index.vue 保持一致
+// - 所有邏輯已整合到 onCountyChange 和 onTownChange 事件處理中
 
 // 🆕 監聽地段變更，重置相關資訊
 watch(() => localFormData.landSec, stepManager.createProtectedWatch((...args: unknown[]) => {

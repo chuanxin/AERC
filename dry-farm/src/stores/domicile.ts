@@ -186,30 +186,40 @@ export const useDomicileStore = defineStore('domicile', () => {
     }
   })
 
-  const loadLandSectionsByTownId = wrapAsync(async (townId: number) => {
+  const loadLandSectionsByTownId = wrapAsync(async (townId: number, forceRefresh = false) => {
+    // 從 town_id 查找對應的 land_code
+    const town = townsById.value.get(townId)
+    if (!town || !town.land_code) {
+      throw new ApplicationError({
+        message: `Town ${townId} not found or missing land_code`,
+        status: 404,
+        source: 'domicile.loadLandSectionsByTownId'
+      })
+    }
+
+    const county = counties.value.find(c => c.id === town.county_id)
+    if (!county || !county.land_code) {
+      throw new ApplicationError({
+        message: `County for town ${townId} not found or missing land_code`,
+        status: 404,
+        source: 'domicile.loadLandSectionsByTownId'
+      })
+    }
+
+    // 快取檢查
+    if (!forceRefresh) {
+      const cached = landSections.value.filter(s =>
+        s.county_land_code === county.land_code && s.town_land_code === town.land_code
+      )
+      if (cached.length > 0) {
+        return // 快取命中，直接返回
+      }
+    }
+
     isLoading.value = true
     error.value = null
 
     try {
-      // 從 town_id 查找對應的 land_code
-      const town = townsById.value.get(townId)
-      if (!town || !town.land_code) {
-        throw new ApplicationError({
-          message: `Town ${townId} not found or missing land_code`,
-          status: 404,
-          source: 'domicile.loadLandSectionsByTownId'
-        })
-      }
-
-      const county = counties.value.find(c => c.id === town.county_id)
-      if (!county || !county.land_code) {
-        throw new ApplicationError({
-          message: `County for town ${townId} not found or missing land_code`,
-          status: 404,
-          source: 'domicile.loadLandSectionsByTownId'
-        })
-      }
-
       // 使用新的 NLSC API
       const newLandSections = await fetchLandSectionsByLandCodes(
         county.land_code,
@@ -236,7 +246,17 @@ export const useDomicileStore = defineStore('domicile', () => {
   })
 
   // 直接使用 land_code 載入地段（用於特殊城市或跨區查詢）
-  const loadLandSectionsByLandCodes = wrapAsync(async (countyLandCode: string, townLandCode: string) => {
+  const loadLandSectionsByLandCodes = wrapAsync(async (countyLandCode: string, townLandCode: string, forceRefresh = false) => {
+    // 快取檢查
+    if (!forceRefresh) {
+      const cached = landSections.value.filter(s =>
+        s.county_land_code === countyLandCode && s.town_land_code === townLandCode
+      )
+      if (cached.length > 0) {
+        return // 快取命中，直接返回
+      }
+    }
+
     isLoading.value = true
     error.value = null
 
