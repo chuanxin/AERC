@@ -506,6 +506,7 @@
                           ref="step1Ref"
                           :current-step="currentStep"
                           :readonly="isCurrentStepReadonly"
+                          :soft-locked="isCurrentStepSoftLocked"
                           @step-data-changed="handleStepDataChanged"
                           @validation-changed="handleStepValidationChanged"
                           @ready-to-proceed="handleStepReadyToProceed"
@@ -516,6 +517,7 @@
                           ref="step2Ref"
                           :current-step="currentStep"
                           :readonly="isCurrentStepReadonly"
+                          :soft-locked="isCurrentStepSoftLocked"
                           @step-data-changed="handleStepDataChanged"
                           @validation-changed="handleStepValidationChanged"
                           @ready-to-proceed="handleStepReadyToProceed"
@@ -529,6 +531,7 @@
                           :current-step="currentStep"
                           :grant-id="grantsStore.currentGrant?.id || 0"
                           :readonly="isCurrentStepReadonly"
+                          :soft-locked="isCurrentStepSoftLocked"
                           @update:form-data="(data) => handleFormDataUpdate(3, data)"
                           @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                           @go-back="handleGoBack"
@@ -541,6 +544,7 @@
                           :form-data="grantsStore.formData[4]"
                           :current-step="currentStep"
                           :readonly="isCurrentStepReadonly"
+                          :soft-locked="isCurrentStepSoftLocked"
                           @update:form-data="(data) => handleFormDataUpdate(4, data)"
                           @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                           @go-back="handleGoBack"
@@ -550,6 +554,7 @@
                           :form-data="grantsStore.formData[5]"
                           :current-step="currentStep"
                           :readonly="isCurrentStepReadonly"
+                          :soft-locked="isCurrentStepSoftLocked"
                           @update:form-data="(data) => handleFormDataUpdate(5, data)"
                           @validated="(event) => handleStepValidated({ valid: event.valid, step: currentStep })"
                           @go-back="handleGoBack"
@@ -989,15 +994,24 @@ const isNavigating = ref(false)
 const autoSaveTimer = ref<number | null>(null)
 
 // 🆕 步驟鎖定狀態管理 - 記錄已鎖定的 UI 步驟編號
-// 當完成現場勘查（UI step 3）後，將 [1, 2, 3] 加入此集合
+// 硬鎖定：完全禁用欄位（readonly/disabled），顯示鎖定圖標
+// 當完成申報（UI step 6）後，將 [1, 2, 3, 4, 5] 加入此集合
 const lockedSteps = ref<Set<number>>(new Set())
+
+// 🆕 步驟軟鎖定狀態管理 - 記錄需要警告但仍可編輯的 UI 步驟編號
+// 軟鎖定：顯示警告訊息但不禁用欄位，提醒使用者注意資料一致性
+// 當完成現場勘查（UI step 3）後，將 [1, 2, 3] 加入此集合
+const softLockedSteps = ref<Set<number>>(new Set())
 
 // 🆕 步驟 Disabled 狀態管理 - 記錄已 disabled 的 UI 步驟編號
 // 當案件被「不受理」後，將 current_step 之後的所有步驟加入此集合
 const disabledSteps = ref<Set<number>>(new Set())
 
-// 🆕 判斷當前步驟是否為唯讀模式
+// 🆕 判斷當前步驟是否為唯讀模式（硬鎖定）
 const isCurrentStepReadonly = computed(() => lockedSteps.value.has(currentStep.value))
+
+// 🆕 判斷當前步驟是否為軟鎖定（顯示警告但不禁用）
+const isCurrentStepSoftLocked = computed(() => softLockedSteps.value.has(currentStep.value))
 
 // 🆕 判斷是否可以顯示導航按鈕
 const canShowStep6Buttons = computed(() => {
@@ -1017,10 +1031,16 @@ const canShowStep6Buttons = computed(() => {
   return true
 })
 
-// 🆕 鎖定指定步驟的函數
+// 🆕 硬鎖定指定步驟的函數（完全禁用）
 const lockSteps = (steps: number[]) => {
   steps.forEach(step => lockedSteps.value.add(step))
-  console.log('🔒 [edit.vue] Locked steps:', Array.from(lockedSteps.value))
+  console.log('🔒 [edit.vue] Hard-locked steps:', Array.from(lockedSteps.value))
+}
+
+// 🆕 軟鎖定指定步驟的函數（顯示警告但不禁用）
+const softLockSteps = (steps: number[]) => {
+  steps.forEach(step => softLockedSteps.value.add(step))
+  console.log('⚠️ [edit.vue] Soft-locked steps:', Array.from(softLockedSteps.value))
 }
 
 // 🆕 Disable 指定步驟的函數
@@ -1681,10 +1701,14 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
       // 2️⃣ 立即滾動到頂部
       scrollToTopInstantly()
 
-      // 🆕 3️⃣ 當完成現場勘查（UI step 3）時，鎖定前三步
+      // 🆕 3️⃣ 當完成現場勘查（UI step 3）時，軟鎖定前三步（顯示警告但不禁用）
       if (step === 3) {
-        lockSteps([1, 2, 3])
-        console.log('🔒 [edit.vue] Step 3 (現場勘查) completed, locked steps 1, 2, 3')
+        softLockSteps([1, 2, 3])
+        console.log('⚠️ [edit.vue] Step 3 (現場勘查) completed, soft-locked steps 1, 2, 3')
+
+        // 💡 切換為硬鎖定版本：取消上面的 softLockSteps，啟用下面的 lockSteps
+        // lockSteps([1, 2, 3])
+        // console.log('🔒 [edit.vue] Step 3 (現場勘查) completed, hard-locked steps 1, 2, 3')
       }
 
       // 🆕 3️⃣-2 當完成申報（UI step 6）時，更新狀態為 under_review 並鎖定前五步
@@ -2117,8 +2141,13 @@ onMounted(async () => {
 
       console.log(`🔒 [edit.vue onMounted] Case status: rejected - Locked UI steps 1-${currentStepValue}, Disabled UI steps ${currentStepValue + 1}-${steps.length}`)
     } else if (currentStatus === 'approved') {
-      lockSteps([1, 2, 3])
-      console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3 (case status: approved)')
+      // 軟鎖定版本：現場勘查完成後，軟鎖定 steps 1-3（顯示警告但不禁用）
+      softLockSteps([1, 2, 3])
+      console.log('⚠️ [edit.vue onMounted] Auto-soft-locked steps 1, 2, 3 (case status: approved)')
+
+      // 💡 切換為硬鎖定版本：取消上面的 softLockSteps，啟用下面的 lockSteps
+      // lockSteps([1, 2, 3])
+      // console.log('🔒 [edit.vue onMounted] Auto-hard-locked steps 1, 2, 3 (case status: approved)')
     } else if (currentStatus === 'under_review') {
       lockSteps([1, 2, 3, 4, 5])
       console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3, 4, 5 (case status: under_review)')

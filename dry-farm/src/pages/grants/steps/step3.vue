@@ -8,6 +8,44 @@
       flat
     >
       <v-card-text class="pb-0 pt-0">
+        <!-- 🆕 唯讀模式提示（硬鎖定） -->
+        <v-alert
+          v-if="props.readonly && grantsStore.currentGrant?.status !== 'rejected'"
+          type="warning"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          rounded="lg"
+        >
+          <div class="d-flex align-center">
+            <span class="text-body-2">
+              {{ grantsStore.currentGrant?.status === 'submitted'
+                ? '已完成結案申報，此步驟已鎖定，無法編輯。'
+                : '已完成申報並送審，此步驟已鎖定，無法編輯。' }}
+            </span>
+          </div>
+        </v-alert>
+
+        <!-- ⚠️ 軟鎖定警告 -->
+        <v-alert
+          v-if="props.softLocked && !props.readonly"
+          color="warning"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          rounded="lg"
+        >
+          <div class="d-flex align-center">
+            <v-icon
+              class="me-2"
+              size="small"
+            >mdi-alert</v-icon>
+            <span class="text-body-2">
+              已完成現場勘查，修改此步驟資料可能導致勘查結果無效，請謹慎編輯。
+            </span>
+          </div>
+        </v-alert>
+
         <!-- 填寫說明提示 -->
         <v-card
           v-if="!props.readonly"
@@ -600,7 +638,7 @@
           </v-alert>
 
           <v-table
-            class="rounded border"
+            class="rounded border mb-4"
             density="compact"
           >
             <thead class="bg-grey-lighten-3">
@@ -703,7 +741,7 @@
               <tr v-if="localFormData.facilities.length === 0">
                 <td
                   colspan="8"
-                  class="text-center py-3 text-grey"
+                  class="text-center py-0 text-grey"
                 >
                   尚未新增任何設施，請使用上方各區塊的加入按鈕新增設施
                 </td>
@@ -797,6 +835,11 @@ const props = defineProps({
     required: true
   },
   readonly: {
+    type: Boolean,
+    required: false,
+    default: false
+  },
+  softLocked: {
     type: Boolean,
     required: false,
     default: false
