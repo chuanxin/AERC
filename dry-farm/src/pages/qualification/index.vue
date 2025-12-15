@@ -216,7 +216,7 @@
                             variant="outlined"
                             density="compact"
                             hide-details
-                            readonly
+                            disabled
                           />
                         </div>
 
@@ -1057,7 +1057,7 @@ import { ref, computed, watch, reactive, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useQualificationStore } from '@/stores/qualification';
 import { useDomicileStore } from '@/stores/domicile';
-import { fetchLandSectionsByLandCodes, checkNlscApiHealth, type LandSection } from '@/services/landSectionNlscService';
+import { checkNlscApiHealth, type LandSection } from '@/services/landSectionNlscService';
 import type { QualificationSearchParams, IndigenousSearchParams, RecentSearch } from '@/types/qualification';
 
 const qualificationStore = useQualificationStore();
@@ -1314,7 +1314,10 @@ const onCountyChange = async (newCounty: string) => {
       const specialCode = specialCities[newCounty].code;
       loadingSections.value = true;
       try {
-        nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, specialCode);
+        await domicileStore.loadLandSectionsByLandCodes(county.land_code, specialCode);
+        nlscSections.value = domicileStore.landSections.filter(s =>
+          s.county_land_code === county.land_code && s.town_land_code === specialCode
+        );
         console.log(`已自動載入 ${newCounty} 的地段資料 (${specialCode}):`, nlscSections.value.length);
       } catch (error) {
         console.error('Failed to load land sections for special city:', error);
@@ -1381,7 +1384,10 @@ const onTownChange = async (newTown: string) => {
       if (nlscLandCode) {
         loadingSections.value = true;
         try {
-          nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, nlscLandCode);
+          await domicileStore.loadLandSectionsByLandCodes(county.land_code, nlscLandCode);
+          nlscSections.value = domicileStore.landSections.filter(s =>
+            s.county_land_code === county.land_code && s.town_land_code === nlscLandCode
+          );
           console.log(`載入 ${searchParams.county} ${newTown} 的地段資料 (${nlscLandCode}):`, nlscSections.value.length);
         } catch (error) {
           console.error('Failed to load land sections:', error);

@@ -69,10 +69,10 @@
                     mdi-map-marker-off
                   </v-icon>
                   <div class="text-h6 mb-2">
-                    查無此地段圖資
+                    查無此地號圖資
                   </div>
                   <div class="text-body-2 text-grey-darken-1 mb-4">
-                    目前系統中沒有此地段的地號圖資資料
+                    目前系統中沒有此地號的地號圖資資料
                   </div>
                   <v-btn
                     color="#3ea0a3"
@@ -1971,7 +1971,7 @@ interface LandData {
   // 設施地段
   landCounty: string | number;
   landTown: string | number;
-  landSec: string | number;
+  landSec: string | number | null;
   landSecName?: string;  // 地段名稱，選擇地段時自動儲存
 
   // 地號資訊
@@ -2033,13 +2033,13 @@ interface LandManagementState {
 import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
 import { useCropsStore } from '@/stores/crops';
-import { fetchLandSectionsByLandCodes, type LandSection } from '@/services/landSectionNlscService';
 import {
   queryCadastralMap,
   queryCadastralMapByPoint,
   validateLandNumber,
   type CadastralQueryParams
 } from '@/services/cadastralMapService';
+import type { LandSection } from '@/services/landSectionNlscService';
 import { markRaw, nextTick, reactive } from 'vue';
 
 // 事件驅動架構：定義事件類型
@@ -2258,7 +2258,7 @@ interface DomicileStoreType {
   loadCounties: () => Promise<void | null>
   loadTownsByCountyId: (countyId: number) => Promise<void | null>
   getTownsForCountyId: (countyId: number) => Array<{ title: string; value: number }>
-  loadLandSectionsByTownId: (townId: number) => Promise<void | null>
+  // loadLandSectionsByTownId: (townId: number) => Promise<void | null>
   getLandSectionsForTownId: (townId: number) => Array<{ title: string; value: number }>
   loadVillagesByTownId: (townId: number) => Promise<void | null>
   getVillagesForTownId: (townId: number) => Array<{ title: string; value: number }>
@@ -2324,11 +2324,11 @@ const createCascadeSelectManager = (
     switch (level) {
       case 'county':
         formData.landTown = ''
-        formData.landSec = ''
+        formData.landSec = null
         console.log('  → Cleared landTown and landSec')
         break
       case 'town':
-        formData.landSec = ''
+        formData.landSec = null
         console.log('  → Cleared landSec')
         break
     }
@@ -2403,7 +2403,7 @@ const createInitialLandData = (id?: string): LandData => ({
   // 設施地段
   landCounty: '',
   landTown: '',
-  landSec: '',
+  landSec: null,
 
   // 地號資訊
   landNumber: '',
@@ -2466,7 +2466,7 @@ const createInitialFormData = () => ({
   // Facility address section
   landCounty: '' as string | number,
   landTown: '' as string | number,
-  landSec: '' as string | number,
+  landSec: null as string | number | null,
   landSecName: '',  // 地段名稱
   landNumber: '',
   landNumberMain: '',
@@ -3476,9 +3476,12 @@ const onCountyChange = stepManager.createCascadeHandler(async () => {
   cascadeManager.resetCascadeSelections('county');
 
   // 重置地段選擇和資料
-  localFormData.landSec = '';
+  localFormData.landSec = null;
   localFormData.landSecName = '';
   nlscSections.value = [];
+
+  // 🆕 重置地號、坐標、面積等相關資訊（從 watch 整合過來）
+  resetLandRelatedInfo();
 
   // 強制重新渲染地段選單
   sectionSelectKey.value++;
@@ -3500,7 +3503,11 @@ const onCountyChange = stepManager.createCascadeHandler(async () => {
         localFormData.landTown = specialCode;
         loadingSections.value = true;
         try {
-          nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, specialCode);
+          await domicileStore.loadLandSectionsByLandCodes(county.land_code, specialCode);
+          // 從 store 取得載入的資料
+          nlscSections.value = domicileStore.landSections.filter(s =>
+            s.county_land_code === county.land_code && s.town_land_code === specialCode
+          );
           console.log(`已自動載入 ${county.title} 的地段資料 (${specialCode}):`, nlscSections.value.length);
         } catch (error) {
           console.error('Failed to load land sections for special city:', error);
@@ -3519,11 +3526,11 @@ const onCountyChange = stepManager.createCascadeHandler(async () => {
 // 載入 NLSC 地段資料的函數
 const loadLandSections = async (preserveSelection = false) => {
   // 保存當前的地段選擇（如果需要保留）
-  const currentSelection = preserveSelection ? localFormData.landSec : '';
+  const currentSelection = preserveSelection ? localFormData.landSec : null;
 
   // 重置地段選擇和資料（除非要保留選擇）
   if (!preserveSelection) {
-    localFormData.landSec = '';
+    localFormData.landSec = null;
   }
   nlscSections.value = [];
 
@@ -3562,7 +3569,10 @@ const loadLandSections = async (preserveSelection = false) => {
       // 特殊城市，直接使用縣市的 land_code 和特殊代碼
       const specialCode = specialCityCodes[county.title];
       console.log(`開始載入特殊城市地段資料: ${county.title} (${county.land_code}/${specialCode})`);
-      nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, specialCode);
+      await domicileStore.loadLandSectionsByLandCodes(county.land_code, specialCode);
+      nlscSections.value = domicileStore.landSections.filter(s =>
+        s.county_land_code === county.land_code && s.town_land_code === specialCode
+      );
       console.log(`載入 ${county.title} 的地段資料 (${specialCode}):`, nlscSections.value.length);
     } else {
       // 一般鄉鎮，取得鄉鎮資料 - 在 step2 中 landTown 是 ID
@@ -3578,7 +3588,10 @@ const loadLandSections = async (preserveSelection = false) => {
 
       // 一般鄉鎮，使用縣市和鄉鎮的 land_code
       console.log(`開始載入地段資料: ${county.title} ${town.title} (${county.land_code}/${town.land_code})`);
-      nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, town.land_code);
+      await domicileStore.loadLandSectionsByLandCodes(county.land_code, town.land_code);
+      nlscSections.value = domicileStore.landSections.filter(s =>
+        s.county_land_code === county.land_code && s.town_land_code === town.land_code
+      );
       console.log(`載入 ${county.title} ${town.title} 的地段資料 (${town.land_code}):`, nlscSections.value.length);
     }
   } catch (error) {
@@ -3615,8 +3628,21 @@ const loadLandSections = async (preserveSelection = false) => {
 const onTownChange = stepManager.createCascadeHandler(async () => {
   cascadeManager.resetCascadeSelections('town');
 
+  // 🆕 重置地號、坐標、面積等相關資訊（從 watch 整合過來）
+  resetLandRelatedInfo();
+
   // 載入 NLSC 地段資料
   await loadLandSections();
+
+  // 🆕 檢查並更新原住民地區（從 watch 整合過來）
+  if (localFormData.landTown) {
+    const townId = typeof localFormData.landTown === 'number'
+      ? localFormData.landTown
+      : parseInt(localFormData.landTown);
+    if (!isNaN(townId)) {
+      checkAndUpdateIndigenousArea(townId);
+    }
+  }
 });
 
 const onOwnerCountyChange = stepManager.createProtectedHandler(() => {
@@ -4026,20 +4052,6 @@ const preloadCascadeDataForLands = async (lands: LandData[]) => {
     })
 
     await Promise.all(townPromises)
-
-    // 4. 平行載入所有需要的地段資料
-    // const sectionPromises = Array.from(townIds).map(async (townId) => {
-    //   console.log(`📍 Loading sections for town ${townId}...`)
-    //   try {
-    //     await domicileStore.loadLandSectionsByTownId(townId)
-    //   } catch (error) {
-    //     console.warn(`⚠️ Failed to load sections for town ${townId}:`, error)
-    //   }
-    // })
-
-    // await Promise.all(sectionPromises)
-
-    // console.log('✅ [P0 Fix] Cascade data preloading completed')
   } catch (error) {
     console.error('❌ [P0 Fix] Cascade data preloading failed:', error)
   }
@@ -5137,7 +5149,10 @@ const fetchSectionNameByCityAndTown = async (
 
     // 4. 使用與下拉選單相同的方法載入地段清單
     console.log(`📥 載入地段資料: ${cityName} ${townName} (${county.land_code}/${town.land_code})`);
-    const sectionsToSearch = await fetchLandSectionsByLandCodes(county.land_code, town.land_code);
+    await domicileStore.loadLandSectionsByLandCodes(county.land_code, town.land_code);
+    const sectionsToSearch = domicileStore.landSections.filter(s =>
+      s.county_land_code === county.land_code && s.town_land_code === town.land_code
+    );
 
     // 5. 在載入的地段清單中查找地段名稱
     const sectionCodeToFind = sectionCode.toString();
@@ -5405,45 +5420,10 @@ const checkAndUpdateIndigenousArea = stepManager.createProtectedHandler((...args
   }
 });
 
-// Watchers for automatic town/village loading and indigenous area detection - 使用保護 Watch 工廠
-watch(() => localFormData.landCounty as string | number, stepManager.createProtectedWatch(async (...args: unknown[]) => {
-  const newCounty = args[0] as string | number;
-  const oldCounty = args[1] as string | number;
-
-  if (newCounty) {
-    localFormData.landTown = '';
-    localFormData.landSec = '';
-
-    // 🆕 只有在真正變更且非載入狀態時才重置（避免編輯模式載入時誤觸發）
-    if (!initGuard.isInitializing && oldCounty && oldCounty !== newCounty) {
-      resetLandRelatedInfo();
-    }
-
-    await loadTownsForCounty(newCounty);
-  }
-}));
-
-watch(() => localFormData.landTown, stepManager.createProtectedWatch(async (...args: unknown[]) => {
-  const newTown = args[0] as string | number;
-  const oldTown = args[1] as string | number;
-
-  if (newTown) {
-    const townId = typeof newTown === 'number' ? newTown : parseInt(newTown);
-
-    // 🆕 只有在真正變更且非載入狀態時才重置（避免編輯模式載入時誤觸發）
-    if (!initGuard.isInitializing && oldTown && oldTown !== newTown) {
-      resetLandRelatedInfo();
-    }
-
-    // 檢查是否為特殊城市的代碼，如果是則跳過處理
-    const isSpecialCityCode = newTown === 'O01' || newTown === 'I01';
-    if (!isSpecialCityCode) {
-      // 一般鄉鎮才載入地段資料
-      await loadLandSections();
-      checkAndUpdateIndigenousArea(townId);
-    }
-  }
-}));
+// 🔥 Linus 式修復：移除重複的 watch，統一使用事件處理機制
+// - 消除"兩個機制做同一件事"的特殊情況
+// - 與 qualification/index.vue、maps/index.vue 保持一致
+// - 所有邏輯已整合到 onCountyChange 和 onTownChange 事件處理中
 
 // 🆕 監聽地段變更，重置相關資訊
 watch(() => localFormData.landSec, stepManager.createProtectedWatch((...args: unknown[]) => {

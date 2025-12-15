@@ -314,6 +314,7 @@
                           variant="outlined"
                           color="primary"
                           block
+                          :loading="isLocationLoading"
                           @click="getCurrentLocation"
                         >
                           <v-icon class="me-2">
@@ -362,6 +363,8 @@
                         density="compact"
                         placeholder="例: 120.123456"
                         class="mb-2"
+                        hide-details
+                        autocomplete="off"
                       />
                       <v-text-field
                         v-model="coordinateInput.latitude"
@@ -371,7 +374,8 @@
                         variant="outlined"
                         density="compact"
                         placeholder="例: 24.123456"
-                        class="mb-2"
+                        hide-details
+                        autocomplete="off"
                       />
                     </div>
 
@@ -385,6 +389,8 @@
                         density="compact"
                         placeholder="例: 250000"
                         class="mb-2"
+                        hide-details
+                        autocomplete="off"
                       />
                       <v-text-field
                         v-model="coordinateInput.tw97Y"
@@ -394,9 +400,12 @@
                         variant="outlined"
                         density="compact"
                         placeholder="例: 2750000"
-                        class="mb-2"
+                        hide-details
+                        autocomplete="off"
                       />
                     </div>
+
+                    <v-divider class="my-4" />
 
                     <v-row class="ma-0">
                       <v-col
@@ -421,6 +430,7 @@
                           variant="outlined"
                           color="primary"
                           block
+                          :loading="isLocationLoading"
                           @click="locateByCoordinate"
                         >
                           <v-icon class="me-2">
@@ -464,35 +474,76 @@
                           :disabled="!landNumberInput.county"
                           @update:model-value="onTownChange"
                         />
-                        <v-alert
+                        <!-- 特殊城市顯示固定的地政分區資訊 -->
+                        <v-text-field
                           v-else-if="landNumberInput.county"
-                          type="info"
+                          :model-value="getSpecialCityDisplayText()"
+                          class="flex-grow-1"
+                          bg-color="grey-lighten-4"
+                          label="鄉政市區"
                           variant="outlined"
                           density="compact"
-                          class="ma-0"
-                          :icon="false"
-                        >
-                          {{ landNumberInput.county }}
-                        </v-alert>
+                          hide-details
+                          disabled
+                        />
                       </v-col>
                     </v-row>
 
-                    <v-autocomplete
-                      v-model="landNumberInput.section"
-                      :items="sectionOptions"
-                      label="地段"
-                      variant="outlined"
-                      density="compact"
-                      class="mb-2"
-                      :disabled="!landNumberInput.town && !['新竹市', '嘉義市'].includes(landNumberInput.county)"
-                      :loading="loadingSections"
-                      :placeholder="sectionOptions.length > 0 ? '搜尋地段名稱...' : '請先選擇鄉鎮市區'"
-                      item-title="title"
-                      item-value="value"
-                      clearable
-                      autocomplete="off"
-                      hide-details
-                    />
+                    <!-- 地段與API狀態 -->
+                    <div class="d-flex align-center mb-2">
+                      <v-autocomplete
+                        :key="sectionSelectKey"
+                        v-model="landNumberInput.section"
+                        v-model:search="sectionSearchText"
+                        :items="sectionOptions"
+                        :item-title="item => item.title"
+                        item-value="code"
+                        label="地段"
+                        variant="outlined"
+                        density="compact"
+                        class="flex-grow-1"
+                        :disabled="!landNumberInput.town && !['新竹市', '嘉義市'].includes(landNumberInput.county)"
+                        :loading="loadingSections"
+                        :no-data-text="'沒有找到相符的地段'"
+                        :menu-props="{ closeOnContentClick: true }"
+                        :auto-select-first="false"
+                        :placeholder="sectionOptions.length > 0 ? '搜尋地段名稱或段號...' : '請先選擇鄉鎮市區'"
+                        clearable
+                        autocomplete="off"
+                        hide-details
+                        aria-label="選擇地段"
+                        @update:search="onSectionSearchUpdate"
+                        @blur="onSectionBlur"
+                      >
+                        <!-- 自定義選中項的顯示方式 - 只顯示地段名稱 -->
+                        <template #selection="{ item }">
+                          <template v-if="item.raw">
+                            {{ item.raw.displayName || item.raw.name }}
+                          </template>
+                          <template v-else>
+                            {{ item }}
+                          </template>
+                        </template>
+
+                        <template #item="{ props, item }">
+                          <v-list-item v-bind="props">
+                            <template #title>
+                              <div>
+                                {{ item.raw.displayName || item.raw.name }}
+                              </div>
+                            </template>
+
+                            <template #subtitle>
+                              <div class="d-flex align-center mt-1">
+                                <span class="text-caption text-grey-darken-1">
+                                  段號: {{ item.raw.value || '無' }}
+                                </span>
+                              </div>
+                            </template>
+                          </v-list-item>
+                        </template>
+                      </v-autocomplete>
+                    </div>
 
                     <div class="d-flex align-center gap-2 mb-2 pt-2">
                       <v-text-field
@@ -502,9 +553,13 @@
                         density="compact"
                         autocomplete="off"
                         placeholder="例: 123"
+                        maxlength="4"
+                        :disabled="!landNumberInput.section"
+                        hide-details
                         style="flex: 1"
+                        @blur="formatMotherNumber"
                       />
-                      <span class="text-h6 pb-6 px-2">-</span>
+                      <span class="text-h6 px-2">-</span>
                       <v-text-field
                         v-model="landNumberInput.childNumber"
                         label="子地號 (選填)"
@@ -512,24 +567,32 @@
                         density="compact"
                         autocomplete="off"
                         placeholder="例: 1"
+                        maxlength="4"
+                        :disabled="!landNumberInput.section"
+                        hide-details
                         style="flex: 1"
+                        @blur="formatChildNumber"
                       />
-                      <v-chip
-                        color="error"
-                        size="small"
-                        variant="outlined"
-                        class="mb-6 ml-2"
-                      >
-                        <v-icon
-                          icon="mdi-close-circle"
+                      <!-- API連線狀態 -->
+                      <div class="d-flex align-center ml-2">
+                        <v-chip
+                          :color="apiStatus.isOnline ? 'success' : 'error'"
                           size="small"
-                          class="me-1"
-                        />
-                        離線
-                      </v-chip>
+                          variant="outlined"
+                        >
+                          <v-icon
+                            :icon="apiStatus.isOnline ? 'mdi-check-circle' : 'mdi-close-circle'"
+                            size="small"
+                            class="me-1"
+                          />
+                          {{ apiStatus.isOnline ? '線上' : '離線' }}
+                        </v-chip>
+                      </div>
                     </div>
 
-                    <v-row class="ma-0 mb-2">
+                    <v-divider class="my-4" />
+
+                    <v-row class="ma-0">
                       <v-col
                         cols="4"
                         class="pa-0 pe-1"
@@ -553,6 +616,7 @@
                           color="primary"
                           block
                           :disabled="!landNumberInput.section || !landNumberInput.motherNumber"
+                          :loading="isLocationLoading"
                           @click="locateByLandNumber"
                         >
                           <v-icon class="me-2">
@@ -562,15 +626,6 @@
                         </v-btn>
                       </v-col>
                     </v-row>
-
-                    <!-- <v-alert
-                      v-if="!landNumberInput.section || !landNumberInput.motherNumber"
-                      type="info"
-                      variant="tonal"
-                      density="compact"
-                    >
-                      外部地號定位服務尚未開通
-                    </v-alert> -->
                   </v-window-item>
                 </v-window>
               </v-card-text>
@@ -923,7 +978,12 @@ import { ref, onMounted, nextTick, watch, onUnmounted, computed, toRaw, markRaw 
 import { useRouter, useRoute } from 'vue-router';
 import { useGisStore } from '@/stores/gis';
 import { useDomicileStore } from '@/stores/domicile';
-import { fetchLandSectionsByLandCodes, type LandSection } from '@/services/landSectionNlscService';
+import { checkNlscApiHealth, type LandSection } from '@/services/landSectionNlscService';
+import {
+  queryCadastralMap,
+  validateLandNumber,
+  type CadastralQueryParams
+} from '@/services/cadastralMapService';
 import { storeToRefs } from 'pinia';
 import 'ol/ol.css';
 import { Map, View, Feature } from 'ol';
@@ -946,7 +1006,7 @@ import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS';
 import WMTSTileGrid from 'ol/tilegrid/WMTS';
 import { get as getProjection, transform, fromLonLat, toLonLat } from 'ol/proj';
 import { getTopLeft, getWidth } from 'ol/extent';
-import { Style, Fill, Stroke, Circle, Text } from 'ol/style';
+import { Style, Fill, Stroke, Circle, Text, Icon } from 'ol/style';
 // import type { FeatureLike } from 'ol/Feature';
 import GeoJSON from 'ol/format/GeoJSON';
 import type { LocationQueryValue } from 'vue-router';
@@ -977,8 +1037,6 @@ const {
   loading: gisLoading,
   displayMode,
   yearRange,
-  currentPointCount,
-  availableSourceSystems,
 } = storeToRefs(gisStore);
 
 // 使用 Domicile Store (用於地號定位的縣市、鄉鎮資料)
@@ -1144,6 +1202,7 @@ const showDrawPanel = ref(false);
 const showMeasurePanel = ref(false);
 const showLocationPanel = ref(false);
 const isLocating = ref(false);
+const isLocationLoading = ref(false);  // 定位操作進行中的 loading 狀態
 
 // === 量測工具相關狀態 ===
 const measureType = ref<'distance' | 'area' | null>(null); // 當前量測類型
@@ -1170,7 +1229,7 @@ const coordinateInput = ref({
 const landNumberInput = ref({
   county: '',
   town: '',
-  section: '',
+  section: null as string | null,
   motherNumber: '',
   childNumber: ''
 });
@@ -1178,6 +1237,8 @@ const landNumberInput = ref({
 // 定位標記圖層
 const locationMarkerSource = ref<any>(null);
 const locationMarkerLayer = ref<any>(null);
+const cadastralResultSource = ref<any>(null);  // 地籍查詢結果圖層的資料源
+const cadastralResultLayer = ref<any>(null);   // 地籍查詢結果圖層
 
 // 檢查是否有定位標記
 const hasLocationMarker = computed(() => {
@@ -1191,11 +1252,40 @@ const countyOptions = computed(() => {
 const townOptions = ref<string[]>([]);
 const nlscSections = ref<LandSection[]>([]); // NLSC 地段資料
 const loadingSections = ref(false);
+
+// API 連線狀態
+const apiStatus = ref({
+  isOnline: false,
+  lastChecked: null as Date | null
+});
+
+// 用於強制重新渲染地段選單的 key
+const sectionSelectKey = ref(0);
+
+// 地段搜尋狀態管理
+const sectionSearchText = ref('');
+
+// 動態獲取地段選項 - 使用 NLSC API，優化搜尋支援
 const sectionOptions = computed(() => {
-  return nlscSections.value.map(section => ({
-    title: `${section.name} ${section.code || ''}`,
-    value: section.code
-  }));
+  return nlscSections.value
+    .map(section => ({
+      // title 包含地段名稱和代碼，供 v-autocomplete 預設搜尋使用
+      title: `${section.name} ${section.code || ''}`,
+      displayName: section.name,  // 純地段名稱，供顯示使用
+      value: section.code,        // 實際存儲的值，使用 API 原始格式
+      code: section.code,         // 保持 API 原始格式（如 "0446"）
+      name: section.name,         // 保留名稱
+      office: section.office,     // 地政事務所代碼
+      county_land_code: section.county_land_code,  // 縣市地政代碼（用於 NLSC API）
+      town_land_code: section.town_land_code       // 鄉鎮地政代碼
+    }))
+    .sort((a, b) => {
+      // 優先按地段代碼排序，如果沒有代碼則按名稱排序
+      if (a.code && b.code) {
+        return a.code.localeCompare(b.code);
+      }
+      return a.name.localeCompare(b.name);
+    });
 })
 
 // 圖層面板拖拽相關
@@ -1256,9 +1346,6 @@ const grantPointsLayer = ref<VectorLayer | null>(null);
 // const grantHeatmapLayer = ref<HeatmapLayer | null>(null); // 註解熱區圖
 const grantGridLayer = ref<VectorLayer | null>(null); // 新增格網圖層
 
-// 搜尋面板位置
-const searchPanelPosition = ref({ x: 10, y: 10 });
-
 // 搜尋條件（本地狀態，用於 UI 控制）
 const searchCriteria = ref({
   applicantName: '',
@@ -1300,23 +1387,6 @@ const filterSourceOptions = [
   { title: '新系統案件', value: 'new_aerc' },
   { title: '歷史案件', value: 'legacy_farmdata' }
 ];
-
-// 防抖計時器
-let filterTimeout: ReturnType<typeof setTimeout>;
-
-// 檢查是否有啟用的篩選條件
-const hasActiveFilters = computed(() => {
-  return !!(
-    quickFilter.value ||
-    filterCriteria.value.applicantName ||
-    filterCriteria.value.landSection ||
-    filterCriteria.value.landNumber ||
-    filterCriteria.value.caseNumber ||
-    filterCriteria.value.sourceSystem ||
-    filterCriteria.value.yearStart !== getCurrentYear() ||
-    filterCriteria.value.yearEnd !== getCurrentYear()
-  );
-});
 
 // 用於追蹤地圖是否已完全初始化
 const mapInitialized = ref(false);
@@ -1456,36 +1526,6 @@ const toggleLayers = async () => {
       }
     }
   }
-};
-
-const toggleSearchPanel = async () => {
-  showSearchPanel.value = !showSearchPanel.value;
-  if (showSearchPanel.value && !statistics.value) {
-    try {
-      await gisStore.loadStatistics();
-    } catch (error) {
-      console.error('載入統計資料失敗:', error);
-      showError('載入統計資料失敗');
-    }
-  }
-};
-
-// 圖層面板拖拽功能
-const startDrag = (event: MouseEvent) => {
-  isDragging.value = true;
-
-  // 計算滑鼠相對於面板當前位置的偏移量
-  dragOffset.value = {
-    x: event.clientX - panelPosition.value.x,
-    y: event.clientY - panelPosition.value.y
-  };
-
-  // 添加全局監聽器
-  document.addEventListener('mousemove', onDrag);
-  document.addEventListener('mouseup', stopDrag);
-
-  // 防止文字選擇
-  event.preventDefault();
 };
 
 const onDrag = (event: MouseEvent) => {
@@ -1680,11 +1720,6 @@ const selectBaseLayer = (layerName: string | null) => {
     selectedLayer.layer.setVisible(true);
     console.log('底圖圖層', selectedLayer.name, '已啟用');
   }
-};
-
-// 舊的 toggleBaseLayer 函數 (保留以備不時之需)
-const toggleBaseLayer = (selectedLayer: MapLayer) => {
-  selectBaseLayer(selectedLayer.name);
 };
 
 // LayerManagement 組件事件處理函數
@@ -2224,9 +2259,14 @@ const getCurrentLocation = () => {
     return;
   }
 
+  isLocationLoading.value = true;
+
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      if (!map) return;
+      if (!map) {
+        isLocationLoading.value = false;
+        return;
+      }
 
       const { longitude, latitude } = position.coords;
       const center = fromLonLat([longitude, latitude]);
@@ -2237,16 +2277,18 @@ const getCurrentLocation = () => {
       map.getView().animate({
         center: center,
         zoom: 16,
-        duration: 1000
+        duration: 500
       });
 
       snackbarMessage.value = '已定位到您的位置';
       showSnackbar.value = true;
+      isLocationLoading.value = false;
     },
     (error) => {
       console.error('定位失敗:', error);
       snackbarMessage.value = '定位失敗，請檢查位置權限設定';
       showSnackbar.value = true;
+      isLocationLoading.value = false;
     },
     {
       enableHighAccuracy: true,
@@ -2260,6 +2302,7 @@ const getCurrentLocation = () => {
 const locateByCoordinate = () => {
   if (!map) return;
 
+  isLocationLoading.value = true;
   let center: number[] = [];
 
   if (coordinateSystem.value === 'wgs84') {
@@ -2270,6 +2313,7 @@ const locateByCoordinate = () => {
     if (isNaN(lon) || isNaN(lat)) {
       snackbarMessage.value = '請輸入有效的經緯度坐標';
       showSnackbar.value = true;
+      isLocationLoading.value = false;
       return;
     }
 
@@ -2277,6 +2321,7 @@ const locateByCoordinate = () => {
     if (lon < 119 || lon > 122 || lat < 21 || lat > 26) {
       snackbarMessage.value = '坐標超出台灣範圍，請檢查輸入';
       showSnackbar.value = true;
+      isLocationLoading.value = false;
       return;
     }
 
@@ -2289,6 +2334,7 @@ const locateByCoordinate = () => {
     if (isNaN(tw97X) || isNaN(tw97Y)) {
       snackbarMessage.value = '請輸入有效的 TW97 坐標';
       showSnackbar.value = true;
+      isLocationLoading.value = false;
       return;
     }
 
@@ -2296,6 +2342,7 @@ const locateByCoordinate = () => {
     if (!validateTWD97Coordinates(tw97X, tw97Y)) {
       snackbarMessage.value = 'TWD97 坐標超出有效範圍（X: 140000-360000, Y: 2400000-2800000）';
       showSnackbar.value = true;
+      isLocationLoading.value = false;
       return;
     }
 
@@ -2307,6 +2354,7 @@ const locateByCoordinate = () => {
       console.error('TWD97 coordinate transformation failed:', error);
       snackbarMessage.value = 'TWD97 坐標轉換失敗，請檢查坐標是否正確';
       showSnackbar.value = true;
+      isLocationLoading.value = false;
       return;
     }
   }
@@ -2320,21 +2368,69 @@ const locateByCoordinate = () => {
   map.getView().animate({
     center: center,
     zoom: 16,
-    duration: 1000
+    duration: 500
   });
 
   snackbarMessage.value = '已定位到指定坐標';
   showSnackbar.value = true;
+  isLocationLoading.value = false;
 };
 
 // 地號定位相關函數
+
+// 地段搜尋事件處理函數
+const onSectionSearchUpdate = (searchValue: string) => {
+  sectionSearchText.value = searchValue;
+};
+
+// 地段選單失焦事件處理函數
+const onSectionBlur = () => {
+  // 當失焦時清空搜尋文字，避免影響下次搜尋
+  sectionSearchText.value = '';
+};
+
+// 格式化母地號：失去焦點時自動補正為四位數
+const formatMotherNumber = () => {
+  if (landNumberInput.value.motherNumber && landNumberInput.value.motherNumber.trim()) {
+    // 只保留數字
+    const cleanValue = landNumberInput.value.motherNumber.replace(/\D/g, '');
+    if (cleanValue) {
+      // 補正為四位數
+      landNumberInput.value.motherNumber = cleanValue.padStart(4, '0');
+    } else {
+      // 如果清理後沒有數字，清空欄位
+      landNumberInput.value.motherNumber = '';
+    }
+  }
+};
+
+// 格式化子地號：失去焦點時自動補正為四位數
+const formatChildNumber = () => {
+  if (landNumberInput.value.childNumber && landNumberInput.value.childNumber.trim()) {
+    // 只保留數字
+    const cleanValue = landNumberInput.value.childNumber.replace(/\D/g, '');
+    if (cleanValue) {
+      // 補正為四位數
+      landNumberInput.value.childNumber = cleanValue.padStart(4, '0');
+    } else {
+      // 如果清理後沒有數字，清空欄位
+      landNumberInput.value.childNumber = '';
+    }
+  }
+};
 
 // 縣市變更處理
 const onCountyChange = async (newCounty: string) => {
   // 重置鄉鎮和地段
   landNumberInput.value.town = '';
-  landNumberInput.value.section = '';
+  landNumberInput.value.section = null;
   nlscSections.value = [];
+
+  // 強制重新渲染地段選單
+  sectionSelectKey.value++;
+
+  // 使用 nextTick 確保重置生效
+  await nextTick();
 
   if (!newCounty) {
     townOptions.value = [];
@@ -2364,7 +2460,10 @@ const onCountyChange = async (newCounty: string) => {
       const specialCode = specialCities[newCounty].code;
       loadingSections.value = true;
       try {
-        nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, specialCode);
+        await domicileStore.loadLandSectionsByLandCodes(county.land_code, specialCode);
+        nlscSections.value = domicileStore.landSections.filter(s =>
+          s.county_land_code === county.land_code && s.town_land_code === specialCode
+        );
         console.log(`已自動載入 ${newCounty} 的地段資料 (${specialCode}):`, nlscSections.value.length);
       } catch (error) {
         console.error('Failed to load land sections for special city:', error);
@@ -2388,6 +2487,14 @@ const specialCities: Record<string, { code: string; name: string }> = {
   '嘉義市': { code: 'I01', name: '嘉義市' }
 };
 
+// 取得特殊城市的顯示文字
+const getSpecialCityDisplayText = (): string => {
+  if (!landNumberInput.value.county) return '';
+  const cityInfo = specialCities[landNumberInput.value.county];
+  return cityInfo ? `${cityInfo.name}` : '';
+};
+
+
 // 取得適用於 NLSC API 的地政代碼
 const getLandCodeForNlsc = (countyName: string, townLandCode: string | null | undefined): string | null => {
   // 如果是特殊城市，統一使用固定的地政代碼
@@ -2401,8 +2508,14 @@ const getLandCodeForNlsc = (countyName: string, townLandCode: string | null | un
 // 鄉鎮變更處理
 const onTownChange = async (newTown: string) => {
   // 重置地段
-  landNumberInput.value.section = '';
+  landNumberInput.value.section = null;
   nlscSections.value = [];
+
+  // 強制重新渲染地段選單
+  sectionSelectKey.value++;
+
+  // 使用 nextTick 確保重置生效
+  await nextTick();
 
   if (!newTown) {
     return;
@@ -2419,7 +2532,10 @@ const onTownChange = async (newTown: string) => {
       if (nlscLandCode) {
         loadingSections.value = true;
         try {
-          nlscSections.value = await fetchLandSectionsByLandCodes(county.land_code, nlscLandCode);
+          await domicileStore.loadLandSectionsByLandCodes(county.land_code, nlscLandCode);
+          nlscSections.value = domicileStore.landSections.filter(s =>
+            s.county_land_code === county.land_code && s.town_land_code === nlscLandCode
+          );
           console.log(`載入 ${landNumberInput.value.county} ${newTown} 的地段資料 (${nlscLandCode}):`, nlscSections.value.length);
         } catch (error) {
           console.error('Failed to load land sections:', error);
@@ -2436,54 +2552,166 @@ const onTownChange = async (newTown: string) => {
   }
 };
 
-// 地號定位功能（預留外部服務接口）
+// 🗺️ 地號定位功能 - 使用 NLSC CadasMapQuery API
+// API: https://api.nlsc.gov.tw/dmaps/CadasMapQuery/[縣市]/[地段]/[地號]/[格式]/[坐標系統]
 const locateByLandNumber = async () => {
   if (!map) return;
 
-  const { county, town, section, motherNumber, childNumber } = landNumberInput.value;
+  const { section, motherNumber, childNumber } = landNumberInput.value;
 
-  // 構建完整地號
-  const fullLandNumber = childNumber
-    ? `${motherNumber}-${childNumber}`
-    : motherNumber;
+  // 驗證必要欄位
+  if (!section) {
+    snackbarMessage.value = '請選擇地段';
+    showSnackbar.value = true;
+    return;
+  }
 
-  snackbarMessage.value = `地號定位服務尚未開通 (${county}${town}${section} ${fullLandNumber})`;
-  showSnackbar.value = true;
+  if (!motherNumber) {
+    snackbarMessage.value = '請輸入母地號';
+    showSnackbar.value = true;
+    return;
+  }
 
-  // TODO: 整合外部地號查詢服務
-  // 預期 API 格式：
-  // GET /api/land-location?county={縣市}&town={鄉鎮}&section={地段}&landNumber={地號}
-  // Response: { longitude: number, latitude: number }
+  // 驗證地號格式
+  const validation = validateLandNumber(motherNumber, childNumber || '');
+  if (!validation.valid) {
+    snackbarMessage.value = `地號格式錯誤: ${validation.message}`;
+    showSnackbar.value = true;
+    return;
+  }
 
-  /*
+  isLocationLoading.value = true;
+
   try {
-    const response = await fetch(
-      `/api/land-location?county=${county}&town=${town}&section=${section}&landNumber=${fullLandNumber}`
+    // 取得當前選中的地段資料
+    const currentSectionCode = section.toString();
+    const selectedSection = sectionOptions.value.find(s =>
+      s.code === currentSectionCode ||
+      s.value === currentSectionCode
     );
-    const data = await response.json();
 
-    if (data.longitude && data.latitude) {
-      const center = fromLonLat([data.longitude, data.latitude]);
+    if (!selectedSection) {
+      snackbarMessage.value = '無法找到選中的地段資料';
+      showSnackbar.value = true;
+      isLocationLoading.value = false;
+      return;
+    }
 
-      // 添加標記
-      const label = `地號: ${county}${town}${section} ${fullLandNumber}`;
-      addLocationMarker(center, label);
+    // 建立查詢參數
+    const queryParams: CadastralQueryParams = {
+      countyCode: selectedSection.county_land_code || '',  // 縣市地政代碼
+      sectionCode: selectedSection.code || '',             // 地段代碼
+      landNumberMain: motherNumber,                        // 主號
+      landNumberSub: childNumber || '0',                   // 副號（預設0）
+      format: 'gml',                                       // 使用 GML 格式
+      srid: '4326'                                         // 使用 WGS84 坐標系統
+    };
 
-      map.getView().animate({
-        center: center,
-        zoom: 18,
-        duration: 1000
+    console.log('🔍 查詢地籍圖參數:', queryParams);
+
+    // 呼叫 NLSC API
+    const result = await queryCadastralMap(queryParams);
+
+    if (!result.success || result.features.length === 0) {
+      snackbarMessage.value = '查無此地號的地籍資料';
+      showSnackbar.value = true;
+      isLocationLoading.value = false;
+      return;
+    }
+
+    // 清空舊的地籍查詢結果
+    if (cadastralResultSource.value) {
+      cadastralResultSource.value.clear();
+    }
+
+    // 將所有 features 加入到地籍結果圖層
+    if (cadastralResultSource.value) {
+      cadastralResultSource.value.addFeatures(result.features);
+      console.log(`✅ 已加入 ${result.features.length} 筆地籍 feature 到圖層`);
+    }
+
+    // 計算幾何重心作為標記位置
+    // ⚠️ 注意：geometry 已經是 EPSG:3857 坐標系統（由 cadastralMapService 轉換）
+    let center: number[];
+
+    if (result.features.length === 1) {
+      // 單一 feature：使用其幾何重心
+      const geometry = result.features[0].getGeometry();
+      if (geometry && typeof (geometry as any).getInteriorPoint === 'function') {
+        const interiorPoint = (geometry as any).getInteriorPoint();
+        center = interiorPoint.getCoordinates();
+      } else {
+        // Fallback: 使用 extent 中心
+        const extent = cadastralResultSource.value.getExtent();
+        center = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+      }
+    } else {
+      // 多筆 features：找出面積最大的 feature，使用其重心
+      const largestFeature = result.features.reduce((largest, current) => {
+        const largestGeometry = largest.getGeometry();
+        const currentGeometry = current.getGeometry();
+
+        if (!largestGeometry) return current;
+        if (!currentGeometry) return largest;
+
+        const largestArea = typeof (largestGeometry as any).getArea === 'function'
+          ? (largestGeometry as any).getArea()
+          : 0;
+        const currentArea = typeof (currentGeometry as any).getArea === 'function'
+          ? (currentGeometry as any).getArea()
+          : 0;
+
+        return currentArea > largestArea ? current : largest;
       });
 
-      snackbarMessage.value = `已定位到 ${county}${town}${section} ${fullLandNumber}`;
-      showSnackbar.value = true;
+      const geometry = largestFeature.getGeometry();
+      if (geometry && typeof (geometry as any).getInteriorPoint === 'function') {
+        const interiorPoint = (geometry as any).getInteriorPoint();
+        center = interiorPoint.getCoordinates();
+      } else {
+        // Fallback: 使用 extent 中心
+        const extent = cadastralResultSource.value.getExtent();
+        center = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+      }
     }
-  } catch (error) {
-    console.error('地號定位失敗:', error);
-    snackbarMessage.value = '地號定位失敗，請稍後再試';
+
+    // 構建完整地號
+    const fullLandNumber = childNumber
+      ? `${motherNumber}-${childNumber}`
+      : motherNumber;
+
+    // 取得地段名稱
+    const sectionName = selectedSection.displayName || selectedSection.name || selectedSection.code;
+
+    // 添加標記
+    const label = `地號: ${sectionName} ${fullLandNumber}`;
+    addLocationMarker(center, label);
+
+    // 定位到該地號並縮放
+    map.getView().animate({
+      center: center,
+      zoom: 18,
+      duration: 500
+    });
+
+    snackbarMessage.value = `已定位到 ${sectionName} ${fullLandNumber}（${result.features.length} 筆圖徵）`;
     showSnackbar.value = true;
+    isLocationLoading.value = false;
+
+    console.log('✅ 地號定位成功:', {
+      section: sectionName,
+      landNumber: fullLandNumber,
+      featureCount: result.features.length,
+      centerType: result.features.length === 1 ? 'single_centroid' : 'largest_centroid',
+      center_3857: center
+    });
+
+  } catch (error) {
+    console.error('❌ 地號定位失敗:', error);
+    snackbarMessage.value = '地號定位失敗，請檢查網路連線或稍後再試';
+    showSnackbar.value = true;
+    isLocationLoading.value = false;
   }
-  */
 };
 
 // 展繪功能
@@ -2504,8 +2732,6 @@ const toggleDraw = () => {
   console.log('展繪工具:', isDrawing.value ? '啟用' : '停用');
   snackbarMessage.value = isDrawing.value ? '展繪工具已啟用' : '展繪工具已停用';
   showSnackbar.value = true;
-
-  // TODO: 實作繪圖功能
 };
 
 // === 量測工具功能函數 ===
@@ -3672,6 +3898,18 @@ onMounted(async () => {
     console.error('Failed to load counties:', error);
   }
 
+  // 檢查 NLSC API 健康狀態
+  try {
+    const healthStatus = await checkNlscApiHealth();
+    apiStatus.value.isOnline = healthStatus.nlsc_api_status === 'online';
+    apiStatus.value.lastChecked = new Date();
+    console.log('NLSC API health status:', healthStatus);
+  } catch (error) {
+    console.error('Failed to check NLSC API health:', error);
+    apiStatus.value.isOnline = false;
+    apiStatus.value.lastChecked = new Date();
+  }
+
   // 確保面板位置在視窗尺寸確定後正確設置
   nextTick(() => {
     const rightOffset = 90;
@@ -4017,25 +4255,48 @@ async function initMap() {
 
     // === 創建定位標記圖層 ===
     locationMarkerSource.value = new VectorSource();
+
+    // 創建 mdi-map-marker SVG data URL
+    const markerSvg = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48">
+        <path fill="#EF5350" d="M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5M12,2A7,7 0 0,0 5,9C5,14.25 12,22 12,22C12,22 19,14.25 19,9A7,7 0 0,0 12,2Z"/>
+        <path fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.5" d="M12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5Z" opacity="0.9"/>
+      </svg>
+    `.trim();
+    const markerDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markerSvg);
+
     locationMarkerLayer.value = new VectorLayer({
       source: locationMarkerSource.value,
       style: new Style({
-        image: new Circle({
-          radius: 10,
-          fill: new Fill({
-            color: 'rgba(255, 0, 0, 0.6)', // 紅色標記
-          }),
-          stroke: new Stroke({
-            color: '#fff',
-            width: 2,
-          }),
+        image: new Icon({
+          src: markerDataUrl,
+          anchor: [0.5, 1], // 錨點設在底部中央，符合地圖標記習慣
+          scale: 1,
         }),
       }),
       visible: true,
       zIndex: 1001, // 確保定位標記在量測圖層之上
     });
 
-    const layers = [nlscLayer, osmLayer, stamenLayer, gridLayer, grantLayer, functionalZoneLayer, nonUrbanLandUseLayer, publicLandLayer, measureLayer.value, locationMarkerLayer.value];
+    // === 創建地籍查詢結果圖層 ===
+    cadastralResultSource.value = new VectorSource();
+
+    cadastralResultLayer.value = new VectorLayer({
+      source: cadastralResultSource.value,
+      style: new Style({
+        stroke: new Stroke({
+          color: '#FF5722',  // 深橘色邊界
+          width: 3
+        }),
+        fill: new Fill({
+          color: 'rgba(255, 87, 34, 0.2)'  // 半透明橘色填充
+        })
+      }),
+      visible: true,
+      zIndex: 999, // 在量測圖層下方，但在其他圖層上方
+    });
+
+    const layers = [nlscLayer, osmLayer, stamenLayer, gridLayer, grantLayer, functionalZoneLayer, nonUrbanLandUseLayer, publicLandLayer, measureLayer.value, cadastralResultLayer.value, locationMarkerLayer.value];
 
     // 關聯圖層到 mapLayers 數據結構（使用 ID 查找）
     nlscMapLayer.layer = nlscLayer;
