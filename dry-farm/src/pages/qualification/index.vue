@@ -216,7 +216,7 @@
                             variant="outlined"
                             density="compact"
                             hide-details
-                            readonly
+                            disabled
                           />
                         </div>
 

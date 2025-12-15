@@ -69,10 +69,10 @@
                     mdi-map-marker-off
                   </v-icon>
                   <div class="text-h6 mb-2">
-                    查無此地段圖資
+                    查無此地號圖資
                   </div>
                   <div class="text-body-2 text-grey-darken-1 mb-4">
-                    目前系統中沒有此地段的地號圖資資料
+                    目前系統中沒有此地號的地號圖資資料
                   </div>
                   <v-btn
                     color="#3ea0a3"
@@ -1971,7 +1971,7 @@ interface LandData {
   // 設施地段
   landCounty: string | number;
   landTown: string | number;
-  landSec: string | number;
+  landSec: string | number | null;
   landSecName?: string;  // 地段名稱，選擇地段時自動儲存
 
   // 地號資訊
@@ -2324,11 +2324,11 @@ const createCascadeSelectManager = (
     switch (level) {
       case 'county':
         formData.landTown = ''
-        formData.landSec = ''
+        formData.landSec = null
         console.log('  → Cleared landTown and landSec')
         break
       case 'town':
-        formData.landSec = ''
+        formData.landSec = null
         console.log('  → Cleared landSec')
         break
     }
@@ -2403,7 +2403,7 @@ const createInitialLandData = (id?: string): LandData => ({
   // 設施地段
   landCounty: '',
   landTown: '',
-  landSec: '',
+  landSec: null,
 
   // 地號資訊
   landNumber: '',
@@ -2466,7 +2466,7 @@ const createInitialFormData = () => ({
   // Facility address section
   landCounty: '' as string | number,
   landTown: '' as string | number,
-  landSec: '' as string | number,
+  landSec: null as string | number | null,
   landSecName: '',  // 地段名稱
   landNumber: '',
   landNumberMain: '',
@@ -3476,7 +3476,7 @@ const onCountyChange = stepManager.createCascadeHandler(async () => {
   cascadeManager.resetCascadeSelections('county');
 
   // 重置地段選擇和資料
-  localFormData.landSec = '';
+  localFormData.landSec = null;
   localFormData.landSecName = '';
   nlscSections.value = [];
 
@@ -3526,11 +3526,11 @@ const onCountyChange = stepManager.createCascadeHandler(async () => {
 // 載入 NLSC 地段資料的函數
 const loadLandSections = async (preserveSelection = false) => {
   // 保存當前的地段選擇（如果需要保留）
-  const currentSelection = preserveSelection ? localFormData.landSec : '';
+  const currentSelection = preserveSelection ? localFormData.landSec : null;
 
   // 重置地段選擇和資料（除非要保留選擇）
   if (!preserveSelection) {
-    localFormData.landSec = '';
+    localFormData.landSec = null;
   }
   nlscSections.value = [];
 
