@@ -263,7 +263,7 @@
       flat
     >
       <v-card-text class="pb-0 pt-0">
-        <!-- 🆕 唯讀模式提示 -->
+        <!-- 🆕 唯讀模式提示（硬鎖定） -->
         <v-alert
           v-if="props.readonly && grantsStore.currentGrant?.status !== 'rejected'"
           type="warning"
@@ -273,7 +273,31 @@
           rounded="lg"
         >
           <div class="d-flex align-center">
-            <span class="text-body-2">已完成現場勘查，此步驟已鎖定，無法編輯。</span>
+            <span class="text-body-2">
+              {{ grantsStore.currentGrant?.status === 'submitted'
+                ? '已完成結案申報，此步驟已鎖定，無法編輯。'
+                : '已完成申報並送審，此步驟已鎖定，無法編輯。' }}
+            </span>
+          </div>
+        </v-alert>
+
+        <!-- ⚠️ 軟鎖定警告 -->
+        <v-alert
+          v-if="props.softLocked && !props.readonly"
+          color="warning"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          rounded="lg"
+        >
+          <div class="d-flex align-center">
+            <v-icon
+              class="me-2"
+              size="small"
+            >mdi-alert</v-icon>
+            <span class="text-body-2">
+              已完成現場勘查，修改此步驟資料可能導致勘查結果無效，請謹慎編輯。
+            </span>
           </div>
         </v-alert>
 
@@ -2061,12 +2085,14 @@ interface Step2Events {
 const emit = defineEmits<Step2Events>();
 
 // 事件驅動架構：移除 props 依賴，但保留 currentStep
-// 🆕 新增 readonly prop 支援
+// 🆕 新增 readonly 和 softLocked prop 支援
 const props = withDefaults(defineProps<{
   currentStep: number;
   readonly?: boolean;
+  softLocked?: boolean;
 }>(), {
-  readonly: false
+  readonly: false,
+  softLocked: false
 })
 
 // Reference to map element and map instance
