@@ -3914,6 +3914,7 @@ const fetchPipeFittings = async () => {
       skip: 0,
       limit: 1000, // Fetch all pipe fittings for the office
       append: true,
+      include_inactive: false,  // 🔧 只載入啟用的管件（用戶介面）
     });
     // console.log(`Fetched all pipe fittings for office_id: ${officeId}`);
     // Store the filtered pipe fittings

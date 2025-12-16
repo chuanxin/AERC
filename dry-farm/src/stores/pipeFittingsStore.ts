@@ -117,11 +117,11 @@ export const usePipeFittingsStore = defineStore('pipeFittings', {
 
     async fetchPipeFittingsByOfficeId(
       officeId: number | string,
-      options: { skip?: number; limit?: number; append?: boolean } = {}
+      options: { skip?: number; limit?: number; append?: boolean; include_inactive?: boolean } = {}
     ) {
-      const { skip = 0, limit = 50, append = false } = options; // 默認每次加載50條
+      const { skip = 0, limit = 50, append = false, include_inactive = false } = options; // 默認每次加載50條
 
-      console.log(`[STORE FETCH] Requesting: officeId=${officeId}, skip=${skip}, limit=${limit}, append=${append}. Current loaded: ${this.pipeFittings.length}, current total: ${this.totalPipeFittings}`);
+      console.log(`[STORE FETCH] Requesting: officeId=${officeId}, skip=${skip}, limit=${limit}, append=${append}, include_inactive=${include_inactive}. Current loaded: ${this.pipeFittings.length}, current total: ${this.totalPipeFittings}`);
 
       if (!append) {
         this.isLoading = true;
@@ -140,7 +140,7 @@ export const usePipeFittingsStore = defineStore('pipeFittings', {
         // console.log(`[Store] Fetching office ${officeId}, skip: ${skip}, limit: ${limit}, append: ${append}`);
         const response: PaginatedResponse<PipeFitting> = await pipeFittingsService.getPipeFittingsByOfficeId(
           officeId,
-          { skip, limit }
+          { skip, limit, include_inactive }
         );
 
         console.log(`[STORE FETCH] API Response: items_length=${response?.items?.length}, total=${response?.total}`);

@@ -30,39 +30,75 @@ async def get_pipe_fitting(pomno: int) -> Optional[PipeFittings]:
         return None
 
 async def get_pipe_fittings(skip: int = 0, limit: int = 100) -> List[PipeFittings]:
-    pipe_fittings = await PipeFittings.all().offset(skip).limit(limit).prefetch_related(
+    """
+    Retrieve all pipe fittings with pagination.
+    Only returns active pipe fittings (is_active=True).
+    """
+    pipe_fittings = await PipeFittings.filter(
+        is_active=True  # 🔧 只查詢啟用的管件
+    ).offset(skip).limit(limit).prefetch_related(
         "material", "module", "diameter1", "diameter2", "diameter3", "office", "created_by", "modified_by"
     )
 
     # 獲取所有管件 ID
     pipe_fitting_ids = [pf.pomno for pf in pipe_fittings]
-    
+
     # 獲取價格歷史和當前價格
     await _add_price_info_to_pipe_fittings(pipe_fittings)
-    
+
     return pipe_fittings
 
 async def get_pipe_fittings_count() -> int:
-    return await PipeFittings.all().count()
+    """
+    Count all pipe fittings.
+    Only counts active pipe fittings (is_active=True).
+    """
+    return await PipeFittings.filter(is_active=True).count()
 
-async def get_pipe_fittings_by_office(office_id: int, skip: int = 0, limit: int = 100) -> List[PipeFittings]:
+async def get_pipe_fittings_by_office(
+    office_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    include_inactive: bool = False
+) -> List[PipeFittings]:
     """
     Retrieve pipe fittings filtered by office_id with pagination.
+
+    Args:
+        office_id: Office ID to filter by
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+        include_inactive: If False (default), only returns active items; if True, returns all items
     """
-    pipe_fittings = await PipeFittings.filter(office_id=office_id).offset(skip).limit(limit).prefetch_related(
+    # Build filter conditions
+    filter_conditions = {"office_id": office_id}
+    if not include_inactive:
+        filter_conditions["is_active"] = True
+
+    pipe_fittings = await PipeFittings.filter(
+        **filter_conditions
+    ).offset(skip).limit(limit).prefetch_related(
         "material", "module", "diameter1", "diameter2", "diameter3", "office", "created_by", "modified_by"
     )
 
     # 獲取價格歷史和當前價格
     await _add_price_info_to_pipe_fittings(pipe_fittings, office_id)
-    
+
     return pipe_fittings
 
-async def get_pipe_fittings_by_office_count(office_id: int) -> int:
+async def get_pipe_fittings_by_office_count(office_id: int, include_inactive: bool = False) -> int:
     """
     Count pipe fittings filtered by office_id.
+
+    Args:
+        office_id: Office ID to filter by
+        include_inactive: If False (default), only counts active items; if True, counts all items
     """
-    return await PipeFittings.filter(office_id=office_id).count()
+    filter_conditions = {"office_id": office_id}
+    if not include_inactive:
+        filter_conditions["is_active"] = True
+
+    return await PipeFittings.filter(**filter_conditions).count()
 
 async def create_pipe_fitting(pipe_fitting_in: PipeFittingCreate) -> PipeFittings:
     # Ensure related objects exist (basic check by ID)

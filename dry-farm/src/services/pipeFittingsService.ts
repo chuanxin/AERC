@@ -86,7 +86,7 @@ export const pipeFittingsService = {
 
   getPipeFittingsByOfficeId: async (
     officeId: number | string,
-    params?: { skip?: number; limit?: number }
+    params?: { skip?: number; limit?: number; include_inactive?: boolean }
   ): Promise<PaginatedResponse<PipeFitting>> => {
     try {
 
