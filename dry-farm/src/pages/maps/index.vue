@@ -981,6 +981,7 @@ import { useDomicileStore } from '@/stores/domicile';
 import { checkNlscApiHealth, type LandSection } from '@/services/landSectionNlscService';
 import {
   queryCadastralMap,
+  queryCadastralMapByPoint,
   validateLandNumber,
   type CadastralQueryParams
 } from '@/services/cadastralMapService';
@@ -2242,11 +2243,24 @@ const addLocationMarker = (coordinates: number[], label: string) => {
   locationMarkerSource.value.addFeature(marker);
 };
 
-// 清除定位標記
+// 清除定位標記及地籍圖層
 const clearLocationMarker = () => {
+  let cleared = false;
+
+  // 清除定位標記
   if (locationMarkerSource.value) {
     locationMarkerSource.value.clear();
-    snackbarMessage.value = '已清除定位標記';
+    cleared = true;
+  }
+
+  // 清除地籍查詢結果圖層
+  if (cadastralResultSource.value) {
+    cadastralResultSource.value.clear();
+    cleared = true;
+  }
+
+  if (cleared) {
+    snackbarMessage.value = '已清除定位標記及地籍圖層';
     showSnackbar.value = true;
   }
 };
@@ -2298,17 +2312,20 @@ const getCurrentLocation = () => {
   );
 };
 
-// 坐標定位功能
-const locateByCoordinate = () => {
+// 坐標定位功能（整合地籍查詢）
+const locateByCoordinate = async () => {
   if (!map) return;
 
   isLocationLoading.value = true;
   let center: number[] = [];
+  let lon: number = 0;
+  let lat: number = 0;
+  let srid: '4326' | '3826' = '4326';
 
   if (coordinateSystem.value === 'wgs84') {
     // WGS84 經緯度坐標
-    const lon = parseFloat(coordinateInput.value.longitude);
-    const lat = parseFloat(coordinateInput.value.latitude);
+    lon = parseFloat(coordinateInput.value.longitude);
+    lat = parseFloat(coordinateInput.value.latitude);
 
     if (isNaN(lon) || isNaN(lat)) {
       snackbarMessage.value = '請輸入有效的經緯度坐標';
@@ -2326,6 +2343,7 @@ const locateByCoordinate = () => {
     }
 
     center = fromLonLat([lon, lat]);
+    srid = '4326';
   } else {
     // TW97 (TWD97) 坐標
     const tw97X = parseFloat(coordinateInput.value.tw97X);
@@ -2350,6 +2368,10 @@ const locateByCoordinate = () => {
     // proj4 已在應用初始化時註冊，transform 函數可直接使用
     try {
       center = transform([tw97X, tw97Y], 'EPSG:3826', 'EPSG:3857');
+      // 用於 NLSC API 查詢
+      lon = tw97X;
+      lat = tw97Y;
+      srid = '3826';
     } catch (error) {
       console.error('TWD97 coordinate transformation failed:', error);
       snackbarMessage.value = 'TWD97 坐標轉換失敗，請檢查坐標是否正確';
@@ -2357,6 +2379,35 @@ const locateByCoordinate = () => {
       isLocationLoading.value = false;
       return;
     }
+  }
+
+  // 🗺️ 使用 NLSC API 查詢地籍圖
+  try {
+    console.log(`🔍 查詢坐標地籍圖: [${lon}, ${lat}], SRID: ${srid}`);
+    const result = await queryCadastralMapByPoint(lon, lat, srid, 'gml');
+
+    if (result.success && result.features.length > 0) {
+      // 清空舊的地籍查詢結果
+      if (cadastralResultSource.value) {
+        cadastralResultSource.value.clear();
+      }
+
+      // 為地籍 features 設置標識，避免與案件 features 混淆
+      result.features.forEach(feature => {
+        feature.set('cadastral', true);
+      });
+
+      // 將所有 features 加入到地籍結果圖層（與地籍定位相同）
+      if (cadastralResultSource.value) {
+        cadastralResultSource.value.addFeatures(result.features);
+        console.log(`✅ 已加入 ${result.features.length} 筆地籍 feature 到圖層`);
+      }
+    } else {
+      console.warn('⚠️ 此坐標位置查無地籍資料');
+    }
+  } catch (error) {
+    console.error('❌ 地籍查詢失敗:', error);
+    // 不中斷定位流程，僅記錄錯誤
   }
 
   // 添加標記
@@ -2623,6 +2674,11 @@ const locateByLandNumber = async () => {
     if (cadastralResultSource.value) {
       cadastralResultSource.value.clear();
     }
+
+    // 為地籍 features 設置標識，避免與案件 features 混淆
+    result.features.forEach(feature => {
+      feature.set('cadastral', true);
+    });
 
     // 將所有 features 加入到地籍結果圖層
     if (cadastralResultSource.value) {
@@ -4362,7 +4418,8 @@ async function initMap() {
           // 點位模式：處理聚合點位
           const feature = features.find((f: any) => {
             const layer = f.get('layer');
-            return layer === grantLayer || !layer; // 補助案件特徵
+            const isCadastral = f.get('cadastral'); // 排除地籍圖層
+            return !isCadastral && (layer === grantLayer || !layer); // 補助案件特徵
           });
 
           if (feature) {
