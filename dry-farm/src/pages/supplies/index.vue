@@ -1255,6 +1255,7 @@ const loadMorePipeFittings = async () => {
     skip: currentLoadedCount,
     limit: itemsToFetchPerPage,
     append: true,
+    include_inactive: true,  // 🔧 管理介面顯示所有材料（包括停用的）
   });
 };
 
@@ -1484,7 +1485,8 @@ const saveItem = async () => {
     await store.fetchPipeFittingsByOfficeId(userOfficeId, {
       skip: 0,
       limit: 50,
-      append: false
+      append: false,
+      include_inactive: true,  // 🔧 管理介面顯示所有材料（包括停用的）
     });
 
     editDialog.value = false;
@@ -1506,6 +1508,7 @@ onMounted(async () => {
     skip: 0,
     limit: initialLimit,
     append: false,
+    include_inactive: true,  // 🔧 管理介面顯示所有材料（包括停用的）
   });
 
   await pfModulesStore.ensureAllModulesLoaded()

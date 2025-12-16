@@ -48,16 +48,27 @@ async def read_pipe_fittings_by_office_endpoint(
     office_id: int,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+    include_inactive: bool = Query(False, description="Include inactive pipe fittings (for management UI)"),
 ):
     """
     Retrieve a list of pipe fittings filtered by `office_id` with pagination.
+
+    Args:
+        office_id: Office ID to filter by
+        skip: Number of records to skip (pagination)
+        limit: Maximum number of records to return
+        include_inactive: If True, includes is_active=False items (default: False)
     """
     # First, check if the office itself exists to provide a clearer error if not
     if not await Offices.exists(id=office_id):
         raise HTTPException(status_code=404, detail=f"Office with id {office_id} not found")
 
-    items = await crud_pipe_fittings.get_pipe_fittings_by_office(office_id=office_id, skip=skip, limit=limit)
-    total = await crud_pipe_fittings.get_pipe_fittings_by_office_count(office_id=office_id)
+    items = await crud_pipe_fittings.get_pipe_fittings_by_office(
+        office_id=office_id, skip=skip, limit=limit, include_inactive=include_inactive
+    )
+    total = await crud_pipe_fittings.get_pipe_fittings_by_office_count(
+        office_id=office_id, include_inactive=include_inactive
+    )
     return {"items": items, "total": total}
 
 @router.put("/{pomno}", response_model=PipeFittingResponse, summary="Update Pipe Fitting")
