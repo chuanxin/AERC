@@ -15,6 +15,7 @@ from src.schemas.grants import (
 )
 # import src.crud.offices as crud
 import src.crud.grants as crud
+import src.crud.domicile as domicile_crud
 from src.schemas.token import Status
 from src.crud.grants import get_grant_by_case_number, delete_grant  # Import the missing functions
 from src.database.models import Grants
@@ -516,7 +517,7 @@ async def get_applicant_subsidy_summary(
 
 # === 結案申報書相關功能 ===
 
-def extract_completion_declaration_data(grant, version_data: dict) -> tuple:
+async def extract_completion_declaration_data(grant, version_data: dict) -> tuple:
     """
     從 Grant 資料中提取結案申報書所需資料
 
@@ -531,7 +532,7 @@ def extract_completion_declaration_data(grant, version_data: dict) -> tuple:
 
     # Step 2: 土地資料
     step2_data = steps_data.get('2', {})
-    land_list = step2_data.get('landList', []) or step2_data.get('land_list', [])
+    land_list = step2_data.get('lands', []) or step2_data.get('landList', []) or step2_data.get('land_list', [])
 
     # Step 3: 灌溉調控設施（step3.vue → formData[4]）
     step3_data = steps_data.get('4', {})
@@ -539,23 +540,65 @@ def extract_completion_declaration_data(grant, version_data: dict) -> tuple:
     # Step 4: 田間管路（step4.vue → formData[5]）
     step4_data = steps_data.get('5', {})
 
+    # 組合完整通訊地址
+    address_parts = []
+    if grant.county:
+        address_parts.append(grant.county)
+    if grant.town:
+        address_parts.append(grant.town)
+    if grant.village:
+        address_parts.append(grant.village)
+    if grant.address:
+        address_parts.append(grant.address)
+    full_address = "".join(address_parts)
+
     # 組合補助案件基本資料
     grant_data = {
         'case_number': str(grant.case_number) if grant.case_number else "",
         'applicant_name': str(grant.applicant_name) if grant.applicant_name else "",
         'year': str(grant.year) if grant.year else "114",
-        'county': step1_data.get('county', '') or step2_data.get('addressCounty', ''),
-        'town': step1_data.get('town', '') or step2_data.get('addressTown', ''),
-        'address': str(grant.address) if grant.address else "",
-        'phone': step1_data.get('phone', '') or step1_data.get('cellphone', ''),
+        'county': str(grant.county) if grant.county else "",
+        'town': str(grant.town) if grant.town else "",
+        'address': full_address,
+        'phone': str(grant.applicant_phone) if grant.applicant_phone else "",
         'office_name': grant.office if grant.office else "石門管理處"  # office 是 CharField，直接使用
     }
 
     # 組合土地資料
     land_data = []
     for land in land_list:
+        # 取得縣市和鄉鎮資訊（可能是 ID 或名稱）
+        land_county_value = land.get('landCounty', '') or land.get('land_county', '')
+        land_town_value = land.get('landTown', '') or land.get('land_town', '')
+
+        # 如果是數字（ID），轉換為名稱
+        land_county_name = ''
+        land_town_name = ''
+
+        if land_county_value:
+            if isinstance(land_county_value, int) or (isinstance(land_county_value, str) and land_county_value.isdigit()):
+                try:
+                    county = await domicile_crud.get_county(int(land_county_value))
+                    land_county_name = county.name if county else str(land_county_value)
+                except:
+                    land_county_name = str(land_county_value)
+            else:
+                land_county_name = str(land_county_value)
+
+        if land_town_value:
+            if isinstance(land_town_value, int) or (isinstance(land_town_value, str) and land_town_value.isdigit()):
+                try:
+                    town = await domicile_crud.get_town(int(land_town_value))
+                    land_town_name = town.name if town else str(land_town_value)
+                except:
+                    land_town_name = str(land_town_value)
+            else:
+                land_town_name = str(land_town_value)
+
         land_data.append({
-            'land_section': land.get('landSection', '') or land.get('land_section', ''),
+            'land_county': land_county_name,
+            'land_town': land_town_name,
+            'land_section': land.get('landSecName', '') or land.get('landSection', '') or land.get('land_section', ''),
             'land_number': land.get('landNumber', '') or land.get('land_number', ''),
             'facility_area_m2': land.get('facilityArea', 0) or land.get('facility_area', 0)
         })
@@ -589,7 +632,7 @@ async def download_completion_declaration(
         version_data = grant.active_version.all_steps_data if grant.active_version else {}
 
         # 提取結案申報書資料
-        grant_data, land_data, step3_data, step4_data = extract_completion_declaration_data(grant, version_data)
+        grant_data, land_data, step3_data, step4_data = await extract_completion_declaration_data(grant, version_data)
 
         # 生成 PDF
         pdf_generator = CompletionReportPDFGenerator()
