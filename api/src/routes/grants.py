@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, UploadFile, File, Form, Body
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 
 from starlette import status
 
@@ -17,8 +17,12 @@ from src.schemas.grants import (
 import src.crud.grants as crud
 from src.schemas.token import Status
 from src.crud.grants import get_grant_by_case_number, delete_grant  # Import the missing functions
+from src.database.models import Grants
+from src.services.completion_report_pdf_generator import CompletionReportPDFGenerator
 
 import logging
+import tempfile
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/grants", tags=["grants"])
@@ -507,4 +511,122 @@ async def get_applicant_subsidy_summary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"查詢年度補助額度失敗: {str(e)}",
+        )
+
+
+# === 結案申報書相關功能 ===
+
+def extract_completion_declaration_data(grant, version_data: dict) -> tuple:
+    """
+    從 Grant 資料中提取結案申報書所需資料
+
+    Returns:
+        (grant_data, land_data, step3_data, step4_data)
+    """
+    # 提取各步驟資料（統一架構：UI step N → formData[N]）
+    steps_data = version_data.get('steps', {}) if version_data else {}
+
+    # Step 1: 申請人基本資料
+    step1_data = steps_data.get('1', {})
+
+    # Step 2: 土地資料
+    step2_data = steps_data.get('2', {})
+    land_list = step2_data.get('landList', []) or step2_data.get('land_list', [])
+
+    # Step 3: 灌溉調控設施（step3.vue → formData[4]）
+    step3_data = steps_data.get('4', {})
+
+    # Step 4: 田間管路（step4.vue → formData[5]）
+    step4_data = steps_data.get('5', {})
+
+    # 組合補助案件基本資料
+    grant_data = {
+        'case_number': str(grant.case_number) if grant.case_number else "",
+        'applicant_name': str(grant.applicant_name) if grant.applicant_name else "",
+        'year': str(grant.year) if grant.year else "114",
+        'county': step1_data.get('county', '') or step2_data.get('addressCounty', ''),
+        'town': step1_data.get('town', '') or step2_data.get('addressTown', ''),
+        'address': str(grant.address) if grant.address else "",
+        'phone': step1_data.get('phone', '') or step1_data.get('cellphone', ''),
+        'office_name': grant.office if grant.office else "石門管理處"  # office 是 CharField，直接使用
+    }
+
+    # 組合土地資料
+    land_data = []
+    for land in land_list:
+        land_data.append({
+            'land_section': land.get('landSection', '') or land.get('land_section', ''),
+            'land_number': land.get('landNumber', '') or land.get('land_number', ''),
+            'facility_area_m2': land.get('facilityArea', 0) or land.get('facility_area', 0)
+        })
+
+    return grant_data, land_data, step3_data, step4_data
+
+
+@router.post("/case/{case_number}/completion-declaration")
+async def download_completion_declaration(
+    case_number: str = Path(..., description="案件編號"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """
+    下載結案申報書 PDF
+
+    檔名格式：[年度]-[案號]-[申請人姓名] - 結案申報書.pdf
+    """
+    try:
+        logger.info(f"📋 [download_completion_declaration] 生成結案申報書: case_number={case_number}")
+
+        # 查詢補助案件（office 是 CharField，不需要 select_related）
+        grant = await Grants.filter(case_number=case_number).select_related("active_version").first()
+
+        if not grant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"找不到案號 {case_number} 的案件"
+            )
+
+        # 取得版本資料
+        version_data = grant.active_version.all_steps_data if grant.active_version else {}
+
+        # 提取結案申報書資料
+        grant_data, land_data, step3_data, step4_data = extract_completion_declaration_data(grant, version_data)
+
+        # 生成 PDF
+        pdf_generator = CompletionReportPDFGenerator()
+        pdf_bytes = pdf_generator.generate_completion_report(
+            grant_data, land_data, step3_data, step4_data
+        )
+
+        # 生成臨時檔案
+        temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+        temp_pdf.write(pdf_bytes)
+        temp_pdf.close()
+
+        # 生成下載檔名：[年度]-[案號]-[申請人姓名] - 結案申報書.pdf
+        year = grant_data.get('year', '114')
+        applicant_name = grant_data.get('applicant_name', '未知')
+        filename = f"{year}-{case_number}-{applicant_name} - 結案申報書.pdf"
+
+        # 正確的中文檔名編碼處理
+        encoded_filename = quote(filename, safe='')
+
+        logger.info(f"📋 [download_completion_declaration] 結案申報書生成成功: {filename}")
+
+        # 返回檔案
+        return FileResponse(
+            path=temp_pdf.name,
+            filename=filename,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [download_completion_declaration] 生成結案申報書失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"生成結案申報書失敗: {str(e)}"
         )

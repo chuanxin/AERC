@@ -80,6 +80,7 @@ export const GRANTS = {
   UPDATE_STATUS: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/status`,
   APPLICANT_SUBSIDY_SUMMARY: (applicantId: string, year: number) =>
     `${BASE}/grants/applicant-subsidy-summary/${applicantId}/${year}`,
+  COMPLETION_DECLARATION: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/completion-declaration`,
 }
 
 // Pipe Fittings related endpoints
@@ -194,11 +195,12 @@ export const DOWNLOADS = {
   BASE: `${BASE}/download`,
   PHOTOGRAPH_CARRY_FORM: `${BASE}/download/photograph-carry-form`,
   BUDGET_BOOK: `${BASE}/download/budget-book`,
+  COMPLETION_DECLARATION: `${BASE}/download/completion-declaration`,
   CHECK_DATA: `${BASE}/download/check-data`,
   TEST: `${BASE}/download/test`,
   // 靜態檔案下載端點
   STATIC_FILES_LIST: `${BASE}/download/static-files`,
-  STATIC_FILE_DOWNLOAD: (fileId: string) => `${BASE}/download/static-file/${fileId}`,
+  STATIC_FILE_DOWNLOAD: (fileId: string) => `${BASE}/download/static-file/${encodeURIComponent(fileId)}`,
   STATIC_FILES_BATCH: `${BASE}/download/static-files/batch`,
 }
 

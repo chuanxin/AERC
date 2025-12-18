@@ -366,6 +366,8 @@
 import { useGrantsStore } from '@/stores/grants';
 import { useRoute } from 'vue-router';
 import type { PropType } from 'vue';
+import downloadsService from '@/services/downloadsService';
+import { generateCompletionDeclaration, downloadPdfBlob } from '@/services/grantsService';
 
 // Step6 不再維護本地設施資料，所有資料都直接從 computed 讀取
 
@@ -745,24 +747,133 @@ const printDocument = async (documentType: string) => {
   doc.downloading = true;
   doc.progress = 0;
 
-  // 模擬下載進度
-  const interval = setInterval(() => {
-    doc.progress += Math.random() * 15 + 5; // 每次增加 5-20%
+  try {
+    // 🔥 灌溉系統設計標準 - 下載靜態 Excel 檔案
+    if (documentType === 'application') {
+      const targetBaseName = 'DesignStandard-田間管路灌溉型式';
 
-    if (doc.progress >= 100) {
+      // 階段 1: 查詢檔案列表取得正確的 file_id
+      doc.progress = 20;
+      console.log('正在查詢檔案...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const filesList = await downloadsService.getStaticFilesList({
+        search_keyword: targetBaseName
+      });
+
+      // 找到目標檔案
+      const targetFileGroup = filesList.file_groups.find(
+        group => group.base_name === targetBaseName
+      );
+
+      if (!targetFileGroup || targetFileGroup.formats.length === 0) {
+        throw new Error(`找不到檔案: ${targetBaseName}`);
+      }
+
+      // 取得 xlsx 格式的檔案（優先）或第一個檔案
+      const targetFile = targetFileGroup.formats.find(f => f.format === 'xlsx')
+                        || targetFileGroup.formats[0];
+
+      const fileId = targetFile.id;
+      const filename = targetFile.filename;
+
+      // 階段 2-3: 準備下載
+      doc.progress = 40;
+      console.log('建立下載連線...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      doc.progress = 60;
+      console.log(`正在下載 ${filename}...`);
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // 階段 4: 實際下載檔案
+      await downloadsService.downloadStaticFile(fileId, filename);
+
+      // 階段 5: 下載完成
+      doc.progress = 90;
+      console.log('檔案已生成，正在啟動下載...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       doc.progress = 100;
-      clearInterval(interval);
+      console.log('檔案已送出，請查看瀏覽器的下載紀錄');
 
       // 下載完成後延遲 500ms 隱藏進度條
-      setTimeout(() => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      doc.downloading = false;
+      doc.progress = 0;
+    }
+    // 🔥 結案申報書 - 生成 PDF
+    else if (documentType === 'completion') {
+      const caseNumber = grantsStore.caseNumber;
+      if (!caseNumber) {
+        console.error('案號不存在');
         doc.downloading = false;
         doc.progress = 0;
-      }, 500);
-    }
-  }, 200); // 每 200ms 更新一次進度
+        return;
+      }
 
-  // TODO: 實際的文件下載邏輯
-  // 例如: await apiService.downloadDocument(documentType);
+      // 階段式進度更新
+      const progressStages = [
+        { progress: 20, message: '正在準備資料...', delay: 200 },
+        { progress: 40, message: '正在生成 PDF...', delay: 300 },
+        { progress: 60, message: '正在處理文件...', delay: 200 },
+      ];
+
+      for (const stage of progressStages) {
+        doc.progress = stage.progress;
+        console.log(stage.message);
+        await new Promise(resolve => setTimeout(resolve, stage.delay));
+      }
+
+      // 實際生成結案申報書
+      const pdfBlob = await generateCompletionDeclaration(caseNumber);
+
+      // 下載完成
+      doc.progress = 90;
+      console.log('結案申報書已生成，正在啟動下載...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 使用 grantsService 的下載函數
+      const year = grantsStore.currentGrant?.year || new Date().getFullYear() - 1911;
+      const applicantName = grantsStore.currentGrant?.applicant_name || '未知';
+      const filename = `${year}-${caseNumber}-${applicantName} - 結案申報書.pdf`;
+      downloadPdfBlob(pdfBlob, filename);
+
+      doc.progress = 100;
+      console.log('結案申報書下載完成');
+
+      // 完成後隱藏進度條
+      await new Promise(resolve => setTimeout(resolve, 500));
+      doc.downloading = false;
+      doc.progress = 0;
+    }
+    // TODO: 其他文件類型的下載邏輯（PDF 報表生成）
+    else {
+      // 模擬下載進度
+      const interval = setInterval(() => {
+        doc.progress += Math.random() * 15 + 5; // 每次增加 5-20%
+
+        if (doc.progress >= 100) {
+          doc.progress = 100;
+          clearInterval(interval);
+
+          // 下載完成後延遲 500ms 隱藏進度條
+          setTimeout(() => {
+            doc.downloading = false;
+            doc.progress = 0;
+          }, 500);
+        }
+      }, 200); // 每 200ms 更新一次進度
+
+      // TODO: 實際的文件下載邏輯
+      // 例如: await apiService.downloadDocument(documentType);
+    }
+  } catch (error) {
+    console.error(`下載 ${documentType} 失敗:`, error);
+    doc.downloading = false;
+    doc.progress = 0;
+    // 可選：顯示錯誤訊息給用戶
+  }
 };
 
 // Computed properties for display data - 直接從 grantsStore 讀取，不維護本地副本
