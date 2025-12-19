@@ -774,37 +774,119 @@ export const generateKaiuPdf = async (grantData: GrantListItem): Promise<Blob> =
  * @param caseNumber 案號
  * @returns Promise<Blob> PDF 檔案 Blob
  */
-export const generateCompletionDeclaration = async (caseNumber: string): Promise<Blob> => {
+export const generateCompletionStatement = async (caseNumber: string): Promise<Blob> => {
   try {
-    console.log('📋 [generateCompletionDeclaration] 準備生成結案申報書，案號:', caseNumber)
+    console.log('📋 [generateCompletionStatement] 準備生成結案申報書，案號:', caseNumber)
 
     // 調用後端結案申報書生成 API
     const response = await apiService.post(
-      GRANTS.COMPLETION_DECLARATION(caseNumber),
+      GRANTS.COMPLETION_STATEMENT(caseNumber),
       {},
       {
         responseType: 'blob'
       }
     )
 
-    console.log('📋 [generateCompletionDeclaration] 結案申報書生成成功')
+    console.log('📋 [generateCompletionStatement] 結案申報書生成成功')
 
     // 檢查回應是否為 Blob
     if (response instanceof Blob) {
-      console.log('📋 [generateCompletionDeclaration] 檔案大小:', response.size, 'bytes')
+      console.log('📋 [generateCompletionStatement] 檔案大小:', response.size, 'bytes')
       return response
     } else {
       // 如果不是 Blob，手動轉換
-      console.log('📋 [generateCompletionDeclaration] 轉換回應為 Blob')
+      console.log('📋 [generateCompletionStatement] 轉換回應為 Blob')
       return new Blob([response as any], { type: 'application/pdf' })
     }
 
   } catch (error: unknown) {
-    console.error('📋 [generateCompletionDeclaration] 結案申報書生成失敗:', error)
+    console.error('📋 [generateCompletionStatement] 結案申報書生成失敗:', error)
     throw new ApplicationError({
       message: '結案申報書生成失敗，請稍後再試',
       status: (error as any)?.response?.status || 500,
-      source: 'grantsService.generateCompletionDeclaration',
+      source: 'grantsService.generateCompletionStatement',
+      originalError: error
+    })
+  }
+}
+
+/**
+ * 生成補助切結書 PDF
+ * @param caseNumber 案號
+ * @returns Promise<Blob> PDF 檔案 Blob
+ */
+export const generateDeclaration = async (caseNumber: string): Promise<Blob> => {
+  try {
+    console.log('📋 [generateDeclaration] 準備生成切結書，案號:', caseNumber)
+
+    // 調用後端切結書生成 API
+    const response = await apiService.post(
+      GRANTS.DECLARATION(caseNumber),
+      {},
+      {
+        responseType: 'blob'
+      }
+    )
+
+    console.log('📋 [generateDeclaration] 切結書生成成功')
+
+    // 檢查回應是否為 Blob
+    if (response instanceof Blob) {
+      console.log('📋 [generateDeclaration] 檔案大小:', response.size, 'bytes')
+      return response
+    } else {
+      // 如果不是 Blob，手動轉換
+      console.log('📋 [generateDeclaration] 轉換回應為 Blob')
+      return new Blob([response as any], { type: 'application/pdf' })
+    }
+
+  } catch (error: unknown) {
+    console.error('📋 [generateDeclaration] 切結書生成失敗:', error)
+    throw new ApplicationError({
+      message: '切結書生成失敗，請稍後再試',
+      status: (error as any)?.response?.status || 500,
+      source: 'grantsService.generateDeclaration',
+      originalError: error
+    })
+  }
+}
+
+/**
+ * 生成規劃委託書 PDF
+ * @param caseNumber 案號
+ * @returns Promise<Blob> PDF 檔案 Blob
+ */
+export const generateAuthorization = async (caseNumber: string): Promise<Blob> => {
+  try {
+    console.log('📋 [generateAuthorization] 準備生成規劃委託書，案號:', caseNumber)
+
+    // 調用後端規劃委託書生成 API
+    const response = await apiService.post(
+      GRANTS.AUTHORIZATION(caseNumber),
+      {},
+      {
+        responseType: 'blob'
+      }
+    )
+
+    console.log('📋 [generateAuthorization] 規劃委託書生成成功')
+
+    // 檢查回應是否為 Blob
+    if (response instanceof Blob) {
+      console.log('📋 [generateAuthorization] 檔案大小:', response.size, 'bytes')
+      return response
+    } else {
+      // 如果不是 Blob，手動轉換
+      console.log('📋 [generateAuthorization] 轉換回應為 Blob')
+      return new Blob([response as any], { type: 'application/pdf' })
+    }
+
+  } catch (error: unknown) {
+    console.error('📋 [generateAuthorization] 規劃委託書生成失敗:', error)
+    throw new ApplicationError({
+      message: '規劃委託書生成失敗，請稍後再試',
+      status: (error as any)?.response?.status || 500,
+      source: 'grantsService.generateAuthorization',
       originalError: error
     })
   }

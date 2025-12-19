@@ -309,50 +309,82 @@
             @click.stop="printDocument(doc.type)"
           >
             <div class="d-flex align-center pa-3">
-              <v-icon
-                :color="doc.color"
-                size="24"
-                class="me-3"
-              >
-                {{ doc.icon }}
-              </v-icon>
-              <div class="flex-grow-1">
-                <div class="text-body-2 font-weight-medium">
-                  {{ doc.title }}
-                </div>
-                <div class="text-caption text-grey">
-                  {{ doc.subtitle }}
-                </div>
-              </div>
-
-              <!-- 下載進度條（取代按鈕顯示） -->
+              <!-- 左側：圖標和檔名 -->
               <div
-                v-if="doc.downloading"
                 class="d-flex align-center"
-                style="min-width: 250px;"
+                style="min-width: 150px;"
               >
-                <v-progress-linear
-                  :model-value="doc.progress"
+                <v-icon
                   :color="doc.color"
-                  height="6"
-                  rounded
-                  class="me-2"
-                />
-                <span class="text-caption text-grey">
-                  {{ Math.round(doc.progress) }}%
-                </span>
+                  size="24"
+                  class="me-3"
+                >
+                  {{ doc.icon }}
+                </v-icon>
+                <div>
+                  <div class="text-body-2 font-weight-medium">
+                    {{ doc.title }}
+                  </div>
+                  <div class="text-caption text-grey">
+                    {{ doc.subtitle }}
+                  </div>
+                </div>
               </div>
 
-              <!-- 下載按鈕 -->
-              <v-btn
-                v-else
-                size="small"
-                variant="outlined"
-                prepend-icon="mdi-download"
-                @click.stop="printDocument(doc.type)"
-              >
-                下載
-              </v-btn>
+              <!-- 右側：下載區域（佔據剩餘空間） -->
+              <div class="flex-grow-1 d-flex align-center">
+                <!-- 下載中：進度條置中 -->
+                <template v-if="doc.downloadStatus === 'downloading'">
+                  <div class="flex-grow-1 d-flex align-center justify-center gap-2">
+                    <v-progress-linear
+                      :model-value="doc.progress"
+                      :color="doc.color"
+                      height="6"
+                      rounded
+                      style="max-width: 400px;"
+                      stream
+                    />
+                    <span class="text-caption text-grey ml-4" style="min-width: 40px;">
+                      {{ Math.round(doc.progress) }}%
+                    </span>
+                  </div>
+                </template>
+
+                <!-- 下載完成：訊息置中，按鈕靠右 -->
+                <template v-else-if="doc.downloadStatus === 'success' || doc.downloadStatus === 'error'">
+                  <div class="flex-grow-1 d-flex align-center justify-end with-gap-2 me-4">
+                    <span
+                      class="text-caption font-weight-medium"
+                      :class="doc.downloadStatus === 'success' ? 'text-success' : 'text-error'"
+                    >
+                      <span v-if="doc.downloadStatus === 'success'">✓ 下載成功</span>
+                      <span v-else-if="doc.downloadStatus === 'error'">✗ 下載失敗</span>
+                    </span>
+                  </div>
+                  <v-btn
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    prepend-icon="mdi-refresh"
+                    @click.stop="printDocument(doc.type)"
+                  >
+                    重新下載
+                  </v-btn>
+                </template>
+
+                <!-- 初始狀態：按鈕靠右 -->
+                <template v-else>
+                  <div class="flex-grow-1" />
+                  <v-btn
+                    size="small"
+                    variant="outlined"
+                    prepend-icon="mdi-download"
+                    @click.stop="printDocument(doc.type)"
+                  >
+                    下載
+                  </v-btn>
+                </template>
+              </div>
             </div>
           </v-card>
         </div>
@@ -367,7 +399,7 @@ import { useGrantsStore } from '@/stores/grants';
 import { useRoute } from 'vue-router';
 import type { PropType } from 'vue';
 import downloadsService from '@/services/downloadsService';
-import { generateCompletionDeclaration, downloadPdfBlob } from '@/services/grantsService';
+import { generateCompletionStatement, generateDeclaration, generateAuthorization, downloadPdfBlob } from '@/services/grantsService';
 
 // Step6 不再維護本地設施資料，所有資料都直接從 computed 讀取
 
@@ -404,34 +436,38 @@ const printDocuments = reactive([
     icon: 'mdi-file-excel',
     color: '#217346',
     downloading: false,
-    progress: 0
+    progress: 0,
+    downloadStatus: 'idle' // 'idle' | 'downloading' | 'success' | 'error'
   },
   {
-    type: 'completion',
+    type: 'statement',
     title: '結案申報書',
     subtitle: '工程完工申報',
     icon: 'mdi-file-pdf-box',
     color: '#D32F2F',
     downloading: false,
-    progress: 0
+    progress: 0,
+    downloadStatus: 'idle'
   },
   {
-    type: 'pledge',
+    type: 'declaration',
     title: '補助切結書',
     subtitle: '補助申請切結文件',
     icon: 'mdi-file-pdf-box',
     color: '#D32F2F',
     downloading: false,
-    progress: 0
+    progress: 0,
+    downloadStatus: 'idle'
   },
   {
-    type: 'planning',
+    type: 'authorization',
     title: '規劃委託書',
     subtitle: '規劃設計委託文件',
     icon: 'mdi-file-pdf-box',
     color: '#D32F2F',
     downloading: false,
-    progress: 0
+    progress: 0,
+    downloadStatus: 'idle'
   },
   {
     type: 'budget',
@@ -440,7 +476,8 @@ const printDocuments = reactive([
     icon: 'mdi-file-pdf-box',
     color: '#D32F2F',
     downloading: false,
-    progress: 0
+    progress: 0,
+    downloadStatus: 'idle'
   }
 ]);
 
@@ -745,6 +782,7 @@ const printDocument = async (documentType: string) => {
 
   // 設置下載中狀態
   doc.downloading = true;
+  doc.downloadStatus = 'downloading';
   doc.progress = 0;
 
   try {
@@ -795,20 +833,18 @@ const printDocument = async (documentType: string) => {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       doc.progress = 100;
-      console.log('檔案已送出，請查看瀏覽器的下載紀錄');
-
-      // 下載完成後延遲 500ms 隱藏進度條
-      await new Promise(resolve => setTimeout(resolve, 500));
+      doc.downloadStatus = 'success';
       doc.downloading = false;
-      doc.progress = 0;
+      console.log('檔案已送出，請查看瀏覽器的下載紀錄');
     }
     // 🔥 結案申報書 - 生成 PDF
-    else if (documentType === 'completion') {
+    else if (documentType === 'statement') {
       const caseNumber = grantsStore.caseNumber;
       if (!caseNumber) {
         console.error('案號不存在');
         doc.downloading = false;
-        doc.progress = 0;
+        doc.downloadStatus = 'error';
+        // 失敗時保持當前進度，不到達 100%
         return;
       }
 
@@ -826,7 +862,7 @@ const printDocument = async (documentType: string) => {
       }
 
       // 實際生成結案申報書
-      const pdfBlob = await generateCompletionDeclaration(caseNumber);
+      const pdfBlob = await generateCompletionStatement(caseNumber);
 
       // 下載完成
       doc.progress = 90;
@@ -840,38 +876,106 @@ const printDocument = async (documentType: string) => {
       downloadPdfBlob(pdfBlob, filename);
 
       doc.progress = 100;
-      console.log('結案申報書下載完成');
-
-      // 完成後隱藏進度條
-      await new Promise(resolve => setTimeout(resolve, 500));
+      doc.downloadStatus = 'success';
       doc.downloading = false;
-      doc.progress = 0;
+      console.log('結案申報書下載完成');
+    }
+    // 🔥 補助切結書 - 生成 PDF
+    else if (documentType === 'declaration') {
+      const caseNumber = grantsStore.caseNumber;
+      if (!caseNumber) {
+        console.error('案號不存在');
+        doc.downloading = false;
+        doc.downloadStatus = 'error';
+        // 失敗時保持當前進度，不到達 100%
+        return;
+      }
+
+      // 階段式進度更新
+      const progressStages = [
+        { progress: 20, message: '正在準備資料...', delay: 200 },
+        { progress: 40, message: '正在生成切結書...', delay: 300 },
+        { progress: 60, message: '正在處理文件...', delay: 200 },
+      ];
+
+      for (const stage of progressStages) {
+        doc.progress = stage.progress;
+        console.log(stage.message);
+        await new Promise(resolve => setTimeout(resolve, stage.delay));
+      }
+
+      // 實際生成切結書
+      const pdfBlob = await generateDeclaration(caseNumber);
+
+      // 下載完成
+      doc.progress = 90;
+      console.log('切結書已生成，正在啟動下載...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 使用 grantsService 的下載函數
+      const year = grantsStore.currentGrant?.year || new Date().getFullYear() - 1911;
+      const applicantName = grantsStore.currentGrant?.applicant_name || '未知';
+      const filename = `${year}-${caseNumber}-${applicantName} - 切結書.pdf`;
+      downloadPdfBlob(pdfBlob, filename);
+
+      doc.progress = 100;
+      doc.downloadStatus = 'success';
+      doc.downloading = false;
+      console.log('切結書下載完成');
+    }
+    // 🔥 規劃委託書 - 生成 PDF
+    else if (documentType === 'authorization') {
+      const caseNumber = grantsStore.caseNumber;
+      if (!caseNumber) {
+        console.error('案號不存在');
+        doc.downloading = false;
+        doc.downloadStatus = 'error';
+        // 失敗時保持當前進度，不到達 100%
+        return;
+      }
+
+      // 階段式進度更新
+      const progressStages = [
+        { progress: 20, message: '正在準備資料...', delay: 200 },
+        { progress: 40, message: '正在生成規劃委託書...', delay: 300 },
+        { progress: 60, message: '正在處理文件...', delay: 200 },
+      ];
+
+      for (const stage of progressStages) {
+        doc.progress = stage.progress;
+        console.log(stage.message);
+        await new Promise(resolve => setTimeout(resolve, stage.delay));
+      }
+
+      // 實際生成規劃委託書
+      const pdfBlob = await generateAuthorization(caseNumber);
+
+      // 下載完成
+      doc.progress = 90;
+      console.log('規劃委託書已生成，正在啟動下載...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 使用 grantsService 的下載函數
+      const year = grantsStore.currentGrant?.year || new Date().getFullYear() - 1911;
+      const applicantName = grantsStore.currentGrant?.applicant_name || '未知';
+      const filename = `${year}-${caseNumber}-${applicantName} - 規劃委託書.pdf`;
+      downloadPdfBlob(pdfBlob, filename);
+
+      doc.progress = 100;
+      doc.downloadStatus = 'success';
+      doc.downloading = false;
+      console.log('規劃委託書下載完成');
     }
     // TODO: 其他文件類型的下載邏輯（PDF 報表生成）
     else {
-      // 模擬下載進度
-      const interval = setInterval(() => {
-        doc.progress += Math.random() * 15 + 5; // 每次增加 5-20%
-
-        if (doc.progress >= 100) {
-          doc.progress = 100;
-          clearInterval(interval);
-
-          // 下載完成後延遲 500ms 隱藏進度條
-          setTimeout(() => {
-            doc.downloading = false;
-            doc.progress = 0;
-          }, 500);
-        }
-      }, 200); // 每 200ms 更新一次進度
-
       // TODO: 實際的文件下載邏輯
       // 例如: await apiService.downloadDocument(documentType);
     }
   } catch (error) {
     console.error(`下載 ${documentType} 失敗:`, error);
     doc.downloading = false;
-    doc.progress = 0;
+    doc.downloadStatus = 'error';
+    // 失敗時保持當前進度，不強制設為 100%
     // 可選：顯示錯誤訊息給用戶
   }
 };
