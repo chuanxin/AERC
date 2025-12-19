@@ -19,7 +19,7 @@ import src.crud.domicile as domicile_crud
 from src.schemas.token import Status
 from src.crud.grants import get_grant_by_case_number, delete_grant  # Import the missing functions
 from src.database.models import Grants
-from src.services.completion_report_pdf_generator import CompletionReportPDFGenerator
+from src.services.completion_statement_pdf_generator import CompletionStatementPDFGenerator
 
 import logging
 import tempfile
@@ -517,7 +517,7 @@ async def get_applicant_subsidy_summary(
 
 # === 結案申報書相關功能 ===
 
-async def extract_completion_declaration_data(grant, version_data: dict) -> tuple:
+async def extract_completion_statement_data(grant, version_data: dict) -> tuple:
     """
     從 Grant 資料中提取結案申報書所需資料
 
@@ -606,8 +606,8 @@ async def extract_completion_declaration_data(grant, version_data: dict) -> tupl
     return grant_data, land_data, step3_data, step4_data
 
 
-@router.post("/case/{case_number}/completion-declaration")
-async def download_completion_declaration(
+@router.post("/case/{case_number}/completion-statement")
+async def download_completion_statement(
     case_number: str = Path(..., description="案件編號"),
     current_user: UserOutSchema = Depends(get_current_user)
 ):
@@ -617,7 +617,7 @@ async def download_completion_declaration(
     檔名格式：[年度]-[案號]-[申請人姓名] - 結案申報書.pdf
     """
     try:
-        logger.info(f"📋 [download_completion_declaration] 生成結案申報書: case_number={case_number}")
+        logger.info(f"📋 [download_completion_statement] 生成結案申報書: case_number={case_number}")
 
         # 查詢補助案件（office 是 CharField，不需要 select_related）
         grant = await Grants.filter(case_number=case_number).select_related("active_version").first()
@@ -632,11 +632,11 @@ async def download_completion_declaration(
         version_data = grant.active_version.all_steps_data if grant.active_version else {}
 
         # 提取結案申報書資料
-        grant_data, land_data, step3_data, step4_data = await extract_completion_declaration_data(grant, version_data)
+        grant_data, land_data, step3_data, step4_data = await extract_completion_statement_data(grant, version_data)
 
         # 生成 PDF
-        pdf_generator = CompletionReportPDFGenerator()
-        pdf_bytes = pdf_generator.generate_completion_report(
+        pdf_generator = CompletionStatementPDFGenerator()
+        pdf_bytes = pdf_generator.generate_completion_statement(
             grant_data, land_data, step3_data, step4_data
         )
 
@@ -653,7 +653,7 @@ async def download_completion_declaration(
         # 正確的中文檔名編碼處理
         encoded_filename = quote(filename, safe='')
 
-        logger.info(f"📋 [download_completion_declaration] 結案申報書生成成功: {filename}")
+        logger.info(f"📋 [download_completion_statement] 結案申報書生成成功: {filename}")
 
         # 返回檔案
         return FileResponse(
@@ -666,7 +666,7 @@ async def download_completion_declaration(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [download_completion_declaration] 生成結案申報書失敗: {str(e)}")
+        logger.error(f"❌ [download_completion_statement] 生成結案申報書失敗: {str(e)}")
         import traceback
         traceback.print_exc()
         raise HTTPException(

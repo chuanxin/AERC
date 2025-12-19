@@ -19,7 +19,7 @@ from reportlab.lib.styles import ParagraphStyle
 from src.utils.chinese_pdf import setup_kaiu_font, setup_chinese_font
 
 
-class CompletionReportPDFGenerator:
+class CompletionStatementPDFGenerator:
     """結案申報書 PDF 生成器"""
 
     def __init__(self):
@@ -320,7 +320,7 @@ class CompletionReportPDFGenerator:
         except Exception:
             return ""
 
-    def generate_completion_report(
+    def generate_completion_statement(
         self,
         grant_data: Dict[str, Any],
         land_data: List[Dict[str, Any]],

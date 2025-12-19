@@ -399,7 +399,7 @@ import { useGrantsStore } from '@/stores/grants';
 import { useRoute } from 'vue-router';
 import type { PropType } from 'vue';
 import downloadsService from '@/services/downloadsService';
-import { generateCompletionDeclaration, downloadPdfBlob } from '@/services/grantsService';
+import { generateCompletionStatement, downloadPdfBlob } from '@/services/grantsService';
 
 // Step6 不再維護本地設施資料，所有資料都直接從 computed 讀取
 
@@ -862,7 +862,7 @@ const printDocument = async (documentType: string) => {
       }
 
       // 實際生成結案申報書
-      const pdfBlob = await generateCompletionDeclaration(caseNumber);
+      const pdfBlob = await generateCompletionStatement(caseNumber);
 
       // 下載完成
       doc.progress = 90;

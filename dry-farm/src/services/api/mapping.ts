@@ -88,7 +88,7 @@ export const BACKEND_PATHS = {
     APPLICANT_SUBSIDY_SUMMARY: (applicantId: string, year: number) =>
     `/grants/applicant-subsidy-summary/${applicantId}/${year}`,
     UPDATE_STATUS: (caseNumber: string) => `/grants/case/${caseNumber}/status`,
-    COMPLETION_DECLARATION: (caseNumber: string) => `/grants/case/${caseNumber}/completion-declaration`,
+    COMPLETION_STATEMENT: (caseNumber: string) => `/grants/case/${caseNumber}/completion-statement`,
   },
   PIPE_FITTINGS: { // Added PIPE_FITTINGS backend paths
     LIST: '/pipe_fittings/', // For GET all and POST create
@@ -476,12 +476,12 @@ export function mapApiPath(frontendPath: string): string {
           mappedBasePath = BACKEND_PATHS.GRANTS.UPDATE_STATUS(caseNumber);
           console.debug(`[mapApiPath] Grant status dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
         } else {
-          // 3.45 匹配 grants completion-declaration 路徑 (POST /grants/case/{case_number}/completion-declaration)
-          const completionDeclarationMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/completion-declaration$/);
-          if (completionDeclarationMatch) {
-            const caseNumber = completionDeclarationMatch[1];
-            mappedBasePath = BACKEND_PATHS.GRANTS.COMPLETION_DECLARATION(caseNumber);
-            console.debug(`[mapApiPath] Grant completion-declaration dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+          // 3.45 匹配 grants completion-statement 路徑 (POST /grants/case/{case_number}/completion-statement)
+          const completionStatementMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/completion-statement$/);
+          if (completionStatementMatch) {
+            const caseNumber = completionStatementMatch[1];
+            mappedBasePath = BACKEND_PATHS.GRANTS.COMPLETION_STATEMENT(caseNumber);
+            console.debug(`[mapApiPath] Grant completion-statement dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
           } else {
             // 3.5 匹配 grants delete 路徑 (DELETE /grants/{id})
             const deleteMatch = cleanPath.match(/^\/grants\/(\d+)$/);
