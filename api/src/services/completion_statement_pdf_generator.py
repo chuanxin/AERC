@@ -621,7 +621,7 @@ class CompletionStatementPDFGenerator:
         # === 申請人資訊 ===
         c.setFont(self.font_name, 14)
 
-        y_pos -= 40
+        y_pos -= 50
         case_number = grant_data.get('case_number', '')
         c.drawString(60, y_pos, f"申請案號：{case_number}")
 

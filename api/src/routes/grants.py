@@ -20,6 +20,7 @@ from src.schemas.token import Status
 from src.crud.grants import get_grant_by_case_number, delete_grant  # Import the missing functions
 from src.database.models import Grants
 from src.services.completion_statement_pdf_generator import CompletionStatementPDFGenerator
+from src.services.declaration_pdf_generator import DeclarationPDFGenerator
 
 import logging
 import tempfile
@@ -672,4 +673,181 @@ async def download_completion_statement(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"生成結案申報書失敗: {str(e)}"
+        )
+
+
+# === 補助切結書相關功能 ===
+
+async def extract_declaration_data(grant, version_data: dict) -> dict:
+    """
+    從 Grant 資料中提取補助切結書所需資料
+
+    Returns:
+        grant_data: 包含所有切結書欄位的字典
+    """
+    # 提取各步驟資料（統一架構：UI step N → formData[N]）
+    steps_data = version_data.get('steps', {}) if version_data else {}
+
+    # Step 1: 申請人基本資料
+    step1_data = steps_data.get('1', {})
+
+    # Step 2: 土地資料
+    step2_data = steps_data.get('2', {})
+    land_list = step2_data.get('lands', []) or step2_data.get('landList', []) or step2_data.get('land_list', [])
+
+    # 提取第一筆土地資料
+    first_land = land_list[0] if land_list else {}
+
+    # 縣市、鄉鎮（需要轉換 ID 為名稱）
+    land_county_value = first_land.get('landCounty', '') or first_land.get('land_county', '')
+    land_town_value = first_land.get('landTown', '') or first_land.get('land_town', '')
+
+    # 轉換縣市 ID 為名稱
+    land_county_name = ''
+    if land_county_value:
+        if isinstance(land_county_value, int) or (isinstance(land_county_value, str) and land_county_value.isdigit()):
+            try:
+                county = await domicile_crud.get_county(int(land_county_value))
+                land_county_name = county.name if county else str(land_county_value)
+            except:
+                land_county_name = str(land_county_value)
+        else:
+            land_county_name = str(land_county_value)
+
+    # 轉換鄉鎮 ID 為名稱
+    land_town_name = ''
+    if land_town_value:
+        if isinstance(land_town_value, int) or (isinstance(land_town_value, str) and land_town_value.isdigit()):
+            try:
+                town = await domicile_crud.get_town(int(land_town_value))
+                land_town_name = town.name if town else str(land_town_value)
+            except:
+                land_town_name = str(land_town_value)
+        else:
+            land_town_name = str(land_town_value)
+
+    # 提取完成期限（從 step5 現場勘查資料或使用預設值）
+    step5_data = steps_data.get('3', {})  # step5.vue → formData[3]
+    completion_date_raw = step5_data.get('expectedCompletionDate', '')
+
+    # 轉換完成日期為「YYYY年MM月DD日」格式
+    completion_date = ''
+    if completion_date_raw:
+        try:
+            # 假設 expectedCompletionDate 格式為 "YYYY-MM-DD"
+            from datetime import datetime
+            date_obj = datetime.strptime(completion_date_raw, '%Y-%m-%d')
+            roc_year = date_obj.year - 1911
+            completion_date = f"{roc_year}年{date_obj.month}月{date_obj.day}日"
+        except:
+            completion_date = completion_date_raw
+
+    # 組合通訊地址（優先使用 Grant 模型欄位，如果為空則回退到 step1_data）
+    address_parts = []
+    if grant.county:
+        address_parts.append(grant.county)
+    elif step1_data.get('county'):
+        address_parts.append(step1_data.get('county'))
+
+    if grant.town:
+        address_parts.append(grant.town)
+    elif step1_data.get('town'):
+        address_parts.append(step1_data.get('town'))
+
+    if grant.village:
+        address_parts.append(grant.village)
+    elif step1_data.get('village'):
+        address_parts.append(step1_data.get('village'))
+
+    if grant.address:
+        address_parts.append(grant.address)
+    elif step1_data.get('address'):
+        address_parts.append(step1_data.get('address'))
+
+    full_address = ''.join(address_parts)
+
+    # 組裝切結書資料
+    grant_data = {
+        'applicant_name': grant.applicant_name if grant.applicant_name else step1_data.get('name', ''),
+        'county': land_county_name,
+        'town': land_town_name,
+        'land_section': first_land.get('landSecName', '') or first_land.get('landSection', '') or first_land.get('land_section', ''),
+        'land_subsection': first_land.get('landSubsection', '') or first_land.get('land_subsection', ''),
+        'land_number': first_land.get('landNumber', '') or first_land.get('land_number', ''),
+        'land_count': len(land_list),
+        'year': str(grant.year) if grant.year else '114',
+        'completion_date': completion_date or '114年12月31日',  # 預設值
+        'office_name': grant.office if grant.office else '石門管理處',  # office 是 CharField，直接使用
+        'id_number': grant.applicant_id if grant.applicant_id else (step1_data.get('idNumber', '') or step1_data.get('id_number', '')),
+        'address': full_address,
+        'phone': grant.applicant_phone if grant.applicant_phone else (step1_data.get('phone', '') or step1_data.get('telephone', '')),
+    }
+
+    return grant_data
+
+
+@router.post("/case/{case_number}/declaration")
+async def download_declaration(
+    case_number: str = Path(..., description="案件編號"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """
+    下載補助切結書 PDF
+
+    檔名格式：[年度]-[案號]-[申請人姓名] - 切結書.pdf
+    """
+    try:
+        logger.info(f"📋 [download_declaration] 生成切結書: case_number={case_number}")
+
+        # 查詢補助案件
+        grant = await Grants.filter(case_number=case_number).select_related("active_version").first()
+
+        if not grant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"找不到案號 {case_number} 的案件"
+            )
+
+        # 取得版本資料
+        version_data = grant.active_version.all_steps_data if grant.active_version else {}
+
+        # 提取切結書資料
+        grant_data = await extract_declaration_data(grant, version_data)
+
+        # 生成 PDF
+        pdf_generator = DeclarationPDFGenerator()
+        pdf_bytes = pdf_generator.generate(grant_data)
+
+        # 生成臨時檔案
+        temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+        temp_pdf.write(pdf_bytes)
+        temp_pdf.close()
+
+        # 生成下載檔名：[年度]-[案號]-[申請人姓名] - 切結書.pdf
+        year = grant_data.get('year', '114')
+        applicant_name = grant_data.get('applicant_name', '未知')
+        filename = f"{year}-{case_number}-{applicant_name} - 切結書.pdf"
+
+        # 正確的中文檔名編碼處理
+        encoded_filename = quote(filename, safe='')
+
+        logger.info(f"📋 [download_declaration] 切結書生成成功: {filename}")
+
+        # 返回檔案
+        return FileResponse(
+            path=temp_pdf.name,
+            filename=filename,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [download_declaration] 生成切結書失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"生成切結書失敗: {str(e)}"
         )

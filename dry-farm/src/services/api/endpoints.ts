@@ -81,6 +81,7 @@ export const GRANTS = {
   APPLICANT_SUBSIDY_SUMMARY: (applicantId: string, year: number) =>
     `${BASE}/grants/applicant-subsidy-summary/${applicantId}/${year}`,
   COMPLETION_STATEMENT: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/completion-statement`,
+  DECLARATION: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/declaration`,
 }
 
 // Pipe Fittings related endpoints

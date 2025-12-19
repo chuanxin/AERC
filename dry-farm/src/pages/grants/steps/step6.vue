@@ -399,7 +399,7 @@ import { useGrantsStore } from '@/stores/grants';
 import { useRoute } from 'vue-router';
 import type { PropType } from 'vue';
 import downloadsService from '@/services/downloadsService';
-import { generateCompletionStatement, downloadPdfBlob } from '@/services/grantsService';
+import { generateCompletionStatement, generateDeclaration, downloadPdfBlob } from '@/services/grantsService';
 
 // Step6 不再維護本地設施資料，所有資料都直接從 computed 讀取
 
@@ -440,7 +440,7 @@ const printDocuments = reactive([
     downloadStatus: 'idle' // 'idle' | 'downloading' | 'success' | 'error'
   },
   {
-    type: 'completion',
+    type: 'statement',
     title: '結案申報書',
     subtitle: '工程完工申報',
     icon: 'mdi-file-pdf-box',
@@ -450,7 +450,7 @@ const printDocuments = reactive([
     downloadStatus: 'idle'
   },
   {
-    type: 'pledge',
+    type: 'declaration',
     title: '補助切結書',
     subtitle: '補助申請切結文件',
     icon: 'mdi-file-pdf-box',
@@ -838,7 +838,7 @@ const printDocument = async (documentType: string) => {
       console.log('檔案已送出，請查看瀏覽器的下載紀錄');
     }
     // 🔥 結案申報書 - 生成 PDF
-    else if (documentType === 'completion') {
+    else if (documentType === 'statement') {
       const caseNumber = grantsStore.caseNumber;
       if (!caseNumber) {
         console.error('案號不存在');
@@ -879,6 +879,49 @@ const printDocument = async (documentType: string) => {
       doc.downloadStatus = 'success';
       doc.downloading = false;
       console.log('結案申報書下載完成');
+    }
+    // 🔥 補助切結書 - 生成 PDF
+    else if (documentType === 'declaration') {
+      const caseNumber = grantsStore.caseNumber;
+      if (!caseNumber) {
+        console.error('案號不存在');
+        doc.downloading = false;
+        doc.downloadStatus = 'error';
+        // 失敗時保持當前進度，不到達 100%
+        return;
+      }
+
+      // 階段式進度更新
+      const progressStages = [
+        { progress: 20, message: '正在準備資料...', delay: 200 },
+        { progress: 40, message: '正在生成切結書...', delay: 300 },
+        { progress: 60, message: '正在處理文件...', delay: 200 },
+      ];
+
+      for (const stage of progressStages) {
+        doc.progress = stage.progress;
+        console.log(stage.message);
+        await new Promise(resolve => setTimeout(resolve, stage.delay));
+      }
+
+      // 實際生成切結書
+      const pdfBlob = await generateDeclaration(caseNumber);
+
+      // 下載完成
+      doc.progress = 90;
+      console.log('切結書已生成，正在啟動下載...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 使用 grantsService 的下載函數
+      const year = grantsStore.currentGrant?.year || new Date().getFullYear() - 1911;
+      const applicantName = grantsStore.currentGrant?.applicant_name || '未知';
+      const filename = `${year}-${caseNumber}-${applicantName} - 切結書.pdf`;
+      downloadPdfBlob(pdfBlob, filename);
+
+      doc.progress = 100;
+      doc.downloadStatus = 'success';
+      doc.downloading = false;
+      console.log('切結書下載完成');
     }
     // TODO: 其他文件類型的下載邏輯（PDF 報表生成）
     else {
