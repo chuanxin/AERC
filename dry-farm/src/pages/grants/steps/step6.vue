@@ -399,7 +399,7 @@ import { useGrantsStore } from '@/stores/grants';
 import { useRoute } from 'vue-router';
 import type { PropType } from 'vue';
 import downloadsService from '@/services/downloadsService';
-import { generateCompletionStatement, generateDeclaration, downloadPdfBlob } from '@/services/grantsService';
+import { generateCompletionStatement, generateDeclaration, generateAuthorization, downloadPdfBlob } from '@/services/grantsService';
 
 // Step6 不再維護本地設施資料，所有資料都直接從 computed 讀取
 
@@ -460,7 +460,7 @@ const printDocuments = reactive([
     downloadStatus: 'idle'
   },
   {
-    type: 'planning',
+    type: 'authorization',
     title: '規劃委託書',
     subtitle: '規劃設計委託文件',
     icon: 'mdi-file-pdf-box',
@@ -922,6 +922,49 @@ const printDocument = async (documentType: string) => {
       doc.downloadStatus = 'success';
       doc.downloading = false;
       console.log('切結書下載完成');
+    }
+    // 🔥 規劃委託書 - 生成 PDF
+    else if (documentType === 'authorization') {
+      const caseNumber = grantsStore.caseNumber;
+      if (!caseNumber) {
+        console.error('案號不存在');
+        doc.downloading = false;
+        doc.downloadStatus = 'error';
+        // 失敗時保持當前進度，不到達 100%
+        return;
+      }
+
+      // 階段式進度更新
+      const progressStages = [
+        { progress: 20, message: '正在準備資料...', delay: 200 },
+        { progress: 40, message: '正在生成規劃委託書...', delay: 300 },
+        { progress: 60, message: '正在處理文件...', delay: 200 },
+      ];
+
+      for (const stage of progressStages) {
+        doc.progress = stage.progress;
+        console.log(stage.message);
+        await new Promise(resolve => setTimeout(resolve, stage.delay));
+      }
+
+      // 實際生成規劃委託書
+      const pdfBlob = await generateAuthorization(caseNumber);
+
+      // 下載完成
+      doc.progress = 90;
+      console.log('規劃委託書已生成，正在啟動下載...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 使用 grantsService 的下載函數
+      const year = grantsStore.currentGrant?.year || new Date().getFullYear() - 1911;
+      const applicantName = grantsStore.currentGrant?.applicant_name || '未知';
+      const filename = `${year}-${caseNumber}-${applicantName} - 規劃委託書.pdf`;
+      downloadPdfBlob(pdfBlob, filename);
+
+      doc.progress = 100;
+      doc.downloadStatus = 'success';
+      doc.downloading = false;
+      console.log('規劃委託書下載完成');
     }
     // TODO: 其他文件類型的下載邏輯（PDF 報表生成）
     else {

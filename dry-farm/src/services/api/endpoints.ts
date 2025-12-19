@@ -82,6 +82,7 @@ export const GRANTS = {
     `${BASE}/grants/applicant-subsidy-summary/${applicantId}/${year}`,
   COMPLETION_STATEMENT: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/completion-statement`,
   DECLARATION: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/declaration`,
+  AUTHORIZATION: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/authorization`,
 }
 
 // Pipe Fittings related endpoints

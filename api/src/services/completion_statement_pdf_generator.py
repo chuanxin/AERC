@@ -376,11 +376,11 @@ class CompletionStatementPDFGenerator:
             name='MainText',
             fontName=self.font_name,
             fontSize=16,
-            leading=22,  # 行距（行高）
+            leading=28,  # 行距（行高）
             alignment=TA_JUSTIFY,  # 左右對齊
             leftIndent=0,
             rightIndent=0,
-            firstLineIndent=28  # 首行縮排（兩個全形字）
+            firstLineIndent=32  # 首行縮排（兩個全形字）
         )
 
         # 格式化面積，添加千分位逗號
@@ -404,9 +404,6 @@ class CompletionStatementPDFGenerator:
 
         # 更新 y_pos 為段落後的位置
         y_pos = y_pos - para.height - 20
-
-        # === 申請項目表格 ===
-        y_pos -= 10
 
         # 表格資料
         irrigation_info = self._get_irrigation_system_info(step4_data)

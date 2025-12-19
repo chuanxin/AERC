@@ -255,7 +255,7 @@ class DeclarationPDFGenerator:
         para_parts = [
             f"具切結書人(同申請人)於",
             f"{county}{town}",
-            f"-",
+            # f"-",
             f"{land_section}",
             # f"{land_subsection}小段" if land_subsection else "",
             f"{land_number}地號",

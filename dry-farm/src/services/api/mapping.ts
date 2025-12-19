@@ -90,6 +90,7 @@ export const BACKEND_PATHS = {
     UPDATE_STATUS: (caseNumber: string) => `/grants/case/${caseNumber}/status`,
     COMPLETION_STATEMENT: (caseNumber: string) => `/grants/case/${caseNumber}/completion-statement`,
     DECLARATION: (caseNumber: string) => `/grants/case/${caseNumber}/declaration`,
+    AUTHORIZATION: (caseNumber: string) => `/grants/case/${caseNumber}/authorization`,
   },
   PIPE_FITTINGS: { // Added PIPE_FITTINGS backend paths
     LIST: '/pipe_fittings/', // For GET all and POST create
@@ -491,12 +492,20 @@ export function mapApiPath(frontendPath: string): string {
               mappedBasePath = BACKEND_PATHS.GRANTS.DECLARATION(caseNumber);
               console.debug(`[mapApiPath] Grant declaration dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
             } else {
-              // 3.5 匹配 grants delete 路徑 (DELETE /grants/{id})
-              const deleteMatch = cleanPath.match(/^\/grants\/(\d+)$/);
-              if (deleteMatch) {
-                const grantId = deleteMatch[1];
-                mappedBasePath = BACKEND_PATHS.GRANTS.DELETE(grantId);
-                console.debug(`[mapApiPath] Grant delete dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+              // 3.47 匹配 grants authorization 路徑 (POST /grants/case/{case_number}/authorization)
+              const authorizationMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/authorization$/);
+              if (authorizationMatch) {
+                const caseNumber = authorizationMatch[1];
+                mappedBasePath = BACKEND_PATHS.GRANTS.AUTHORIZATION(caseNumber);
+                console.debug(`[mapApiPath] Grant authorization dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+              } else {
+                // 3.5 匹配 grants delete 路徑 (DELETE /grants/{id})
+                const deleteMatch = cleanPath.match(/^\/grants\/(\d+)$/);
+                if (deleteMatch) {
+                  const grantId = deleteMatch[1];
+                  mappedBasePath = BACKEND_PATHS.GRANTS.DELETE(grantId);
+                  console.debug(`[mapApiPath] Grant delete dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
+                }
               }
             }
           }
