@@ -22,6 +22,7 @@ from src.database.models import Grants
 from src.services.completion_statement_pdf_generator import CompletionStatementPDFGenerator
 from src.services.declaration_pdf_generator import DeclarationPDFGenerator
 from src.services.authorization_pdf_generator import AuthorizationPDFGenerator
+from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
 
 import logging
 import tempfile
@@ -632,7 +633,7 @@ async def extract_completion_statement_data(grant, version_data: dict) -> tuple:
     從 Grant 資料中提取結案申報書所需資料
 
     Returns:
-        (grant_data, land_data, step3_data, step4_data)
+        (grant_data, land_data, step4_data, step5_data)
     """
     # 提取各步驟資料（統一架構：UI step N → formData[N]）
     steps_data = version_data.get('steps', {}) if version_data else {}
@@ -644,11 +645,11 @@ async def extract_completion_statement_data(grant, version_data: dict) -> tuple:
     step2_data = steps_data.get('2', {})
     land_list = step2_data.get('lands', []) or step2_data.get('landList', []) or step2_data.get('land_list', [])
 
-    # Step 3: 灌溉調控設施（step3.vue → formData[4]）
-    step3_data = steps_data.get('4', {})
+    # Step 4: 灌溉調控設施（step3.vue → formData[4]）
+    step4_data = steps_data.get('4', {})
 
-    # Step 4: 田間管路（step4.vue → formData[5]）
-    step4_data = steps_data.get('5', {})
+    # Step 5: 田間管路（step4.vue → formData[5]）
+    step5_data = steps_data.get('5', {})
 
     # 使用共用函數組合完整通訊地址
     full_address = _build_applicant_address(grant)
@@ -676,15 +677,21 @@ async def extract_completion_statement_data(grant, version_data: dict) -> tuple:
         land_county_name = await _convert_domicile_id_to_name(land_county_value, domicile_crud.get_county)
         land_town_name = await _convert_domicile_id_to_name(land_town_value, domicile_crud.get_town)
 
+        # 安全轉換面積為 float（處理前端可能傳來字串的情況）
+        try:
+            facility_area_value = float(land.get('facilityArea', 0) or land.get('facility_area', 0) or 0)
+        except (ValueError, TypeError):
+            facility_area_value = 0.0
+
         land_data.append({
             'land_county': land_county_name,
             'land_town': land_town_name,
             'land_section': land.get('landSecName', '') or land.get('landSection', '') or land.get('land_section', ''),
             'land_number': land.get('landNumber', '') or land.get('land_number', ''),
-            'facility_area_m2': land.get('facilityArea', 0) or land.get('facility_area', 0)
+            'facility_area_m2': facility_area_value
         })
 
-    return grant_data, land_data, step3_data, step4_data
+    return grant_data, land_data, step4_data, step5_data
 
 
 @router.post("/case/{case_number}/completion-statement")
@@ -713,12 +720,12 @@ async def download_completion_statement(
         version_data = grant.active_version.all_steps_data if grant.active_version else {}
 
         # 提取結案申報書資料
-        grant_data, land_data, step3_data, step4_data = await extract_completion_statement_data(grant, version_data)
+        grant_data, land_data, step4_data, step5_data = await extract_completion_statement_data(grant, version_data)
 
         # 生成 PDF
         pdf_generator = CompletionStatementPDFGenerator()
         pdf_bytes = pdf_generator.generate_completion_statement(
-            grant_data, land_data, step3_data, step4_data
+            grant_data, land_data, step4_data, step5_data
         )
 
         # 使用共用函數生成並返回 PDF 檔案
@@ -773,9 +780,9 @@ async def extract_declaration_data(grant, version_data: dict) -> dict:
     land_county_name = await _convert_domicile_id_to_name(land_county_value, domicile_crud.get_county)
     land_town_name = await _convert_domicile_id_to_name(land_town_value, domicile_crud.get_town)
 
-    # 提取完成期限（從 step5 現場勘查資料或使用預設值）
-    step5_data = steps_data.get('3', {})  # step5.vue → formData[3]
-    completion_date_raw = step5_data.get('expectedCompletionDate', '')
+    # 提取完成期限（從 step3 現場勘查資料或使用預設值）
+    step3_data = steps_data.get('3', {})  # step5.vue → formData[3]
+    completion_date_raw = step3_data.get('expectedCompletionDate', '')
 
     # 轉換完成日期為「YYYY年MM月DD日」格式
     completion_date = ''
@@ -943,4 +950,260 @@ async def download_authorization(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"生成規劃委託書失敗: {str(e)}"
+        )
+
+
+async def extract_budget_statement_data(grant, version_data) -> dict:
+    """
+    從 Grant 資料中提取工程預算書所需資料
+
+    Returns:
+        grant_data: 包含所有工程預算書欄位的字典
+    """
+    # 提取各步驟資料
+    steps_data = version_data.get('steps', {}) if version_data else {}
+
+    # Step 1: 申請人基本資料
+    step1_data = steps_data.get('1', {})
+
+    # Step 2: 土地資料
+    step2_data = steps_data.get('2', {})
+    lands = step2_data.get('lands', [])
+
+    # Step 3: 現場勘查 (UI step 3 → data step 3)
+    step3_data = steps_data.get('3', {})
+
+    # Step 4: 灌溉調控設施 (UI step 4 → data step 4)
+    step4_data = steps_data.get('4', {})
+
+    # Step 5: 田間管路 (UI step 5 → data step 5)
+    step5_data = steps_data.get('5', {})
+
+    # 使用共用函數組合通訊地址
+    full_address = _build_applicant_address(grant, step1_data)
+
+    # 組裝土地清冊資料
+    land_list = []
+    total_land_area = 0
+    total_facility_area = 0
+    total_facility_area_ha = 0
+
+    for land in lands:
+        # 取得縣市和鄉鎮資訊（可能是 ID 或名稱）
+        land_county_value = land.get('landCounty', '') or land.get('land_county', '')
+        land_town_value = land.get('landTown', '') or land.get('land_town', '')
+
+        # 使用共用函數轉換 ID → 名稱
+        land_county_name = await _convert_domicile_id_to_name(land_county_value, domicile_crud.get_county)
+        land_town_name = await _convert_domicile_id_to_name(land_town_value, domicile_crud.get_town)
+
+        # 取得地段和地號資訊（嘗試多個可能的欄位名稱）
+        land_section = land.get('landSecName', '') or land.get('section', '') or land.get('landSection', '') or land.get('land_section', '')
+        lot_number = land.get('landNumber', '') or land.get('lotNumber', '') or land.get('lot_number', '')
+
+        # 安全轉換為 float（處理前端可能傳來字串的情況）
+        try:
+            land_area_m2 = float(land.get('landArea', 0) or 0)
+        except (ValueError, TypeError):
+            land_area_m2 = 0.0
+
+        try:
+            facility_area_m2 = float(land.get('facilityArea', 0) or 0)
+        except (ValueError, TypeError):
+            facility_area_m2 = 0.0
+
+        try:
+            facility_area_ha = float(land.get('facilityAreaHa', 0) or land.get('facility_area_ha', 0) or 0)
+        except (ValueError, TypeError):
+            facility_area_ha = 0.0
+
+        land_list.append({
+            'land_county': land_county_name,
+            'land_town': land_town_name,
+            'section': land_section,
+            'lot_number': lot_number,
+            'land_area': land_area_m2,
+            'facility_area': facility_area_m2
+        })
+
+        total_land_area += land_area_m2
+        total_facility_area += facility_area_m2
+        total_facility_area_ha += facility_area_ha
+
+    # 第一筆土地資訊（用於封面和表格）
+    if land_list:
+        first_land = land_list[0]
+        land_county = first_land.get('land_county', '')
+        land_town = first_land.get('land_town', '')
+        land_section = first_land.get('section', '')
+        first_lot_number = first_land.get('lot_number', '')
+        # 組合完整的土地位置：縣市 + 鄉鎮 + "-" + 地段
+        land_location = f"{land_county}{land_town}-{land_section}" if land_section else f"{land_county}{land_town}"
+    else:
+        land_location = ""
+        first_lot_number = ""
+
+    # 設施型式（組合「設施型式」+ 「灌溉型式」）
+    installation_type_raw = step5_data.get('installationType', '')
+    irrigation_type_part = step5_data.get('irrigationType', '')
+
+    # 設施型式映射表（對應 UI step5 的 installationTypeOptions）
+    installation_type_mapping = {
+        1: '埋設固定式',
+        2: '地表定置式',
+        3: '附掛棚架式'
+    }
+
+    # 轉換設施型式（如果是 ID 則轉為名稱，否則直接使用）
+    installation_type_part = installation_type_mapping.get(
+        installation_type_raw,
+        str(installation_type_raw) if installation_type_raw else ''
+    )
+
+    # 組合兩個欄位，用空格分隔
+    if installation_type_part and irrigation_type_part:
+        facility_type = f"{installation_type_part} {irrigation_type_part}"
+    elif installation_type_part:
+        facility_type = installation_type_part
+    elif irrigation_type_part:
+        facility_type = irrigation_type_part
+    else:
+        facility_type = ''
+
+    # 預算項目資料（示例，實際應從 step 資料中提取）
+    budget_items = {
+        'a_item_total': 70665,
+        'a_materials': 70665,
+        'main_pipe_1_length': 140,
+        'main_pipe_1_qty': 35,
+        'main_pipe_1_price': 292,
+        'main_pipe_1_total': 10220,
+        'irrigation_system_total': 60445,
+        'b_design_fee': 1413,
+        'c_control_total': 473340,
+        'd_power_total': 4000,
+        'e_storage_total': 80000,
+        'farmer_contribution': 383340,
+        'govt_subsidy_a': 70665,
+        'govt_subsidy_c': 90000,
+        'govt_subsidy_d': 4000,
+        'govt_subsidy_e': 80000,
+    }
+
+    # 動力設施
+    power_items = [{
+        'name': '馬達+抽水機',
+        'quantity': 1,
+        'amount': 4000
+    }]
+
+    # 調蓄設施
+    storage_items = [
+        {'material': '不鏽鋼', 'tonnage': 10, 'quantity': 1, 'amount': 40000},
+        {'material': '不鏽鋼', 'tonnage': 10, 'quantity': 1, 'amount': 40000}
+    ]
+
+    # 管路材料（示例）
+    pipe_materials = []
+
+    # 調控設施材料
+    control_materials = [{
+        'category': '1. 微氣象調節',
+        'name': '微噴霧降溫設施',
+        'spec': '',
+        'unit': '',
+        'price': 473340,
+        'quantity': 1,
+        'total': 473340
+    }]
+
+    # 組裝完整資料
+    grant_data = {
+        # 基本資訊
+        'case_number': grant.case_number,
+        'applicant_name': grant.applicant_name if grant.applicant_name else step1_data.get('name', ''),
+        'id_number': grant.applicant_id if grant.applicant_id else (step1_data.get('idNumber', '') or step1_data.get('id_number', '')),
+        'address': full_address,
+        'phone': grant.applicant_phone if grant.applicant_phone else (step1_data.get('phone', '') or step1_data.get('telephone', '')),
+        'year': str(grant.year) if grant.year else '',
+        'office_name': grant.office if grant.office else '',  # office 是 CharField，直接使用
+
+        # 土地資訊
+        'land_location': land_location,
+        'first_lot_number': first_lot_number,
+        'land_count': len(lands),
+        'facility_area_ha': f"{total_facility_area_ha:.4f}",  # 直接使用資料記錄的公頃面積
+        'total_facility_area_m2': total_facility_area,
+        'lands': land_list,
+
+        # 設施資訊
+        'facility_type': facility_type,
+        'subsidy_standard': '一般標準',
+        'block_shape': '135m ×33m',
+        'nozzle_spacing': '1 x 5.8',
+        'main_pipe_1_length': 140,
+
+        # 預算資料
+        'budget_items': budget_items,
+        'power_items': power_items,
+        'storage_items': storage_items,
+        'pipe_materials': pipe_materials,
+        'control_materials': control_materials,
+
+        # 補助金額
+        'govt_subsidy_total': budget_items['govt_subsidy_a'] + budget_items['govt_subsidy_c'] +
+                             budget_items['govt_subsidy_d'] + budget_items['govt_subsidy_e'] + budget_items['b_design_fee'],
+    }
+
+    return grant_data
+
+
+@router.post("/case/{case_number}/budget-statement")
+async def download_budget_statement(
+    case_number: str = Path(..., description="案件編號"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """
+    下載工程預算書 PDF（11頁完整版本）
+
+    檔名格式：[年度]-[案號]-[申請人姓名] - 工程預算書.pdf
+    """
+    try:
+        logger.info(f"📋 [download_budget_statement] 生成工程預算書: case_number={case_number}")
+
+        # 查詢補助案件
+        grant = await Grants.filter(case_number=case_number).select_related("active_version").first()
+
+        if not grant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"找不到案件編號: {case_number}"
+            )
+
+        # 提取資料
+        version_data = grant.active_version.all_steps_data if grant.active_version else {}
+        grant_data = await extract_budget_statement_data(grant, version_data)
+
+        # 生成 PDF
+        generator = BudgetStatementPDFGenerator()
+        pdf_bytes = generator.generate(grant_data)
+
+        # 使用共用函數生成 FileResponse
+        return _generate_pdf_file_response(
+            pdf_bytes,
+            case_number,
+            grant_data.get('year', ''),
+            grant_data.get('applicant_name', ''),
+            "工程預算書"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [download_budget_statement] 生成工程預算書失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"生成工程預算書失敗: {str(e)}"
         )

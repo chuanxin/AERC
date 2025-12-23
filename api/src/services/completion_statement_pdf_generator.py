@@ -213,7 +213,7 @@ class CompletionStatementPDFGenerator:
 
     def _get_irrigation_system_info(self, step_data: Dict[str, Any]) -> Dict[str, bool]:
         """
-        從 step4 資料提取灌溉系統資訊
+        從 step5 資料提取灌溉系統資訊
         返回各類型灌溉系統是否存在的標記
         """
         irrigation_type = step_data.get('irrigationType', '')
@@ -228,7 +228,7 @@ class CompletionStatementPDFGenerator:
 
     def _get_power_facility_info(self, step_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        從 step3 資料提取動力設施資訊
+        從 step4 資料提取動力設施資訊
         """
         facilities = step_data.get('facilities', [])
 
@@ -264,7 +264,7 @@ class CompletionStatementPDFGenerator:
 
     def _get_storage_facility_info(self, step_data: Dict[str, Any]) -> str:
         """
-        從 step3 資料提取調蓄設施資訊
+        從 step4 資料提取調蓄設施資訊
         返回設施描述字串，如 "不鏽鋼10噸2座"
         """
         facilities = step_data.get('facilities', [])
@@ -285,7 +285,7 @@ class CompletionStatementPDFGenerator:
 
     def _get_control_facility_info(self, step_data: Dict[str, Any]) -> str:
         """
-        從 step3 資料提取調控設施資訊
+        從 step4 資料提取調控設施資訊
         """
         facilities = step_data.get('facilities', [])
 
@@ -324,8 +324,8 @@ class CompletionStatementPDFGenerator:
         self,
         grant_data: Dict[str, Any],
         land_data: List[Dict[str, Any]],
-        step3_data: Dict[str, Any],
-        step4_data: Dict[str, Any]
+        step4_data: Dict[str, Any],
+        step5_data: Dict[str, Any]
     ) -> bytes:
         """
         生成結案申報書 PDF
@@ -333,8 +333,8 @@ class CompletionStatementPDFGenerator:
         Args:
             grant_data: 補助案件基本資料
             land_data: 土地清冊資料
-            step3_data: 步驟3資料（灌溉調控設施）
-            step4_data: 步驟4資料（田間管路）
+            step4_data: 步驟4資料（灌溉調控設施）
+            step5_data: 步驟5資料（田間管路）
 
         Returns:
             PDF 檔案的二進位資料
@@ -363,7 +363,7 @@ class CompletionStatementPDFGenerator:
         # === 標題 ===
         c.setFont(self.font_name, 22)
         title = "結案申報書"
-        title_width = c.stringWidth(title, self.font_name, 20)
+        title_width = c.stringWidth(title, self.font_name, 22)
         c.drawString((width - title_width - 10) / 2, height - 80, title)
 
         # === 主要內容段落 ===
@@ -406,10 +406,10 @@ class CompletionStatementPDFGenerator:
         y_pos = y_pos - para.height - 20
 
         # 表格資料
-        irrigation_info = self._get_irrigation_system_info(step4_data)
-        power_info = self._get_power_facility_info(step3_data)
-        storage_info = self._get_storage_facility_info(step3_data)
-        control_info = self._get_control_facility_info(step3_data)
+        irrigation_info = self._get_irrigation_system_info(step5_data)
+        power_info = self._get_power_facility_info(step4_data)
+        storage_info = self._get_storage_facility_info(step4_data)
+        control_info = self._get_control_facility_info(step4_data)
 
         # 繪製表格邊框和內容
         table_x = 60

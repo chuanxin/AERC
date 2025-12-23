@@ -622,8 +622,8 @@
 
                     <!-- 設施型式 -->
                     <v-select
-                      v-model="localFormData.facilityTypeId"
-                      :items="facilityTypeOptions"
+                      v-model="localFormData.installationType"
+                      :items="installationTypeOptions"
                       item-title="name"
                       item-value="id"
                       label="設施型式"
@@ -704,8 +704,8 @@
 
                     <!-- 設施型式 -->
                     <v-select
-                      v-model="localFormData.facilityTypeId"
-                      :items="facilityTypeOptions"
+                      v-model="localFormData.installationType"
+                      :items="installationTypeOptions"
                       item-title="name"
                       item-value="id"
                       label="設施型式"
@@ -915,8 +915,8 @@
                   <div class="d-flex flex-wrap">
                     <!-- 設施型式 -->
                     <v-select
-                      v-model="localFormData.facilityTypeId"
-                      :items="facilityTypeOptions"
+                      v-model="localFormData.installationType"
+                      :items="installationTypeOptions"
                       item-title="name"
                       item-value="id"
                       label="設施型式"
@@ -1141,8 +1141,8 @@
 
                     <!-- 設施型式 -->
                     <v-select
-                      v-model="localFormData.facilityTypeId"
-                      :items="facilityTypeOptions"
+                      v-model="localFormData.installationType"
+                      :items="installationTypeOptions"
                       item-title="name"
                       item-value="id"
                       label="設施型式"
@@ -2957,7 +2957,7 @@ const localFormData = reactive({
   sprinklerSubtypeId: null as number | null,   // 噴頭子類型ID (原 ddl_Sprinkler)
   dripperSubtypeId: null as number | null,     // 滴灌子類型ID (原 ddl_Drop)
   perforatedPipeDirection: 1,                // 穿孔管出水方向 (原 ddl_Perforated)
-  facilityTypeId: null as number | null,       // 設施型式ID (原 ddl_FacType)
+  installationType: null as number | null,       // 設施型式ID (原 ddl_FacType)
   waterSourceId: null as number | null,        // 灌溉水源ID (原 ddl_WtaerSrc)
 
   endFacilityPomno: null as number | null,     // 末端設施POMNo (原 NozzleMaterial)
@@ -3020,7 +3020,7 @@ const getStepDataSafely = (step: number) => {
 
 // --- 選項列表 (應從API獲取) ---
 const perforatedPipeTypeOptions = ref([ { value: 1, title: '單向' }, { value: 2, title: '雙向' } ]); // 這個選項較固定
-const facilityTypeOptions = ref<PipeOption[]>([]);   // 設施型式
+const installationTypeOptions = ref<PipeOption[]>([]);   // 設施型式
 const waterSourceOptions = ref<PipeOption[]>([]);    // 灌溉水源
 
 
@@ -3050,7 +3050,7 @@ const loadDropdownOptions = async () => {
   await fetchPipeFittings();
 
   // 模擬設施型式和水源選項
-  facilityTypeOptions.value = [ {id: 1, name: '埋設固定式'}, {id: 2, name: '地表定置式'}, {id: 3, name: '附掛棚架式'}];
+  installationTypeOptions.value = [ {id: 1, name: '埋設固定式'}, {id: 2, name: '地表定置式'}, {id: 3, name: '附掛棚架式'}];
   waterSourceOptions.value = [ {id:1, name: '灌溉渠道'}, {id:2, name: '山溪溝'}, {id:3, name: '埤(池)塘'}, {id:4, name: '地下水'}, {id:5, name: '其他'} /* ... */];
 };
 
@@ -3691,7 +3691,7 @@ const canAutoFillMaterials = computed(() => {
   // 微噴系統 (irrigationTypeId === 3)
   else if (localFormData.irrigationTypeId === 3) {
     irrigationTypeSpecificConditions =
-      !!localFormData.facilityTypeId &&
+      !!localFormData.installationType &&
       (localFormData.branchPipeSpacing_SL !== null && localFormData.branchPipeSpacing_SL > 0) &&
       (localFormData.sprinklerSpacing_SS !== null && localFormData.sprinklerSpacing_SS > 0) &&
       !!localFormData.branchPipeMaterialId &&
@@ -3723,7 +3723,7 @@ const canAutoFillMaterials = computed(() => {
 
     irrigationTypeSpecificConditions =
       !!localFormData.dripperSubtypeId &&
-      !!localFormData.facilityTypeId &&
+      !!localFormData.installationType &&
       (localFormData.branchPipeSpacing_SL !== null && localFormData.branchPipeSpacing_SL > 0) &&
       sprinklerSpacingCondition &&
       branchPipeConditions &&
@@ -4083,7 +4083,7 @@ const onEndFacilitySpecChange = async () => {
 
 const loadEndFacilityOptions = async () => {
   // TODO: API Call to fetch end facility options (pipe_fittings)
-  // based on irrigationTypeId, sprinklerSubtypeId, dripperSubtypeId, facilityTypeId, operating_unit_id
+  // based on irrigationTypeId, sprinklerSubtypeId, dripperSubtypeId, installationType, operating_unit_id
   // This API should return a list of objects like EndFacilityPipeFitting interface
   // Example: filteredEndFacilityPipeFittings.value = await pipeFittingsService.getTerminalFittings({ type: localFormData.irrigationTypeId, ... });
   // 保存當前選擇的項目
@@ -4611,7 +4611,7 @@ const autoFillMaterials = async () => {
       }
     }
     else if (localFormData.irrigationTypeId === 3) { // 微噴系統
-      if (!localFormData.facilityTypeId) {
+      if (!localFormData.installationType) {
         errorMessage += '- 設施型式\n';
       }
       if (localFormData.branchPipeSpacing_SL === null || localFormData.sprinklerSpacing_SS === null) {
@@ -4631,7 +4631,7 @@ const autoFillMaterials = async () => {
       if (!localFormData.dripperSubtypeId) {
         errorMessage += '- 滴灌類型\n';
       }
-      if (!localFormData.facilityTypeId) {
+      if (!localFormData.installationType) {
         errorMessage += '- 設施型式\n';
       }
 
@@ -4694,7 +4694,7 @@ const autoFillMaterials = async () => {
         ddl_EndType: localFormData.irrigationTypeId,
         ddl_Sprinkler: localFormData.irrigationTypeId === 2 ? localFormData.sprinklerSubtypeId : null,
         ddl_Drop: localFormData.irrigationTypeId === 4 ? localFormData.dripperSubtypeId : null,
-        ddl_FacType: localFormData.facilityTypeId,
+        ddl_FacType: localFormData.installationType,
         ddl_WtaerSrc: localFormData.waterSourceId,
 
         SL: localFormData.branchPipeSpacing_SL,
@@ -4986,7 +4986,7 @@ const skipStep = async () => {
       sprinklerSubtypeId: null,
       dripperSubtypeId: null,
       perforatedPipeDirection: 1,
-      facilityTypeId: null,
+      installationType: null,
       waterSourceId: null,
       endFacilityPomno: null,
       endFacilitySpecId: null,
@@ -5069,7 +5069,7 @@ const showMissingFieldsInfo = () => {
     };
   } else if (irrigationType === 3) { // 微噴系統
     typeSpecificStatus = {
-      'facilityTypeId': !!localFormData.facilityTypeId ? '✓' : '✗',
+      'installationType': !!localFormData.installationType ? '✓' : '✗',
       'branchPipeSpacing_SL': (localFormData.branchPipeSpacing_SL !== null) ? '✓' : '✗',
       'sprinklerSpacing_SS': (localFormData.sprinklerSpacing_SS !== null) ? '✓' : '✗',
       'branchPipeMaterialId': !!localFormData.branchPipeMaterialId ? '✓' : '✗',
@@ -5084,7 +5084,7 @@ const showMissingFieldsInfo = () => {
 
     typeSpecificStatus = {
       'dripperSubtypeId': !!localFormData.dripperSubtypeId ? '✓' : '✗',
-      'facilityTypeId': !!localFormData.facilityTypeId ? '✓' : '✗',
+      'installationType': !!localFormData.installationType ? '✓' : '✗',
       'branchPipeSpacing_SL': (localFormData.branchPipeSpacing_SL !== null) ? '✓' : '✗',
       'branchPipeMaterialId': !!localFormData.branchPipeMaterialId ? '✓' : '✗',
       'branchPipeDiameterId': !!localFormData.branchPipeDiameterId ? '✓' : '✗',
@@ -5172,7 +5172,7 @@ const getFieldDisplayName = (fieldName: string) => {
     'sprinklerSpacing_SS': '噴頭間距(SS)',
     'branchPipeMaterialId': '支管材質',
     'branchPipeDiameterId': '支管規格',
-    'facilityTypeId': '設施型式',
+    'installationType': '設施型式',
     'sprinklerSubtypeId': '噴頭類型',
     'dripperSubtypeId': '滴灌類型',
     'riserHeight_H': '豎管高度',
@@ -5316,7 +5316,7 @@ const mapToLegacyFields = (formInputs: FormInputs) => {
     NewBranchSpec: null,
 
     // 設施類型
-    ddl_FacType: localFormData.facilityTypeId || 1,
+    ddl_FacType: localFormData.installationType || 1,
     ddl_WtaerSrc: localFormData.waterSourceId || 1
   };
 };
@@ -7253,7 +7253,7 @@ watch(
 );
 
 // 監聽「田間管路系統設計」欄位變化，清除管路設施列表
-// 排除：灌溉水源(waterSourceId)、設施型式(facilityTypeId)、設計人(designerName)
+// 排除：灌溉水源(waterSourceId)、設施型式(installationType)、設計人(designerName)
 watch(
   [
     // 田間坵塊

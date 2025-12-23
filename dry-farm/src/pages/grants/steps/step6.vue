@@ -60,7 +60,7 @@
             <tbody>
               <tr>
                 <td class="font-weight-medium">
-                  A.田間管路設施費
+                  田間管路設施費（A）
                 </td>
                 <td />
                 <td class="text-center">
@@ -119,7 +119,7 @@
               </tr>
               <tr>
                 <td class="font-weight-medium">
-                  B.灌溉調控設施費
+                  灌溉調控設施費
                 </td>
                 <td>
                   <template v-if="controlFacilities.length > 0">
@@ -141,7 +141,7 @@
                 :key="`control-${index}`"
               >
                 <td class="pl-6">
-                  {{ item.name }}
+                  {{ item.name }}（{{ item.specification }}）
                 </td>
                 <td>{{ item.facilityName }}</td>
                 <td class="text-center">
@@ -160,7 +160,7 @@
               </tr>
               <tr>
                 <td class="font-weight-medium">
-                  C.規劃設計費
+                  規劃設計費（B）
                 </td>
                 <td>
                   <template v-if="designFee > 0">
@@ -250,12 +250,12 @@
                   農戶<br>請領款
                 </td>
                 <td class="text-center">
-                  A項補助費：{{ pipeLineSubsidy }}
+                  田間管路設施補助費：{{ pipeLineSubsidy }}
                 </td>
               </tr>
               <tr>
                 <td class="text-center">
-                  B項補助費：{{ facilitySubsidy }}
+                  灌溉調控設施補助費：{{ facilitySubsidy }}
                 </td>
               </tr>
               <tr>
@@ -399,7 +399,7 @@ import { useGrantsStore } from '@/stores/grants';
 import { useRoute } from 'vue-router';
 import type { PropType } from 'vue';
 import downloadsService from '@/services/downloadsService';
-import { generateCompletionStatement, generateDeclaration, generateAuthorization, downloadPdfBlob } from '@/services/grantsService';
+import { generateCompletionStatement, generateDeclaration, generateAuthorization, generateBudgetStatement, downloadPdfBlob } from '@/services/grantsService';
 
 // Step6 不再維護本地設施資料，所有資料都直接從 computed 讀取
 
@@ -648,16 +648,39 @@ const controlFacilities = computed(() => {
   if (!step3Data?.facilities || !Array.isArray(step3Data.facilities)) return [];
 
   const facilities = step3Data.facilities as any[];
-  return facilities.map((f: any) => ({
-    name: f.typeLabel || f.name,
-    facilityName: f.name, // 真正的設施名稱
-    specification: '',
-    quantity: f.quantity,
-    unitPrice: typeof f.unitPrice === 'number' ? f.unitPrice.toLocaleString() : f.unitPrice,
-    totalPrice: typeof f.totalPrice === 'number' ? f.totalPrice.toLocaleString() : f.totalPrice,
-    unit: f.type === 'power' ? '台' : (f.type === 'storage' ? '座' : '台'),
-    remark: f.remark || f.name
-  }));
+
+  // 映射 name 到 specification 並排序
+  const specificationOrder = { 'C': 1, 'D': 2, 'E': 3 };
+
+  return facilities.map((f: any) => {
+    const name = f.typeLabel || f.name;
+    let specification = '';
+
+    // 根據 name 設定 specification
+    if (name === '動力設備') {
+      specification = 'D';
+    } else if (name === '調蓄設施') {
+      specification = 'E';
+    } else if (name === '調節控制設施') {
+      specification = 'C';
+    }
+
+    return {
+      name,
+      facilityName: f.name, // 真正的設施名稱
+      specification,
+      quantity: f.quantity,
+      unitPrice: typeof f.unitPrice === 'number' ? f.unitPrice.toLocaleString() : f.unitPrice,
+      totalPrice: typeof f.totalPrice === 'number' ? f.totalPrice.toLocaleString() : f.totalPrice,
+      unit: f.type === 'power' ? '台' : (f.type === 'storage' ? '座' : '台'),
+      remark: f.remark || f.name
+    };
+  }).sort((a, b) => {
+    // 依照 C-D-E 順序排序
+    const orderA = specificationOrder[a.specification as keyof typeof specificationOrder] || 999;
+    const orderB = specificationOrder[b.specification as keyof typeof specificationOrder] || 999;
+    return orderA - orderB;
+  });
 });
 
 // Computed properties for calculated values
@@ -965,6 +988,49 @@ const printDocument = async (documentType: string) => {
       doc.downloadStatus = 'success';
       doc.downloading = false;
       console.log('規劃委託書下載完成');
+    }
+    // 🔥 工程預算書 - 生成 PDF
+    else if (documentType === 'budget') {
+      const caseNumber = grantsStore.caseNumber;
+      if (!caseNumber) {
+        console.error('案號不存在');
+        doc.downloading = false;
+        doc.downloadStatus = 'error';
+        // 失敗時保持當前進度，不到達 100%
+        return;
+      }
+
+      // 階段式進度更新
+      const progressStages = [
+        { progress: 20, message: '正在準備資料...', delay: 200 },
+        { progress: 40, message: '正在生成工程預算書...', delay: 300 },
+        { progress: 60, message: '正在處理文件...', delay: 200 },
+      ];
+
+      for (const stage of progressStages) {
+        doc.progress = stage.progress;
+        console.log(stage.message);
+        await new Promise(resolve => setTimeout(resolve, stage.delay));
+      }
+
+      // 實際生成工程預算書
+      const pdfBlob = await generateBudgetStatement(caseNumber);
+
+      // 下載完成
+      doc.progress = 90;
+      console.log('工程預算書已生成，正在啟動下載...');
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 使用 grantsService 的下載函數
+      const year = grantsStore.currentGrant?.year || new Date().getFullYear() - 1911;
+      const applicantName = grantsStore.currentGrant?.applicant_name || '未知';
+      const filename = `${year}-${caseNumber}-${applicantName} - 工程預算書.pdf`;
+      downloadPdfBlob(pdfBlob, filename);
+
+      doc.progress = 100;
+      doc.downloadStatus = 'success';
+      doc.downloading = false;
+      console.log('工程預算書下載完成');
     }
     // TODO: 其他文件類型的下載邏輯（PDF 報表生成）
     else {

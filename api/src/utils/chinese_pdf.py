@@ -233,14 +233,14 @@ def create_template_with_reportlab(data: dict = None) -> bytes:
     # 預設資料
     current_time = datetime.datetime.now()
     default_data = {
-        "CASE_ID": "11400888",
-        "APPLICANT": "陳大明",
-        "ADDRESS": "台中市南區綠川東街88號",
-        "LOCATION": "台中市南區-綠川段",
-        "LAND_ID": "8888-9999",
-        "AREA_NUMBER": "0.3500",
-        "FACILITY_TYPE": "地表定置式噴灌系統及微噴設備",
-        "YEAR": "114"
+        "CASE_ID": "",
+        "APPLICANT": "",
+        "ADDRESS": "",
+        "LOCATION": "",
+        "LAND_ID": "",
+        "AREA_NUMBER": "",
+        "FACILITY_TYPE": "",
+        "YEAR": ""
     }
     
     # 合併用戶資料

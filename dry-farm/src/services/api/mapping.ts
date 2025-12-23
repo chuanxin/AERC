@@ -91,6 +91,7 @@ export const BACKEND_PATHS = {
     COMPLETION_STATEMENT: (caseNumber: string) => `/grants/case/${caseNumber}/completion-statement`,
     DECLARATION: (caseNumber: string) => `/grants/case/${caseNumber}/declaration`,
     AUTHORIZATION: (caseNumber: string) => `/grants/case/${caseNumber}/authorization`,
+    BUDGET_STATEMENT: (caseNumber: string) => `/grants/case/${caseNumber}/budget-statement`,
   },
   PIPE_FITTINGS: { // Added PIPE_FITTINGS backend paths
     LIST: '/pipe_fittings/', // For GET all and POST create
@@ -269,6 +270,58 @@ export const API_MAPPING: Record<string, string> = {
 
 // 動態參數路徑匹配規則
 export const DYNAMIC_PATH_PATTERNS = [
+  // ========== Grants 相關路徑（優先匹配，順序很重要）==========
+  {
+    // 🔥 匹配申請人補助額度摘要路徑 /grants/applicant-subsidy-summary/{applicantId}/{year}
+    pattern: /^\/grants\/applicant-subsidy-summary\/([^\/]+)\/(\d+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY(matches[1], parseInt(matches[2], 10))
+  },
+  {
+    // 匹配 grants authorization 路徑 /grants/case/{case_number}/authorization
+    pattern: /^\/grants\/case\/([^\/]+)\/authorization$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.AUTHORIZATION(matches[1])
+  },
+  {
+    // 匹配 grants budget-statement 路徑 /grants/case/{case_number}/budget-statement
+    pattern: /^\/grants\/case\/([^\/]+)\/budget-statement$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.BUDGET_STATEMENT(matches[1])
+  },
+  {
+    // 匹配 grants declaration 路徑 /grants/case/{case_number}/declaration
+    pattern: /^\/grants\/case\/([^\/]+)\/declaration$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.DECLARATION(matches[1])
+  },
+  {
+    // 匹配 grants completion-statement 路徑 /grants/case/{case_number}/completion-statement
+    pattern: /^\/grants\/case\/([^\/]+)\/completion-statement$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.COMPLETION_STATEMENT(matches[1])
+  },
+  {
+    // 匹配 grants status 路徑 /grants/case/{case_number}/status
+    pattern: /^\/grants\/case\/([^\/]+)\/status$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.UPDATE_STATUS(matches[1])
+  },
+  {
+    // 匹配 grants current-step 路徑 /grants/case/{case_number}/current-step
+    pattern: /^\/grants\/case\/([^\/]+)\/current-step$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.UPDATE_CURRENT_STEP(matches[1])
+  },
+  {
+    // 匹配 grants step 路徑 /grants/case/{case_number}/step/{step}
+    pattern: /^\/grants\/case\/([^\/]+)\/step\/(\d+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.STEP(matches[1], parseInt(matches[2], 10))
+  },
+  {
+    // 匹配 grants case number 路徑 /grants/case/{case_number}
+    pattern: /^\/grants\/case\/([^\/]+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.BY_CASE_NUMBER(matches[1])
+  },
+  {
+    // 匹配 grants delete 路徑 /grants/{id}
+    pattern: /^\/grants\/(\d+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.DELETE(matches[1])
+  },
+  // ========== 其他路徑 ==========
   {
     // 匹配申請人補助額度摘要路徑 {API_PREFIX}/grants/applicant-subsidy-summary/{applicantId}/{year}
     pattern: new RegExp(`^${GRANTS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/applicant-subsidy-summary/([^/]+)/(\\d+)$`),
@@ -441,92 +494,28 @@ export function mapApiPath(frontendPath: string): string {
   const cleanPath = removeApiPrefix(basePathFromFrontend);
   console.debug(`[mapApiPath] Cleaned path (removed prefix): ${cleanPath}`);
 
-  // 3. 使用純淨路徑進行 grants 相關的動態匹配
-  // 🔥 3.0 匹配申請人補助額度摘要路徑 /grants/applicant-subsidy-summary/{applicantId}/{year}
-  const subsidySummaryMatch = cleanPath.match(/^\/grants\/applicant-subsidy-summary\/([^\/]+)\/(\d+)$/);
-  if (subsidySummaryMatch) {
-    const applicantId = subsidySummaryMatch[1];
-    const year = parseInt(subsidySummaryMatch[2], 10);
-    mappedBasePath = BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY(applicantId, year);
-    console.debug(`[mapApiPath] Grant applicant subsidy summary dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
-  } else if (cleanPath.match(/^\/grants\/case\/([^\/]+)$/)) {
-    // 3.1 匹配 grants case number 路徑
-    const caseNumberMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)$/);
-    const caseNumber = caseNumberMatch![1];
-    mappedBasePath = BACKEND_PATHS.GRANTS.BY_CASE_NUMBER(caseNumber);
-    console.debug(`[mapApiPath] Grant case number dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
-  } else {
-    // 3.2 匹配 grants step 路徑
-    const stepMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/step\/(\d+)$/);
-    if (stepMatch) {
-      const caseNumber = stepMatch[1];
-      const step = parseInt(stepMatch[2], 10);
-      mappedBasePath = BACKEND_PATHS.GRANTS.STEP(caseNumber, step);
-      console.debug(`[mapApiPath] Grant step dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
-    } else {
-      // 3.3 匹配 grants current-step 路徑
-      const currentStepMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/current-step$/);
-      if (currentStepMatch) {
-        const caseNumber = currentStepMatch[1];
-        mappedBasePath = BACKEND_PATHS.GRANTS.UPDATE_CURRENT_STEP(caseNumber);
-        console.debug(`[mapApiPath] Grant current-step dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
-      } else {
-        // 3.4 匹配 grants status 路徑 (PATCH /grants/case/{case_number}/status)
-        const statusMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/status$/);
-        if (statusMatch) {
-          const caseNumber = statusMatch[1];
-          mappedBasePath = BACKEND_PATHS.GRANTS.UPDATE_STATUS(caseNumber);
-          console.debug(`[mapApiPath] Grant status dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
-        } else {
-          // 3.45 匹配 grants completion-statement 路徑 (POST /grants/case/{case_number}/completion-statement)
-          const completionStatementMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/completion-statement$/);
-          if (completionStatementMatch) {
-            const caseNumber = completionStatementMatch[1];
-            mappedBasePath = BACKEND_PATHS.GRANTS.COMPLETION_STATEMENT(caseNumber);
-            console.debug(`[mapApiPath] Grant completion-statement dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
-          } else {
-            // 3.46 匹配 grants declaration 路徑 (POST /grants/case/{case_number}/declaration)
-            const declarationMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/declaration$/);
-            if (declarationMatch) {
-              const caseNumber = declarationMatch[1];
-              mappedBasePath = BACKEND_PATHS.GRANTS.DECLARATION(caseNumber);
-              console.debug(`[mapApiPath] Grant declaration dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
-            } else {
-              // 3.47 匹配 grants authorization 路徑 (POST /grants/case/{case_number}/authorization)
-              const authorizationMatch = cleanPath.match(/^\/grants\/case\/([^\/]+)\/authorization$/);
-              if (authorizationMatch) {
-                const caseNumber = authorizationMatch[1];
-                mappedBasePath = BACKEND_PATHS.GRANTS.AUTHORIZATION(caseNumber);
-                console.debug(`[mapApiPath] Grant authorization dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
-              } else {
-                // 3.5 匹配 grants delete 路徑 (DELETE /grants/{id})
-                const deleteMatch = cleanPath.match(/^\/grants\/(\d+)$/);
-                if (deleteMatch) {
-                  const grantId = deleteMatch[1];
-                  mappedBasePath = BACKEND_PATHS.GRANTS.DELETE(grantId);
-                  console.debug(`[mapApiPath] Grant delete dynamic mapping for ${cleanPath}: ${mappedBasePath}`);
-                }
-              }
-            }
-          }
-        }
-      }
+  // 3. 使用純淨路徑進行動態匹配（優先匹配 cleanPath）
+  for (const { pattern, transform } of DYNAMIC_PATH_PATTERNS) {
+    if (!pattern || !transform) continue;
+
+    const matches = cleanPath.match(pattern);
+    if (matches) {
+      mappedBasePath = transform(matches);
+      console.debug(`[mapApiPath] Dynamic mapping found for ${cleanPath}: ${mappedBasePath}`);
+      break;
     }
   }
 
-  // 4. 回退到通用動態模式匹配 (使用原始路徑)
+  // 4. 回退到原始路徑匹配（帶 API_PREFIX 的路徑）
   if (!mappedBasePath) {
     for (const { pattern, transform } of DYNAMIC_PATH_PATTERNS) {
-      if (!pattern) continue;
+      if (!pattern || !transform) continue;
 
       const matches = basePathFromFrontend.match(pattern);
-      if (matches && transform) {
-        const transformedPath = transform(matches);
-        if (transformedPath) {
-          mappedBasePath = transformedPath;
-          console.debug(`[mapApiPath] Generic dynamic mapping for ${basePathFromFrontend} using pattern ${pattern}: ${mappedBasePath}`);
-          break;
-        }
+      if (matches) {
+        mappedBasePath = transform(matches);
+        console.debug(`[mapApiPath] Generic dynamic mapping for ${basePathFromFrontend}: ${mappedBasePath}`);
+        break;
       }
     }
   }
