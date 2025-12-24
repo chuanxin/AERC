@@ -893,6 +893,47 @@ export const generateAuthorization = async (caseNumber: string): Promise<Blob> =
 }
 
 /**
+ * 生成工程預算書 PDF
+ * @param caseNumber 案號
+ * @returns PDF檔案Blob
+ */
+export const generateBudgetStatement = async (caseNumber: string): Promise<Blob> => {
+  try {
+    console.log('📋 [generateBudgetStatement] 準備生成工程預算書，案號:', caseNumber)
+
+    // 調用後端工程預算書生成 API
+    const response = await apiService.post(
+      GRANTS.BUDGET_STATEMENT(caseNumber),
+      {},
+      {
+        responseType: 'blob'
+      }
+    )
+
+    console.log('📋 [generateBudgetStatement] 工程預算書生成成功')
+
+    // 檢查回應是否為 Blob
+    if (response instanceof Blob) {
+      console.log('📋 [generateBudgetStatement] 檔案大小:', response.size, 'bytes')
+      return response
+    } else {
+      // 如果不是 Blob，手動轉換
+      console.log('📋 [generateBudgetStatement] 轉換回應為 Blob')
+      return new Blob([response as any], { type: 'application/pdf' })
+    }
+
+  } catch (error: unknown) {
+    console.error('📋 [generateBudgetStatement] 工程預算書生成失敗:', error)
+    throw new ApplicationError({
+      message: '工程預算書生成失敗，請稍後再試',
+      status: (error as any)?.response?.status || 500,
+      source: 'grantsService.generateBudgetStatement',
+      originalError: error
+    })
+  }
+}
+
+/**
  * 下載PDF檔案
  * @param blob PDF檔案Blob
  * @param filename 檔案名稱
