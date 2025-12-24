@@ -525,19 +525,19 @@ class BudgetStatementPDFGenerator:
         # === 申請案號 ===
         c.setFont(self.font_name, 20)
         case_number = data.get('case_number', '')
-        case_text = f"申請案號:{case_number}"
+        case_text = f"申請案號：{case_number}"
         c.drawString(left_margin, current_y, case_text)
         current_y -= 60
 
         # === 申請人 ===
         applicant_name = data.get('applicant_name', '')
-        applicant_text = f"申 請 人:{applicant_name}"
+        applicant_text = f"申 請 人：{applicant_name}"
         c.drawString(left_margin, current_y, applicant_text)
         current_y -= 60
 
         # === 通訊住址 ===
         address = data.get('address', '')
-        address_text = f"通訊住址:{address}"
+        address_text = f"通訊住址：{address}"
         c.drawString(left_margin, current_y, address_text)
         current_y -= 60
 
@@ -547,12 +547,12 @@ class BudgetStatementPDFGenerator:
         land_count = data.get('land_count', 1)
 
         # 組合顯示文字：桃園市龍潭區-竹龍段,地號:0264-0000,等1筆土地。
-        location_text = f"設施地點:{land_location},地號:{first_lot_number},等{land_count}筆土地。"
+        location_text = f"設施地點：{land_location},地號：{first_lot_number},等{land_count}筆土地。"
 
         # 使用 _draw_paragraph 支援自動換行和懸掛縮排
         # 計算 "設施地點:" 的寬度作為懸掛縮排量
         c.setFont(self.font_name, 20)
-        label_width = c.stringWidth("設施地點:", self.font_name, 20)
+        label_width = c.stringWidth("設施地點：", self.font_name, 20)
 
         # 繪製段落，第二行及後續行會自動縮排對齊到內容開始位置
         current_y = self._draw_paragraph(
@@ -569,13 +569,13 @@ class BudgetStatementPDFGenerator:
 
         # === 申請面積 ===
         facility_area_ha = data.get('facility_area_ha', '0.0000')
-        area_text = f"申請面積:{facility_area_ha}公頃"
+        area_text = f"申請面積：{facility_area_ha}公頃"
         c.drawString(left_margin, current_y, area_text)
         current_y -= 60
 
         # === 設施型式 ===
         facility_type = data.get('facility_type', '')
-        type_text = f"設施型式:{facility_type}"
+        type_text = f"設施型式：{facility_type}"
         c.drawString(left_margin, current_y, type_text)
 
         # 換頁
@@ -611,7 +611,7 @@ class BudgetStatementPDFGenerator:
         row_height = 25
 
         # === 預先計算第3行的動態高度（用於確定外框總高度） ===
-        land_info = f"{data.get('land_location', '')},地號:{data.get('first_lot_number', '')},等{data.get('land_count', 1)}筆土地。"
+        land_info = f"{data.get('land_location', '')},地號：{data.get('first_lot_number', '')},等{data.get('land_count', 1)}筆土地。"
         content_width = col2_width + col3_width + col4_width - 8
         line_spacing = 14
         num_lines = self._calculate_text_lines(c, land_info, content_width, font_size=table_font_size)
@@ -740,16 +740,16 @@ class BudgetStatementPDFGenerator:
         title = "設施土地清冊"
         title_width = c.stringWidth(title, self.font_name, 22)
         c.drawString((width - title_width) / 2, current_y, title)
-        current_y -= 40
+        current_y -= 48
 
         # 基本資訊
         left_margin = 40
         right_margin = width - 40
         content_width = right_margin - left_margin
         c.setFont(self.font_name, 14)
-        c.drawString(left_margin, current_y, f"申請案號:{data.get('case_number', '')}")
+        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
         current_y -= 25
-        c.drawString(left_margin, current_y, f"申 請 人:{data.get('applicant_name', '')}")
+        c.drawString(left_margin, current_y, f"申 請 人：{data.get('applicant_name', '')}")
         current_y -= 25
 
         land_count = data.get('land_count', 0)
@@ -868,7 +868,7 @@ class BudgetStatementPDFGenerator:
             self._draw_centered_text(
                 c, "合計",
                 table_x, row_y,
-                sum(col_widths[:2]),
+                col_widths[0],
                 font_size=table_font_size
             )
 
@@ -902,39 +902,41 @@ class BudgetStatementPDFGenerator:
     def _generate_power_storage_table_page(self, c: canvas.Canvas, data: Dict[str, Any]) -> None:
         """生成第 4 頁：動力設施與調蓄設施數量表"""
         width, height = A4
-        current_y = height - 80
+        current_y = height - 60
+        left_margin = 40
 
         # 標題
-        c.setFont(self.font_name, 18)
+        c.setFont(self.font_name, 22)
         title = "動力設施與調蓄設施數量表"
-        title_width = c.stringWidth(title, self.font_name, 18)
+        title_width = c.stringWidth(title, self.font_name, 22)
         c.drawString((width - title_width) / 2, current_y, title)
-        current_y -= 50
+        current_y -= 48
 
         # 基本資訊
-        c.setFont(self.font_name, 12)
-        c.drawString(60, current_y, f"申請案號:{data.get('case_number', '')}")
+        c.setFont(self.font_name, 14)
+        c.drawString(left_margin, current_y, f"申請案號:{data.get('case_number', '')}")
         current_y -= 25
-        c.drawString(60, current_y, f"設施型式:{data.get('facility_type', '')}")
+        c.drawString(left_margin, current_y, f"設施型式:{data.get('facility_type', '')}")
         current_y -= 25
-        c.drawString(60, current_y, f"坵塊形狀:{data.get('block_shape', '135m ×33m')}")
+        c.drawString(left_margin, current_y, f"坵塊形狀:{data.get('block_shape', '')}")
         current_y -= 25
-        c.drawString(60, current_y, f"噴頭配置間距(SSxSL):{data.get('nozzle_spacing', '1 x 5.8')}")
-        current_y -= 50
+        c.drawString(left_margin, current_y, f"噴頭配置間距(SS × SL):{data.get('nozzle_spacing', '')}")
+        current_y -= 40
 
         # === 動力設施數量表 ===
         c.setFont(self.font_name, 14)
         subtitle = "動力設施數量表"
         subtitle_width = c.stringWidth(subtitle, self.font_name, 14)
         c.drawString((width - subtitle_width) / 2, current_y, subtitle)
-        current_y -= 35
+        current_y -= 10
 
         # 動力設施表格
+        c.setLineWidth(0.5)
         power_items = data.get('power_items', [{'name': '馬達+抽水機', 'quantity': 1, 'amount': 4000}])
-        table_x = 100
-        col_widths = [200, 100, 100]
+        table_x = left_margin
+        col_widths = [320, 58, 138]
         row_height = 25
-        table_font_size = 11
+        table_font_size = 12
 
         # 計算表格高度
         total_width = sum(col_widths)
@@ -988,7 +990,7 @@ class BudgetStatementPDFGenerator:
             )
 
             # 金額（置中對齊）
-            self._draw_centered_text(
+            self._draw_right_aligned_text(
                 c, f"{item.get('amount', 0):,}",
                 table_x + sum(col_widths[:2]), row_y,
                 col_widths[2],
@@ -1006,12 +1008,12 @@ class BudgetStatementPDFGenerator:
         self._draw_centered_text(
             c, "小計",
             table_x, row_y,
-            sum(col_widths[:2]),
+            sum(col_widths[:1]),
             font_size=table_font_size
         )
 
         # 金額小計（置中對齊）
-        self._draw_centered_text(
+        self._draw_right_aligned_text(
             c, f"{power_total:,}",
             table_x + sum(col_widths[:2]), row_y,
             col_widths[2],
@@ -1025,14 +1027,14 @@ class BudgetStatementPDFGenerator:
         subtitle = "調蓄設施數量表"
         subtitle_width = c.stringWidth(subtitle, self.font_name, 14)
         c.drawString((width - subtitle_width) / 2, current_y, subtitle)
-        current_y -= 35
+        current_y -= 10
 
         # 調蓄設施表格
         storage_items = data.get('storage_items', [
             {'material': '不鏽鋼', 'tonnage': 10, 'quantity': 1, 'amount': 40000},
             {'material': '不鏽鋼', 'tonnage': 10, 'quantity': 1, 'amount': 40000}
         ])
-        col_widths = [100, 100, 100, 100]
+        col_widths = [240, 80, 58, 138]
 
         # 計算表格高度
         total_width = sum(col_widths)
@@ -1075,12 +1077,7 @@ class BudgetStatementPDFGenerator:
             row_y = current_y - row_height / 2 - table_font_size * 0.2
 
             # 材質（置中對齊）
-            self._draw_centered_text(
-                c, item.get('material', ''),
-                table_x, row_y,
-                col_widths[0],
-                font_size=table_font_size
-            )
+            c.drawString(table_x + 10, row_y, item.get('material', ''))
 
             # 噸數（置中對齊）
             self._draw_centered_text(
@@ -1099,7 +1096,7 @@ class BudgetStatementPDFGenerator:
             )
 
             # 金額（置中對齊）
-            self._draw_centered_text(
+            self._draw_right_aligned_text(
                 c, f"{item.get('amount', 0):,}",
                 table_x + sum(col_widths[:3]), row_y,
                 col_widths[3],
@@ -1117,19 +1114,19 @@ class BudgetStatementPDFGenerator:
         self._draw_centered_text(
             c, "小計",
             table_x, row_y,
-            sum(col_widths[:3]),
+            sum(col_widths[:1]),
             font_size=table_font_size
         )
 
         # 金額小計（置中對齊）
-        self._draw_centered_text(
+        self._draw_right_aligned_text(
             c, f"{storage_total:,}",
             table_x + sum(col_widths[:3]), row_y,
             col_widths[3],
             font_size=table_font_size
         )
 
-        current_y -= row_height + 40
+        current_y -= row_height + 20
 
         # "以下空白"分隔線
         c.setFont(self.font_name, 10)
@@ -1142,32 +1139,34 @@ class BudgetStatementPDFGenerator:
     def _generate_pipe_materials_table_page(self, c: canvas.Canvas, data: Dict[str, Any]) -> None:
         """生成第 5 頁：管路灌溉系統材料數量表"""
         width, height = A4
-        current_y = height - 80
+        current_y = height - 60
+        left_margin = 40
 
         # 標題
-        c.setFont(self.font_name, 18)
+        c.setFont(self.font_name, 22)
         title = "管路灌溉系統材料數量表"
-        title_width = c.stringWidth(title, self.font_name, 18)
+        title_width = c.stringWidth(title, self.font_name, 22)
         c.drawString((width - title_width) / 2, current_y, title)
-        current_y -= 50
+        current_y -= 48
 
         # 基本資訊
-        c.setFont(self.font_name, 12)
-        c.drawString(60, current_y, f"申請案號:{data.get('case_number', '')}")
+        c.setFont(self.font_name, 14)
+        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
         current_y -= 25
-        c.drawString(60, current_y, f"設施型式:{data.get('facility_type', '')}")
+        c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
         current_y -= 25
-        c.drawString(60, current_y, f"坵塊形狀:{data.get('block_shape', '135m ×33m')}")
+        c.drawString(left_margin, current_y, f"坵塊形狀：{data.get('block_shape', '')}")
         current_y -= 25
-        c.drawString(60, current_y, f"噴頭配置間距(SSxSL):{data.get('nozzle_spacing', '1 x 5.8')}")
-        current_y -= 50
+        c.drawString(left_margin, current_y, f"噴頭配置間距(SS × SL)：{data.get('nozzle_spacing', '')}")
+        current_y -= 40
 
         # === 材料數量表 ===
+        c.setLineWidth(0.5)
         pipe_materials = data.get('pipe_materials', [])
-        table_x = 40
-        col_widths = [40, 100, 80, 50, 60, 60, 70]
-        row_height = 20
-        table_font_size = 10
+        table_x = left_margin
+        col_widths = [40, 126, 86, 50, 76, 62, 76]
+        row_height = 22
+        table_font_size = 12
 
         # 計算表格高度
         total_width = sum(col_widths)
@@ -1266,19 +1265,19 @@ class BudgetStatementPDFGenerator:
         self._draw_centered_text(
             c, "總價",
             table_x, row_y,
-            sum(col_widths[:6]),
+            sum(col_widths[:1]),
             font_size=table_font_size
         )
 
         # 總價金額（置中對齊）
-        self._draw_centered_text(
+        self._draw_right_aligned_text(
             c, f"{grand_total:,}",
             table_x + sum(col_widths[:6]), row_y,
             col_widths[6],
             font_size=table_font_size
         )
 
-        current_y -= row_height + 40
+        current_y -= row_height + 20
 
         # "以下空白"分隔線
         c.setFont(self.font_name, 10)
@@ -1291,34 +1290,36 @@ class BudgetStatementPDFGenerator:
     def _generate_control_materials_table_page(self, c: canvas.Canvas, data: Dict[str, Any]) -> None:
         """生成第 6 頁：調控設施材料數量表"""
         width, height = A4
-        current_y = height - 80
+        current_y = height - 60
+        left_margin = 40
 
         # 標題
-        c.setFont(self.font_name, 18)
+        c.setFont(self.font_name, 22)
         title = "調控設施材料數量表"
-        title_width = c.stringWidth(title, self.font_name, 18)
+        title_width = c.stringWidth(title, self.font_name, 22)
         c.drawString((width - title_width) / 2, current_y, title)
-        current_y -= 50
+        current_y -= 48
 
         # 基本資訊
-        c.setFont(self.font_name, 12)
-        c.drawString(60, current_y, f"申請案號:{data.get('case_number', '')}")
+        c.setFont(self.font_name, 14)
+        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
         current_y -= 25
-        c.drawString(60, current_y, f"設施型式:{data.get('facility_type', '')}")
+        c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
         current_y -= 25
-        c.drawString(60, current_y, f"坵塊形狀:{data.get('block_shape', '135m ×33m')}")
+        c.drawString(left_margin, current_y, f"坵塊形狀：{data.get('block_shape', '')}")
         current_y -= 25
-        c.drawString(60, current_y, f"噴頭配置間距(SSxSL):{data.get('nozzle_spacing', '1 x 5.8')}")
-        current_y -= 50
+        c.drawString(left_margin, current_y, f"噴頭配置間距(SS × SL)：{data.get('nozzle_spacing', '')}")
+        current_y -= 40
 
         # === 調控設施材料表 ===
         control_materials = data.get('control_materials', [
             {'category': '1. 微氣象調節', 'name': '微噴霧降溫設施', 'spec': '', 'unit': '', 'price': 473340, 'quantity': 1, 'total': 473340}
         ])
-        table_x = 40
-        col_widths = [40, 100, 80, 50, 60, 60, 70]
-        row_height = 20
-        table_font_size = 10
+        c.setLineWidth(0.5)
+        table_x = left_margin
+        col_widths = [40, 126, 86, 50, 76, 62, 76]
+        row_height = 22
+        table_font_size = 12
 
         # 計算表格高度（每個 item 佔兩行：category行 + 資料行）
         total_width = sum(col_widths)
@@ -1328,14 +1329,10 @@ class BudgetStatementPDFGenerator:
         # === 繪製表格外框 ===
         c.rect(table_x, table_start_y - table_height, total_width, table_height)
 
-        # === 繪製垂直分隔線 ===
+        # === 計算垂直分隔線位置（稍後根據行類型繪製） ===
         vertical_positions = [0]
         for width_val in col_widths:
             vertical_positions.append(vertical_positions[-1] + width_val)
-
-        for i in range(1, len(vertical_positions) - 1):
-            line_x = table_x + vertical_positions[i]
-            c.line(line_x, table_start_y, line_x, table_start_y - table_height)
 
         # === 繪製標題行 ===
         headers = ["項目", "材料名稱", "規格", "單位", "單價", "數量", "總價"]
@@ -1346,33 +1343,94 @@ class BudgetStatementPDFGenerator:
             col_width = col_widths[i]
             self._draw_centered_text(
                 c, header,
-                col_x, table_start_y - row_height / 2 - table_font_size * 0.2,
+                col_x, table_start_y - row_height / 2 - table_font_size * 0.3,
                 col_width,
                 font_size=table_font_size
             )
 
         # 標題行底線
         c.line(table_x, table_start_y - row_height, table_x + total_width, table_start_y - row_height)
+
+        # 標題行的垂直線（所有內部垂直線）
+        for i in range(1, len(vertical_positions) - 1):
+            line_x = table_x + vertical_positions[i]
+            c.line(line_x, table_start_y, line_x, table_start_y - row_height)
+
         current_y = table_start_y - row_height
 
         # === 繪製資料行（每個 item 佔兩行） ===
         grand_total = 0
+        current_category = None
+        category_counter = {}  # 追蹤每個類別的材料計數
+
         for item in control_materials:
-            # 第一行：項目類別（category）
-            row_y = current_y - row_height / 2 - table_font_size * 0.2
-            c.drawString(table_x + 5, row_y, item.get('category', ''))
+            category = item.get('category', '')
+
+            # 提取類別編號和名稱（從 "1. 微氣象調節" 分離為 "1" 和 "微氣象調節"）
+            if '.' in category:
+                category_number = category.split('.')[0].strip()
+                category_name = category.split('.', 1)[1].strip()
+            else:
+                category_number = ''
+                category_name = category
+
+            # 第一行：項目類別
+            row_y = current_y - row_height / 2 - table_font_size * 0.3
+            category_row_top_y = current_y  # 記錄類別行頂部y座標
+
+            # 項目欄：只顯示類別編號（置中對齊）
+            self._draw_centered_text(
+                c, category_number,
+                table_x, row_y,
+                col_widths[0],
+                font_size=table_font_size
+            )
+
+            # 材料名稱欄：只顯示類別名稱（置中對齊）
+            # 類別名稱跨越第2欄到最後一欄（共6欄）
+            self._draw_centered_text(
+                c, category_name,
+                table_x + col_widths[0], row_y,
+                sum(col_widths[1:]),  # 從第2欄到最後
+                font_size=table_font_size
+            )
+
             current_y -= row_height
             c.line(table_x, current_y, table_x + total_width, current_y)
 
+            # 類別行：只繪製最左側的垂直線（第一欄右側邊界）
+            # 不繪製內部垂直線，形成橫向分類視覺效果
+            left_line_x = table_x + vertical_positions[1]  # 第一欄的右邊界
+            c.line(left_line_x, category_row_top_y, left_line_x, current_y)
+
+            # 更新同類別下的材料計數
+            if category_number:
+                if category_number not in category_counter:
+                    category_counter[category_number] = 0
+                category_counter[category_number] += 1
+                item_number = f"{category_number}-{category_counter[category_number]}"
+            else:
+                item_number = ""
+
             # 第二行：材料資料
-            row_y = current_y - row_height / 2 - table_font_size * 0.2
+            material_row_top_y = current_y  # 記錄材料行頂部位置（在繪製內容之前）
+            row_y = current_y - row_height / 2 - table_font_size * 0.3
 
-            # 材料名稱（左對齊，跨第一、二欄）
-            c.drawString(table_x + col_widths[0] + 5, row_y, item.get('name', ''))
-
-            # 單價（置中對齊）
+            # 項目欄：顯示次項編號（置中對齊）
             self._draw_centered_text(
-                c, str(item.get('price', '')),
+                c, item_number,
+                table_x, row_y,
+                col_widths[0],
+                font_size=table_font_size
+            )
+
+            # 材料名稱欄：只顯示材料名稱（不含編號）
+            material_name = item.get('name', '')
+            c.drawString(table_x + col_widths[0] + 5, row_y, material_name)
+
+            # 單價（靠右對齊，千分位格式）
+            self._draw_right_aligned_text(
+                c, f"{item.get('price', 0):,}",
                 table_x + sum(col_widths[:4]), row_y,
                 col_widths[4],
                 font_size=table_font_size
@@ -1386,8 +1444,8 @@ class BudgetStatementPDFGenerator:
                 font_size=table_font_size
             )
 
-            # 總價（置中對齊）
-            self._draw_centered_text(
+            # 總價（靠右對齊）
+            self._draw_right_aligned_text(
                 c, f"{item.get('total', 0):,}",
                 table_x + sum(col_widths[:6]), row_y,
                 col_widths[6],
@@ -1398,26 +1456,37 @@ class BudgetStatementPDFGenerator:
             current_y -= row_height
             c.line(table_x, current_y, table_x + total_width, current_y)
 
+            # 材料行：繪製所有垂直線（完整的欄位分隔）
+            for i in range(1, len(vertical_positions) - 1):
+                line_x = table_x + vertical_positions[i]
+                c.line(line_x, material_row_top_y, line_x, current_y)
+
         # === 總價行 ===
-        row_y = current_y - row_height / 2 - table_font_size * 0.2
+        row_y = current_y - row_height / 2 - table_font_size * 0.3
 
         # "總價"文字（置中對齊，跨前六欄）
         self._draw_centered_text(
             c, "總價",
             table_x, row_y,
-            sum(col_widths[:6]),
+            col_widths[0],
             font_size=table_font_size
         )
 
-        # 總價金額（置中對齊）
-        self._draw_centered_text(
+        # 總價金額（靠右對齊）
+        self._draw_right_aligned_text(
             c, f"{grand_total:,}",
             table_x + sum(col_widths[:6]), row_y,
             col_widths[6],
             font_size=table_font_size
         )
 
-        current_y -= row_height + 40
+        # 總價行：繪製所有垂直線
+        total_row_top_y = current_y
+        for i in range(1, len(vertical_positions) - 1):
+            line_x = table_x + vertical_positions[i]
+            c.line(line_x, total_row_top_y, line_x, total_row_top_y - row_height)
+
+        current_y -= row_height + 20
 
         # "以下空白"分隔線
         c.setFont(self.font_name, 10)
@@ -1431,48 +1500,50 @@ class BudgetStatementPDFGenerator:
         """生成第 7 頁：推廣管路灌溉設施計畫系統設施設計圖"""
         width, height = A4
         current_y = height - 60
+        left_margin = 40
 
         # 標題
-        c.setFont(self.font_name, 16)
+        c.setFont(self.font_name, 22)
         title = "推廣管路灌溉設施計畫系統設施設計圖"
-        title_width = c.stringWidth(title, self.font_name, 16)
+        title_width = c.stringWidth(title, self.font_name, 22)
         c.drawString((width - title_width) / 2, current_y, title)
-        current_y -= 40
+        current_y -= 48
 
         # 基本資訊
-        c.setFont(self.font_name, 11)
-        c.drawString(60, current_y, f"申請人：{data.get('applicant_name', '')}")
-        c.drawString(250, current_y, f"施設型式：{data.get('facility_type', '')}")
-        c.drawString(450, current_y, f"申請案號：{data.get('case_number', '')}")
-        current_y -= 25
+        c.setFont(self.font_name, 12)
+        c.drawString(left_margin, current_y, f"申請人：{data.get('applicant_name', '')}")
+        c.drawString(left_margin + 170, current_y, f"施設型式：{data.get('facility_type', '')}")
+        c.drawString(left_margin + 370, current_y, f"申請案號：{data.get('case_number', '')}")
+        current_y -= 18
 
         land_location = data.get('land_location', '')
-        c.drawString(60, current_y, f"施設縣市、鄉鎮、地段、地號及面積詳如土地清冊，合計面積{data.get('total_facility_area_m2', 4500)} m²")
-        current_y -= 25
+        c.drawString(left_margin, current_y, f"施設縣市、鄉鎮、地段、地號及面積詳如土地清冊，合計面積{data.get('total_facility_area_m2', 4500)} m²")
+        current_y -= 18
 
         nozzle_spacing = data.get('nozzle_spacing', '1 x 5.8').split(' x ')
         sl = nozzle_spacing[1] if len(nozzle_spacing) > 1 else '5.8'
         ss = nozzle_spacing[0] if len(nozzle_spacing) > 0 else '1'
         l1 = data.get('main_pipe_1_length', 140)
 
-        c.drawString(60, current_y, f"行距(SL)：{sl} m")
-        c.drawString(200, current_y, f"間距(SS)：{ss} m")
-        c.drawString(350, current_y, f"長度(L1)：{l1} m")
-        current_y -= 40
+        c.drawString(left_margin, current_y, f"行距(SL)：{sl} m")
+        c.drawString(left_margin + 170, current_y, f"間距(SS)：{ss} m")
+        c.drawString(left_margin + 370, current_y, f"長度(L1)：{l1} m")
+        current_y -= 10
 
         # 地籍圖區域（大空白區域）
         c.setFont(self.font_name, 12)
-        box_x = 60
-        box_y = 150
-        box_width = width - 120
-        box_height = current_y - box_y - 20
+        c.setLineWidth(0.5)
+        box_x = left_margin
+        box_y = current_y
+        box_width = width - left_margin * 2
+        box_height = current_y - box_y - 630
 
         # 繪製邊框
         c.rect(box_x, box_y, box_width, box_height)
 
         # 標示
         c.drawString(box_x + 10, current_y - 20, "地籍圖：")
-        c.drawString(box_x + box_width - 100, current_y - 20, "比例尺：")
+        c.drawString(left_margin + 370, current_y - 20, "比例尺：")
 
         c.showPage()
 
@@ -1480,80 +1551,108 @@ class BudgetStatementPDFGenerator:
         """生成第 8 頁：照片頁"""
         width, height = A4
         current_y = height - 60
+        left_margin = 40
 
         # 標題資訊
         c.setFont(self.font_name, 12)
-        c.drawString(60, current_y, f"申請案號:{data.get('case_number', '')}")
-        c.drawString(300, current_y, f"申請人姓名:{data.get('applicant_name', '')}")
-        current_y -= 40
+        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
+        c.drawString(left_margin + 240, current_y, f"申請人姓名：{data.get('applicant_name', '')}")
+        current_y -= 20
 
         # 照片區域定義
         photo_sections = [
-            ("施\n工\n前", "施工前照片"),
-            ("施\n工\n後", "施工後照片及系統施噴、滴灌溉情形"),
-            ("動\n力\n設\n備", "動力設備照片"),
-            ("調\n蓄\n設\n施", "調蓄設施照片"),
-            ("調\n節\n控\n制\n設\n施", "調節控制設施照片")
+            ("施工前", "施工前照片"),
+            ("施工後", "施工後照片及系統施噴、滴灌溉情形"),
+            ("動力設備", "動力設備照片"),
+            ("調蓄設施", "調蓄設施照片"),
+            ("調節控制設施", "調節控制設施照片")
         ]
 
-        c.setFont(self.font_name, 10)
-        photo_width = 460
+        c.setFont(self.font_name, 12)
+        c.setLineWidth(0.5)
+        photo_width = width - left_margin * 2
         photo_height = 120
-        label_width = 50
+        label_width = 30
 
         for label, description in photo_sections:
             # 繪製標籤區域
-            c.rect(60, current_y - photo_height, label_width, photo_height)
-            # 垂直文字（簡化處理）
-            label_y = current_y - 20
-            for char in label.split('\n'):
-                c.drawString(70, label_y, char)
-                label_y -= 15
+            c.rect(left_margin, current_y - photo_height, label_width, photo_height)
+
+            # 垂直文字（垂直和水平置中）
+            char_spacing = 15  # 字元間距
+            label_font_size = 12
+
+            # 計算欄的中心位置
+            center_y = current_y - photo_height / 2
+
+            # 計算文字塊的起始位置，使其垂直置中
+            # 從第1個字符到最後一個字符的跨度
+            n = len(label)
+            text_span = (n - 1) * char_spacing
+
+            # 第1個字符的基線位置：使中間字符對齊欄中心
+            # 向上移動半個文字跨度，再調整基線偏移
+            start_y = center_y + text_span / 2 - label_font_size * 0.3
+
+            # 水平置中：x 位置在標籤區域中間
+            label_x = left_margin + label_width / 2 - label_font_size * 0.4
+
+            # 逐字繪製（由上而下）
+            label_y = start_y
+            for char in label:
+                c.drawString(label_x, label_y, char)
+                label_y -= char_spacing
 
             # 繪製照片區域
-            c.rect(60 + label_width, current_y - photo_height, photo_width, photo_height)
-            # 照片說明
-            c.drawString(60 + label_width + photo_width//2 - 50, current_y - photo_height//2, description)
+            c.rect(left_margin, current_y - photo_height, photo_width, photo_height)
 
-            current_y -= (photo_height + 10)
+            # 照片說明（置中對齊）
+            photo_area_x = left_margin + label_width
+            photo_area_width = photo_width - label_width
+            description_y = current_y - photo_height / 2 - 12 * 0.2
+            self._draw_centered_text(c, description, photo_area_x, description_y, photo_area_width, font_size=12)
+
+            current_y -= (photo_height)
 
         # 備註
-        current_y -= 10
-        c.setFont(self.font_name, 9)
-        c.drawString(60, current_y, "備註：本表之照片可由印表機直接列印出或以沖洗之照片粘貼方式均可，其張數自行調整")
+        current_y -= 20
+        c.setFont(self.font_name, 12)
+        c.drawString(left_margin, current_y, "備註：本表之照片可由印表機直接列印出或以沖洗之照片粘貼方式均可，其張數自行調整")
 
         c.showPage()
 
     def _generate_receipt_page(self, c: canvas.Canvas, data: Dict[str, Any]) -> None:
         """生成第 9 頁：領款收據"""
         width, height = A4
-        current_y = height - 120
+        current_y = height - 60
+        left_margin = 80
 
         # 標題
         c.setFont(self.font_name, 22)
         title = "領 款 收 據"
         title_width = c.stringWidth(title, self.font_name, 22)
         c.drawString((width - title_width) / 2, current_y, title)
-        current_y -= 80
+        current_y -= 48
 
         # 金額（中文大寫）
-        c.setFont(self.font_name, 16)
+        c.setFont(self.font_name, 14)
         govt_subsidy = data.get('govt_subsidy_total', 246078)
         amount_chinese = self._amount_to_chinese(govt_subsidy)
-        amount_text = f"新臺幣:{amount_chinese}"
+        amount_text = f"新臺幣：{amount_chinese}"
         amount_width = c.stringWidth(amount_text, self.font_name, 16)
-        c.drawString((width - amount_width) / 2, current_y, amount_text)
-        current_y -= 60
+        c.drawString(left_margin, current_y, amount_text)
+        current_y -= 35
 
         # 說明文字
         c.setFont(self.font_name, 14)
         text = "此係推廣管路灌溉設施補助款，上款如數領訖無訛。"
         text_width = c.stringWidth(text, self.font_name, 14)
-        c.drawString((width - text_width) / 2, current_y, text)
-        current_y -= 60
+        c.drawString(left_margin, current_y, text)
+        current_y -= 40
 
         # "此致"
-        c.drawString(120, current_y, "此致")
+        left_margin = 120
+        c.drawString(left_margin, current_y, "此致")
         current_y -= 40
 
         office_name = data.get('office_name', '石門管理處')
@@ -1563,22 +1662,23 @@ class BudgetStatementPDFGenerator:
         current_y -= 60
 
         # 領款人資訊
-        c.drawString(80, current_y, f"申請案號:{data.get('case_number', '')}")
+        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
         current_y -= 35
-        c.drawString(80, current_y, f"領款人(簽名或蓋章):{data.get('applicant_name', '')}")
+        c.drawString(left_margin, current_y, f"領款人(簽名或蓋章)：{data.get('applicant_name', '')}")
         current_y -= 35
-        c.drawString(80, current_y, f"身分證字號:{data.get('id_number', '')}")
+        c.drawString(left_margin, current_y, f"身分證字號：{data.get('id_number', '')}")
         current_y -= 35
-        c.drawString(80, current_y, f"通訊地址:{data.get('address', '')}")
+        c.drawString(left_margin, current_y, f"通訊地址：{data.get('address', '')}")
         current_y -= 35
-        c.drawString(80, current_y, f"聯絡電話:{data.get('phone', '')}")
+        c.drawString(left_margin, current_y, f"聯絡電話：{data.get('phone', '')}")
         current_y -= 80
 
         # 日期
         c.setFont(self.font_name, 16)
-        date_text = "中    華    民    國          年        月        日"
-        date_width = c.stringWidth(date_text, self.font_name, 16)
-        c.drawString((width - date_width) / 2, current_y, date_text)
+        date_text = (f"中華民國            年          月          日")
+        date_text_width = c.stringWidth(date_text, self.font_name, 16)
+        date_x = (width - date_text_width) / 2
+        c.drawString(date_x, current_y, date_text)
 
         c.showPage()
 
@@ -1588,120 +1688,239 @@ class BudgetStatementPDFGenerator:
         current_y = height - 60
 
         # 標題
-        c.setFont(self.font_name, 18)
+        c.setFont(self.font_name, 22)
         title = "推廣管路灌溉設施補助功能測試報告書"
-        title_width = c.stringWidth(title, self.font_name, 18)
+        title_width = c.stringWidth(title, self.font_name, 22)
         c.drawString((width - title_width) / 2, current_y, title)
-        current_y -= 50
+        current_y -= 48
 
         # 基本資訊
-        c.setFont(self.font_name, 11)
+        c.setFont(self.font_name, 12)
         c.drawString(60, current_y, f"一、申請人：{data.get('applicant_name', '')}")
         c.drawString(300, current_y, f"申請案號：{data.get('case_number', '')}")
-        current_y -= 25
+        current_y -= 18
 
-        c.drawString(60, current_y, f"二、設施地點：{data.get('land_location', '')},等{data.get('land_count', 1)}筆(詳如土地清冊)。")
-        current_y -= 25
+        c.drawString(60, current_y, f"二、設施地點：{data.get('land_location', '')}{data.get('first_lot_number', '')}號,等{data.get('land_count', 1)}筆(詳如土地清冊)。")
+        current_y -= 18
 
         c.drawString(60, current_y, f"三、申請面積：{data.get('facility_area_ha', '0.45')}公頃")
-        current_y -= 25
+        current_y -= 18
 
         c.drawString(60, current_y, f"四、設施型式：{data.get('facility_type', '')}")
-        current_y -= 25
+        current_y -= 18
 
-        c.drawString(60, current_y, "五、測試日期：     年     月     日")
-        current_y -= 25
+        c.drawString(60, current_y, "五、測試日期：      年      月      日")
+        current_y -= 18
 
         c.drawString(60, current_y, "六、功能測試：")
-        current_y -= 30
+        current_y -= 10
 
         # === 功能測試表格 ===
-        table_x = 80
-        col_widths = [120, 350]
+        table_x = 70
+        col_widths = [80, 370]
         row_height = 25
-        table_font_size = 10
+        table_font_size = 12
+        line_spacing = 16  # 多行文字的行距
 
+        # 表格數據結構（第2項為多行內容）
         test_items = [
-            ("1.設施型式", "與設計圖說 □相符, □不符"),
-            ("2.設施規格", "(詳細規格檢查項目)"),
-            ("3.功能測試", "經現場運轉功能正常 □相符, □不符")
+            {
+                "name": "1.設施型式",
+                "content": ["與設計圖說 □相符, □不符"],
+                "rows": 1
+            },
+            {
+                "name": "2.設施規格",
+                "content": [
+                    "(1)田間主管：",
+                    "   主管管徑L1____________吋、L2____________吋",
+                    "   支管行距(SL)__________m，噴頭間距(SS)__________m",
+                    "   豎管高(H)_____________m",
+                    "(2)調蓄設施：□鋁合金___座____噸; □不鏽鋼___座____噸;",
+                    "             □塑膠___座____噸",
+                    "(3)動力設備：□馬達___台; □汽油引擎___台; □柴油引擎___台;",
+                    "             □柱塞式泵浦___台",
+                    "(4)調節控制設施：與規劃型式 □相符, □不符"
+                ],
+                "rows": 6  # 第2項佔5行
+            },
+            {
+                "name": "3.功能測試",
+                "content": ["經現場運轉功能正常 □相符, □不符"],
+                "rows": 1
+            }
         ]
 
-        # 計算表格高度
+        # 計算表格總行數（包含標題行）
         total_width = sum(col_widths)
-        table_height = row_height * len(test_items)
+        total_rows = 1  # 標題行
+        for item in test_items:
+            total_rows += item["rows"]
+        table_height = row_height * total_rows
         table_start_y = current_y
+        c.setLineWidth(0.5)
 
         # === 繪製表格外框 ===
         c.rect(table_x, table_start_y - table_height, total_width, table_height)
 
         # === 繪製垂直分隔線 ===
-        c.line(table_x + col_widths[0], table_start_y, table_x + col_widths[0], table_start_y - table_height)
+        c.line(table_x + col_widths[0], table_start_y,
+               table_x + col_widths[0], table_start_y - table_height)
 
-        # === 繪製資料行 ===
+        # === 繪製標題行 ===
         c.setFont(self.font_name, table_font_size)
         current_y = table_start_y
+        header_y = current_y - row_height / 2 - table_font_size * 0.2
 
-        for item_name, item_content in test_items:
-            row_y = current_y - row_height / 2 - table_font_size * 0.2
+        self._draw_centered_text(c, "項目", table_x, header_y, col_widths[0], font_size=table_font_size)
+        self._draw_centered_text(c, "檢查情形", table_x + col_widths[0], header_y, col_widths[1], font_size=table_font_size)
 
-            # 項目名稱（左對齊）
-            c.drawString(table_x + 10, row_y, item_name)
+        current_y -= row_height
+        c.line(table_x, current_y, table_x + total_width, current_y)
 
-            # 項目內容（左對齊）
-            c.drawString(table_x + col_widths[0] + 10, row_y, item_content)
+        # === 繪製資料行 ===
+        for item in test_items:
+            item_name = item["name"]
+            item_content = item["content"]
+            item_rows = item["rows"]
+            item_height = row_height * item_rows
 
-            current_y -= row_height
-            if current_y > table_start_y - table_height:  # 不繪製最後一行的底線（已有外框）
-                c.line(table_x, current_y, table_x + total_width, current_y)
+            # 繪製左側項目名稱（垂直置中）
+            name_y = current_y - item_height / 2 - table_font_size * 0.2
+            c.drawString(table_x + 10, name_y, item_name)
 
-        current_y -= 40
+            # 繪製右側檢查內容（多行文字）
+            content_y = current_y - row_height / 2 - table_font_size * 0.2
+            for line in item_content:
+                c.drawString(table_x + col_widths[0] + 10, content_y, line)
+                content_y -= line_spacing
+
+            current_y -= item_height
+            c.line(table_x, current_y, table_x + total_width, current_y)
+
+        current_y -= 18
 
         c.drawString(60, current_y, "七、辦理結果：")
-        current_y -= 25
+        current_y -= 10
 
-        c.setFont(self.font_name, 9)
-        c.drawString(80, current_y, "測試  1.□合格，依核定補助款發放__________元")
-        current_y -= 18
-        c.drawString(100, current_y, "2.□合格，依核定補助款減列金額，發放__________元(請說明原因)")
-        current_y -= 18
-        c.drawString(100, current_y, "3.□不合格，限期改善再行驗收(請註明   年   月   日完成改善)")
-        current_y -= 30
+        # === 辦理結果表格 ===
+        result_table_x = 70
+        result_col_widths = [40, 410]  # 左欄：測試/複查，右欄：結果內容
+        result_row_height = 22
+        result_font_size = 12
+        c.setFont(self.font_name, result_font_size)
 
-        c.drawString(80, current_y, "複查  1.□合格，依核定補助款發放__________元")
-        current_y -= 18
-        c.drawString(100, current_y, "2.□合格，依核定補助款減列金額，發放__________元(請說明原因)")
-        current_y -= 18
-        c.drawString(100, current_y, "3.□不合格，取消補助資格")
-        current_y -= 40
+        # 表格數據結構
+        result_data = [
+            {
+                "label": "測試",
+                "items": [
+                    "1.□合格，依核定補助款發放_______________元",
+                    "2.□合格，依核定補助款減列金額，發放_______________元(請說明原因)",
+                    "3.□不合格，限期改善再行驗收(請註明     年     月     日完成改善)"
+                ]
+            },
+            {
+                "label": "複查",
+                "items": [
+                    "1.□合格，依核定補助款發放_______________元",
+                    "2.□合格，依核定補助款減列金額，發放_______________元(請說明原因)",
+                    "3.□不合格，取消補助資格"
+                ]
+            }
+        ]
 
-        c.drawString(60, current_y, "備註:")
-        current_y -= 80
+        # 計算表格總高度：測試3行 + 複查3行 + 備註1行
+        result_remark_height = result_row_height * 4  # 備註列行高
+        result_total_width = sum(result_col_widths)
+        result_table_height = (result_row_height * 6) + result_remark_height  # 前6行 + 備註行
+        result_table_start_y = current_y
+
+        # === 繪製表格外框 ===
+        c.rect(result_table_x, result_table_start_y - result_table_height,
+               result_total_width, result_table_height)
+
+        # === 繪製垂直分隔線（前6行） ===
+        split_x = result_table_x + result_col_widths[0]
+        c.line(split_x, result_table_start_y,
+               split_x, result_table_start_y - result_row_height * 6)
+
+        current_y = result_table_start_y
+
+        # === 繪製測試和複查區塊 ===
+        for section in result_data:
+            label = section["label"]
+            items = section["items"]
+            num_rows = len(items)
+
+            # 繪製左側標籤（跨3行，垂直置中）
+            label_y = current_y - (result_row_height * num_rows) / 2 - result_font_size * 0.3
+            c.drawString(result_table_x + 8, label_y, label)
+
+            # 繪製右側項目
+            for item in items:
+                item_y = current_y - result_row_height / 2 - result_font_size * 0.3
+                c.drawString(split_x + 8, item_y, item)
+                current_y -= result_row_height
+
+                # 繪製右側橫線
+                c.line(split_x, current_y, result_table_x + result_total_width, current_y)
+
+            # 繪製左側底線（補完左側部分）
+            c.line(result_table_x, current_y, split_x, current_y)
+
+        # === 繪製備註列（不分左右欄，高度為標準行高的5倍） ===
+        remark_y = current_y - result_row_height / 2 - result_font_size * 0.3
+        c.drawString(result_table_x + 8, remark_y, "備註：")
+        current_y -= result_remark_height + 10
 
         # 簽核欄位
-        self._draw_signature_section(c, 60, current_y)
+        table_x = 40
+        self._draw_signature_section(c, table_x, current_y)
 
         c.showPage()
 
     def _generate_review_checklist_page(self, c: canvas.Canvas, data: Dict[str, Any]) -> None:
         """生成第 11 頁：申請案件書面審查表"""
         width, height = A4
-        current_y = height - 80
+        current_y = height - 60
 
         # 標題
-        c.setFont(self.font_name, 18)
+        c.setFont(self.font_name, 22)
         title = "申請案件書面審查表"
-        title_width = c.stringWidth(title, self.font_name, 18)
+        title_width = c.stringWidth(title, self.font_name, 22)
         c.drawString((width - title_width) / 2, current_y, title)
-        current_y -= 50
-
-        # 申請案號
-        c.setFont(self.font_name, 12)
-        c.drawString(200, current_y, f"申請案號")
-        c.drawString(350, current_y, data.get('case_number', ''))
         current_y -= 40
 
+        # 申請案號（表格形式）
+        c.setLineWidth(0.5)
+        case_table_x = 150
+        case_table_width = 300
+        case_col1_width = 100  # 標籤欄寬度
+        case_col2_width = 200  # 值欄寬度
+        case_row_height = 25
+        case_font_size = 14
+
+        # 繪製外框
+        c.rect(case_table_x, current_y - case_row_height, case_table_width, case_row_height)
+
+        # 繪製中間分隔線
+        c.line(case_table_x + case_col1_width, current_y,
+               case_table_x + case_col1_width, current_y - case_row_height)
+
+        # 填入文字（置中對齊）
+        label_y = current_y - case_row_height / 2 - case_font_size * 0.3
+        self._draw_centered_text(c, "申請案號",
+                                case_table_x, label_y,
+                                case_col1_width, font_size=case_font_size)
+        self._draw_centered_text(c, data.get('case_number', ''),
+                                case_table_x + case_col1_width, label_y,
+                                case_col2_width, font_size=case_font_size)
+
+        current_y -= case_row_height + 20
+
         # === 應附文件檢查清單表格 ===
+        # 文件清單（第10項為特殊結構：左側跨行，右側分3列）
         documents = [
             "1.推廣管路灌溉設施補助申請表",
             "2.國民身分證正反面影本",
@@ -1712,21 +1931,43 @@ class BudgetStatementPDFGenerator:
             "7.工程預算書",
             "8.施設完成後之結案申報書",
             "9.施設前、後照片",
-            "10.設施性能規格之證明文件",
-            "    載明廠牌、品名及型號之統一發票或收據",
-            "    出廠證明書",
+            {
+                "main": "10.設施性能規格之證明文件",
+                "sub_items": [
+                    "載明廠牌、品名及型號之統一發票或收據",
+                    "出廠證明書",
+                    ""  # 第三列保留空白
+                ]
+            },
             "11.領據、相關單據",
-            "12.其他指定文件"
+            {
+                "main": "12.其他指定文件",
+                "sub_items": [
+                    "",  # 第一列空白
+                    "",  # 第二列空白
+                    "",  # 第三列空白
+                    ""   # 第四列空白
+                ]
+            }
         ]
 
-        table_x = 60
-        col_widths = [320, 60, 60, 90]
-        row_height = 20
-        table_font_size = 10
+        table_x = 40
+        col_widths = [340, 40, 40, 96]
+        row_height = 30
+        table_font_size = 12
 
-        # 計算表格高度
+        # 計算表格高度（考慮特殊項占據的額外行數）
         total_width = sum(col_widths)
-        table_height = row_height * (len(documents) + 1)  # 標題行 + 文件清單
+        total_rows = 1  # 標題行
+        for doc in documents:
+            if isinstance(doc, dict):
+                # 特殊項：根據 sub_items 數量計算行數
+                total_rows += len(doc["sub_items"])
+            else:
+                # 一般項：占 1 行
+                total_rows += 1
+
+        table_height = row_height * total_rows
         table_start_y = current_y
 
         # === 繪製表格外框 ===
@@ -1761,13 +2002,67 @@ class BudgetStatementPDFGenerator:
 
         # === 繪製文件清單 ===
         for doc in documents:
-            row_y = current_y - row_height / 2 - table_font_size * 0.2
+            # 檢查是否為特殊結構（字典格式：第10項、第12項）
+            if isinstance(doc, dict):
+                # 特殊項：左側跨N列，右側分N列（N = len(sub_items)）
+                main_text = doc["main"]
+                sub_items = doc["sub_items"]
 
-            # 文件名稱（左對齊）
-            c.drawString(table_x + 10, row_y, doc)
+                # 左側欄寬度（第一欄的一半）
+                left_col_width = col_widths[0] / 8
+                split_x = table_x + left_col_width
 
-            current_y -= row_height
-            c.line(table_x, current_y, table_x + total_width, current_y)
+                # === 繪製左側跨行單元格（帶自動換行） ===
+                # 動態計算跨越的行數
+                num_rows = len(sub_items)
+
+                # 計算可用寬度並自動換行
+                max_width = left_col_width - 4  # 扣除左右邊距
+                words = list(main_text)
+                lines = []
+                current_line = ""
+
+                for char in words:
+                    test_line = current_line + char
+                    if c.stringWidth(test_line, self.font_name, table_font_size) <= max_width:
+                        current_line = test_line
+                    else:
+                        if current_line:
+                            lines.append(current_line)
+                        current_line = char
+
+                if current_line:
+                    lines.append(current_line)
+
+                # 垂直置中繪製多行文字
+                total_text_height = len(lines) * (table_font_size + 4)
+                start_y = current_y - (row_height * num_rows - total_text_height) / 2
+
+                for line in lines:
+                    c.drawString(table_x + 4, start_y - 10, line)
+                    start_y -= (table_font_size + 4)
+
+                # === 繪製左右分隔的垂直線（動態跨N列） ===
+                c.line(split_x, current_y, split_x, current_y - row_height * num_rows)
+
+                # === 繪製右側N個子項 ===
+                for i, sub_text in enumerate(sub_items):
+                    sub_y = current_y - row_height / 2 - table_font_size * 0.2
+                    c.drawString(split_x + 10, sub_y, sub_text)
+                    current_y -= row_height
+
+                    # 繪製子項底線（只繪製右側區域，不穿過左側）
+                    c.line(split_x, current_y, table_x + total_width, current_y)
+
+                # === 繪製左側單元格的底線（補完左側部分） ===
+                c.line(table_x, current_y, split_x, current_y)
+
+            else:
+                # 一般項目：單行顯示
+                row_y = current_y - row_height / 2 - table_font_size * 0.2
+                c.drawString(table_x + 10, row_y, doc)
+                current_y -= row_height
+                c.line(table_x, current_y, table_x + total_width, current_y)
 
         # === 審查結果 ===
         current_y -= 20
@@ -1866,7 +2161,7 @@ class BudgetStatementPDFGenerator:
 
         current_y -= row_height
         c.drawString(x + 20, current_y, "(1)材料費")
-        self._draw_right_aligned_text(c, f"{a_materials:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+        # self._draw_right_aligned_text(c, f"{a_materials:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
         c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
 
         current_y -= row_height
@@ -1892,7 +2187,7 @@ class BudgetStatementPDFGenerator:
         # B項
         current_y -= row_height
         c.drawString(x + 8, current_y, "B.規劃設計費")
-        self._draw_centered_text(c, "A. x 2.0%", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
+        self._draw_centered_text(c, "A × 2.0%", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
         self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
         self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
         self._draw_right_aligned_text(c, f"{b_design_fee:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
@@ -1941,8 +2236,14 @@ class BudgetStatementPDFGenerator:
             font_size=table_font_size
         )
         self._draw_right_aligned_text(c, f"{total_amount:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
-        # 合計下方分隔線
-        c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
+        
+        # === 合計下方雙線分隔線（區分上下表格區域）===
+        separator_y = current_y - row_height * 0.3
+        # c.setLineWidth(0.5)  # 較粗的線條
+        c.line(x, separator_y, x + total_width, separator_y)
+        # c.setLineWidth(0.5)  # 第二條較細的線
+        c.line(x, separator_y - 1, x + total_width, separator_y - 1)
+        # c.setLineWidth(0.5)  # 恢復預設線寬
 
         # 農戶配合款
         current_y -= row_height
@@ -1981,13 +2282,13 @@ class BudgetStatementPDFGenerator:
 
         # A-E項補助費（在"農戶請領款"右方的欄位中）
         detail_x = x + left_col_width + middle_col_width + 5
-        c.drawString(detail_x, current_y, f"A項補助費:{govt_subsidy_a:,}")
+        c.drawString(detail_x, current_y, f"A項補助：{govt_subsidy_a:,}")
         current_y -= row_height * 0.8
-        c.drawString(detail_x, current_y, f"C項補助費:{govt_subsidy_c:,}")
+        c.drawString(detail_x, current_y, f"C項補助：{govt_subsidy_c:,}")
         current_y -= row_height * 0.8
-        c.drawString(detail_x, current_y, f"D項補助費:{govt_subsidy_d:,}")
+        c.drawString(detail_x, current_y, f"D項補助：{govt_subsidy_d:,}")
         current_y -= row_height * 0.8
-        c.drawString(detail_x, current_y, f"E項補助費:{govt_subsidy_e:,}")
+        c.drawString(detail_x, current_y, f"E項補助：{govt_subsidy_e:,}")
 
         # 農戶請領款下方分隔線（只畫右欄）
         current_y -= row_height * 0.4
@@ -2001,6 +2302,7 @@ class BudgetStatementPDFGenerator:
             middle_col_width - 8,
             font_size=table_font_size
         )
+        self._draw_centered_text(c, "B", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
         self._draw_right_aligned_text(c, f"{b_design_fee:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
         c.line(x + left_col_width, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
 
