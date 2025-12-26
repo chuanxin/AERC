@@ -71,7 +71,7 @@
                 <td class="text-center font-weight-medium">
                   {{ pipeLineTotal }}
                 </td>
-                <td />
+                <td>詳如數量表</td>
               </tr>
               <tr
                 v-for="(item, index) in mainPipes"
@@ -115,7 +115,7 @@
                 <td class="text-center">
                   {{ item.totalPrice }}
                 </td>
-                <td>詳如數量表</td>
+                <td />
               </tr>
               <tr>
                 <td class="font-weight-medium">
@@ -672,7 +672,7 @@ const controlFacilities = computed(() => {
       quantity: f.quantity,
       unitPrice: typeof f.unitPrice === 'number' ? f.unitPrice.toLocaleString() : f.unitPrice,
       totalPrice: typeof f.totalPrice === 'number' ? f.totalPrice.toLocaleString() : f.totalPrice,
-      unit: f.type === 'power' ? '台' : (f.type === 'storage' ? '座' : '台'),
+      unit: f.type === 'power' ? '臺' : (f.type === 'storage' ? '座' : '組'),
       remark: f.remark || f.name
     };
   }).sort((a, b) => {

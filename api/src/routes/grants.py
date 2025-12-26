@@ -1244,32 +1244,144 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         'govt_subsidy_total': int(govt_subsidy_total),
     }
 
-    # 動力設施
-    power_items = [{
-        'name': '馬達+抽水機',
-        'quantity': 1,
-        'amount': 4000
-    }]
+    # === 動力設施（從 step4_data.facilities 提取 type='power'）===
+    power_items = []
+    power_facilities = [f for f in facilities if f.get('type') == 'power']
 
-    # 調蓄設施
-    storage_items = [
-        {'material': '不鏽鋼', 'tonnage': 10, 'quantity': 1, 'amount': 40000},
-        {'material': '不鏽鋼', 'tonnage': 10, 'quantity': 1, 'amount': 40000}
-    ]
+    for facility in power_facilities:
+        power_items.append({
+            'name': (facility.get('name', '') or '').strip(),  # 動力設備名稱（清除前後空格）
+            'quantity': int(float(facility.get('quantity', 1) or 1)),  # 數量
+            'amount': int(float(facility.get('totalPrice', 0) or 0))  # 金額（總價）
+        })
 
-    # 管路材料（示例）
+    # === 調蓄設施（從 step4_data.facilities 提取 type='storage'）===
+    storage_items = []
+    storage_facilities = [f for f in facilities if f.get('type') == 'storage']
+
+    for facility in storage_facilities:
+        storage_items.append({
+            'material': (facility.get('storageType', '') or '').strip(),  # 材質類型（清除前後空格）
+            'tonnage': int(float(facility.get('tonnage', 0) or 0)),  # 噸位
+            'quantity': int(float(facility.get('quantity', 1) or 1)),  # 數量
+            'amount': int(float(facility.get('totalPrice', 0) or 0))  # 金額（總價）
+        })
+
+    # === 管路材料（從 step5_data.pipes 提取並按 groupId 分組）===
     pipe_materials = []
 
-    # 調控設施材料
-    control_materials = [{
-        'category': '1. 微氣象調節',
-        'name': '微噴霧降溫設施',
-        'spec': '',
-        'unit': '',
-        'price': 473340,
-        'quantity': 1,
-        'total': 473340
-    }]
+    # 從 step5_data 中提取 pipes 陣列
+    pipes = step5_data.get('pipes', [])
+
+    if pipes:
+        # 過濾掉無單價的材料（matprice 為 null 或 0）
+        valid_pipes = [p for p in pipes if p.get('matprice') and float(p.get('matprice', 0) or 0) > 0]
+
+        if valid_pipes:
+            # 按 groupId 分組
+            from collections import defaultdict
+            grouped_by_group = defaultdict(list)
+
+            for pipe in valid_pipes:
+                group_id = pipe.get('groupId', 0)
+                grouped_by_group[group_id].append(pipe)
+
+            # 對每個群組內的材料按 order 排序，並生成材料清單
+            # 使用連續的群組編號（1, 2, 3...），而非原始的 groupId（可能是 1, 3, 4...）
+            sequential_group_number = 1
+            for group_id in sorted(grouped_by_group.keys()):
+                pipes_in_group = grouped_by_group[group_id]
+                # 按 order 排序
+                pipes_in_group.sort(key=lambda x: x.get('order', 0))
+
+                # 取得群組名稱（從第一個項目）
+                group_name = pipes_in_group[0].get('groupName', f'群組{sequential_group_number}')
+
+                item_number = 1
+                for pipe in pipes_in_group:
+                    # 項目編號格式：1-1, 1-2, 2-1, 2-2...（使用連續群組編號）
+                    item_id = f"{sequential_group_number}-{item_number}"
+
+                    # 格式化規格（∮ {spec1}"）
+                    spec1 = pipe.get('spec1', '')
+                    spec_formatted = f"∮ {spec1}" if spec1 else ''
+
+                    pipe_materials.append({
+                        'category': f"{sequential_group_number}. {group_name}",  # 連續群組編號 + groupName
+                        'item_id': item_id,  # 項目編號（1-1, 1-2, 2-1...）
+                        'name': (pipe.get('matname', '') or '').strip(),  # 材料名稱（清除前後空格）
+                        'spec': spec_formatted,  # 規格（∮ {spec1}"）
+                        'unit': (pipe.get('itemunit', '') or '').strip(),  # 單位（清除前後空格）
+                        'price': int(float(pipe.get('matprice', 0) or 0)),  # 單價
+                        'quantity': int(float(pipe.get('matamount', 0) or 0)),  # 數量
+                        'total': int(float(pipe.get('totalPrice', 0) or 0)),  # 總價
+                        'is_first_in_group': (item_number == 1)  # 標記是否為該群組的第一個項目
+                    })
+                    item_number += 1
+
+                sequential_group_number += 1
+
+    # === 調控設施材料（從 step4_data.facilities 提取 type='control' 並按 controlType 分組）===
+    control_materials = []
+
+    # 從 facilities 中提取所有調控設施
+    control_facilities = [f for f in facilities if f.get('type') == 'control']
+
+    if control_facilities:
+        # 按 controlType 分組
+        from collections import defaultdict
+        grouped_by_type = defaultdict(list)
+
+        for facility in control_facilities:
+            control_type = facility.get('controlType', '未分類')
+            grouped_by_type[control_type].append(facility)
+
+        # 生成材料清單（按 controlType 分組）
+        group_number = 1
+        for control_type, facilities_in_group in grouped_by_type.items():
+            item_number = 1
+            for facility in facilities_in_group:
+                # 項目編號格式：始終使用 "群組-序號" 格式（1-1, 1-2, 2-1, 2-2...）
+                item_id = f"{group_number}-{item_number}"
+
+                control_materials.append({
+                    'category': f"{group_number}. {control_type}",  # 群組編號 + controlType 名稱
+                    'item_id': item_id,  # 項目編號（1-1, 1-2, 2-1...）
+                    'name': (facility.get('name', '') or '').strip(),  # 材料名稱（清除前後空格）
+                    'spec': '',  # 規格（目前未使用）
+                    'unit': '',  # 單位（目前未使用）
+                    'price': int(float(facility.get('unitPrice', 0) or 0)),  # 單價
+                    'quantity': int(float(facility.get('quantity', 1) or 1)),  # 數量
+                    'total': int(float(facility.get('totalPrice', 0) or 0)),  # 總價
+                    'is_first_in_group': (item_number == 1)  # 標記是否為該群組的第一個項目
+                })
+                item_number += 1
+
+            group_number += 1
+
+    # 坵塊形狀（從 ui step5（田間管路）→ step5_data 提取）
+    field_length = step5_data.get('fieldLength', 0)
+    field_width = step5_data.get('fieldWidth', 0)
+    block_shape = f"{field_length}m × {field_width}m" if field_length and field_width else ''
+
+    # 噴頭配置間距（從 ui step5（田間管路）→ step5_data 提取）
+    sprinkler_spacing_ss = step5_data.get('sprinklerSpacing_SS', '')
+    branch_pipe_spacing_sl = step5_data.get('branchPipeSpacing_SL', '')
+    irrigation_type_id = step5_data.get('irrigationTypeId', 0)
+
+    # 根據灌溉型式 ID 決定 nozzle_spacing 的顯示格式
+    if irrigation_type_id == 1:
+        # 穿孔管系統：僅顯示 SL
+        nozzle_spacing = f"{branch_pipe_spacing_sl}" if branch_pipe_spacing_sl else ''
+        nozzle_spacing_label = f"噴頭配置間距(SL)" if branch_pipe_spacing_sl else ''
+    else:
+        # 其他系統：顯示 SS × SL
+        if sprinkler_spacing_ss and branch_pipe_spacing_sl:
+            nozzle_spacing = f"{sprinkler_spacing_ss} × {branch_pipe_spacing_sl}"
+            nozzle_spacing_label = f"噴頭配置間距(SS × SL)"
+        else:
+            nozzle_spacing = ''
+            nozzle_spacing_label = ''
 
     # 組裝完整資料
     grant_data = {
@@ -1293,9 +1405,13 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         # 設施資訊
         'facility_type': facility_type,
         'subsidy_standard': subsidy_standard,
-        'block_shape': '',
-        'nozzle_spacing': '',
-        'main_pipe_1_length': 0,
+        'block_shape': block_shape,
+        'nozzle_spacing': nozzle_spacing,
+        'nozzle_spacing_label': nozzle_spacing_label,
+        'irrigation_type_id': irrigation_type_id,  # 灌溉型式 ID（用於判斷顯示邏輯）
+        'sprinkler_spacing_ss': sprinkler_spacing_ss,  # 噴頭間距 SS
+        'branch_pipe_spacing_sl': branch_pipe_spacing_sl,  # 支管行距 SL
+        'main_pipe_1_length': main_pipe_1_length,  # 田間主管1管長
 
         # 預算資料
         'budget_items': budget_items,
