@@ -1260,16 +1260,67 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     # 管路材料（示例）
     pipe_materials = []
 
-    # 調控設施材料
-    control_materials = [{
-        'category': '1. 微氣象調節',
-        'name': '微噴霧降溫設施',
-        'spec': '',
-        'unit': '',
-        'price': 473340,
-        'quantity': 1,
-        'total': 473340
-    }]
+    # === 調控設施材料（從 step4_data.facilities 提取 type='control' 並按 controlType 分組）===
+    control_materials = []
+
+    # 從 facilities 中提取所有調控設施
+    control_facilities = [f for f in facilities if f.get('type') == 'control']
+
+    if control_facilities:
+        # 按 controlType 分組
+        from collections import defaultdict
+        grouped_by_type = defaultdict(list)
+
+        for facility in control_facilities:
+            control_type = facility.get('controlType', '未分類')
+            grouped_by_type[control_type].append(facility)
+
+        # 生成材料清單（按 controlType 分組）
+        group_number = 1
+        for control_type, facilities_in_group in grouped_by_type.items():
+            item_number = 1
+            for facility in facilities_in_group:
+                # 項目編號格式：始終使用 "群組-序號" 格式（1-1, 1-2, 2-1, 2-2...）
+                item_id = f"{group_number}-{item_number}"
+
+                control_materials.append({
+                    'category': f"{group_number}. {control_type}",  # 群組編號 + controlType 名稱
+                    'item_id': item_id,  # 項目編號（1-1, 1-2, 2-1...）
+                    'name': facility.get('name', ''),  # 材料名稱
+                    'spec': '',  # 規格（目前未使用）
+                    'unit': '',  # 單位（目前未使用）
+                    'price': int(float(facility.get('unitPrice', 0) or 0)),  # 單價
+                    'quantity': int(float(facility.get('quantity', 1) or 1)),  # 數量
+                    'total': int(float(facility.get('totalPrice', 0) or 0)),  # 總價
+                    'is_first_in_group': (item_number == 1)  # 標記是否為該群組的第一個項目
+                })
+                item_number += 1
+
+            group_number += 1
+
+    # 坵塊形狀（從 ui step5（田間管路）→ step5_data 提取）
+    field_length = step5_data.get('fieldLength', 0)
+    field_width = step5_data.get('fieldWidth', 0)
+    block_shape = f"{field_length}m × {field_width}m" if field_length and field_width else ''
+
+    # 噴頭配置間距（從 ui step5（田間管路）→ step5_data 提取）
+    sprinkler_spacing_ss = step5_data.get('sprinklerSpacing_SS', '')
+    branch_pipe_spacing_sl = step5_data.get('branchPipeSpacing_SL', '')
+    irrigation_type_id = step5_data.get('irrigationTypeId', 0)
+
+    # 根據灌溉型式 ID 決定 nozzle_spacing 的顯示格式
+    if irrigation_type_id == 1:
+        # 穿孔管系統：僅顯示 SL
+        nozzle_spacing = f"{branch_pipe_spacing_sl}" if branch_pipe_spacing_sl else ''
+        nozzle_spacing_label = f"噴頭配置間距(SL)" if branch_pipe_spacing_sl else ''
+    else:
+        # 其他系統：顯示 SS × SL
+        if sprinkler_spacing_ss and branch_pipe_spacing_sl:
+            nozzle_spacing = f"{sprinkler_spacing_ss} × {branch_pipe_spacing_sl}"
+            nozzle_spacing_label = f"噴頭配置間距(SS × SL)"
+        else:
+            nozzle_spacing = ''
+            nozzle_spacing_label = ''
 
     # 組裝完整資料
     grant_data = {
@@ -1293,9 +1344,13 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         # 設施資訊
         'facility_type': facility_type,
         'subsidy_standard': subsidy_standard,
-        'block_shape': '',
-        'nozzle_spacing': '',
-        'main_pipe_1_length': 0,
+        'block_shape': block_shape,
+        'nozzle_spacing': nozzle_spacing,
+        'nozzle_spacing_label': nozzle_spacing_label,
+        'irrigation_type_id': irrigation_type_id,  # 灌溉型式 ID（用於判斷顯示邏輯）
+        'sprinkler_spacing_ss': sprinkler_spacing_ss,  # 噴頭間距 SS
+        'branch_pipe_spacing_sl': branch_pipe_spacing_sl,  # 支管行距 SL
+        'main_pipe_1_length': main_pipe_1_length,  # 田間主管1管長
 
         # 預算資料
         'budget_items': budget_items,

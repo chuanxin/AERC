@@ -975,13 +975,17 @@ class BudgetStatementPDFGenerator:
 
         # 基本資訊
         c.setFont(self.font_name, 14)
-        c.drawString(left_margin, current_y, f"申請案號:{data.get('case_number', '')}")
+        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
         current_y -= 25
-        c.drawString(left_margin, current_y, f"設施型式:{data.get('facility_type', '')}")
+        c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
         current_y -= 25
-        c.drawString(left_margin, current_y, f"坵塊形狀:{data.get('block_shape', '')}")
+        c.drawString(left_margin, current_y, f"坵塊形狀：{data.get('block_shape', '')}")
         current_y -= 25
-        c.drawString(left_margin, current_y, f"噴頭配置間距(SS × SL):{data.get('nozzle_spacing', '')}")
+        # 噴頭配置間距（根據資料動態顯示標籤）
+        nozzle_spacing_label = data.get('nozzle_spacing_label', '')
+        nozzle_spacing = data.get('nozzle_spacing', '')
+        if nozzle_spacing_label and nozzle_spacing:
+            c.drawString(left_margin, current_y, f"{nozzle_spacing_label}：{nozzle_spacing}")
         current_y -= 40
 
         # === 動力設施數量表 ===
@@ -1218,7 +1222,11 @@ class BudgetStatementPDFGenerator:
         current_y -= 25
         c.drawString(left_margin, current_y, f"坵塊形狀：{data.get('block_shape', '')}")
         current_y -= 25
-        c.drawString(left_margin, current_y, f"噴頭配置間距(SS × SL)：{data.get('nozzle_spacing', '')}")
+        # 噴頭配置間距（根據資料動態顯示標籤）
+        nozzle_spacing_label = data.get('nozzle_spacing_label', '')
+        nozzle_spacing = data.get('nozzle_spacing', '')
+        if nozzle_spacing_label and nozzle_spacing:
+            c.drawString(left_margin, current_y, f"{nozzle_spacing_label}：{nozzle_spacing}")
         current_y -= 40
 
         # === 材料數量表 ===
@@ -1369,7 +1377,11 @@ class BudgetStatementPDFGenerator:
         current_y -= 25
         c.drawString(left_margin, current_y, f"坵塊形狀：{data.get('block_shape', '')}")
         current_y -= 25
-        c.drawString(left_margin, current_y, f"噴頭配置間距(SS × SL)：{data.get('nozzle_spacing', '')}")
+        # 噴頭配置間距（根據資料動態顯示標籤）
+        nozzle_spacing_label = data.get('nozzle_spacing_label', '')
+        nozzle_spacing = data.get('nozzle_spacing', '')
+        if nozzle_spacing_label and nozzle_spacing:
+            c.drawString(left_margin, current_y, f"{nozzle_spacing_label}：{nozzle_spacing}")
         current_y -= 40
 
         # === 調控設施材料表 ===
@@ -1382,9 +1394,13 @@ class BudgetStatementPDFGenerator:
         row_height = 22
         table_font_size = 12
 
-        # 計算表格高度（每個 item 佔兩行：category行 + 資料行）
+        # 計算表格高度（標題行 + 類別行數 + 材料行數 + 總價行）
         total_width = sum(col_widths)
-        table_height = row_height * (len(control_materials) * 2 + 2)  # 標題行 + (category行+資料行)*N + 總價行
+        # 計算群組數（類別行數）= 有多少個 is_first_in_group=True 的項目
+        num_groups = sum(1 for item in control_materials if item.get('is_first_in_group', False))
+        num_items = len(control_materials)
+        # 總行數 = 標題行(1) + 類別行(num_groups) + 材料行(num_items) + 總價行(1)
+        table_height = row_height * (1 + num_groups + num_items + 1)
         table_start_y = current_y
 
         # === 繪製表格外框 ===
@@ -1422,62 +1438,58 @@ class BudgetStatementPDFGenerator:
         # === 繪製資料行（每個 item 佔兩行） ===
         grand_total = 0
         current_category = None
-        category_counter = {}  # 追蹤每個類別的材料計數
 
         for item in control_materials:
             category = item.get('category', '')
+            is_first_in_group = item.get('is_first_in_group', False)
 
-            # 提取類別編號和名稱（從 "1. 微氣象調節" 分離為 "1" 和 "微氣象調節"）
-            if '.' in category:
-                category_number = category.split('.')[0].strip()
-                category_name = category.split('.', 1)[1].strip()
-            else:
-                category_number = ''
-                category_name = category
+            # 只在該群組的第一個項目時顯示類別行
+            if is_first_in_group:
+                # 提取類別編號和名稱（從 "1. 微氣象調節" 分離為 "1" 和 "微氣象調節"）
+                if '.' in category:
+                    category_number = category.split('.')[0].strip()
+                    category_name = category.split('.', 1)[1].strip()
+                else:
+                    category_number = ''
+                    category_name = category
 
-            # 第一行：項目類別
-            row_y = current_y - row_height / 2 - table_font_size * 0.3
-            category_row_top_y = current_y  # 記錄類別行頂部y座標
+                # 第一行：項目類別
+                row_y = current_y - row_height / 2 - table_font_size * 0.3
+                category_row_top_y = current_y  # 記錄類別行頂部y座標
 
-            # 項目欄：只顯示類別編號（置中對齊）
-            self._draw_centered_text(
-                c, category_number,
-                table_x, row_y,
-                col_widths[0],
-                font_size=table_font_size
-            )
+                # 項目欄：只顯示類別編號（置中對齊）
+                self._draw_centered_text(
+                    c, category_number,
+                    table_x, row_y,
+                    col_widths[0],
+                    font_size=table_font_size
+                )
 
-            # 材料名稱欄：只顯示類別名稱（置中對齊）
-            # 類別名稱跨越第2欄到最後一欄（共6欄）
-            self._draw_centered_text(
-                c, category_name,
-                table_x + col_widths[0], row_y,
-                sum(col_widths[1:]),  # 從第2欄到最後
-                font_size=table_font_size
-            )
+                # 材料名稱欄：只顯示類別名稱（置中對齊）
+                # 類別名稱跨越第2欄到最後一欄（共6欄）
+                self._draw_centered_text(
+                    c, category_name,
+                    table_x + col_widths[0], row_y,
+                    sum(col_widths[1:]),  # 從第2欄到最後
+                    font_size=table_font_size
+                )
 
-            current_y -= row_height
-            c.line(table_x, current_y, table_x + total_width, current_y)
+                current_y -= row_height
+                c.line(table_x, current_y, table_x + total_width, current_y)
 
-            # 類別行：只繪製最左側的垂直線（第一欄右側邊界）
-            # 不繪製內部垂直線，形成橫向分類視覺效果
-            left_line_x = table_x + vertical_positions[1]  # 第一欄的右邊界
-            c.line(left_line_x, category_row_top_y, left_line_x, current_y)
+                # 類別行：只繪製最左側的垂直線（第一欄右側邊界）
+                # 不繪製內部垂直線，形成橫向分類視覺效果
+                left_line_x = table_x + vertical_positions[1]  # 第一欄的右邊界
+                c.line(left_line_x, category_row_top_y, left_line_x, current_y)
 
-            # 更新同類別下的材料計數
-            if category_number:
-                if category_number not in category_counter:
-                    category_counter[category_number] = 0
-                category_counter[category_number] += 1
-                item_number = f"{category_number}-{category_counter[category_number]}"
-            else:
-                item_number = ""
+            # 從後端取得項目編號（已包含分組邏輯：1-1, 1-2, 2-1...）
+            item_number = item.get('item_id', '')
 
             # 第二行：材料資料
             material_row_top_y = current_y  # 記錄材料行頂部位置（在繪製內容之前）
             row_y = current_y - row_height / 2 - table_font_size * 0.3
 
-            # 項目欄：顯示次項編號（置中對齊）
+            # 項目欄：顯示項目編號（置中對齊）
             self._draw_centered_text(
                 c, item_number,
                 table_x, row_y,
@@ -1581,14 +1593,22 @@ class BudgetStatementPDFGenerator:
         c.drawString(left_margin, current_y, f"施設縣市、鄉鎮、地段、地號及面積詳如土地清冊，合計面積{data.get('total_facility_area_m2', 4500)} m²")
         current_y -= 18
 
-        nozzle_spacing = data.get('nozzle_spacing', '1 x 5.8').split(' x ')
-        sl = nozzle_spacing[1] if len(nozzle_spacing) > 1 else '5.8'
-        ss = nozzle_spacing[0] if len(nozzle_spacing) > 0 else '1'
-        l1 = data.get('main_pipe_1_length', 140)
+        # 從後端取得灌溉型式 ID 和各項參數
+        irrigation_type_id = data.get('irrigation_type_id', 0)
+        sl = data.get('branch_pipe_spacing_sl', '')
+        ss = data.get('sprinkler_spacing_ss', '')
+        l1 = data.get('main_pipe_1_length', 0)
 
-        c.drawString(left_margin, current_y, f"行距(SL)：{sl} m")
-        c.drawString(left_margin + 170, current_y, f"間距(SS)：{ss} m")
-        c.drawString(left_margin + 370, current_y, f"長度(L1)：{l1} m")
+        # 根據灌溉型式決定顯示內容
+        if irrigation_type_id == 1:
+            # 穿孔管系統：僅顯示 SL
+            c.drawString(left_margin, current_y, f"行距(SL)：{sl} m")
+            c.drawString(left_margin + 370, current_y, f"長度(L1)：{l1} m")
+        else:
+            # 其他系統：顯示 SL、SS、L1
+            c.drawString(left_margin, current_y, f"行距(SL)：{sl} m")
+            c.drawString(left_margin + 170, current_y, f"間距(SS)：{ss} m")
+            c.drawString(left_margin + 370, current_y, f"長度(L1)：{l1} m")
         current_y -= 10
 
         # 地籍圖區域（大空白區域）

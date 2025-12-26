@@ -890,6 +890,7 @@ const localFormData = reactive({
     selfPaidAmount?: number; // 自備款
     remark: string;
     fundingSourceId: string | number;
+    controlType?: string;    // 調節控制設施類型（僅 type='control' 時使用）
   }>,
 
   // Always valid for seamless navigation
@@ -1455,7 +1456,8 @@ const addControlFacility = () => {
       subsidyAmount: 0, // 稍後重新分配
       selfPaidAmount: totalCost, // 稍後重新分配
       remark: `[${regionType.value === 'indigenous' ? '原民區域' : '一般地區'}] 設施面積: ${formatArea(facilityArea.value)}公頃`,
-      fundingSourceId: localFormData.fundingSourceId !== null && localFormData.fundingSourceId !== undefined ? localFormData.fundingSourceId : '未選擇補助來源'
+      fundingSourceId: localFormData.fundingSourceId !== null && localFormData.fundingSourceId !== undefined ? localFormData.fundingSourceId : '未選擇補助來源',
+      controlType: localFormData.controlType || ''  // 保存調節控制設施類型
     };
 
     localFormData.facilities.push(newFacility);
