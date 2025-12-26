@@ -1250,7 +1250,7 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
 
     for facility in power_facilities:
         power_items.append({
-            'name': facility.get('name', ''),  # 動力設備名稱
+            'name': (facility.get('name', '') or '').strip(),  # 動力設備名稱（清除前後空格）
             'quantity': int(float(facility.get('quantity', 1) or 1)),  # 數量
             'amount': int(float(facility.get('totalPrice', 0) or 0))  # 金額（總價）
         })
@@ -1261,14 +1261,65 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
 
     for facility in storage_facilities:
         storage_items.append({
-            'material': facility.get('storageType', ''),  # 材質類型
+            'material': (facility.get('storageType', '') or '').strip(),  # 材質類型（清除前後空格）
             'tonnage': int(float(facility.get('tonnage', 0) or 0)),  # 噸位
             'quantity': int(float(facility.get('quantity', 1) or 1)),  # 數量
             'amount': int(float(facility.get('totalPrice', 0) or 0))  # 金額（總價）
         })
 
-    # 管路材料（示例）
+    # === 管路材料（從 step5_data.pipes 提取並按 groupId 分組）===
     pipe_materials = []
+
+    # 從 step5_data 中提取 pipes 陣列
+    pipes = step5_data.get('pipes', [])
+
+    if pipes:
+        # 過濾掉無單價的材料（matprice 為 null 或 0）
+        valid_pipes = [p for p in pipes if p.get('matprice') and float(p.get('matprice', 0) or 0) > 0]
+
+        if valid_pipes:
+            # 按 groupId 分組
+            from collections import defaultdict
+            grouped_by_group = defaultdict(list)
+
+            for pipe in valid_pipes:
+                group_id = pipe.get('groupId', 0)
+                grouped_by_group[group_id].append(pipe)
+
+            # 對每個群組內的材料按 order 排序，並生成材料清單
+            # 使用連續的群組編號（1, 2, 3...），而非原始的 groupId（可能是 1, 3, 4...）
+            sequential_group_number = 1
+            for group_id in sorted(grouped_by_group.keys()):
+                pipes_in_group = grouped_by_group[group_id]
+                # 按 order 排序
+                pipes_in_group.sort(key=lambda x: x.get('order', 0))
+
+                # 取得群組名稱（從第一個項目）
+                group_name = pipes_in_group[0].get('groupName', f'群組{sequential_group_number}')
+
+                item_number = 1
+                for pipe in pipes_in_group:
+                    # 項目編號格式：1-1, 1-2, 2-1, 2-2...（使用連續群組編號）
+                    item_id = f"{sequential_group_number}-{item_number}"
+
+                    # 格式化規格（∮ {spec1}"）
+                    spec1 = pipe.get('spec1', '')
+                    spec_formatted = f"∮ {spec1}" if spec1 else ''
+
+                    pipe_materials.append({
+                        'category': f"{sequential_group_number}. {group_name}",  # 連續群組編號 + groupName
+                        'item_id': item_id,  # 項目編號（1-1, 1-2, 2-1...）
+                        'name': (pipe.get('matname', '') or '').strip(),  # 材料名稱（清除前後空格）
+                        'spec': spec_formatted,  # 規格（∮ {spec1}"）
+                        'unit': (pipe.get('itemunit', '') or '').strip(),  # 單位（清除前後空格）
+                        'price': int(float(pipe.get('matprice', 0) or 0)),  # 單價
+                        'quantity': int(float(pipe.get('matamount', 0) or 0)),  # 數量
+                        'total': int(float(pipe.get('totalPrice', 0) or 0)),  # 總價
+                        'is_first_in_group': (item_number == 1)  # 標記是否為該群組的第一個項目
+                    })
+                    item_number += 1
+
+                sequential_group_number += 1
 
     # === 調控設施材料（從 step4_data.facilities 提取 type='control' 並按 controlType 分組）===
     control_materials = []
@@ -1296,7 +1347,7 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
                 control_materials.append({
                     'category': f"{group_number}. {control_type}",  # 群組編號 + controlType 名稱
                     'item_id': item_id,  # 項目編號（1-1, 1-2, 2-1...）
-                    'name': facility.get('name', ''),  # 材料名稱
+                    'name': (facility.get('name', '') or '').strip(),  # 材料名稱（清除前後空格）
                     'spec': '',  # 規格（目前未使用）
                     'unit': '',  # 單位（目前未使用）
                     'price': int(float(facility.get('unitPrice', 0) or 0)),  # 單價

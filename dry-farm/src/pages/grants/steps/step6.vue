@@ -71,7 +71,7 @@
                 <td class="text-center font-weight-medium">
                   {{ pipeLineTotal }}
                 </td>
-                <td />
+                <td>詳如數量表</td>
               </tr>
               <tr
                 v-for="(item, index) in mainPipes"
@@ -115,7 +115,7 @@
                 <td class="text-center">
                   {{ item.totalPrice }}
                 </td>
-                <td>詳如數量表</td>
+                <td />
               </tr>
               <tr>
                 <td class="font-weight-medium">

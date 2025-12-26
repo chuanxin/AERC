@@ -454,6 +454,32 @@ class BudgetStatementPDFGenerator:
 
         return y
 
+    def _format_value_or_dash(self, value: Any, unit: str = '', default: str = '—') -> str:
+        """
+        格式化數值，空值或 0 顯示刪節符號
+
+        Args:
+            value: 要格式化的值
+            unit: 單位（如 "m"）
+            default: 空值時的預設顯示（預設為刪節符號 "—"）
+
+        Returns:
+            格式化後的字串
+        """
+        # 檢查是否為空值或 0
+        if value is None or value == '' or value == 0 or value == '0':
+            return default
+
+        # 轉換為字串並清除前後空格
+        str_value = str(value).strip()
+        if not str_value or str_value == '0':
+            return default
+
+        # 有單位的話加上單位
+        if unit:
+            return f"{str_value} {unit}"
+        return str_value
+
     def generate(self, grant_data: Dict[str, Any]) -> bytes:
         """
         生成工程預算書 PDF（11 頁）
@@ -471,13 +497,42 @@ class BudgetStatementPDFGenerator:
         buffer = io.BytesIO()
         c = canvas.Canvas(buffer, pagesize=A4)
 
+        # 從 budget_items 中取得各項費用總額，用於條件性生成頁面
+        budget_items = grant_data.get('budget_items', {})
+        try:
+            a_item_total = int(budget_items.get('a_item_total') or 0)
+        except (ValueError, TypeError):
+            a_item_total = 0
+        try:
+            c_control_total = int(budget_items.get('c_control_total') or 0)
+        except (ValueError, TypeError):
+            c_control_total = 0
+        try:
+            d_power_total = int(budget_items.get('d_power_total') or 0)
+        except (ValueError, TypeError):
+            d_power_total = 0
+        try:
+            e_storage_total = int(budget_items.get('e_storage_total') or 0)
+        except (ValueError, TypeError):
+            e_storage_total = 0
+
         # 逐頁生成
         self._generate_cover_page(c, grant_data)           # 第 1 頁：封面頁
         self._generate_budget_table_page(c, grant_data)    # 第 2 頁：預算書主表
         self._generate_land_list_page(c, grant_data)       # 第 3 頁：土地清冊
-        self._generate_power_storage_table_page(c, grant_data)  # 第 4 頁：動力與調蓄設施
-        self._generate_pipe_materials_table_page(c, grant_data) # 第 5 頁：管路材料表
-        self._generate_control_materials_table_page(c, grant_data)  # 第 6 頁：調控設施材料表
+
+        # 第 4 頁：動力與調蓄設施（只在 D 項或 E 項費用 > 0 時生成）
+        if d_power_total > 0 or e_storage_total > 0:
+            self._generate_power_storage_table_page(c, grant_data)
+
+        # 第 5 頁：管路材料表（只在 A 項費用 > 0 時生成）
+        if a_item_total > 0:
+            self._generate_pipe_materials_table_page(c, grant_data)
+
+        # 第 6 頁：調控設施材料表（只在 C 項費用 > 0 時生成）
+        if c_control_total > 0:
+            self._generate_control_materials_table_page(c, grant_data)
+
         self._generate_design_diagram_page(c, grant_data)  # 第 7 頁：設計圖
         self._generate_photos_page(c, grant_data)          # 第 8 頁：照片頁
         self._generate_receipt_page(c, grant_data)         # 第 9 頁：領款收據
@@ -979,12 +1034,14 @@ class BudgetStatementPDFGenerator:
         current_y -= 25
         c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
         current_y -= 25
-        c.drawString(left_margin, current_y, f"坵塊形狀：{data.get('block_shape', '')}")
+        # 坵塊形狀：空值或 0 顯示刪節符號
+        block_shape = self._format_value_or_dash(data.get('block_shape', ''))
+        c.drawString(left_margin, current_y, f"坵塊形狀：{block_shape}")
         current_y -= 25
-        # 噴頭配置間距（根據資料動態顯示標籤）
+        # 噴頭配置間距（根據資料動態顯示標籤，空值顯示刪節符號）
         nozzle_spacing_label = data.get('nozzle_spacing_label', '')
-        nozzle_spacing = data.get('nozzle_spacing', '')
-        if nozzle_spacing_label and nozzle_spacing:
+        nozzle_spacing = self._format_value_or_dash(data.get('nozzle_spacing', ''))
+        if nozzle_spacing_label:
             c.drawString(left_margin, current_y, f"{nozzle_spacing_label}：{nozzle_spacing}")
         current_y -= 40
 
@@ -1220,12 +1277,14 @@ class BudgetStatementPDFGenerator:
         current_y -= 25
         c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
         current_y -= 25
-        c.drawString(left_margin, current_y, f"坵塊形狀：{data.get('block_shape', '')}")
+        # 坵塊形狀：空值或 0 顯示刪節符號
+        block_shape = self._format_value_or_dash(data.get('block_shape', ''))
+        c.drawString(left_margin, current_y, f"坵塊形狀：{block_shape}")
         current_y -= 25
-        # 噴頭配置間距（根據資料動態顯示標籤）
+        # 噴頭配置間距（根據資料動態顯示標籤，空值顯示刪節符號）
         nozzle_spacing_label = data.get('nozzle_spacing_label', '')
-        nozzle_spacing = data.get('nozzle_spacing', '')
-        if nozzle_spacing_label and nozzle_spacing:
+        nozzle_spacing = self._format_value_or_dash(data.get('nozzle_spacing', ''))
+        if nozzle_spacing_label:
             c.drawString(left_margin, current_y, f"{nozzle_spacing_label}：{nozzle_spacing}")
         current_y -= 40
 
@@ -1237,22 +1296,22 @@ class BudgetStatementPDFGenerator:
         row_height = 22
         table_font_size = 12
 
-        # 計算表格高度
+        # 計算表格高度（標題行 + 類別行數 + 材料行數 + 總價行）
         total_width = sum(col_widths)
-        table_height = row_height * (len(pipe_materials) + 2)  # 標題行 + 資料行 + 總價行
+        # 計算群組數（類別行數）= 有多少個 is_first_in_group=True 的項目
+        num_groups = sum(1 for item in pipe_materials if item.get('is_first_in_group', False))
+        num_items = len(pipe_materials)
+        # 總行數 = 標題行(1) + 類別行(num_groups) + 材料行(num_items) + 總價行(1)
+        table_height = row_height * (1 + num_groups + num_items + 1)
         table_start_y = current_y
 
         # === 繪製表格外框 ===
         c.rect(table_x, table_start_y - table_height, total_width, table_height)
 
-        # === 繪製垂直分隔線 ===
+        # === 計算垂直分隔線位置（稍後根據行類型繪製） ===
         vertical_positions = [0]
         for width_val in col_widths:
             vertical_positions.append(vertical_positions[-1] + width_val)
-
-        for i in range(1, len(vertical_positions) - 1):
-            line_x = table_x + vertical_positions[i]
-            c.line(line_x, table_start_y, line_x, table_start_y - table_height)
 
         # === 繪製標題行 ===
         headers = ["項目", "材料名稱", "規格", "單位", "單價", "數量", "總價"]
@@ -1270,23 +1329,77 @@ class BudgetStatementPDFGenerator:
 
         # 標題行底線
         c.line(table_x, table_start_y - row_height, table_x + total_width, table_start_y - row_height)
+
+        # 標題行的垂直線（所有內部垂直線）
+        for i in range(1, len(vertical_positions) - 1):
+            line_x = table_x + vertical_positions[i]
+            c.line(line_x, table_start_y, line_x, table_start_y - row_height)
+
         current_y = table_start_y - row_height
 
-        # === 繪製資料行 ===
+        # === 繪製資料行（支持分組顯示）===
         grand_total = 0
-        for item in pipe_materials:
-            row_y = current_y - row_height / 2 - table_font_size * 0.2
 
-            # 項目（置中對齊）
+        for item in pipe_materials:
+            category = item.get('category', '')
+            is_first_in_group = item.get('is_first_in_group', False)
+
+            # 只在該群組的第一個項目時顯示類別行
+            if is_first_in_group:
+                # 提取類別編號和名稱（從 "1. 主管組" 分離為 "1" 和 "主管組"）
+                if '.' in category:
+                    category_number = category.split('.')[0].strip()
+                    category_name = category.split('.', 1)[1].strip()
+                else:
+                    category_number = ''
+                    category_name = category
+
+                # 類別行
+                row_y = current_y - row_height / 2 - table_font_size * 0.3
+                category_row_top_y = current_y
+
+                # 項目欄：只顯示類別編號（置中對齊）
+                self._draw_centered_text(
+                    c, category_number,
+                    table_x, row_y,
+                    col_widths[0],
+                    font_size=table_font_size
+                )
+
+                # 材料名稱欄：只顯示類別名稱（置中對齊）
+                # 類別名稱跨越第2欄到最後一欄（共6欄）
+                self._draw_centered_text(
+                    c, category_name,
+                    table_x + col_widths[0], row_y,
+                    sum(col_widths[1:]),
+                    font_size=table_font_size
+                )
+
+                current_y -= row_height
+                c.line(table_x, current_y, table_x + total_width, current_y)
+
+                # 類別行：只繪製最左側的垂直線（第一欄右側邊界）
+                left_line_x = table_x + vertical_positions[1]
+                c.line(left_line_x, category_row_top_y, left_line_x, current_y)
+
+            # 從後端取得項目編號（已包含分組邏輯：1-1, 1-2, 2-1...）
+            item_number = item.get('item_id', '')
+
+            # 材料資料行
+            material_row_top_y = current_y
+            row_y = current_y - row_height / 2 - table_font_size * 0.3
+
+            # 項目欄：顯示項目編號（置中對齊）
             self._draw_centered_text(
-                c, item.get('category', ''),
+                c, item_number,
                 table_x, row_y,
                 col_widths[0],
                 font_size=table_font_size
             )
 
-            # 材料名稱（左對齊）
-            c.drawString(table_x + col_widths[0] + 5, row_y, item.get('name', ''))
+            # 材料名稱（左對齊，清除前後空格）
+            material_name = (item.get('name', '') or '').strip()
+            c.drawString(table_x + col_widths[0] + 5, row_y, material_name)
 
             # 規格（左對齊）
             c.drawString(table_x + sum(col_widths[:2]) + 5, row_y, item.get('spec', ''))
@@ -1315,8 +1428,8 @@ class BudgetStatementPDFGenerator:
                 font_size=table_font_size
             )
 
-            # 總價（置中對齊）
-            self._draw_centered_text(
+            # 總價（靠右對齊）
+            self._draw_right_aligned_text(
                 c, f"{item.get('total', 0):,}",
                 table_x + sum(col_widths[:6]), row_y,
                 col_widths[6],
@@ -1326,6 +1439,11 @@ class BudgetStatementPDFGenerator:
             grand_total += item.get('total', 0)
             current_y -= row_height
             c.line(table_x, current_y, table_x + total_width, current_y)
+
+            # 材料行：繪製所有垂直線（完整的欄位分隔）
+            for i in range(1, len(vertical_positions) - 1):
+                line_x = table_x + vertical_positions[i]
+                c.line(line_x, material_row_top_y, line_x, current_y)
 
         # === 總價行 ===
         row_y = current_y - row_height / 2 - table_font_size * 0.2
@@ -1345,6 +1463,12 @@ class BudgetStatementPDFGenerator:
             col_widths[6],
             font_size=table_font_size
         )
+
+        # 總價行：繪製所有垂直線
+        total_row_top_y = current_y
+        for i in range(1, len(vertical_positions) - 1):
+            line_x = table_x + vertical_positions[i]
+            c.line(line_x, total_row_top_y, line_x, total_row_top_y - row_height)
 
         current_y -= row_height + 20
 
@@ -1375,12 +1499,14 @@ class BudgetStatementPDFGenerator:
         current_y -= 25
         c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
         current_y -= 25
-        c.drawString(left_margin, current_y, f"坵塊形狀：{data.get('block_shape', '')}")
+        # 坵塊形狀：空值或 0 顯示刪節符號
+        block_shape = self._format_value_or_dash(data.get('block_shape', ''))
+        c.drawString(left_margin, current_y, f"坵塊形狀：{block_shape}")
         current_y -= 25
-        # 噴頭配置間距（根據資料動態顯示標籤）
+        # 噴頭配置間距（根據資料動態顯示標籤，空值顯示刪節符號）
         nozzle_spacing_label = data.get('nozzle_spacing_label', '')
-        nozzle_spacing = data.get('nozzle_spacing', '')
-        if nozzle_spacing_label and nozzle_spacing:
+        nozzle_spacing = self._format_value_or_dash(data.get('nozzle_spacing', ''))
+        if nozzle_spacing_label:
             c.drawString(left_margin, current_y, f"{nozzle_spacing_label}：{nozzle_spacing}")
         current_y -= 40
 
@@ -1497,8 +1623,8 @@ class BudgetStatementPDFGenerator:
                 font_size=table_font_size
             )
 
-            # 材料名稱欄：只顯示材料名稱（不含編號）
-            material_name = item.get('name', '')
+            # 材料名稱欄：只顯示材料名稱（不含編號，清除前後空格）
+            material_name = (item.get('name', '') or '').strip()
             c.drawString(table_x + col_widths[0] + 5, row_y, material_name)
 
             # 單價（靠右對齊，千分位格式）
@@ -1593,22 +1719,22 @@ class BudgetStatementPDFGenerator:
         c.drawString(left_margin, current_y, f"施設縣市、鄉鎮、地段、地號及面積詳如土地清冊，合計面積{data.get('total_facility_area_m2', 4500)} m²")
         current_y -= 18
 
-        # 從後端取得灌溉型式 ID 和各項參數
+        # 從後端取得灌溉型式 ID 和各項參數（空值或 0 顯示刪節符號）
         irrigation_type_id = data.get('irrigation_type_id', 0)
-        sl = data.get('branch_pipe_spacing_sl', '')
-        ss = data.get('sprinkler_spacing_ss', '')
-        l1 = data.get('main_pipe_1_length', 0)
+        sl = self._format_value_or_dash(data.get('branch_pipe_spacing_sl', ''), 'm')
+        ss = self._format_value_or_dash(data.get('sprinkler_spacing_ss', ''), 'm')
+        l1 = self._format_value_or_dash(data.get('main_pipe_1_length', 0), 'm')
 
         # 根據灌溉型式決定顯示內容
         if irrigation_type_id == 1:
             # 穿孔管系統：僅顯示 SL
-            c.drawString(left_margin, current_y, f"行距(SL)：{sl} m")
-            c.drawString(left_margin + 370, current_y, f"長度(L1)：{l1} m")
+            c.drawString(left_margin, current_y, f"行距(SL)：{sl}")
+            c.drawString(left_margin + 370, current_y, f"長度(L1)：{l1}")
         else:
             # 其他系統：顯示 SL、SS、L1
-            c.drawString(left_margin, current_y, f"行距(SL)：{sl} m")
-            c.drawString(left_margin + 170, current_y, f"間距(SS)：{ss} m")
-            c.drawString(left_margin + 370, current_y, f"長度(L1)：{l1} m")
+            c.drawString(left_margin, current_y, f"行距(SL)：{sl}")
+            c.drawString(left_margin + 170, current_y, f"間距(SS)：{ss}")
+            c.drawString(left_margin + 370, current_y, f"長度(L1)：{l1}")
         current_y -= 10
 
         # 地籍圖區域（大空白區域）
@@ -2275,6 +2401,7 @@ class BudgetStatementPDFGenerator:
             self._draw_centered_text(c, "全", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
             self._draw_right_aligned_text(c, f"{a_item_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
             c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
+            self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
 
             current_y -= row_height
             c.drawString(x + 20, current_y, "(1)材料費")
@@ -2306,7 +2433,7 @@ class BudgetStatementPDFGenerator:
             self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
             self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
             self._draw_right_aligned_text(c, f"{irrigation_system_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
-            self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+            # self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
         else:
             # 無田間管路設施費：只顯示項目名稱
             c.drawString(x + 8, current_y, "A.田間管路設施費")
