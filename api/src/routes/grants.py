@@ -1244,18 +1244,28 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         'govt_subsidy_total': int(govt_subsidy_total),
     }
 
-    # 動力設施
-    power_items = [{
-        'name': '馬達+抽水機',
-        'quantity': 1,
-        'amount': 4000
-    }]
+    # === 動力設施（從 step4_data.facilities 提取 type='power'）===
+    power_items = []
+    power_facilities = [f for f in facilities if f.get('type') == 'power']
 
-    # 調蓄設施
-    storage_items = [
-        {'material': '不鏽鋼', 'tonnage': 10, 'quantity': 1, 'amount': 40000},
-        {'material': '不鏽鋼', 'tonnage': 10, 'quantity': 1, 'amount': 40000}
-    ]
+    for facility in power_facilities:
+        power_items.append({
+            'name': facility.get('name', ''),  # 動力設備名稱
+            'quantity': int(float(facility.get('quantity', 1) or 1)),  # 數量
+            'amount': int(float(facility.get('totalPrice', 0) or 0))  # 金額（總價）
+        })
+
+    # === 調蓄設施（從 step4_data.facilities 提取 type='storage'）===
+    storage_items = []
+    storage_facilities = [f for f in facilities if f.get('type') == 'storage']
+
+    for facility in storage_facilities:
+        storage_items.append({
+            'material': facility.get('storageType', ''),  # 材質類型
+            'tonnage': int(float(facility.get('tonnage', 0) or 0)),  # 噸位
+            'quantity': int(float(facility.get('quantity', 1) or 1)),  # 數量
+            'amount': int(float(facility.get('totalPrice', 0) or 0))  # 金額（總價）
+        })
 
     # 管路材料（示例）
     pipe_materials = []

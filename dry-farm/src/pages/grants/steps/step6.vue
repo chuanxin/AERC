@@ -672,7 +672,7 @@ const controlFacilities = computed(() => {
       quantity: f.quantity,
       unitPrice: typeof f.unitPrice === 'number' ? f.unitPrice.toLocaleString() : f.unitPrice,
       totalPrice: typeof f.totalPrice === 'number' ? f.totalPrice.toLocaleString() : f.totalPrice,
-      unit: f.type === 'power' ? '台' : (f.type === 'storage' ? '座' : '台'),
+      unit: f.type === 'power' ? '臺' : (f.type === 'storage' ? '座' : '組'),
       remark: f.remark || f.name
     };
   }).sort((a, b) => {

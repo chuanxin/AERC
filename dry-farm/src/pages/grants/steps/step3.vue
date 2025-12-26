@@ -891,6 +891,7 @@ const localFormData = reactive({
     remark: string;
     fundingSourceId: string | number;
     controlType?: string;    // 調節控制設施類型（僅 type='control' 時使用）
+    storageType?: string;    // 調蓄設施材質類型（僅 type='storage' 時使用）
   }>,
 
   // Always valid for seamless navigation
@@ -1348,7 +1349,8 @@ const addStorageFacility = () => {
       subsidyAmount: actualSubsidy,         // 實際補助額（考慮年度限制）
       selfPaidAmount: selfPaid,             // 超過年度額度的部分轉為自備款
       remark: `${localFormData.storageRemark || ''} [${regionType.value === 'indigenous' ? '原民區域' : '一般地區'}]`,
-      fundingSourceId: localFormData.fundingSourceId !== null && localFormData.fundingSourceId !== undefined ? localFormData.fundingSourceId : '未選擇補助來源'
+      fundingSourceId: localFormData.fundingSourceId !== null && localFormData.fundingSourceId !== undefined ? localFormData.fundingSourceId : '未選擇補助來源',
+      storageType: localFormData.storageType || ''  // 保存調蓄設施材質類型
     };
 
     localFormData.facilities.push(newFacility);
