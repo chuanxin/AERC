@@ -1063,31 +1063,185 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     # 組合兩個欄位，用空格分隔
     if installation_type_part and irrigation_type_part:
         facility_type = f"{installation_type_part} {irrigation_type_part}"
-    elif installation_type_part:
-        facility_type = installation_type_part
-    elif irrigation_type_part:
-        facility_type = irrigation_type_part
+    # elif installation_type_part:
+    #     facility_type = installation_type_part
+    # elif irrigation_type_part:
+    #     facility_type = irrigation_type_part
     else:
-        facility_type = ''
+        facility_type = '其它'
 
-    # 預算項目資料（示例，實際應從 step 資料中提取）
+    # 補助標準（從 step2_data 的第一筆土地資料 isAboriginalArea 判斷）
+    first_land = lands[0]
+    is_aboriginal_area = first_land.get('isAboriginalArea')
+
+    subsidy_standard = '原民區域' if is_aboriginal_area else '一般地區'
+
+    # 預算項目資料（從 step4 和 step5 資料中提取）
+
+    # === A 項：田間管路設施費（從 step5_data 提取）===
+    a_item_total = 0
+
+    # 田間主管 1
+    main_pipe_1_qty = int(step5_data.get('mainPipeQuantity', 0) or 0)
+    main_pipe_1_price = float(step5_data.get('mainPipeUnitPrice', 0) or 0)
+    main_pipe_1_total = main_pipe_1_qty * main_pipe_1_price
+    main_pipe_1_length = int(step5_data.get('mainPipeLength', 0) or 0)
+    a_item_total += main_pipe_1_total
+
+    # 田間主管 2（如果啟用）
+    main_pipe_2_enabled = step5_data.get('mainPipe2Enabled', False)
+    main_pipe_2_qty = 0
+    main_pipe_2_price = 0
+    main_pipe_2_total = 0
+    main_pipe_2_length = 0
+    if main_pipe_2_enabled:
+        main_pipe_2_qty = int(step5_data.get('mainPipe2Quantity', 0) or 0)
+        main_pipe_2_price = float(step5_data.get('mainPipe2UnitPrice', 0) or 0)
+        main_pipe_2_total = main_pipe_2_qty * main_pipe_2_price
+        main_pipe_2_length = int(step5_data.get('mainPipe2Length', 0) or 0)
+        a_item_total += main_pipe_2_total
+
+    # 灌溉系統（pipes 陣列的總和）
+    # 根據前端邏輯：只計算 groupId 為 2,3,4,5,6,7,8 或 (groupId=1 且 module!='主管') 的管路
+    irrigation_system_total = 0
+    pipes = step5_data.get('pipes', [])
+    if pipes:
+        for pipe in pipes:
+            try:
+                group_id = pipe.get('groupId', 0)
+                module = pipe.get('module', '')
+
+                # 過濾條件（與前端一致）
+                if group_id in [2, 3, 4, 5, 6, 7, 8]:
+                    should_include = True
+                elif group_id == 1 and module != '主管':
+                    should_include = True
+                else:
+                    should_include = False
+
+                if should_include:
+                    # 使用 totalPrice 欄位（與前端一致）
+                    total_price = pipe.get('totalPrice', 0)
+                    if isinstance(total_price, str):
+                        # 移除千分位逗號
+                        total_price = total_price.replace(',', '')
+                    irrigation_system_total += float(total_price or 0)
+            except (ValueError, TypeError):
+                continue
+    a_item_total += irrigation_system_total
+
+    # === B 項：規劃設計費 ===
+    # 使用四捨五入（與前端一致）
+    b_design_fee = round(a_item_total * 0.02)
+
+    # === C、D、E 項：調控設施、動力設備、調蓄設施（從 step4_data 提取）===
+    # 使用前端已計算的 subsidyAmount 和 selfPaidAmount
+    c_control_total = 0
+    c_control_subsidy = 0
+    c_control_self_paid = 0
+    c_control_quantity = 0  # 調控設施數量總和
+
+    d_power_total = 0
+    d_power_subsidy = 0
+    d_power_self_paid = 0
+    d_power_quantity = 0  # 動力設備數量總和
+
+    e_storage_total = 0
+    e_storage_subsidy = 0
+    e_storage_self_paid = 0
+    e_storage_tonnage = 0  # 調蓄設施噸位總和
+
+    facilities = step4_data.get('facilities', [])
+    if facilities:
+        for facility in facilities:
+            try:
+                # 取得設施類別（避免與外層 facility_type 變數衝突，使用 fac_type）
+                fac_type = facility.get('type', '')
+
+                # 取得總價
+                total_price_str = str(facility.get('totalPrice', '0') or '0')
+                total_price_str = total_price_str.replace(',', '')
+                total_price = int(float(total_price_str))
+
+                # 取得補助金額和自備款（前端已計算）
+                subsidy_amount = int(float(facility.get('subsidyAmount', 0) or 0))
+                self_paid_amount = int(float(facility.get('selfPaidAmount', 0) or 0))
+
+                # 根據設施類型累加
+                if fac_type == 'power':
+                    # D 項：動力設備
+                    d_power_total += total_price
+                    d_power_subsidy += subsidy_amount
+                    d_power_self_paid += self_paid_amount
+                    # 累加數量
+                    quantity = int(float(facility.get('quantity', 1) or 1))
+                    d_power_quantity += quantity
+                elif fac_type == 'storage':
+                    # E 項：調蓄設施
+                    e_storage_total += total_price
+                    e_storage_subsidy += subsidy_amount
+                    e_storage_self_paid += self_paid_amount
+                    # 累加噸位（噸位 × 數量）
+                    tonnage = int(float(facility.get('tonnage', 0) or 0))
+                    quantity = int(float(facility.get('quantity', 1) or 1))
+                    e_storage_tonnage += tonnage * quantity
+                elif fac_type == 'control':
+                    # C 項：調節控制設施
+                    c_control_total += total_price
+                    c_control_subsidy += subsidy_amount
+                    c_control_self_paid += self_paid_amount
+                    # 累加數量
+                    quantity = int(float(facility.get('quantity', 1) or 1))
+                    c_control_quantity += quantity
+            except (ValueError, TypeError):
+                continue
+
+    # === 取得 step5 的補助額度與自備款 ===
+    step5_subsidy_amount = int(float(step5_data.get('subsidyAmount', 0) or 0))
+    step5_self_paid_amount = int(float(step5_data.get('selfPaidAmount', 0) or 0))
+
+    # === 政府補助款（使用前端已計算的值）===
+    # A 項：田間管路補助 = step5 補助額度 - 設計費（不得小於 0）
+    govt_subsidy_a = max(0, step5_subsidy_amount - b_design_fee)
+    govt_subsidy_c = c_control_subsidy  # C 項：調節控制設施（使用前端計算值）
+    govt_subsidy_d = d_power_subsidy  # D 項：動力設備（使用前端計算值）
+    govt_subsidy_e = e_storage_subsidy  # E 項：調蓄設施（使用前端計算值）
+
+    # 實際獲得補助的規劃設計費（與前端 actualSubsidizedDesignFee 邏輯相同）
+    actual_subsidized_design_fee = min(step5_subsidy_amount, b_design_fee)
+
+    # === 農戶配合款（使用前端已計算的值）===
+    total_amount = a_item_total + b_design_fee + c_control_total + d_power_total + e_storage_total
+    govt_subsidy_total = govt_subsidy_a + govt_subsidy_c + govt_subsidy_d + govt_subsidy_e
+    # 農戶配合款 = C/D/E 項的自備款總和 + step5 的自備款
+    farmer_contribution = c_control_self_paid + d_power_self_paid + e_storage_self_paid + step5_self_paid_amount
+
     budget_items = {
-        'a_item_total': 70665,
-        'a_materials': 70665,
-        'main_pipe_1_length': 140,
-        'main_pipe_1_qty': 35,
-        'main_pipe_1_price': 292,
-        'main_pipe_1_total': 10220,
-        'irrigation_system_total': 60445,
-        'b_design_fee': 1413,
-        'c_control_total': 473340,
-        'd_power_total': 4000,
-        'e_storage_total': 80000,
-        'farmer_contribution': 383340,
-        'govt_subsidy_a': 70665,
-        'govt_subsidy_c': 90000,
-        'govt_subsidy_d': 4000,
-        'govt_subsidy_e': 80000,
+        'a_item_total': int(a_item_total),
+        'a_materials': int(a_item_total),
+        'main_pipe_1_length': main_pipe_1_length,
+        'main_pipe_1_qty': main_pipe_1_qty,
+        'main_pipe_1_price': int(main_pipe_1_price),
+        'main_pipe_1_total': int(main_pipe_1_total),
+        'main_pipe_2_length': main_pipe_2_length,
+        'main_pipe_2_qty': main_pipe_2_qty,
+        'main_pipe_2_price': int(main_pipe_2_price),
+        'main_pipe_2_total': int(main_pipe_2_total),
+        'irrigation_system_total': int(irrigation_system_total),
+        'b_design_fee': b_design_fee,
+        'actual_subsidized_design_fee': int(actual_subsidized_design_fee),  # 實際獲得補助的設計費
+        'c_control_total': int(c_control_total),
+        'c_control_quantity': int(c_control_quantity),  # 調控設施數量總和
+        'd_power_total': int(d_power_total),
+        'd_power_quantity': int(d_power_quantity),  # 動力設備數量總和
+        'e_storage_total': int(e_storage_total),
+        'e_storage_tonnage': int(e_storage_tonnage),  # 調蓄設施噸位總和
+        'farmer_contribution': max(0, int(farmer_contribution)),  # 確保不為負數
+        'govt_subsidy_a': int(govt_subsidy_a),
+        'govt_subsidy_c': int(govt_subsidy_c),
+        'govt_subsidy_d': int(govt_subsidy_d),
+        'govt_subsidy_e': int(govt_subsidy_e),
+        'govt_subsidy_total': int(govt_subsidy_total),
     }
 
     # 動力設施
@@ -1138,10 +1292,10 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
 
         # 設施資訊
         'facility_type': facility_type,
-        'subsidy_standard': '一般標準',
-        'block_shape': '135m ×33m',
-        'nozzle_spacing': '1 x 5.8',
-        'main_pipe_1_length': 140,
+        'subsidy_standard': subsidy_standard,
+        'block_shape': '',
+        'nozzle_spacing': '',
+        'main_pipe_1_length': 0,
 
         # 預算資料
         'budget_items': budget_items,
@@ -1150,9 +1304,8 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         'pipe_materials': pipe_materials,
         'control_materials': control_materials,
 
-        # 補助金額
-        'govt_subsidy_total': budget_items['govt_subsidy_a'] + budget_items['govt_subsidy_c'] +
-                             budget_items['govt_subsidy_d'] + budget_items['govt_subsidy_e'] + budget_items['b_design_fee'],
+        # 補助金額（農戶請領款：A+C+D+E 項，不包含規劃設計費）
+        'govt_subsidy_total': govt_subsidy_total,
     }
 
     return grant_data
