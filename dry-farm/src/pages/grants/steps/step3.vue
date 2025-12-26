@@ -875,7 +875,7 @@ const localFormData = reactive({
   controlName: '',
   controlQuantity: 1,
   controlUnitPrice: '',
-  controlSource: '',
+  // controlSource: '',
 
   // 設施列表
   facilities: [] as Array<{
@@ -1240,7 +1240,7 @@ const addPowerEquipment = () => {
       }
     }
 
-    localFormData.facilities.push({
+    const newFacility = {
       type: 'power',
       typeLabel: '動力設備',
       name: localFormData.powerEquipment,
@@ -1252,7 +1252,21 @@ const addPowerEquipment = () => {
       selfPaidAmount: selfPaid,             // 超過年度額度的部分轉為自備款
       remark: `[${regionType.value === 'indigenous' ? '原民區域' : '一般地區'}]`,
       fundingSourceId: localFormData.fundingSourceId !== null && localFormData.fundingSourceId !== undefined ? localFormData.fundingSourceId : '未選擇補助來源'
-    });
+    };
+
+    localFormData.facilities.push(newFacility);
+
+    // 檢查是否有重複項目（排除剛加入的項目）
+    const duplicates = localFormData.facilities.filter((facility, index) =>
+      index !== localFormData.facilities.length - 1 && // 排除剛加入的項目
+      facility.name === newFacility.name &&
+      facility.typeLabel === newFacility.typeLabel &&
+      facility.unitPrice === newFacility.unitPrice
+    );
+
+    if (duplicates.length > 0) {
+      alert(`提示：您已加入相同的設施項目（${newFacility.typeLabel} - ${newFacility.name}）。\n\n建議：您可以直接在下方的「補助設施列表」中調整該設施的數量，而不需要重複加入。`);
+    }
 
     // 清空選擇
     localFormData.powerEquipment = '';
@@ -1321,10 +1335,11 @@ const addStorageFacility = () => {
       }
     }
 
-    localFormData.facilities.push({
+    const newFacility = {
       type: 'storage',
       typeLabel: '調蓄設施',
       name: equipment,
+      tonnage: tonnage,                     // 調蓄設施噸位（獨立欄位）
       quantity: 1,
       originalSubsidyPrice: correctSubsidy, // 保存原始單位補助定價
       unitPrice: correctSubsidy,            // 初始單價 = 補助定價
@@ -1333,7 +1348,21 @@ const addStorageFacility = () => {
       selfPaidAmount: selfPaid,             // 超過年度額度的部分轉為自備款
       remark: `${localFormData.storageRemark || ''} [${regionType.value === 'indigenous' ? '原民區域' : '一般地區'}]`,
       fundingSourceId: localFormData.fundingSourceId !== null && localFormData.fundingSourceId !== undefined ? localFormData.fundingSourceId : '未選擇補助來源'
-    });
+    };
+
+    localFormData.facilities.push(newFacility);
+
+    // 檢查是否有重複項目（排除剛加入的項目）
+    const duplicates = localFormData.facilities.filter((facility, index) =>
+      index !== localFormData.facilities.length - 1 && // 排除剛加入的項目
+      facility.name === newFacility.name &&
+      facility.typeLabel === newFacility.typeLabel &&
+      facility.unitPrice === newFacility.unitPrice
+    );
+
+    if (duplicates.length > 0) {
+      alert(`提示：您已加入相同的設施項目（${newFacility.typeLabel} - ${newFacility.name}）。\n\n建議：您可以直接在下方的「補助設施列表」中調整該設施的數量，而不需要重複加入。`);
+    }
 
     // 清空選擇
     localFormData.storageType = '';
@@ -1416,7 +1445,7 @@ const addControlFacility = () => {
     }
 
     // 先加入設施（補助金額暫時設為0，稍後重新分配）
-    localFormData.facilities.push({
+    const newFacility = {
       type: 'control',
       typeLabel: '調節控制設施',
       name: localFormData.controlName,
@@ -1427,7 +1456,21 @@ const addControlFacility = () => {
       selfPaidAmount: totalCost, // 稍後重新分配
       remark: `[${regionType.value === 'indigenous' ? '原民區域' : '一般地區'}] 設施面積: ${formatArea(facilityArea.value)}公頃`,
       fundingSourceId: localFormData.fundingSourceId !== null && localFormData.fundingSourceId !== undefined ? localFormData.fundingSourceId : '未選擇補助來源'
-    });
+    };
+
+    localFormData.facilities.push(newFacility);
+
+    // 檢查是否有重複項目（排除剛加入的項目）
+    const duplicates = localFormData.facilities.filter((facility, index) =>
+      index !== localFormData.facilities.length - 1 && // 排除剛加入的項目
+      facility.name === newFacility.name &&
+      facility.typeLabel === newFacility.typeLabel &&
+      facility.unitPrice === newFacility.unitPrice
+    );
+
+    if (duplicates.length > 0) {
+      alert(`提示：您已加入相同的設施項目（${newFacility.typeLabel} - ${newFacility.name}）。\n\n建議：您可以直接在下方的「補助設施列表」中調整該設施的數量，而不需要重複加入。`);
+    }
 
     // 重新分配所有調節控制設施的補助金額
     nextTick(() => {
@@ -1463,7 +1506,8 @@ const checkSubsidyLimit = (operation: string, newStep3Subsidy: number): { allowe
   }
 
   // 取得 step4（田間管路）的補助
-  const step4Data = getStepDataSafely(4) || {};
+  // 🔥 統一架構 (2025-11-04): step4.vue (UI step 5) 現在儲存在 formData[5]
+  const step4Data = getStepDataSafely(5) || {};  // step4.vue → formData[5]
   const step4Subsidy = parseFloat(step4Data.subsidyAmount) || 0;
 
   // 本案件總補助 = step3 + step4
@@ -1672,7 +1716,8 @@ const reallocateAllFacilitiesSubsidies = () => {
   }
 
   // 1. 取得 step4 的補助額
-  const step4Data = getStepDataSafely(4) || {};
+  // 🔥 統一架構 (2025-11-04): step4.vue (UI step 5) 現在儲存在 formData[5]
+  const step4Data = getStepDataSafely(5) || {};  // step4.vue → formData[5]
   const step4Subsidy = parseFloat(step4Data.subsidyAmount) || 0;
 
   // 2. 計算年度總可用補助額度
@@ -1888,7 +1933,7 @@ const skipStep = async () => {
       controlName: '',
       controlQuantity: 1,
       controlUnitPrice: '',
-      controlSource: '',
+      // controlSource: '',
 
       // 設施列表
       facilities: [],

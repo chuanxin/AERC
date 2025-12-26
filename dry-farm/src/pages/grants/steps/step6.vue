@@ -263,7 +263,7 @@
                   規劃設計費
                 </td>
                 <td class="text-center">
-                  {{ designFee }}
+                  {{ actualSubsidizedDesignFee }}
                 </td>
               </tr>
 
@@ -745,7 +745,7 @@ const facilitySubsidy = computed(() => {
   return total.toLocaleString();
 });
 
-// 規劃設計費：直接從 step4 讀取
+// 規劃設計費：直接從 step4 讀取（用於本案設施表顯示真實設計費）
 const designFee = computed(() => {
   const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data) return '0';
@@ -754,12 +754,26 @@ const designFee = computed(() => {
   return designFeeAmount.toLocaleString();
 });
 
+// 實際獲得補助的規劃設計費（用於農戶補助明細）
+const actualSubsidizedDesignFee = computed(() => {
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
+  if (!step4Data) return '0';
+
+  const designFeeAmount = step4Data.designFee || 0;
+  const subsidyAmount = step4Data.subsidyAmount || 0;
+
+  // 當補助額度小於設計費時，顯示實際獲得的補助額度
+  const actualSubsidy = Math.min(subsidyAmount, designFeeAmount);
+
+  return actualSubsidy.toLocaleString();
+});
+
 const totalBudget = computed(() => {
   const farmerContribution = parseInt(displayFarmerContribution.value.replace(/,/g, '')) || 0;
   const pipelineSubsidyValue = parseInt(pipeLineSubsidy.value.replace(/,/g, '')) || 0;
   const facilitySubsidyValue = parseInt(facilitySubsidy.value.replace(/,/g, '')) || 0;
-  const designFeeValue = parseInt(designFee.value.replace(/,/g, '')) || 0;
-  return (farmerContribution + pipelineSubsidyValue + facilitySubsidyValue + designFeeValue).toLocaleString();
+  const actualDesignFeeValue = parseInt(actualSubsidizedDesignFee.value.replace(/,/g, '')) || 0;
+  return (farmerContribution + pipelineSubsidyValue + facilitySubsidyValue + actualDesignFeeValue).toLocaleString();
 });
 
 // 將金額轉換為中文大寫

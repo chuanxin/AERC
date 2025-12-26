@@ -98,7 +98,7 @@ class BudgetStatementPDFGenerator:
             # 垂直置中：y 是欄位頂部，計算文字基線位置
             # 欄位中心 = y - row_height / 2
             # 微調偏移：向下偏移一點（負值）讓文字視覺上更居中
-            actual_y = y - row_height / 2 - font_size * 0.2
+            actual_y = y - row_height / 2 - font_size * 0.3
 
         # 如果只有一個字符，直接繪製
         if len(text) == 1:
@@ -263,8 +263,9 @@ class BudgetStatementPDFGenerator:
             if num_lines == 1:
                 # 單行：文字基線在欄位中心稍微偏上
                 # 欄位中心 = y - row_height / 2
-                # 微調偏移 = font_size * 0.1（讓視覺中心與 checkbox 等元素對齊）
-                start_y = y - row_height / 2 + font_size * 1
+                # 微調偏移 = font_size * 0.35（讓視覺中心與 checkbox 等元素對齊）
+                # start_y = y - row_height / 2 + font_size * 0.8
+                start_y = (y - row_height) + row_height / 2 - font_size * 0.3
             else:
                 # 多行：整體內容塊垂直置中
                 # 計算所有文字的總高度（包含行距）
@@ -447,7 +448,9 @@ class BudgetStatementPDFGenerator:
                 current_x = x + (indent if i == 0 else 0)
 
             c.drawString(current_x, y, line)
-            y -= line_spacing
+            # 除了最後一行，其他行都要減少行距
+            if i < len(lines) - 1:
+                y -= line_spacing
 
         return y
 
@@ -508,7 +511,7 @@ class BudgetStatementPDFGenerator:
 
         # === 年度 ===
         c.setFont(self.font_name, 26)
-        year = data.get('year', '114')
+        year = data.get('year', '')
         year_text = f"{year}年度"
         year_width = c.stringWidth(year_text, self.font_name, 26)
         c.drawString((width - year_width) / 2, current_y, year_text)
@@ -516,7 +519,7 @@ class BudgetStatementPDFGenerator:
 
         # === 管理處 ===
         c.setFont(self.font_name, 26)
-        office_name = data.get('office_name', '石門管理處')
+        office_name = data.get('office_name', '')
         office_text = f"農業部農田水利署{office_name}"
         office_width = c.stringWidth(office_text, self.font_name, 26)
         c.drawString((width - office_width) / 2, current_y, office_text)
@@ -538,8 +541,27 @@ class BudgetStatementPDFGenerator:
         # === 通訊住址 ===
         address = data.get('address', '')
         address_text = f"通訊住址：{address}"
-        c.drawString(left_margin, current_y, address_text)
-        current_y -= 60
+
+        # 使用 _draw_paragraph 支援自動換行和懸掛縮排
+        c.setFont(self.font_name, 20)
+        label_width = c.stringWidth("通訊住址：", self.font_name, 20)
+
+        # 記錄繪製前的 Y 座標（第一行位置）
+        line_start_y = current_y
+
+        # 繪製段落，第二行及後續行會自動縮排對齊到內容開始位置
+        self._draw_paragraph(
+            c,
+            address_text,
+            left_margin,
+            current_y,
+            content_width,
+            font_size=20,
+            line_spacing=25,
+            hanging_indent=label_width  # 使用懸掛縮排，第二行對齊地址內容
+        )
+        # 無論有多少行，從第一行頂部向下固定 60pt 作為下一欄位的位置
+        current_y = line_start_y - 60
 
         # === 設施地點 ===
         land_location = data.get('land_location', '')
@@ -554,8 +576,11 @@ class BudgetStatementPDFGenerator:
         c.setFont(self.font_name, 20)
         label_width = c.stringWidth("設施地點：", self.font_name, 20)
 
+        # 記錄繪製前的 Y 座標（第一行位置）
+        line_start_y = current_y
+
         # 繪製段落，第二行及後續行會自動縮排對齊到內容開始位置
-        current_y = self._draw_paragraph(
+        self._draw_paragraph(
             c,
             location_text,
             left_margin,
@@ -563,9 +588,10 @@ class BudgetStatementPDFGenerator:
             content_width,
             font_size=20,
             line_spacing=25,
-            hanging_indent=label_width  # 使用懸掛縮排，第二行對齊 "桃園市"
+            hanging_indent=label_width  # 使用懸掛縮排，第二行對齊縣市名稱
         )
-        current_y -= 15  # 額外間距
+        # 無論有多少行，從第一行頂部向下固定 60pt 作為下一欄位的位置
+        current_y = line_start_y - 60
 
         # === 申請面積 ===
         facility_area_ha = data.get('facility_area_ha', '0.0000')
@@ -610,16 +636,23 @@ class BudgetStatementPDFGenerator:
         col4_width = 100
         row_height = 25
 
-        # === 預先計算第3行的動態高度（用於確定外框總高度） ===
-        land_info = f"{data.get('land_location', '')},地號：{data.get('first_lot_number', '')},等{data.get('land_count', 1)}筆土地。"
+        # === 預先計算第2行和第3行的動態高度（用於確定外框總高度） ===
         content_width = col2_width + col3_width + col4_width - 8
         line_spacing = 14
-        num_lines = self._calculate_text_lines(c, land_info, content_width, font_size=table_font_size)
-        row3_dynamic_height = max(row_height, (num_lines * line_spacing) + 10)
 
-        # 繪製表格外框（考慮第3行的動態高度）
+        # 第2行：住址
+        address = data.get('address', '')
+        num_lines_address = self._calculate_text_lines(c, address, content_width, font_size=table_font_size)
+        row2_dynamic_height = max(row_height, (num_lines_address * line_spacing) + 10)
+
+        # 第3行：設施地段
+        land_info = f"{data.get('land_location', '')},地號：{data.get('first_lot_number', '')},等{data.get('land_count', 1)}筆土地。"
+        num_lines_land = self._calculate_text_lines(c, land_info, content_width, font_size=table_font_size)
+        row3_dynamic_height = max(row_height, (num_lines_land * line_spacing) + 10)
+
+        # 繪製表格外框（考慮第2行和第3行的動態高度）
         total_table_width = col1_width + col2_width + col3_width + col4_width
-        total_table_height = row_height * 5 + row3_dynamic_height  # 前2行+後3行用標準高度，第3行用動態高度
+        total_table_height = row_height * 4 + row2_dynamic_height + row3_dynamic_height  # 第1行+第4行+第5行+第6行用標準高度，第2行和第3行用動態高度
         c.rect(table_x, table_y - total_table_height, total_table_width, total_table_height)
 
         # 第 1 行：農戶姓名 + 申請案號
@@ -651,16 +684,44 @@ class BudgetStatementPDFGenerator:
             font_size=table_font_size
         )
 
-        # 第 2 行：住址
+        # 第 2 行：住址（支援自動換行和動態欄高）
         table_y -= row_height
-        c.line(table_x + col1_width, table_y, table_x + col1_width, table_y - row_height)
-        c.line(table_x, table_y - row_height, table_x + col1_width + col2_width + col3_width + col4_width, table_y - row_height)
-        self._draw_justified_text(c, "住址", table_x + 4, table_y - 17, col1_width - 8, font_size=table_font_size)
-        c.drawString(table_x + col1_width + 4, table_y - 17, data.get('address', ''))
+
+        # 使用預先計算的動態行高
+        dynamic_row_height = row2_dynamic_height
+
+        # 繪製垂直線（根據動態高度）
+        c.line(table_x + col1_width, table_y, table_x + col1_width, table_y - dynamic_row_height)
+        c.line(table_x, table_y - dynamic_row_height, table_x + col1_width + col2_width + col3_width + col4_width, table_y - dynamic_row_height)
+
+        # 繪製標籤（使用內建的垂直置中功能）
+        self._draw_justified_text(
+            c, "住址",
+            table_x + 4,
+            table_y,  # 欄位頂部
+            col1_width - 8,
+            font_size=table_font_size,
+            vertical_align='middle',      # 垂直置中
+            row_height=dynamic_row_height  # 動態行高
+        )
+
+        # 繪製自動換行的內容（垂直置中）
+        self._wrap_and_draw_multiline_text(
+            c, address,
+            table_x + col1_width + 4,   # X 座標
+            table_y,                     # Y 座標（欄位頂部）
+            content_width,               # 最大寬度
+            font_size=table_font_size,
+            line_spacing=line_spacing,
+            align='left',                # 水平對齊：'left', 'center', 'right'
+            vertical_align='middle',     # 垂直置中
+            row_height=dynamic_row_height  # 欄位高度
+        )
+
+        # 更新 table_y 位置（移動到下一行）
+        table_y -= dynamic_row_height
 
         # 第 3 行：設施地段（支援自動換行和動態欄高）
-        table_y -= row_height
-
         # 使用預先計算的動態行高
         dynamic_row_height = row3_dynamic_height
 
@@ -712,7 +773,7 @@ class BudgetStatementPDFGenerator:
         table_y -= row_height
         c.line(table_x + col1_width, table_y, table_x + col1_width, table_y - row_height)
         self._draw_justified_text(c, "補助標準", table_x + 4, table_y - 17, col1_width - 8, font_size=table_font_size)
-        c.drawString(table_x + col1_width + 4, table_y - 17, data.get('subsidy_standard', '一般標準'))
+        c.drawString(table_x + col1_width + 4, table_y - 17, data.get('subsidy_standard', ''))
 
         current_y = table_y - 60
 
@@ -1636,7 +1697,7 @@ class BudgetStatementPDFGenerator:
 
         # 金額（中文大寫）
         c.setFont(self.font_name, 14)
-        govt_subsidy = data.get('govt_subsidy_total', 246078)
+        govt_subsidy = data.get('govt_subsidy_total')
         amount_chinese = self._amount_to_chinese(govt_subsidy)
         amount_text = f"新臺幣：{amount_chinese}"
         amount_width = c.stringWidth(amount_text, self.font_name, 16)
@@ -1663,13 +1724,37 @@ class BudgetStatementPDFGenerator:
 
         # 領款人資訊
         c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
-        current_y -= 35
+        current_y -= 40
         c.drawString(left_margin, current_y, f"領款人(簽名或蓋章)：{data.get('applicant_name', '')}")
-        current_y -= 35
+        current_y -= 40
         c.drawString(left_margin, current_y, f"身分證字號：{data.get('id_number', '')}")
-        current_y -= 35
-        c.drawString(left_margin, current_y, f"通訊地址：{data.get('address', '')}")
-        current_y -= 35
+        current_y -= 40
+
+        # 通訊地址（支援自動換行和懸掛縮排）
+        address_text = f"通訊地址：{data.get('address', '')}"
+
+        # 計算 "通訊地址：" 的寬度作為懸掛縮排量
+        c.setFont(self.font_name, 14)
+        label_width = c.stringWidth("通訊地址：", self.font_name, 14)
+
+        # 記錄繪製前的 Y 座標（第一行位置）
+        line_start_y = current_y
+
+        # 繪製段落，第二行及後續行會自動縮排對齊到內容開始位置
+        content_width = width - left_margin - 80  # 預留右側邊距
+        self._draw_paragraph(
+            c,
+            address_text,
+            left_margin,
+            current_y,
+            content_width,
+            font_size=14,
+            line_spacing=18,
+            hanging_indent=label_width  # 使用懸掛縮排，第二行對齊地址內容
+        )
+        # 無論有多少行，從第一行頂部向下固定 35pt 作為下一欄位的位置
+        current_y = line_start_y - 40
+
         c.drawString(left_margin, current_y, f"聯絡電話：{data.get('phone', '')}")
         current_y -= 80
 
@@ -2103,21 +2188,30 @@ class BudgetStatementPDFGenerator:
         main_pipe_1_qty = budget_data.get('main_pipe_1_qty', 35)
         main_pipe_1_price = budget_data.get('main_pipe_1_price', 292)
         main_pipe_1_total = budget_data.get('main_pipe_1_total', 10220)
+        main_pipe_2_length = budget_data.get('main_pipe_2_length', 0)
+        main_pipe_2_qty = budget_data.get('main_pipe_2_qty', 0)
+        main_pipe_2_price = budget_data.get('main_pipe_2_price', 0)
+        main_pipe_2_total = budget_data.get('main_pipe_2_total', 0)
         irrigation_system_total = budget_data.get('irrigation_system_total', 60445)
-        b_design_fee = budget_data.get('b_design_fee', 1413)
-        c_control_total = budget_data.get('c_control_total', 473340)
-        d_power_total = budget_data.get('d_power_total', 4000)
-        e_storage_total = budget_data.get('e_storage_total', 80000)
+        b_design_fee = budget_data.get('b_design_fee', 0)
+        actual_subsidized_design_fee = budget_data.get('actual_subsidized_design_fee', b_design_fee)
+        c_control_total = budget_data.get('c_control_total', 0)
+        c_control_quantity = budget_data.get('c_control_quantity', 0)
+        d_power_total = budget_data.get('d_power_total', 0)
+        d_power_quantity = budget_data.get('d_power_quantity', 0)
+        e_storage_total = budget_data.get('e_storage_total', 0)
+        e_storage_tonnage = budget_data.get('e_storage_tonnage', 0)
 
         # 計算金額
         total_amount = a_item_total + b_design_fee + c_control_total + d_power_total + e_storage_total
-        farmer_contribution = budget_data.get('farmer_contribution', 383340)
+        farmer_contribution = budget_data.get('farmer_contribution', 0)
         govt_subsidy_a = budget_data.get('govt_subsidy_a', a_item_total)
-        govt_subsidy_c = budget_data.get('govt_subsidy_c', 90000)
+        govt_subsidy_c = budget_data.get('govt_subsidy_c', 0)
         govt_subsidy_d = budget_data.get('govt_subsidy_d', d_power_total)
         govt_subsidy_e = budget_data.get('govt_subsidy_e', e_storage_total)
-        govt_subsidy_total = govt_subsidy_a + govt_subsidy_c + govt_subsidy_d + govt_subsidy_e
-        subtotal = govt_subsidy_total + b_design_fee
+        govt_subsidy_total = budget_data.get('govt_subsidy_total')
+        # govt_subsidy_total = govt_subsidy_a + govt_subsidy_c + govt_subsidy_d + govt_subsidy_e
+        subtotal = govt_subsidy_total + actual_subsidized_design_fee
 
         current_y = start_y
 
@@ -2152,78 +2246,128 @@ class BudgetStatementPDFGenerator:
         current_y = table_start_y - row_height
         current_y -= row_height * 0.7
 
+        # A項（根據是否有田間管路設施費決定顯示內容）
         c.setLineWidth(0.1)
-        c.drawString(x + 8, current_y, "A.田間管路設施費")
-        self._draw_centered_text(c, "(1)", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
-        self._draw_centered_text(c, "全", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
-        self._draw_right_aligned_text(c, f"{a_item_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
-        c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
+        if a_item_total > 0:
+            # 有田間管路設施費：顯示完整資訊
+            c.drawString(x + 8, current_y, "A.田間管路設施費")
+            self._draw_centered_text(c, "(1)", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
+            self._draw_centered_text(c, "全", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
+            self._draw_right_aligned_text(c, f"{a_item_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+            c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
 
-        current_y -= row_height
-        c.drawString(x + 20, current_y, "(1)材料費")
-        # self._draw_right_aligned_text(c, f"{a_materials:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
-        c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
+            current_y -= row_height
+            c.drawString(x + 20, current_y, "(1)材料費")
+            # self._draw_right_aligned_text(c, f"{a_materials:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+            c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
 
-        current_y -= row_height
-        c.drawString(x + 38, current_y, f"田間主管1(L1)")
-        self._draw_centered_text(c, "支", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
-        self._draw_centered_text(c, f"{main_pipe_1_qty}", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
-        self._draw_centered_text(c, f"{main_pipe_1_price}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3], current_y, col_widths[4], font_size=table_font_size)
-        self._draw_right_aligned_text(c, f"{main_pipe_1_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
-        self._draw_centered_text(c, f"管長{main_pipe_1_length}公尺", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
-        c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
+            current_y -= row_height
+            c.drawString(x + 38, current_y, f"田間主管1(L1)")
+            self._draw_centered_text(c, "支", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
+            self._draw_centered_text(c, f"{main_pipe_1_qty}", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
+            self._draw_centered_text(c, f"{main_pipe_1_price}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3], current_y, col_widths[4], font_size=table_font_size)
+            self._draw_right_aligned_text(c, f"{main_pipe_1_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+            self._draw_centered_text(c, f"管長{main_pipe_1_length}公尺", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+            c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
 
-        current_y -= row_height
-        c.drawString(x + 38, current_y, "灌溉系統")
-        self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
-        self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
-        self._draw_right_aligned_text(c, f"{irrigation_system_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
-        self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+            # 田間主管2（如果有數量則顯示）
+            if main_pipe_2_qty > 0:
+                current_y -= row_height
+                c.drawString(x + 38, current_y, f"田間主管2(L2)")
+                self._draw_centered_text(c, "支", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
+                self._draw_centered_text(c, f"{main_pipe_2_qty}", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
+                self._draw_centered_text(c, f"{main_pipe_2_price}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3], current_y, col_widths[4], font_size=table_font_size)
+                self._draw_right_aligned_text(c, f"{main_pipe_2_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+                self._draw_centered_text(c, f"管長{main_pipe_2_length}公尺", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+                c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
+
+            current_y -= row_height
+            c.drawString(x + 38, current_y, "灌溉系統")
+            self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
+            self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
+            self._draw_right_aligned_text(c, f"{irrigation_system_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+            self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+        else:
+            # 無田間管路設施費：只顯示項目名稱
+            c.drawString(x + 8, current_y, "A.田間管路設施費")
+            # 其他欄位為空，只顯示總價為 0
+            self._draw_right_aligned_text(c, "0", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
         # A項下方分隔線（保持原樣）
         c.setLineWidth(0.5)
         c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
         
 
-        # B項
+        # B項（根據是否有規劃設計費決定顯示內容）
         current_y -= row_height
-        c.drawString(x + 8, current_y, "B.規劃設計費")
-        self._draw_centered_text(c, "A × 2.0%", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
-        self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
-        self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
-        self._draw_right_aligned_text(c, f"{b_design_fee:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+        if b_design_fee > 0:
+            # 有規劃設計費：顯示完整資訊
+            c.drawString(x + 8, current_y, "B.規劃設計費")
+            self._draw_centered_text(c, "A × 2.0%", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
+            self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
+            self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
+            self._draw_right_aligned_text(c, f"{b_design_fee:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+        else:
+            # 無規劃設計費：只顯示項目名稱
+            c.drawString(x + 8, current_y, "B.規劃設計費")
+            # 其他欄位為空，只顯示總價為 0
+            self._draw_right_aligned_text(c, "0", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
         # B項下方分隔線
         c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
 
-        # C項
+        # C項（根據是否有調控設施決定顯示內容）
         current_y -= row_height
-        c.drawString(x + 8, current_y, "C.調控設施")
-        self._draw_centered_text(c, "依計畫補助標準", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
-        self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
-        self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
-        self._draw_right_aligned_text(c, f"{c_control_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
-        self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+        if c_control_total > 0:
+            # 有調控設施：顯示數量和完整資訊
+            facility_name = f"C.調控設施({c_control_quantity}組)" if c_control_quantity > 0 else "C.調控設施"
+            c.drawString(x + 8, current_y, facility_name)
+            self._draw_centered_text(c, "依計畫補助標準", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
+            self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
+            self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
+            self._draw_right_aligned_text(c, f"{c_control_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+            self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+        else:
+            # 無調控設施：只顯示項目名稱
+            c.drawString(x + 8, current_y, "C.調控設施")
+            # 其他欄位為空，只顯示總價為 0
+            self._draw_right_aligned_text(c, "0", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
         # C項下方分隔線
         c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
 
-        # D項
+        # D項（根據是否有動力設備決定顯示內容）
         current_y -= row_height
-        c.drawString(x + 8, current_y, "D.動力設備(1台)")
-        self._draw_centered_text(c, "依計畫補助標準", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
-        self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
-        self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
-        self._draw_right_aligned_text(c, f"{d_power_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
-        self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+        if d_power_total > 0:
+            # 有動力設備：顯示數量和完整資訊
+            facility_name = f"D.動力設備({d_power_quantity}臺)" if d_power_quantity > 0 else "D.動力設備"
+            c.drawString(x + 8, current_y, facility_name)
+            self._draw_centered_text(c, "依計畫補助標準", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
+            self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
+            self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
+            self._draw_right_aligned_text(c, f"{d_power_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+            self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+        else:
+            # 無動力設備：只顯示項目名稱
+            c.drawString(x + 8, current_y, "D.動力設備")
+            # 其他欄位為空，只顯示總價為 0
+            self._draw_right_aligned_text(c, "0", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
         # D項下方分隔線
         c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
 
-        # E項
+        # E項（根據是否有調蓄設施決定顯示內容）
         current_y -= row_height
-        c.drawString(x + 8, current_y, "E.調蓄設施(20噸)")
-        self._draw_centered_text(c, "依計畫補助標準", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
-        self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
-        self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
-        self._draw_right_aligned_text(c, f"{e_storage_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
-        self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+        if e_storage_total > 0:
+            # 有調蓄設施：顯示噸位和完整資訊
+            facility_name = f"E.調蓄設施({e_storage_tonnage}噸)" if e_storage_tonnage > 0 else "E.調蓄設施"
+            c.drawString(x + 8, current_y, facility_name)
+            self._draw_centered_text(c, "依計畫補助標準", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
+            self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
+            self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
+            self._draw_right_aligned_text(c, f"{e_storage_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+            self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+        else:
+            # 無調蓄設施：只顯示項目名稱
+            c.drawString(x + 8, current_y, "E.調蓄設施")
+            # 其他欄位為空，只顯示總價為 0
+            self._draw_right_aligned_text(c, "0", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
         # E項下方分隔線
         c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
 
@@ -2282,19 +2426,19 @@ class BudgetStatementPDFGenerator:
 
         # A-E項補助費（在"農戶請領款"右方的欄位中）
         detail_x = x + left_col_width + middle_col_width + 5
-        c.drawString(detail_x, current_y, f"A項補助：{govt_subsidy_a:,}")
+        c.drawString(detail_x, current_y, f"A.項補助：{govt_subsidy_a:,}")
         current_y -= row_height * 0.8
-        c.drawString(detail_x, current_y, f"C項補助：{govt_subsidy_c:,}")
+        c.drawString(detail_x, current_y, f"C.項補助：{govt_subsidy_c:,}")
         current_y -= row_height * 0.8
-        c.drawString(detail_x, current_y, f"D項補助：{govt_subsidy_d:,}")
+        c.drawString(detail_x, current_y, f"D.項補助：{govt_subsidy_d:,}")
         current_y -= row_height * 0.8
-        c.drawString(detail_x, current_y, f"E項補助：{govt_subsidy_e:,}")
+        c.drawString(detail_x, current_y, f"E.項補助：{govt_subsidy_e:,}")
 
         # 農戶請領款下方分隔線（只畫右欄）
         current_y -= row_height * 0.4
         c.line(x + left_col_width, current_y, x + total_width, current_y)
 
-        # 規劃設計費（第二列右側）
+        # 規劃設計費（第二列右側）- 顯示實際獲得補助的設計費
         current_y -= row_height * 0.7
         self._draw_justified_text(
             c, "規劃設計費",
@@ -2303,7 +2447,7 @@ class BudgetStatementPDFGenerator:
             font_size=table_font_size
         )
         self._draw_centered_text(c, "B", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
-        self._draw_right_aligned_text(c, f"{b_design_fee:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
+        self._draw_right_aligned_text(c, f"{actual_subsidized_design_fee:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
         c.line(x + left_col_width, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
 
         # 小計（第三列右側）
@@ -2407,7 +2551,7 @@ class BudgetStatementPDFGenerator:
         chinese_amount = ''.join(result)
 
         # 簡化處理：直接返回（實際應該有更複雜的規則處理）
-        return f"{chinese_amount}元整"
+        return f"{chinese_amount} 元整"
 
     def _draw_signature_section(self, c: canvas.Canvas, x: float, current_y: float) -> float:
         """
