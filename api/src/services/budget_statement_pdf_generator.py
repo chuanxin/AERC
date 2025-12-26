@@ -551,6 +551,17 @@ class BudgetStatementPDFGenerator:
         """生成第 1 頁：封面頁"""
         width, height = A4
 
+        # === 修訂日期（右上角）===
+        if self.revision_date:
+            c.setFont(self.font_name, 8)
+            c.setFillColorRGB(0.6, 0.6, 0.6)  # 淡灰色
+            revision_text = f"{self.revision_date}修訂"
+            revision_text_width = c.stringWidth(revision_text, self.font_name, 8)
+            # 右上角位置：右邊距 20pt，上邊距 30pt
+            c.drawString(width - revision_text_width - 20, height - 30, revision_text)
+            # 重設顏色為黑色
+            c.setFillColorRGB(0, 0, 0)
+
         # 設置初始位置
         current_y = height - 75 # 從頂部開始，留出邊距
         left_margin = 60
@@ -1711,8 +1722,8 @@ class BudgetStatementPDFGenerator:
         # 基本資訊
         c.setFont(self.font_name, 12)
         c.drawString(left_margin, current_y, f"申請人：{data.get('applicant_name', '')}")
-        c.drawString(left_margin + 170, current_y, f"施設型式：{data.get('facility_type', '')}")
-        c.drawString(left_margin + 370, current_y, f"申請案號：{data.get('case_number', '')}")
+        c.drawString(left_margin + 150, current_y, f"施設型式：{data.get('facility_type', '')}")
+        c.drawString(left_margin + 390, current_y, f"申請案號：{data.get('case_number', '')}")
         current_y -= 18
 
         land_location = data.get('land_location', '')
@@ -1721,20 +1732,21 @@ class BudgetStatementPDFGenerator:
 
         # 從後端取得灌溉型式 ID 和各項參數（空值或 0 顯示刪節符號）
         irrigation_type_id = data.get('irrigation_type_id', 0)
+        dripper_subtype_id = data.get('dripper_subtype_id', 0)
         sl = self._format_value_or_dash(data.get('branch_pipe_spacing_sl', ''), 'm')
         ss = self._format_value_or_dash(data.get('sprinkler_spacing_ss', ''), 'm')
         l1 = self._format_value_or_dash(data.get('main_pipe_1_length', 0), 'm')
 
         # 根據灌溉型式決定顯示內容
-        if irrigation_type_id == 1:
+        if irrigation_type_id == 1 or dripper_subtype_id == 8:
             # 穿孔管系統：僅顯示 SL
             c.drawString(left_margin, current_y, f"行距(SL)：{sl}")
-            c.drawString(left_margin + 370, current_y, f"長度(L1)：{l1}")
+            c.drawString(left_margin + 390, current_y, f"長度(L1)：{l1}")
         else:
             # 其他系統：顯示 SL、SS、L1
             c.drawString(left_margin, current_y, f"行距(SL)：{sl}")
-            c.drawString(left_margin + 170, current_y, f"間距(SS)：{ss}")
-            c.drawString(left_margin + 370, current_y, f"長度(L1)：{l1}")
+            c.drawString(left_margin + 150, current_y, f"間距(SS)：{ss}")
+            c.drawString(left_margin + 390, current_y, f"長度(L1)：{l1}")
         current_y -= 10
 
         # 地籍圖區域（大空白區域）

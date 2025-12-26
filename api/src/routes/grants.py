@@ -1045,7 +1045,6 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
 
     # 設施型式（組合「設施型式」+ 「灌溉型式」）
     installation_type_raw = step5_data.get('installationType', '')
-    irrigation_type_part = step5_data.get('irrigationType', '')
 
     # 設施型式映射表（對應 UI step5 的 installationTypeOptions）
     installation_type_mapping = {
@@ -1059,6 +1058,35 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         installation_type_raw,
         str(installation_type_raw) if installation_type_raw else ''
     )
+
+    # 根據 irrigationTypeId 和相關 subtype ID 決定灌溉型式部分
+    irrigation_type_id = step5_data.get('irrigationTypeId', 0)
+    irrigation_type_raw = step5_data.get('irrigationType', '')
+    sprinkler_subtype_id = step5_data.get('sprinklerSubtypeId', 0)
+    dripper_subtype_id = step5_data.get('dripperSubtypeId', 0)
+
+    if irrigation_type_id in [1, 3]:
+        # irrigationTypeId = 1（穿孔管系統）或 3（微噴灌系統）：直接使用 irrigationType
+        irrigation_type_part = irrigation_type_raw
+    elif irrigation_type_id == 2:
+        # irrigationTypeId = 2（噴頭系統）：根據 sprinklerSubtypeId 判斷
+        if sprinkler_subtype_id == 6:
+            irrigation_type_part = "高壓大型噴頭系統"
+        elif sprinkler_subtype_id == 2:
+            irrigation_type_part = "一般噴頭系統"
+        else:
+            irrigation_type_part = irrigation_type_raw
+    elif irrigation_type_id == 4:
+        # irrigationTypeId = 4（滴灌系統）：根據 dripperSubtypeId 判斷
+        if dripper_subtype_id == 7:
+            irrigation_type_part = "滴嘴滴灌系統"
+        elif dripper_subtype_id == 8:
+            irrigation_type_part = "滴水管滴灌系統"
+        else:
+            irrigation_type_part = irrigation_type_raw
+    else:
+        # 其他情況：直接使用 irrigationType
+        irrigation_type_part = irrigation_type_raw
 
     # 組合兩個欄位，用空格分隔
     if installation_type_part and irrigation_type_part:
@@ -1368,9 +1396,10 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     sprinkler_spacing_ss = step5_data.get('sprinklerSpacing_SS', '')
     branch_pipe_spacing_sl = step5_data.get('branchPipeSpacing_SL', '')
     irrigation_type_id = step5_data.get('irrigationTypeId', 0)
+    dripper_subtype_id = step5_data.get('dripperSubtypeId', 0)
 
     # 根據灌溉型式 ID 決定 nozzle_spacing 的顯示格式
-    if irrigation_type_id == 1:
+    if irrigation_type_id == 1 or dripper_subtype_id == 8:
         # 穿孔管系統：僅顯示 SL
         nozzle_spacing = f"{branch_pipe_spacing_sl}" if branch_pipe_spacing_sl else ''
         nozzle_spacing_label = f"噴頭配置間距(SL)" if branch_pipe_spacing_sl else ''
@@ -1409,6 +1438,7 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         'nozzle_spacing': nozzle_spacing,
         'nozzle_spacing_label': nozzle_spacing_label,
         'irrigation_type_id': irrigation_type_id,  # 灌溉型式 ID（用於判斷顯示邏輯）
+        'dripper_subtype_id': dripper_subtype_id,  # 滴灌型式 ID（用於判斷顯示邏輯）
         'sprinkler_spacing_ss': sprinkler_spacing_ss,  # 噴頭間距 SS
         'branch_pipe_spacing_sl': branch_pipe_spacing_sl,  # 支管行距 SL
         'main_pipe_1_length': main_pipe_1_length,  # 田間主管1管長
