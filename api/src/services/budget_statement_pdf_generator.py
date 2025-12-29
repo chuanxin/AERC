@@ -2310,7 +2310,7 @@ class BudgetStatementPDFGenerator:
         # === 審查結果 ===
         current_y -= 20
         c.setFont(self.font_name, 12)
-        c.drawString(60, current_y, "審查結果：□合格        □不合格")
+        c.drawString(table_x, current_y, "審查結果：□合格        □不合格")
         c.drawString(400, current_y, "審查人：")
 
         c.showPage()
