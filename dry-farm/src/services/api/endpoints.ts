@@ -86,6 +86,12 @@ export const GRANTS = {
   BUDGET_STATEMENT: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/budget-statement`,
 }
 
+// Statistics related endpoints
+export const STATISTICS = {
+  EXECUTION_PROGRESS: `${BASE}/grants/statistics/execution-progress`,
+  BUDGET_ANALYSIS: `${BASE}/grants/statistics/budget-analysis`,
+}
+
 // Pipe Fittings related endpoints
 export const PIPE_FITTINGS = {
   BASE: `${BASE}/pipe_fittings`,

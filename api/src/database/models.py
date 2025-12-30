@@ -429,14 +429,40 @@ class Offices(models.Model):
     code = fields.CharField(max_length=10, unique=True, description="單位代碼")
     classification = fields.IntField(default=1, description="單位類型(1:管理處 2:其他)")
     is_funding_source = fields.BooleanField(default=False, description="是否為補助來源")
-    
+
     class Meta:
         table = "offices"
         table_description = "單位/管理處資料表"
-    
+
     def __str__(self):
         return self.name
-    
+
+
+class SubsidyAnnualBudget(models.Model):
+    """補助年度預算計畫表"""
+    id = fields.IntField(pk=True)
+    year = fields.IntField(description="年度（民國年）")
+    office = fields.ForeignKeyField("models.Offices", related_name="annual_budgets", description="所屬辦公室")
+    approved_budget = fields.DecimalField(max_digits=15, decimal_places=2, default=0, description="核定執行預算金額")
+    approved_area = fields.DecimalField(max_digits=10, decimal_places=4, default=0, description="核定執行面積（公頃）")
+
+    # 時間戳記
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
+    created_by = fields.ForeignKeyField("models.Users", related_name="created_budgets", null=True, description="建立人帳號", on_delete=fields.SET_NULL)
+    modified_by = fields.ForeignKeyField("models.Users", related_name="modified_budgets", null=True, description="修改人帳號", on_delete=fields.SET_NULL)
+
+    class Meta:
+        table = "subsidy_annual_budgets"
+        table_description = "補助年度預算計畫表"
+        unique_together = (("year", "office"),)
+        indexes = [
+            ("year", "office"),
+        ]
+
+    def __str__(self):
+        return f"{self.year}年度 - {self.office.name} 預算"
+
 class Counties(models.Model):
     """縣市資料表"""
     id = fields.IntField(pk=True)
