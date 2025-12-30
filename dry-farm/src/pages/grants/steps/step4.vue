@@ -3913,7 +3913,7 @@ const fetchPipeFittings = async () => {
     await pipeFittingsStore.fetchPipeFittingsByOfficeId(officeId, {
       skip: 0,
       limit: 1000, // Fetch all pipe fittings for the office
-      append: true,
+      append: false,  // 🔧 清空舊資料並重新載入，確保價格是最新的
       include_inactive: false,  // 🔧 只載入啟用的管件（用戶介面）
     });
     // console.log(`Fetched all pipe fittings for office_id: ${officeId}`);

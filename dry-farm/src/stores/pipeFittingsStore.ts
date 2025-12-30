@@ -150,15 +150,15 @@ export const usePipeFittingsStore = defineStore('pipeFittings', {
           console.log(`[STORE FETCH] New items pomnos: ${newItemsPomnos.substring(0, 100)}...`);
 
           if (append) {
-            // 檢查是否有重複項 (可選，用於調試)
+            // 檢查是否有重複項，只加入唯一的新項目
             const existingPomnos = new Set(this.pipeFittings.map(p => p.pomno));
             const uniqueNewItems = response.items.filter(newItem => !existingPomnos.has(newItem.pomno));
             if (uniqueNewItems.length < response.items.length) {
-              console.warn(`[STORE FETCH] Potential duplicate items being added. Original new: ${response.items.length}, Unique new: ${uniqueNewItems.length}`);
+              console.warn(`[STORE FETCH] Skipping ${response.items.length - uniqueNewItems.length} duplicate items. Original new: ${response.items.length}, Unique new: ${uniqueNewItems.length}`);
             }
-            this.pipeFittings = [...this.pipeFittings, ...response.items];
+            this.pipeFittings = [...this.pipeFittings, ...uniqueNewItems];  // 🔧 只加入唯一的新項目
           } else {
-            this.pipeFittings = response.items;
+            this.pipeFittings = response.items;  // 🔧 清空並替換所有資料
           }
           this.totalPipeFittings = response.total; // API 應返回總數
           console.log(`[STORE FETCH] After update: loaded=${this.pipeFittings.length}, total=${this.totalPipeFittings}`);
