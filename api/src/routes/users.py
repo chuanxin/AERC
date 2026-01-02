@@ -1122,7 +1122,7 @@ async def complete_account_migration(payload: AccountMigrationCompleteRequest):
             user.full_name = payload.full_name
         if payload.job_title:
             user.job_title = payload.job_title
-        if payload.office_id:
+        if payload.office_id is not None:
             user.office_id = payload.office_id
         if payload.department:
             import json
