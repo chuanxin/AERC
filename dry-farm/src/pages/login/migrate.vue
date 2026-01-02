@@ -84,7 +84,7 @@
                 variant="outlined"
                 density="compact"
                 clearable
-                :rules="[v => !!v || '管理處為必填欄位']"
+                :rules="[v => v != null || '管理處為必填欄位']"
                 required
                 hide-details
                 @update:model-value="onManagementOfficeChange"
@@ -375,7 +375,13 @@ const jobTitleOptions = [
   '臨時人員',  // 23
   '職代',       // 24
   '專門委員', // 25
-  '計畫人員'  // 26
+  '計畫人員',  // 26
+  '科長',      // 27
+  '正工程師', // 28
+  '駐點/協辦',  // 29
+  '助理技師', // 30
+  '助理研究員', // 31
+  '副技師', // 32
 ]
 
 // 管理處選項（從 officesStore 載入）
@@ -546,7 +552,7 @@ const completeMigration = async () => {
     return
   }
 
-  if (!selectedManagementOffice.value) {
+  if (selectedManagementOffice.value == null) {
     alert('請選擇管理處')
     return
   }
@@ -616,8 +622,8 @@ const completeMigration = async () => {
 
   loading.value = true
   try {
-    // 準備請求資料：只發送非空值
-    const payload: Record<string, string> = {
+    // 準備請求資料
+    const payload: Record<string, string | number> = {
       token: token.value,
       otp: otp.value,
       new_password: newPassword.value,
@@ -631,9 +637,9 @@ const completeMigration = async () => {
     if (userInfo.value.phone_ext) payload.phone_ext = userInfo.value.phone_ext
     if (userInfo.value.mobile) payload.mobile = userInfo.value.mobile
 
-    // 所屬單位：儲存管理處 ID 到 office_id
-    if (selectedManagementOffice.value) {
-      payload.office_id = String(selectedManagementOffice.value)
+    // 所屬單位：儲存管理處 ID 到 office_id（使用數字類型）
+    if (selectedManagementOffice.value != null) {
+      payload.office_id = selectedManagementOffice.value
     }
 
     // 部門詳細資訊：儲存為 JSON

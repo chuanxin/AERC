@@ -23,6 +23,8 @@ from src.services.completion_statement_pdf_generator import CompletionStatementP
 from src.services.declaration_pdf_generator import DeclarationPDFGenerator
 from src.services.authorization_pdf_generator import AuthorizationPDFGenerator
 from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
+from src.crud.grant_statistics import GrantStatisticsCRUD
+from src.schemas.statistics import ExecutionProgressResponse, BudgetAnalysisResponse
 
 import logging
 import tempfile
@@ -1505,4 +1507,92 @@ async def download_budget_statement(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"生成工程預算書失敗: {str(e)}"
+        )
+
+
+# ==================== 統計功能端點 ====================
+
+@router.get(
+    "/statistics/execution-progress",
+    response_model=ExecutionProgressResponse,
+    summary="取得即時執行進度統計",
+    description="取得指定年度的即時執行進度統計，包含各辦公室的核定預算、已結案案件數、總補助面積和金額等資訊"
+)
+async def get_execution_progress_statistics(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """
+    取得即時執行進度統計
+
+    權限控制：
+    - admin: 查看所有辦公室的統計
+    - 其他角色: 只能查看自己辦公室的統計
+    """
+    try:
+        logger.info(f"📊 [get_execution_progress_statistics] 查詢執行進度統計: year={year}, user={current_user.username}, role={current_user.role}")
+
+        # 取得使用者的辦公室 ID
+        office_id = current_user.office.id if current_user.office else None
+
+        # 調用 CRUD 層取得統計資料
+        result = await GrantStatisticsCRUD.get_execution_progress(
+            year=year,
+            office_id=office_id,
+            user_role=current_user.role
+        )
+
+        logger.info(f"✅ [get_execution_progress_statistics] 成功取得統計資料: {len(result.offices)} 個辦公室")
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ [get_execution_progress_statistics] 查詢失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查詢執行進度統計失敗: {str(e)}"
+        )
+
+
+@router.get(
+    "/statistics/budget-analysis",
+    response_model=BudgetAnalysisResponse,
+    summary="取得即時經費統計分析",
+    description="取得指定年度的即時經費統計分析，包含預定執行、已編預算、已驗收等資訊"
+)
+async def get_budget_analysis_statistics(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """
+    取得即時經費統計分析
+
+    權限控制：
+    - admin: 查看所有辦公室的統計
+    - 其他角色: 只能查看自己辦公室的統計
+    """
+    try:
+        logger.info(f"📊 [get_budget_analysis_statistics] 查詢經費分析統計: year={year}, user={current_user.username}, role={current_user.role}")
+
+        # 取得使用者的辦公室 ID
+        office_id = current_user.office.id if current_user.office else None
+
+        # 調用 CRUD 層取得統計資料
+        result = await GrantStatisticsCRUD.get_budget_analysis(
+            year=year,
+            office_id=office_id,
+            user_role=current_user.role
+        )
+
+        logger.info(f"✅ [get_budget_analysis_statistics] 成功取得統計資料: {len(result.offices)} 個辦公室")
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ [get_budget_analysis_statistics] 查詢失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查詢經費分析統計失敗: {str(e)}"
         )

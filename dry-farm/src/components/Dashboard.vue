@@ -144,160 +144,190 @@
               </v-card-title>
             </v-card-item>
             <v-card-text>
+              <!-- 管理處執行進度表格 -->
+              <v-card
+                class="table-card mb-6"
+                rounded="lg"
+                elevation="0"
+              >
+                <div class="pa-4">
+                  <h3 class="text-h6 font-weight-bold mb-4" style="color: #3ea0a3;">
+                    管理處執行進度
+                  </h3>
+
+                  <v-data-table
+                    :headers="executionHeaders"
+                    :items="statisticsStore.executionProgress?.offices || []"
+                    :loading="statisticsStore.isLoading"
+                    loading-text="載入中..."
+                    no-data-text="暫無資料"
+                    class="statistics-table"
+                    density="comfortable"
+                    hover
+                  >
+                    <!-- 自訂欄位格式 -->
+                    <template #item.approved_budget="{ value }">
+                      {{ formatCurrency(value) }}
+                    </template>
+                    <template #item.total_area="{ value }">
+                      {{ value.toFixed(4) }}
+                    </template>
+                    <template #item.total_subsidy="{ value }">
+                      {{ formatCurrency(value) }}
+                    </template>
+                    <template #item.execution_rate="{ value }">
+                      <v-chip
+                        :color="value >= 80 ? 'success' : value >= 50 ? 'warning' : 'error'"
+                        size="small"
+                        label
+                      >
+                        {{ formatPercentage(value) }}
+                      </v-chip>
+                    </template>
+
+                    <!-- 總計列 -->
+                    <template #bottom>
+                      <v-divider />
+                      <div class="d-flex align-center pa-4 bg-grey-lighten-4">
+                        <div class="text-subtitle-1 font-weight-bold" style="min-width: 120px;">
+                          總計
+                        </div>
+                        <v-spacer />
+                        <div class="d-flex flex-wrap ga-6">
+                          <div class="text-caption">
+                            <span class="text-medium-emphasis">總核定預算：</span>
+                            <span class="font-weight-bold">{{ formatCurrency(statisticsStore.executionProgress?.total_approved_budget || 0) }} 元</span>
+                          </div>
+                          <div class="text-caption">
+                            <span class="text-medium-emphasis">總已結案案件：</span>
+                            <span class="font-weight-bold">{{ statisticsStore.executionProgress?.total_completed_cases || 0 }} 件</span>
+                          </div>
+                          <div class="text-caption">
+                            <span class="text-medium-emphasis">總補助面積：</span>
+                            <span class="font-weight-bold">{{ (statisticsStore.executionProgress?.total_area || 0).toFixed(4) }} 公頃</span>
+                          </div>
+                          <div class="text-caption">
+                            <span class="text-medium-emphasis">整體執行率：</span>
+                            <v-chip
+                              :color="(statisticsStore.executionProgress?.overall_execution_rate || 0) >= 80 ? 'success' : 'warning'"
+                              size="x-small"
+                              label
+                            >
+                              {{ formatPercentage(statisticsStore.executionProgress?.overall_execution_rate || 0) }}
+                            </v-chip>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </v-data-table>
+                </div>
+              </v-card>
+
+              <!-- 管理處經費統計表格 -->
               <v-card
                 class="table-card mb-4"
                 rounded="lg"
                 elevation="0"
               >
-                <!-- 預算執行率摘要 -->
-                <v-sheet
-                  class="pa-4 rounded-lg"
-                  color="#e3f4f4"
-                >
-                  <div class="d-flex align-center flex-wrap">
-                    <div class="budget-data-group me-4 mb-2">
-                      <div class="text-caption text-medium-emphasis mb-1">
-                        執行率
-                      </div>
-                      <div
-                        class="text-h4 font-weight-bold"
-                        style="color: #3ea0a3;"
-                      >
-                        90%
-                      </div>
-                    </div>
-                    <v-divider
-                      vertical
-                      class="mx-3 d-none d-sm-block"
-                      style="height: 50px;"
-                    />
-                    <div class="budget-data-group me-4 mb-2">
-                      <div class="text-caption text-medium-emphasis mb-1">
-                        已動支金額
-                      </div>
-                      <div
-                        class="text-h6 font-weight-medium"
-                        style="color: #3ea0a3;"
-                      >
-                        NT$26,442.00
-                      </div>
-                    </div>
-                    <v-divider
-                      vertical
-                      class="mx-3 d-none d-sm-block"
-                      style="height: 50px;"
-                    />
-                    <div class="budget-data-group me-4 mb-2">
-                      <div class="text-caption text-medium-emphasis mb-1">
-                        尚餘金額
-                      </div>
-                      <div class="text-h6 font-weight-medium">
-                        NT$2,938.00
-                      </div>
-                    </div>
-                    <v-spacer
-                      class="d-none d-md-block"
-                    />
-                    <div class="budget-data-group text-right">
-                      <div class="text-caption text-medium-emphasis mb-1">
-                        年度編列預算
-                      </div>
-                      <div class="text-h6 font-weight-medium">
-                        NT$29,380.00
-                      </div>
-                    </div>
-                  </div>
-                </v-sheet>
+                <div class="pa-4">
+                  <h3 class="text-h6 font-weight-bold mb-4" style="color: #3ea0a3;">
+                    管理處經費統計表
+                  </h3>
 
-                <!-- 預算執行進度條 -->
-                <div class="position-relative my-5 px-4 pb-0">
-                  <div
-                    :style="`right: calc(100% - ${budgetStats.executionRate}%)`"
-                    class="position-absolute"
-                    style="top: -24px"
+                  <v-data-table
+                    :headers="budgetHeaders"
+                    :items="statisticsStore.budgetAnalysis?.offices || []"
+                    :loading="statisticsStore.isLoading"
+                    loading-text="載入中..."
+                    no-data-text="暫無資料"
+                    class="statistics-table"
+                    density="comfortable"
+                    hover
                   >
-                    <v-chip
-                      color="#3ea0a3"
-                      size="small"
-                      label
-                      class="font-weight-medium"
-                    >
-                      已驗收
-                    </v-chip>
-                  </div>
-                  <v-progress-linear
-                    color="#3ea0a3"
-                    height="22"
-                    :model-value="budgetStats.executionRate"
-                    rounded="lg"
-                  >
-                    <v-badge
-                      :style="`right: ${100 - budgetStats.executionRate}%`"
-                      class="position-absolute"
-                      color="white"
-                      dot
-                      inline
-                    />
-                  </v-progress-linear>
-                </div>
+                    <!-- 自訂欄位格式 -->
+                    <template #item.planned_area="{ value }">
+                      {{ value.toFixed(4) }}
+                    </template>
+                    <template #item.planned_budget="{ value }">
+                      {{ formatCurrency(value) }}
+                    </template>
+                    <template #item.budgeted_area="{ value }">
+                      {{ value.toFixed(4) }}
+                    </template>
+                    <template #item.budgeted_subsidy="{ value }">
+                      {{ formatCurrency(value) }}
+                    </template>
+                    <template #item.unbudgeted_subsidy="{ value }">
+                      {{ formatCurrency(value) }}
+                    </template>
+                    <template #item.verified_area="{ value }">
+                      {{ value.toFixed(4) }}
+                    </template>
+                    <template #item.verified_amount="{ value }">
+                      {{ formatCurrency(value) }}
+                    </template>
+                    <template #item.area_execution_rate="{ value }">
+                      <v-chip
+                        :color="value >= 80 ? 'success' : value >= 50 ? 'warning' : 'error'"
+                        size="small"
+                        label
+                      >
+                        {{ formatPercentage(value) }}
+                      </v-chip>
+                    </template>
+                    <template #item.budget_execution_rate="{ value }">
+                      <v-chip
+                        :color="value >= 80 ? 'success' : value >= 50 ? 'warning' : 'error'"
+                        size="small"
+                        label
+                      >
+                        {{ formatPercentage(value) }}
+                      </v-chip>
+                    </template>
 
-                <!-- 預算詳細資訊 -->
-                <!-- <div class="pa-4 pt-0">
-                  <v-expansion-panels variant="accordion" class="budget-panels">
-                    <v-expansion-panel elevation="0" class="budget-panel">
-                      <v-expansion-panel-title class="py-2">
-                        <div class="d-flex align-center">
-                          <v-icon icon="mdi-currency-usd" class="me-2" color="#3ea0a3"></v-icon>
-                          <span class="font-weight-medium">預算項目明細</span>
+                    <!-- 總計列 -->
+                    <template #bottom>
+                      <v-divider />
+                      <div class="d-flex align-center pa-4 bg-grey-lighten-4">
+                        <div class="text-subtitle-1 font-weight-bold" style="min-width: 120px;">
+                          總計
                         </div>
-                      </v-expansion-panel-title>
-                      <v-expansion-panel-text>
-                        <v-table density="compact" class="budget-table">
-                          <thead>
-                            <tr>
-                              <th class="text-left">項目</th>
-                              <th class="text-right">金額</th>
-                              <th class="text-right">執行率</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td>灌溉系統設備</td>
-                              <td class="text-right">NT$15,680.00</td>
-                              <td class="text-right">95%</td>
-                            </tr>
-                            <tr>
-                              <td>管線鋪設工程</td>
-                              <td class="text-right">NT$8,762.00</td>
-                              <td class="text-right">82%</td>
-                            </tr>
-                            <tr>
-                              <td>水質監測設備</td>
-                              <td class="text-right">NT$2,000.00</td>
-                              <td class="text-right">100%</td>
-                            </tr>
-                          </tbody>
-                        </v-table>
-                      </v-expansion-panel-text>
-                    </v-expansion-panel>
-                  </v-expansion-panels>
-                </div> -->
+                        <v-spacer />
+                        <div class="d-flex flex-wrap ga-6">
+                          <div class="text-caption">
+                            <span class="text-medium-emphasis">總預定執行預算：</span>
+                            <span class="font-weight-bold">{{ formatCurrency(statisticsStore.budgetAnalysis?.total_planned_budget || 0) }} 元</span>
+                          </div>
+                          <div class="text-caption">
+                            <span class="text-medium-emphasis">總已編列補助款：</span>
+                            <span class="font-weight-bold">{{ formatCurrency(statisticsStore.budgetAnalysis?.total_budgeted_subsidy || 0) }} 元</span>
+                          </div>
+                          <div class="text-caption">
+                            <span class="text-medium-emphasis">整體面積執行率：</span>
+                            <v-chip
+                              :color="(statisticsStore.budgetAnalysis?.overall_area_execution_rate || 0) >= 80 ? 'success' : 'warning'"
+                              size="x-small"
+                              label
+                            >
+                              {{ formatPercentage(statisticsStore.budgetAnalysis?.overall_area_execution_rate || 0) }}
+                            </v-chip>
+                          </div>
+                          <div class="text-caption">
+                            <span class="text-medium-emphasis">整體計畫執行率：</span>
+                            <v-chip
+                              :color="(statisticsStore.budgetAnalysis?.overall_budget_execution_rate || 0) >= 80 ? 'success' : 'warning'"
+                              size="x-small"
+                              label
+                            >
+                              {{ formatPercentage(statisticsStore.budgetAnalysis?.overall_budget_execution_rate || 0) }}
+                            </v-chip>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </v-data-table>
+                </div>
               </v-card>
-
-              <!-- 查看詳細預算資訊按鈕 -->
-              <div class="d-flex justify-end pa-0 ma-0">
-                <v-btn
-                  class="more-btn"
-                  variant="outlined"
-                  rounded="lg"
-                  color="#3ea0a3"
-                  to="/budget"
-                  size="large"
-                  append-icon="mdi-chevron-right-circle"
-                >
-                  查看詳細資訊
-                </v-btn>
-              </div>
             </v-card-text>
           </v-card>
         </div>
@@ -307,7 +337,13 @@
 </template>
 
 <script setup lang="ts">
-const router = useRouter();
+import { useStatisticsStore } from '@/stores/statistics'
+
+const router = useRouter()
+const statisticsStore = useStatisticsStore()
+
+// 當前年度（民國年）
+const currentYear = new Date().getFullYear() - 1911
 
 // 最新消息資料
 const announcements = ref([
@@ -331,86 +367,63 @@ const announcements = ref([
   }
 ])
 
-// 文件下載資料
-const documents = ref([
-  {
-    id: 1,
-    name: '農業部農田水利署推廣管路灌溉作業要點',
-    date: '114.01.15',
-    icon: 'mdi-file-document-outline'
-  },
-  {
-    id: 2,
-    name: '補助宣導摺頁',
-    date: '114.01.15',
-    icon: 'mdi-file-word-outline'
-  },
-  {
-    id: 3,
-    name: '管路灌溉補助申請表格',
-    date: '114.01.15',
-    icon: 'mdi-file-pdf-outline'
-  }
-]);
-
-// 預算資料
-const budgets = ref([
-  {
-    year: "114",
-    name: "推廣管路灌溉補助",
-    color: "blue-grey-lighten-5",
-    link: "/budget/114"
-  },
-  {
-    year: "113",
-    name: "推廣管路灌溉補助",
-    color: "blue-grey-lighten-5",
-    link: "/budget/113"
-  }
-]);
-
 // 根據公告類型返回對應的顏色
 const getTypeColor = (type: string) => {
   switch (type) {
     case '系統公告':
-      return 'blue';
+      return 'blue'
     case '停機公告':
-      return 'deep-orange';
+      return 'deep-orange'
     default:
-      return 'grey';
+      return 'grey'
   }
 }
 
 // 查看公告詳細內容
-const viewAnnouncementDetail = (item) => {
-  // 實際應用中，這裡可以導航到詳細頁面
-  console.log('查看公告詳情:', item);
-  // router.push({ path: '/announcements/detail', query: { id: item.id } });
-};
+const viewAnnouncementDetail = (item: any) => {
+  console.log('查看公告詳情:', item)
+}
 
-// 預算執行狀況
-const budgetStats = reactive({
-  executionRate: 90, // 執行率 90%
-  budget: 29380, // 年度預算 29,380元
-  spent: 26442, // 已動支金額 26,442元
-  remaining: 2938, // 尚餘 2,938元
-});
+// 格式化金額（加上千分位）
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('zh-TW').format(value)
+}
 
-// 下載檔案
-const downloadFile = (id: number, format: string) => {
-  // 實際應用中應該調用API下載檔案
-  console.log(`下載檔案ID: ${id}, 格式: ${format}`);
-  // 可以使用window.open或其他方式觸發下載
-};
+// 格式化百分比
+const formatPercentage = (value: number) => {
+  return `${value.toFixed(2)}%`
+}
 
-// 路由導航
-const navigateTo = (path: string) => {
-  router.push(path);
-};
+// 執行進度表格欄位定義
+const executionHeaders = [
+  { title: '管理處', key: 'office_name', align: 'center' as const },
+  { title: '核定總額(元)', key: 'approved_budget', align: 'end' as const },
+  { title: '補助案件數(已結案)', key: 'completed_cases', align: 'center' as const },
+  { title: '補助面積(公頃)', key: 'total_area', align: 'end' as const },
+  { title: '補助金額(元)', key: 'total_subsidy', align: 'end' as const },
+  { title: '補助款執行率%', key: 'execution_rate', align: 'end' as const }
+]
 
-onMounted(() => {
-  // 這裡可以放初始化邏輯，例如從API獲取最新公告、預算資訊等
-});
+// 經費統計表格欄位定義
+const budgetHeaders = [
+  { title: '管理處', key: 'office_name', align: 'center' as const },
+  { title: '預定執行面積(公頃)', key: 'planned_area', align: 'end' as const },
+  { title: '預定執行預算(元)', key: 'planned_budget', align: 'end' as const },
+  { title: '已編預算案件數', key: 'budgeted_cases', align: 'center' as const },
+  { title: '已編預算面積(公頃)', key: 'budgeted_area', align: 'end' as const },
+  { title: '已編列補助款(元)', key: 'budgeted_subsidy', align: 'end' as const },
+  { title: '未編列補助款(元)', key: 'unbudgeted_subsidy', align: 'end' as const },
+  { title: '已驗收案件數', key: 'verified_cases', align: 'center' as const },
+  { title: '已驗收面積(公頃)', key: 'verified_area', align: 'end' as const },
+  { title: '已驗收金額(元)', key: 'verified_amount', align: 'end' as const },
+  { title: '面積執行率%', key: 'area_execution_rate', align: 'end' as const },
+  { title: '計畫執行率%', key: 'budget_execution_rate', align: 'end' as const }
+]
+
+onMounted(async () => {
+  // 載入統計資料
+  await statisticsStore.fetchAllStatistics(currentYear)
+})
 </script>
 
 <style scoped>
@@ -590,6 +603,26 @@ onMounted(() => {
   color: #3ea0a3;
   font-weight: 700;
   background-color: rgba(62, 160, 163, 0.08);
+}
+
+/* 統計表格樣式 - 與申請案件列表保持一致 */
+.statistics-table :deep(thead th) {
+  background-color: #e3f4f4 !important;
+  color: #333 !important;
+  font-weight: 900 !important;
+  padding: 12px 16px !important;
+}
+
+.statistics-table :deep(tbody td) {
+  padding: 12px 16px !important;
+}
+
+.statistics-table :deep(.v-data-table__tr:hover) {
+  background-color: rgba(98, 183, 187, 0.1) !important;
+}
+
+.statistics-table :deep(.v-data-table__tr:nth-child(even)) {
+  background-color: rgba(98, 183, 187, 0.05);
 }
 
 /* 輔助樣式 */
