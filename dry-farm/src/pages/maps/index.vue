@@ -4729,17 +4729,17 @@ const loadRawDataForLayer = async (
       await gisStore.searchCases(bbox, searchParams)
       geoJsonData = gisStore.lastLoadedData
     } else {
-      // 一般載入 - 使用統一的初始載入條件參數
-      console.log(`[${layerType}Layer] 執行一般載入（使用統一初始載入條件）`)
-
-      // 獲取統一的初始載入條件
-      const initialParams = getInitialOverlayLoadingParams()
+      // 一般載入 - 使用當前年度範圍和篩選條件
+      const currentYearMin = yearRange.value.current[0];
+      const currentYearMax = yearRange.value.current[1];
 
       // 強制使用高縮放等級確保後端回傳原始點位而非聚合資料
       const forceHighZoom = Math.max(zoomLevel, 15)
       await gisStore.loadGrantLocations(bbox, forceHighZoom, {
-        ...initialParams,
-        source_system: searchCriteria.value.sourceSystem as 'new_aerc' | 'legacy_farmdata' | undefined || initialParams.source_system
+        apply_year_min: currentYearMin,
+        apply_year_max: currentYearMax,
+        no_clustering: true,
+        source_system: searchCriteria.value.sourceSystem as 'new_aerc' | 'legacy_farmdata' | undefined
       })
       geoJsonData = gisStore.lastLoadedData
     }

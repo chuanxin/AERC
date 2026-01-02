@@ -378,18 +378,20 @@ const onQuickFilterChange = () => {
 
 // 前端篩選處理函數
 const performFrontendFilter = () => {
-  if (!props.allFeatures.length) return
-
   // 準備篩選條件
   const criteria = {
     ...filterCriteria.value,
     quickFilter: quickFilter.value
   }
 
-  // 執行前端篩選
-  const filteredResults = applyFrontendFilters(props.allFeatures, quickFilter.value, criteria)
+  // 執行前端篩選（即使沒有資料也要執行，以便觸發年度變更檢查）
+  let filteredResults: GeoJsonFeature[] = []
 
-  // 發送篩選變更事件
+  if (props.allFeatures.length > 0) {
+    filteredResults = applyFrontendFilters(props.allFeatures, quickFilter.value, criteria)
+  }
+
+  // 發送篩選變更事件（即使沒有資料，也要發送以便觸發年度範圍變更處理）
   emit('filter-change', {
     criteria,
     results: filteredResults,
