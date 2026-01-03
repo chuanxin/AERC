@@ -630,7 +630,7 @@ async def send_verification_email(
     MIN_RESPONSE_TIME = 1.5
 
     try:
-        # 查找用戶
+        # 查找用戶（如有重複將由 ORM 拋出異常）
         user = await Users.get(email=payload.email)
 
         # 檢查是否已驗證
@@ -687,6 +687,22 @@ async def send_verification_email(
         elapsed = time.time() - start_time
         if elapsed < MIN_RESPONSE_TIME:
             await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
+
+        # 特別處理資料完整性問題
+        if "multiple" in str(e).lower() or "MultipleObjectsReturned" in str(type(e).__name__):
+            # 錯誤代碼供管理員追查（通用代碼，不揭露具體問題）
+            error_code = "ERR_SYSTEM_001"
+            # 記錄詳細資訊供管理員查詢（包含 email、IP、時間戳）
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(
+                f"[{error_code}] Data integrity issue detected during email verification. "
+                f"Email: {payload.email}, IP: {request.client.host}, Timestamp: {datetime.now(timezone.utc).isoformat()}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"系統發生錯誤，請聯絡系統管理員並提供錯誤代碼：{error_code}"
+            )
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -775,7 +791,7 @@ async def request_password_reset(
     MIN_RESPONSE_TIME = 1.5
 
     try:
-        # 查找用戶
+        # 查找用戶（如有重複將由 ORM 拋出異常）
         user = await Users.get(email=payload.email, is_active=True)
 
         # 發送密碼重設信
@@ -818,6 +834,22 @@ async def request_password_reset(
         elapsed = time.time() - start_time
         if elapsed < MIN_RESPONSE_TIME:
             await asyncio.sleep(MIN_RESPONSE_TIME - elapsed)
+
+        # 特別處理資料完整性問題（使用與驗證端點相同的錯誤處理）
+        if "multiple" in str(e).lower() or "MultipleObjectsReturned" in str(type(e).__name__):
+            # 錯誤代碼供管理員追查（通用代碼，不揭露具體問題）
+            error_code = "ERR_SYSTEM_001"
+            # 記錄詳細資訊供管理員查詢（包含 email、IP、時間戳）
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(
+                f"[{error_code}] Data integrity issue detected during password reset. "
+                f"Email: {payload.email}, IP: {request.client.host}, Timestamp: {datetime.now(timezone.utc).isoformat()}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"系統發生錯誤，請聯絡系統管理員並提供錯誤代碼：{error_code}"
+            )
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
