@@ -339,33 +339,14 @@
 <script setup lang="ts">
 import { useStatisticsStore } from '@/stores/statistics'
 
+// Joya added
+import { announcementsData } from '@/data/announcement'
 const router = useRouter()
 const statisticsStore = useStatisticsStore()
-
+const announcements = ref(announcementsData);
 // 當前年度（民國年）
 const currentYear = new Date().getFullYear() - 1911
 
-// 最新消息資料
-const announcements = ref([
-  {
-    date: '114.01.15',
-    type: '系統公告',
-    content: '承辦窗口資訊',
-    id: 1
-  },
-  {
-    date: '114.01.15',
-    type: '停機公告',
-    content: '2025/04/30 14:00~18:00系統更新，請暫停使用',
-    id: 2
-  },
-  {
-    date: '114.01.15',
-    type: '系統公告',
-    content: '管路灌溉補助申請表格',
-    id: 3
-  }
-])
 
 // 根據公告類型返回對應的顏色
 const getTypeColor = (type: string) => {
@@ -380,9 +361,18 @@ const getTypeColor = (type: string) => {
 }
 
 // 查看公告詳細內容
-const viewAnnouncementDetail = (item: any) => {
+/*const viewAnnouncementDetail = (item: any) => {
   console.log('查看公告詳情:', item)
-}
+}*/
+
+// Joya added
+// 查看公告詳細內容 
+const viewAnnouncementDetail = (item: { id: number; date: string; type: string; content: string }) => {
+  // 導航到公告詳細頁面，將公告的 ID 作為路由參數傳遞
+  router.push({ path: `/announcements/${item.id}` }); // 使用具名路由 '/announcements/[id]'
+  // 或者使用路徑:
+  // router.push(`/announcements/${item.id}`);
+};
 
 // 格式化金額（加上千分位）
 const formatCurrency = (value: number) => {
