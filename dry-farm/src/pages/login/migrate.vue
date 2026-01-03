@@ -407,7 +407,7 @@ watch(selectedManagementOffice, async (officeId) => {
   branchOffices.value = []
   workStations.value = []
 
-  if (officeId) {
+  if (officeId != null) {
     try {
       // 先載入分處列表
       const branchesResponse = await apiService.get<Array<{code: string, name: string}>>(
@@ -523,7 +523,7 @@ const verifyOTP = async () => {
       }
 
       // 還原所屬管理處（會觸發 watch 載入分處/工作站，並自動還原選擇）
-      if (response.user_info.office_id) {
+      if (response.user_info.office_id != null) {
         selectedManagementOffice.value = response.user_info.office_id
       }
 
