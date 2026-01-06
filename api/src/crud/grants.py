@@ -231,7 +231,7 @@ async def get_grants(
                 }
             
             # 從 active_version 取得額外資訊
-            # 🔥 Good Taste: 用 is_legacy 判斷資料來源，消除特殊情況
+            # 🔥 統一從 all_steps_data 提取，歷史案件和新案件使用相同邏輯
             facility_area = None
             facility_area_m2 = None
             facility_type = None
@@ -239,93 +239,27 @@ async def get_grants(
 
             if hasattr(grant, 'active_version') and grant.active_version:
                 try:
-                    # 🔥 歷史案件：從 grant_papers.document_data 提取
-                    if grant.is_legacy:
-                        paper = await GrantPapers.filter(
-                            version=grant.active_version,
-                            document_type="budget_statement",
-                            is_valid=True
-                        ).first()
+                    version_data = grant.active_version.all_steps_data
+                    if version_data and isinstance(version_data, dict):
+                        steps = version_data.get("steps", {})
 
-                        if paper and paper.document_data:
-                            doc_data = paper.document_data
+                        # 從 step 2 取得土地/設施面積
+                        step2_data = steps.get("2", {}) or steps.get(2, {})
+                        if step2_data:
+                            facility_area = step2_data.get("totalFacilityAreaHa")
+                            facility_area_m2 = step2_data.get("totalFacilityArea")
 
-                            # 🔥 Good Taste: 直接從正確的路徑提取，消除無意義的回退
-                            # document_data 是完整處理過的結構化資料
-                            report = doc_data.get("report", {})
-                            cover = report.get("cover", {})
-                            metadata = report.get("metadata", {})
+                            # 生成土地位置摘要
+                            lands = step2_data.get("lands", [])
+                            if lands and isinstance(lands, list):
+                                land_locations = await generate_land_locations(lands)
 
-                            # 從 cover 提取基本資訊
-                            facility_area = cover.get("application_area")  # 公頃（字串）
-                            # facility_type = cover.get("facility_type")
-
-                            # 從 engineering_parameters 提取灌溉型式
-                            facility_type = metadata.get("engineering_parameters", {}).get("irrigation_type", {})
-
-                            # 從 metadata 提取平方公尺面積
-                            land_summary = metadata.get("land_summary", {})
-                            facility_area_m2 = land_summary.get("total_facility_area_sqm")
-
-                            # 從 land_summary.sections_summary 提取位置並去重、去除地號資訊
-                            sections_summary = metadata.get("land_summary", {}).get("sections_summary")
-                            if sections_summary and sections_summary != "無土地資料":
-                                # 分割、去除地號資訊、去重
-                                sections = [s.strip() for s in sections_summary.split(",")]
-
-                                # 按縣市鄉鎮分組聚合
-                                location_groups = {}  # {(county, town): [section_names]}
-
-                                for section in sections:
-                                    # 只保留不包含"地號:"的項目（即地段名稱）
-                                    if section and "地號:" not in section:
-                                        # 解析格式：縣市鄉鎮-段名段
-                                        if "-" in section:
-                                            location_part, section_name = section.rsplit("-", 1)
-                                            # 提取段名（去除"段"字）
-                                            section_name = section_name.replace("段", "").strip()
-
-                                            # 以縣市鄉鎮為 key 分組
-                                            if location_part not in location_groups:
-                                                location_groups[location_part] = set()
-                                            location_groups[location_part].add(section_name)
-                                        # else:
-                                        #     # 格式異常，保留原樣
-                                        #     if "其他" not in location_groups:
-                                        #         location_groups["其他"] = set()
-                                        #     location_groups["其他"].add(section)
-
-                                # 組合顯示：縣市鄉鎮-段名1、段名2...段
-                                formatted_locations = []
-                                for location, section_names in sorted(location_groups.items()):
-                                    sorted_sections = sorted(section_names)
-                                    sections_str = "、".join(sorted_sections)
-                                    formatted_locations.append(f"{location}-{sections_str}段")
-
-                                # 🔥 如果解析後沒有符合格式的土地資料（即沒有包含"-"的段名），顯示"無土地資料"
-                                land_locations = "；".join(formatted_locations) if formatted_locations else "無土地資料"
-                            else:
-                                # sections_summary 為空或已經是"無土地資料"
-                                land_locations = "無土地資料"
-
-                    # 🔥 新系統案件：從 all_steps_data 提取
-                    else:
-                        version_data = grant.active_version.all_steps_data
-                        if version_data and isinstance(version_data, dict):
-                            steps = version_data.get("steps", {})
-
-                            # 從 step 2 取得土地/設施面積
-                            step2_data = steps.get("2", {}) or steps.get(2, {})
-                            if step2_data:
-                                facility_area = step2_data.get("totalFacilityAreaHa")
-                                facility_area_m2 = step2_data.get("totalFacilityArea")
-
-                                # 生成土地位置摘要
-                                lands = step2_data.get("lands", [])
-                                if lands and isinstance(lands, list):
-                                    land_locations = await generate_land_locations(lands)
-
-                            # 從 step 5 取得設施類型/灌溉類型
+                        # 從 step 5 取得設施類型/灌溉類型
+                        # 🔥 歷史案件：優先從 legacy_data 獲取，因為沒有 step5
+                        if grant.is_legacy:
+                            legacy_data = version_data.get("legacy_data", {})
+                            facility_type = legacy_data.get("irrigation_type") or legacy_data.get("facility_type")
+                        else:
                             step5_data = steps.get("5", {}) or steps.get(5, {})
                             if step5_data:
                                 facility_type = step5_data.get("irrigationType")

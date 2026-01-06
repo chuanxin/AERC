@@ -432,7 +432,7 @@
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router'
 import type { GrantListItem } from '@/services/grantsService'
-import { generateKaiuPdf, downloadPdfBlob, batchCrossYearGrants, grantCacheService } from '@/services/grantsService'
+import { generateBudgetStatement, downloadPdfBlob, batchCrossYearGrants, grantCacheService } from '@/services/grantsService'
 import { useGrantsStore } from '@/stores/grants'
 import { useUserStore } from '@/stores/users'
 import { GrantStorage, type GrantData } from '@/utils/grant-storage'
@@ -953,7 +953,7 @@ const deleteItem = async (item: GrantListItem) => {
   }
 }
 
-// 新增：生成歷史案件PDF
+// 新增：生成歷史案件工程預算書 PDF
 const generateHistoryPdf = async (item: GrantListItem) => {
   if (!item.is_legacy) {
     console.warn('只有歷史案件才能生成PDF')
@@ -961,24 +961,26 @@ const generateHistoryPdf = async (item: GrantListItem) => {
   }
 
   try {
-    console.log('🖨️ 開始生成PDF，案件:', item.case_number)
+    console.log('🖨️ 開始生成工程預算書，案件:', item.case_number, 'grants_id:', item.id)
     pdfGenerating.value = item.case_number
 
-    // 調用PDF生成服務
-    const pdfBlob = await generateKaiuPdf(item)
+    // 🔥 Linus式修復：傳遞 grants_id 以區分重複案號（歷史案件可能有同一年度重複案號）
+    // 調用工程預算書生成服務（與 step6.vue 相同），傳遞 item.id 作為 grantsId
+    const pdfBlob = await generateBudgetStatement(item.case_number, item.id)
 
-    // 生成檔案名稱
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:]/g, '-')
-    const filename = `${item.case_number}_工程預算書封面_${timestamp}.pdf`
+    // 生成檔案名稱（與 step6.vue 格式一致）
+    const year = item.year || new Date().getFullYear() - 1911
+    const applicantName = item.applicant_name || '未知'
+    const filename = `${year}-${item.case_number}-${applicantName} - 工程預算書.pdf`
 
     // 下載PDF
     downloadPdfBlob(pdfBlob, filename)
 
-    console.log('🖨️ PDF生成並下載完成')
+    console.log('🖨️ 工程預算書生成並下載完成')
 
   } catch (error) {
-    console.error('🖨️ PDF生成失敗:', error)
-    alert('PDF生成失敗，請稍後再試')
+    console.error('🖨️ 工程預算書生成失敗:', error)
+    alert('工程預算書生成失敗，請稍後再試')
   } finally {
     pdfGenerating.value = null
   }

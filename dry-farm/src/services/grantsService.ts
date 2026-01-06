@@ -895,15 +895,22 @@ export const generateAuthorization = async (caseNumber: string): Promise<Blob> =
 /**
  * 生成工程預算書 PDF
  * @param caseNumber 案號
+ * @param grantsId 案件ID（選填，用於區分重複案號的歷史案件）
  * @returns PDF檔案Blob
  */
-export const generateBudgetStatement = async (caseNumber: string): Promise<Blob> => {
+export const generateBudgetStatement = async (caseNumber: string, grantsId?: number): Promise<Blob> => {
   try {
-    console.log('📋 [generateBudgetStatement] 準備生成工程預算書，案號:', caseNumber)
+    console.log('📋 [generateBudgetStatement] 準備生成工程預算書，案號:', caseNumber, 'grants_id:', grantsId)
+
+    // 構建 API URL，如果有 grantsId 則添加 query parameter
+    let apiUrl = GRANTS.BUDGET_STATEMENT(caseNumber)
+    if (grantsId !== undefined) {
+      apiUrl += `?grants_id=${grantsId}`
+    }
 
     // 調用後端工程預算書生成 API
     const response = await apiService.post(
-      GRANTS.BUDGET_STATEMENT(caseNumber),
+      apiUrl,
       {},
       {
         responseType: 'blob'

@@ -117,6 +117,20 @@
                 </td>
                 <td />
               </tr>
+              <!-- 田間管路工作費（當 workFee > 0 時顯示） -->
+              <tr v-if="workFee > 0">
+                <td class="pl-6">
+                  田間管路工作費
+                </td>
+                <td />
+                <td class="text-center" />
+                <td class="text-center" />
+                <td class="text-center" />
+                <td class="text-center">
+                  {{ workFee.toLocaleString() }}
+                </td>
+                <td />
+              </tr>
               <tr>
                 <td class="font-weight-medium">
                   灌溉調控設施費
@@ -717,7 +731,11 @@ const pipeLineTotal = computed(() => {
       }, 0);
   }
 
-  return (pipelineTotal + irrigationTotal).toLocaleString();
+  // Work fee calculation
+  const workFeeValue = step4Data.workFee || 0;
+  const workFeeAmount = typeof workFeeValue === 'number' ? workFeeValue : parseInt(workFeeValue) || 0;
+
+  return (pipelineTotal + irrigationTotal + workFeeAmount).toLocaleString();
 });
 
 // A項補助費：step4 的補助款總額（扣除設計費）
@@ -807,6 +825,15 @@ const isAboriginalAreaText = computed(() => {
   // 優先從 currentGrant.all_steps_data 讀取，fallback 到 formData
   const step2Data = (grantsStore.currentGrant?.active_version as any)?.all_steps_data?.steps?.['2'] || grantsStore.formData[2];
   return step2Data?.isAboriginalArea ? '(原民地+10%)' : '';
+});
+
+// 田間管路工作費（從 step5 取得）
+const workFee = computed(() => {
+  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
+  if (!step4Data) return 0;
+
+  const fee = step4Data.workFee || 0;
+  return typeof fee === 'number' ? fee : parseInt(fee) || 0;
 });
 
 // 文件列印
