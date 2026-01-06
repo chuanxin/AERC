@@ -282,14 +282,14 @@
                     <div class="ma-0 pa-0 d-flex gap-2 justify-end">
                       <!-- 歷史案件：顯示查看按鈕和查看歷史按鈕 -->
                       <template v-if="item.is_legacy">
-                        <v-btn
+                        <!-- <v-btn
                           icon="mdi-eye"
                           size="small"
                           color="#3ea0a3"
                           variant="text"
                           title="查看歷史案件"
                           @click="editItem(item)"
-                        />
+                        /> -->
                         <v-btn
                           icon="mdi-file-pdf-box"
                           size="small"
@@ -594,7 +594,7 @@ const headers = ref([
   { title: '案件狀態', key: 'status', align: 'start' as const, width: '150px' },
   { title: '填報人姓名', key: 'created_by.full_name', align: 'start' as const, width: '130px' },
   // { title: '公告狀態（農民卡）', key: 'card', align: 'end' as const },
-  { title: '操作', key: 'actions', align: 'end' as const, sortable: false},
+  { title: '操作', key: 'actions', align: 'center' as const, sortable: false},
 ])
 
 // 根據公告狀態返回對應的顏色
