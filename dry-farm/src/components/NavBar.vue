@@ -54,6 +54,7 @@
             :value="item.value"
             :text="item.title"
             :prepend-icon="item.icon"
+            :disabled="item.disabled"
             color="white"
             size="x-large"
           />
@@ -66,12 +67,14 @@
             offset="0 8px"
             open-delay="0"
             transition="scale-y-transition"
+            :disabled="item.disabled"
           >
             <template #activator="{ props }">
               <v-tab
                 v-bind="props"
                 color="white"
                 size="x-large"
+                :disabled="item.disabled"
                 @click.stop="preventTabSelection"
               >
                 <v-icon
@@ -186,6 +189,7 @@
           :title="item.title"
           :to="item.to"
           :prepend-icon="item.icon"
+          :disabled="item.disabled"
         />
 
         <!-- 有子選單的項目 -->
@@ -199,6 +203,7 @@
               :value="item.value"
               :title="item.title"
               :prepend-icon="item.icon"
+              :disabled="item.disabled"
             />
           </template>
 
@@ -324,6 +329,7 @@
       title: '系統管理',
       value: 'config',
       icon: 'mdi-cog',
+      disabled: true,  // 先disable功能
       children: [
         {
           title: '帳號管理',

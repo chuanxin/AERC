@@ -255,20 +255,9 @@
         <!-- Footer -->
         <div class="small-screen-footer">
           <div class="d-flex flex-column align-center">
-            <v-chip
-              color="teal-darken-1"
-              variant="flat"
-              class="text-body-2 font-weight-medium mb-2"
-            >
-              <v-icon
-                start
-                icon="mdi-tag-outline"
-                size="small"
-              />
-              release v.{{ packageInfo.version }}
-            </v-chip>
             <p class="footer-text">
               &copy; 2025 農田水利署. All rights reserved.
+              <span class="version-text">v.{{ packageInfo.version }}</span>
             </p>
           </div>
         </div>
@@ -281,20 +270,9 @@
       class="desktop-footer"
     >
       <div class="d-flex flex-column align-end">
-        <v-chip
-          color="teal-darken-1"
-          variant="flat"
-          class="text-body-2 font-weight-medium mb-2"
-        >
-          <v-icon
-            start
-            icon="mdi-tag-outline"
-            size="small"
-          />
-          release v.{{ packageInfo.version }}
-        </v-chip>
         <p class="footer-text">
           &copy; 2025 農田水利署. All rights reserved.
+          <span class="version-text">v.{{ packageInfo.version }}</span>
         </p>
       </div>
     </div>
@@ -692,7 +670,12 @@
       1px 1px 4px rgba(0, 0, 0, 0.2);
     font-weight: 500;
   }
-
+  .version-text {
+      font-size: 0.5em; /* 比原本文字小 */
+      margin-left: 8px;  /* 與前面的文字保持距離 */
+      opacity: 0.8;      /* 稍微淡一點，比較不搶眼 */
+      font-weight: normal;
+    }
   /* ============================================== */
   /* Small screens Header & Footer (<960px) */
   /* ============================================== */
