@@ -76,8 +76,9 @@ dry-farm/public/.well-known/acme-challenge/
 dry-farm/certbot
 *.pem
 
-# Local data
+# Local data (exclude data directories except dry-farm/src/data)
 data/
+!dry-farm/src/data/
 
 # Test cases
 test_cases/
