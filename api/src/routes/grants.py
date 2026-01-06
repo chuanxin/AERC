@@ -1160,9 +1160,13 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
                 continue
     a_item_total += irrigation_system_total
 
+    # === A 項工作費 ===
+    a_work_fee = int(float(step5_data.get('workFee', 0) or 0))
+    a_item_total += a_work_fee
+
     # === B 項：規劃設計費 ===
-    # 使用四捨五入（與前端一致）
-    b_design_fee = round(a_item_total * 0.02)
+    # 直接從資料取得 designFee
+    b_design_fee = step5_data.get('designFee', 0) or 0
 
     # === C、D、E 項：調控設施、動力設備、調蓄設施（從 step4_data 提取）===
     # 使用前端已計算的 subsidyAmount 和 selfPaidAmount
@@ -1249,6 +1253,7 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     budget_items = {
         'a_item_total': int(a_item_total),
         'a_materials': int(a_item_total),
+        'a_work_fee': int(a_work_fee),
         'main_pipe_1_length': main_pipe_1_length,
         'main_pipe_1_qty': main_pipe_1_qty,
         'main_pipe_1_price': int(main_pipe_1_price),
@@ -1462,24 +1467,40 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
 @router.post("/case/{case_number}/budget-statement")
 async def download_budget_statement(
     case_number: str = Path(..., description="案件編號"),
+    grants_id: Optional[int] = Query(None, description="案件ID（用於區分重複案件編號）"),
     current_user: UserOutSchema = Depends(get_current_user)
 ):
     """
     下載工程預算書 PDF（11頁完整版本）
 
     檔名格式：[年度]-[案號]-[申請人姓名] - 工程預算書.pdf
+
+    對於歷史案件可能有重複案件編號的情況，可使用 grants_id 參數明確指定案件
     """
     try:
-        logger.info(f"📋 [download_budget_statement] 生成工程預算書: case_number={case_number}")
+        logger.info(f"📋 [download_budget_statement] 生成工程預算書: case_number={case_number}, grants_id={grants_id}")
 
-        # 查詢補助案件
-        grant = await Grants.filter(case_number=case_number).select_related("active_version").first()
-
-        if not grant:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"找不到案件編號: {case_number}"
-            )
+        # 查詢補助案件 - 優先使用 grants_id（用於區分重複案號）
+        if grants_id:
+            grant = await Grants.filter(id=grants_id).select_related("active_version").first()
+            if not grant:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"找不到案件ID: {grants_id}"
+                )
+            # 驗證 case_number 是否匹配（防止 ID 與 case_number 不一致）
+            if grant.case_number != case_number:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"案件ID {grants_id} 與案號 {case_number} 不匹配"
+                )
+        else:
+            grant = await Grants.filter(case_number=case_number).select_related("active_version").first()
+            if not grant:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"找不到案件編號: {case_number}"
+                )
 
         # 提取資料
         version_data = grant.active_version.all_steps_data if grant.active_version else {}

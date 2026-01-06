@@ -1073,7 +1073,9 @@ class BudgetStatementPDFGenerator:
 
         # 計算表格高度
         total_width = sum(col_widths)
-        table_height = row_height * (len(power_items) + 2)  # 標題行 + 資料行 + 小計行
+        # 確保即使沒有資料也至少有一行空白行
+        data_rows = len(power_items) if power_items else 1
+        table_height = row_height * (data_rows + 2)  # 標題行 + 資料行 + 小計行
         table_start_y = current_y
 
         # === 繪製表格外框 ===
@@ -1108,31 +1110,39 @@ class BudgetStatementPDFGenerator:
 
         # === 繪製資料行 ===
         power_total = 0
-        for item in power_items:
+        
+        # 如果沒有動力設施資料，繪製一行空白
+        if not power_items:
             row_y = current_y - row_height / 2 - table_font_size * 0.2
-
-            # 動力設備名稱（左對齊）
-            c.drawString(table_x + 10, row_y, item.get('name', ''))
-
-            # 數量（置中對齊）
-            self._draw_centered_text(
-                c, str(item.get('quantity', '')),
-                table_x + col_widths[0], row_y,
-                col_widths[1],
-                font_size=table_font_size
-            )
-
-            # 金額（置中對齊）
-            self._draw_right_aligned_text(
-                c, f"{item.get('amount', 0):,}",
-                table_x + sum(col_widths[:2]), row_y,
-                col_widths[2],
-                font_size=table_font_size
-            )
-
-            power_total += item.get('amount', 0)
+            # 空白行不繪製任何內容，但保留表格結構
             current_y -= row_height
             c.line(table_x, current_y, table_x + total_width, current_y)
+        else:
+            for item in power_items:
+                row_y = current_y - row_height / 2 - table_font_size * 0.2
+
+                # 動力設備名稱（左對齊）
+                c.drawString(table_x + 10, row_y, item.get('name', ''))
+
+                # 數量（置中對齊）
+                self._draw_centered_text(
+                    c, str(item.get('quantity', '')),
+                    table_x + col_widths[0], row_y,
+                    col_widths[1],
+                    font_size=table_font_size
+                )
+
+                # 金額（置中對齊）
+                self._draw_right_aligned_text(
+                    c, f"{item.get('amount', 0):,}",
+                    table_x + sum(col_widths[:2]), row_y,
+                    col_widths[2],
+                    font_size=table_font_size
+                )
+
+                power_total += item.get('amount', 0)
+                current_y -= row_height
+                c.line(table_x, current_y, table_x + total_width, current_y)
 
         # === 小計行 ===
         row_y = current_y - row_height / 2 - table_font_size * 0.2
@@ -1171,7 +1181,9 @@ class BudgetStatementPDFGenerator:
 
         # 計算表格高度
         total_width = sum(col_widths)
-        table_height = row_height * (len(storage_items) + 2)  # 標題行 + 資料行 + 小計行
+        # 確保即使沒有資料也至少有一行空白行
+        data_rows = len(storage_items) if storage_items else 1
+        table_height = row_height * (data_rows + 2)  # 標題行 + 資料行 + 小計行
         table_start_y = current_y
 
         # === 繪製表格外框 ===
@@ -1206,39 +1218,47 @@ class BudgetStatementPDFGenerator:
 
         # === 繪製資料行 ===
         storage_total = 0
-        for item in storage_items:
+        
+        # 如果沒有調蓄設施資料，繪製一行空白
+        if not storage_items:
             row_y = current_y - row_height / 2 - table_font_size * 0.2
-
-            # 材質（置中對齊）
-            c.drawString(table_x + 10, row_y, item.get('material', ''))
-
-            # 噸數（置中對齊）
-            self._draw_centered_text(
-                c, str(item.get('tonnage', '')),
-                table_x + col_widths[0], row_y,
-                col_widths[1],
-                font_size=table_font_size
-            )
-
-            # 數量（置中對齊）
-            self._draw_centered_text(
-                c, str(item.get('quantity', '')),
-                table_x + sum(col_widths[:2]), row_y,
-                col_widths[2],
-                font_size=table_font_size
-            )
-
-            # 金額（置中對齊）
-            self._draw_right_aligned_text(
-                c, f"{item.get('amount', 0):,}",
-                table_x + sum(col_widths[:3]), row_y,
-                col_widths[3],
-                font_size=table_font_size
-            )
-
-            storage_total += item.get('amount', 0)
+            # 空白行不繪製任何內容，但保留表格結構
             current_y -= row_height
             c.line(table_x, current_y, table_x + total_width, current_y)
+        else:
+            for item in storage_items:
+                row_y = current_y - row_height / 2 - table_font_size * 0.2
+
+                # 材質（置中對齊）
+                c.drawString(table_x + 10, row_y, item.get('material', ''))
+
+                # 噸數（置中對齊）
+                self._draw_centered_text(
+                    c, str(item.get('tonnage', '')),
+                    table_x + col_widths[0], row_y,
+                    col_widths[1],
+                    font_size=table_font_size
+                )
+
+                # 數量（置中對齊）
+                self._draw_centered_text(
+                    c, str(item.get('quantity', '')),
+                    table_x + sum(col_widths[:2]), row_y,
+                    col_widths[2],
+                    font_size=table_font_size
+                )
+
+                # 金額（置中對齊）
+                self._draw_right_aligned_text(
+                    c, f"{item.get('amount', 0):,}",
+                    table_x + sum(col_widths[:3]), row_y,
+                    col_widths[3],
+                    font_size=table_font_size
+                )
+
+                storage_total += item.get('amount', 0)
+                current_y -= row_height
+                c.line(table_x, current_y, table_x + total_width, current_y)
 
         # === 小計行 ===
         row_y = current_y - row_height / 2 - table_font_size * 0.2
@@ -2340,12 +2360,13 @@ class BudgetStatementPDFGenerator:
 
         # 預算資料（從 data 中取得）
         budget_data = data.get('budget_items', {})
-        a_item_total = budget_data.get('a_item_total', 70665)
-        a_materials = budget_data.get('a_materials', 70665)
-        main_pipe_1_length = budget_data.get('main_pipe_1_length', 140)
-        main_pipe_1_qty = budget_data.get('main_pipe_1_qty', 35)
-        main_pipe_1_price = budget_data.get('main_pipe_1_price', 292)
-        main_pipe_1_total = budget_data.get('main_pipe_1_total', 10220)
+        a_item_total = budget_data.get('a_item_total', 0)
+        a_materials = budget_data.get('a_materials', 0)
+        a_work_fee = budget_data.get('a_work_fee', 0)
+        main_pipe_1_length = budget_data.get('main_pipe_1_length', 0)
+        main_pipe_1_qty = budget_data.get('main_pipe_1_qty', 0)
+        main_pipe_1_price = budget_data.get('main_pipe_1_price', 0)
+        main_pipe_1_total = budget_data.get('main_pipe_1_total', 0)
         main_pipe_2_length = budget_data.get('main_pipe_2_length', 0)
         main_pipe_2_qty = budget_data.get('main_pipe_2_qty', 0)
         main_pipe_2_price = budget_data.get('main_pipe_2_price', 0)
@@ -2409,7 +2430,9 @@ class BudgetStatementPDFGenerator:
         if a_item_total > 0:
             # 有田間管路設施費：顯示完整資訊
             c.drawString(x + 8, current_y, "A.田間管路設施費")
-            self._draw_centered_text(c, "(1)", x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
+            # 說明欄根據是否有工作費顯示不同內容
+            description = "(1) + (2)" if a_work_fee > 0 else "(1)"
+            self._draw_centered_text(c, description, x + col_widths[0], current_y, col_widths[1], font_size=table_font_size)
             self._draw_centered_text(c, "全", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
             self._draw_right_aligned_text(c, f"{a_item_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
             c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
@@ -2446,6 +2469,15 @@ class BudgetStatementPDFGenerator:
             self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
             self._draw_right_aligned_text(c, f"{irrigation_system_total:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
             # self._draw_centered_text(c, "詳如數量表", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4] + col_widths[5], current_y, col_widths[6], font_size=table_font_size)
+
+            # 如果有田間管路工作費，新增工作費資料列
+            if a_work_fee > 0:
+                c.line(x, current_y - row_height * 0.3, x + total_width, current_y - row_height * 0.3)
+                current_y -= row_height
+                c.drawString(x + 20, current_y, "(2)田間管路工作費")
+                # self._draw_centered_text(c, "式", x + col_widths[0] + col_widths[1], current_y, col_widths[2], font_size=table_font_size)
+                # self._draw_centered_text(c, "1", x + col_widths[0] + col_widths[1] + col_widths[2], current_y, col_widths[3], font_size=table_font_size)
+                self._draw_right_aligned_text(c, f"{a_work_fee:,}", x + col_widths[0] + col_widths[1] + col_widths[2] + col_widths[3] + col_widths[4], current_y, col_widths[5], font_size=table_font_size)
         else:
             # 無田間管路設施費：只顯示項目名稱
             c.drawString(x + 8, current_y, "A.田間管路設施費")
