@@ -173,7 +173,8 @@ async def get_spatial_points(
                         'apply_year', apply_year,
                         'case_status', case_status,
                         'land_type', land_type,
-                        'meta_data', meta_data
+                        'meta_data', meta_data,
+                        'case_number', case_number
                     )
                 ) as feature
             FROM grant_locations 

@@ -80,6 +80,7 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                 applicant_name = grant.applicant_name
                 apply_year = grant.year
                 case_status = grant.status
+                case_number = grant.case_number
                 
                 # 🔧 修復：建立更詳細的註釋
                 county_name = parcel.get('landCounty', '')
@@ -107,9 +108,9 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                 INSERT INTO grant_locations (
                     source_system, source_id, land_section, land_number, geom, 
                     applicant_name, apply_year, case_status, comment, meta_data, 
-                    created_at, updated_at
+                    created_at, updated_at, case_number
                 )
-                VALUES ($1, $2, $3, $4, ST_GeomFromText($5, 4326), $6, $7, $8, $9, $10, NOW(), NOW())
+                VALUES ($1, $2, $3, $4, ST_GeomFromText($5, 4326), $6, $7, $8, $9, $10, NOW(), NOW(), $11)
                 ON CONFLICT (source_system, source_id, land_section, land_number) DO UPDATE SET
                     geom = EXCLUDED.geom,
                     applicant_name = EXCLUDED.applicant_name,
@@ -131,7 +132,8 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                     apply_year,           # $7: apply_year
                     case_status,          # $8: case_status
                     comment,              # $9: comment
-                    json.dumps(meta_data, ensure_ascii=False)  # $10: meta_data (JSON)
+                    json.dumps(meta_data, ensure_ascii=False),  # $10: meta_data (JSON)
+                    case_number           #11: case_number
                 ]
                 
                 # 🔧 修復：使用正確的 execute_query_dict 方法
