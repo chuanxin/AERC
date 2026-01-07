@@ -3673,7 +3673,7 @@ const showGrantPopup = (coordinate: number[], properties: Record<string, unknown
     // 個別點位資訊
     const systemType = properties.source_system === 'new_aerc' ? '新系統案件' : '歷史案件'
     info = `📍 ${systemType}
-📋 案件編號: ${properties.source_id || '未提供'}
+📋 案件編號: ${properties.case_number || '未提供'}
 👤 申請人: ${properties.applicant_name || '未提供'}
 📍 地段: ${properties.land_section || '未提供'}
 📍 地號: ${properties.land_number || '未提供'}

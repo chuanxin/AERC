@@ -125,8 +125,8 @@ async def read_grants(
     year: Optional[int] = Query(None, description="申請年度過濾"),
     office_id: Optional[int] = Query(None, description="管理處過濾"),
     search: Optional[str] = Query(None, description="搜尋關鍵字"),
-    skip: int = Query(0, description="分頁 - 跳過筆數"),
-    limit: int = Query(10000, description="分頁 - 每頁筆數（預設不限制）"),
+    skip: int = Query(0, description="分頁用 - 跳過筆數"),
+    limit: Optional[int] = Query(None, description="筆數上限（不設定則查詢全部）"),
     current_user: UserOutSchema = Depends(get_current_user)
 ):
     """取得補助申請案件列表，可依條件過濾"""
@@ -295,7 +295,7 @@ async def create_land_api(
 async def search_grants_api(
     search_data: GrantSearchSchema,
     skip: int = Query(0, description="分頁 - 跳過筆數"),
-    limit: int = Query(10000, description="分頁 - 每頁筆數（預設不限制）")
+    limit: int = Query(None, description="筆數上限")
 ):
     """進階搜尋補助申請案件"""
     try:
@@ -1119,17 +1119,17 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     a_item_total += main_pipe_1_total
 
     # 田間主管 2（如果啟用）
-    main_pipe_2_enabled = step5_data.get('mainPipe2Enabled', False)
-    main_pipe_2_qty = 0
-    main_pipe_2_price = 0
-    main_pipe_2_total = 0
-    main_pipe_2_length = 0
-    if main_pipe_2_enabled:
-        main_pipe_2_qty = int(step5_data.get('mainPipe2Quantity', 0) or 0)
-        main_pipe_2_price = float(step5_data.get('mainPipe2UnitPrice', 0) or 0)
-        main_pipe_2_total = main_pipe_2_qty * main_pipe_2_price
-        main_pipe_2_length = int(step5_data.get('mainPipe2Length', 0) or 0)
-        a_item_total += main_pipe_2_total
+    # main_pipe_2_enabled = step5_data.get('mainPipe2Enabled', False)
+    # main_pipe_2_qty = 0
+    # main_pipe_2_price = 0
+    # main_pipe_2_total = 0
+    # main_pipe_2_length = 0
+    # if main_pipe_2_enabled:
+    main_pipe_2_qty = int(step5_data.get('mainPipe2Quantity', 0) or 0)
+    main_pipe_2_price = float(step5_data.get('mainPipe2UnitPrice', 0) or 0)
+    main_pipe_2_total = main_pipe_2_qty * main_pipe_2_price
+    main_pipe_2_length = int(step5_data.get('mainPipe2Length', 0) or 0)
+    a_item_total += main_pipe_2_total
 
     # 灌溉系統（pipes 陣列的總和）
     # 根據前端邏輯：只計算 groupId 為 2,3,4,5,6,7,8 或 (groupId=1 且 module!='主管') 的管路

@@ -1,0 +1,101 @@
+# Frontend (Vue/Vite)
+dry-farm/node_modules/
+.npm/
+dist/
+dist-ssr/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Log files
+dry-farm/log/
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Backend (Python/FastAPI)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+env/
+venv/
+ENV/
+bin/
+include/
+lib/
+pyvenv.cfg
+*.egg-info/
+.installed.cfg
+*.egg
+python*/
+
+# Editor directories and files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Testing
+coverage/
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Build and temp files
+.tmp/
+.temp/
+.cache/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Let's Encrypt certificates and keys
+# Note: This is a security risk if you are using Let's Encrypt for production
+# and should be handled with care. Consider using a secure vault or secret management system. 
+dry-farm/public/.well-known/acme-challenge/
+dry-farm/certbot
+*.pem
+
+# Local data
+data/
+
+# Migration tools (contains sensitive data and temporary scripts)
+api/migrations/tools/
+
+# Test cases
+test_cases/
+tests/
+
+# Documentation
+docs/
+*.pdf
+CLAUDE.md
+
+# Deployment files
+dev/
+
+# SpecStory
+.specstory/
+
+# GitHub
+.github/

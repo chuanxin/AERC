@@ -699,11 +699,10 @@ const updateFilters = async () => {
   grantsStore.clearSelectedGrants()
 
   // 明確設定篩選參數，包括移除數量限制
-  // 歷史案件只顯示 status=completed 的案件
   const filterParams = {
     year: filters.year || undefined,
     office_id: filters.office_id || undefined,
-    status: 'completed',  // 只顯示已完成的歷史案件
+    status: '',  // 只顯示已完成的歷史案件
     limit: undefined, // 明確移除數量限制
     skip: 0
   }
@@ -716,11 +715,11 @@ const updateFilters = async () => {
 }
 
 const refreshList = async () => {
-  // 🔥 刷新時應該保留當前的篩選條件
+  // 刷新時應該保留當前的篩選條件
   const filterParams = {
     year: filters.year || undefined,
     office_id: filters.office_id || undefined,
-    status: 'completed',  // 只顯示已完成的歷史案件
+    status: '',  // 只顯示已完成的歷史案件
     limit: undefined,
     skip: 0
   }
@@ -1053,11 +1052,10 @@ onMounted(async () => {
   })
 
   // 明確設定篩選參數,包括移除數量限制
-  // 歷史案件只顯示 status=completed 的案件
   const filterParams = {
     year: filters.year || undefined,
     office_id: filters.office_id || undefined,
-    status: 'completed',  // 只顯示已完成的歷史案件
+    status: '',  // 只顯示已完成的歷史案件
     limit: undefined, // 明確移除數量限制
     skip: 0
   }
