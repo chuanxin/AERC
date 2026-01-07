@@ -139,7 +139,7 @@ async def get_grants(
     search: Optional[str] = None,
     status: Optional[str] = None,
     skip: int = 0,
-    limit: int = 10000,
+    limit: Optional[int] = None,
     current_user = None  # 添加使用者權限控制
 ) -> List[Dict[str, Any]]:
     """取得補助申請案件列表，可依條件過濾
@@ -188,10 +188,16 @@ async def get_grants(
             )
         
         # 執行查詢並預載入相關資料
-        grants = await query.prefetch_related(
+        query = query.prefetch_related(
             'created_by',  # 建立者資訊
             'active_version'  # 啟用版本資訊
-        ).offset(skip).limit(limit).order_by('-created_at')
+        ).offset(skip)
+
+        # 🔥 只在 limit 有值時才應用限制（None = 查詢全部）
+        if limit is not None:
+            query = query.limit(limit)
+
+        grants = await query.order_by('-created_at')
 
         # 統計查詢結果
         legacy_count = sum(1 for g in grants if g.is_legacy)
