@@ -79,6 +79,9 @@ dry-farm/certbot
 # Local data
 data/
 
+# Migration tools (contains sensitive data and temporary scripts)
+api/migrations/tools/
+
 # Test cases
 test_cases/
 tests/
