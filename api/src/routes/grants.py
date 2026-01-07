@@ -1119,17 +1119,17 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     a_item_total += main_pipe_1_total
 
     # 田間主管 2（如果啟用）
-    main_pipe_2_enabled = step5_data.get('mainPipe2Enabled', False)
-    main_pipe_2_qty = 0
-    main_pipe_2_price = 0
-    main_pipe_2_total = 0
-    main_pipe_2_length = 0
-    if main_pipe_2_enabled:
-        main_pipe_2_qty = int(step5_data.get('mainPipe2Quantity', 0) or 0)
-        main_pipe_2_price = float(step5_data.get('mainPipe2UnitPrice', 0) or 0)
-        main_pipe_2_total = main_pipe_2_qty * main_pipe_2_price
-        main_pipe_2_length = int(step5_data.get('mainPipe2Length', 0) or 0)
-        a_item_total += main_pipe_2_total
+    # main_pipe_2_enabled = step5_data.get('mainPipe2Enabled', False)
+    # main_pipe_2_qty = 0
+    # main_pipe_2_price = 0
+    # main_pipe_2_total = 0
+    # main_pipe_2_length = 0
+    # if main_pipe_2_enabled:
+    main_pipe_2_qty = int(step5_data.get('mainPipe2Quantity', 0) or 0)
+    main_pipe_2_price = float(step5_data.get('mainPipe2UnitPrice', 0) or 0)
+    main_pipe_2_total = main_pipe_2_qty * main_pipe_2_price
+    main_pipe_2_length = int(step5_data.get('mainPipe2Length', 0) or 0)
+    a_item_total += main_pipe_2_total
 
     # 灌溉系統（pipes 陣列的總和）
     # 根據前端邏輯：只計算 groupId 為 2,3,4,5,6,7,8 或 (groupId=1 且 module!='主管') 的管路
