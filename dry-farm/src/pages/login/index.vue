@@ -256,7 +256,7 @@
         <div class="small-screen-footer">
           <div class="d-flex flex-column align-center">
             <p class="footer-text">
-              &copy; 2025 農田水利署. All rights reserved.
+              &copy; {{ currentYear }} 農田水利署. All rights reserved.
               <span class="version-text">v.{{ packageInfo.version }}</span>
             </p>
           </div>
@@ -271,7 +271,7 @@
     >
       <div class="d-flex flex-column align-end">
         <p class="footer-text">
-          &copy; 2025 農田水利署. All rights reserved.
+          &copy; {{ currentYear }} 農田水利署. All rights reserved.
           <span class="version-text">v.{{ packageInfo.version }}</span>
         </p>
       </div>
@@ -309,6 +309,8 @@
 
   const errorMessage = ref('');
   const isSubmitting = ref(false);
+
+  const currentYear = new Date().getFullYear();
 
   const generateCaptcha = async () => {
     captchaLoading.value = true

@@ -173,7 +173,7 @@ export const MAP_LAYERS: MapLayer[] = [
     name: '補助案件格網統計圖',
     category: 'overlay',
     group: 'historical-grants',
-    visible: true,
+    visible: false,
     opacity: 0.8,
     description: '補助案件的格網熱度統計圖',
     order: 1
@@ -183,7 +183,7 @@ export const MAP_LAYERS: MapLayer[] = [
     name: '補助案件點位',
     category: 'overlay',
     group: 'historical-grants',
-    visible: false,
+    visible: true,
     opacity: 1,
     description: '補助案件的點位分佈圖',
     order: 2
@@ -225,7 +225,7 @@ export const MAP_LAYERS: MapLayer[] = [
     name: '公有土地地籍圖',
     category: 'overlay',
     group: 'auxiliary',
-    visible: false,
+    visible: true,
     opacity: 0.6,
     description: '公有土地地籍範圍',
     order: 6

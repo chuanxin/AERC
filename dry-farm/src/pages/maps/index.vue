@@ -4285,7 +4285,113 @@ async function initMap() {
       visible: publicLandMapLayer.visible,
       opacity: publicLandMapLayer.opacity
     })
+  // Joya 加入 其他輔助圖層
+  // 1. 都市計畫土地使用分區圖 (LUIMAP)
+    const urbanLandUseMapLayer = mapLayers.value.find(l => l.id === 'urban-land-use')!
+    const urbanLandUseLayer = new TileLayer({
+      source: new WMTS({
+        url: 'https://wmts.nlsc.gov.tw/wmts',
+        layer: 'LUIMAP', // 都市計畫使用分區
+        matrixSet: 'GoogleMapsCompatible',
+        format: 'image/png',
+        projection: nlscProjection,
+        tileGrid: nlscTileGrid,
+        style: 'default',
+        wrapX: false
+      }),
+      visible: urbanLandUseMapLayer.visible,
+      opacity: urbanLandUseMapLayer.opacity,
+      zIndex: 10 // 預設層級，後續會被自動排序覆蓋
+    })
 
+    // 2. 村里界 (VILLAGE)
+    const villageMapLayer = mapLayers.value.find(l => l.id === 'village-boundary')!
+    const villageLayer = new TileLayer({
+      source: new WMTS({
+        url: 'https://wmts.nlsc.gov.tw/wmts',
+        layer: 'Village', // 村里界
+        matrixSet: 'GoogleMapsCompatible',
+        format: 'image/png',
+        projection: nlscProjection,
+        tileGrid: nlscTileGrid,
+        style: 'default',
+        wrapX: false
+      }),
+      visible: villageMapLayer.visible,
+      opacity: villageMapLayer.opacity
+    })
+
+    // 3. 鄉鎮市區界 (TOWN)
+    const townshipMapLayer = mapLayers.value.find(l => l.id === 'township-boundary')!
+    const townshipLayer = new TileLayer({
+      source: new WMTS({
+        url: 'https://wmts.nlsc.gov.tw/wmts',
+        layer: 'TOWN', // 鄉鎮市區界
+        matrixSet: 'GoogleMapsCompatible',
+        format: 'image/png',
+        projection: nlscProjection,
+        tileGrid: nlscTileGrid,
+        style: 'default',
+        wrapX: false
+      }),
+      visible: townshipMapLayer.visible,
+      opacity: townshipMapLayer.opacity
+    })
+
+    // 4. 正射影像圖 (通用版) (PHOTO2)
+    const orthophotoMapLayer = mapLayers.value.find(l => l.id === 'orthophoto-general')!
+    const orthophotoLayer = new TileLayer({
+      source: new WMTS({
+        url: 'https://wmts.nlsc.gov.tw/wmts',
+        layer: 'PHOTO2', // 正射影像
+        matrixSet: 'GoogleMapsCompatible',
+        format: 'image/jpeg', // 影像通常是 jpg
+        projection: nlscProjection,
+        tileGrid: nlscTileGrid,
+        style: 'default',
+        wrapX: false
+      }),
+      visible: orthophotoMapLayer.visible,
+      opacity: orthophotoMapLayer.opacity
+    })
+
+    // 5. 正射影像圖 (混和) 
+    const orthophotoMixMapLayer = mapLayers.value.find(l => l.id === 'orthophoto-hybrid')!
+    const orthophotoMixLayer = new TileLayer({
+      source: new WMTS({
+        url: 'https://wmts.nlsc.gov.tw/wmts',
+        layer: 'PHOTO_MIX', // 正射影像
+        matrixSet: 'GoogleMapsCompatible',
+        format: 'image/jpeg', // 影像通常是 jpg
+        projection: nlscProjection,
+        tileGrid: nlscTileGrid,
+        style: 'default',
+        wrapX: false
+      }),
+      visible: orthophotoMixMapLayer.visible,
+      opacity: orthophotoMixMapLayer.opacity
+    })
+    
+
+    // 6. 地段外圍圖/段籍圖 (LANDSECT)
+    const landSectionMapLayer = mapLayers.value.find(l => l.id === 'land-section')!
+    const landSectionLayer = new TileLayer({
+      source: new WMTS({
+        url: 'https://wmts.nlsc.gov.tw/wmts',
+        layer: 'LANDSECT', // NLSC 圖層名稱: 地段外圍圖
+        matrixSet: 'GoogleMapsCompatible',
+        format: 'image/png',
+        projection: nlscProjection,
+        tileGrid: nlscTileGrid,
+        style: 'default',
+        wrapX: false
+      }),
+      visible: landSectionMapLayer.visible,
+      opacity: landSectionMapLayer.opacity,
+      zIndex: 12 // 通常段籍圖需要疊在比較上層
+    })
+    //joya add end
+    
     // === 創建量測圖層 ===
     measureSource.value = new VectorSource();
     measureLayer.value = new VectorLayer({
@@ -4352,7 +4458,7 @@ async function initMap() {
       zIndex: 999, // 在量測圖層下方，但在其他圖層上方
     });
 
-    const layers = [nlscLayer, osmLayer, stamenLayer, gridLayer, grantLayer, functionalZoneLayer, nonUrbanLandUseLayer, publicLandLayer, measureLayer.value, cadastralResultLayer.value, locationMarkerLayer.value];
+    const layers = [nlscLayer, osmLayer, stamenLayer, urbanLandUseLayer, villageLayer, townshipLayer, orthophotoLayer, orthophotoMixLayer, landSectionLayer, gridLayer, grantLayer, functionalZoneLayer, nonUrbanLandUseLayer, publicLandLayer, measureLayer.value, cadastralResultLayer.value, locationMarkerLayer.value];
 
     // 關聯圖層到 mapLayers 數據結構（使用 ID 查找）
     nlscMapLayer.layer = nlscLayer;
@@ -4363,6 +4469,14 @@ async function initMap() {
     functionalZoneMapLayer.layer = functionalZoneLayer;
     nonUrbanLandUseMapLayer.layer = nonUrbanLandUseLayer;
     publicLandMapLayer.layer = publicLandLayer;
+    //Joya add
+    urbanLandUseMapLayer.layer = urbanLandUseLayer;
+    villageMapLayer.layer = villageLayer;
+    townshipMapLayer.layer = townshipLayer;
+    orthophotoMapLayer.layer = orthophotoLayer;
+    orthophotoMixMapLayer.layer = orthophotoMixLayer;
+    landSectionMapLayer.layer = landSectionLayer;
+    //joya add end
 
     // 設置初始可見性和透明度
     mapLayers.value.forEach((layerInfo) => {
