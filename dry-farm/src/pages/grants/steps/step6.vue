@@ -746,16 +746,26 @@ const pipeLineSubsidy = computed(() => {
 
   const subsidyAmount = step4Data.subsidyAmount || 0;
   const designFeeAmount = step4Data.designFee || 0;
-  const totalAmount = step4Data.totalAmount || 0;
-  const pipelineMaterialCost = parseInt(pipeLineTotal.value.replace(/,/g, '')) || 0;
 
-  // 檢測是否為歷史資料（totalAmount 不包含設計費）
-  const isLegacyData = totalAmount > 0 && designFeeAmount > 0 &&
-                       totalAmount < (pipelineMaterialCost + designFeeAmount) - 1;  // -1 for rounding tolerance
+  // 🔥 從後端資料表讀取 data_schema_version 判斷是否為歷史資料
+  const activeVersion = grantsStore.currentGrant?.active_version as any;
+  const dataSchemaVersion = activeVersion?.data_schema_version || null;
+  const isLegacyData = dataSchemaVersion === 'legacy';
+
+  console.log('🔍 Legacy Data Detection:', {
+    dataSchemaVersion,
+    isLegacyData,
+    activeVersion: !!activeVersion,
+    hasDataSchemaVersionField: activeVersion ? 'data_schema_version' in activeVersion : false,
+    activeVersionKeys: activeVersion ? Object.keys(activeVersion) : [],
+    currentGrantKeys: grantsStore.currentGrant ? Object.keys(grantsStore.currentGrant) : [],
+    fullActiveVersion: activeVersion // 完整输出 active_version 对象
+  });
 
   if (isLegacyData) {
     // 歷史資料：subsidyAmount 不包含設計費，直接使用
     // 補助優先用於管路材料
+    const pipelineMaterialCost = parseInt(pipeLineTotal.value.replace(/,/g, '')) || 0;
     return Math.min(pipelineMaterialCost, subsidyAmount).toLocaleString();
   } else {
     // 新資料：subsidyAmount 包含設計費，需要扣除

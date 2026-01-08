@@ -1248,6 +1248,32 @@ export const getGrantVersion = async (
 }
 
 /**
+ * 更新版本的資料結構版本標記
+ * @param versionId 版本 ID
+ * @param schemaVersion 新的資料結構版本 (v1.0, legacy)
+ */
+export const updateSchemaVersion = async (
+  versionId: number,
+  schemaVersion: string
+): Promise<any> => {
+  try {
+    console.log(`🔄 Updating schema version for version ${versionId} to ${schemaVersion}`)
+
+    const response = await apiService.put(
+      `/grant-versions/${versionId}/schema-version`,
+      { schema_version: schemaVersion }
+    )
+
+    console.log(`✅ Updated schema version successfully`)
+    return response
+
+  } catch (error: any) {
+    console.error(`❌ Failed to update schema version for version ${versionId}:`, error)
+    return handleApiError(error, 'grantsService.updateSchemaVersion')
+  }
+}
+
+/**
  * 取得案件的 grant_papers 文件資料（根據 active_version_id 匹配）
  * @param caseNumber 案件編號
  * @param documentType 文件類型，預設為 'budget_statement'

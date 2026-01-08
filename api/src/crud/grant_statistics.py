@@ -336,13 +336,22 @@ class GrantStatisticsCRUD:
             OfficeBudgetStats: 辦公室經費統計資料
         """
         # 1. 從 SubsidyAnnualBudget 取得預定執行面積和預算
-        annual_budget = await SubsidyAnnualBudget.filter(
-            year=year,
-            office_id=office_id
-        ).first()
-
-        planned_area = annual_budget.approved_area if annual_budget else Decimal('0')
-        planned_budget = annual_budget.approved_budget if annual_budget else Decimal('0')
+        # 🔥 容錯處理：如果表不存在，使用預設值（適用於尚未執行遷移的生產環境）
+        try:
+            annual_budget = await SubsidyAnnualBudget.filter(
+                year=year,
+                office_id=office_id
+            ).first()
+            
+            planned_area = annual_budget.approved_area if annual_budget else Decimal('0')
+            planned_budget = annual_budget.approved_budget if annual_budget else Decimal('0')
+        except Exception as e:
+            # 表不存在或查詢失敗時，使用預設值
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to query SubsidyAnnualBudget for year={year}, office_id={office_id}: {e}")
+            planned_area = Decimal('0')
+            planned_budget = Decimal('0')
 
         # 2. 查詢已編預算案件（狀態非 rejected, withdrawn, deleted）
         # 🔥 統一實作：排除無效狀態，計算有效案件的統計數據

@@ -1266,9 +1266,21 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     step5_subsidy_amount = int(float(step5_data.get('subsidyAmount', 0) or 0))
     step5_self_paid_amount = int(float(step5_data.get('selfPaidAmount', 0) or 0))
 
+    # === 判斷資料結構版本（legacy vs 新版）===
+    data_schema_version = grant.active_version.data_schema_version if grant.active_version else None
+    is_legacy_data = data_schema_version == 'legacy'
+
     # === 政府補助款（使用前端已計算的值）===
-    # A 項：田間管路補助 = step5 補助額度 - 設計費（不得小於 0）
-    govt_subsidy_a = max(0, step5_subsidy_amount - b_design_fee)
+    # A 項：田間管路補助
+    if is_legacy_data:
+        # 歷史資料：subsidyAmount 不包含設計費，直接使用
+        # 補助優先用於管路材料
+        govt_subsidy_a = int(min(a_item_total, step5_subsidy_amount))
+    else:
+        # 新資料：subsidyAmount 包含設計費，需要扣除
+        # A 項補助 = 總補助 - 設計費（不得小於 0）
+        govt_subsidy_a = int(max(0, step5_subsidy_amount - b_design_fee))
+    
     govt_subsidy_c = c_control_subsidy  # C 項：調節控制設施（使用前端計算值）
     govt_subsidy_d = d_power_subsidy  # D 項：動力設備（使用前端計算值）
     govt_subsidy_e = e_storage_subsidy  # E 項：調蓄設施（使用前端計算值）

@@ -175,6 +175,26 @@ async def get_active_version_api(
         )
 
 
+@router.put(
+    "/{version_id}/schema-version",
+    response_model=Dict[str, Any],
+    dependencies=[Depends(get_current_user)],
+)
+async def update_schema_version_api(
+    version_id: int = Path(..., description="版本ID"),
+    schema_version: str = Body(..., embed=True, description="新的資料結構版本 (v1.0, legacy)"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """更新版本的資料結構版本標記"""
+    try:
+        return await crud.update_schema_version(version_id, schema_version, current_user)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"更新資料結構版本失敗: {str(e)}",
+        )
+
+
 @router.post(
     "/from-current/{case_number}",
     response_model=GrantVersionResponseSchema,

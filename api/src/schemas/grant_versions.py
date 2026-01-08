@@ -37,6 +37,7 @@ class GrantVersionDetailSchema(BaseSchema):
     version: int = Field(..., description="版本號")
     all_steps_data: Dict[str, Any] = Field(..., description="所有步驟的資料(JSON格式)")
     all_steps_data_hash: Optional[str] = Field(None, description="資料雜湊值")
+    data_schema_version: Optional[str] = Field(None, description="資料結構版本")
     comment: Optional[str] = Field(None, description="版本說明")
     created_at: datetime = Field(..., description="建立時間")
     modified_at: datetime = Field(..., description="修改時間")
