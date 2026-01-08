@@ -1285,8 +1285,13 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     govt_subsidy_d = d_power_subsidy  # D 項：動力設備（使用前端計算值）
     govt_subsidy_e = e_storage_subsidy  # E 項：調蓄設施（使用前端計算值）
 
-    # 實際獲得補助的規劃設計費（與前端 actualSubsidizedDesignFee 邏輯相同）
-    actual_subsidized_design_fee = min(step5_subsidy_amount, b_design_fee)
+    # 實際獲得補助的規劃設計費
+    if is_legacy_data:
+        # 歷史資料：subsidyAmount 不含設計費，設計費全額補助
+        actual_subsidized_design_fee = b_design_fee
+    else:
+        # 新資料：subsidyAmount 包含設計費，取補助額度和設計費的最小值
+        actual_subsidized_design_fee = min(step5_subsidy_amount, b_design_fee)
 
     # === 農戶配合款（使用前端已計算的值）===
     total_amount = a_item_total + b_design_fee + c_control_total + d_power_total + e_storage_total
