@@ -49,9 +49,8 @@ class GrantStatisticsCRUD:
             offices = await Offices.filter(id=office_id).all()
         else:
             # 查詢所有辦公室（admin 權限）
-            # 只查詢有案件的辦公室
-            office_ids = await query.distinct().values_list("office_id", flat=True)
-            offices = await Offices.filter(id__in=office_ids).all()
+            # 查詢 office_id 1-18 的所有單位（包括沒有案件的單位）
+            offices = await Offices.filter(id__gte=1, id__lte=19).order_by('id').all()
 
         # 3. 為每個辦公室計算統計資料
         office_stats_list = []
@@ -114,11 +113,12 @@ class GrantStatisticsCRUD:
 
         approved_budget = annual_budget.approved_budget if annual_budget else Decimal('0')
 
-        # 2. 查詢已結案案件（status in ['completed', 'submitted']）
+        # 2. 查詢已結案案件（status = 'submitted'）
+        # 🔥 只統計 submitted 狀態：已結案，並完成文件上傳的完整封存狀態
         completed_grants = await Grants.filter(
             year=year,
             office_id=office_id,
-            status__in=['completed', 'submitted']
+            status='submitted'
         ).prefetch_related('active_version').all()
 
         completed_cases = len(completed_grants)
@@ -129,19 +129,99 @@ class GrantStatisticsCRUD:
         for grant in completed_grants:
             if grant.active_version:
                 all_steps_data = grant.active_version.all_steps_data or {}
+                steps = all_steps_data.get('steps', {})
 
-                # 提取施設面積資料（從 step2.lands[].facilityAreaHa）
-                step2_data = all_steps_data.get('step2', {})
+                # 提取施設面積資料（從 steps['2'].lands[].facilityAreaHa）
+                step2_data = steps.get('2', {})
                 lands = step2_data.get('lands', [])
                 for land in lands:
                     # 使用施設面積（公頃）
                     facility_area_ha = Decimal(str(land.get('facilityAreaHa', 0) or 0))
                     total_area += facility_area_ha
 
-                # 提取補助金額（從 budget_items.total_subsidy）
-                budget_items = all_steps_data.get('budget_items', {})
-                subsidy_amount = Decimal(str(budget_items.get('total_subsidy', 0) or 0))
-                total_subsidy += subsidy_amount
+                # 提取政府補助款總額（與 step6.vue「農戶補助明細」邏輯一致）
+                # 補助款 = A項補助（田間管路） + B項補助（調控設施） + 規劃設計費補助
+                
+                step4_data = steps.get('4', {})  # step3.vue → steps['4']
+                step5_data = steps.get('5', {})  # step4.vue → steps['5']
+                
+                # 計算管路材料成本（用於判斷歷史資料和計算補助）
+                pipeline_material_cost = Decimal('0')
+                
+                # 主管1成本
+                if step5_data.get('mainPipeQuantity') and step5_data.get('mainPipeUnitPrice'):
+                    pipeline_material_cost += (
+                        Decimal(str(step5_data.get('mainPipeQuantity', 0) or 0)) *
+                        Decimal(str(step5_data.get('mainPipeUnitPrice', 0) or 0))
+                    )
+                
+                # 主管2成本
+                if step5_data.get('mainPipe2Quantity') and step5_data.get('mainPipe2UnitPrice'):
+                    pipeline_material_cost += (
+                        Decimal(str(step5_data.get('mainPipe2Quantity', 0) or 0)) *
+                        Decimal(str(step5_data.get('mainPipe2UnitPrice', 0) or 0))
+                    )
+                
+                # 灌溉系統成本
+                pipes = step5_data.get('pipes', [])
+                if isinstance(pipes, list):
+                    for pipe in pipes:
+                        group_id = pipe.get('groupId')
+                        module = pipe.get('module', '')
+                        # 排除主管（groupId=1 且 module='主管'）
+                        if group_id in [2, 3, 4, 5, 6, 7, 8] or (group_id == 1 and module != '主管'):
+                            total_price = pipe.get('totalPrice', 0)
+                            if isinstance(total_price, (int, float)):
+                                pipeline_material_cost += Decimal(str(total_price))
+                            else:
+                                pipeline_material_cost += Decimal(str(total_price or 0))
+                
+                # 工作費
+                work_fee = step5_data.get('workFee', 0)
+                if isinstance(work_fee, (int, float)):
+                    pipeline_material_cost += Decimal(str(work_fee))
+                else:
+                    pipeline_material_cost += Decimal(str(int(work_fee or 0)))
+                
+                # 取得補助和設計費資料
+                subsidy_amount = Decimal(str(step5_data.get('subsidyAmount', 0) or 0))
+                design_fee_amount = Decimal(str(step5_data.get('designFee', 0) or 0))
+                total_amount = Decimal(str(step5_data.get('totalAmount', 0) or 0))
+                
+                # 檢測是否為歷史資料（totalAmount 不包含設計費）
+                is_legacy_data = (
+                    total_amount > 0 and 
+                    design_fee_amount > 0 and
+                    total_amount < (pipeline_material_cost + design_fee_amount) - 1
+                )
+                
+                # A項補助：田間管路設施補助費（pipeLineSubsidy）
+                if is_legacy_data:
+                    # 歷史資料：補助優先用於管路材料
+                    pipeline_subsidy = min(pipeline_material_cost, subsidy_amount)
+                else:
+                    # 新資料：總補助 - 設計費
+                    pipeline_subsidy = max(Decimal('0'), subsidy_amount - design_fee_amount)
+                
+                # B項補助：灌溉調控設施補助費（facilitySubsidy）
+                facilities = step4_data.get('facilities', [])
+                facility_subsidy = Decimal('0')
+                if isinstance(facilities, list):
+                    for facility in facilities:
+                        facility_subsidy += Decimal(str(facility.get('subsidyAmount', 0) or 0))
+                
+                # 規劃設計費補助（actualSubsidizedDesignFee）
+                if is_legacy_data:
+                    # 歷史資料：剩餘補助用於設計費
+                    remaining_subsidy = max(Decimal('0'), subsidy_amount - pipeline_material_cost)
+                    design_fee_subsidy = min(design_fee_amount, remaining_subsidy)
+                else:
+                    # 新資料：直接取補助額度和設計費的最小值
+                    design_fee_subsidy = min(subsidy_amount, design_fee_amount)
+                
+                # 政府補助款總額 = A項 + B項 + 設計費補助
+                grant_total_subsidy = pipeline_subsidy + facility_subsidy + design_fee_subsidy
+                total_subsidy += grant_total_subsidy
 
         # 4. 計算執行率
         execution_rate = Decimal('0')
@@ -186,8 +266,8 @@ class GrantStatisticsCRUD:
         if office_id is not None and user_role != "admin":
             offices = await Offices.filter(id=office_id).all()
         else:
-            office_ids = await query.distinct().values_list("office_id", flat=True)
-            offices = await Offices.filter(id__in=office_ids).all()
+            # 查詢 office_id 1-18 的所有單位（包括沒有案件的單位）
+            offices = await Offices.filter(id__gte=1, id__lte=18).order_by('id').all()
 
         # 3. 為每個辦公室計算統計資料
         office_stats_list = []
@@ -264,64 +344,231 @@ class GrantStatisticsCRUD:
         planned_area = annual_budget.approved_area if annual_budget else Decimal('0')
         planned_budget = annual_budget.approved_budget if annual_budget else Decimal('0')
 
-        # 2. 查詢已編預算案件（status='under_review'）
+        # 2. 查詢已編預算案件（狀態非 rejected, withdrawn, deleted）
+        # 🔥 統一實作：排除無效狀態，計算有效案件的統計數據
         budgeted_grants = await Grants.filter(
             year=year,
-            office_id=office_id,
-            status='under_review'
+            office_id=office_id
+        ).exclude(
+            status__in=['rejected', 'withdrawn', 'deleted']
         ).prefetch_related('active_version').all()
 
         budgeted_cases = len(budgeted_grants)
         budgeted_area = Decimal('0')
         budgeted_subsidy = Decimal('0')
 
+        # 🔥 統一實作：與 total_area, total_subsidy 使用相同的計算邏輯
         for grant in budgeted_grants:
             if grant.active_version:
                 all_steps_data = grant.active_version.all_steps_data or {}
+                steps = all_steps_data.get('steps', {})
 
-                # 提取施設面積
-                step2_data = all_steps_data.get('step2', {})
+                # 提取施設面積資料（從 steps['2'].lands[].facilityAreaHa）
+                step2_data = steps.get('2', {})
                 lands = step2_data.get('lands', [])
                 for land in lands:
+                    # 使用施設面積（公頃）
                     facility_area_ha = Decimal(str(land.get('facilityAreaHa', 0) or 0))
                     budgeted_area += facility_area_ha
 
-                # 提取補助金額
-                budget_items = all_steps_data.get('budget_items', {})
-                subsidy_amount = Decimal(str(budget_items.get('total_subsidy', 0) or 0))
-                budgeted_subsidy += subsidy_amount
+                # 提取政府補助款總額（與 step6.vue「農戶補助明細」邏輯一致）
+                # 補助款 = A項補助（田間管路） + B項補助（調控設施） + 規劃設計費補助
+                
+                step4_data = steps.get('4', {})  # step3.vue → steps['4']
+                step5_data = steps.get('5', {})  # step4.vue → steps['5']
+                
+                # 計算管路材料成本（用於判斷歷史資料和計算補助）
+                pipeline_material_cost = Decimal('0')
+                
+                # 主管1成本
+                if step5_data.get('mainPipeQuantity') and step5_data.get('mainPipeUnitPrice'):
+                    pipeline_material_cost += (
+                        Decimal(str(step5_data.get('mainPipeQuantity', 0) or 0)) *
+                        Decimal(str(step5_data.get('mainPipeUnitPrice', 0) or 0))
+                    )
+                
+                # 主管2成本
+                if step5_data.get('mainPipe2Quantity') and step5_data.get('mainPipe2UnitPrice'):
+                    pipeline_material_cost += (
+                        Decimal(str(step5_data.get('mainPipe2Quantity', 0) or 0)) *
+                        Decimal(str(step5_data.get('mainPipe2UnitPrice', 0) or 0))
+                    )
+                
+                # 灌溉系統成本
+                pipes = step5_data.get('pipes', [])
+                if isinstance(pipes, list):
+                    for pipe in pipes:
+                        group_id = pipe.get('groupId')
+                        module = pipe.get('module', '')
+                        # 排除主管（groupId=1 且 module='主管'）
+                        if group_id in [2, 3, 4, 5, 6, 7, 8] or (group_id == 1 and module != '主管'):
+                            total_price = pipe.get('totalPrice', 0)
+                            if isinstance(total_price, (int, float)):
+                                pipeline_material_cost += Decimal(str(total_price))
+                            else:
+                                pipeline_material_cost += Decimal(str(total_price or 0))
+                
+                # 工作費
+                work_fee = step5_data.get('workFee', 0)
+                if isinstance(work_fee, (int, float)):
+                    pipeline_material_cost += Decimal(str(work_fee))
+                else:
+                    pipeline_material_cost += Decimal(str(int(work_fee or 0)))
+                
+                # 取得補助和設計費資料
+                subsidy_amount = Decimal(str(step5_data.get('subsidyAmount', 0) or 0))
+                design_fee_amount = Decimal(str(step5_data.get('designFee', 0) or 0))
+                total_amount = Decimal(str(step5_data.get('totalAmount', 0) or 0))
+                
+                # 檢測是否為歷史資料（totalAmount 不包含設計費）
+                is_legacy_data = (
+                    total_amount > 0 and 
+                    design_fee_amount > 0 and
+                    total_amount < (pipeline_material_cost + design_fee_amount) - 1
+                )
+                
+                # A項補助：田間管路設施補助費（pipeLineSubsidy）
+                if is_legacy_data:
+                    # 歷史資料：補助優先用於管路材料
+                    pipeline_subsidy = min(pipeline_material_cost, subsidy_amount)
+                else:
+                    # 新資料：總補助 - 設計費
+                    pipeline_subsidy = max(Decimal('0'), subsidy_amount - design_fee_amount)
+                
+                # B項補助：灌溉調控設施補助費（facilitySubsidy）
+                facilities = step4_data.get('facilities', [])
+                facility_subsidy = Decimal('0')
+                if isinstance(facilities, list):
+                    for facility in facilities:
+                        facility_subsidy += Decimal(str(facility.get('subsidyAmount', 0) or 0))
+                
+                # 規劃設計費補助（actualSubsidizedDesignFee）
+                if is_legacy_data:
+                    # 歷史資料：剩餘補助用於設計費
+                    remaining_subsidy = max(Decimal('0'), subsidy_amount - pipeline_material_cost)
+                    design_fee_subsidy = min(design_fee_amount, remaining_subsidy)
+                else:
+                    # 新資料：直接取補助額度和設計費的最小值
+                    design_fee_subsidy = min(subsidy_amount, design_fee_amount)
+                
+                # 政府補助款總額 = A項 + B項 + 設計費補助
+                grant_total_subsidy = pipeline_subsidy + facility_subsidy + design_fee_subsidy
+                budgeted_subsidy += grant_total_subsidy
 
-        # 3. 查詢已驗收案件（status='completed'）
+        # 3. 查詢已驗收案件（status in ['completed', 'submitted']）
+        # completed: 線上結案，尚未完成文件上傳
+        # submitted: 已結案，並完成文件上傳的完整封存狀態
         verified_grants = await Grants.filter(
             year=year,
             office_id=office_id,
-            status='completed'
+            status__in=['completed', 'submitted']
         ).prefetch_related('active_version').all()
 
         verified_cases = len(verified_grants)
         verified_area = Decimal('0')
         verified_amount = Decimal('0')
 
+        # 🔥 統一實作：與 total_area, total_subsidy 使用相同的計算邏輯
         for grant in verified_grants:
             if grant.active_version:
                 all_steps_data = grant.active_version.all_steps_data or {}
+                steps = all_steps_data.get('steps', {})
 
-                # 提取施設面積
-                step2_data = all_steps_data.get('step2', {})
+                # 提取施設面積資料（從 steps['2'].lands[].facilityAreaHa）
+                step2_data = steps.get('2', {})
                 lands = step2_data.get('lands', [])
                 for land in lands:
+                    # 使用施設面積（公頃）
                     facility_area_ha = Decimal(str(land.get('facilityAreaHa', 0) or 0))
                     verified_area += facility_area_ha
 
-                # 提取補助金額
-                budget_items = all_steps_data.get('budget_items', {})
-                subsidy_amount = Decimal(str(budget_items.get('total_subsidy', 0) or 0))
-                verified_amount += subsidy_amount
+                # 提取政府補助款總額（與 step6.vue「農戶補助明細」邏輯一致）
+                # 補助款 = A項補助（田間管路） + B項補助（調控設施） + 規劃設計費補助
+                
+                step4_data = steps.get('4', {})  # step3.vue → steps['4']
+                step5_data = steps.get('5', {})  # step4.vue → steps['5']
+                
+                # 計算管路材料成本（用於判斷歷史資料和計算補助）
+                pipeline_material_cost = Decimal('0')
+                
+                # 主管1成本
+                if step5_data.get('mainPipeQuantity') and step5_data.get('mainPipeUnitPrice'):
+                    pipeline_material_cost += (
+                        Decimal(str(step5_data.get('mainPipeQuantity', 0) or 0)) *
+                        Decimal(str(step5_data.get('mainPipeUnitPrice', 0) or 0))
+                    )
+                
+                # 主管2成本
+                if step5_data.get('mainPipe2Quantity') and step5_data.get('mainPipe2UnitPrice'):
+                    pipeline_material_cost += (
+                        Decimal(str(step5_data.get('mainPipe2Quantity', 0) or 0)) *
+                        Decimal(str(step5_data.get('mainPipe2UnitPrice', 0) or 0))
+                    )
+                
+                # 灌溉系統成本
+                pipes = step5_data.get('pipes', [])
+                if isinstance(pipes, list):
+                    for pipe in pipes:
+                        group_id = pipe.get('groupId')
+                        module = pipe.get('module', '')
+                        # 排除主管（groupId=1 且 module='主管'）
+                        if group_id in [2, 3, 4, 5, 6, 7, 8] or (group_id == 1 and module != '主管'):
+                            total_price = pipe.get('totalPrice', 0)
+                            if isinstance(total_price, (int, float)):
+                                pipeline_material_cost += Decimal(str(total_price))
+                            else:
+                                pipeline_material_cost += Decimal(str(total_price or 0))
+                
+                # 工作費
+                work_fee = step5_data.get('workFee', 0)
+                if isinstance(work_fee, (int, float)):
+                    pipeline_material_cost += Decimal(str(work_fee))
+                else:
+                    pipeline_material_cost += Decimal(str(int(work_fee or 0)))
+                
+                # 取得補助和設計費資料
+                subsidy_amount = Decimal(str(step5_data.get('subsidyAmount', 0) or 0))
+                design_fee_amount = Decimal(str(step5_data.get('designFee', 0) or 0))
+                total_amount = Decimal(str(step5_data.get('totalAmount', 0) or 0))
+                
+                # 檢測是否為歷史資料（totalAmount 不包含設計費）
+                is_legacy_data = (
+                    total_amount > 0 and 
+                    design_fee_amount > 0 and
+                    total_amount < (pipeline_material_cost + design_fee_amount) - 1
+                )
+                
+                # A項補助：田間管路設施補助費（pipeLineSubsidy）
+                if is_legacy_data:
+                    # 歷史資料：補助優先用於管路材料
+                    pipeline_subsidy = min(pipeline_material_cost, subsidy_amount)
+                else:
+                    # 新資料：總補助 - 設計費
+                    pipeline_subsidy = max(Decimal('0'), subsidy_amount - design_fee_amount)
+                
+                # B項補助：灌溉調控設施補助費（facilitySubsidy）
+                facilities = step4_data.get('facilities', [])
+                facility_subsidy = Decimal('0')
+                if isinstance(facilities, list):
+                    for facility in facilities:
+                        facility_subsidy += Decimal(str(facility.get('subsidyAmount', 0) or 0))
+                
+                # 規劃設計費補助（actualSubsidizedDesignFee）
+                if is_legacy_data:
+                    # 歷史資料：剩餘補助用於設計費
+                    remaining_subsidy = max(Decimal('0'), subsidy_amount - pipeline_material_cost)
+                    design_fee_subsidy = min(design_fee_amount, remaining_subsidy)
+                else:
+                    # 新資料：直接取補助額度和設計費的最小值
+                    design_fee_subsidy = min(subsidy_amount, design_fee_amount)
+                
+                # 政府補助款總額 = A項 + B項 + 設計費補助
+                grant_total_subsidy = pipeline_subsidy + facility_subsidy + design_fee_subsidy
+                verified_amount += grant_total_subsidy
 
         # 4. 計算未編列補助款（預定執行預算 - 已編列補助款）
+        # 允許負值：當已編列補助款超過預定執行預算時，顯示超支金額
         unbudgeted_subsidy = planned_budget - budgeted_subsidy
-        if unbudgeted_subsidy < 0:
-            unbudgeted_subsidy = Decimal('0')
 
         # 5. 計算執行率
         area_execution_rate = Decimal('0')
