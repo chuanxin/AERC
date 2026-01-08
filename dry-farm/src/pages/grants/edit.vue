@@ -960,7 +960,7 @@ import { useGrantsStore } from '@/stores/grants'
 import { GrantStorage } from '@/utils/grant-storage'
 import { debounce } from 'lodash-es'
 // 🆕 導入版本管理服務函數
-import { createGrantVersion } from '@/services/grantsService'
+import { createGrantVersion, claimInactiveGrantOwnership } from '@/services/grantsService'
 import { formatCaseNumber } from '@/utils/frontendFilters'
 
 // Import step components
@@ -2078,6 +2078,20 @@ onMounted(async () => {
     // 🔥 傳遞 grantsId 以支援重複 case_number 的案件（歷史案件轉新系統）
     await grantsStore.loadGrant(caseNumberFromRoute, grantsIdParam);
     // console.log('[edit.vue onMounted] grantsStore.loadGrant successful. Current grant:', JSON.stringify(grantsStore.currentGrant, null, 2));
+
+    // 🔥 自動認領 inactive 案件的所有權
+    if (grantsStore.currentGrant?.status === 'inactive' && grantsStore.currentGrant?.id) {
+      try {
+        console.log(`[edit.vue onMounted] Claiming ownership of inactive grant ID: ${grantsStore.currentGrant.id}`);
+        await claimInactiveGrantOwnership(grantsStore.currentGrant.id);
+        console.log(`[edit.vue onMounted] Successfully claimed ownership of inactive grant`);
+        // 重新載入案件以更新 created_by 資訊
+        await grantsStore.loadGrant(caseNumberFromRoute, grantsIdParam);
+      } catch (error) {
+        console.warn(`[edit.vue onMounted] Failed to claim ownership of inactive grant:`, error);
+        // 即使認領失敗，也繼續進入編輯頁面
+      }
+    }
 
     // 檢查 localStorage 中是否有已保存的 currentStep
     const grantData = GrantStorage.getGrant(caseNumberFromRoute);

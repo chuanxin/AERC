@@ -169,6 +169,7 @@ class GrantStatus(str, Enum):
     CROSS_YEAR = "cross_year"  # 跨年度案件狀態
     COMPLETED = "completed"    # 結案狀態
     SOFT_DELETE = "deleted"    # 邏輯刪除
+    INACTIVE = "inactive"      # 歷史案件初始狀態（待認領）
 
 class GrantTypes(str, Enum):
     FARMING = "farming"
@@ -349,6 +350,7 @@ class GrantActionType(str, Enum):
     CASE_CREATE = "case_create"               # 案件建立
     CASE_SUBMIT = "case_submit"               # 案件提交
     VERSION_UPDATE = "version_update"         # 版本更新
+    OWNERSHIP_CLAIM = "ownership_claim"       # 認領案件所有權
 
 
 class GrantHistory(models.Model):

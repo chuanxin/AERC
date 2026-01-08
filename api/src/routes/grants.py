@@ -236,6 +236,32 @@ async def update_grant_step_api(
         )
 
 
+@router.patch(
+    "/{grant_id}/claim-ownership",
+    response_model=GrantOutSchema,
+    dependencies=[Depends(get_current_user)],
+)
+async def claim_inactive_grant_ownership(
+    grant_id: int,
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """
+    認領 inactive 案件的所有權
+
+    當用戶進入編輯 inactive 狀態的案件時，自動將 created_by_id 更新為當前用戶
+    這樣可以讓歷史案件被新用戶接管處理
+    """
+    try:
+        return await crud.claim_inactive_grant_ownership(grant_id, current_user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"認領案件所有權失敗: {str(e)}",
+        )
+
+
 @router.delete(
     "/{grant_id}",
     response_model=Status,

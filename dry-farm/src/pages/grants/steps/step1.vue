@@ -664,7 +664,7 @@
                 <v-row dense>
                   <v-col cols="12">
                     <v-text-field
-                      :value="formatCaseNumber(localFormData.caseNumber)"
+                      :model-value="displayCaseNumber"
                       label="案件編號"
                       variant="outlined"
                       density="comfortable"
@@ -874,6 +874,12 @@ const getFullAddress = computed(() => {
   if (localFormData.address) address += localFormData.address;
 
   return address || '尚未填寫地址';
+});
+
+// Computed property for formatted case number display
+const displayCaseNumber = computed(() => {
+  const caseNumber = grantsStore.currentGrant?.case_number;
+  return formatCaseNumber(caseNumber);
 });
 
 // Method to finish editing and validate address
