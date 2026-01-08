@@ -330,7 +330,7 @@
                         案號
                       </td>
                       <td style="width: 35%">
-                        {{ displayCaseNumber }}
+                        {{ formatCaseNumber(displayCaseNumber) }}
                       </td>
                     </tr>
                     <tr>
@@ -1461,10 +1461,10 @@ import {
   getGrantVersionSummary,
   compareVersionsLocally,
   type FacilitiesComparison,
-  type VersionComparisonResult
 } from '@/services/grantsService';
 // 導入附件服務（照片上傳）
 import { attachmentService } from '@/services/attachmentService';
+import { formatCaseNumber } from '@/utils/frontendFilters'
 // Props and emits
 const props = defineProps({
   formData: {
@@ -2051,7 +2051,7 @@ const displayApplicationYear = computed(() => {
 // 計算顯示用的案號（統一單一來源）
 const displayCaseNumber = computed(() => {
   // Priority: grantsStore.caseNumber > localFormData.caseNumber
-  return grantsStore.caseNumber || localFormData.caseNumber || '';
+  return grantsStore.caseNumber;
 });
 
 // 計算顯示用的申請人姓名（從 grants 表讀取，不在 all_steps_data 中）

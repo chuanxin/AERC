@@ -205,11 +205,14 @@ export const createGrant = async (data: GrantCreateRequest): Promise<GrantCreate
   }
 }
 
-export const getGrantByCaseNumber = async (caseNumber: string): Promise<GrantCreateResponse> => {
+export const getGrantByCaseNumber = async (caseNumber: string, grantsId?: number): Promise<GrantCreateResponse> => {
   try {
-    // const url = mapApiPath(GRANTS.BY_CASE_NUMBER(caseNumber));
-    // const response = await apiService.get(url);
-    const response = await apiService.get(GRANTS.BY_CASE_NUMBER(caseNumber))
+    // 🔥 支援 grantsId 參數以區分重複的 case_number
+    let url = GRANTS.BY_CASE_NUMBER(caseNumber)
+    if (grantsId !== undefined) {
+      url += `?grants_id=${grantsId}`
+    }
+    const response = await apiService.get(url)
     return response as GrantCreateResponse
   } catch (error: unknown) {
     return handleApiError(error, 'grantsService.getGrantByCaseNumber')
@@ -361,6 +364,37 @@ export const deleteGrant = async (grantId: number): Promise<void> => {
   } catch (error) {
     console.error(`📡 [deleteGrant] Failed to delete grant ${grantId}:`, error)
     throw handleApiError(error, 'grantsService.deleteGrant')
+  }
+}
+
+/**
+ * 認領 inactive 案件的所有權
+ * 當用戶進入編輯 inactive 狀態的案件時，自動將 created_by_id 更新為當前用戶
+ * @param grantId 案件 ID
+ * @returns 簡化的成功響應
+ */
+export const claimInactiveGrantOwnership = async (grantId: number): Promise<{
+  success: boolean
+  message: string
+  grant_id: number
+  case_number: string
+  created_by_id: number
+  created_by_username: string
+}> => {
+  try {
+    const response = await apiService.patch(`/grants/${grantId}/claim-ownership`, {})
+    console.log(`📡 [claimInactiveGrantOwnership] Successfully claimed ownership of grant ${grantId}`)
+    return response as {
+      success: boolean
+      message: string
+      grant_id: number
+      case_number: string
+      created_by_id: number
+      created_by_username: string
+    }
+  } catch (error) {
+    console.error(`📡 [claimInactiveGrantOwnership] Failed to claim ownership of grant ${grantId}:`, error)
+    throw handleApiError(error, 'grantsService.claimInactiveGrantOwnership')
   }
 }
 

@@ -414,6 +414,7 @@ import { useRoute } from 'vue-router';
 import type { PropType } from 'vue';
 import downloadsService from '@/services/downloadsService';
 import { generateCompletionStatement, generateDeclaration, generateAuthorization, generateBudgetStatement, downloadPdfBlob } from '@/services/grantsService';
+import { formatCaseNumber } from '@/utils/frontendFilters';
 
 // Step6 不再維護本地設施資料，所有資料都直接從 computed 讀取
 
@@ -936,7 +937,8 @@ const printDocument = async (documentType: string) => {
       // 使用 grantsService 的下載函數
       const year = grantsStore.currentGrant?.year || new Date().getFullYear() - 1911;
       const applicantName = grantsStore.currentGrant?.applicant_name || '未知';
-      const filename = `${year}-${caseNumber}-${applicantName} - 結案申報書.pdf`;
+      const displayCaseNumber = formatCaseNumber(caseNumber);
+      const filename = `${year}-${displayCaseNumber}-${applicantName} - 結案申報書.pdf`;
       downloadPdfBlob(pdfBlob, filename);
 
       doc.progress = 100;
@@ -979,7 +981,8 @@ const printDocument = async (documentType: string) => {
       // 使用 grantsService 的下載函數
       const year = grantsStore.currentGrant?.year || new Date().getFullYear() - 1911;
       const applicantName = grantsStore.currentGrant?.applicant_name || '未知';
-      const filename = `${year}-${caseNumber}-${applicantName} - 切結書.pdf`;
+      const displayCaseNumber = formatCaseNumber(caseNumber);
+      const filename = `${year}-${displayCaseNumber}-${applicantName} - 切結書.pdf`;
       downloadPdfBlob(pdfBlob, filename);
 
       doc.progress = 100;
@@ -1022,7 +1025,8 @@ const printDocument = async (documentType: string) => {
       // 使用 grantsService 的下載函數
       const year = grantsStore.currentGrant?.year || new Date().getFullYear() - 1911;
       const applicantName = grantsStore.currentGrant?.applicant_name || '未知';
-      const filename = `${year}-${caseNumber}-${applicantName} - 規劃委託書.pdf`;
+      const displayCaseNumber = formatCaseNumber(caseNumber);
+      const filename = `${year}-${displayCaseNumber}-${applicantName} - 規劃委託書.pdf`;
       downloadPdfBlob(pdfBlob, filename);
 
       doc.progress = 100;
@@ -1065,7 +1069,8 @@ const printDocument = async (documentType: string) => {
       // 使用 grantsService 的下載函數
       const year = grantsStore.currentGrant?.year || new Date().getFullYear() - 1911;
       const applicantName = grantsStore.currentGrant?.applicant_name || '未知';
-      const filename = `${year}-${caseNumber}-${applicantName} - 工程預算書.pdf`;
+      const displayCaseNumber = formatCaseNumber(caseNumber);
+      const filename = `${year}-${displayCaseNumber}-${applicantName} - 工程預算書.pdf`;
       downloadPdfBlob(pdfBlob, filename);
 
       doc.progress = 100;

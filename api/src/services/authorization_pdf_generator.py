@@ -12,7 +12,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm, cm
 
-from src.utils.chinese_pdf import setup_kaiu_font, setup_chinese_font
+from src.utils.chinese_pdf import setup_kaiu_font, setup_chinese_font, format_case_number
 
 
 class AuthorizationPDFGenerator:
@@ -214,7 +214,7 @@ class AuthorizationPDFGenerator:
 
         # 申請案號
         case_number = grant_data.get('case_number', '')
-        c.drawString(left_margin, current_y, f"申請案號：{case_number}")
+        c.drawString(left_margin, current_y, f"申請案號：{format_case_number(case_number)}")
         current_y -= 40
 
         # 委託人

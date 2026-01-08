@@ -5,6 +5,28 @@ import os
 import io
 from typing import Optional
 
+def format_case_number(case_number: str | None) -> str:
+     """
+     格式化案號顯示：移除 _ 及其後面的後綴（用於歷史案件的唯一性標識）
+
+     例如: "113-01-0001_2legacy" -> "113-01-0001"
+
+     Args:
+         case_number: 完整案號（可能包含後綴）
+
+     Returns:
+         顯示用的案號（移除後綴）
+     """
+     if not case_number:
+         return ''
+
+     underscore_index = case_number.find('_')
+     if underscore_index != -1:
+         return case_number[:underscore_index]
+
+     return case_number
+
+
 def setup_chinese_font():
     """設置中文字體支援"""
     try:

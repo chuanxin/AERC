@@ -28,6 +28,18 @@ export function getCurrentYear(): number {
 }
 
 /**
+ * 格式化案號顯示：移除 _ 及其後面的後綴（用於歷史案件的唯一性標識）
+ * 例如: "113-01-0001_2legacy" -> "113-01-0001"
+ * @param caseNumber 完整案號（可能包含後綴）
+ * @returns 顯示用的案號（移除後綴）
+ */
+export function formatCaseNumber(caseNumber: string | undefined | null): string {
+  if (!caseNumber) return ''
+  const underscoreIndex = caseNumber.indexOf('_')
+  return underscoreIndex !== -1 ? caseNumber.substring(0, underscoreIndex) : caseNumber
+}
+
+/**
  * 獲取統一的疊加圖層初始載入條件參數
  * 目前設置為僅載入當年度資料
  */

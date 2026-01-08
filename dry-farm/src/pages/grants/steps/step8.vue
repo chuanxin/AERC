@@ -17,9 +17,6 @@
           rounded="lg"
         >
           <div class="d-flex align-center">
-            <v-icon class="mr-2">
-              mdi-information
-            </v-icon>
             <div class="text-body-2">
               <strong>請依照檢核表逐項確認：</strong>請確認文件已備齊並勾選對應項目，然後統一上傳所需檔案。支援格式：PDF、JPG、PNG
             </div>

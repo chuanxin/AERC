@@ -78,6 +78,7 @@ export const GRANTS = {
   STEP: (caseNumber: string, step: number) => `${BASE}/grants/case/${caseNumber}/step/${step}`,
   UPDATE_CURRENT_STEP: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/current-step`,
   UPDATE_STATUS: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/status`,
+  CLAIM_OWNERSHIP: (grantId: number) => `${BASE}/grants/${grantId}/claim-ownership`,
   APPLICANT_SUBSIDY_SUMMARY: (applicantId: string, year: number) =>
     `${BASE}/grants/applicant-subsidy-summary/${applicantId}/${year}`,
   COMPLETION_STATEMENT: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/completion-statement`,

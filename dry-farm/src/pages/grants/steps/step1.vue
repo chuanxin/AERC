@@ -400,7 +400,7 @@
                       size="small"
                       variant="outlined"
                     >
-                      {{ grant.case_number }}
+                      {{ formatCaseNumber(grant.case_number) }}
                       <span class="text-caption ms-1">({{ formatCurrency(grant.subsidy_amount) }})</span>
                     </v-chip>
                   </v-chip-group>
@@ -664,7 +664,7 @@
                 <v-row dense>
                   <v-col cols="12">
                     <v-text-field
-                      v-model="localFormData.caseNumber"
+                      :model-value="displayCaseNumber"
                       label="案件編號"
                       variant="outlined"
                       density="comfortable"
@@ -700,6 +700,7 @@ import { useUserStore } from '@/stores/users';
 import { useDomicileStore } from '@/stores/domicile';
 import { useGrantsStore } from '@/stores/grants';
 import type { Step1Data } from '@/types/grantForms'
+import { formatCaseNumber } from '@/utils/frontendFilters'
 
 // 🆕 Props 定義
 interface Step1Props {
@@ -873,6 +874,12 @@ const getFullAddress = computed(() => {
   if (localFormData.address) address += localFormData.address;
 
   return address || '尚未填寫地址';
+});
+
+// Computed property for formatted case number display
+const displayCaseNumber = computed(() => {
+  const caseNumber = grantsStore.currentGrant?.case_number;
+  return formatCaseNumber(caseNumber);
 });
 
 // Method to finish editing and validate address

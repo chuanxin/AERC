@@ -113,6 +113,9 @@ export class FieldMappingUtils {
       return { isValid: false, missingFields: [], unexpectedFields: [], deprecatedFields: [] }
     }
 
+    // 定義通用元數據字段（所有 API 響應都會包含的基本字段）
+    const commonMetadataFields = new Set(['id', 'case_number', 'current_step', 'status'])
+
     const expectedFields = new Set(Object.keys(config.backendToFrontend).map(
       backendField => config.backendToFrontend[backendField]
     ))
@@ -121,7 +124,7 @@ export class FieldMappingUtils {
 
     const missingFields = [...expectedFields].filter(field => !receivedFields.has(field))
     const unexpectedFields = [...receivedFields].filter(field =>
-      !expectedFields.has(field) && !deprecatedFields.has(field)
+      !expectedFields.has(field) && !deprecatedFields.has(field) && !commonMetadataFields.has(field)
     )
     const foundDeprecatedFields = [...receivedFields].filter(field =>
       deprecatedFields.has(field)
@@ -259,6 +262,9 @@ export class FieldMappingValidator {
       return { isValid: false, errors, warnings }
     }
 
+    // 定義通用元數據字段（所有 API 響應都會包含的基本字段）
+    const commonMetadataFields = new Set(['id', 'case_number', 'current_step', 'status'])
+
     const expectedFields = new Set(Object.keys(config.backendToFrontend))
     const receivedFields = new Set(Object.keys(data))
     const deprecatedFields = new Set(Object.keys(config.deprecatedFields))
@@ -269,9 +275,9 @@ export class FieldMappingValidator {
       errors.push(`缺少必要字段: ${missingFields.join(', ')}`)
     }
 
-    // 檢查未預期字段（排除棄用字段）
+    // 檢查未預期字段（排除棄用字段和通用元數據字段）
     const unexpectedFields = [...receivedFields].filter(field =>
-      !expectedFields.has(field) && !deprecatedFields.has(field)
+      !expectedFields.has(field) && !deprecatedFields.has(field) && !commonMetadataFields.has(field)
     )
     if (unexpectedFields.length > 0) {
       warnings.push(`未預期的字段: ${unexpectedFields.join(', ')}`)

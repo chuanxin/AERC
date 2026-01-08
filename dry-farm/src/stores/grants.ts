@@ -219,13 +219,13 @@ export const useGrantsStore = defineStore('grants', () => {
    * @param {string} caseNumber - The grant case number
    * @returns {Promise<GrantCreateResponse>} The loaded grant
    */
-  const loadGrant = async (caseNumber: string) => {
+  const loadGrant = async (caseNumber: string, grantsId?: number) => {
     isLoading.value = true
     error.value = null
 
     try {
-      // Cache key for this request
-      const cacheKey = `loadGrant_${caseNumber}`
+      // Cache key for this request (包含 grantsId 以避免緩存衝突)
+      const cacheKey = `loadGrant_${caseNumber}_${grantsId || 'default'}`
 
       // Return cached result if available and less than 5 minutes old
       if (requestCache[cacheKey] &&
@@ -236,7 +236,8 @@ export const useGrantsStore = defineStore('grants', () => {
 
       // Try from API first
       try {
-        const data = await getGrantByCaseNumber(caseNumber)
+        // 🔥 傳遞 grantsId 以支援重複 case_number 的案件
+        const data = await getGrantByCaseNumber(caseNumber, grantsId)
         currentGrant.value = data
 
         // 從 localStorage 取得 currentStep，如果 API 資料中沒有的話

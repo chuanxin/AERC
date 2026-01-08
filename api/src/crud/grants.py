@@ -639,12 +639,32 @@ async def create_grant(data, current_user):
             raise HTTPException(status_code=500, detail=f"建立補助申請案件發生錯誤: {str(e)}")
 
 
-async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
-    """依案件編號取得單一補助申請案件詳細資料"""
+async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = None) -> Dict[str, Any]:
+    """依案件編號取得單一補助申請案件詳細資料
+
+    Args:
+        case_number: 案件編號
+        grants_id: 案件ID（可選，用於區分重複的 case_number）
+
+    🔥 修正：優先使用 grants_id 查詢，避免歷史案件轉新系統時 case_number 重複的問題
+    """
     try:
-        grant = await Grants.get(case_number=case_number).prefetch_related(
-            'created_by', 'attachments', 'comments__user', 'history__changed_by', 'active_version'
-        )
+        # 🔥 優先使用 grants_id（精確匹配）
+        if grants_id:
+            grant = await Grants.get(id=grants_id).prefetch_related(
+                'created_by', 'attachments', 'comments__user', 'history__changed_by', 'active_version'
+            )
+            # 驗證 case_number 是否匹配（防止 ID 與 case_number 不一致）
+            if grant.case_number != case_number:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"案件ID {grants_id} 與案號 {case_number} 不匹配"
+                )
+        else:
+            # 回退到 case_number 查詢（可能有重複問題）
+            grant = await Grants.get(case_number=case_number).prefetch_related(
+                'created_by', 'attachments', 'comments__user', 'history__changed_by', 'active_version'
+            )
         
         # Format the grant data
         result = {
@@ -1573,6 +1593,87 @@ async def delete_grant(grant_id: int, current_user: UserOutSchema) -> Dict[str, 
 #                 )
             
 #             # 記錄審核日誌
+
+
+async def claim_inactive_grant_ownership(grant_id: int, current_user):
+    """
+    認領 inactive 案件的所有權
+
+    當用戶進入編輯 inactive 狀態的案件時，自動將 created_by_id 更新為當前用戶
+    這樣可以讓歷史案件被新用戶接管處理
+
+    Args:
+        grant_id: 案件 ID
+        current_user: 當前用戶
+
+    Returns:
+        更新後的案件資料
+
+    Raises:
+        HTTPException: 如果案件不存在或不是 inactive 狀態
+    """
+    async with in_transaction():
+        try:
+            # 檢查案件是否存在
+            try:
+                grant = await Grants.get(id=grant_id).prefetch_related(
+                    'created_by', 'attachments', 'comments__user',
+                    'history__changed_by', 'active_version'
+                )
+            except DoesNotExist:
+                raise HTTPException(status_code=404, detail=f"案件 ID {grant_id} 不存在")
+
+            # 檢查案件狀態是否為 inactive
+            if grant.status != 'inactive':
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"只能認領 inactive 狀態的案件，當前狀態為: {grant.status}"
+                )
+
+            # 保存舊的 created_by_id
+            old_created_by_id = grant.created_by_id
+
+            # 更新 created_by_id 為當前用戶
+            await Grants.filter(id=grant.id).update(created_by_id=current_user.id)
+
+            # 建立歷史紀錄
+            await GrantHistory.create(
+                grant=grant,
+                action_type=GrantActionType.OWNERSHIP_CLAIM,
+                grant_status=grant.status,
+                step_number=grant.current_step,
+                changed_fields=['created_by_id'],
+                old_value={'created_by_id': old_created_by_id},
+                new_value={'created_by_id': current_user.id},
+                changed_by_id=current_user.id,
+                notes=f"認領 inactive 案件所有權（原承辦人 ID: {old_created_by_id}）"
+            )
+
+            logger.info(
+                f"用戶 {current_user.username} (ID: {current_user.id}) "
+                f"成功認領案件 {grant.case_number} (ID: {grant_id}) 的所有權"
+            )
+
+            # 返回簡化的成功響應
+            return {
+                "success": True,
+                "message": f"成功認領案件 {grant.case_number} 的所有權",
+                "grant_id": grant_id,
+                "case_number": grant.case_number,
+                "created_by_id": current_user.id,
+                "created_by_username": current_user.username
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"認領案件所有權失敗: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"認領案件所有權失敗: {str(e)}"
+            )
+
+
 async def update_grant_status(case_number: str, new_status: str, current_user):
     """更新補助申請案件的狀態"""
     async with in_transaction():
@@ -1584,7 +1685,7 @@ async def update_grant_status(case_number: str, new_status: str, current_user):
                 raise HTTPException(status_code=404, detail=f"案件編號 {case_number} 不存在")
             
             # 驗證狀態值（使用 GrantStatus 枚舉的有效值）
-            valid_statuses = ["draft", "submitted", "under_review", "approved", "rejected", "completed", "withdrawn"]
+            valid_statuses = ["draft", "submitted", "under_review", "approved", "rejected", "completed", "withdrawn", "inactive", "cross_year", "deleted"]
             if new_status not in valid_statuses:
                 raise HTTPException(
                     status_code=400, 

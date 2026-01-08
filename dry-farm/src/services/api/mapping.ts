@@ -88,6 +88,7 @@ export const BACKEND_PATHS = {
     APPLICANT_SUBSIDY_SUMMARY: (applicantId: string, year: number) =>
     `/grants/applicant-subsidy-summary/${applicantId}/${year}`,
     UPDATE_STATUS: (caseNumber: string) => `/grants/case/${caseNumber}/status`,
+    CLAIM_OWNERSHIP: (grantId: number) => `/grants/${grantId}/claim-ownership`,
     COMPLETION_STATEMENT: (caseNumber: string) => `/grants/case/${caseNumber}/completion-statement`,
     DECLARATION: (caseNumber: string) => `/grants/case/${caseNumber}/declaration`,
     AUTHORIZATION: (caseNumber: string) => `/grants/case/${caseNumber}/authorization`,
