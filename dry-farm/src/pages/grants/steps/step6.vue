@@ -570,7 +570,7 @@ const mainPipes = computed(() => {
   }
 
   // Main pipe 2
-  if (step4Data.mainPipe2Enabled && step4Data.mainPipe2Quantity && parseInt(step4Data.mainPipe2Quantity as string) > 0) {
+  if (step4Data.mainPipe2Quantity && parseInt(step4Data.mainPipe2Quantity as string) > 0) {
     const mainPipe2Total = parseInt(step4Data.mainPipe2Quantity as string || '0') *
                           parseFloat(step4Data.mainPipe2UnitPrice as string || '0');
     mainPipeData.push({
@@ -712,7 +712,7 @@ const pipeLineTotal = computed(() => {
                     parseFloat(step4Data.mainPipeUnitPrice as string || '0');
   }
 
-  if (step4Data.mainPipe2Enabled && step4Data.mainPipe2Quantity && step4Data.mainPipe2UnitPrice) {
+  if (step4Data.mainPipe2Quantity && step4Data.mainPipe2UnitPrice) {
     pipelineTotal += parseInt(step4Data.mainPipe2Quantity as string || '0') *
                     parseFloat(step4Data.mainPipe2UnitPrice as string || '0');
   }
@@ -739,17 +739,30 @@ const pipeLineTotal = computed(() => {
   return (pipelineTotal + irrigationTotal + workFeeAmount).toLocaleString();
 });
 
-// A項補助費：step4 的補助款總額（扣除設計費）
+// A項補助費：與後端 PDF 生成器邏輯完全一致（grants.py:1271）
 const pipeLineSubsidy = computed(() => {
   const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data) return '0';
 
   const subsidyAmount = step4Data.subsidyAmount || 0;
   const designFeeAmount = step4Data.designFee || 0;
+  const totalAmount = step4Data.totalAmount || 0;
+  const pipelineMaterialCost = parseInt(pipeLineTotal.value.replace(/,/g, '')) || 0;
 
-  // A項補助費 = 總補助 - 設計費
-  const pipelineSubsidyOnly = Math.max(0, subsidyAmount - designFeeAmount);
-  return pipelineSubsidyOnly.toLocaleString();
+  // 檢測是否為歷史資料（totalAmount 不包含設計費）
+  const isLegacyData = totalAmount > 0 && designFeeAmount > 0 &&
+                       totalAmount < (pipelineMaterialCost + designFeeAmount) - 1;  // -1 for rounding tolerance
+
+  if (isLegacyData) {
+    // 歷史資料：subsidyAmount 不包含設計費，直接使用
+    // 補助優先用於管路材料
+    return Math.min(pipelineMaterialCost, subsidyAmount).toLocaleString();
+  } else {
+    // 新資料：subsidyAmount 包含設計費，需要扣除
+    // A項補助 = 總補助 - 設計費（與後端邏輯一致）
+    const pipelineSubsidyOnly = Math.max(0, subsidyAmount - designFeeAmount);
+    return pipelineSubsidyOnly.toLocaleString();
+  }
 });
 
 // B項補助費：step3 的補助款總額
@@ -773,26 +786,51 @@ const designFee = computed(() => {
   return designFeeAmount.toLocaleString();
 });
 
-// 實際獲得補助的規劃設計費（用於農戶補助明細）
+// 實際獲得補助的規劃設計費（用於農戶補助明細，與後端 PDF 生成器邏輯一致 grants.py:1277）
 const actualSubsidizedDesignFee = computed(() => {
   const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data) return '0';
 
   const designFeeAmount = step4Data.designFee || 0;
   const subsidyAmount = step4Data.subsidyAmount || 0;
+  const totalAmount = step4Data.totalAmount || 0;
+  const pipelineMaterialCost = parseInt(pipeLineTotal.value.replace(/,/g, '')) || 0;
 
-  // 當補助額度小於設計費時，顯示實際獲得的補助額度
-  const actualSubsidy = Math.min(subsidyAmount, designFeeAmount);
+  // 檢測是否為歷史資料（與 pipeLineSubsidy 使用相同邏輯）
+  const isLegacyData = totalAmount > 0 && designFeeAmount > 0 &&
+                       totalAmount < (pipelineMaterialCost + designFeeAmount) - 1;
 
-  return actualSubsidy.toLocaleString();
+  if (isLegacyData) {
+    // 歷史資料：subsidyAmount 不包含設計費
+    // 設計費補助 = min(設計費, max(0, subsidyAmount - pipelineMaterialCost))
+    const remainingSubsidy = Math.max(0, subsidyAmount - pipelineMaterialCost);
+    return Math.min(designFeeAmount, remainingSubsidy).toLocaleString();
+  } else {
+    // 新資料：subsidyAmount 包含設計費
+    // 實際設計費補助 = min(總補助額度, 設計費)（與後端邏輯一致）
+    const actualSubsidy = Math.min(subsidyAmount, designFeeAmount);
+    return actualSubsidy.toLocaleString();
+  }
 });
 
 const totalBudget = computed(() => {
-  const farmerContribution = parseInt(displayFarmerContribution.value.replace(/,/g, '')) || 0;
-  const pipelineSubsidyValue = parseInt(pipeLineSubsidy.value.replace(/,/g, '')) || 0;
-  const facilitySubsidyValue = parseInt(facilitySubsidy.value.replace(/,/g, '')) || 0;
-  const actualDesignFeeValue = parseInt(actualSubsidizedDesignFee.value.replace(/,/g, '')) || 0;
-  return (farmerContribution + pipelineSubsidyValue + facilitySubsidyValue + actualDesignFeeValue).toLocaleString();
+  // 本設施預算總計 = 所有項目的總成本（與 PDF 生成器邏輯一致）
+  // 直接從成本計算，而不是從補助和自備款反推（避免歷史資料不一致問題）
+
+  // A項：田間管路材料費 + 工作費（不含設計費）
+  const pipelineTotal = parseInt(pipeLineTotal.value.replace(/,/g, '')) || 0;
+
+  // B項：規劃設計費
+  const designFeeValue = parseInt(designFee.value.replace(/,/g, '')) || 0;
+
+  // C+D+E項：灌溉調控設施總價
+  const step3Data = getStepDataSafely(4);  // step3.vue → formData[4]
+  const facilityTotal = step3Data?.facilities?.reduce((sum: number, facility: any) => {
+    return sum + (facility.totalPrice || 0);
+  }, 0) || 0;
+
+  // 總成本 = A + B + C + D + E
+  return (pipelineTotal + designFeeValue + facilityTotal).toLocaleString();
 });
 
 // 將金額轉換為中文大寫
