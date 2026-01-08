@@ -133,7 +133,28 @@
                   請先輸入設計人姓名以完成設計
                 </span>
               </div>
+              
               <div class="d-flex align-center">
+                <v-select
+                  label="快速選擇"
+                  :items="availableDesigners"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#f57c00"
+                  bg-color="white"
+                  hide-details
+                  class="me-2"
+                  style="max-width: 130px;"
+                  :disabled="availableDesigners.length === 0"
+                  @update:model-value="onDesignerSelect"
+                >
+                   <template #no-data>
+                     <div class="px-4 py-2 text-caption text-grey">
+                        尚無該單位設計人員
+                     </div>
+                   </template>
+                </v-select>
+
                 <v-text-field
                   v-model="localFormData.designerName"
                   label="設計人姓名"
@@ -146,6 +167,7 @@
                   hide-details
                   @blur="updateFormData"
                 />
+                
                 <v-btn
                   color="#f57c00"
                   variant="flat"
@@ -160,6 +182,7 @@
                   </v-icon>
                   確認
                 </v-btn>
+
                 <v-btn
                   v-if="!localFormData.designerName"
                   color="grey-darken-1"
@@ -2627,6 +2650,8 @@ import { usePFDiametersStore } from '@/stores/pfDiametersStore'
 import { usePFMaterialsStore } from '@/stores/pfMaterialsStore'
 import { useIrrigationTypesStore } from '@/stores/irrigationTypesStore'
 import type { PipeFitting } from '@/types/pipeFittings'
+import { useUserStore } from '@/stores/users'; //added by Joya
+import { inspectors } from '@/data/inspectors'; //added by Joya
 import {
   calculatePipelineSubsidyAllocation,
   determineRegionType,
@@ -2841,6 +2866,40 @@ const emit = defineEmits(['update:formData', 'validated', 'go-back', 'show-snack
 
 // Access the store
 const grantsStore = useGrantsStore();
+const userStore = useUserStore();
+
+// --- Joya 新增：設計人員下拉選單邏輯 ---
+const availableDesigners = computed(() => {
+  const currentUser = userStore.currentUser;
+  
+  if (!currentUser) return [];
+
+  // 處理 office 物件或 ID 的判斷 (與 step5 邏輯一致)
+  let currentOfficeId: number | undefined;
+
+  if (typeof currentUser.office === 'object' && currentUser.office !== null) {
+    currentOfficeId = currentUser.office.id;
+  } else if (typeof currentUser.office_id === 'number') {
+    currentOfficeId = currentUser.office_id;
+  }
+
+  if (!currentOfficeId) return [];
+
+  return inspectors
+    .filter(i => 
+      i.office_id === currentOfficeId && 
+      i.is_designer // 🔥 只篩選具備「設計人員」資格的人
+    )
+    .map(i => i.name);
+});
+
+// 下拉選單選擇後填入
+const onDesignerSelect = (value: string | null) => {
+  if (value) {
+    localFormData.designerName = value;
+  }
+};
+// ------------------------------------
 const officesStore = useOfficesStore();
 const pipeFittingsStore = usePipeFittingsStore();
 const pfDiametersStore = usePFDiametersStore();

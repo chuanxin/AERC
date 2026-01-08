@@ -557,36 +557,82 @@
                     cols="12"
                     md="6"
                   >
-                    <v-text-field
-                      v-model="localFormData.tester"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="[v => !!v || '請填寫測試人員']"
-                      prepend-icon="mdi-account"
-                      @update:model-value="updateFormData"
-                    >
-                      <template #label>
-                        測試人員
-                      </template>
-                    </v-text-field>
+                    <div class="d-flex align-center">
+                      <v-text-field
+                        v-model="localFormData.tester"
+                        variant="outlined"
+                        density="comfortable"
+                        :rules="[v => !!v || '請填寫測試人員']"
+                        prepend-icon="mdi-account"
+                        class="flex-grow-1 me-2"
+                        hide-details="auto"
+                        @update:model-value="updateFormData"
+                      >
+                        <template #label>
+                          測試人員
+                        </template>
+                      </v-text-field>
+
+                      <v-select
+                        label="快速選擇"
+                        :items="availableTesters"
+                        variant="outlined"
+                        density="comfortable"
+                        color="#3ea0a3"
+                        bg-color="white"
+                        hide-details="auto"
+                        style="max-width: 140px;"
+                        :disabled="availableTesters.length === 0"
+                        @update:model-value="onTesterSelect"
+                      >
+                        <template #no-data>
+                          <div class="px-4 py-2 text-caption text-grey">
+                            尚無該單位人員資料
+                          </div>
+                        </template>
+                      </v-select>
+                    </div>
                   </v-col>
                   <v-col
                     v-if="localFormData.isReinspection"
                     cols="12"
                     md="6"
                   >
-                    <v-text-field
-                      v-model="localFormData.reinspectionTester"
-                      variant="outlined"
-                      density="comfortable"
-                      :rules="localFormData.isReinspection ? [v => !!v || '請填寫複驗人員'] : []"
-                      prepend-icon="mdi-account"
-                      @update:model-value="updateFormData"
-                    >
-                      <template #label>
-                        複驗人員
-                      </template>
-                    </v-text-field>
+                    <div class="d-flex align-center">
+                      <v-text-field
+                        v-model="localFormData.reinspectionTester"
+                        variant="outlined"
+                        density="comfortable"
+                        :rules="localFormData.isReinspection ? [v => !!v || '請填寫複驗人員'] : []"
+                        prepend-icon="mdi-account"
+                        class="flex-grow-1 me-2"
+                        hide-details="auto"
+                        @update:model-value="updateFormData"
+                      >
+                        <template #label>
+                          複驗人員
+                        </template>
+                      </v-text-field>
+
+                      <v-select
+                        label="快速選擇"
+                        :items="availableTesters"
+                        variant="outlined"
+                        density="comfortable"
+                        color="#3ea0a3"
+                        bg-color="white"
+                        hide-details="auto"
+                        style="max-width: 140px;"
+                        :disabled="availableTesters.length === 0"
+                        @update:model-value="onReinspectionTesterSelect"
+                      >
+                        <template #no-data>
+                          <div class="px-4 py-2 text-caption text-grey">
+                            尚無該單位人員資料
+                          </div>
+                        </template>
+                      </v-select>
+                    </div>
                   </v-col>
                 </v-row>
 
@@ -1407,6 +1453,8 @@ import { nextTick, computed, watch, watchEffect } from 'vue';
 import { useRoute } from 'vue-router';
 import { useGrantsStore } from '@/stores/grants';
 import { useDomicileStore } from '@/stores/domicile';
+import { useUserStore } from '@/stores/users'; //added by Joya
+import { inspectors } from '@/data/inspectors';//added by Joya
 // 導入版本比較相關服務
 import {
   compareGrantVersions,
@@ -1445,6 +1493,46 @@ const emit = defineEmits(['update:formData', 'validated', 'go-back', 'save-for-i
 
 // Access the grants store
 const grantsStore = useGrantsStore();
+// Joya 新增：測試/複驗人員下拉選單邏輯 ---
+const userStore = useUserStore();
+const availableTesters = computed(() => {
+  const currentUser = userStore.currentUser;
+  
+  if (!currentUser) return [];
+
+  let currentOfficeId: number | undefined;
+
+  if (typeof currentUser.office === 'object' && currentUser.office !== null) {
+    currentOfficeId = currentUser.office.id;
+  } else if (typeof currentUser.office_id === 'number') {
+    currentOfficeId = currentUser.office_id;
+  }
+
+  if (!currentOfficeId) return [];
+
+  // 使用 is_inspector (驗收及勘查人員) 來篩選
+  return inspectors
+    .filter(i => 
+      i.office_id === currentOfficeId && 
+      i.is_inspector 
+    )
+    .map(i => i.name);
+});
+
+// 下拉選單選擇後填入 - 測試人員
+const onTesterSelect = (value: string | null) => {
+  if (value) {
+    localFormData.tester = value;
+  }
+};
+
+// 下拉選單選擇後填入 - 複驗人員
+const onReinspectionTesterSelect = (value: string | null) => {
+  if (value) {
+    localFormData.reinspectionTester = value;
+  }
+};
+// ------------------------------------
 const domicileStore = useDomicileStore();
 const route = useRoute();
 

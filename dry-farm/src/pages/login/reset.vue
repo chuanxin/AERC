@@ -603,7 +603,7 @@
         <div class="small-screen-footer">
           <div class="d-flex flex-column align-center">
             <p class="footer-text">
-              &copy; 2025 農田水利署. All rights reserved.
+              &copy; {{ currentYear }} 農田水利署. All rights reserved.
             </p>
           </div>
         </div>
@@ -617,7 +617,7 @@
     >
       <div class="d-flex flex-column align-end">
         <p class="footer-text">
-          &copy; 2025 農田水利署. All rights reserved.
+          &copy; {{ currentYear }} 農田水利署. All rights reserved.
         </p>
       </div>
     </div>
@@ -636,7 +636,7 @@ const router = useRouter()
 // Check if we're in reset mode (has token) or request mode (no token)
 const hasToken = computed(() => !!route.query.token)
 const token = computed(() => route.query.token as string)
-
+const currentYear = new Date().getFullYear(); // 取得當前年份
 // Form state
 const email = ref('')
 const otp = ref('')

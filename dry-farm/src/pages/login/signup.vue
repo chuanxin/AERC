@@ -447,7 +447,7 @@
     >
       <div class="d-flex flex-column align-end">
         <p class="footer-text">
-          &copy; 2025 農田水利署. All rights reserved.
+          &copy; {{ currentYear }} 農田水利署. All rights reserved.
         </p>
       </div>
     </div>
@@ -462,6 +462,8 @@
   const router = useRouter()
   const officesStore = useOfficesStore()
 
+  const currentYear = new Date().getFullYear(); // 取得當前年份
+  
   const showDialog = ref(true)
   const currentStep = ref(1)
   const showPassword = ref(false)

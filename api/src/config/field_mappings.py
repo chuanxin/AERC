@@ -38,6 +38,7 @@ class FieldMappingConfig:
             "landNumber": "land_number",
             "landArea": "land_area",
             "facilityArea": "facility_area",
+            "commentedRemark": "commented_remark",  # 新增備註字段映射
             # ... 其他 step2 字段
         },
         # ... 其他步驟

@@ -77,23 +77,38 @@
               color="white"
             >
               <v-row>
-                <v-col
-                  cols="12"
-                  md="6"
-                >
-                  <v-text-field
-                    v-model="localFormData.inspector"
-                    variant="outlined"
-                    density="comfortable"
-                    color="#3ea0a3"
-                    bg-color="white"
-                    :rules="[v => !!v || '請填寫勘查人員']"
-                    :readonly="props.readonly"
-                  >
-                    <template #label>
-                      勘查人員
-                    </template>
-                  </v-text-field>
+                <v-col cols="12" md="6">
+                  <div class="d-flex align-center gap-2"> <v-text-field
+                      v-model="localFormData.inspector"
+                      variant="outlined"
+                      density="comfortable"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      :rules="[v => !!v || '請填寫勘查人員']"
+                      :readonly="props.readonly"
+                      hide-details="auto"
+                      class="flex-grow-1"
+                    >
+                      <template #label>勘查人員</template>
+                    </v-text-field>
+
+                    <v-select
+                      label="快速選擇"
+                      :items="availableInspectors"
+                      variant="outlined"
+                      density="comfortable"
+                      color="#3ea0a3"
+                      bg-color="white"
+                      hide-details="auto"
+                      style="max-width: 140px;" 
+                      :disabled="props.readonly || availableInspectors.length === 0"
+                      @update:model-value="onInspectorSelect"
+                    >
+                      <template #no-data>
+                        <div class="px-4 py-2 text-caption">無符合的人員資料</div>
+                      </template>
+                    </v-select>
+                  </div>
                 </v-col>
 
                 <v-col
@@ -459,6 +474,48 @@
 <script setup lang="ts">
 import { useGrantsStore } from '@/stores/grants';
 import { attachmentService } from '@/services/attachmentService';
+
+// Joya：引入屬性
+import { useUserStore } from '@/stores/users'; // 引入 userStore
+import { inspectors } from '@/data/inspectors'; // 引入剛剛建立的資料
+
+// Joya：新增屬性篩選勘查人員
+const userStore = useUserStore();
+
+// 計算屬性：根據當前使用者的 office_id 篩選
+const availableInspectors = computed(() => {
+  const currentUser = userStore.currentUser;
+  
+  if (!currentUser) return [];
+
+  let currentOfficeId: number | undefined;
+
+  if (typeof currentUser.office === 'object' && currentUser.office !== null) {
+    currentOfficeId = currentUser.office.id; // 取出物件裡的 id
+  } else if (typeof currentUser.office_id === 'number') {
+    currentOfficeId = currentUser.office_id; 
+  }
+
+  // 如果找不到 ID，回傳空陣列
+  if (!currentOfficeId) return [];
+
+  console.log('當前使用者 Office ID:', currentOfficeId); // Debug 用
+
+  return inspectors
+    .filter(i => 
+      i.office_id === currentOfficeId && // 這裡現在是 number === number
+      i.is_inspector // 只顯示具備勘查資格的人
+    )
+    .map(i => i.name); // 只回傳名字陣列給下拉選單
+});
+
+// 當下拉選單選取時，自動填入 Input
+const onInspectorSelect = (value: string | null) => {
+  if (value) {
+    localFormData.inspector = value;
+  }
+};
+// added end
 
 // Props definition
 // 🆕 新增 readonly 和 softLocked prop 支援

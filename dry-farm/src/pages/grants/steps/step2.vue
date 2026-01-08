@@ -1104,7 +1104,26 @@
                   <strong style="color: #d84315;">提醒：</strong>各選項資訊是由原地號資料判別，有土地重測或是分割情形，請再次確認
                 </div>
               </v-alert>
+              <v-divider class="my-3" />
+              <!-- 備註輸入 -->
+              <div class="me-3" style="flex-grow: 1;">
+                <v-text-field
+                  v-model="localFormData.commentedRemark" 
+                  label="備註欄"
+                  variant="outlined"
+                  density="compact"
+                  color="#3ea0a3"
+                  bg-color="white"
+                  maxlength="100"
+                  hide-details
+                  placeholder="請輸入備註..."
+                  autocomplete="off"
+                  @update:model-value="updateFormData" 
+                >
+                </v-text-field>
+              </div>
             </v-sheet>
+            
 
             <!-- 坐標資訊 -->
             <v-sheet
@@ -1350,44 +1369,51 @@
                 </v-icon>
                 <span class="text-body-2 font-weight-medium">農地種植作物</span>
               </div>
-              <div class="d-flex align-center mb-2">
-                <v-select
-                  v-model="localFormData.cropCategory"
-                  :items="cropCategories"
-                  variant="outlined"
-                  density="comfortable"
-                  color="#3ea0a3"
-                  bg-color="white"
-                  class="me-2"
-                  style="width: 200px"
-                  @update:model-value="onCropCategoryChange"
-                >
-                  <template #label>
-                    作物類別
-                  </template>
-                </v-select>
 
-                <v-select
+              <div class="d-flex align-center mb-2">
+                <v-combobox
                   v-model="localFormData.cropName"
-                  :items="crops"
+                  :items="allCropOptions"
+                  item-title="title"
+                  item-value="title"
                   variant="outlined"
                   density="comfortable"
                   color="#3ea0a3"
                   bg-color="white"
                   class="me-2"
-                  style="width: 200px"
-                  :disabled="!localFormData.cropCategory"
+                  style="width: 300px"
+                  placeholder="輸入作物名稱 (例如：稻米)"
+                  hide-details
+                  clearable
+                  :return-object="false"
                 >
                   <template #label>
-                    作物名稱
+                    作物名稱 (可搜尋或直接輸入)
                   </template>
-                </v-select>
+                  
+                  <template #item="{ props, item }">
+                    <v-list-item
+                      v-bind="props"
+                      :subtitle="item.raw.category"
+                    ></v-list-item>
+                  </template>
+
+                  <template #no-data>
+                    <v-list-item>
+                      <v-list-item-title>
+                        查無此作物，按下 <kbd>Enter</kbd> 新增
+                        <span class="text-caption text-grey">(將自動歸類為「其他」)</span>
+                      </v-list-item-title>
+                    </v-list-item>
+                  </template>
+                </v-combobox>
+
                 <v-btn
                   variant="outlined"
                   color="#3ea0a3"
                   rounded="lg"
                   size="small"
-                  :disabled="!localFormData.cropCategory || !localFormData.cropName"
+                  :disabled="!localFormData.cropName"
                   @click="addCrop"
                 >
                   <v-icon
@@ -1430,8 +1456,8 @@
                     <td class="text-center">
                       {{ index + 1 }}
                     </td>
-                    <td>{{ crop.category }}</td>
-                    <td>{{ crop.name }}</td>
+                    <td class="text-grey-darken-1">{{ crop.category }}</td>
+                    <td class="font-weight-medium">{{ crop.name }}</td>
                     <td class="text-center">
                       <v-btn
                         icon
@@ -1449,12 +1475,12 @@
                       colspan="4"
                       class="text-center py-3 text-grey"
                     >
-                      尚未新增任何作物，請使用上方加入按鈕新增
+                      尚未新增任何作物，請在上方輸入名稱後加入
                     </td>
                   </tr>
                 </tbody>
               </v-table>
-            </v-sheet>
+            </v-sheet>    
             <!-- 底部操作按鈕：易達性設計 -->
             <div class="d-flex gap-3 mt-6 pt-4 border-t border-grey-lighten-2">
               <v-btn
@@ -2003,6 +2029,9 @@ interface LandData {
   landNumberMain: string;
   landNumberSub: string;
 
+  // 備註 Joya added
+  commentedRemark?: string;
+
   // 土地特性
   isAboriginalArea: boolean;
   isIrrigationArea: boolean;
@@ -2445,6 +2474,9 @@ const createInitialLandData = (id?: string): LandData => ({
   certificateMonth: '',
   certificateDay: '',
 
+  // Joya added 備註欄位
+  commentedRemark: '',
+  
   // 坐標資訊
   longitude: '',
   latitude: '',
@@ -2513,6 +2545,9 @@ const createInitialFormData = () => ({
   facilityArea: '',
   facilityAreaHa: '',
 
+  // Joya added 備註欄位
+  commentedRemark: '',
+  
   // Crop data
   cropCategory: '',
   cropName: '',
@@ -2565,6 +2600,7 @@ const landUtils = {
     landNumber: localFormData.landNumber,
     landNumberMain: localFormData.landNumberMain,
     landNumberSub: localFormData.landNumberSub,
+    commentedRemark: localFormData.commentedRemark, // Joya added 備註欄位
     isAboriginalArea: localFormData.isAboriginalArea,
     isIrrigationArea: localFormData.isIrrigationArea,
     isReapplied: localFormData.isReapplied,
@@ -2616,6 +2652,7 @@ const landUtils = {
         landNumber: land.landNumber,
         landNumberMain: land.landNumberMain,
         landNumberSub: land.landNumberSub,
+        commentedRemark: land.commentedRemark || '', // Joya added 備註欄位
         isAboriginalArea: land.isAboriginalArea,
         isIrrigationArea: land.isIrrigationArea,
         isReapplied: land.isReapplied,
@@ -3683,8 +3720,87 @@ const onOwnerTownChange = stepManager.createProtectedHandler(() => {
 const onCropCategoryChange = stepManager.createProtectedHandler(() => {
   localFormData.cropName = '';
 });
+// Joya added
+// 1. 新增：扁平化的作物清單 (包含名稱與對應類別)
+const allCropOptions = computed(() => {
+  const options: Array<{ title: string; category: string }> = [];
+  
+  // 從 Store 取得所有類別與作物
+  // 假設 cropsStore.cropNamesByCategoryName 是一個 Object: { '糧食作物': ['稻米', '小麥'], ... }
+  const map = cropsStore.cropNamesByCategoryName;
+  
+  for (const [category, names] of Object.entries(map)) {
+    // 排除「其他」類別，避免搜尋時出現重複或混淆 (手動輸入時我們會自動帶入「其他」)
+    if (category === '其他') continue;
 
+    if (Array.isArray(names)) {
+      names.forEach(name => {
+        options.push({
+          title: name,
+          category: category
+        });
+      });
+    }
+  }
+  
+  return options;
+});
 // Add and remove crops
+// 2. 修改：addCrop 邏輯
+const addCrop = stepManager.createProtectedHandler(() => {
+  // 取得使用者輸入的作物名稱 (去除前後空白)
+  // v-combobox 有時會回傳物件(如果選中)，有時回傳字串(如果手打)，這裡做個保險處理
+  let inputName = '';
+  if (typeof localFormData.cropName === 'object' && localFormData.cropName !== null) {
+    // 如果是物件 (選中現有選項)，取得 title
+    inputName = (localFormData.cropName as any).title || (localFormData.cropName as any).value;
+  } else {
+    // 如果是字串 (手動輸入)
+    inputName = String(localFormData.cropName || '');
+  }
+  
+  const name = inputName.trim();
+
+  if (name) {
+    // 🔍 核心邏輯：判斷類別
+    let category = '其他'; // 預設為「其他」
+
+    // 嘗試在現有清單中尋找這個作物
+    const found = allCropOptions.value.find(item => item.title === name);
+    
+    if (found) {
+      // ✅ 有找到：使用該作物的原始類別 (例如：輸入"稻米" -> 類別自動帶"糧食作物")
+      category = found.category;
+    } else {
+      // ❌ 沒找到：保持預設值「其他」
+    }
+
+    const crop = {
+      category: category,
+      name: name
+    };
+
+    // 檢查是否重複加入
+    const exists = localFormData.crops.some(c =>
+      c.name === crop.name // 只要名稱一樣就算重複，不管類別
+    );
+
+    if (!exists) {
+      if (!localFormData.crops) {
+        localFormData.crops = [];
+      }
+      localFormData.crops.push(crop);
+      
+      // 清空輸入框
+      localFormData.cropName = '';
+      
+      // 因為我們把 localFormData.cropCategory 欄位移除了，
+      // 但為了保險起見 (如果其他地方有用到)，可以把 cropCategory 重置
+      localFormData.cropCategory = ''; 
+    }
+  }
+});
+/*
 const addCrop = stepManager.createProtectedHandler(() => {
   if (localFormData.cropCategory && localFormData.cropName) {
     const crop = {
@@ -3708,7 +3824,7 @@ const addCrop = stepManager.createProtectedHandler(() => {
       localFormData.cropName = '';
     }
   }
-});
+});*/
 
 const removeCrop = stepManager.createProtectedHandler((...args: unknown[]) => {
   const index = args[0] as number;

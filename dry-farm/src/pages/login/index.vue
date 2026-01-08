@@ -129,11 +129,11 @@
                   href="/login/reset"
                   class="footer-link"
                 >忘記密碼?</a>
-                <span class="footer-separator">|</span>
-                <a
+                <!--<span class="footer-separator">|</span>
+                 <a
                   href="/login/signup"
                   class="footer-link"
-                >帳號申請</a>
+                >帳號申請</a> -->
               </div>
             </v-form>
           </div>
@@ -241,11 +241,11 @@
                     href="/login/reset"
                     class="footer-link"
                   >忘記密碼?</a>
-                  <span class="footer-separator">|</span>
-                  <a
+                  <!--<span class="footer-separator">|</span>
+                   <a
                     href="#"
                     class="footer-link"
-                  >帳號申請</a>
+                  >帳號申請</a> -->
                 </div>
               </v-form>
             </div>
