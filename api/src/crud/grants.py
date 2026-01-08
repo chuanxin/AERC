@@ -700,6 +700,7 @@ async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = 
                 "version": grant.active_version.version,
                 "comment": grant.active_version.comment,
                 "created_at": grant.active_version.created_at,
+                "data_schema_version": grant.active_version.data_schema_version,
                 "all_steps_data": grant.active_version.all_steps_data  # 添加完整步驟資料用於版本繼承
             } if hasattr(grant, "active_version") and grant.active_version else None,
             

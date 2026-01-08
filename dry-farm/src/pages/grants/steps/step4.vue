@@ -1854,7 +1854,12 @@
                           {{ (localFormData.totalAmount || 0).toLocaleString() }}
                         </div>
                         <div class="text-caption text-grey-darken-1 mt-1">
-                          含設計費 ${{ (localFormData.designFee || 0).toLocaleString() }}
+                          <template v-if="isLegacyData">
+                            歷史案件格式，設計費 ${{ (localFormData.designFee || 0).toLocaleString() }} 另計
+                          </template>
+                          <template v-else>
+                            含設計費 ${{ (localFormData.designFee || 0).toLocaleString() }}
+                          </template>
                         </div>
                       </td>
                       <td colspan="2" />
@@ -3494,6 +3499,13 @@ const filteredPipeFittingsByModule = computed(() => {
 // });
 
 // Computed Properties
+// 檢測是否為 legacy 資料格式
+const isLegacyData = computed(() => {
+  const activeVersion = grantsStore.currentGrant?.active_version as any;
+  const dataSchemaVersion = activeVersion?.data_schema_version || null;
+  return dataSchemaVersion === 'legacy';
+});
+
 const mainPipeTotalPrice = computed(() => {
   if (!localFormData.mainPipeQuantity || !localFormData.mainPipeUnitPrice) return '0';
   return Math.round(localFormData.mainPipeQuantity * localFormData.mainPipeUnitPrice).toLocaleString();
@@ -4810,7 +4822,27 @@ const autoFillMaterials = async () => {
         });
       });
     });
-    await calculateSubsidy(); // 自動帶入材料後觸發補助計算
+
+    // 🔥 在計算補助之前，先檢查是否為 legacy 資料並設定標記
+    // 這樣 calculateSubsidy() 才能正確檢測到標記並允許重新計算
+    if (isLegacyData.value) {
+      console.log('🔄 [自動帶入材料] 檢測到 legacy 資料已重新生成材料清單，標記需要更新 data_schema_version');
+      // 標記需要更新 schema version（在保存時執行）
+      localFormData._needsSchemaVersionUpdate = true;
+    }
+
+    await calculateSubsidy(); // 自動帶入材料後觸發補助計算（此時標記已設定）
+
+    // 🔥 如果是 legacy 資料重新生成，自動儲存以觸發 schema version 更新
+    if (isLegacyData.value) {
+      console.log('💾 [自動帶入材料] 自動儲存資料以更新 schema version');
+      try {
+        await grantsStore.saveStepData(4, localFormData);
+        console.log('✅ [自動帶入材料] 資料儲存成功，schema version 已更新');
+      } catch (saveError) {
+        console.error('❌ [自動帶入材料] 資料儲存失敗:', saveError);
+      }
+    }
   } catch (error) {
     console.error('Error auto-filling materials:', error);
     // 可以在此處設定錯誤提示訊息
@@ -4827,6 +4859,26 @@ const calculateSubsidy = async () => {
     await clearPipelineData(true);
     return;
   }
+
+  // � 檢查是否為剛重新生成材料的 legacy 資料
+  const isRegeneratedLegacy = isLegacyData.value && localFormData._needsSchemaVersionUpdate === true;
+
+  // Legacy 資料不重新計算，但剛重新生成材料的 legacy 資料允許計算（因為已使用新邏輯）
+  if (isLegacyData.value && !isRegeneratedLegacy) {
+    console.log('⚠️ [田間管路補助] 檢測到 legacy 資料，跳過重新計算以保持原有金額結構');
+    console.log('💾 [田間管路補助] Legacy 資料:', {
+      totalAmount: localFormData.totalAmount,
+      subsidyAmount: localFormData.subsidyAmount,
+      selfPaidAmount: localFormData.selfPaidAmount,
+      designFee: localFormData.designFee
+    });
+    return;
+  }
+
+  if (isRegeneratedLegacy) {
+    console.log('🔄 [田間管路補助] 檢測到已重新生成材料的 legacy 資料，允許重新計算金額');
+  }
+
   isCalculatingSubsidy.value = true;
   try {
     // 根據灌溉型式和原民區域狀態計算補助金額

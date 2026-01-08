@@ -9,6 +9,7 @@ import {
   hybridGrantService,
   grantCacheService,
   getApplicantSubsidySummary,
+  updateSchemaVersion,
   type GrantCreateResponse,
   type GrantStepDataUpdateRequest,
   type GrantListItem,
@@ -489,7 +490,36 @@ export const useGrantsStore = defineStore('grants', () => {
         savedData = data;
       }
 
-      // Update form data
+      // 🔥 先檢查是否需要更新 schema version (legacy → 1.0)
+      if (data._needsSchemaVersionUpdate && currentGrant.value?.active_version?.id) {
+        try {
+          const versionId = currentGrant.value.active_version.id
+          console.log('🔄 [saveStepData] 檢測到需要更新 schema version，執行更新...')
+          console.log(`📋 Version ID: ${versionId}, 目標版本: 1.0`)
+          console.log(`📋 Current schema version:`, currentGrant.value.active_version.data_schema_version)
+
+          const result = await updateSchemaVersion(versionId, '1.0')
+
+          console.log('✅ [saveStepData] Schema version 更新成功:', result)
+
+          // 更新 currentGrant 中的 data_schema_version
+          if (currentGrant.value.active_version) {
+            currentGrant.value.active_version.data_schema_version = '1.0'
+            console.log('✅ [saveStepData] currentGrant.active_version.data_schema_version 已更新為 1.0')
+          }
+
+          // 清除標記（在賦值給 formData 之前）
+          delete data._needsSchemaVersionUpdate
+          console.log('✅ [saveStepData] _needsSchemaVersionUpdate 標記已清除')
+
+        } catch (schemaError) {
+          console.error('❌ [saveStepData] Schema version 更新失敗:', schemaError)
+          console.error('❌ [saveStepData] 錯誤詳情:', JSON.stringify(schemaError, null, 2))
+          // 不阻擋整體儲存流程，僅記錄錯誤
+        }
+      }
+
+      // Update form data (在 schema version 更新之後，標記已清除)
       formData[step] = { ...data, valid: true }
       // console.log(`📊 Updated formData[${step}] after save:`, JSON.stringify(formData[step], null, 2));
 

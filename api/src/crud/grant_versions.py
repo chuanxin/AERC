@@ -176,6 +176,7 @@ async def get_grant_version(version_id: int) -> Dict[str, Any]:
             "version": version.version,
             "all_steps_data": version.all_steps_data,
             "all_steps_data_hash": version.all_steps_data_hash,
+            "data_schema_version": version.data_schema_version,
             "comment": version.comment,
             "created_at": version.created_at,
             "modified_at": version.modified_at,
@@ -421,4 +422,52 @@ async def get_active_version(grant_id: int) -> Optional[Dict[str, Any]]:
         raise HTTPException(
             status_code=500, 
             detail=f"取得現行版本發生錯誤: {str(e)}"
+        )
+
+
+async def update_schema_version(
+    version_id: int,
+    schema_version: str,
+    current_user: UserOutSchema
+) -> Dict[str, Any]:
+    """更新版本的資料結構版本標記"""
+    try:
+        # 檢查版本是否存在
+        try:
+            version = await GrantVersions.get(id=version_id)
+        except DoesNotExist:
+            raise HTTPException(
+                status_code=404,
+                detail=f"版本ID {version_id} 不存在"
+            )
+        
+        # 驗證 schema_version 值（符合資料庫 DataSchemaVersions enum）
+        valid_versions = ['1.0', '1.1', '1.2', '1.3', '1.4', '2.0', 'legacy']
+        if schema_version not in valid_versions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"無效的資料結構版本: {schema_version}，有效值為: {', '.join(valid_versions)}"
+            )
+        
+        # 更新 data_schema_version
+        await GrantVersions.filter(id=version_id).update(
+            data_schema_version=schema_version
+        )
+        
+        logger.info(f"更新版本 {version_id} 的 data_schema_version 為 {schema_version}，操作者: {current_user.username}")
+        
+        return {
+            "version_id": version_id,
+            "data_schema_version": schema_version,
+            "updated_by": current_user.username,
+            "message": "資料結構版本更新成功"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新資料結構版本發生錯誤: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"更新資料結構版本發生錯誤: {str(e)}"
         )

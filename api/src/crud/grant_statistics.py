@@ -186,14 +186,10 @@ class GrantStatisticsCRUD:
                 # 取得補助和設計費資料
                 subsidy_amount = Decimal(str(step5_data.get('subsidyAmount', 0) or 0))
                 design_fee_amount = Decimal(str(step5_data.get('designFee', 0) or 0))
-                total_amount = Decimal(str(step5_data.get('totalAmount', 0) or 0))
                 
-                # 檢測是否為歷史資料（totalAmount 不包含設計費）
-                is_legacy_data = (
-                    total_amount > 0 and 
-                    design_fee_amount > 0 and
-                    total_amount < (pipeline_material_cost + design_fee_amount) - 1
-                )
+                # 🔥 從 data_schema_version 欄位判斷是否為 legacy 資料
+                data_schema_version = grant.active_version.data_schema_version if hasattr(grant.active_version, 'data_schema_version') else None
+                is_legacy_data = data_schema_version == 'legacy'
                 
                 # A項補助：田間管路設施補助費（pipeLineSubsidy）
                 if is_legacy_data:
@@ -212,11 +208,11 @@ class GrantStatisticsCRUD:
                 
                 # 規劃設計費補助（actualSubsidizedDesignFee）
                 if is_legacy_data:
-                    # 歷史資料：剩餘補助用於設計費
-                    remaining_subsidy = max(Decimal('0'), subsidy_amount - pipeline_material_cost)
-                    design_fee_subsidy = min(design_fee_amount, remaining_subsidy)
+                    # 歷史資料：subsidyAmount 不含設計費，設計費獨立計算
+                    # 設計費補助 = 設計費全額（legacy 資料的 subsidyAmount 只用於 A項和 B項）
+                    design_fee_subsidy = design_fee_amount
                 else:
-                    # 新資料：直接取補助額度和設計費的最小值
+                    # 新資料：subsidyAmount 包含設計費，取補助額度和設計費的最小值
                     design_fee_subsidy = min(subsidy_amount, design_fee_amount)
                 
                 # 政府補助款總額 = A項 + B項 + 設計費補助
@@ -336,13 +332,22 @@ class GrantStatisticsCRUD:
             OfficeBudgetStats: 辦公室經費統計資料
         """
         # 1. 從 SubsidyAnnualBudget 取得預定執行面積和預算
-        annual_budget = await SubsidyAnnualBudget.filter(
-            year=year,
-            office_id=office_id
-        ).first()
-
-        planned_area = annual_budget.approved_area if annual_budget else Decimal('0')
-        planned_budget = annual_budget.approved_budget if annual_budget else Decimal('0')
+        # 🔥 容錯處理：如果表不存在，使用預設值（適用於尚未執行遷移的生產環境）
+        try:
+            annual_budget = await SubsidyAnnualBudget.filter(
+                year=year,
+                office_id=office_id
+            ).first()
+            
+            planned_area = annual_budget.approved_area if annual_budget else Decimal('0')
+            planned_budget = annual_budget.approved_budget if annual_budget else Decimal('0')
+        except Exception as e:
+            # 表不存在或查詢失敗時，使用預設值
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to query SubsidyAnnualBudget for year={year}, office_id={office_id}: {e}")
+            planned_area = Decimal('0')
+            planned_budget = Decimal('0')
 
         # 2. 查詢已編預算案件（狀態非 rejected, withdrawn, deleted）
         # 🔥 統一實作：排除無效狀態，計算有效案件的統計數據
@@ -418,14 +423,10 @@ class GrantStatisticsCRUD:
                 # 取得補助和設計費資料
                 subsidy_amount = Decimal(str(step5_data.get('subsidyAmount', 0) or 0))
                 design_fee_amount = Decimal(str(step5_data.get('designFee', 0) or 0))
-                total_amount = Decimal(str(step5_data.get('totalAmount', 0) or 0))
                 
-                # 檢測是否為歷史資料（totalAmount 不包含設計費）
-                is_legacy_data = (
-                    total_amount > 0 and 
-                    design_fee_amount > 0 and
-                    total_amount < (pipeline_material_cost + design_fee_amount) - 1
-                )
+                # 🔥 從 data_schema_version 欄位判斷是否為 legacy 資料
+                data_schema_version = grant.active_version.data_schema_version if hasattr(grant.active_version, 'data_schema_version') else None
+                is_legacy_data = data_schema_version == 'legacy'
                 
                 # A項補助：田間管路設施補助費（pipeLineSubsidy）
                 if is_legacy_data:
@@ -444,11 +445,11 @@ class GrantStatisticsCRUD:
                 
                 # 規劃設計費補助（actualSubsidizedDesignFee）
                 if is_legacy_data:
-                    # 歷史資料：剩餘補助用於設計費
-                    remaining_subsidy = max(Decimal('0'), subsidy_amount - pipeline_material_cost)
-                    design_fee_subsidy = min(design_fee_amount, remaining_subsidy)
+                    # 歷史資料：subsidyAmount 不含設計費，設計費獨立計算
+                    # 設計費補助 = 設計費全額（legacy 資料的 subsidyAmount 只用於 A項和 B項）
+                    design_fee_subsidy = design_fee_amount
                 else:
-                    # 新資料：直接取補助額度和設計費的最小值
+                    # 新資料：subsidyAmount 包含設計費，取補助額度和設計費的最小值
                     design_fee_subsidy = min(subsidy_amount, design_fee_amount)
                 
                 # 政府補助款總額 = A項 + B項 + 設計費補助
@@ -529,14 +530,10 @@ class GrantStatisticsCRUD:
                 # 取得補助和設計費資料
                 subsidy_amount = Decimal(str(step5_data.get('subsidyAmount', 0) or 0))
                 design_fee_amount = Decimal(str(step5_data.get('designFee', 0) or 0))
-                total_amount = Decimal(str(step5_data.get('totalAmount', 0) or 0))
                 
-                # 檢測是否為歷史資料（totalAmount 不包含設計費）
-                is_legacy_data = (
-                    total_amount > 0 and 
-                    design_fee_amount > 0 and
-                    total_amount < (pipeline_material_cost + design_fee_amount) - 1
-                )
+                # 🔥 從 data_schema_version 欄位判斷是否為 legacy 資料
+                data_schema_version = grant.active_version.data_schema_version if hasattr(grant.active_version, 'data_schema_version') else None
+                is_legacy_data = data_schema_version == 'legacy'
                 
                 # A項補助：田間管路設施補助費（pipeLineSubsidy）
                 if is_legacy_data:
@@ -555,11 +552,11 @@ class GrantStatisticsCRUD:
                 
                 # 規劃設計費補助（actualSubsidizedDesignFee）
                 if is_legacy_data:
-                    # 歷史資料：剩餘補助用於設計費
-                    remaining_subsidy = max(Decimal('0'), subsidy_amount - pipeline_material_cost)
-                    design_fee_subsidy = min(design_fee_amount, remaining_subsidy)
+                    # 歷史資料：subsidyAmount 不含設計費，設計費獨立計算
+                    # 設計費補助 = 設計費全額（legacy 資料的 subsidyAmount 只用於 A項和 B項）
+                    design_fee_subsidy = design_fee_amount
                 else:
-                    # 新資料：直接取補助額度和設計費的最小值
+                    # 新資料：subsidyAmount 包含設計費，取補助額度和設計費的最小值
                     design_fee_subsidy = min(subsidy_amount, design_fee_amount)
                 
                 # 政府補助款總額 = A項 + B項 + 設計費補助
