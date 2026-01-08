@@ -371,13 +371,27 @@ export const deleteGrant = async (grantId: number): Promise<void> => {
  * 認領 inactive 案件的所有權
  * 當用戶進入編輯 inactive 狀態的案件時，自動將 created_by_id 更新為當前用戶
  * @param grantId 案件 ID
- * @returns 更新後的案件資料
+ * @returns 簡化的成功響應
  */
-export const claimInactiveGrantOwnership = async (grantId: number): Promise<GrantCreateResponse> => {
+export const claimInactiveGrantOwnership = async (grantId: number): Promise<{
+  success: boolean
+  message: string
+  grant_id: number
+  case_number: string
+  created_by_id: number
+  created_by_username: string
+}> => {
   try {
     const response = await apiService.patch(`/grants/${grantId}/claim-ownership`, {})
     console.log(`📡 [claimInactiveGrantOwnership] Successfully claimed ownership of grant ${grantId}`)
-    return response as GrantCreateResponse
+    return response as {
+      success: boolean
+      message: string
+      grant_id: number
+      case_number: string
+      created_by_id: number
+      created_by_username: string
+    }
   } catch (error) {
     console.error(`📡 [claimInactiveGrantOwnership] Failed to claim ownership of grant ${grantId}:`, error)
     throw handleApiError(error, 'grantsService.claimInactiveGrantOwnership')

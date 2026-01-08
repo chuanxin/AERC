@@ -1654,9 +1654,15 @@ async def claim_inactive_grant_ownership(grant_id: int, current_user):
                 f"成功認領案件 {grant.case_number} (ID: {grant_id}) 的所有權"
             )
 
-            # 重新獲取更新後的完整資料並返回格式化響應
-            updated_grant = await Grants.get(id=grant_id)
-            return await get_grant_by_case_number(updated_grant.case_number, grant_id)
+            # 返回簡化的成功響應
+            return {
+                "success": True,
+                "message": f"成功認領案件 {grant.case_number} 的所有權",
+                "grant_id": grant_id,
+                "case_number": grant.case_number,
+                "created_by_id": current_user.id,
+                "created_by_username": current_user.username
+            }
 
         except HTTPException:
             raise

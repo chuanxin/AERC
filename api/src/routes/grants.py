@@ -238,7 +238,7 @@ async def update_grant_step_api(
 
 @router.patch(
     "/{grant_id}/claim-ownership",
-    response_model=GrantOutSchema,
+    response_model=Dict[str, Any],
     dependencies=[Depends(get_current_user)],
 )
 async def claim_inactive_grant_ownership(
