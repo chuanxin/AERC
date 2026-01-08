@@ -160,16 +160,17 @@ class PasswordHistory(models.Model):
 #         return f"{self.title}, {self.author_id} on {self.created_at}"
 
 class GrantStatus(str, Enum):
-    DRAFT = "draft"
-    SUBMITTED = "submitted"
-    UNDER_REVIEW = "under_review"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    WITHDRAWN = "withdrawn"
-    CROSS_YEAR = "cross_year"  # 跨年度案件狀態
-    COMPLETED = "completed"    # 結案狀態
-    SOFT_DELETE = "deleted"    # 邏輯刪除
-    INACTIVE = "inactive"      # 歷史案件初始狀態（待認領）
+    """補助案件狀態"""
+    DRAFT = "draft"                # 草稿（編輯中）
+    SUBMITTED = "submitted"        # 已結案，並完成文件上傳的完整封存狀態
+    UNDER_REVIEW = "under_review"  # 審查中（已編預算）
+    APPROVED = "approved"          # 核准
+    REJECTED = "rejected"          # 駁回
+    WITHDRAWN = "withdrawn"        # 撤回
+    CROSS_YEAR = "cross_year"      # 跨年度案件狀態
+    COMPLETED = "completed"        # 線上結案，尚未完成文件上傳
+    SOFT_DELETE = "deleted"        # 邏輯刪除
+    INACTIVE = "inactive"          # 歷史案件初始狀態（待認領）
 
 class GrantTypes(str, Enum):
     FARMING = "farming"

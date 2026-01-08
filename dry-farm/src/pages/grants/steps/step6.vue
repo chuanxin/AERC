@@ -786,31 +786,15 @@ const designFee = computed(() => {
   return designFeeAmount.toLocaleString();
 });
 
-// 實際獲得補助的規劃設計費（用於農戶補助明細，與後端 PDF 生成器邏輯一致 grants.py:1277）
+// 實際獲得補助的規劃設計費（直接從 step4 讀取已計算的設計費）
+// step4 的 calculateSubsidy() 已計算好設計費金額，step6 只負責顯示
 const actualSubsidizedDesignFee = computed(() => {
   const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data) return '0';
 
+  // 直接使用 step4 已保存的設計費（step4 已處理好新/舊資料的計算邏輯）
   const designFeeAmount = step4Data.designFee || 0;
-  const subsidyAmount = step4Data.subsidyAmount || 0;
-  const totalAmount = step4Data.totalAmount || 0;
-  const pipelineMaterialCost = parseInt(pipeLineTotal.value.replace(/,/g, '')) || 0;
-
-  // 檢測是否為歷史資料（與 pipeLineSubsidy 使用相同邏輯）
-  const isLegacyData = totalAmount > 0 && designFeeAmount > 0 &&
-                       totalAmount < (pipelineMaterialCost + designFeeAmount) - 1;
-
-  if (isLegacyData) {
-    // 歷史資料：subsidyAmount 不包含設計費
-    // 設計費補助 = min(設計費, max(0, subsidyAmount - pipelineMaterialCost))
-    const remainingSubsidy = Math.max(0, subsidyAmount - pipelineMaterialCost);
-    return Math.min(designFeeAmount, remainingSubsidy).toLocaleString();
-  } else {
-    // 新資料：subsidyAmount 包含設計費
-    // 實際設計費補助 = min(總補助額度, 設計費)（與後端邏輯一致）
-    const actualSubsidy = Math.min(subsidyAmount, designFeeAmount);
-    return actualSubsidy.toLocaleString();
-  }
+  return designFeeAmount.toLocaleString();
 });
 
 const totalBudget = computed(() => {
