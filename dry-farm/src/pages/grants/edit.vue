@@ -437,7 +437,7 @@
                             variant="flat"
                             rounded="sm"
                           >
-                            <span>案號: {{ grantsStore.currentGrant?.case_number }}</span>
+                            <span>案號: {{ formatCaseNumber(grantsStore.currentGrant?.case_number) }}</span>
                             <v-divider
                               v-if="grantsStore.currentGrant?.active_version?.version"
                               vertical
@@ -825,7 +825,7 @@
                       當前版本：版本 {{ grantsStore.currentGrant?.active_version?.version || 1 }}
                     </div>
                     <div class="text-caption text-medium-emphasis">
-                      案件編號：{{ grantsStore.currentGrant?.case_number }}
+                      案件編號：{{ formatCaseNumber(grantsStore.currentGrant?.case_number) }}
                     </div>
                   </div>
                 </div>
@@ -961,6 +961,7 @@ import { GrantStorage } from '@/utils/grant-storage'
 import { debounce } from 'lodash-es'
 // 🆕 導入版本管理服務函數
 import { createGrantVersion } from '@/services/grantsService'
+import { formatCaseNumber } from '@/utils/frontendFilters'
 
 // Import step components
 import step1 from '@/pages/grants/steps/step1.vue'
@@ -2062,7 +2063,9 @@ const loadStepData = async (step: number) => {
 onMounted(async () => {
   const caseNumberFromRoute = route.query.id as string;
   const stepParam = route.query.step;
-  console.log(`[edit.vue onMounted] Case number from route: ${caseNumberFromRoute}, Step param: ${stepParam}`);
+  // 🔥 讀取 grants_id 參數以支援重複 case_number 的歷史案件
+  const grantsIdParam = route.query.grants_id ? parseInt(route.query.grants_id as string, 10) : undefined;
+  console.log(`[edit.vue onMounted] Case number from route: ${caseNumberFromRoute}, Step param: ${stepParam}, Grants ID: ${grantsIdParam}`);
 
   if (!caseNumberFromRoute) {
     console.error('[edit.vue onMounted] No case number in route, redirecting to /grants.');
@@ -2071,8 +2074,9 @@ onMounted(async () => {
   }
 
   try {
-    console.log(`[edit.vue onMounted] Calling grantsStore.loadGrant with caseNumber: ${caseNumberFromRoute}`);
-    await grantsStore.loadGrant(caseNumberFromRoute);
+    console.log(`[edit.vue onMounted] Calling grantsStore.loadGrant with caseNumber: ${caseNumberFromRoute}, grantsId: ${grantsIdParam}`);
+    // 🔥 傳遞 grantsId 以支援重複 case_number 的案件（歷史案件轉新系統）
+    await grantsStore.loadGrant(caseNumberFromRoute, grantsIdParam);
     // console.log('[edit.vue onMounted] grantsStore.loadGrant successful. Current grant:', JSON.stringify(grantsStore.currentGrant, null, 2));
 
     // 檢查 localStorage 中是否有已保存的 currentStep

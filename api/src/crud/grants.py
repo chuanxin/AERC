@@ -639,12 +639,32 @@ async def create_grant(data, current_user):
             raise HTTPException(status_code=500, detail=f"建立補助申請案件發生錯誤: {str(e)}")
 
 
-async def get_grant_by_case_number(case_number: str) -> Dict[str, Any]:
-    """依案件編號取得單一補助申請案件詳細資料"""
+async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = None) -> Dict[str, Any]:
+    """依案件編號取得單一補助申請案件詳細資料
+
+    Args:
+        case_number: 案件編號
+        grants_id: 案件ID（可選，用於區分重複的 case_number）
+
+    🔥 修正：優先使用 grants_id 查詢，避免歷史案件轉新系統時 case_number 重複的問題
+    """
     try:
-        grant = await Grants.get(case_number=case_number).prefetch_related(
-            'created_by', 'attachments', 'comments__user', 'history__changed_by', 'active_version'
-        )
+        # 🔥 優先使用 grants_id（精確匹配）
+        if grants_id:
+            grant = await Grants.get(id=grants_id).prefetch_related(
+                'created_by', 'attachments', 'comments__user', 'history__changed_by', 'active_version'
+            )
+            # 驗證 case_number 是否匹配（防止 ID 與 case_number 不一致）
+            if grant.case_number != case_number:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"案件ID {grants_id} 與案號 {case_number} 不匹配"
+                )
+        else:
+            # 回退到 case_number 查詢（可能有重複問題）
+            grant = await Grants.get(case_number=case_number).prefetch_related(
+                'created_by', 'attachments', 'comments__user', 'history__changed_by', 'active_version'
+            )
         
         # Format the grant data
         result = {

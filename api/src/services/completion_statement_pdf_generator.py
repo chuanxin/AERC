@@ -16,8 +16,7 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.lib.styles import ParagraphStyle
 
-from src.utils.chinese_pdf import setup_kaiu_font, setup_chinese_font
-
+from src.utils.chinese_pdf import setup_kaiu_font, setup_chinese_font, format_case_number
 
 class CompletionStatementPDFGenerator:
     """結案申報書 PDF 生成器"""
@@ -620,7 +619,7 @@ class CompletionStatementPDFGenerator:
 
         y_pos -= 50
         case_number = grant_data.get('case_number', '')
-        c.drawString(60, y_pos, f"申請案號：{case_number}")
+        c.drawString(60, y_pos, f"申請案號：{format_case_number(case_number)}")
 
         y_pos -= 40
         applicant_name = grant_data.get('applicant_name', '')

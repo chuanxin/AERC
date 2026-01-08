@@ -155,10 +155,16 @@ async def read_grant(grant_id: int = Path(..., description="補助案件ID")):
     response_model=Dict[str, Any],  # Change this from GrantOutSchema to Dict[str, Any]
     dependencies=[Depends(get_current_user)],
 )
-async def read_grant_by_case_number(case_number: str = Path(..., description="案件編號")):
-    """依案件編號取得單一補助申請案件詳細資料"""
+async def read_grant_by_case_number(
+    case_number: str = Path(..., description="案件編號"),
+    grants_id: Optional[int] = Query(None, description="案件ID（用於區分重複案號）")
+):
+    """依案件編號取得單一補助申請案件詳細資料
+
+    🔥 支援 grants_id 參數以區分重複的 case_number（歷史案件轉新系統時可能發生）
+    """
     try:
-        return await get_grant_by_case_number(case_number)
+        return await get_grant_by_case_number(case_number, grants_id)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -14,7 +14,7 @@ from reportlab.lib.units import mm, cm
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 
-from src.utils.chinese_pdf import setup_kaiu_font, setup_chinese_font
+from src.utils.chinese_pdf import setup_kaiu_font, setup_chinese_font, format_case_number
 
 
 class BudgetStatementPDFGenerator:
@@ -593,7 +593,7 @@ class BudgetStatementPDFGenerator:
 
         # === 申請案號 ===
         c.setFont(self.font_name, 20)
-        case_number = data.get('case_number', '')
+        case_number = format_case_number(data.get('case_number', ''))
         case_text = f"申請案號：{case_number}"
         c.drawString(left_margin, current_y, case_text)
         current_y -= 60
@@ -743,7 +743,7 @@ class BudgetStatementPDFGenerator:
         self._draw_justified_text(c, "申請案號", table_x + col1_width + col2_width + 4, table_y - 17, col3_width - 8, font_size=table_font_size)
         self._draw_centered_text(
             c,
-            data.get('case_number', ''),
+            format_case_number(data.get('case_number', '')),
             table_x + col1_width + col2_width + col3_width,                      # 內容欄位左邊緣
             table_y - 17,                              # Y 座標
             col2_width,                                # 內容欄位寬度
@@ -874,7 +874,7 @@ class BudgetStatementPDFGenerator:
         right_margin = width - 40
         content_width = right_margin - left_margin
         c.setFont(self.font_name, 14)
-        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
+        c.drawString(left_margin, current_y, f"申請案號：{format_case_number(data.get('case_number', ''))}")
         current_y -= 25
         c.drawString(left_margin, current_y, f"申 請 人：{data.get('applicant_name', '')}")
         current_y -= 25
@@ -1041,7 +1041,7 @@ class BudgetStatementPDFGenerator:
 
         # 基本資訊
         c.setFont(self.font_name, 14)
-        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
+        c.drawString(left_margin, current_y, f"申請案號：{format_case_number(data.get('case_number', ''))}")
         current_y -= 25
         c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
         current_y -= 25
@@ -1304,7 +1304,7 @@ class BudgetStatementPDFGenerator:
 
         # 基本資訊
         c.setFont(self.font_name, 14)
-        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
+        c.drawString(left_margin, current_y, f"申請案號：{format_case_number(data.get('case_number', ''))}")
         current_y -= 25
         c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
         current_y -= 25
@@ -1526,7 +1526,7 @@ class BudgetStatementPDFGenerator:
 
         # 基本資訊
         c.setFont(self.font_name, 14)
-        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
+        c.drawString(left_margin, current_y, f"申請案號：{format_case_number(data.get('case_number', ''))}")
         current_y -= 25
         c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
         current_y -= 25
@@ -1743,7 +1743,7 @@ class BudgetStatementPDFGenerator:
         c.setFont(self.font_name, 12)
         c.drawString(left_margin, current_y, f"申請人：{data.get('applicant_name', '')}")
         c.drawString(left_margin + 150, current_y, f"施設型式：{data.get('facility_type', '')}")
-        c.drawString(left_margin + 390, current_y, f"申請案號：{data.get('case_number', '')}")
+        c.drawString(left_margin + 390, current_y, f"申請案號：{format_case_number(data.get('case_number', ''))}")
         current_y -= 18
 
         land_location = data.get('land_location', '')
@@ -1794,7 +1794,7 @@ class BudgetStatementPDFGenerator:
 
         # 標題資訊
         c.setFont(self.font_name, 12)
-        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
+        c.drawString(left_margin, current_y, f"申請案號：{format_case_number(data.get('case_number', ''))}")
         c.drawString(left_margin + 240, current_y, f"申請人姓名：{data.get('applicant_name', '')}")
         current_y -= 20
 
@@ -1901,7 +1901,7 @@ class BudgetStatementPDFGenerator:
         current_y -= 60
 
         # 領款人資訊
-        c.drawString(left_margin, current_y, f"申請案號：{data.get('case_number', '')}")
+        c.drawString(left_margin, current_y, f"申請案號：{format_case_number(data.get('case_number', ''))}")
         current_y -= 40
         c.drawString(left_margin, current_y, f"領款人(簽名或蓋章)：{data.get('applicant_name', '')}")
         current_y -= 40
@@ -1960,7 +1960,7 @@ class BudgetStatementPDFGenerator:
         # 基本資訊
         c.setFont(self.font_name, 12)
         c.drawString(60, current_y, f"一、申請人：{data.get('applicant_name', '')}")
-        c.drawString(300, current_y, f"申請案號：{data.get('case_number', '')}")
+        c.drawString(300, current_y, f"申請案號：{format_case_number(data.get('case_number', ''))}")
         current_y -= 18
 
         c.drawString(60, current_y, f"二、設施地點：{data.get('land_location', '')}{data.get('first_lot_number', '')}號,等{data.get('land_count', 1)}筆(詳如土地清冊)。")
@@ -2176,7 +2176,7 @@ class BudgetStatementPDFGenerator:
         self._draw_centered_text(c, "申請案號",
                                 case_table_x, label_y,
                                 case_col1_width, font_size=case_font_size)
-        self._draw_centered_text(c, data.get('case_number', ''),
+        self._draw_centered_text(c, format_case_number(data.get('case_number', '')),
                                 case_table_x + case_col1_width, label_y,
                                 case_col2_width, font_size=case_font_size)
 

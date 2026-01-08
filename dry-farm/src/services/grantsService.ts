@@ -205,11 +205,14 @@ export const createGrant = async (data: GrantCreateRequest): Promise<GrantCreate
   }
 }
 
-export const getGrantByCaseNumber = async (caseNumber: string): Promise<GrantCreateResponse> => {
+export const getGrantByCaseNumber = async (caseNumber: string, grantsId?: number): Promise<GrantCreateResponse> => {
   try {
-    // const url = mapApiPath(GRANTS.BY_CASE_NUMBER(caseNumber));
-    // const response = await apiService.get(url);
-    const response = await apiService.get(GRANTS.BY_CASE_NUMBER(caseNumber))
+    // 🔥 支援 grantsId 參數以區分重複的 case_number
+    let url = GRANTS.BY_CASE_NUMBER(caseNumber)
+    if (grantsId !== undefined) {
+      url += `?grants_id=${grantsId}`
+    }
+    const response = await apiService.get(url)
     return response as GrantCreateResponse
   } catch (error: unknown) {
     return handleApiError(error, 'grantsService.getGrantByCaseNumber')

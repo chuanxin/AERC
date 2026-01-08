@@ -217,6 +217,11 @@
                       <span class="ml-2 text-subtitle-2 font-weight-medium">選取</span>
                     </div>
                   </template>
+                  <!-- 案號欄位：移除後綴顯示 -->
+                  <template #[`item.case_number`]="{ item }">
+                    {{ formatCaseNumber(item.case_number) }}
+                  </template>
+
                   <!-- 案件狀態欄位 -->
                   <template #[`item.status`]="{ item }">
                     <v-chip
@@ -401,7 +406,7 @@
           </div>
 
           <div class="text-body-2 text-medium-emphasis">
-            選取的案件編號：{{ selectedGrants.map(id => grantsList.find(g => g.id === id)?.case_number).filter(Boolean).join(', ') }}
+            選取的案件編號：{{ selectedGrants.map(id => formatCaseNumber(grantsList.find(g => g.id === id)?.case_number)).filter(Boolean).join(', ') }}
           </div>
         </v-card-text>
 
@@ -436,6 +441,7 @@ import { generateBudgetStatement, downloadPdfBlob, batchCrossYearGrants, grantCa
 import { useGrantsStore } from '@/stores/grants'
 import { useUserStore } from '@/stores/users'
 import { GrantStorage, type GrantData } from '@/utils/grant-storage'
+import { formatCaseNumber } from '@/utils/frontendFilters'
 
 const router = useRouter()
 const grantsStore = useGrantsStore()
@@ -893,7 +899,7 @@ const editItem = (item: GrantListItem) => {
     window.open(url, '_blank')
     return
   }
-  router.push(`/grants/edit?id=${item.case_number}&step=${item.current_step}`)
+  router.push(`/grants/edit?id=${item.case_number}&step=${item.current_step}&grants_id=${item.id}`)
 }
 
 // const deleteItem = (itemId: string) => {
@@ -910,10 +916,11 @@ const editItem = (item: GrantListItem) => {
 // }
 const deleteItem = async (item: GrantListItem) => {
   // 🔥 Linus式修復：提供清晰的確認對話框，說明邏輯刪除的含義
+  const displayCaseNumber = formatCaseNumber(item.case_number)
   const confirmMessage = [
     `確定要刪除以下申請案件嗎？`,
     ``,
-    `案件編號：${item.case_number}`,
+    `案件編號：${displayCaseNumber}`,
     `申請者：${item.applicant_name || '未填寫'}`,
     `管理處：${item.office || '未指定'}`,
     ``,
@@ -928,7 +935,7 @@ const deleteItem = async (item: GrantListItem) => {
       await grantsStore.deleteGrantFromList(item)
 
       console.log(`📋 [deleteItem] 案件 ${item.case_number} 已成功刪除`)
-      alert(`案件 ${item.case_number} 已成功刪除`)
+      alert(`案件 ${displayCaseNumber} 已成功刪除`)
 
     } catch (error) {
       console.error(`📋 [deleteItem] 刪除案件 ${item.case_number} 失敗:`, error)
@@ -970,7 +977,8 @@ const generateHistoryPdf = async (item: GrantListItem) => {
     // 生成檔案名稱（與 step6.vue 格式一致）
     const year = item.year || new Date().getFullYear() - 1911
     const applicantName = item.applicant_name || '未知'
-    const filename = `${year}-${item.case_number}-${applicantName} - 工程預算書.pdf`
+    const displayCaseNumber = formatCaseNumber(item.case_number)
+    const filename = `${year}-${displayCaseNumber}-${applicantName} - 工程預算書.pdf`
 
     // 下載PDF
     downloadPdfBlob(pdfBlob, filename)
