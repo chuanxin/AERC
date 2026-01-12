@@ -8,6 +8,7 @@ from typing import Optional, List, Dict, Any, Union
 from enum import Enum
 from decimal import Decimal
 from datetime import datetime
+from src.database.models import GrantStatus
 
 
 class QualificationQueryType(str, Enum):
@@ -17,15 +18,8 @@ class QualificationQueryType(str, Enum):
     SLOPE = "slope"           # 山坡地查詢
 
 
-class CaseStatus(str, Enum):
-    """案件狀態枚舉"""
-    APPROVED = "approved"         # 已核准
-    PENDING = "pending"          # 審核中
-    DRAFT = "draft"              # 草稿
-    SUBMITTED = "submitted"      # 已送出
-    UNDER_REVIEW = "under_review" # 審核中
-    REJECTED = "rejected"        # 已駁回
-    LEGACY_IMPORTED = "legacy_imported"  # 歷史資料匯入
+# 案件狀態直接使用 GrantStatus (單一來源原則)
+# 不再維護重複的 CaseStatus 枚舉
 
 
 class CaseType(str, Enum):
@@ -127,11 +121,11 @@ class GrantCaseItem(BaseModel):
     id: int = Field(..., description="GrantLocations.id")
     source_system: str = Field(..., description="資料來源系統")
     grant_id: str = Field(..., description="對應的 grant ID")
-    
+
     # 案件基本資訊
     case_number: Optional[str] = Field(None, description="案件編號")
     case_type: str = Field(..., description="案件類型")
-    status: CaseStatus = Field(..., description="案件狀態")
+    status: GrantStatus = Field(..., description="案件狀態")
     
     # 地籍資訊
     land_section: str = Field(..., description="地段")

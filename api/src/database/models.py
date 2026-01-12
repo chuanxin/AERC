@@ -258,8 +258,13 @@ class Grants(models.Model):
         cls.sn_registry[key] = latest_sn + 1
         return cls.sn_registry[key]
     
-    def generate_case_number(self):
-        """根據 year + office_id + SN 產生完整案件編號"""
+    async def generate_case_number(self):
+        """
+        根據 year + office_id + 序列號 產生完整案件編號
+
+        序列號邏輯：查詢同單位同年度的案件數量（不包含自己）+ 1
+        這樣即使 sn 欄位不連續，case_number 仍然反映真實的案件順序
+        """
         office_id_str = str(self.office_id)
         if self.office_id is not None:
             if self.office_id < 10: # 個位數
@@ -270,13 +275,22 @@ class Grants(models.Model):
         else:
             office_id_str = "00" # 或者您希望 office_id 為 None 時的默認處理
 
-        return f"{self.year}{office_id_str}{str(self.sn).zfill(4)}"
+        # 查詢同單位同年度已有的案件數量（不包含自己）
+        query = Grants.filter(year=self.year, office_id=self.office_id)
+        if self.id:  # 如果是更新操作（已有 id），排除自己
+            query = query.exclude(id=self.id)
+
+        existing_count = await query.count()
+        sequence_number = existing_count + 1  # 這是第 N 個案件
+
+        return f"{self.year}{office_id_str}{str(sequence_number).zfill(4)}"
 
     async def save(self, *args, **kwargs):
         """在存入資料時，自動產生 SN 與 case_number"""
         if not self.sn:  # 如果 SN 尚未設定，則自動產生
             self.sn = await self.generate_sn(self.year, self.office_id)
-        self.case_number = self.generate_case_number()  # 確保 case_number 正確
+        if not self.case_number:  # 只在 case_number 不存在時才生成
+            self.case_number = await self.generate_case_number()
         await super().save(*args, **kwargs)
 
     def __str__(self):
