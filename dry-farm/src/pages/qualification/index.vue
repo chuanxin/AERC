@@ -1646,8 +1646,10 @@ const completeLandNumber = computed(() => {
 const totalApprovedArea = computed(() => {
   if (searchResults.value.length === 0) return 0;
 
-  // 只處理歸檔記錄 (source_system = "legacy_farmdata")
-  const legacyRecords = searchResults.value.filter(item => item.source_system === "legacy_farmdata");
+  // 只處理歸檔記錄 (統一處理所有舊系統資料來源)
+  const legacyRecords = searchResults.value.filter(item =>
+    item.source_system === "legacy_farmdata" || item.source_system === "mssql_legacy"
+  );
 
   if (legacyRecords.length === 0) {
     // 如果沒有歸檔記錄，使用一般記錄的第一筆
@@ -1843,8 +1845,8 @@ const filteredLegacyResults = computed(() => {
   if (searchResults.value.length === 0) return [];
 
   // === 以下是原有的地段過濾邏輯，已註解關閉 ===
-  // // 只處理歸檔記錄 (source_system = "legacy_farmdata")
-  // const legacyRecords = searchResults.value.filter(item => item.source_system === "legacy_farmdata");
+  // // 只處理歸檔記錄 (統一處理所有舊系統資料來源)
+  // const legacyRecords = searchResults.value.filter(item => item.source_system === "legacy_farmdata" || item.source_system === "mssql_legacy");
 
   // if (legacyRecords.length === 0) {
   //   return searchResults.value;

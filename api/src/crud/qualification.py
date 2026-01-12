@@ -169,7 +169,8 @@ class QualificationCRUD:
         case_type = "一般設施"  # 預設值
         
         if location.meta_data:
-            if location.source_system == "legacy_farmdata":
+            # 統一處理所有舊系統資料來源 (消除特殊情況)
+            if location.source_system in ("legacy_farmdata", "mssql_legacy"):
                 # 歷史資料格式
                 approved_area = Decimal(str(location.meta_data.get('finalarea', 0)))
                 # 地籍登記面積來源：farmarea
@@ -178,7 +179,7 @@ class QualificationCRUD:
                     land_registered_area = Decimal(str(farmarea))
                 # 從 grant_versions.all_steps_data.pay_detail 判斷設施類型
                 case_type = await QualificationCRUD._infer_legacy_case_type(location.source_id)
-                
+
             elif location.source_system == "new_aerc":
                 # 新系統資料格式
                 facility_area = location.meta_data.get('facility_area', '0')
@@ -196,7 +197,7 @@ class QualificationCRUD:
         if location.source_system == "new_aerc":
             # 新系統：直接使用 source_id
             grant_id = str(location.source_id)
-        elif location.source_system == "legacy_farmdata":
+        elif location.source_system in ("legacy_farmdata", "mssql_legacy"):
             # 歷史資料：通過 source_id 查找 grant_versions，取得 grant_id
             try:
                 grant_version = await GrantVersions.filter(version=location.source_id).prefetch_related('grant').first()
