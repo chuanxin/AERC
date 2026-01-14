@@ -1382,7 +1382,7 @@
                   bg-color="white"
                   class="me-2"
                   style="width: 300px"
-                  placeholder="輸入作物名稱 (例如：稻米)"
+                  placeholder="輸入作物名稱 (例如：水稻)"
                   hide-details
                   clearable
                   :return-object="false"

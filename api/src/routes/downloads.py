@@ -33,6 +33,7 @@ class DownloadRequest(BaseModel):
     case_number_end: Optional[str] = None
     file_type: str
     enable_pagination: Optional[bool] = True  # 分頁模式控制，預設開啟
+    office_id: Optional[int] = None  # added by Joya
 
 @router.post("/photograph-carry-form")
 async def download_photograph_carry_form(
@@ -46,8 +47,8 @@ async def download_photograph_carry_form(
             raise HTTPException(status_code=400, detail="年度參數為必填")
 
         # 建構查詢條件
-        query = Grants.filter(year=int(request.year))
-
+        query = Grants.filter(year=int(request.year), office_id=request.office_id) #  加入 office_id 過濾條件 - added by Joya
+        
         # 先取得所有該年度的案件
         all_grants = await query.select_related("active_version").all()
 
@@ -139,7 +140,7 @@ async def check_data_availability(
             raise HTTPException(status_code=400, detail="年度參數為必填")
 
         # 建構查詢條件（與實際下載邏輯相同）
-        query = Grants.filter(year=int(request.year))
+        query = Grants.filter(year=int(request.year), office_id=request.office_id) #  加入 office_id 過濾條件 - added by Joya
 
         # 先取得所有該年度的案件
         all_grants = await query.all()

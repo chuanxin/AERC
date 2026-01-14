@@ -98,7 +98,7 @@
               </v-card>
 
               <!-- 更多連結 -->
-              <div class="d-flex justify-end pa-0 ma-0">
+              <!-- <div class="d-flex justify-end pa-0 ma-0">
                 <v-btn
                   class="more-btn"
                   variant="outlined"
@@ -110,7 +110,7 @@
                 >
                   更多
                 </v-btn>
-              </div>
+              </div> -->
             </v-card-text>
           </v-card>
         </div>

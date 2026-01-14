@@ -6,6 +6,7 @@ export interface DownloadRequest {
   case_number_start?: string | null
   case_number_end?: string | null
   file_type: string
+  office_id?: number // added by Joya
   enable_pagination?: boolean
 }
 

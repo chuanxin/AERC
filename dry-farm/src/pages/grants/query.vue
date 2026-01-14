@@ -463,7 +463,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { downloadsService } from '@/services/downloadsService'
 import type { DownloadRequest, DataCheckResponse } from '@/services/downloadsService'
-
+import { useUserStore } from '@/stores/users' //added by Joya
 // 定義檔案項目介面
 interface FileOption {
   id: string
@@ -491,7 +491,7 @@ const selectedFileType = ref<string | null>('photograph_carry_form')
 
 // 搜尋篩選條件
 const searchFilters = ref({
-  year: '114' as string | null, // 預設選取114年度
+  year: '115' as string | null, // 預設選取115年度
   caseNumberStart: '',
   caseNumberEnd: '',
   applicantName: '',
@@ -500,6 +500,7 @@ const searchFilters = ref({
 
 // 年度選項
 const yearOptions = [
+  { title: '115', value: '115' },
   { title: '114', value: '114' },
   { title: '113', value: '113' },
   { title: '112', value: '112' },
@@ -507,19 +508,23 @@ const yearOptions = [
   { title: '110', value: '110' },
 ]
 
+const userStore = useUserStore(); //added by Joya
+const currentOfficeId = computed(() => {
+  return userStore.currentUser?.office?.id
+})
 // 案件編號範例
 const caseNumberExamples = ref([
   {
     type: '新系統 - 全部',
-    start: '114010001',
-    end: '114999999',
-    description: '114年度所有單位'
+    start: '115010001',
+    end: '115999999',
+    description: '115年度所有單位'
   },
   {
     type: '新系統 - 各管理處案件',
-    start: '114010001',
-    end: '114019999',
-    description: '114年度宜蘭管理處案件'
+    start: '115010001',
+    end: '115019999',
+    description: '115年度宜蘭管理處案件'
   },
   {
     type: '舊系統 - 流水號表示方式',
@@ -654,7 +659,8 @@ const checkDataAvailability = async () => {
       year: searchFilters.value.year,
       case_number_start: searchFilters.value.caseNumberStart || null,
       case_number_end: searchFilters.value.caseNumberEnd || null,
-      file_type: selectedFileType.value
+      file_type: selectedFileType.value,
+      office_id: currentOfficeId.value //added by Joya
     }
 
     console.log('檢查資料可用性 - 請求參數:', params)
@@ -778,7 +784,8 @@ const handleDownload = async () => {
       year: searchFilters.value.year,
       caseNumberStart: searchFilters.value.caseNumberStart || null,
       caseNumberEnd: searchFilters.value.caseNumberEnd || null,
-      fileType: selectedFileType.value
+      fileType: selectedFileType.value,
+      office_id: currentOfficeId.value //added by Joya
     }
 
     console.log(`下載 ${fileName}:`, apiEndpoint, downloadParams)
@@ -788,7 +795,8 @@ const handleDownload = async () => {
       case_number_start: downloadParams.caseNumberStart,
       case_number_end: downloadParams.caseNumberEnd,
       file_type: downloadParams.fileType,
-      enable_pagination: true // 預設啟用分頁
+      enable_pagination: true, // 預設啟用分頁
+      office_id: downloadParams.office_id //added by Joya
     }
 
     // 第二階段：實際API調用
@@ -840,6 +848,7 @@ onMounted(() => {
   console.log('支援的檔案類型:', allFiles.value.length, '種')
   console.log('按類別分組:', fileCategories.value.length, '類')
   console.log('預設選中:', getSelectedFileName())
+  console.log('當前 Office ID:', currentOfficeId.value)
 })
 </script>
 
