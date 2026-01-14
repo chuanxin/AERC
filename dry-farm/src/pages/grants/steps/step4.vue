@@ -3708,7 +3708,7 @@ const canAutoFillMaterials = computed(() => {
       (localFormData.sprinklerSpacing_SS !== null && localFormData.sprinklerSpacing_SS > 0) &&
       !!localFormData.branchPipeMaterialId &&
       !!localFormData.branchPipeDiameterId &&
-      (localFormData.riserHeight_H !== null && localFormData.riserHeight_H > 0) &&
+      (localFormData.riserHeight_H !== null && localFormData.riserHeight_H >= 0) && // 🔥 允許豎管高度為 0
       !!localFormData.endFacilitySpecId &&
       !!localFormData.endFacilityPomno;
   }
@@ -3892,8 +3892,9 @@ const ensureDefaultMaterials = () => {
 const calculateWidth = () => {
   const length = localFormData.fieldLength || 0;
   const area = facilityAreaFromStep2.value || 0;
+  // 2026_01更新：寬度計算改為無條件捨去
   if (length > 0 && area > 0) {
-    localFormData.fieldWidth = Math.round(area / length);
+    localFormData.fieldWidth = Math.floor(area / length);
   }
   // updateFormData();
 };
@@ -4632,7 +4633,8 @@ const autoFillMaterials = async () => {
       if (!localFormData.branchPipeMaterialId || !localFormData.branchPipeDiameterId) {
         errorMessage += '- 支管材質和規格\n';
       }
-      if (!localFormData.riserHeight_H) {
+      // 允許豎管高度為 0，但不能是 null 或 undefined
+      if (localFormData.riserHeight_H === null || localFormData.riserHeight_H === undefined) {
         errorMessage += '- 豎管高度\n';
       }
       if (!localFormData.endFacilitySpecId || !localFormData.endFacilityPomno) {
@@ -5360,7 +5362,7 @@ const mapToLegacyFields = (formInputs: FormInputs) => {
 
     // 豎管相關
     StandPipeSpec: localFormData.riserPipeSpecId || 2,
-    StandPipeLength: localFormData.riserHeight_H || 1,
+    StandPipeLength: localFormData.riserHeight_H,
     StdpipeMat: localFormData.riserPipeMaterialId || 1,
 
     // 變更相關
@@ -6011,6 +6013,7 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
   // 2. 穿孔管長度 = 行數 * fieldWidth
   // 3. 穿孔管數量 = Math.ceil(穿孔管長度 / 100) (以100m為單位計價)
   // 注意：雙向出水時穿孔管管材長度不變，只有配件數量會加倍
+  // 2026_01上線更新：雙向出水不影響支管數量
   const perforatedTotalLength = data.BranchAmt * data.BranchLength; // 總穿孔管長度
   const isDoubleDirection = data.PerforatedPipe === 2;
   const multiplier = isDoubleDirection ? 2 : 1; // 僅用於配件計算
@@ -6060,7 +6063,8 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
     spec2: '',
     spec3: '',
     itemunit: standardLength === 100 ? '100m' : `${standardLength}m`,
-    matamount: perforatedQuantity * multiplier,
+    // matamount: perforatedQuantity * multiplier, // 雙向出水不影響管材數量
+    matamount: perforatedQuantity,
     description: `穿孔管材(${standardLength}m計價)`,
     order: 1,
     group: 3
@@ -6369,22 +6373,28 @@ const generateBranchPipeMaterialsWithSpecChange = (data: any, mainPipeSpec: any,
 
 // 生成豎管組材料 (獨立分組)
 const generateStandPipeGroup = (data: any) => {
-  const materials = generateStandPipeMaterials(data, 5);
-  return {
-    GroupNo: 5,
-    GroupName: '豎管組',
-    List: materials
-  };
+  // 當豎管高度為 0 時，不生成豎管組
+  if (data.StandPipeLength > 0) {
+    const materials = generateStandPipeMaterials(data, 5);
+    return {
+      GroupNo: 5,
+      GroupName: '豎管組',
+      List: materials
+    };
+  }
 };
 
 // 生成豎管組材料 (含變徑規格) - 公式5專用
 const generateStandPipeGroupWithSpecChange = (data: any) => {
-  const materials = generateStandPipeMaterialsWithSpecChange(data, 5);
-  return {
-    GroupNo: 5,
-    GroupName: '豎管組',
-    List: materials
-  };
+  // 當豎管高度為 0 時，不生成豎管組
+  if (data.StandPipeLength > 0) {
+    const materials = generateStandPipeMaterialsWithSpecChange(data, 5);
+    return {
+      GroupNo: 5,
+      GroupName: '豎管組',
+      List: materials
+    };
+  }
 };
 
 // 生成豎管材料
