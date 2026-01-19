@@ -18,6 +18,7 @@ export const AUTH = {
   RESET_PASSWORD: `${BASE}/reset-password`,
   SEND_VERIFICATION_EMAIL: `${BASE}/send-verification-email`,
   VERIFY_EMAIL: `${BASE}/verify-email`,
+  CHANGE_PASSWORD: `${BASE}/change-password`,
 }
 
 // user management related endpoints

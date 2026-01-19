@@ -22,7 +22,7 @@ export interface OfficeResponseMin {
 }
 
 export interface UserResponseMin {
-  id: int;
+  id: number;
   username: string;
 }
 

@@ -167,7 +167,7 @@ export const createGrant = async (data: GrantCreateRequest): Promise<GrantCreate
         const validationErrors = (error as {
           response?: {
             data?: {
-              detail?: Array<{loc: string[], msg: string, type: string}>
+              detail?: Array<{ loc: string[], msg: string, type: string }>
             }
           }
         })?.response?.data?.detail || []
@@ -710,7 +710,7 @@ const handleApiError = (error: unknown, source: string): never => {
       const validationErrors = (error as {
         response?: {
           data?: {
-            detail?: Array<{loc: string[], msg: string, type: string}>
+            detail?: Array<{ loc: string[], msg: string, type: string }>
           }
         }
       })?.response?.data?.detail || []
@@ -772,12 +772,9 @@ export const generateKaiuPdf = async (grantData: GrantListItem): Promise<Blob> =
 
     console.log('🖨️ [generateKaiuPdf] PDF生成參數:', pdfData)
 
-    // 調用後端PDF生成API - 直接使用axios實例以確保responseType生效
+    // 調用後端PDF生成API
     const response = await apiService.post('/test/generate-kaiu-pdf-reportlab', pdfData, {
-      responseType: 'blob',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      responseType: 'blob'
     })
 
     console.log('🖨️ [generateKaiuPdf] PDF生成成功')
@@ -1442,7 +1439,7 @@ export const compareVersionsLocally = (
     pipeline_facilities: pipelineComparison,
     summary: {
       total_changes: irrigationComparison.filter(item => item.changeType !== 'unchanged').length +
-                     pipelineComparison.filter(item => item.changeType !== 'unchanged').length,
+        pipelineComparison.filter(item => item.changeType !== 'unchanged').length,
       has_irrigation_changes: irrigationComparison.some(item => item.changeType !== 'unchanged'),
       has_pipeline_changes: pipelineComparison.some(item => item.changeType !== 'unchanged')
     }

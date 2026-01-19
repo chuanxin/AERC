@@ -72,7 +72,7 @@ class DownloadsService {
       // 使用統一的 apiService 和 downloadPost 方法
       const blob = await apiService.downloadPost(
         DOWNLOADS.PHOTOGRAPH_CARRY_FORM,
-        params as Record<string, unknown>,
+        params,
         `photograph_carry_form_${params.year}.xlsx`
       )
 
@@ -103,7 +103,7 @@ class DownloadsService {
       // 這樣可以正確處理單檔PDF和多檔ZIP的情況
       const blob = await apiService.downloadPost(
         DOWNLOADS.BUDGET_BOOK,
-        params as Record<string, unknown>
+        params
         // 不傳入filename參數，讓apiService從Content-Disposition header提取
       )
 

@@ -119,14 +119,11 @@ class AttachmentService {
         formData.append('description', description)
       }
 
-      // apiService.post 已經返回 response.data
-      const data = await apiService.post<UploadResponse>(
+      // 使用 apiService.upload 處理 multipart/form-data，並傳入進度回調
+      const data = await apiService.upload<UploadResponse>(
         ATTACHMENTS.UPLOAD(grantId, step),
         formData,
         {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
           onUploadProgress: (progressEvent) => {
             if (onProgress && progressEvent.total) {
               const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
@@ -139,7 +136,7 @@ class AttachmentService {
       return data
     } catch (error) {
       console.error('上傳附件失敗:', error)
-      throw new ApplicationError('上傳附件失敗', error)
+      throw new ApplicationError({ message: '上傳附件失敗', originalError: error })
     }
   }
 
@@ -187,7 +184,7 @@ class AttachmentService {
         grantId,
         step
       })
-      throw new ApplicationError('取得附件列表失敗', error)
+      throw new ApplicationError({ message: '取得附件列表失敗', originalError: error })
     }
   }
 
@@ -206,7 +203,7 @@ class AttachmentService {
       return blob as Blob
     } catch (error) {
       console.error('下載附件失敗:', error)
-      throw new ApplicationError('下載附件失敗', error)
+      throw new ApplicationError({ message: '下載附件失敗', originalError: error })
     }
   }
 
@@ -222,7 +219,7 @@ class AttachmentService {
       return data
     } catch (error) {
       console.error('取得附件資訊失敗:', error)
-      throw new ApplicationError('取得附件資訊失敗', error)
+      throw new ApplicationError({ message: '取得附件資訊失敗', originalError: error })
     }
   }
 
@@ -240,7 +237,7 @@ class AttachmentService {
       return data
     } catch (error) {
       console.error('刪除附件失敗:', error)
-      throw new ApplicationError('刪除附件失敗', error)
+      throw new ApplicationError({ message: '刪除附件失敗', originalError: error })
     }
   }
 
@@ -259,7 +256,7 @@ class AttachmentService {
       return data
     } catch (error) {
       console.error('批量操作失敗:', error)
-      throw new ApplicationError('批量操作失敗', error)
+      throw new ApplicationError({ message: '批量操作失敗', originalError: error })
     }
   }
 
