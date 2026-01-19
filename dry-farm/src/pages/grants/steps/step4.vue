@@ -3005,7 +3005,6 @@ const localFormData = reactive({
   mainPipeDiameter: '',
   fundingSource: '',
   irrigationType: '',
-  installationType: '',
   waterSource: '',
   perforatedPipeType: null as number | null,
   sprinklerType: null as number | null,

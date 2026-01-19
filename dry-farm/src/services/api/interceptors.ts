@@ -1,5 +1,6 @@
 import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
 import { mapApiPath } from './mapping'
+import { useUserStore } from '@/stores/users';
 
 // Define interface for our custom unauthorized handler
 interface TokenExpiredOptions {
@@ -69,7 +70,7 @@ export function setupInterceptors(
         // 非 refresh 請求：檢查並自動刷新 Token
         try {
           // 動態導入避免循環依賴
-          const { useUserStore } = await import('../../stores/users')
+          // const { useUserStore } = await import('../../stores/users')
           const userStore = useUserStore()
 
           // 🔥 添加超時保護：最多等待 5 秒

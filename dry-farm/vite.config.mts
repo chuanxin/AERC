@@ -193,6 +193,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: '../../release/html', // 輸出到 nginx 目錄
+      emptyOutDir: true,
       chunkSizeWarningLimit: 1600,
       // Minification and tree-shaking
       minify: 'esbuild',

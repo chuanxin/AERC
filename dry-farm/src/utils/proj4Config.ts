@@ -90,6 +90,6 @@ export function validateTWD97Coordinates(x: number, y: number): boolean {
  * @param epsgCode - EPSG code (e.g., 'EPSG:3826')
  * @returns Proj4 definition string or undefined if not found
  */
-export function getProjectionDef(epsgCode: string): string | undefined {
+export function getProjectionDef(epsgCode: string): proj4.ProjectionDefinition | undefined {
   return proj4.defs(epsgCode);
 }

@@ -7,7 +7,7 @@ import VectorLayer from 'ol/layer/Vector'
 import VectorSource from 'ol/source/Vector'
 import GeoJSON from 'ol/format/GeoJSON'
 import { Style, Fill, Stroke, Circle } from 'ol/style'
-import type { Map } from 'ol'
+import type { Map as OLMap } from 'ol'
 import type { GeoJsonFeatureCollection } from '@/types/gis'
 
 /**
@@ -31,10 +31,10 @@ export interface ShapefileLayerConfig {
  * Shapefile 圖層管理器
  */
 export class ShapefileLayerManager {
-  private map: Map
+  private map: OLMap
   private layers: Map<string, VectorLayer> = new Map()
 
-  constructor(map: Map) {
+  constructor(map: OLMap) {
     this.map = map
   }
 

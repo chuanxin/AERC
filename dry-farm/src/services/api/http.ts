@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
+import type { AxiosInstance, InternalAxiosRequestConfig, AxiosProgressEvent } from 'axios'
 import { setupInterceptors, setupDebugInterceptors } from './interceptors'
 
 
@@ -12,56 +12,6 @@ const api: AxiosInstance = axios.create({
     'Accept': 'application/json'
   }
 })
-
-// // Interceptors
-// api.interceptors.request.use(
-//   (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-//     // Add token to headers if available (get token from local storage or any other storage)
-//     const token = localStorage.getItem('auth_token')
-//     if (token) {
-//       config.headers.set('Authorization', `Bearer ${token}`)
-//     }
-//     return config
-//   },
-//   error => {
-//     return Promise.reject(error)
-//   }
-// )
-
-// // Response interceptor
-// api.interceptors.response.use(
-//   (response: AxiosResponse): AxiosResponse => {
-//     return response
-//   },
-//   error => {
-//     // Handle errors globally
-//     if (error.response) {
-//       // Server responded with a status code outside the range of 2xx
-//       if (error.response.status === 401) {
-//         // unauthorized
-//         console.error('未授權，請重新登入')
-//         localStorage.removeItem('auth_token')
-//         window.location.href = '/login'
-//       } else if (error.response.status === 403) {
-//         // Forbidden
-//         console.error('權限不足')
-//       } else if (error.response.status === 500) {
-//         // Internal Server Error
-//         console.error('伺服器錯誤')
-//       }
-//     } else if (error.request) {
-//       // Request was made but no response was received
-//       console.error('網路錯誤，請檢查網路連接')
-//     } else {
-//       // Something happened in setting up the request that triggered an Error
-//       // This is usually a configuration error
-//       // or a problem with the request itself
-//       // e.g. `axios.create` was called with an invalid config
-//       console.error('請求錯誤', error.message)
-//     }
-//     return Promise.reject(error)
-//   }
-// )
 
 // 設置攔截器
 setupInterceptors(api, {
@@ -85,19 +35,12 @@ const apiService = {
    * @param params query parameters
    * @param config additional configuration
    */
-  // async get<T = unknown>(url: string, params?: Record<string, unknown>, config?: InternalAxiosRequestConfig): Promise<T> {
-  //   const response = await api.get<T>(url, {
-  //     ...config,
-  //     params
-  //   })
-  //   return response.data
-  // },
   async get<T = unknown>(
     url: string,
-    config?: InternalAxiosRequestConfig // 直接接收 Axios 配置對象
+    config?: { params?: Record<string, unknown> } & Partial<InternalAxiosRequestConfig>
   ): Promise<T> {
     // 直接將傳入的 config (包含了 params 屬性) 傳遞給底層 api.get
-    const response = await api.get<T>(url, config);
+    const response = await api.get<T>(url, config as InternalAxiosRequestConfig);
     return response.data;
   },
 
@@ -105,10 +48,14 @@ const apiService = {
    * send POST request
    * @param url request URL or path defined in endpoints
    * @param data request body data
-   * @param config additional configuration
+   * @param config additional configuration (supports responseType, headers, etc.)
    */
-  async post<T = unknown>(url: string, data?: Record<string, unknown>, config?: InternalAxiosRequestConfig): Promise<T> {
-    const response = await api.post<T>(url, data, config)
+  async post<T = unknown, D extends object = object>(
+    url: string,
+    data?: D,
+    config?: Partial<InternalAxiosRequestConfig>
+  ): Promise<T> {
+    const response = await api.post<T>(url, data, config as InternalAxiosRequestConfig)
     return response.data
   },
 
@@ -126,35 +73,13 @@ const apiService = {
     return response.data;
   },
 
-  // async postForm<T = unknown>(url: string, data?: Record<string, unknown>, config?: InternalAxiosRequestConfig): Promise<T> {
-  //   const formData = new URLSearchParams();
-
-  //   if (data) {
-  //     Object.entries(data).forEach(([key, value]) => {
-  //       if (value !== undefined && value !== null) {
-  //         formData.append(key, String(value));
-  //       }
-  //     });
-  //   }
-
-  //   const response = await api.post<T>(url, formData, {
-  //     ...config,
-  //     headers: {
-  //       'Content-Type': 'application/x-www-form-urlencoded',
-  //       ...config?.headers
-  //     }
-  //   });
-
-  //   return response.data;
-  // },
-
   /**
    * send PUT request
    * @param url request URL or path defined in endpoints
    * @param data request body data
    * @param config additional configuration
    */
-  async put<T = unknown>(url: string, data?: Record<string, unknown>, config?: InternalAxiosRequestConfig): Promise<T> {
+  async put<T = unknown, D extends object = object>(url: string, data?: D, config?: InternalAxiosRequestConfig): Promise<T> {
     const response = await api.put<T>(url, data, config)
     return response.data
   },
@@ -165,7 +90,7 @@ const apiService = {
    * @param data request body data
    * @param config additional configuration
    */
-  async patch<T = unknown>(url: string, data?: Record<string, unknown>, config?: InternalAxiosRequestConfig): Promise<T> {
+  async patch<T = unknown, D extends object = object>(url: string, data?: D, config?: InternalAxiosRequestConfig): Promise<T> {
     const response = await api.patch<T>(url, data, config)
     return response.data
   },
@@ -181,19 +106,25 @@ const apiService = {
   },
 
   /**
-   * send upload request
+   * send upload request with optional progress tracking
    * @param url request URL or path defined in endpoints
    * @param formData form data
-   * @param config additional configuration
+   * @param config additional configuration including onUploadProgress
    */
-  async upload<T = unknown>(url: string, formData: FormData, config?: InternalAxiosRequestConfig): Promise<T> {
+  async upload<T = unknown>(
+    url: string,
+    formData: FormData,
+    config?: {
+      onUploadProgress?: (progressEvent: AxiosProgressEvent) => void
+    } & Partial<InternalAxiosRequestConfig>
+  ): Promise<T> {
     const response = await api.post<T>(url, formData, {
       ...config,
       headers: {
         ...config?.headers,
         'Content-Type': 'multipart/form-data'
       }
-    })
+    } as InternalAxiosRequestConfig)
     return response.data
   },
 
@@ -247,7 +178,7 @@ const apiService = {
    * @param data request body data
    * @param filename download filename
    */
-  async downloadPost(url: string, data?: Record<string, unknown>, filename?: string): Promise<Blob> {
+  async downloadPost<D extends object = object>(url: string, data?: D, filename?: string): Promise<Blob> {
     const response = await api.post(url, data, {
       responseType: 'blob'
     })
