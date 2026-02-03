@@ -5533,10 +5533,11 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
   };
 
   // 輔助函數：檢查規格相容性
+  // 對於多規格配件（如三通），spec1 對應 diameter1，spec2 對應 diameter2
   const checkSpecCompatibility = (fitting: any, spec1: string, spec2?: string, spec3?: string): boolean => {
     // console.log(`[checkSpecCompatibility] Checking fitting:`, {
     //   fittingName: fitting.name,
-    //   spec1,
+    //   spec1, spec2, spec3,
     //   diameter1: fitting.diameter1,
     //   diameter2: fitting.diameter2,
     //   diameter3: fitting.diameter3
@@ -5544,39 +5545,55 @@ const matchMaterialFromStore = (moduleId: number, spec1: string, spec2?: string,
 
     // 如果沒有提供規格要求，則認為相容
     if (!spec1 || spec1.trim() === '') {
-      // console.log(`[checkSpecCompatibility] No spec requirement, compatible`);
+      return true;
+    }
+
+    // 沒有設定規格的配件，直接相容
+    if (!fitting.diameter1_id && !fitting.diameter2_id && !fitting.diameter3_id) {
       return true;
     }
 
     const spec1Value = parseSpecValue(spec1);
+    const spec2Value = spec2 ? parseSpecValue(spec2) : null;
+    const spec3Value = spec3 ? parseSpecValue(spec3) : null;
 
-    // 檢查是否有任何 diameter 比對
-    const diameterChecks = [
-      { check: fitting.diameter1?.value === spec1Value, desc: `diameter1.value(${fitting.diameter1?.value}) === spec1Value(${spec1Value})` },
-      { check: fitting.diameter2?.value === spec1Value, desc: `diameter2.value(${fitting.diameter2?.value}) === spec1Value(${spec1Value})` },
-      { check: fitting.diameter3?.value === spec1Value, desc: `diameter3.value(${fitting.diameter3?.value}) === spec1Value(${spec1Value})` },
-      { check: fitting.diameter1?.name === spec1, desc: `diameter1.name(${fitting.diameter1?.name}) === spec1(${spec1})` },
-      { check: fitting.diameter2?.name === spec1, desc: `diameter2.name(${fitting.diameter2?.name}) === spec1(${spec1})` },
-      { check: fitting.diameter3?.name === spec1, desc: `diameter3.name(${fitting.diameter3?.name}) === spec1(${spec1})` }
-    ];
+    // 檢查 spec1 是否匹配 diameter1
+    const spec1MatchesDiameter1 =
+      fitting.diameter1?.value === spec1Value ||
+      fitting.diameter1?.name === spec1;
 
-    const hasAnyDiameterMatch = diameterChecks.some(dc => {
-      if (dc.check) {
-        // console.log(`[checkSpecCompatibility] Match found: ${dc.desc}`);
-        return true;
-      }
-      return false;
-    });
+    // 如果有提供 spec2，檢查是否匹配 diameter2
+    // 如果沒有提供 spec2，則不需要檢查 diameter2
+    const spec2MatchesDiameter2 =
+      !spec2Value ||
+      !fitting.diameter2_id ||
+      fitting.diameter2?.value === spec2Value ||
+      fitting.diameter2?.name === spec2;
 
-    // 對於配件類，如果名稱已經比對了，我們可以更寬鬆地處理規格
-    // 特別是一些通用配件可能沒有嚴格的規格限制
-    const isCompatible = hasAnyDiameterMatch ||
-                        // 沒有設定規格的配件
-                        (!fitting.diameter1_id && !fitting.diameter2_id && !fitting.diameter3_id);
+    // 如果有提供 spec3，檢查是否匹配 diameter3
+    const spec3MatchesDiameter3 =
+      !spec3Value ||
+      !fitting.diameter3_id ||
+      fitting.diameter3?.value === spec3Value ||
+      fitting.diameter3?.name === spec3;
 
-    // console.log(`[checkSpecCompatibility] Result: ${isCompatible}, hasAnyDiameterMatch: ${hasAnyDiameterMatch}`);
+    // 多規格配件：所有提供的規格都必須匹配對應的 diameter
+    if (spec2Value || spec3Value) {
+      const isMatch = spec1MatchesDiameter1 && spec2MatchesDiameter2 && spec3MatchesDiameter3;
+      // console.log(`[checkSpecCompatibility] Multi-spec match:`, { spec1MatchesDiameter1, spec2MatchesDiameter2, spec3MatchesDiameter3, isMatch });
+      return isMatch;
+    }
 
-    return isCompatible;
+    // 單規格配件：spec1 可以匹配任何一個 diameter
+    const singleSpecMatch =
+      spec1MatchesDiameter1 ||
+      fitting.diameter2?.value === spec1Value ||
+      fitting.diameter2?.name === spec1 ||
+      fitting.diameter3?.value === spec1Value ||
+      fitting.diameter3?.name === spec1;
+
+    // console.log(`[checkSpecCompatibility] Single-spec match: ${singleSpecMatch}`);
+    return singleSpecMatch;
   };
 
   const spec1Value = parseSpecValue(spec1);
@@ -6073,14 +6090,13 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
 
   // 三通或四通
   const fittingName = data.PerforatedPipe === 1 ? '三通' : '四通';
-  const fittingSpec = `${mainSpecName}×${nozzleSpecName}`;
-  addMaterial(materials, 2, fittingSpec, '', fittingName, {
+  addMaterial(materials, 2, mainSpecName, '', fittingName, {
     module: '穿孔管配件',
     matname: fittingName,
     module_id: 2,
     mattype: 'PVC',
-    spec1: fittingSpec,
-    spec2: '',
+    spec1: mainSpecName,
+    spec2: nozzleSpecName,
     spec3: '',
     itemunit: '只',
     matamount: Math.floor(data.BranchAmt),
@@ -6171,7 +6187,15 @@ const generateBranchPipeMaterials = (data: any, mainPipeSpec: any, groupId: numb
   const branchSpecName = pipeDiameterOptions.value.find(d => d.id === data.BranchSpec)?.name;
   const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name;
 
-  // TODO: 以實際的支管材質的長度規格做為計價單位，目前假設支管長度為4m計價
+  // 先比對支管材料以取得實際的標準長度
+  const branchPipeMatch = matchMaterialFromStore(1, branchSpecName, '', '', branchMaterialName, '');
+  // 取得實際的標準長度，若無資料則預設為 4m
+  const standardLength = branchPipeMatch.matchedData?.length || 4;
+  // 計算支管總長度
+  const totalBranchLength = data.BranchAmt * data.BranchLength;
+  // 計算支管數量
+  const branchQuantity = Math.ceil(totalBranchLength / standardLength);
+
   // 支管
   addMaterial(materials, 1, branchSpecName, branchMaterialName, '', {
     module: '支管',
@@ -6181,22 +6205,21 @@ const generateBranchPipeMaterials = (data: any, mainPipeSpec: any, groupId: numb
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
-    itemunit: '4m',
-    matamount: Math.ceil((data.BranchAmt * data.BranchLength) / 4), // 每4m計價
-    description: '支管管材(4m計價)',
+    itemunit: `${standardLength}m`,
+    matamount: branchQuantity,
+    description: `支管管材(${standardLength}m計價)`,
     order: 1,
     group: groupId
   });
 
   // 三通
-  const teeSpec = `${mainSpecName}×${branchSpecName}`;
-  addMaterial(materials, 2, teeSpec, '', '三通', {
+  addMaterial(materials, 2, mainSpecName, '', '三通', {
     module: '支管配件',
     matname: '三通',
     module_id: 2,
     mattype: 'PVC',
-    spec1: teeSpec,
-    spec2: '',
+    spec1: mainSpecName,
+    spec2: branchSpecName,
     spec3: '',
     itemunit: '只',
     matamount: Math.floor(data.BranchAmt),
@@ -6264,8 +6287,19 @@ const generateBranchPipeMaterialsWithSpecChange = (data: any, mainPipeSpec: any,
   const changeBranchSpecName = pipeDiameterOptions.value.find(d => d.id === data.ChangeBranchSpec)?.name;
   const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name;
 
+  // 比對原規格支管材料以取得標準長度
+  const branchPipeMatch = matchMaterialFromStore(1, branchSpecName, '', '', branchMaterialName, '');
+  const branchStandardLength = branchPipeMatch.matchedData?.length || 4;
+
+  // 比對變徑規格支管材料以取得標準長度
+  const changeBranchPipeMatch = matchMaterialFromStore(1, changeBranchSpecName, '', '', branchMaterialName, '');
+  const changeBranchStandardLength = changeBranchPipeMatch.matchedData?.length || 4;
+
+  // 計算支管總長度
+  const totalBranchLength = data.BranchAmt * data.BranchLength;
+
   // 1. 原規格支管 (2/3 數量)
-  const originalBranchQuantity = Math.ceil((data.BranchAmt * data.BranchLength * 2/3) / 4);
+  const originalBranchQuantity = Math.ceil((totalBranchLength * 2/3) / branchStandardLength);
   addMaterial(materials, 1, branchSpecName, branchMaterialName, '', {
     module: '支管',
     matname: `${branchMaterialName} ${branchSpecName}`,
@@ -6274,15 +6308,15 @@ const generateBranchPipeMaterialsWithSpecChange = (data: any, mainPipeSpec: any,
     spec1: branchSpecName,
     spec2: '',
     spec3: '',
-    itemunit: '4m',
+    itemunit: `${branchStandardLength}m`,
     matamount: originalBranchQuantity,
-    description: '支管管材(支管規格, 4m計價)',
+    description: `支管管材(支管規格, ${branchStandardLength}m計價)`,
     order: 1,
     group: groupId
   });
 
   // 2. 變徑規格支管 (1/3 數量)
-  const changeBranchQuantity = Math.ceil((data.BranchAmt * data.BranchLength * 1/3) / 4);
+  const changeBranchQuantity = Math.ceil((totalBranchLength * 1/3) / changeBranchStandardLength);
   addMaterial(materials, 1, changeBranchSpecName, branchMaterialName, '', {
     module: '支管',
     matname: `${branchMaterialName} ${changeBranchSpecName}`,
@@ -6291,9 +6325,9 @@ const generateBranchPipeMaterialsWithSpecChange = (data: any, mainPipeSpec: any,
     spec1: changeBranchSpecName,
     spec2: '',
     spec3: '',
-    itemunit: '4m',
+    itemunit: `${changeBranchStandardLength}m`,
     matamount: changeBranchQuantity,
-    description: '支管管材(變徑規格, 4m計價)',
+    description: `支管管材(變徑規格, ${changeBranchStandardLength}m計價)`,
     order: 2,
     group: groupId
   });
@@ -6321,14 +6355,13 @@ const generateBranchPipeMaterialsWithSpecChange = (data: any, mainPipeSpec: any,
   });
 
   // 4. 三通 (主管×支管) - 與公式3相同
-  const teeSpec = `${mainSpecName}×${branchSpecName}`;
-  addMaterial(materials, 2, teeSpec, '', '三通', {
+  addMaterial(materials, 2, mainSpecName, '', '三通', {
     module: '支管配件',
     matname: '三通',
     module_id: 2,
     mattype: 'PVC',
-    spec1: teeSpec,
-    spec2: '',
+    spec1: mainSpecName,
+    spec2: branchSpecName,
     spec3: '',
     itemunit: '只',
     matamount: Math.floor(data.BranchAmt), // 與公式3相同的三通數量
@@ -6405,7 +6438,15 @@ const generateStandPipeMaterials = (data: any, groupId: number) => {
   const standPipeSpecName = pipeDiameterOptions.value.find(d => d.id === data.StandPipeSpec)?.name;
   const branchSpecName = pipeDiameterOptions.value.find(d => d.id === data.BranchSpec)?.name;
 
-  // TODO: 以實際的豎管材質的長度規格做為計價單位，目前假設豎管長度為4m計價
+  // 比對豎管材料以取得實際的標準長度
+  const standPipeMatch = matchMaterialFromStore(4, standPipeSpecName, '', '', standPipeMaterialName, '');
+  // 取得實際的標準長度，若無資料則預設為 4m
+  const standardLength = standPipeMatch.matchedData?.length || 4;
+  // 計算豎管總長度
+  const totalStandPipeLength = data.NozzleAmt * data.StandPipeLength;
+  // 計算豎管數量
+  const standPipeQuantity = Math.ceil(totalStandPipeLength / standardLength);
+
   // 豎管
   addMaterial(materials, 4, standPipeSpecName, standPipeMaterialName, '', {
     module: '豎管',
@@ -6415,21 +6456,21 @@ const generateStandPipeMaterials = (data: any, groupId: number) => {
     spec1: standPipeSpecName,
     spec2: '',
     spec3: '',
-    itemunit: '4m',
-    matamount: Math.ceil((data.NozzleAmt * data.StandPipeLength)/4), // 每4m計價
-    description: '豎管材料(4m計價)',
+    itemunit: `${standardLength}m`,
+    matamount: standPipeQuantity,
+    description: `豎管材料(${standardLength}m計價)`,
     order: 1,
     group: groupId
   });
 
   // 豎管三通
-  addMaterial(materials, 2, `${branchSpecName}×${standPipeSpecName}`, '', '三通', {
+  addMaterial(materials, 2, branchSpecName, '', '三通', {
     module: '豎管配件',
     matname: '三通',
     module_id: 2,
     mattype: 'PVC',
-    spec1: `${branchSpecName}×${standPipeSpecName}`,
-    spec2: '',
+    spec1: branchSpecName,
+    spec2: standPipeSpecName,
     spec3: '',
     itemunit: '只',
     matamount: Math.floor(data.NozzleAmt),
@@ -6496,6 +6537,14 @@ const generateStandPipeMaterialsWithSpecChange = (data: any, groupId: number) =>
   const branchSpecName = pipeDiameterOptions.value.find(d => d.id === data.BranchSpec)?.name;
   const changeBranchSpecName = pipeDiameterOptions.value.find(d => d.id === data.ChangeBranchSpec)?.name;
 
+  // 比對豎管材料以取得實際的標準長度
+  const standPipeMatch = matchMaterialFromStore(4, standPipeSpecName, '', '', standPipeMaterialName, '');
+  const standardLength = standPipeMatch.matchedData?.length || 4;
+  // 計算豎管總長度
+  const totalStandPipeLength = data.NozzleAmt * data.StandPipeLength;
+  // 計算豎管數量
+  const standPipeQuantity = Math.ceil(totalStandPipeLength / standardLength);
+
   // 1. 豎管 (與公式3相同)
   addMaterial(materials, 4, standPipeSpecName, standPipeMaterialName, '', {
     module: '豎管',
@@ -6505,21 +6554,21 @@ const generateStandPipeMaterialsWithSpecChange = (data: any, groupId: number) =>
     spec1: standPipeSpecName,
     spec2: '',
     spec3: '',
-    itemunit: '4m',
-    matamount: Math.ceil((data.NozzleAmt * data.StandPipeLength)/4), // 每4m計價
-    description: '豎管材料(4m計價)',
+    itemunit: `${standardLength}m`,
+    matamount: standPipeQuantity,
+    description: `豎管材料(${standardLength}m計價)`,
     order: 1,
     group: groupId
   });
 
   // 2. 三通 (支管規格×豎管規格) - 數量為公式3三通的2/3
-  addMaterial(materials, 2, `${branchSpecName}×${standPipeSpecName}`, '', '三通', {
+  addMaterial(materials, 2, branchSpecName, '', '三通', {
     module: '豎管配件',
     matname: '三通',
     module_id: 2,
     mattype: 'PVC',
-    spec1: `${branchSpecName}×${standPipeSpecName}`,
-    spec2: '',
+    spec1: branchSpecName,
+    spec2: standPipeSpecName,
     spec3: '',
     itemunit: '只',
     matamount: Math.floor(data.NozzleAmt * 2/3),
@@ -6529,13 +6578,13 @@ const generateStandPipeMaterialsWithSpecChange = (data: any, groupId: number) =>
   });
 
   // 3. 三通 (變徑規格×豎管規格) - 數量為公式3三通的1/3
-  addMaterial(materials, 2, `${changeBranchSpecName}×${standPipeSpecName}`, '', '三通', {
+  addMaterial(materials, 2, changeBranchSpecName, '', '三通', {
     module: '豎管配件',
     matname: '三通',
     module_id: 2,
     mattype: 'PVC',
-    spec1: `${changeBranchSpecName}×${standPipeSpecName}`,
-    spec2: '',
+    spec1: changeBranchSpecName,
+    spec2: standPipeSpecName,
     spec3: '',
     itemunit: '只',
     matamount: Math.floor(data.NozzleAmt * 1/3),
@@ -6778,14 +6827,13 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
   }
 
   // 三通
-  const dripTeeSpec = `${mainSpecName}×${branchSpecName}`;
-  addMaterial(materials, 2, dripTeeSpec, '', '三通', {
+  addMaterial(materials, 2, mainSpecName, '', '三通', {
     module: '滴灌配件',
     matname: '三通',
     module_id: 2,
     mattype: 'PVC',
-    spec1: dripTeeSpec,
-    spec2: '',
+    spec1: mainSpecName,
+    spec2: branchSpecName,
     spec3: '',
     itemunit: '只',
     matamount: Math.floor(data.BranchAmt),
@@ -6937,14 +6985,13 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
   }
 
   // 三通 - 配件用無條件捨去
-  const dripTapeTeeSpec = `${mainSpecName}×${branchSpecName}`;
-  addMaterial(materials, 2, dripTapeTeeSpec, '', '三通', {
+  addMaterial(materials, 2, mainSpecName, '', '三通', {
     module: '滴灌配件',
     matname: '三通',
     module_id: 2,
     mattype: 'PVC',
-    spec1: dripTapeTeeSpec,
-    spec2: '',
+    spec1: mainSpecName,
+    spec2: branchSpecName,
     spec3: '',
     itemunit: '只',
     matamount: Math.floor(data.BranchAmt),
