@@ -1255,7 +1255,7 @@ const loadMorePipeFittings = async () => {
     skip: currentLoadedCount,
     limit: itemsToFetchPerPage,
     append: true,
-    include_inactive: true,  // 🔧 管理介面顯示所有材料（包括停用的）
+    include_inactive: false,  // 預設只顯示啟用的材料
   });
 };
 
@@ -1486,7 +1486,7 @@ const saveItem = async () => {
       skip: 0,
       limit: 50,
       append: false,
-      include_inactive: true,  // 🔧 管理介面顯示所有材料（包括停用的）
+      include_inactive: false,  // 預設只顯示啟用的材料
     });
 
     editDialog.value = false;
@@ -1508,7 +1508,7 @@ onMounted(async () => {
     skip: 0,
     limit: initialLimit,
     append: false,
-    include_inactive: true,  // 🔧 管理介面顯示所有材料（包括停用的）
+    include_inactive: false,  // 預設只顯示啟用的材料
   });
 
   await pfModulesStore.ensureAllModulesLoaded()
