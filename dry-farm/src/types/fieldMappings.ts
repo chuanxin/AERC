@@ -27,6 +27,7 @@ export const FIELD_MAPPING_CONFIG: FieldMappingConfig = {
       'name': 'applicant_name',
       'id': 'applicant_id',
       'phone': 'applicant_phone',
+      'phone2': 'applicant_phone2',
       'county': 'county',
       'countyId': 'county_id',
       'town': 'town',
@@ -48,6 +49,7 @@ export const FIELD_MAPPING_CONFIG: FieldMappingConfig = {
       'applicant_name': 'name',
       'applicant_id': 'id',
       'applicant_phone': 'phone',
+      'applicant_phone2': 'phone2',
       'county': 'county',
       'county_id': 'countyId',
       'town': 'town',
@@ -207,7 +209,7 @@ export class FieldMappingUtils {
 // 類型檢查工具
 export function ensureStep1DataIntegrity(data: any): data is Step1Data {
   const requiredFields: (keyof Step1Data)[] = [
-    'name', 'id', 'phone', 'county', 'town', 'village', 'address',
+    'name', 'id', 'phone', 'phone2', 'county', 'town', 'village', 'address',
     'undertracker', 'office', 'caseNumber', 'receivedDate', 'receivedTime'
   ]
 

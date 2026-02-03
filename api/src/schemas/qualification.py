@@ -125,8 +125,10 @@ class GrantCaseItem(BaseModel):
     # 案件基本資訊
     case_number: Optional[str] = Field(None, description="案件編號")
     case_type: str = Field(..., description="案件類型")
+    irrigation_type: Optional[str] = Field(None, description="灌溉型式")
     status: GrantStatus = Field(..., description="案件狀態")
-    
+    office: str = Field(..., description="管理處名稱 (來自 grants.office)")
+
     # 地籍資訊
     land_section: str = Field(..., description="地段")
     land_number: str = Field(..., description="地號")
@@ -135,6 +137,7 @@ class GrantCaseItem(BaseModel):
     application_year: int = Field(..., description="申請年度(民國年)")
     applicant: str = Field(..., description="申請人")
     department: Optional[str] = Field(None, description="承辦單位")
+    
     
     # 面積資訊
     approved_area: Decimal = Field(..., description="核准面積(㎡)")

@@ -11,7 +11,7 @@
         src="@/assets/bg_top.svg"
         class="d-none d-sm-block"
         height="100%"
-        position="top right"
+        position="85% top "
       />
       <!-- <v-img
         gradient="to top right, rgba(19,84,122,.8), rgba(128,208,199,.8)"
@@ -113,18 +113,30 @@
     <v-spacer />
     <v-chip
       v-if="!showDrawer"
-      class="ma-2"
-      color="primary"
+      class="ma-2 h-auto py-1" 
+      :color="remainingTime < 60 ? 'error' : 'primary'"
       variant="outlined"
       rounded
     >
       <v-icon
         icon="mdi-account"
         start
+        class="self-center" 
       />
-      <strong>{{ userStore.userFullName }}，您好</strong>&nbsp;
-      <!-- <span>(農工中心)</span> -->
+      
+      <div class="d-flex flex-column text-start justify-center">
+        <strong style="line-height: 1.2;">{{ userStore.userFullName }}，您好</strong>
+        
+        <span 
+          v-if="formattedRemainingTime" 
+          class="text-caption mt-0 text-grey-darken-3"
+          style="line-height: 1; font-size: 0.7rem !important;"
+        >
+          倒數 : {{ formattedRemainingTime }}
+        </span>
+      </div>
     </v-chip>
+    
     <v-btn
       v-if="!showDrawer"
       :icon="themeStore.theme === 'light' ? 'mdi-logout' : 'mdi-login'"
@@ -133,6 +145,7 @@
       rounded="circl"
       @click="handleLogout"
     />
+    
     <!-- Mobile menu button - only shows on small screens -->
     <template v-if="showDrawer">
       <v-btn
@@ -244,6 +257,9 @@
   import logoXL from '@/assets/logo-xl.png'
   import logoS from '@/assets/logo-s.png'
 
+  //added by Joya. Inorder to use ramaining time
+  import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
+
   // Route and theme setup
   const route = useRoute()
   const router = useRouter()
@@ -253,6 +269,48 @@
   // Component state
   const activeTab = ref('index')
   const drawer = ref(false)
+
+  //  Joya added 登出倒數計時相關邏輯
+const currentTime = ref(Math.floor(Date.now() / 1000))
+let timerId: number | null = null
+
+// 計算剩餘時間 (秒)
+const remainingTime = computed(() => {
+  if (!userStore.token || !userStore.tokenExpiresAt) return 0
+  return Math.max(0, userStore.tokenExpiresAt - currentTime.value)
+})
+
+// 格式化時間顯示 (例如：29分59秒)
+const formattedRemainingTime = computed(() => {
+  const seconds = remainingTime.value
+  if (seconds <= 0) return ''
+  
+  const minutes = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  
+  if (minutes > 0) {
+    return `${minutes}分${secs}秒`
+  }
+  return `${secs}秒`
+})
+
+// 啟動計時器
+const startTimer = () => {
+  if (timerId) clearInterval(timerId)
+  timerId = window.setInterval(() => {
+    currentTime.value = Math.floor(Date.now() / 1000)
+  }, 1000)
+}
+
+// 生命週期掛載與卸載
+onMounted(() => {
+  startTimer()
+})
+
+onUnmounted(() => {
+  if (timerId) clearInterval(timerId)
+})
+  // Joya added end -------------------
 
   const handleLogout = async () => {
     try {

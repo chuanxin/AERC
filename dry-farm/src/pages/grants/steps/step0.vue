@@ -79,22 +79,41 @@
               </v-col>
             </v-row>
             <v-row dense>
-              <v-col cols="12">
+              <v-col cols="12" md="6">
                 <v-text-field
                   v-model="localFormData.phone"
                   variant="outlined"
                   density="comfortable"
                   color="#3ea0a3"
                   bg-color="white"
-                  required
+                  Required
                   autocomplete="off"
-                  placeholder="手機或市話號碼"
-                  :rules="phoneRules"
+                  placeholder="請填入手機或市話號碼"
+                  :rules="phone1Rules"
                 >
                   <template #label>
-                    聯絡電話
+                    連絡電話1
                   </template>
                 </v-text-field>
+
+              </v-col>
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="localFormData.phone2"
+                  variant="outlined"
+                  density="comfortable"
+                  color="#3ea0a3"
+                  bg-color="white"
+                  autocomplete="off"
+                  placeholder="請填入手機或市話號碼"
+                  :rules="phone2Rules"
+                >
+                  <template #label>
+                    連絡電話2
+                  </template>
+                </v-text-field>
+
+                
               </v-col>
             </v-row>
           </v-card>
@@ -354,24 +373,42 @@
         class="mt-0 mb-0 pa-4 pb-0"
         rounded="lg"
       >
-        <v-row class="my-0 py-0">
-          <v-col
-            cols="12"
-            sm="3"
-            class="my-0 py-0"
-          >
-            <v-text-field
-              v-model="localFormData.undertracker"
-              variant="outlined"
-              density="comfortable"
-              autocomplete="off"
-              bg-color="rgba(255, 255, 255, 1)"
-            >
-              <template #label>
-                案件收件人姓名<span class="required-asterisk">*(必填)</span>
-              </template>
-            </v-text-field>
+        <v-row class="my-0 py-0 align-center">
+          <v-col cols="12" md="6" >
+            <div class="d-flex align-start">
+              <v-text-field
+                v-model="localFormData.undertracker"
+                variant="outlined"
+                density="comfortable"
+                autocomplete="off"
+                bg-color="rgba(255, 255, 255, 1)"
+                class="flex-grow-1 me-2"
+                :rules="[v => !!v || '請填寫案件收件人']"
+              >
+                <template #label>
+                  案件收件人姓名<span class="required-asterisk">*(必填)</span>
+                </template>
+              </v-text-field>
+
+              <v-select
+                label="快速選擇"
+                :items="availableInspectors"
+                variant="outlined"
+                density="comfortable"
+                color="#3ea0a3"
+                bg-color="white"
+                hide-details
+                style="min-width: 130px; max-width: 130px;"
+                :disabled="props.readonly || availableInspectors.length === 0"
+                @update:model-value="onUndertrackerSelect"
+              >
+                <template #no-data>
+                  <div class="px-4 py-2 text-caption">無符合資料</div>
+                </template>
+              </v-select>
+            </div>
           </v-col>
+          
 
           <v-col
             cols="12"
@@ -500,10 +537,47 @@ import { useDomicileStore } from '@/stores/domicile'
 import { useGrantsStore } from '@/stores/grants'
 import type { GrantCreateRequest } from '@/types/grantForms'
 import type { VForm } from 'vuetify/components'
+// Joya: import inspectors
+import { inspectors } from '@/data/inspectors'
 
 const userStore = useUserStore()
 const domicileStore = useDomicileStore()
 const grantsStore = useGrantsStore()
+
+// Joya: added start
+// 計算屬性：根據當前使用者的 office_id 篩選
+const availableInspectors = computed(() => {
+  const currentUser = userStore.currentUser;
+  
+  if (!currentUser) return [];
+
+  let currentOfficeId: number | undefined;
+
+  if (typeof currentUser.office === 'object' && currentUser.office !== null) {
+    currentOfficeId = currentUser.office.id; // 取出物件裡的 id
+  } else if (typeof currentUser.office === 'number') {
+    currentOfficeId = currentUser.office; 
+  }
+
+  // 如果找不到 ID，回傳空陣列
+  if (!currentOfficeId) return [];
+
+  console.log('當前使用者 Office ID:', currentOfficeId); // Debug 用
+
+  return inspectors
+    .filter(i => 
+      i.office_id === currentOfficeId  
+    )
+    .map(i => i.name); // 只回傳名字陣列給下拉選單
+});
+
+// 當下拉選單選取時，自動填入 Input
+const onUndertrackerSelect = (value: string | null) => {
+  if (value) {
+    localFormData.undertracker = value;
+  }
+};
+// added end
 
 const emit = defineEmits<{
   'create:case': [data: GrantCreateRequest]
@@ -515,6 +589,7 @@ const localFormData = reactive<GrantCreateRequest>({
   name: '',
   id: '',
   phone: '',
+  phone2: '',
   county: '',
   countyId: null,
   town: '',
@@ -530,6 +605,29 @@ const localFormData = reactive<GrantCreateRequest>({
   disasterCaseDescription: ''
 });
 
+const props = defineProps({
+  formData: {
+    type: Object,
+    required: true,
+    default: () => ({})
+  },
+  currentStep: {
+    type: Number,
+    required: true
+  },
+  grantId: {
+    type: Number,
+    required: true
+  },
+  readonly: {
+    type: Boolean,
+    default: false
+  },
+  softLocked: {
+    type: Boolean,
+    default: false
+  }
+});
 // For the v-select components
 const selectedCountyId = ref<{ title: string; value: number } | null>(null)
 const selectedTownId = ref<{ title: string; value: number } | null>(null)
@@ -546,20 +644,23 @@ const idRules = [
   (v: string) => /^[A-Z][12]\d{8}$/.test(v) || '身分證字號格式不正確'
 ];
 
-const phoneRules = [
-  (v: string) => !!v || '請填寫連絡電話',
-  (v: string) => {
-    // 手機號碼格式：09 開頭 + 8 碼數字
-    const mobilePattern = /^09\d{8}$/
-    // 室內電話格式：區碼(2-3碼) + 3-4碼 + 4碼，可有或無連字號
-    const landlinePattern = /^(\d{2,3}-?|\(\d{2,3}\))\d{3,4}-?\d{4}$/
+const checkPhoneFormat = (v: string) => {
+  const mobilePattern = /^09\d{8}$/
+  // 室內電話格式
+  const landlinePattern = /^(0[2-8]\d?-?|\(0[2-8]\d?\))\d{3,4}-?\d{4}$/
 
-    if (mobilePattern.test(v) || landlinePattern.test(v)) {
-      return true
-    }
-
-    return '請輸入有效的手機號碼或室內電話'
+  if (mobilePattern.test(v) || landlinePattern.test(v)) {
+    return true
   }
+  return '請輸入有效的電話號碼格式'
+}
+
+const phone1Rules = [
+  (v: string) => !!v || '請填寫聯絡電話',
+  (v: string) => checkPhoneFormat(v)
+];
+const phone2Rules = [
+  (v: string) => !v || checkPhoneFormat(v)
 ];
 
 const disasterDescriptionRules = [

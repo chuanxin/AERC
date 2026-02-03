@@ -962,53 +962,140 @@
                                 :key="yearGroup.year"
                                 :value="yearGroup.year"
                               >
-                                <!-- 設施列表 - 緊湊布局 -->
-                                <div class="facility-list">
-                                  <div
-                                    v-for="facilityGroup in yearGroup.facilities"
-                                    :key="facilityGroup.type"
-                                    class="facility-item d-flex align-center py-3 px-3 mb-2 rounded"
-                                    :class="`border-s-4 border-${getFacilityIcon(facilityGroup.type).color}`"
-                                    style="background-color: #fafafa;"
-                                  >
-                                    <!-- 左側：設施圖示和名稱 -->
-                                    <div class="d-flex align-center flex-grow-1">
-                                      <div
-                                        class="facility-icon d-flex align-center justify-center me-3"
-                                        :style="`background-color: ${getFacilityColorHex(facilityGroup.type)}; width: 36px; height: 36px; border-radius: 8px;`"
-                                      >
-                                        <v-icon
-                                          :icon="getFacilityIcon(facilityGroup.type).icon"
-                                          color="white"
-                                          size="20"
-                                        />
-                                      </div>
-                                      <div>
-                                        <div class="text-body-1 font-weight-medium mb-1">
-                                          {{ facilityGroup.type }}
-                                        </div>
-                                        <div class="text-caption text-grey-darken-1">
-                                          案件 {{ facilityGroup.cases.length }} | {{ formatApplicantsInGroup(facilityGroup.cases) }}
-                                        </div>
-                                      </div>
-                                    </div>
+                              <!-- Joya test -->
+                              <div class="case-list mb-4">
+                                <v-card
+                                  v-for="(caseItem, index) in yearGroup.cases"
+                                  :key="caseItem.id || index"
+                                  class="mb-3 border-s-4"
+                                  :class="getCaseStatusColorClass(caseItem)"
+                                  elevation="1"
+                                  rounded="lg"
+                                  variant="flat"
+                                  style="background-color: white; border: 1px solid #e0e0e0;"
+                                >
+                                  <div class="d-flex align-center pa-3">
+                                    <v-btn
+                                      :icon="isCaseExpanded(caseItem, index) ? 'mdi-minus' : 'mdi-plus'"
+                                      variant="text"
+                                      density="comfortable"
+                                      :color="isCaseExpanded(caseItem, index) ? 'grey-darken-3' : 'grey-darken-1'"
+                                      class="me-2"
+                                      @click.stop="toggleCaseExpansion(caseItem, index)"
+                                    ></v-btn>
 
-                                    <!-- 右側：面積和狀態 -->
-                                    <div class="text-end">
-                                      <div class="text-h6 font-weight-bold text-primary mb-1">
-                                        {{ (facilityGroup.appliedArea || 0).toLocaleString() }}
-                                        <span class="text-caption">㎡</span>
+                                    <v-row 
+                                      no-gutters 
+                                      align="center" 
+                                      style="cursor: pointer;"
+                                      @click="toggleCaseExpansion(caseItem, index)"
+                                    >
+                                    <v-col cols="12" sm="2" class="d-flex align-center mb-2 mb-sm-0">
+                                        <v-chip
+                                          size="small"
+                                          color="primary"
+                                          variant="tonal"
+                                          class="font-weight-bold me-2"
+                                          label
+                                        >
+                                          {{ caseItem.office || '無管理處' }}
+                                        </v-chip>
+                                      </v-col>
+                                      
+                                      <v-col cols="6" sm="2" class="mb-2 mb-sm-0">
+                                        <div class="d-flex align-center">
+                                          <v-icon size="small" color="indigo" class="me-1">mdi-file-document</v-icon>
+                                          <span class="text-body-2 text-grey-darken-3">
+                                            案號 : {{ caseItem.case_number || '無案號' }}
+                                          </span>
+                                        </div>
+                                      </v-col>
+                                      
+                                      <v-col cols="6" sm="2" class="mb-2 mb-sm-0">
+                                        <div class="d-flex align-center">
+                                          <v-icon size="small" color="indigo" class="me-1">mdi-account</v-icon>
+                                          <span class="text-body-2 text-grey-darken-3">
+                                            申請人 : {{ caseItem.applicant || '未填寫' }}
+                                          </span>
+                                        </div>
+                                      </v-col>
+
+                                      <v-col cols="12" sm="3">
+                                        <div class="d-flex align-center">
+                                          <v-icon size="small" color="brown" class="me-1">mdi-map-marker</v-icon>
+                                          <span class="text-body-2 text-grey-darken-3">
+                                            土地 : {{ caseItem.land_section }} {{ caseItem.land_number }}
+                                          </span>
+                                        </div>
+                                      </v-col>
+
+                              
+
+                                    </v-row>
+                                  </div>
+                                  <v-expand-transition>
+                                  <div v-if="isCaseExpanded(caseItem, index)">
+                                    <v-divider></v-divider>
+                                    <div class="pa-3 bg-grey-lighten-5">
+                                      <div class="text-caption text-grey-darken-1 mb-2">包含設施項目：</div>
+                                      
+                                      <div class="d-flex flex-wrap gap-2">
+                                        <div
+                                          v-for="facility in getFacilitiesForCase(caseItem)"
+                                          :key="facility.type"
+                                          class="d-flex align-center px-3 py-2 rounded bg-white border"
+                                          style="min-width: 140px;"
+                                        >
+                                          <div
+                                            class="d-flex align-center justify-center me-3 rounded"
+                                            :style="`background-color: ${facility.colorHex}; width: 32px; height: 32px;`"
+                                          >
+                                            <v-icon :icon="facility.icon" color="white" size="18"></v-icon>
+                                          </div>
+                                          
+                                          <div>
+                                            <div class="text-body-2 font-weight-bold">
+                                              {{ facility.type }}
+                                              
+                                              <span v-if="['田間管路', '水保署'].includes(facility.type)" class="ms-1">
+                                                {{ formatIrrigationType(caseItem.irrigation_type) }}
+                                            </span>
+                                            </div>
+                                            <div class="text-caption text-grey-darken-1">
+                                              已申請
+                                              </div>
+                                          </div>
+                                        </div>
+
+                                        <div v-if="getFacilitiesForCase(caseItem).length === 0" class="text-body-2 text-grey">
+                                          無詳細設施資料
+                                        </div>
                                       </div>
-                                      <v-chip
-                                        :color="getStatusColor(facilityGroup.appliedArea || 0, facilityGroup.landRegisteredArea || 0)"
-                                        size="small"
-                                        variant="flat"
-                                      >
-                                        {{ facilityGroup.statusText }}
-                                      </v-chip>
+                                     
+                              <div class="facility-list">
+                            </div>
+                            
+
+                                      <div class="d-flex justify-end align-center mt-3 pt-2 border-t">
+                                        <span class="text-caption text-grey-darken-1 me-2">地籍面積：</span>
+                                        <span class="text-body-1 font-weight-bold text-primary">
+                                          {{ Number(caseItem.land_registered_area || 0).toLocaleString() }}
+                                        </span>
+                                        <span class="text-caption ms-1">㎡</span>
+                                        
+                                        <span class="text-caption text-grey-darken-1 me-2 ms-4">施設面積：</span>
+                                        <span class="text-body-1 font-weight-bold text-primary">
+                                          {{ Number(caseItem.approved_area || 0).toLocaleString() }}
+                                        </span>
+                                        <span class="text-caption ms-1">㎡</span>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
+                                </v-expand-transition>
+                                  </v-card>
+                              </div>
+                        <!-- Joya test end -->
+                               
                               </v-tabs-window-item>
                             </v-tabs-window>
                           </div>
@@ -1016,7 +1103,7 @@
                       </v-card>
                     </v-card-text>
                   </v-card>
-                </div>
+                </div> 
 
                 <!-- 無查詢結果提示 -->
                 <v-alert
@@ -1120,8 +1207,8 @@ const lastSearchParams = ref<{
   childLandNumber?: string;
 }>({});
 
-// 可選年度範圍 (97年至114年)
-const availableYears = Array.from({ length: 18 }, (_, i) => (114 - i).toString());
+// 可選年度範圍 (97年至115年)
+const availableYears = Array.from({ length: 18 }, (_, i) => (115 - i).toString());
 
 // 年度選擇相關方法
 const clearYearSelection = () => {
@@ -1143,7 +1230,76 @@ const showNoResultMessage = computed(() => qualificationStore.showNoResultMessag
 const isIndigenousArea = computed(() => qualificationStore.isIndigenousArea);
 const isIndigenousAreaChecked = computed(() => qualificationStore.isIndigenousAreaChecked);
 
+//Joya test
+// 取得案件的管理處名稱
+const getCaseOfficeName = (item: any) => {
+  if (item.office_boundaries && item.office_boundaries.length > 0) {
+    // 優先顯示第一個管理處名稱
+    const office = item.office_boundaries[0];
+    return `${office.ia_name || ''} ${office.stn_name || ''}`;
+  }
+  // 如果沒有 boundary 資料，嘗試回傳 office 欄位或預設值
+  return item.office || item.management_office || '未知管理處';
+};
 
+// 根據案件狀態決定卡片左側邊框顏色 (裝飾用)
+const getCaseStatusColorClass = (item: any) => {
+  // 這裡可以根據 item.status 做判斷，目前先隨機或固定
+  return 'border-primary'; // 需在 <style> 定義或使用 Vuetify 顏色類別
+};
+
+// 灌溉型式名稱對照表 (簡化顯示用)
+const formatIrrigationType = (type: string) => {
+  if (!type) return '未設定';
+  const map: Record<string, string> = {
+    '穿孔管系統': '穿孔管',
+    '噴頭式系統': '噴灌',
+    '微噴系統': '微噴',
+    '滴灌系統': '滴灌',
+    '其它': '其它',
+    '水保署': '水保署'
+  };
+  return map[type] || type;
+};
+
+// === 新增：展開/收合狀態管理 ===
+const expandedCaseIds = ref(new Set<string | number>());
+
+const toggleCaseExpansion = (caseItem: any, index: number) => {
+  // 使用 id 作為 key，若無 id 則使用 index 組合年份當作臨時 key
+  const key = caseItem.id || `${caseItem.application_year}_${index}`;
+  
+  if (expandedCaseIds.value.has(key)) {
+    expandedCaseIds.value.delete(key);
+  } else {
+    expandedCaseIds.value.add(key);
+  }
+};
+
+const isCaseExpanded = (caseItem: any, index: number) => {
+  const key = caseItem.id || `${caseItem.application_year}_${index}`;
+  return expandedCaseIds.value.has(key);
+};
+
+// === 新增：解析單一案件的設施列表 ===
+// 這會將 case_type 字串 (例如 "田間管路, 調蓄設施") 轉換為陣列物件，方便 v-for 渲染
+const getFacilitiesForCase = (caseItem: any) => {
+  if (!caseItem.case_type) return [];
+  
+  const types = caseItem.case_type.split(',').map((t: string) => t.trim());
+  const fixedTypes = ['田間管路', '調蓄設施', '調控設施', '動力設備', '水保署'];
+  
+  // 過濾出我們關注的 4 大類，並回傳渲染需要的設定
+  return types
+    .filter((type: string) => fixedTypes.includes(type))
+    .map((type: string) => ({
+      type,
+      ...getFacilityIcon(type), // 複用原本的圖示設定
+      colorHex: getFacilityColorHex(type) // 複用原本的顏色設定
+    }));
+};
+
+//Joya test end
 // 是否可以查詢 - 只要有母地號就可以查詢
 const canSearch = computed(() => {
   return !!searchParams.parentLandNumber;
@@ -1881,10 +2037,10 @@ const filteredLegacyResults = computed(() => {
 // 按年度分組
 const groupedByYear = computed(() => {
   if (filteredLegacyResults.value.length === 0) return [];
-
+  console.log('check第一筆案件的所有欄位:', filteredLegacyResults.value[0]);
   const groups = new Map();
   // 固定的四個設施類型
-  const fixedFacilityTypes = ['田間管路', '調蓄設施', '調控設施', '動力設備'];
+  const fixedFacilityTypes = ['田間管路', '調蓄設施', '調控設施', '動力設備', '水保署'];
 
   filteredLegacyResults.value.forEach(item => {
     const year = item.application_year;
@@ -1978,6 +2134,7 @@ const getFacilityIcon = (facilityType: string) => {
     '調蓄設施': { icon: 'mdi-storage-tank', color: 'orange' },
     '調控設施': { icon: 'mdi-valve', color: 'purple' },
     '動力設備': { icon: 'mdi-engine', color: 'red' },
+    '水保署': { icon: 'mdi-office-building', color: 'blue-grey' },
     // '一般設施': { icon: 'mdi-tools', color: 'grey' },
     // '歷史案件': { icon: 'mdi-history', color: 'brown' }
   };
@@ -2019,6 +2176,7 @@ const getFacilityColorHex = (facilityType: string) => {
     '調蓄設施': '#FF9800',  // orange
     '調控設施': '#9C27B0',  // purple
     '動力設備': '#F44336',  // red
+    '水保署': '#607D8B'     // blue-grey
   };
 
   return colorMap[facilityType] || '#757575'; // 預設為灰色
@@ -2328,5 +2486,14 @@ watch(groupedByYear, (newGroups) => {
 .v-btn-toggle .v-btn {
   flex: 1 !important;
   min-width: 0 !important;
+}
+
+.border-s-4 {
+  border-left-width: 4px !important;
+  border-left-style: solid !important;
+}
+
+.border-primary {
+  border-left-color: #3ea0a3 !important; /* 與主題色一致 */
 }
 </style>

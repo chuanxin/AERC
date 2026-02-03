@@ -697,6 +697,7 @@ async def extract_completion_statement_data(grant, version_data: dict) -> tuple:
         'town': str(grant.town) if grant.town else "",
         'address': full_address,
         'phone': str(grant.applicant_phone) if grant.applicant_phone else "",
+        'phone2': str(grant.applicant_phone2) if grant.applicant_phone2 else "",
         'office_name': grant.office if grant.office else "石門管理處"  # office 是 CharField，直接使用
     }
 
@@ -847,7 +848,7 @@ async def extract_declaration_data(grant, version_data: dict) -> dict:
         'office_name': grant.office if grant.office else '石門管理處',  # office 是 CharField，直接使用
         'id_number': grant.applicant_id if grant.applicant_id else (step1_data.get('idNumber', '') or step1_data.get('id_number', '')),
         'address': full_address,
-        'phone': grant.applicant_phone if grant.applicant_phone else (step1_data.get('phone', '') or step1_data.get('telephone', '')),
+        'phone': grant.applicant_phone if grant.applicant_phone else (step1_data.get('phone', '') or step1_data.get('phone2', '')),
     }
 
     return grant_data

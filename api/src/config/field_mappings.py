@@ -14,6 +14,7 @@ class FieldMappingConfig:
             "name": "applicant_name",
             "id": "applicant_id", 
             "phone": "applicant_phone",
+            "phone2": "applicant_phone2",
             "county": "county",
             "countyId": "county_id",
             "town": "town",
@@ -141,6 +142,7 @@ class Step1Fields:
     name: str
     id: str
     phone: str
+    phone2: str
     county: str
     countyId: int = None
     town: str

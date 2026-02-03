@@ -20,6 +20,7 @@ export interface GrantCreateResponse {
   applicant_name: string;
   applicant_id: string; // 🔥 新增：身分證字號
   applicant_phone: string; // 🔥 新增：電話
+  applicant_phone2?: string; // 🔥 新增：備用電話
 
   // 地址完整資訊 (Step1 所有欄位)
   county: string; // 🔥 新增：縣市

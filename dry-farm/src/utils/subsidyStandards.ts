@@ -466,9 +466,8 @@ export const calculatePipelineSubsidyAllocation = (
   // 1. 計算規劃設計費 (2%)
   const designFee = calculatePipelineDesignFee(pipelineMaterialCost);
 
-  // 2. 計算總成本 (材料 + 設計費)
-  // const totalCost = pipelineMaterialCost + designFee;
-  const totalCost = pipelineMaterialCost;
+  // 2. 計算總成本 (材料) 設計費不計入農戶補助計算
+  const totalCost = pipelineMaterialCost;// + designFee;
 
   // 3. 取得補助上限
   const subsidyLimit = getPipelineSubsidyLimit(irrigationSystem, area, region);

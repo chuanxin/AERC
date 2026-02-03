@@ -2,7 +2,7 @@
 Qualification 重複案件查詢系統的 CRUD 操作
 基於現有的 GrantLocations 實現查詢邏輯
 """
-
+import json
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 import hashlib
@@ -167,6 +167,8 @@ class QualificationCRUD:
         crops = None
         is_aboriginal_area = None
         case_type = "一般設施"  # 預設值
+        office = ""
+        irrigation_type = None
         
         if location.meta_data:
             # 統一處理所有舊系統資料來源 (消除特殊情況)
@@ -190,21 +192,77 @@ class QualificationCRUD:
                     land_registered_area = Decimal(str(land_area))
                 crops = location.meta_data.get('crops', [])
                 is_aboriginal_area = location.meta_data.get('is_aboriginal_area')
-                case_type = QualificationCRUD._infer_case_type_from_crops(crops)
-        
+                case_type = QualificationCRUD._infer_case_type_from_crops(crops) #這裡要修改 應該是寫錯了
+            
         # 根據 source_system 決定 grant_id 的取得方式
         grant_id = ""
         if location.source_system == "new_aerc":
             # 新系統：直接使用 source_id
             grant_id = str(location.source_id)
-        elif location.source_system in ("legacy_farmdata", "mssql_legacy"):
+            grant_version = await GrantVersions.filter(grant_id=grant_id).prefetch_related('grant').first()
+            print("新案件 find grant_id is : ",grant_id)
+            print(f" [Full Data Object]: {grant_version}")
+            version_data = grant_version.all_steps_data
+            print(f" [Full Data]:\n{json.dumps(version_data, ensure_ascii=False, indent=2)}")
+            
+            office = str(grant_version.grant.office)
+            location.apply_year = grant_version.grant.year
+            location.case_number = grant_version.grant.case_number
+            # 灌溉設施型式推斷
+            if version_data and isinstance(version_data, dict):
+               # 先檢查 legacy_data  之後再改 檢查is_legacy
+                legacy_data = version_data.get("legacy_data", {})
+                if legacy_data:
+                    # 注意：Log 裡是 snake_case
+                    irrigation_type = legacy_data.get("irrigation_type") or legacy_data.get("facility_type")
+                    # 如果沒找到，檢查 Steps 表示新建案
+                    if not irrigation_type:
+                        steps = version_data.get("steps", {})
+                        # 檢查 Step 5 ('irrigationType')                        
+                        step5_data = steps.get("5") or steps.get(5) or steps.get("step5")
+                    if step5_data:
+                        irrigation_type = step5_data.get("irrigationType")
+            
+        elif "ardswc" in location.source_system: #水保署案件
+            # 水保署案件：直接使用 source_id
+            grant_id = str(location.source_id)     
+            office = location.meta_data.get('data_source') or "水保署"
+            case_type = location.meta_data.get('data_source') or "水保署"
+            irrigation_type = location.meta_data.get('reservoir_scale') or ""
+            #print("水保署案件 find grant_id is : ",grant_id, ", case_type is : ",case_type, ", irrigation_type is : ",irrigation_type)
+        elif location.source_system in ("legacy_farmdata", "mssql_legacy") :
+            # 舊系統 AERC：直接使用 source_id
             # 歷史資料：通過 source_id 查找 grant_versions，取得 grant_id
+            #print("歷史資料")
+            grant_version = await GrantVersions.filter(version=location.source_id).prefetch_related('grant').first()
+            version_data = grant_version.all_steps_data
+            if version_data.get("metadata").get("original_complete_status") == False :
+                office = str(grant_version.grant.office)
+                location.apply_year = version_data.get("steps", {}).get("7").get("applicationYear")
+                location.case_number = version_data.get("steps", {}).get("7").get("caseNumber")    
+                #print("114轉115未結案件 find grant_id is : ",grant_id)
             try:
-                grant_version = await GrantVersions.filter(version=location.source_id).prefetch_related('grant').first()
                 if grant_version:
                     grant_id = str(grant_version.grant.id)
+                    if hasattr(grant_version.grant, 'office') and grant_version.grant.office:
+                        office = str(grant_version.grant.office)
+                        
+                    # 灌溉設施型式推斷
+                    if grant_version.all_steps_data and isinstance(grant_version.all_steps_data, dict):
+                        # 先檢查 legacy_data  之後再改 檢查is_legacy
+                        legacy_data = version_data.get("legacy_data", {})
+                        if legacy_data:
+                            # 注意：Log 裡是 snake_case
+                            irrigation_type = legacy_data.get("irrigation_type") or legacy_data.get("facility_type")
+                            # 如果沒找到，檢查 Steps 表示新建案
+                            if not irrigation_type:
+                                steps = version_data.get("steps", {})
+                                # 檢查 Step 5 ('irrigationType')                        
+                                step5_data = steps.get("5") or steps.get(5) or steps.get("step5")
+                                if step5_data:
+                                    irrigation_type = step5_data.get("irrigationType")
                 else:
-                    grant_id = str(location.source_id)
+                        grant_id = str(location.source_id)
             except Exception:
                 # 如果找不到對應的 grant_version，使用 source_id 作為後備
                 grant_id = str(location.source_id)
@@ -220,12 +278,14 @@ class QualificationCRUD:
             grant_id=grant_id,
             case_number=location.case_number,
             case_type=case_type,
+            irrigation_type=irrigation_type,
             status=location.case_status,
             land_section=location.land_section or "",
             land_number=location.land_number or "",
             application_year=location.apply_year or 0,
             applicant=location.applicant_name or "",
             department=None,  # GrantLocations 中沒有此欄位
+            office=office,
             approved_area=approved_area,
             land_registered_area=land_registered_area,
             crops=crops,

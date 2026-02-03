@@ -99,8 +99,8 @@ export const inspectors: Inspector[] = [
     {office_id:12, name: '謝宗翰', is_inspector:true, is_designer:true},
     {office_id:12, name: '王敏郎', is_inspector:true, is_designer:true},
     {office_id:12, name: '許益彰', is_inspector:true, is_designer:true},
-    {office_id:13, name: '楊慧芬', is_inspector:true, is_designer:true},
-    {office_id:13, name: '李憲峰', is_inspector:true, is_designer:false},
+    {office_id:13, name: '賴憲光', is_inspector:true, is_designer:true},
+    {office_id:13, name: '李憲峰', is_inspector:true, is_designer:true},
     {office_id:13, name: '劉宜軒', is_inspector:true, is_designer:false},
     {office_id:13, name: '劉正仁', is_inspector:true, is_designer:false},
     {office_id:14, name: '魏睿建', is_inspector:false, is_designer:true},
@@ -194,5 +194,11 @@ export const inspectors: Inspector[] = [
     {office_id:4, name: '姜禮純', is_inspector:true, is_designer:false},
     {office_id:4, name: '鍾岡庭', is_inspector:true, is_designer:false},
     {office_id:4, name: '鍾柏緯', is_inspector:false, is_designer:true},
+    {office_id:22, name: '陳力苑', is_inspector:true, is_designer:true},
+    {office_id:22, name: '林佩瑩', is_inspector:true, is_designer:true},
+    {office_id:22, name: '許勝銓', is_inspector:true, is_designer:true},
+    {office_id:22, name: '陳國樺', is_inspector:true, is_designer:true},
+    {office_id:22, name: '洪浩倫', is_inspector:true, is_designer:true},
+    {office_id:22, name: '張為鈞', is_inspector:true, is_designer:true}
 
 ];

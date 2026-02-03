@@ -3,6 +3,7 @@ export interface BaseGrantData {
   name: string;
   id: string;
   phone: string;
+  phone2?: string; // 可選欄位
   county: string;
   countyId: number | null;
   town: string;
@@ -42,7 +43,7 @@ export type Step1DataAlt = BaseGrantData & {
 export type GrantCreateWithoutTracker = Omit<GrantCreateRequest, 'undertracker'>
 
 // 方法 4: 使用 Pick 選擇部分欄位
-export type BasicApplicantInfo = Pick<BaseGrantData, 'name' | 'id' | 'phone' | 'county' | 'town' | 'village'>
+export type BasicApplicantInfo = Pick<BaseGrantData, 'name' | 'id' | 'phone' | 'phone2' | 'county' | 'town' | 'village'>
 
 // 保持向後兼容的舊名稱 (使用 type alias)
 export type step1Data = Step1Data; // 映射到新的命名規範

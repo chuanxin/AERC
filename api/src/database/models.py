@@ -254,7 +254,8 @@ class Grants(models.Model):
     applicant_name = fields.CharField(max_length=50, description="申請人姓名")
     applicant_id = fields.CharField(max_length=10, description="申請人身分證字號")
     applicant_phone = fields.CharField(max_length=20, description="申請人電話")
-
+    applicant_phone2 = fields.CharField(max_length=20, null=True, description="申請人備用電話")
+    
     # 申請人地址
     county = fields.CharField(max_length=30, description="縣市")
     town = fields.CharField(max_length=30, description="鄉鎮市區")
