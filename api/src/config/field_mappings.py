@@ -14,6 +14,7 @@ class FieldMappingConfig:
             "name": "applicant_name",
             "id": "applicant_id", 
             "phone": "applicant_phone",
+            "phone2": "applicant_phone2",
             "county": "county",
             "countyId": "county_id",
             "town": "town",
