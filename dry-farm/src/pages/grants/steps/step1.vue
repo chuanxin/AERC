@@ -120,9 +120,26 @@
 
                 <!-- 聯絡資訊區塊 -->
                 <v-row dense>
-                  <v-col cols="12">
+                  <v-col cols="12" md="6">
                     <v-text-field
                       v-model="localFormData.phone"
+                      placeholder="請輸入手機或市話號碼"
+                      variant="outlined"
+                      density="comfortable"
+                      :rules="phoneRules"
+                      Required
+                      :readonly="props.readonly"
+                      color="#3ea0a3"
+                      bg-color="white"
+                    >
+                      <template #label>
+                        聯絡電話1
+                      </template>
+                    </v-text-field>
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="localFormData.phone2"
                       placeholder="請輸入手機或市話號碼"
                       variant="outlined"
                       density="comfortable"
@@ -132,7 +149,7 @@
                       bg-color="white"
                     >
                       <template #label>
-                        連絡電話
+                        聯絡電話2
                       </template>
                     </v-text-field>
                   </v-col>
@@ -743,6 +760,7 @@ const createInitialFormData = (overrideData?: Partial<Step1Data>): Step1Data => 
     name: '',
     id: '',
     phone: '',
+    phone2: '',
     county: '',
     countyId: null,
     town: '',
@@ -815,25 +833,26 @@ const idRules = [
 ];
 
 const phoneRules = [
-  (v: string) => !!v || '請填寫連絡電話',
+  (v: string) => !!v || '請填寫聯絡電話',
   (v: string) => {
+    
     // 手機號碼格式：09 開頭 + 8 碼數字
     const mobilePattern = /^09\d{8}$/
-
     // 室內電話格式：(\d{2,3}-?|\(\d{2,3}\))\d{3,4}-?\d{4}
     // 支援格式：
     // - 02-12345678, 0212345678
     // - 03-1234567, 031234567
     // - (02)12345678, (02)1234-5678
-    const landlinePattern = /^(\d{2,3}-?|\(\d{2,3}\))\d{3,4}-?\d{4}$/
+    const landlinePattern = /^(0[2-8]\d?-?|\(0[2-8]\d?\))\d{3,4}-?\d{4}$/
 
-    if (mobilePattern.test(v) || landlinePattern.test(v)) {
+    if (landlinePattern.test(v) || mobilePattern.test(v)) {
       return true
     }
 
-    return '請輸入有效的手機號碼或室內電話'
+    return '請輸入有效的電話號碼格式'
   }
 ];
+
 
 const disasterDescriptionRules = [
   (v: string) => {
@@ -1185,7 +1204,7 @@ const initializeFormData = async (forceReload = false) => {
     // 檢查是否已有快取資料，並確認案件編號匹配
     const existingData = grantsStore.formData[1];
     const hasValidData = existingData && Object.keys(existingData).length > 0 &&
-                        (existingData.name || existingData.id || existingData.phone || existingData.county);
+                        (existingData.name || existingData.id || existingData.phone || existingData.phone2 || existingData.county);
 
     // 檢查快取資料是否屬於當前案件
     const isSameCaseNumber = existingData &&

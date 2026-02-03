@@ -247,6 +247,7 @@ class DeclarationPDFGenerator:
         id_number = grant_data.get('id_number', '')
         address = grant_data.get('address', '')
         phone = grant_data.get('phone', '')
+        phone2 = grant_data.get('phone2', '')
 
         # 繪製開頭段落（合併為一個連續段落）
         c.setFont(self.font_name, 12)

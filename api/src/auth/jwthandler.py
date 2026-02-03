@@ -16,7 +16,7 @@ from src.database.models import Users, Offices
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 15
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
 class OAuth2PasswordBearerCookie(OAuth2):

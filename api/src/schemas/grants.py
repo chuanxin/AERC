@@ -15,6 +15,7 @@ class GrantCreateRequestSchema(BaseSchema):
     name: str = Field(..., description="申請人姓名", min_length=1, max_length=50)
     id: str = Field(..., description="申請人身分證字號", min_length=10, max_length=10) 
     phone: str = Field(..., description="申請人電話", min_length=9)
+    phone2: Optional[str] = Field(None, description="申請人備用電話", min_length=0)
     county: str = Field(..., description="縣市名稱", min_length=1, max_length=30)
     countyId: Optional[int] = Field(None, description="縣市ID")
     town: str = Field(..., description="鄉鎮市區名稱", min_length=1, max_length=30)
@@ -48,7 +49,7 @@ class GrantCreateRequestSchema(BaseSchema):
         
         return v.upper()  # 確保英文字母為大寫
     
-    @field_validator('phone')
+    @field_validator('phone1')
     def validate_phone(cls, v):
         """驗證電話號碼格式"""
         if not v:
@@ -58,8 +59,22 @@ class GrantCreateRequestSchema(BaseSchema):
         cleaned = ''.join(filter(lambda x: x.isdigit(), v))
         
         # 檢查長度，電話號碼通常為9-10碼
-        if len(cleaned) not in [9, 10]:
-            raise ValueError('電話號碼長度不正確，應為9-10碼')
+        if not (9 <= len(cleaned) <= 14):
+            raise ValueError('電話號碼長度不正確')
+        
+        return cleaned
+    @field_validator('phone2')
+    def validate_phone(cls, v):
+        """驗證電話號碼格式"""
+        if not v:
+            return None
+        
+        # 去除空格和特殊符號，保留數字
+        cleaned = ''.join(filter(lambda x: x.isdigit(), v))
+        
+        # 檢查長度，電話號碼通常為9-10碼
+        if not (9 <= len(cleaned) <= 14):
+            raise ValueError('電話號碼長度不正確')
         
         return cleaned
     
@@ -99,7 +114,7 @@ class GrantInSchema(BaseSchema):
     applicant_name: str = Field(..., description="申請人姓名")
     applicant_id: str = Field(..., description="申請人身分證字號")
     applicant_phone: str = Field(..., description="申請人電話")
-    
+    applicant_phone2: Optional[str] = Field(None, description="申請人備用電話")
     county: str = Field(..., description="縣市")
     town: str = Field(..., description="鄉鎮市區")
     village: Optional[str] = Field(None, description="村里")
@@ -135,6 +150,21 @@ class GrantInSchema(BaseSchema):
             raise ValueError('電話號碼長度不正確')
         
         return v
+    
+    @field_validator('applicant_phone2')
+    def validate_phone(cls, v):
+        """驗證電話號碼格式"""
+        if not v:
+            return None
+        
+        # 去除空格和特殊符號
+        v = ''.join(filter(lambda x: x.isdigit(), v))
+        
+        # 檢查長度，手機號碼通常為10碼
+        if len(v) not in [9, 10]:
+            raise ValueError('電話號碼長度不正確')
+        
+        return v
 
 GrantOutSchema = pydantic_model_creator(
     Grants, name="GrantOut", exclude=("created_by.password",)
@@ -145,7 +175,8 @@ class GrantUpdateSchema(BaseSchema):
     applicant_name: Optional[str] = Field(None, description="申請人姓名")
     applicant_id: Optional[str] = Field(None, description="申請人身分證字號")
     applicant_phone: Optional[str] = Field(None, description="申請人電話")
-    
+    applicant_phone2: Optional[str] = Field(None, description="申請人備用電話")
+
     county_id: Optional[int] = Field(None, description="縣市ID")
     town_id: Optional[int] = Field(None, description="鄉鎮市區ID")
     village_id: Optional[int] = Field(None, description="村里ID")
@@ -173,7 +204,22 @@ class GrantUpdateSchema(BaseSchema):
         
         return v
     
-    @field_validator('applicant_phone')
+    @field_validator('applicant_phone1')
+    def validate_phone(cls, v):
+        """驗證電話號碼格式"""
+        if v is None:
+            return v
+            
+        # 去除空格和特殊符號
+        v = ''.join(filter(lambda x: x.isdigit(), v))
+        
+        # 檢查長度，手機號碼通常為10碼
+        if len(v) not in [9, 10]:
+            raise ValueError('電話號碼長度不正確')
+        
+        return v
+
+    @field_validator('applicant_phone2')
     def validate_phone(cls, v):
         """驗證電話號碼格式"""
         if v is None:
@@ -373,6 +419,9 @@ class GrantLandInSchema(BaseSchema):
     is_irrigation_area: bool = Field(False, description="是否位於灌區內")
     is_reapplied: bool = Field(False, description="是否再次申請")
     
+    # 備註欄
+    commented_remark: Optional[str] = Field(None, description="土地備註欄")
+
     # 坐標
     longitude: float = Field(..., description="經度")
     latitude: float = Field(..., description="緯度")

@@ -500,6 +500,7 @@ def map_frontend_to_backend(frontend_data: Union[Dict[str, Any], GrantCreateRequ
         'applicant_name': data_dict['name'],
         'applicant_id': data_dict['id'],
         'applicant_phone': data_dict['phone'],
+        'applicant_phone2': data_dict.get('phone2', ''),  # Optional field
         'county': data_dict['county'],
         'town': data_dict['town'],
         'village': data_dict.get('village'),  # Optional field
@@ -547,6 +548,7 @@ async def create_grant(data, current_user):
                 applicant_name=data.applicant_name,
                 applicant_id=data.applicant_id,
                 applicant_phone=data.applicant_phone if hasattr(data, 'applicant_phone') else '',
+                applicant_phone2=data.applicant_phone2 if hasattr(data, 'applicant_phone2') else '',
                 county=data.county,
                 town=data.town,
                 village=data.village if hasattr(data, 'village') and data.village else None,
@@ -612,6 +614,9 @@ async def create_grant(data, current_user):
                 "case_number": grant.case_number,
                 "year": grant.year,
                 "applicant_name": grant.applicant_name,
+                "applicant_id": grant.applicant_id,
+                "applicant_phone": grant.applicant_phone,
+                "applicant_phone2": grant.applicant_phone2,
                 "status": grant.status,
                 "received_date": grant.received_date,
                 "received_time": grant.received_time.strftime("%H:%M"),
@@ -674,6 +679,7 @@ async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = 
             "applicant_name": grant.applicant_name,
             "applicant_id": grant.applicant_id,
             "applicant_phone": grant.applicant_phone,
+            "applicant_phone2": grant.applicant_phone2,
             "county": grant.county,
             "town": grant.town,
             "village": grant.village,
@@ -892,6 +898,8 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                     update_data["applicant_id"] = actual_data["id"]
                 if "phone" in actual_data:
                     update_data["applicant_phone"] = actual_data["phone"]
+                if "phone2" in actual_data:
+                    update_data["applicant_phone2"] = actual_data["phone2"]
                 if "county" in actual_data:
                     update_data["county"] = actual_data["county"]
                 if "town" in actual_data:

@@ -102,12 +102,12 @@
               </v-alert>
 
               <!-- 偵錯資訊 -->
-              <!-- <v-alert
+               <v-alert
                 type="info"
                 variant="outlined"
-                class="mb-4"
+                class="mb-4" v-if="isDev"
               >
-                <div class="text-caption">
+                <div  class="text-caption">
                   <div><strong>🔍 偵錯資訊：</strong></div>
                   <div>當前年度：{{ getCurrentYear() }}</div>
                   <div>使用者：{{ userStore.currentUser?.username || '未登入' }} ({{ userStore.currentUser?.office?.name || '無管理處' }})</div>
@@ -115,8 +115,10 @@
                   <div>篩選條件：年度={{ filters.year || '無' }}, 管理處={{ filters.office_id || '無' }}</div>
                   <div>已載入案件數：{{ displayGrantsList.length }}</div>
                   <div>API狀態：{{ isUsingApi ? '正常' : '離線模式' }}</div>
+                  <div>Role：{{ userRole }}</div>
+                  <div>使用者管理處ID：{{  getUserOfficeId() }} / {{userStore.currentUser?.office}}</div>
                 </div>
-              </v-alert> -->
+              </v-alert> 
 
               <!-- 篩選卡片 -->
               <v-card
@@ -155,14 +157,14 @@
                     />
                     <v-select
                       v-model="filters.office_id"
-                      :items="officeOptions"
+                      :items="availableOfficeOptions"
                       label="管理處"
                       density="comfortable"
                       variant="outlined"
                       hide-details
                       class="filter-select mr-2"
                       style="min-width: 150px"
-                      disabled
+                      :disabled="!canSelectOffice"
                       bg-color="white"
                       rounded="lg"
                       @update:model-value="updateFilters"
@@ -194,7 +196,7 @@
               <!-- 表格區域 -->
               <v-card
                 class="table-card"
-                rounded="lg"
+                rounded="lg"  
                 elevation="0"
               >
                 <v-data-table-virtual
@@ -443,6 +445,9 @@ import { useUserStore } from '@/stores/users'
 import { GrantStorage, type GrantData } from '@/utils/grant-storage'
 import { formatCaseNumber } from '@/utils/frontendFilters'
 
+// 加入import.meta.env.DEV 變數 在開發時為 true，在 build 為 false 
+const isDev = import.meta.env.DEV;
+
 const router = useRouter()
 const grantsStore = useGrantsStore()
 const userStore = useUserStore()
@@ -451,7 +456,7 @@ const userStore = useUserStore()
 const getCurrentYear = () => new Date().getFullYear() - 1911 // 民國年
 const getUserOfficeId = () => {
   // 優先從 userStore 取得當前使用者的管理處ID
-  const officeId = userStore.currentUser?.office?.id || null
+  const officeId = userStore.currentUser?.office?.id ?? null   
   console.log('🏢 [getUserOfficeId] 從 userStore 取得管理處ID:', officeId)
   console.log('👤 [getUserOfficeId] 當前使用者:', userStore.currentUser?.username)
   console.log('🏢 [getUserOfficeId] 管理處名稱:', userStore.currentUser?.office?.name)
@@ -505,6 +510,7 @@ const filters = reactive({
   office_id: getUserOfficeId() // 預設為使用者所屬管理處
 })
 
+
 // 從 store 取得狀態
 const {
   grantsList,
@@ -520,12 +526,23 @@ const {
 
 // 🔥 Framework-Native Integration: 適配資料結構以支援原生搜尋
 // 添加可搜尋的土地資料欄位（包含位置和未格式化的面積數字）
-const displayGrantsList = computed(() => {
-  return filteredGrantsList.value.map(item => ({
+const displayGrantsList = computed(() => {  
+  // 1. 先 map 資料
+  const mappedList = filteredGrantsList.value.map(item => ({
     ...item,
     // 組合土地位置和未格式化面積，用於 Vuetify 原生搜尋
     land_data_search: `${item.land_locations || ''} ${item.facility_area_m2 || ''}`.trim()
   }))
+  // 2. 進行排序：依照 case_number 升冪 
+  return mappedList.sort((a, b) => {
+    // 確保 case_number 存在，若無則排在最後
+    const caseA = a.case_number || ''
+    const caseB = b.case_number || ''
+    
+    // 使用 localeCompare 進行字串自然排序 (適合 "112-001", "112-002" 這種格式)
+    return caseA.localeCompare(caseB, 'zh-TW', { numeric: true })
+  })
+
 })
 
 // 計算選取案件數量，確保響應式更新
@@ -559,7 +576,7 @@ const yearOptions = Array.from({ length: currentYear - startYear + 1 }, (_, i) =
 })
 
 // 管理處選項 - 根據實際資料庫資料更新對應關係
-const officeOptions = [
+const allOfficeOptions = [
   { title: '農業部農田水利署', value: 0 },
   { title: '宜蘭管理處', value: 1 },
   { title: '北基管理處', value: 2 },
@@ -1038,6 +1055,53 @@ const confirmBatchCrossYear = async () => {
   }
 }
 
+//------------------------------------------------------
+// 2. 定義 Admin (ID 0 或 undefined) 可見的「特定列表」
+// 🔥 請在此陣列中設定 Admin 允許看到的 ID
+const adminAllowedIds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 100] 
+
+// 取得當前使用者的 Office ID
+const currentUserOfficeId = computed(() => {
+  return userStore.currentUser?.office?.id ?? null
+})
+
+// 3. 判斷角色權限
+const userRole = computed(() => {
+  const oid = currentUserOfficeId.value
+  
+  // SuperAdmin: ID 為 22
+  if (oid === 22) return 'superAdmin'
+  
+  // Admin: ID 為 0 或 undefined (null 也視為 undefined 處理)
+  if (oid === 0 || oid === undefined || oid === null) return 'admin'
+  
+  // User: 其他
+  return 'user'
+})
+
+// 4. 根據角色計算出「可選的管理處列表」
+const availableOfficeOptions = computed(() => {
+  const role = userRole.value
+  
+  if (role === 'superAdmin') {
+    // SuperAdmin 看到全部
+    return allOfficeOptions
+  } 
+  
+  if (role === 'admin') {
+    // Admin 看到重新定義的列表
+    return allOfficeOptions.filter(opt => adminAllowedIds.includes(opt.value))
+  }
+  
+  // User 只能看到自己的管理處
+  return allOfficeOptions.filter(opt => opt.value === currentUserOfficeId.value)
+})
+
+// 5. 判斷是否允許修改管理處篩選 (只有 User 被鎖定，Admin/SuperAdmin 可切換)
+const canSelectOffice = computed(() => {
+  return userRole.value !== 'user'
+})
+//------------------------------------------------------
 // Load data when component is mounted
 onMounted(async () => {
   console.log('🚀 [grants/index] 頁面載入開始')
@@ -1050,7 +1114,17 @@ onMounted(async () => {
 
   // 重新取得預設篩選條件（使用者資料載入後）
   filters.year = getCurrentYear()
-  filters.office_id = getUserOfficeId()
+  // 根據權限設定預設 Office
+  if (userRole.value === 'user') {
+    // 一般使用者：強制鎖定在自己的 Office
+    filters.office_id = currentUserOfficeId.value
+  } else if(userRole.value === 'superAdmin') {
+    filters.office_id = 22  
+  }else {
+    // Admin ：預設可以看全部 (null) 不含22的資料
+    // 設為 null = 「不篩選」列表
+    filters.office_id = null 
+  }
 
   console.log('📊 [grants/index] 設定預設篩選條件:', {
     year: filters.year,

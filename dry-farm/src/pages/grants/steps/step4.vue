@@ -1851,15 +1851,15 @@
                       </td>
                       <td class="text-center font-weight-bold px-2 py-2">
                         <div class="text-body-1 font-weight-bold text-primary">
-                          {{ (localFormData.totalAmount || 0).toLocaleString() }}
+                           {{ (localFormData.totalAmount || 0).toLocaleString() }}
                         </div>
                         <div class="text-caption text-grey-darken-1 mt-1">
                           <template v-if="isLegacyData">
                             歷史案件格式，設計費 ${{ (localFormData.designFee || 0).toLocaleString() }} 另計
                           </template>
-                          <template v-else>
-                            含設計費 ${{ (localFormData.designFee || 0).toLocaleString() }}
-                          </template>
+                          <!-- <template v-else>
+                            設計費 ${{ (localFormData.designFee || 0).toLocaleString() }} 避免混淆，不列上
+                          </template> -->
                         </div>
                       </td>
                       <td colspan="2" />

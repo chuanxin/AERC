@@ -274,6 +274,8 @@
                 </v-col>
               </v-row>
             </v-sheet>
+           
+          <!-- ---------------------------------------- -->
 
             <!-- 照片上傳區域 -->
             <v-sheet
@@ -289,12 +291,39 @@
                     >
                       mdi-camera-outline
                     </v-icon>
-                    <span class="text-body-2 font-weight-medium">施工前照片</span><span class="ml-2 text-grey text-caption">(需要1-3張照片)</span>
+                    <span class="text-body-2 font-weight-medium">施工前照片</span><span class="ml-2 text-grey text-caption"> {{ localFormData.noPhotoProvided ? '(無照片)' : '(需要1-3張照片)' }}</span>
                   </label>
                   <v-sheet
                     class="pa-3 rounded mb-4"
                     color="white"
                   >
+                  <div class="d-flex flex-wrap align-center mt-2 mb-3 bg-grey-lighten-5 pa-2 ">
+                    <v-checkbox
+                      v-model="localFormData.noPhotoProvided"
+                      label="無照片"
+                      color="#3ea0a3"
+                      density="compact"
+                      hide-details
+                      class="me-4"
+                      :disabled="props.readonly"
+                    ></v-checkbox>
+
+                    <div v-if="localFormData.noPhotoProvided" class="d-flex align-center flex-grow-1" style="min-width: 300px;">
+                      <v-select
+                        label="原因選擇"
+                        :items="noPhotoReasonOptions"
+                        variant="outlined"
+                        density="compact"
+                        color="#3ea0a3"
+                        bg-color="white"
+                        hide-details
+                        style="max-width: 160px;"
+                        :disabled="props.readonly"
+                        @update:model-value="(val) => { if(val) localFormData.remarks = val }"
+                      ></v-select>
+                    </div>
+                  </div>
+
                     <!-- 已上傳照片展示區域 -->
                     <div
                       v-if="localFormData.beforePhotoPreviews && localFormData.beforePhotoPreviews.length > 0"
@@ -352,7 +381,7 @@
                           <v-card
                             variant="outlined"
                             class="photo-card add-photo-card"
-                            :disabled="props.readonly"
+                            :disabled="props.readonly || localFormData.noPhotoProvided"
                             @click="() => triggerFileInput()"
                           >
                             <div class="d-flex flex-column align-center justify-center h-100">
@@ -378,7 +407,8 @@
                       <v-card
                         variant="outlined"
                         class="upload-zone"
-                        @click="() => !props.readonly && triggerFileInput()"
+                        :disabled="props.readonly || localFormData.noPhotoProvided"
+                        @click="() => !props.readonly && !localFormData.noPhotoProvided && triggerFileInput()"
                       >
                         <v-card-text class="text-center pa-8">
                           <v-icon
@@ -606,7 +636,7 @@ const buttonConfig = computed(() => {
     disabled: false
   };
 });
-
+const noPhotoReasonOptions = ['未達15萬書審'];
 // 本地表單數據
 const localFormData = reactive({
   inspector: '',
@@ -618,6 +648,7 @@ const localFormData = reactive({
   afterConstructionPhoto: null as File | null,
   beforePhotoPreviews: [] as string[], // 改為陣列以支援多張照片預覽
   afterPhotoPreview: null as string | null,
+  noPhotoProvided: false, // 是否未提供照片
   valid: true // Always true for seamless navigation
 });
 
@@ -741,10 +772,17 @@ const validateForm = () => {
     return false;
   }
 
-  // 照片檢查
-  if (localFormData.beforePhotoPreviews.length === 0) {
-    alert('請至少上傳1張施工前照片');
-    return false;
+  if (localFormData.noPhotoProvided) {
+    if (!localFormData.remarks) {
+      alert('勾選「無照片」時，請務必填寫原因說明');
+      return false;
+    }
+  } else {
+    // 沒勾選無照片，則必須有照片
+    if (localFormData.beforePhotoPreviews.length === 0) {
+      alert('請至少上傳1張施工前照片，或是勾選「無照片」並填寫原因');
+      return false;
+    }
   }
 
   // 不符合時必須填寫原因

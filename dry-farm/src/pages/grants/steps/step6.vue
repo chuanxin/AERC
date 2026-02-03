@@ -739,39 +739,26 @@ const pipeLineTotal = computed(() => {
   return (pipelineTotal + irrigationTotal + workFeeAmount).toLocaleString();
 });
 
-// A項補助費：與後端 PDF 生成器邏輯完全一致（grants.py:1271）
+// A項補助費：與後端 PDF 生成器邏輯完全一致（grants.py:1274）
+// [2026-01-28 修正] subsidyAmount 已不含設計費
 const pipeLineSubsidy = computed(() => {
   const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data) return '0';
 
   const subsidyAmount = step4Data.subsidyAmount || 0;
-  const designFeeAmount = step4Data.designFee || 0;
 
-  // 🔥 從後端資料表讀取 data_schema_version 判斷是否為歷史資料
+  // 判斷是否為歷史資料
   const activeVersion = grantsStore.currentGrant?.active_version as any;
   const dataSchemaVersion = activeVersion?.data_schema_version || null;
   const isLegacyData = dataSchemaVersion === 'legacy';
 
-  console.log('🔍 Legacy Data Detection:', {
-    dataSchemaVersion,
-    isLegacyData,
-    activeVersion: !!activeVersion,
-    hasDataSchemaVersionField: activeVersion ? 'data_schema_version' in activeVersion : false,
-    activeVersionKeys: activeVersion ? Object.keys(activeVersion) : [],
-    currentGrantKeys: grantsStore.currentGrant ? Object.keys(grantsStore.currentGrant) : [],
-    fullActiveVersion: activeVersion // 完整输出 active_version 对象
-  });
-
   if (isLegacyData) {
-    // 歷史資料：subsidyAmount 不包含設計費，直接使用
-    // 補助優先用於管路材料
+    // 歷史資料：補助優先用於管路材料
     const pipelineMaterialCost = parseInt(pipeLineTotal.value.replace(/,/g, '')) || 0;
     return Math.min(pipelineMaterialCost, subsidyAmount).toLocaleString();
   } else {
-    // 新資料：subsidyAmount 包含設計費，需要扣除
-    // A項補助 = 總補助 - 設計費（與後端邏輯一致）
-    const pipelineSubsidyOnly = Math.max(0, subsidyAmount - designFeeAmount);
-    return pipelineSubsidyOnly.toLocaleString();
+    // 新資料：subsidyAmount 已不含設計費，直接使用
+    return subsidyAmount.toLocaleString();
   }
 });
 
