@@ -3,7 +3,7 @@ export interface BaseGrantData {
   name: string;
   id: string;
   phone: string;
-  phone2?: string; // 可選欄位
+  phone2: string | null;
   county: string;
   countyId: number | null;
   town: string;

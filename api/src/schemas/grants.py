@@ -15,7 +15,7 @@ class GrantCreateRequestSchema(BaseSchema):
     name: str = Field(..., description="申請人姓名", min_length=1, max_length=50)
     id: str = Field(..., description="申請人身分證字號", min_length=10, max_length=10) 
     phone: str = Field(..., description="申請人電話", min_length=9)
-    phone2: Optional[str] = Field(None, description="申請人備用電話", min_length=0)
+    phone2: Optional[str] = Field(None, description="申請人備用電話", max_length=20)
     county: str = Field(..., description="縣市名稱", min_length=1, max_length=30)
     countyId: Optional[int] = Field(None, description="縣市ID")
     town: str = Field(..., description="鄉鎮市區名稱", min_length=1, max_length=30)
@@ -115,6 +115,7 @@ class GrantInSchema(BaseSchema):
     applicant_id: str = Field(..., description="申請人身分證字號")
     applicant_phone: str = Field(..., description="申請人電話")
     applicant_phone2: Optional[str] = Field(None, description="申請人備用電話")
+
     county: str = Field(..., description="縣市")
     town: str = Field(..., description="鄉鎮市區")
     village: Optional[str] = Field(None, description="村里")
