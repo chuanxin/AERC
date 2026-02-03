@@ -739,7 +739,7 @@ const pipeLineTotal = computed(() => {
   return (pipelineTotal + irrigationTotal + workFeeAmount).toLocaleString();
 });
 
-// A項補助費：與後端 PDF 生成器邏輯完全一致（grants.py:1271）
+// A項補助費：與後端 PDF 生成器邏輯完全一致（grants.py:1274）
 const pipeLineSubsidy = computed(() => {
   const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
   if (!step4Data) return '0';
@@ -770,8 +770,10 @@ const pipeLineSubsidy = computed(() => {
   } else {
     // 新資料：subsidyAmount 包含設計費，需要扣除
     // A項補助 = 總補助 - 設計費（與後端邏輯一致）
-    const pipelineSubsidyOnly = Math.max(0, subsidyAmount - designFeeAmount);
-    return pipelineSubsidyOnly.toLocaleString();
+    // const pipelineSubsidyOnly = Math.max(0, subsidyAmount - designFeeAmount);
+    // return pipelineSubsidyOnly.toLocaleString();
+    // 新資料：subsidyAmount 已不含設計費，直接使用
+    return subsidyAmount.toLocaleString();
   }
 });
 

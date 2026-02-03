@@ -1279,19 +1279,22 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     else:
         # 新資料：subsidyAmount 包含設計費，需要扣除
         # A 項補助 = 總補助 - 設計費（不得小於 0）
-        govt_subsidy_a = int(max(0, step5_subsidy_amount - b_design_fee))
+        # govt_subsidy_a = int(max(0, step5_subsidy_amount - b_design_fee)) （0128_2026 修改）
+        govt_subsidy_a = int(step5_subsidy_amount)
     
     govt_subsidy_c = c_control_subsidy  # C 項：調節控制設施（使用前端計算值）
     govt_subsidy_d = d_power_subsidy  # D 項：動力設備（使用前端計算值）
     govt_subsidy_e = e_storage_subsidy  # E 項：調蓄設施（使用前端計算值）
 
     # 實際獲得補助的規劃設計費
-    if is_legacy_data:
+    # if is_legacy_data:
         # 歷史資料：subsidyAmount 不含設計費，設計費全額補助
-        actual_subsidized_design_fee = b_design_fee
-    else:
+        # actual_subsidized_design_fee = b_design_fee
+    # else:
         # 新資料：subsidyAmount 包含設計費，取補助額度和設計費的最小值
-        actual_subsidized_design_fee = min(step5_subsidy_amount, b_design_fee)
+        # actual_subsidized_design_fee = min(step5_subsidy_amount, b_design_fee)
+
+    actual_subsidized_design_fee = b_design_fee
 
     # === 農戶配合款（使用前端已計算的值）===
     total_amount = a_item_total + b_design_fee + c_control_total + d_power_total + e_storage_total

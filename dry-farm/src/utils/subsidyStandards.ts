@@ -467,7 +467,8 @@ export const calculatePipelineSubsidyAllocation = (
   const designFee = calculatePipelineDesignFee(pipelineMaterialCost);
 
   // 2. 計算總成本 (材料 + 設計費)
-  const totalCost = pipelineMaterialCost + designFee;
+  // const totalCost = pipelineMaterialCost + designFee;
+  const totalCost = pipelineMaterialCost;
 
   // 3. 取得補助上限
   const subsidyLimit = getPipelineSubsidyLimit(irrigationSystem, area, region);

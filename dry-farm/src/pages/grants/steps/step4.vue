@@ -39,7 +39,9 @@
             <v-icon
               class="me-2"
               size="small"
-            >mdi-alert</v-icon>
+            >
+              mdi-alert
+            </v-icon>
             <span class="text-body-2">
               已完成現場勘查，修改此步驟資料可能導致勘查結果無效，請謹慎編輯。
             </span>
@@ -1858,7 +1860,7 @@
                             歷史案件格式，設計費 ${{ (localFormData.designFee || 0).toLocaleString() }} 另計
                           </template>
                           <template v-else>
-                            含設計費 ${{ (localFormData.designFee || 0).toLocaleString() }}
+                            （設計費 ${{ (localFormData.designFee || 0).toLocaleString() }}）
                           </template>
                         </div>
                       </td>
