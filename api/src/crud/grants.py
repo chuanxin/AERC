@@ -109,7 +109,7 @@ async def generate_land_locations(lands: List[Dict[str, Any]]) -> str:
         county_name = county_cache.get(county_code, "")
         town_name = town_cache.get((county_code, town_code), "")
 
-        # 🔥 修正：允許只有縣市+地段的土地資料（鄉鎮可選）
+        # 修正：允許只有縣市+地段的土地資料（鄉鎮可選）
         if county_name and sec_name:
             # 提取段名（去除"段"字，如果存在）
             section_name = sec_name.replace("段", "").strip()
@@ -172,7 +172,7 @@ async def get_grants(
             query = query.filter(year=year)
         if office_id:
             query = query.filter(office_id=office_id)
-        # 🔥 status 過濾只針對歷史案件（is_legacy=true），新系統案件不受限制
+        # status 過濾只針對歷史案件（is_legacy=true），新系統案件不受限制
         if status:
             # 歷史案件必須符合 status，新系統案件不受限制
             logger.info(f"應用 status 過濾: {status}，邏輯：(is_legacy=True & status={status}) | (is_legacy=False)")
@@ -193,7 +193,7 @@ async def get_grants(
             'active_version'  # 啟用版本資訊
         ).offset(skip)
 
-        # 🔥 只在 limit 有值時才應用限制（None = 查詢全部）
+        # 只在 limit 有值時才應用限制（None = 查詢全部）
         if limit is not None:
             query = query.limit(limit)
 
@@ -237,7 +237,7 @@ async def get_grants(
                 }
             
             # 從 active_version 取得額外資訊
-            # 🔥 統一從 all_steps_data 提取，歷史案件和新案件使用相同邏輯
+            # 統一從 all_steps_data 提取，歷史案件和新案件使用相同邏輯
             facility_area = None
             facility_area_m2 = None
             facility_type = None
@@ -261,7 +261,7 @@ async def get_grants(
                                 land_locations = await generate_land_locations(lands)
 
                         # 從 step 5 取得設施類型/灌溉類型
-                        # 🔥 歷史案件：優先從 legacy_data 獲取，因為沒有 step5
+                        # 歷史案件：優先從 legacy_data 獲取，因為沒有 step5
                         if grant.is_legacy:
                             legacy_data = version_data.get("legacy_data", {})
                             facility_type = legacy_data.get("irrigation_type") or legacy_data.get("facility_type")
@@ -277,9 +277,9 @@ async def get_grants(
             grant_data.update({
                 "facility_area": facility_area,
                 "facility_type": facility_type,
-                # 🔥 關注點分離：返回未格式化的數字，讓前端處理格式化和搜尋
+                # 關注點分離：返回未格式化的數字，讓前端處理格式化和搜尋
                 "facility_area_m2": int(float(facility_area_m2)) if facility_area_m2 else None,
-                # 🔥 土地位置摘要（僅包含縣市鄉鎮地段，不含面積）
+                # 土地位置摘要（僅包含縣市鄉鎮地段，不含面積）
                 "land_locations": land_locations
             })
             
@@ -565,8 +565,17 @@ async def create_grant(data, current_user):
                 current_step=1
             )
 
+            # 從當前使用者的 department 提取工作站代碼
+            station_code = None
+            if hasattr(current_user, 'department') and current_user.department:
+                dept = current_user.department
+                if isinstance(dept, dict) and 'station' in dept:
+                    station = dept['station']
+                    if isinstance(station, dict) and 'code' in station:
+                        station_code = station['code']
+
             # 儲存 Grant (save 方法會自動處理 sn 和 case_number)
-            await grant.save()
+            await grant.save(station_code=station_code)
 
             # 建立歷史紀錄
             await GrantHistory.create(
@@ -651,10 +660,10 @@ async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = 
         case_number: 案件編號
         grants_id: 案件ID（可選，用於區分重複的 case_number）
 
-    🔥 修正：優先使用 grants_id 查詢，避免歷史案件轉新系統時 case_number 重複的問題
+    修正：優先使用 grants_id 查詢，避免歷史案件轉新系統時 case_number 重複的問題
     """
     try:
-        # 🔥 優先使用 grants_id（精確匹配）
+        # 優先使用 grants_id（精確匹配）
         if grants_id:
             grant = await Grants.get(id=grants_id).prefetch_related(
                 'created_by', 'attachments', 'comments__user', 'history__changed_by', 'active_version'
@@ -1007,7 +1016,7 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                     else:
                         # 有業務資料 → 正常更新
                         current_all_steps_data["steps"]["2"] = actual_data
-                        logger.info(f"✅ Step 2 更新完成（{len(business_data_keys)} 個業務欄位），案件: {case_number}")
+                        logger.info(f"Step 2 更新完成（{len(business_data_keys)} 個業務欄位），案件: {case_number}")
                     
                     # 計算新的雜湊值
                     new_data_hash = calculate_data_hash(current_all_steps_data)
@@ -1101,7 +1110,7 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                     if "steps" not in current_all_steps_data:
                         current_all_steps_data["steps"] = {}
 
-                    # 🔥 Phase 1: 檢查是否為清除操作（只有元資料欄位）
+                    # Phase 1: 檢查是否為清除操作（只有元資料欄位）
                     # 元資料欄位不算真正的業務資料
                     metadata_fields = {'_caseNumber', 'valid', 'case_number', 'id', 'current_step', 'status'}
                     actual_data_keys = set(actual_data.keys()) if isinstance(actual_data, dict) else set()
@@ -1117,7 +1126,7 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                     else:
                         # 有業務資料 → 正常更新
                         current_all_steps_data["steps"][str(step)] = actual_data
-                        logger.info(f"✅ Step {step} 更新完成（{len(business_data_keys)} 個業務欄位），案件: {case_number}")
+                        logger.info(f"Step {step} 更新完成（{len(business_data_keys)} 個業務欄位），案件: {case_number}")
                     
                     # 計算新的雜湊值
                     new_data_hash = calculate_data_hash(current_all_steps_data)
@@ -1344,7 +1353,7 @@ async def delete_grant(grant_id: int, current_user: UserOutSchema) -> Dict[str, 
                 status=GrantStatus.SOFT_DELETE
             )
             
-            logger.info(f"📋 [delete_grant] Grant {grant.case_number} (ID: {grant_id}) soft deleted by user {current_user.id}")
+            logger.info(f"[delete_grant] Grant {grant.case_number} (ID: {grant_id}) soft deleted by user {current_user.id}")
             
             # 返回結果
             return {"message": f"補助案件 {grant.case_number} (ID: {grant_id}) 已刪除"}
@@ -1800,10 +1809,10 @@ async def batch_cross_year_grants(case_numbers: List[str], current_user) -> List
         try:
             result = await process_single_cross_year_grant(case_number, current_user)
             results.append(result)
-            logger.info(f"✅ 案件 {case_number} 跨年度處理成功")
+            logger.info(f"案件 {case_number} 跨年度處理成功")
             
         except Exception as e:
-            logger.error(f"❌ 案件 {case_number} 跨年度處理失敗: {str(e)}")
+            logger.error(f"案件 {case_number} 跨年度處理失敗: {str(e)}")
             results.append({
                 "original_case_number": case_number,
                 "success": False,
@@ -1820,7 +1829,7 @@ async def process_single_cross_year_grant(case_number: str, current_user) -> Dic
         try:
             # 1. 取得原始案件
             original_grant = await Grants.get(case_number=case_number).prefetch_related('active_version')
-            logger.info(f"📋 處理案件: {case_number}, 申請人: {original_grant.applicant_name}")
+            logger.info(f"處理案件: {case_number}, 申請人: {original_grant.applicant_name}")
             
             # 2. 計算次年度
             next_year = original_grant.year + 1
@@ -1829,7 +1838,7 @@ async def process_single_cross_year_grant(case_number: str, current_user) -> Dic
             # 如果次年度超過當前年度，使用當前年度
             if next_year > current_taiwan_year:
                 next_year = current_taiwan_year
-                logger.info(f"⚠️ 次年度 {next_year + 1} 超過當前年度，調整為 {next_year}")
+                logger.info(f"次年度 {next_year + 1} 超過當前年度，調整為 {next_year}")
             
             # 3. 複製案件資料並建立新案件
             new_grant = Grants(
@@ -1930,7 +1939,7 @@ async def process_single_cross_year_grant(case_number: str, current_user) -> Dic
                 notes=f"跨年度案件建立 - 來源案件: {case_number}"
             )
             
-            logger.info(f"🎯 案件 {case_number} 跨年度處理完成，新案件編號: {new_grant.case_number}")
+            logger.info(f"案件 {case_number} 跨年度處理完成，新案件編號: {new_grant.case_number}")
             
             return {
                 "original_case_number": case_number,
@@ -2282,7 +2291,7 @@ async def calculate_applicant_yearly_subsidy(
             subsidy_amount = 0.0
 
             if grant.active_version and grant.active_version.all_steps_data:
-                # 🔥 判斷是否為歷史案件
+                # 判斷是否為歷史案件
                 if grant.is_legacy:
                     # 歷史案件：從 pay_detail 取得補助金額
                     pay_detail = grant.active_version.all_steps_data.get("pay_detail", {})
@@ -2347,7 +2356,7 @@ async def calculate_applicant_yearly_subsidy(
         }
 
         logger.info(
-            f"✅ 申請人 {applicant_id} ({applicant_name}) 在 {year} 年度: "
+            f"申請人 {applicant_id} ({applicant_name}) 在 {year} 年度: "
             f"已用額度 {total_subsidy:,.0f} 元, "
             f"剩餘額度 {remaining_amount:,.0f} 元, "
             f"共 {len(grant_subsidies)} 筆案件"

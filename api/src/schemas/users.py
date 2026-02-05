@@ -46,6 +46,7 @@ class UserInfoSchema(BaseSchema):
     permissions: Optional[UserPermissionsSchema]
     # last_login: Optional[datetime]
     office: Optional[SimpleOfficeSchema] = None
+    department: Optional[dict] = None
 
 UserOutSchema = UserInfoSchema
 
