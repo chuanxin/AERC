@@ -337,12 +337,15 @@ class Grants(models.Model):
         cls.sn_registry[key] = latest_sn + 1
         return cls.sn_registry[key]
 
-    async def generate_case_number(self):
+    async def generate_case_number(self, station_code=None):
         """
-        根據 year + office_id + 序列號 產生完整案件編號
+        根據 year + office_id + station_code + 序列號 產生完整案件編號
 
-        序列號邏輯：查詢同單位同年度的案件數量（不包含自己）+ 1
-        這樣即使 sn 欄位不連續，case_number 仍然反映真實的案件順序
+        格式：YYYY + MM + [NN] + SSSS
+        - YYYY: 民國年
+        - MM: 管理處編號（2位左補零）
+        - NN: 工作站代碼（2位左補零，僅當 station_code 存在時加入）
+        - SSSS: 序列號（4位左補零，按年度+管理處統一計算）
         """
         office_id_str = str(self.office_id)
         if self.office_id is not None:
@@ -350,9 +353,13 @@ class Grants(models.Model):
                 office_id_str = f"0{self.office_id}"
             elif self.office_id < 100:  # 兩位數
                 office_id_str = str(self.office_id)
-            # 三位數或以上則 office_id_str 保持原樣 str(self.office_id)
         else:
-            office_id_str = "00"  # 或者您希望 office_id 為 None 時的默認處理
+            office_id_str = "00"  # office_id 為 None 時的默認處理
+
+        # 工作站代碼格式化（2位左補零）
+        station_str = ""
+        if station_code:
+            station_str = str(int(station_code)).zfill(2)
 
         # 查詢同單位同年度已有的案件數量（不包含自己）
         query = Grants.filter(year=self.year, office_id=self.office_id)
@@ -362,14 +369,14 @@ class Grants(models.Model):
         existing_count = await query.count()
         sequence_number = existing_count + 1  # 這是第 N 個案件
 
-        return f"{self.year}{office_id_str}{str(sequence_number).zfill(4)}"
+        return f"{self.year}{office_id_str}{station_str}{str(sequence_number).zfill(4)}"
 
-    async def save(self, *args, **kwargs):
+    async def save(self, *args, station_code=None, **kwargs):
         """在存入資料時，自動產生 SN 與 case_number"""
         if not self.sn:  # 如果 SN 尚未設定，則自動產生
             self.sn = await self.generate_sn(self.year, self.office_id)
         if not self.case_number:  # 只在 case_number 不存在時才生成
-            self.case_number = await self.generate_case_number()
+            self.case_number = await self.generate_case_number(station_code=station_code)
         await super().save(*args, **kwargs)
 
     def __str__(self):
