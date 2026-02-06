@@ -1966,7 +1966,7 @@ class BudgetStatementPDFGenerator:
         c.drawString(60, current_y, f"二、設施地點：{data.get('land_location', '')}{data.get('first_lot_number', '')}號,等{data.get('land_count', 1)}筆(詳如土地清冊)。")
         current_y -= 18
 
-        c.drawString(60, current_y, f"三、申請面積：{data.get('facility_area_ha', '0.45')}公頃")
+        c.drawString(60, current_y, f"三、施設面積：{data.get('facility_area_ha', '0.45')}公頃")
         current_y -= 18
 
         c.drawString(60, current_y, f"四、設施型式：{data.get('facility_type', '')}")
@@ -2139,7 +2139,8 @@ class BudgetStatementPDFGenerator:
 
         # 簽核欄位
         table_x = 40
-        self._draw_signature_section(c, table_x, current_y)
+        # self._draw_signature_section(c, table_x, current_y)
+        self._draw_acceptance_signature_section(c, table_x, current_y)
 
         c.showPage()
 
@@ -2809,3 +2810,69 @@ class BudgetStatementPDFGenerator:
 
         # 返回繪製結束後的 Y 座標
         return table_bottom_y - 10  # 留一點間距
+
+    def _draw_acceptance_signature_section(self, c: canvas.Canvas, x: float, current_y: float) -> float:
+            """
+            繪製簽核欄位（多頁共用）
+
+            Args:
+                c: Canvas 物件
+                x: 起始 X 座標
+                current_y: 當前 Y 座標（從上往下繪製的頂部位置）
+
+            Returns:
+                繪製結束後的 Y 座標
+            """
+            c.setFont(self.font_name, 12)
+
+            # 繪製 3x6 簽核表格（職稱欄 + 簽名欄交替）
+            title_col_width = 70   # 職稱欄位寬度（1, 3, 5）
+            sign_col_width = 102   # 簽名欄位寬度（2, 4, 6）
+            row_height = 40
+
+            # 欄位寬度數組（交替排列：職稱-簽名-職稱-簽名-職稱-簽名）
+            col_widths = [title_col_width, sign_col_width, title_col_width, sign_col_width, title_col_width, sign_col_width]
+            table_width = sum(col_widths)
+            table_height = row_height * 3
+
+            # 計算表格底部位置（PDF 座標系統從下往上）
+            table_bottom_y = current_y - table_height
+
+            # 外框
+            c.rect(x, table_bottom_y, table_width, table_height)
+
+            # 計算每個欄位的起始位置
+            col_positions = [0]
+            for width in col_widths:
+                col_positions.append(col_positions[-1] + width)
+
+            # 垂直線
+            for i in range(1, len(col_widths)):
+                line_x = x + col_positions[i]
+                c.line(line_x, table_bottom_y, line_x, table_bottom_y + table_height)
+
+            # 水平線
+            for i in range(1, 3):
+                c.line(x, table_bottom_y + row_height * i, x + table_width, table_bottom_y + row_height * i)
+
+            # 填入標籤（1,3,5 欄為標題；2,4,6 欄為簽名空白欄）
+            labels = [
+                ["測試人員", "", "股長", "", "主任工程師", ""],
+                ["會辦", "", "組長", "", "副處長", ""],
+                ["主辦", "", "主計單位", "", "處長", ""]
+            ]
+
+            for row_idx, row in enumerate(labels):
+                for col_idx, label in enumerate(row):
+                    # 使用對應欄位的起始位置
+                    text_x = x + col_positions[col_idx]
+                    text_y = table_bottom_y + row_height * (3 - row_idx - 1) + 15
+                    self._draw_centered_text(
+                        c, label,
+                        text_x, text_y,
+                        title_col_width,
+                        font_size=12
+                    )
+
+            # 返回繪製結束後的 Y 座標
+            return table_bottom_y - 10  # 留一點間距

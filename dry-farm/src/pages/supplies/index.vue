@@ -15,7 +15,7 @@
         <!-- 功能按鈕區 -->
         <div class="d-flex flex-wrap align-center pr-2">
           <v-spacer />
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-2"  v-if="isDev">
             <v-btn
               class="action-btn"
               color="#3ea0a3"
@@ -292,6 +292,7 @@
                         size="small"
                         color="error"
                         variant="text"
+                        :disabled="!isDev"
                         @click="deleteItem(item.raw.id)"
                       />
                     </div>
@@ -506,11 +507,11 @@
             <div class="d-flex align-center mb-3">
               <span class="text-subtitle-1 font-weight-bold">{{ currentMaterial.moduleName }} - {{ currentMaterial.materialName }}</span>
               <v-spacer />
-              <span class="text-subtitle-2 text-medium-emphasis">編號: {{ currentMaterial.id }}</span>
+              <span class="text-subtitle-2 text-medium-emphasis"  v-if="isDev">編號: {{ currentMaterial.id }}</span>
             </div>
 
             <!-- 添加新價格 -->
-            <v-row>
+            <v-row  v-if="isDev">
               <v-col cols="5">
                 <v-select
                   v-model="editingPriceYear"
@@ -597,6 +598,7 @@
                         size="x-small"
                         color="#3ea0a3"
                         variant="text"
+                        :disabled="!isDev"
                         @click="startEditPrice(index)"
                       />
                       <v-btn
@@ -605,6 +607,7 @@
                         size="x-small"
                         color="error"
                         variant="text"
+                        :disabled="!isDev"
                         @click="deletePriceHistory(price.year)"
                       />
                     </div>
@@ -833,7 +836,8 @@ import { usePFDiametersStore } from '@/stores/pfDiametersStore'
 import type { PFMaterial } from '@/types/pfMaterials'
 import type { PFDiameter } from '@/types/pfDiameters'
 import type { PFAnnualPrice } from '@/types/pfAnnualPrices'
-
+// 加入import.meta.env.DEV 變數 在開發時為 true，在 build 為 false 
+const isDev = import.meta.env.DEV;
 const store = usePipeFittingsStore()
 const pfModulesStore = usePFModulesStore()
 const userStore = useUserStore()

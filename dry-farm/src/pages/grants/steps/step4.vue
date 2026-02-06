@@ -351,6 +351,7 @@
                     class="me-2 mb-2"
                     color="#3ea0a3"
                     style="width: 100px"
+                    readonly
                     :rules="[v => (v !== null && v !== '') || '請輸入單價']"
                     @update:model-value="updateFormData"
                   />
@@ -458,6 +459,7 @@
                     class="me-2 mb-2"
                     color="#3ea0a3"
                     style="width: 100px"
+                    readonly
                     :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入單價') : true]"
                     @update:model-value="updateFormData"
                   />
@@ -1778,6 +1780,8 @@
                             hide-details="auto"
                             class="material-input"
                             style="min-width: 80px;"
+                            readonly
+                            :hint="!pipe.matprice ? '需新增此規格材料' : ''"
                             :rules="[
                               v => v >= 0 || '單價不能為負數'
                             ]"
@@ -2057,7 +2061,7 @@
                       <td>{{ selectedMaterialDebugInfo.generated.spec3 || 'N/A' }}</td>
                     </tr>
                     <tr>
-                      <td class="font-weight-bold">
+                      <td class="font-weight-bold" >
                         單價
                       </td>
                       <td>{{ selectedMaterialDebugInfo.generated.matprice }}</td>

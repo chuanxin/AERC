@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "version": "0205_01_win",
+  "version": "0204_04_win",
   "scripts": {
     "dev": "vite",
     "build": "run-p type-check \"build-only {@}\" --",
