@@ -106,8 +106,9 @@ async def get_current_user(token: str = Depends(security)):
 
     try:
         user = await Users.filter(username=token_data.username, is_active=True).only(
-            'id', 'username', 'full_name', 'email', 'office_id', 
-            'job_title', 'is_active', 'role', 'permissions', 'last_login'
+            'id', 'username', 'full_name', 'email', 'office_id',
+            'job_title', 'is_active', 'role', 'permissions', 'last_login',
+            'department'
         ).first()
 
         office_data = None
@@ -136,7 +137,8 @@ async def get_current_user(token: str = Depends(security)):
             role=user.role,
             permissions=user.permissions,
             last_login=user.last_login,
-            office=office_data
+            office=office_data,
+            department=user.department
         )
     
     except DoesNotExist:
