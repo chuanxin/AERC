@@ -92,6 +92,8 @@ export const GRANTS = {
 export const STATISTICS = {
   EXECUTION_PROGRESS: `${BASE}/grants/statistics/execution-progress`,
   BUDGET_ANALYSIS: `${BASE}/grants/statistics/budget-analysis`,
+  // Excel 報表下載
+  EXECUTION_PROGRESS_EXCEL: `${BASE}/grants/statistics/execution-progress/excel`,
 }
 
 // Pipe Fittings related endpoints

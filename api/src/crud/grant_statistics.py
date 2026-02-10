@@ -5,7 +5,6 @@ Grant Statistics CRUD Operations
 
 from typing import List, Optional
 from decimal import Decimal
-from tortoise.expressions import Q
 
 from ..database.models import Grants, GrantVersions, Offices, SubsidyAnnualBudget
 from ..schemas.statistics import (
@@ -15,6 +14,9 @@ from ..schemas.statistics import (
     OfficeBudgetStats
 )
 
+# 允許查詢的管理處 ID 清單（與前端 ALLOWED_OFFICE_IDS 保持一致）
+ALLOWED_OFFICE_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 23]
+
 
 class GrantStatisticsCRUD:
     """補助案件統計的 CRUD 操作類"""
@@ -23,34 +25,26 @@ class GrantStatisticsCRUD:
     async def get_execution_progress(
         year: int,
         office_id: Optional[int] = None,
-        user_role: str = "user"
     ) -> ExecutionProgressResponse:
         """
         取得即時執行進度統計
 
+        純粹的資料查詢層 — 權限控制由 Route 層負責。
+
         Args:
             year: 統計年度（民國年）
-            office_id: 辦公室 ID（若為 None 則查詢所有辦公室）
-            user_role: 使用者角色（admin/manager/user）
+            office_id: 辦公室 ID（None=查詢所有辦公室，有值=查詢指定辦公室）
 
         Returns:
             ExecutionProgressResponse: 執行進度統計資料
         """
-        # 1. 建構查詢條件
-        query = Grants.filter(year=year)
-
-        # 權限控制：非 admin 只能查看自己辦公室的資料
-        if user_role != "admin" and office_id is not None:
-            query = query.filter(office_id=office_id)
-
-        # 2. 取得所有符合條件的辦公室
-        if office_id is not None and user_role != "admin":
-            # 單一辦公室查詢
+        # 根據 office_id 決定查詢範圍
+        if office_id is not None:
             offices = await Offices.filter(id=office_id).all()
         else:
-            # 查詢所有辦公室（admin 權限）
-            # 查詢 office_id 1-18 的所有單位（包括沒有案件的單位）
-            offices = await Offices.filter(id__gte=1, id__lte=19).order_by('id').all()
+            # 當 office_id 為 None 時，查詢 ALLOWED_OFFICE_IDS 中的所有辦公室
+            # 注意：這裡包含 ID 為 1-19 和 23 的辦公室
+            offices = await Offices.filter(id__in=ALLOWED_OFFICE_IDS).order_by('id').all()
 
         # 3. 為每個辦公室計算統計資料
         office_stats_list = []
@@ -113,12 +107,13 @@ class GrantStatisticsCRUD:
 
         approved_budget = annual_budget.approved_budget if annual_budget else Decimal('0')
 
-        # 2. 查詢已結案案件（status = 'submitted'）
-        # 🔥 只統計 submitted 狀態：已結案，並完成文件上傳的完整封存狀態
+        # 2. 查詢已結案案件（completed + submitted）
+        # completed: 線上結案（含所有 legacy 歷史案件）
+        # submitted: 已結案並完成文件上傳的完整封存狀態
         completed_grants = await Grants.filter(
             year=year,
             office_id=office_id,
-            status='submitted'
+            status__in=['completed', 'submitted']
         ).prefetch_related('active_version').all()
 
         completed_cases = len(completed_grants)
@@ -238,32 +233,25 @@ class GrantStatisticsCRUD:
     async def get_budget_analysis(
         year: int,
         office_id: Optional[int] = None,
-        user_role: str = "user"
     ) -> BudgetAnalysisResponse:
         """
         取得即時經費統計分析
 
+        純粹的資料查詢層 — 權限控制由 Route 層負責。
+
         Args:
             year: 統計年度（民國年）
-            office_id: 辦公室 ID（若為 None 則查詢所有辦公室）
-            user_role: 使用者角色（admin/manager/user）
+            office_id: 辦公室 ID（None=查詢所有辦公室，有值=查詢指定辦公室）
 
         Returns:
             BudgetAnalysisResponse: 經費統計分析資料
         """
-        # 1. 建構查詢條件
-        query = Grants.filter(year=year)
-
-        # 權限控制：非 admin 只能查看自己辦公室的資料
-        if user_role != "admin" and office_id is not None:
-            query = query.filter(office_id=office_id)
-
-        # 2. 取得所有符合條件的辦公室
-        if office_id is not None and user_role != "admin":
+        # 根據 office_id 決定查詢範圍
+        if office_id is not None:
             offices = await Offices.filter(id=office_id).all()
         else:
-            # 查詢 office_id 1-18 的所有單位（包括沒有案件的單位）
-            offices = await Offices.filter(id__gte=1, id__lte=18).order_by('id').all()
+            # 當 office_id 為 None 時，查詢 ALLOWED_OFFICE_IDS 中的所有辦公室
+            offices = await Offices.filter(id__in=ALLOWED_OFFICE_IDS).order_by('id').all()
 
         # 3. 為每個辦公室計算統計資料
         office_stats_list = []

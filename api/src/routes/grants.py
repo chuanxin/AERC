@@ -23,6 +23,7 @@ from src.services.completion_statement_pdf_generator import CompletionStatementP
 from src.services.declaration_pdf_generator import DeclarationPDFGenerator
 from src.services.authorization_pdf_generator import AuthorizationPDFGenerator
 from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
+from src.services.excel_generator import ExcelGeneratorService
 from src.crud.grant_statistics import GrantStatisticsCRUD
 from src.schemas.statistics import ExecutionProgressResponse, BudgetAnalysisResponse
 
@@ -1605,14 +1606,15 @@ async def get_execution_progress_statistics(
     try:
         logger.info(f"📊 [get_execution_progress_statistics] 查詢執行進度統計: year={year}, user={current_user.username}, role={current_user.role}")
 
-        # 取得使用者的辦公室 ID
-        office_id = current_user.office.id if current_user.office else None
+        # 權限控制：admin 查看全部，其他角色只查看自己辦公室
+        if current_user.role == "admin":
+            query_office_id = None
+        else:
+            query_office_id = current_user.office.id if current_user.office else None
 
-        # 調用 CRUD 層取得統計資料
         result = await GrantStatisticsCRUD.get_execution_progress(
             year=year,
-            office_id=office_id,
-            user_role=current_user.role
+            office_id=query_office_id,
         )
 
         logger.info(f"✅ [get_execution_progress_statistics] 成功取得統計資料: {len(result.offices)} 個辦公室")
@@ -1648,14 +1650,15 @@ async def get_budget_analysis_statistics(
     try:
         logger.info(f"📊 [get_budget_analysis_statistics] 查詢經費分析統計: year={year}, user={current_user.username}, role={current_user.role}")
 
-        # 取得使用者的辦公室 ID
-        office_id = current_user.office.id if current_user.office else None
+        # 權限控制：admin 查看全部，其他角色只查看自己辦公室
+        if current_user.role == "admin":
+            query_office_id = None
+        else:
+            query_office_id = current_user.office.id if current_user.office else None
 
-        # 調用 CRUD 層取得統計資料
         result = await GrantStatisticsCRUD.get_budget_analysis(
             year=year,
-            office_id=office_id,
-            user_role=current_user.role
+            office_id=query_office_id,
         )
 
         logger.info(f"✅ [get_budget_analysis_statistics] 成功取得統計資料: {len(result.offices)} 個辦公室")
@@ -1668,4 +1671,68 @@ async def get_budget_analysis_statistics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"查詢經費分析統計失敗: {str(e)}"
+        )
+
+
+@router.get(
+    "/statistics/execution-progress/excel",
+    summary="下載 A01 各管理處執行進度報表 Excel",
+    description="生成並下載指定年度的 A01 各管理處執行進度報表（Excel 格式）"
+)
+async def download_execution_progress_excel(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填，預設查詢全部）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """
+    下載 A01 各管理處執行進度報表 Excel
+
+    計算邏輯與首頁「管理處執行進度」相同，包含：
+    - 管理處名稱
+    - 核定金額（元）
+    - 補助案件數（已結案）
+    - 補助面積（公頃）
+    - 補助金額（元）
+    - 補助款執行率%
+    """
+    try:
+        logger.info(f"📊 [download_execution_progress_excel] 生成 A01 報表: year={year}, office_id={office_id}, user={current_user.username}")
+
+        # Phase 1: 直接傳遞前端選取的條件（office_id=None 表示全部）
+        # TODO Phase 2: 加入使用者權限控制（非 admin 限制可查詢的 office 範圍）
+        result = await GrantStatisticsCRUD.get_execution_progress(
+            year=year,
+            office_id=office_id,
+        )
+
+        # 將 Pydantic model 轉換為 dict
+        data = result.model_dump()
+
+        # 生成 Excel 檔案
+        excel_service = ExcelGeneratorService()
+        excel_file_path = await excel_service.generate_a01_execution_progress_report(
+            data=data,
+            year=year
+        )
+
+        # 生成下載檔名
+        filename = f"A01_各管理處執行進度_{year}年度.xlsx"
+        encoded_filename = quote(filename, safe='')
+
+        logger.info(f"✅ [download_execution_progress_excel] 成功生成報表: {excel_file_path}")
+
+        return FileResponse(
+            path=excel_file_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+
+    except Exception as e:
+        logger.error(f"❌ [download_execution_progress_excel] 生成報表失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"生成 A01 報表失敗: {str(e)}"
         )

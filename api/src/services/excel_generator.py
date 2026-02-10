@@ -5,6 +5,7 @@ import tempfile
 from datetime import datetime
 from typing import List, Dict, Any
 from pathlib import Path
+from copy import copy
 from src.config.folder_mappings import settings
 
 class ExcelGeneratorService:
@@ -179,7 +180,7 @@ class ExcelGeneratorService:
                 cell = worksheet.cell(row=current_row, column=col_idx, value=value)
                 # 設定自動換行
                 if cell.alignment:
-                    alignment = cell.alignment.copy()
+                    alignment = copy(cell.alignment)
                     alignment.wrap_text = True
                     cell.alignment = alignment
                 else:
@@ -208,9 +209,9 @@ class ExcelGeneratorService:
                 # 複製頁碼格式（從範本頁數列）
                 template_page_cell = worksheet.cell(row=self.TEMPLATE_PAGE_ROW, column=11)
                 if template_page_cell.font:
-                    page_cell.font = template_page_cell.font.copy()
+                    page_cell.font = copy(template_page_cell.font)
                 if template_page_cell.alignment:
-                    page_cell.alignment = template_page_cell.alignment.copy()
+                    page_cell.alignment = copy(template_page_cell.alignment)
 
                 # 設定頁數列格式
                 worksheet.row_dimensions[page_row].height = 14.3
@@ -253,13 +254,13 @@ class ExcelGeneratorService:
             # 複製內容和格式
             target_cell.value = source_cell.value
             if source_cell.font:
-                target_cell.font = source_cell.font.copy()
+                target_cell.font = copy(source_cell.font)
             if source_cell.alignment:
-                target_cell.alignment = source_cell.alignment.copy()
+                target_cell.alignment = copy(source_cell.alignment)
             if source_cell.border:
-                target_cell.border = source_cell.border.copy()
+                target_cell.border = copy(source_cell.border)
             if source_cell.fill:
-                target_cell.fill = source_cell.fill.copy()
+                target_cell.fill = copy(source_cell.fill)
 
         # 複製行高
         worksheet.row_dimensions[target_row].height = worksheet.row_dimensions[source_row].height
@@ -288,6 +289,167 @@ class ExcelGeneratorService:
                 )
                 cell.border = new_border
 
+    async def generate_a01_execution_progress_report(
+        self,
+        data: Dict[str, Any],
+        year: int
+    ) -> str:
+        """
+        生成 A01 各管理處執行進度報表 Excel 檔案
+
+        範本驅動 + 動態增長架構：
+        - 範本 A01.xlsx 提供：標題格式、欄寬、資料列樣式參考（Row 4）、備註文字
+        - 程式碼負責：清除範例資料 → 動態寫入實際資料 → 備註跟隨資料尾端
+
+        Args:
+            data: ExecutionProgressResponse 資料（包含 offices、total_* 等欄位）
+            year: 統計年度（民國年）
+
+        Returns:
+            str: 生成的 Excel 檔案路徑
+        """
+        from openpyxl import load_workbook
+        from openpyxl.styles import Border
+
+        template_path = settings.get_template_path("A01.xlsx")
+        if not template_path.exists():
+            raise FileNotFoundError(f"範本檔案不存在: {template_path}")
+
+        workbook = load_workbook(str(template_path))
+        worksheet = workbook.active
+
+        DATA_START_ROW = 4  # 範本中資料區塊起始列（同時作為樣式參考列）
+
+        # 1. 從範本擷取樣式參考（Row 4 的每欄格式 + 表頭外框粗細）
+        HEADER_ROW = 3
+        col_styles = {}
+        frame_bottom_sides = {}
+        for col in range(1, 7):
+            ref_cell = worksheet.cell(row=DATA_START_ROW, column=col)
+            col_styles[col] = {
+                'font': copy(ref_cell.font) if ref_cell.font else None,
+                'alignment': copy(ref_cell.alignment) if ref_cell.alignment else None,
+                'border': copy(ref_cell.border) if ref_cell.border else None,
+                'fill': copy(ref_cell.fill) if ref_cell.fill else None,
+                'number_format': ref_cell.number_format,
+            }
+            # 表頭底部邊框 = 表格外框粗細（用於最後一列資料的底線）
+            header_cell = worksheet.cell(row=HEADER_ROW, column=col)
+            if header_cell.border and header_cell.border.bottom:
+                frame_bottom_sides[col] = header_cell.border.bottom
+
+        # 2. 擷取備註（解除 Row 4 以下的所有合併儲存格）
+        footnote_text = None
+        footnote_font = None
+        footnote_alignment = None
+        footnote_row_height = None
+        footnote_rich_text = None  # 保存 Rich Text 數據
+        for merge in list(worksheet.merged_cells.ranges):
+            if merge.min_row >= DATA_START_ROW:
+                cell = worksheet.cell(row=merge.min_row, column=1)
+                # 檢查是否為 Rich Text（部分文字有不同格式）
+                if hasattr(cell, '_value') and hasattr(cell._value, '__iter__') and not isinstance(cell._value, str):
+                    # 保存 Rich Text 數據（包含所有格式信息）
+                    footnote_rich_text = cell._value
+                    footnote_text = cell.value  # 保存純文字作為後備
+                else:
+                    footnote_text = cell.value
+                footnote_font = copy(cell.font) if cell.font else None
+                footnote_alignment = copy(cell.alignment) if cell.alignment else None
+                footnote_row_height = worksheet.row_dimensions[merge.min_row].height
+                worksheet.unmerge_cells(str(merge))
+
+        # 3. 清除範本的範例資料（Row 4 到最後一行：內容、邊框、行高）
+        max_row = worksheet.max_row
+        for row in range(DATA_START_ROW, max_row + 1):
+            for col in range(1, 7):
+                cell = worksheet.cell(row=row, column=col)
+                cell.value = None
+                cell.border = Border()
+            # 重置行高（移除範本殘留的自訂行高）
+            if row in worksheet.row_dimensions:
+                del worksheet.row_dimensions[row]
+
+        # 4. 更新標題和製表日期
+        worksheet['A1'].value = (
+            f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度各管理處執行進度"
+        )
+        today = datetime.now()
+        worksheet['E2'] = (
+            f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日"
+        )
+
+        # 5. 動態寫入資料列（套用範本樣式）
+        offices = data.get('offices', [])
+        for idx, office in enumerate(offices):
+            row = DATA_START_ROW + idx
+            row_values = [
+                office.get('office_name', ''),
+                office.get('approved_budget', 0) or 0,
+                office.get('completed_cases', 0) or 0,
+                float(office.get('total_area', 0) or 0),
+                office.get('total_subsidy', 0) or 0,
+                float(office.get('execution_rate', 0) or 0),
+            ]
+            for col, value in enumerate(row_values, start=1):
+                cell = worksheet.cell(row=row, column=col, value=value)
+                style = col_styles[col]
+                if style['font']:
+                    cell.font = style['font']
+                if style['alignment']:
+                    cell.alignment = style['alignment']
+                if style['border']:
+                    cell.border = style['border']
+                if style['fill']:
+                    cell.fill = style['fill']
+                if style['number_format']:
+                    cell.number_format = style['number_format']
+
+        # 5.1 最後一列資料套用表格外框底線（與表頭粗細一致）
+        if offices:
+            last_row = DATA_START_ROW + len(offices) - 1
+            for col in range(1, 7):
+                cell = worksheet.cell(row=last_row, column=col)
+                if col in frame_bottom_sides and cell.border:
+                    cell.border = Border(
+                        left=cell.border.left,
+                        right=cell.border.right,
+                        top=cell.border.top,
+                        bottom=frame_bottom_sides[col],
+                    )
+
+        # 6. 動態定位備註（緊跟資料尾端，空一行）
+        if footnote_text:
+            footnote_row = DATA_START_ROW + len(offices) + 1
+            worksheet.merge_cells(f"A{footnote_row}:F{footnote_row}")
+            cell = worksheet.cell(row=footnote_row, column=1)
+            
+            # 優先使用 Rich Text（保留底線等格式），否則使用純文字
+            if footnote_rich_text:
+                cell._value = footnote_rich_text
+                cell.data_type = 's'  # 設定為字串類型
+            else:
+                cell.value = footnote_text
+                
+            if footnote_font:
+                cell.font = footnote_font
+            if footnote_alignment:
+                cell.alignment = footnote_alignment
+            if footnote_row_height:
+                worksheet.row_dimensions[footnote_row].height = footnote_row_height
+
+        # 7. 生成檔案
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"A01_execution_progress_{year}_{timestamp}.xlsx"
+        file_path = self.temp_dir / filename
+
+        try:
+            workbook.save(str(file_path))
+            return str(file_path)
+        except Exception as e:
+            print(f"Excel save error: {e}")
+            raise
+
     def cleanup_temp_files(self, max_age_hours: int = 24):
         """清理超過指定時間的臨時檔案"""
         import time
@@ -295,7 +457,7 @@ class ExcelGeneratorService:
         current_time = time.time()
         max_age_seconds = max_age_hours * 3600
 
-        for file_path in self.temp_dir.glob("*.xls"):
+        for file_path in self.temp_dir.glob("*.xls*"):
             if current_time - file_path.stat().st_mtime > max_age_seconds:
                 try:
                     file_path.unlink()

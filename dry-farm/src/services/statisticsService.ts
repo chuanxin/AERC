@@ -85,5 +85,20 @@ export const statisticsService = {
     return await apiService.get<BudgetAnalysisResponse>(
       `${STATISTICS.BUDGET_ANALYSIS}?year=${year}`
     )
+  },
+
+  /**
+   * 下載 A01 各管理處執行進度報表 Excel
+   * @param year 統計年度（民國年）
+   * @param officeId 管理處 ID（選填）
+   */
+  async downloadExecutionProgressExcel(year: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { year }
+    if (officeId) {
+      params.office_id = officeId
+    }
+
+    const filename = `A01_各管理處執行進度_${year}年度.xlsx`
+    await apiService.download(STATISTICS.EXECUTION_PROGRESS_EXCEL, params, filename)
   }
 }
