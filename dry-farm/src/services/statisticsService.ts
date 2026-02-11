@@ -100,5 +100,45 @@ export const statisticsService = {
 
     const filename = `A01_各管理處執行進度_${year}年度.xlsx`
     await apiService.download(STATISTICS.EXECUTION_PROGRESS_EXCEL, params, filename)
-  }
+  },
+
+  /**
+   * 下載 A02-1 各縣市鄉鎮區統計報表 Excel
+   */
+  async downloadCountyTownExcel(year: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { year }
+    if (officeId) params.office_id = officeId
+    const filename = `A02-1_各縣市鄉鎮區統計_${year}年度.xlsx`
+    await apiService.download(STATISTICS.COUNTY_TOWN_EXCEL, params, filename)
+  },
+
+  /**
+   * 下載 A02-2 各管理處統計報表 Excel
+   */
+  async downloadOfficeSummaryExcel(year: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { year }
+    if (officeId) params.office_id = officeId
+    const filename = `A02-2_各管理處統計_${year}年度.xlsx`
+    await apiService.download(STATISTICS.OFFICE_SUMMARY_EXCEL, params, filename)
+  },
+
+  /**
+   * 下載 A02-3 歷年各縣市鄉鎮區統計報表 Excel
+   */
+  async downloadCountyTownYearlyExcel(startYear: number, endYear: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { start_year: startYear, end_year: endYear }
+    if (officeId) params.office_id = officeId
+    const filename = `A02-3_歷年各縣市鄉鎮區統計_${startYear}-${endYear}年度.xlsx`
+    await apiService.download(STATISTICS.COUNTY_TOWN_YEARLY_EXCEL, params, filename)
+  },
+
+  /**
+   * 下載 A02-4 歷年各管理處統計報表 Excel
+   */
+  async downloadOfficeSummaryYearlyExcel(startYear: number, endYear: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { start_year: startYear, end_year: endYear }
+    if (officeId) params.office_id = officeId
+    const filename = `A02-4_歷年各管理處統計_${startYear}-${endYear}年度.xlsx`
+    await apiService.download(STATISTICS.OFFICE_SUMMARY_YEARLY_EXCEL, params, filename)
+  },
 }

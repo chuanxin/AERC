@@ -4,7 +4,7 @@ Statistics 統計功能的 Pydantic Schemas
 """
 
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 from decimal import Decimal
 
 
@@ -96,5 +96,57 @@ class BudgetAnalysisResponse(BaseModel):
         }
 
 
-# ==================== 未來 Statistics 功能頁擴展預留 ====================
-# 其他統計分析相關的 schemas 可於此添加
+# ==================== A02 系列統計報表 ====================
+
+class CountyTownStats(BaseModel):
+    """單一縣市鄉鎮區的統計資料"""
+    county_id: int = Field(..., description="縣市 ID")
+    county_name: str = Field(..., description="縣市名稱")
+    town_id: int = Field(..., description="鄉鎮區 ID")
+    town_name: str = Field(..., description="鄉鎮區名稱")
+    completed_cases: int = Field(default=0, description="補助案件數")
+    total_area: Decimal = Field(default=Decimal('0'), description="補助面積（公頃）")
+    total_subsidy: Decimal = Field(default=Decimal('0'), description="補助金額（元）")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class OfficeSummaryStats(BaseModel):
+    """單一管理處的 A02 統計資料（案件數 + 面積 + 金額）"""
+    office_id: int = Field(..., description="管理處 ID")
+    office_name: str = Field(..., description="管理處名稱")
+    completed_cases: int = Field(default=0, description="補助案件數")
+    total_area: Decimal = Field(default=Decimal('0'), description="補助面積（公頃）")
+    total_subsidy: Decimal = Field(default=Decimal('0'), description="補助金額（元）")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class CountyTownStatsResponse(BaseModel):
+    """A02-1/A02-3 各縣市鄉鎮區統計回應"""
+    year: Optional[int] = Field(None, description="統計年度（A02-1 單年度）")
+    start_year: Optional[int] = Field(None, description="起始年度（A02-3 歷年）")
+    end_year: Optional[int] = Field(None, description="結束年度（A02-3 歷年）")
+    stats: List[CountyTownStats] = Field(default_factory=list)
+    total_cases: int = Field(default=0)
+    total_area: Decimal = Field(default=Decimal('0'))
+    total_subsidy: Decimal = Field(default=Decimal('0'))
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class OfficeSummaryStatsResponse(BaseModel):
+    """A02-2/A02-4 各管理處統計回應"""
+    year: Optional[int] = Field(None, description="統計年度（A02-2 單年度）")
+    start_year: Optional[int] = Field(None, description="起始年度（A02-4 歷年）")
+    end_year: Optional[int] = Field(None, description="結束年度（A02-4 歷年）")
+    stats: List[OfficeSummaryStats] = Field(default_factory=list)
+    total_cases: int = Field(default=0)
+    total_area: Decimal = Field(default=Decimal('0'))
+    total_subsidy: Decimal = Field(default=Decimal('0'))
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
