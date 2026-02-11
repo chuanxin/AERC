@@ -1736,3 +1736,144 @@ async def download_execution_progress_excel(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"生成 A01 報表失敗: {str(e)}"
         )
+
+
+# ==================== A02 系列統計報表 ====================
+
+
+@router.get(
+    "/statistics/county-town/excel",
+    summary="下載 A02-1 各縣市鄉鎮區統計報表 Excel",
+)
+async def download_county_town_excel(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """下載 A02-1 各縣市鄉鎮區統計報表"""
+    try:
+        logger.info(f"📊 [A02-1] 生成報表: year={year}, office_id={office_id}")
+        result = await GrantStatisticsCRUD.get_county_town_stats(year=year, office_id=office_id)
+        data = result.model_dump()
+        excel_service = ExcelGeneratorService()
+        excel_file_path = await excel_service.generate_a02_1_report(data=data, year=year)
+        filename = f"A02-1_{year}年度.xlsx"
+        encoded_filename = quote(filename, safe='')
+        return FileResponse(
+            path=excel_file_path, filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+    except Exception as e:
+        logger.error(f"❌ [A02-1] 生成報表失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"生成 A02-1 報表失敗: {str(e)}")
+
+
+@router.get(
+    "/statistics/office-summary/excel",
+    summary="下載 A02-2 各管理處統計報表 Excel",
+)
+async def download_office_summary_excel(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """下載 A02-2 各管理處統計報表"""
+    try:
+        logger.info(f"📊 [A02-2] 生成報表: year={year}, office_id={office_id}")
+        result = await GrantStatisticsCRUD.get_office_summary_stats(year=year, office_id=office_id)
+        data = result.model_dump()
+        excel_service = ExcelGeneratorService()
+        excel_file_path = await excel_service.generate_a02_2_report(data=data, year=year)
+        filename = f"A02-2_{year}年度.xlsx"
+        encoded_filename = quote(filename, safe='')
+        return FileResponse(
+            path=excel_file_path, filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+    except Exception as e:
+        logger.error(f"❌ [A02-2] 生成報表失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"生成 A02-2 報表失敗: {str(e)}")
+
+
+@router.get(
+    "/statistics/county-town-yearly/excel",
+    summary="下載 A02-3 歷年各縣市鄉鎮區統計報表 Excel",
+)
+async def download_county_town_yearly_excel(
+    start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
+    end_year: int = Query(..., description="結束年度（民國年）", ge=97, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """下載 A02-3 歷年各縣市鄉鎮區統計報表"""
+    if start_year > end_year:
+        raise HTTPException(status_code=400, detail="起始年度不得大於結束年度")
+    try:
+        logger.info(f"📊 [A02-3] 生成報表: {start_year}-{end_year}, office_id={office_id}")
+        result = await GrantStatisticsCRUD.get_county_town_stats_yearly(
+            start_year=start_year, end_year=end_year, office_id=office_id
+        )
+        data = result.model_dump()
+        excel_service = ExcelGeneratorService()
+        excel_file_path = await excel_service.generate_a02_3_report(
+            data=data, start_year=start_year, end_year=end_year
+        )
+        filename = f"A02-3_{start_year}-{end_year}年度.xlsx"
+        encoded_filename = quote(filename, safe='')
+        return FileResponse(
+            path=excel_file_path, filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [A02-3] 生成報表失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"生成 A02-3 報表失敗: {str(e)}")
+
+
+@router.get(
+    "/statistics/office-summary-yearly/excel",
+    summary="下載 A02-4 歷年各管理處統計報表 Excel",
+)
+async def download_office_summary_yearly_excel(
+    start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
+    end_year: int = Query(..., description="結束年度（民國年）", ge=97, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """下載 A02-4 歷年各管理處統計報表"""
+    if start_year > end_year:
+        raise HTTPException(status_code=400, detail="起始年度不得大於結束年度")
+    try:
+        logger.info(f"📊 [A02-4] 生成報表: {start_year}-{end_year}, office_id={office_id}")
+        result = await GrantStatisticsCRUD.get_office_summary_stats_yearly(
+            start_year=start_year, end_year=end_year, office_id=office_id
+        )
+        data = result.model_dump()
+        excel_service = ExcelGeneratorService()
+        excel_file_path = await excel_service.generate_a02_4_report(
+            data=data, start_year=start_year, end_year=end_year
+        )
+        filename = f"A02-4_{start_year}-{end_year}年度.xlsx"
+        encoded_filename = quote(filename, safe='')
+        return FileResponse(
+            path=excel_file_path, filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [A02-4] 生成報表失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"生成 A02-4 報表失敗: {str(e)}")

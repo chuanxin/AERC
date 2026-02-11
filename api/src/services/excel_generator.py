@@ -375,9 +375,8 @@ class ExcelGeneratorService:
             f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度各管理處執行進度"
         )
         today = datetime.now()
-        worksheet['E2'] = (
-            f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日"
-        )
+        date_str = f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日"
+        self._set_cell_value_safe(worksheet, 'E2', date_str)
 
         # 5. 動態寫入資料列（套用範本樣式）
         offices = data.get('offices', [])
@@ -449,6 +448,259 @@ class ExcelGeneratorService:
         except Exception as e:
             print(f"Excel save error: {e}")
             raise
+
+    # ==================== A02 系列統計報表 ====================
+
+    def _set_cell_value_safe(self, worksheet, cell_ref: str, value):
+        """
+        安全地設定單元格值（處理合併單元格）
+        
+        如果目標單元格是合併單元格的一部分，會自動使用合併區域的左上角單元格
+        """
+        from openpyxl.utils import coordinate_to_tuple
+        
+        row, col = coordinate_to_tuple(cell_ref)
+        
+        # 檢查是否在合併單元格中
+        for merge_range in worksheet.merged_cells.ranges:
+            if (merge_range.min_row <= row <= merge_range.max_row and 
+                merge_range.min_col <= col <= merge_range.max_col):
+                # 使用合併區域的左上角單元格
+                worksheet.cell(row=merge_range.min_row, column=merge_range.min_col).value = value
+                return
+        
+        # 不在合併單元格中，直接賦值
+        worksheet[cell_ref] = value
+
+    def _generate_a02_report(
+        self,
+        template_name: str,
+        col_count: int,
+        title_text: str,
+        date_text: str,
+        rows: List[List[Any]],
+        filename_prefix: str,
+    ) -> str:
+        """
+        A02 報表通用生成邏輯（範本驅動 + 動態增長）
+
+        架構與 A01 完全一致：
+        - 範本提供：標題格式、欄寬、Row 4 樣式參考、備註文字
+        - 程式碼：清除範例 → 動態寫入 → 備註跟隨尾端
+        """
+        from openpyxl import load_workbook
+        from openpyxl.styles import Border
+
+        template_path = settings.get_template_path(template_name)
+        if not template_path.exists():
+            raise FileNotFoundError(f"範本檔案不存在: {template_path}")
+
+        workbook = load_workbook(str(template_path))
+        worksheet = workbook.active
+        
+        # 移除 Print Area 定義以避免警告
+        if 'Print_Area' in workbook.defined_names:
+            del workbook.defined_names['Print_Area']
+
+        DATA_START_ROW = 4
+        HEADER_ROW = 3
+
+        # 1. 從範本擷取樣式參考（Row 4）
+        col_styles = {}
+        frame_bottom_sides = {}
+        for col in range(1, col_count + 1):
+            ref_cell = worksheet.cell(row=DATA_START_ROW, column=col)
+            col_styles[col] = {
+                'font': copy(ref_cell.font) if ref_cell.font else None,
+                'alignment': copy(ref_cell.alignment) if ref_cell.alignment else None,
+                'border': copy(ref_cell.border) if ref_cell.border else None,
+                'fill': copy(ref_cell.fill) if ref_cell.fill else None,
+                'number_format': ref_cell.number_format,
+            }
+            # 表頭底部邊框 = 表格外框粗細（用於最後一列資料的底線）
+            header_cell = worksheet.cell(row=HEADER_ROW, column=col)
+            if (header_cell.border and header_cell.border.bottom
+                    and getattr(header_cell.border.bottom, 'style', None)):
+                frame_bottom_sides[col] = header_cell.border.bottom
+
+        # 2. 擷取備註
+        footnote_text = None
+        footnote_font = None
+        footnote_alignment = None
+        footnote_row_height = None
+        footnote_rich_text = None
+        last_col_letter = get_column_letter(col_count)
+        for merge in list(worksheet.merged_cells.ranges):
+            if merge.min_row >= DATA_START_ROW:
+                cell = worksheet.cell(row=merge.min_row, column=1)
+                if hasattr(cell, '_value') and hasattr(cell._value, '__iter__') and not isinstance(cell._value, str):
+                    footnote_rich_text = cell._value
+                    footnote_text = cell.value
+                else:
+                    footnote_text = cell.value
+                footnote_font = copy(cell.font) if cell.font else None
+                footnote_alignment = copy(cell.alignment) if cell.alignment else None
+                footnote_row_height = worksheet.row_dimensions[merge.min_row].height
+                worksheet.unmerge_cells(str(merge))
+
+        # 3. 清除範例資料
+        max_row = worksheet.max_row
+        for row in range(DATA_START_ROW, max_row + 1):
+            for col in range(1, col_count + 1):
+                cell = worksheet.cell(row=row, column=col)
+                cell.value = None
+                cell.border = Border()
+            if row in worksheet.row_dimensions:
+                del worksheet.row_dimensions[row]
+
+        # 4. 更新標題和日期
+        worksheet['A1'].value = title_text
+        self._set_cell_value_safe(worksheet, f'{last_col_letter}2', date_text)
+
+        # 5. 動態寫入資料列
+        for idx, row_values in enumerate(rows):
+            row = DATA_START_ROW + idx
+            for col, value in enumerate(row_values, start=1):
+                cell = worksheet.cell(row=row, column=col, value=value)
+                style = col_styles[col]
+                
+                # 套用字體、對齊、填充、數字格式
+                if style['font']:
+                    cell.font = style['font']
+                if style['alignment']:
+                    cell.alignment = style['alignment']
+                if style['border']:
+                    cell.border = style['border']
+                if style['fill']:
+                    cell.fill = style['fill']
+                if style['number_format']:
+                    cell.number_format = style['number_format']
+
+        # 5.1 最後一列資料套用表格外框底線（與表頭粗細一致，同 A01 邏輯）
+        if rows:
+            from openpyxl.styles import Side as BottomSide
+            default_bottom = BottomSide(style='medium')
+            last_row = DATA_START_ROW + len(rows) - 1
+            for col in range(1, col_count + 1):
+                cell = worksheet.cell(row=last_row, column=col)
+                bottom_side = frame_bottom_sides.get(col)
+                if not bottom_side or not getattr(bottom_side, 'style', None):
+                    bottom_side = default_bottom
+                if cell.border:
+                    cell.border = Border(
+                        left=cell.border.left,
+                        right=cell.border.right,
+                        top=cell.border.top,
+                        bottom=bottom_side,
+                    )
+                else:
+                    cell.border = Border(bottom=bottom_side)
+
+        # 6. 動態定位備註
+        if footnote_text:
+            footnote_row = DATA_START_ROW + len(rows) + 1
+            worksheet.merge_cells(f"A{footnote_row}:{last_col_letter}{footnote_row}")
+            cell = worksheet.cell(row=footnote_row, column=1)
+            if footnote_rich_text:
+                cell._value = footnote_rich_text
+                cell.data_type = 's'
+            else:
+                cell.value = footnote_text
+            if footnote_font:
+                cell.font = footnote_font
+            if footnote_alignment:
+                cell.alignment = footnote_alignment
+            if footnote_row_height:
+                worksheet.row_dimensions[footnote_row].height = footnote_row_height
+
+        # 7. 儲存
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{filename_prefix}_{timestamp}.xlsx"
+        file_path = self.temp_dir / filename
+        workbook.save(str(file_path))
+        return str(file_path)
+
+    async def generate_a02_1_report(self, data: Dict[str, Any], year: int) -> str:
+        """生成 A02-1 各縣市鄉鎮區統計報表"""
+        today = datetime.now()
+        rows = []
+        for s in data.get('stats', []):
+            rows.append([
+                s.get('county_name', ''),
+                s.get('town_name', ''),
+                s.get('completed_cases', 0) or 0,
+                float(s.get('total_area', 0) or 0),
+                s.get('total_subsidy', 0) or 0,
+            ])
+        return self._generate_a02_report(
+            template_name="A02-1.xlsx",
+            col_count=5,
+            title_text=f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度各縣市鄉鎮區統計",
+            date_text=f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日",
+            rows=rows,
+            filename_prefix=f"A02-1_{year}",
+        )
+
+    async def generate_a02_2_report(self, data: Dict[str, Any], year: int) -> str:
+        """生成 A02-2 各管理處統計報表"""
+        today = datetime.now()
+        rows = []
+        for s in data.get('stats', []):
+            rows.append([
+                s.get('office_name', ''),
+                s.get('completed_cases', 0) or 0,
+                float(s.get('total_area', 0) or 0),
+                s.get('total_subsidy', 0) or 0,
+            ])
+        return self._generate_a02_report(
+            template_name="A02-2.xlsx",
+            col_count=4,
+            title_text=f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度各管理處統計",
+            date_text=f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日",
+            rows=rows,
+            filename_prefix=f"A02-2_{year}",
+        )
+
+    async def generate_a02_3_report(self, data: Dict[str, Any], start_year: int, end_year: int) -> str:
+        """生成 A02-3 歷年各縣市鄉鎮區統計報表"""
+        today = datetime.now()
+        rows = []
+        for s in data.get('stats', []):
+            rows.append([
+                s.get('county_name', ''),
+                s.get('town_name', ''),
+                s.get('completed_cases', 0) or 0,
+                float(s.get('total_area', 0) or 0),
+                s.get('total_subsidy', 0) or 0,
+            ])
+        return self._generate_a02_report(
+            template_name="A02-3.xlsx",
+            col_count=5,
+            title_text=f"農業部農田水利署\n推廣管路灌溉設施計畫\n{start_year}年度～{end_year}年度各縣市鄉鎮區統計",
+            date_text=f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日",
+            rows=rows,
+            filename_prefix=f"A02-3_{start_year}-{end_year}",
+        )
+
+    async def generate_a02_4_report(self, data: Dict[str, Any], start_year: int, end_year: int) -> str:
+        """生成 A02-4 歷年各管理處統計報表"""
+        today = datetime.now()
+        rows = []
+        for s in data.get('stats', []):
+            rows.append([
+                s.get('office_name', ''),
+                s.get('completed_cases', 0) or 0,
+                float(s.get('total_area', 0) or 0),
+                s.get('total_subsidy', 0) or 0,
+            ])
+        return self._generate_a02_report(
+            template_name="A02-4.xlsx",
+            col_count=4,
+            title_text=f"農業部農田水利署\n推廣管路灌溉設施計畫\n{start_year}年度～{end_year}年度各管理處統計",
+            date_text=f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日",
+            rows=rows,
+            filename_prefix=f"A02-4_{start_year}-{end_year}",
+        )
 
     def cleanup_temp_files(self, max_age_hours: int = 24):
         """清理超過指定時間的臨時檔案"""
