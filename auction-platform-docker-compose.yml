@@ -1,0 +1,105 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: auction
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-auction_dev}
+      POSTGRES_DB: auction_db
+      TZ: Asia/Taipei
+      PGTZ: Asia/Taipei
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auction -d auction_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  search:
+    image: getmeili/meilisearch:v1.12
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_KEY:-meili_dev_key}
+      MEILI_ENV: development
+    volumes:
+      - meilidata:/meili_data
+    ports:
+      - "7700:7700"
+
+  api:
+    build: ./auction-api
+    command: uvicorn src.main:app --reload --host 0.0.0.0 --port 5000
+    environment:
+      DATABASE_URL: postgres://auction:${DB_PASSWORD:-auction_dev}@db:5432/auction_db
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-dev_secret_change_in_prod}
+      MEILISEARCH_URL: http://search:7700
+      MEILISEARCH_KEY: ${MEILI_KEY:-meili_dev_key}
+      ALLOWED_ORIGINS: http://localhost:3000
+      DEBUG: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./auction-api:/app
+      - uploads:/app/uploads
+
+  celery-worker:
+    build: ./auction-api
+    command: celery -A src.tasks.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      DATABASE_URL: postgres://auction:${DB_PASSWORD:-auction_dev}@db:5432/auction_db
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-dev_secret_change_in_prod}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./auction-api:/app
+
+  celery-beat:
+    build: ./auction-api
+    command: celery -A src.tasks.celery_app beat --scheduler=redbeat.RedBeatScheduler --loglevel=info
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./auction-api:/app
+
+  web:
+    build: ./auction-web
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./auction-web:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:
+  meilidata:
+  uploads:
