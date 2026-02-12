@@ -156,4 +156,18 @@ export const statisticsService = {
     const filename = `A02-4_歷年各管理處統計_${startYear}-${endYear}年度.xlsx`
     await apiService.download(STATISTICS.OFFICE_SUMMARY_YEARLY_EXCEL, params, filename)
   },
+
+  /**
+   * 下載 A04 原民區域統計報表 Excel
+   * @param year 統計年度（民國年）
+   * @param strictFirstLand 嚴格第一筆土地模式（與A02-1一致的歸屬規則）
+   */
+  async downloadAboriginalStatsExcel(year: number, strictFirstLand: boolean = false): Promise<void> {
+    const params: Record<string, unknown> = { year }
+    if (strictFirstLand) {
+      params.strict_first_land = true
+    }
+    const filename = `A04_原民區域統計_${year}年度.xlsx`
+    await apiService.download(STATISTICS.ABORIGINAL_STATS_EXCEL, params, filename)
+  },
 }

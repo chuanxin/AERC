@@ -150,3 +150,17 @@ class OfficeSummaryStatsResponse(BaseModel):
 
     class Config:
         json_encoders = {Decimal: lambda v: float(v)}
+
+
+# ==================== A04 原民區域統計報表 ====================
+
+class AboriginalAreaStats(BaseModel):
+    """原民區域統計記錄（按縣市鄉鎮區彙總）"""
+    county: str = Field(..., description="縣市名稱")
+    town: str = Field(..., description="鄉鎮區名稱")
+    grant_count: int = Field(default=0, ge=0, description="補助案件數")
+    subsidy_area: Decimal = Field(default=Decimal('0'), ge=0, description="補助面積（公頃）")
+    subsidy_amount: int = Field(default=0, ge=0, description="補助金額（元）")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
