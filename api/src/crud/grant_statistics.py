@@ -621,9 +621,8 @@ class GrantStatisticsCRUD:
         """
         A02-1: 取得各縣市鄉鎮區統計資料
 
-        歸屬規則（per research.md RU-001）：
-        - 案件數 + 補助金額 → 歸屬至第一筆有效土地的縣市/鄉鎮區
-        - 補助面積 → 按各筆土地實際所屬縣市/鄉鎮區分攤
+        歸屬規則：
+        - 案件數 + 補助面積 + 補助金額 → 全數歸屬至第一筆有效土地的縣市/鄉鎮區
         """
         county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
 
@@ -647,9 +646,9 @@ class GrantStatisticsCRUD:
             steps = all_steps_data.get('steps', {})
             lands = steps.get('2', {}).get('lands', [])
 
-            _, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+            grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
 
-            # 案件數 + 補助金額 → 第一筆有效土地
+            # 案件數 + 面積 + 補助金額 → 全數歸屬至第一筆有效土地
             c_id, c_name, t_id, t_name = GrantStatisticsCRUD._find_first_valid_county_town(
                 lands, county_lookup, town_lookup
             )
@@ -663,27 +662,8 @@ class GrantStatisticsCRUD:
                         'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0'),
                     }
                 ct_data[key]['cases'] += 1
+                ct_data[key]['area'] += grant_area
                 ct_data[key]['subsidy'] += grant_subsidy
-
-            # 面積 → 按各筆土地實際所屬縣市/鄉鎮區分攤
-            for land in lands:
-                land_county = land.get('landCounty')
-                land_town = land.get('landTown')
-                if not land_county or not land_town:
-                    continue
-                if land_county not in county_lookup or land_town not in town_lookup:
-                    continue
-                area_key = (land_county, land_town)
-                if area_key not in ct_data:
-                    ct_data[area_key] = {
-                        'county_id': land_county,
-                        'county_name': county_lookup[land_county],
-                        'town_id': land_town,
-                        'town_name': town_lookup[land_town][0],
-                        'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0'),
-                    }
-                facility_area = Decimal(str(land.get('facilityAreaHa', 0) or 0))
-                ct_data[area_key]['area'] += facility_area
 
         # 排序：county_id ASC, town_id ASC
         sorted_keys = sorted(ct_data.keys())
@@ -727,7 +707,7 @@ class GrantStatisticsCRUD:
         # 🔥 分年度查詢以避免 SQL 參數超過 32767 限制
         # 當查詢跨度較大時（如 97-115 年），一次性 prefetch 所有案件會超過限制
         ct_data: dict = {}
-        
+
         for year in range(start_year, end_year + 1):
             query = Grants.filter(
                 year=year,
@@ -747,7 +727,7 @@ class GrantStatisticsCRUD:
                 steps = all_steps_data.get('steps', {})
                 lands = steps.get('2', {}).get('lands', [])
 
-                _, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+                grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
 
                 c_id, c_name, t_id, t_name = GrantStatisticsCRUD._find_first_valid_county_town(
                     lands, county_lookup, town_lookup
@@ -761,25 +741,8 @@ class GrantStatisticsCRUD:
                             'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0'),
                         }
                     ct_data[key]['cases'] += 1
+                    ct_data[key]['area'] += grant_area
                     ct_data[key]['subsidy'] += grant_subsidy
-
-                for land in lands:
-                    land_county = land.get('landCounty')
-                    land_town = land.get('landTown')
-                    if not land_county or not land_town:
-                        continue
-                    if land_county not in county_lookup or land_town not in town_lookup:
-                        continue
-                    area_key = (land_county, land_town)
-                    if area_key not in ct_data:
-                        ct_data[area_key] = {
-                            'county_id': land_county,
-                            'county_name': county_lookup[land_county],
-                            'town_id': land_town,
-                            'town_name': town_lookup[land_town][0],
-                            'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0'),
-                        }
-                    ct_data[area_key]['area'] += Decimal(str(land.get('facilityAreaHa', 0) or 0))
 
         sorted_keys = sorted(ct_data.keys())
         stats = []
@@ -878,3 +841,131 @@ class GrantStatisticsCRUD:
             stats=stats, total_cases=total_cases,
             total_area=total_area, total_subsidy=total_subsidy,
         )
+
+    # ==================== A04 原民區域統計報表 ====================
+
+    @staticmethod
+    def _is_aboriginal_land(land: dict) -> bool:
+        """判斷土地是否為原民區域（容錯處理 null/string）"""
+        is_aboriginal = land.get('isAboriginalArea', False)
+        if is_aboriginal is None:
+            return False
+        if isinstance(is_aboriginal, str):
+            return is_aboriginal.lower() == 'true'
+        return bool(is_aboriginal)
+
+    @staticmethod
+    def _find_first_valid_aboriginal_land(
+        lands: list, county_lookup: dict, town_lookup: dict,
+        strict_first_land: bool = False,
+    ) -> tuple:
+        """
+        找到案件的原民區域有效土地
+
+        Args:
+            strict_first_land: 歸屬模式切換
+                False (預設): 遍歷所有土地，回傳第一筆 isAboriginalArea=true 的有效土地
+                True: 與 A02-1 一致，只看第一筆有效土地，若該土地非原民則排除整筆案件
+
+        Returns:
+            tuple: (county_name, town_name)
+                   若無符合條件的土地則返回 (None, None)
+        """
+        is_aboriginal = GrantStatisticsCRUD._is_aboriginal_land
+
+        if strict_first_land:
+            # Mode B: 第一筆有效土地必須同時為原民區域，否則整筆案件排除
+            for land in lands:
+                land_county = land.get('landCounty')
+                land_town = land.get('landTown')
+                if land_county is None or land_town is None:
+                    continue
+                if land_county not in county_lookup or land_town not in town_lookup:
+                    continue
+                # 找到第一筆有效土地：判定原民與否即回傳
+                if is_aboriginal(land):
+                    return (county_lookup[land_county], town_lookup[land_town][0])
+                return (None, None)
+            return (None, None)
+
+        # Mode A (預設): 找第一筆原民區域有效土地
+        for land in lands:
+            if not is_aboriginal(land):
+                continue
+            land_county = land.get('landCounty')
+            land_town = land.get('landTown')
+            if land_county is None or land_town is None:
+                continue
+            if land_county in county_lookup and land_town in town_lookup:
+                return (county_lookup[land_county], town_lookup[land_town][0])
+
+        return (None, None)
+
+    @staticmethod
+    async def get_aboriginal_statistics(
+        year: int, strict_first_land: bool = False
+    ) -> dict:
+        """
+        A04: 取得原民區域統計資料
+
+        歸屬規則：
+        - strict_first_land=False (預設): 找第一筆原民有效土地歸屬
+        - strict_first_land=True: 與 A02-1 一致，第一筆有效土地必須為原民才計入
+        """
+        county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
+
+        grants = await Grants.filter(
+            year=year,
+            status__in=['completed', 'submitted'],
+            office_id__in=ALLOWED_OFFICE_IDS,
+        ).prefetch_related('active_version').all()
+
+        stats_dict: dict = {}
+
+        for grant in grants:
+            if not grant.active_version:
+                continue
+            all_steps_data = grant.active_version.all_steps_data or {}
+            steps = all_steps_data.get('steps', {})
+            lands = steps.get('2', {}).get('lands', [])
+
+            county_name, town_name = GrantStatisticsCRUD._find_first_valid_aboriginal_land(
+                lands, county_lookup, town_lookup,
+                strict_first_land=strict_first_land,
+            )
+            if county_name is None:
+                continue
+
+            grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+
+            key = (county_name, town_name)
+            if key not in stats_dict:
+                stats_dict[key] = {'count': 0, 'area': Decimal('0'), 'subsidy': Decimal('0')}
+            stats_dict[key]['count'] += 1
+            stats_dict[key]['area'] += grant_area
+            stats_dict[key]['subsidy'] += grant_subsidy
+
+        result = []
+        total_count = 0
+        total_area = Decimal('0')
+        total_subsidy = Decimal('0')
+
+        for (county, town), d in sorted(stats_dict.items()):
+            result.append({
+                'county': county,
+                'town': town,
+                'grant_count': d['count'],
+                'subsidy_area': float(d['area']),
+                'subsidy_amount': int(d['subsidy']),
+            })
+            total_count += d['count']
+            total_area += d['area']
+            total_subsidy += d['subsidy']
+
+        return {
+            'year': year,
+            'stats': result,
+            'total_count': total_count,
+            'total_area': float(total_area),
+            'total_subsidy': int(total_subsidy),
+        }

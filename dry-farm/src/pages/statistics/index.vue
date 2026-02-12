@@ -577,7 +577,7 @@
                           <v-col cols="12" md="4">
                             <div class="d-flex align-items-start">
                               <v-avatar color="#3ea0a3" size="52" rounded="lg">
-                                <span class="text-body-1 font-weight-bold">A03</span>
+                                <span class="text-body-1 font-weight-bold">A04</span>
                               </v-avatar>
                               <div class="ms-3">
                                 <div class="report-title-text">
@@ -607,7 +607,7 @@
                                 density="compact"
                                 hide-details
                                 class="flex-grow-1"
-                                :disabled="a03Filters.currentYear"
+                                :disabled="a04Filters.currentYear"
                                 color="#3ea0a3"
                               />
                               <v-checkbox
@@ -1070,7 +1070,7 @@ const reportSections = [
     badge: 'A',
     title: '執行進度相關報表',
     icon: 'mdi-chart-line',
-    count: 3
+    count: 4
   },
   {
     id: 'achievement',
@@ -1221,6 +1221,12 @@ watch(() => a03Filters.value.currentYear, (isCurrentYear) => {
   }
 })
 
+watch(() => a04Filters.value.currentYear, (isCurrentYear) => {
+  if (isCurrentYear) {
+    a04Filters.value.year = new Date().getFullYear() - 1911
+  }
+})
+
 watch(() => b01_1Filters.value.currentYear, (isCurrentYear) => {
   if (isCurrentYear) {
     b01_1Filters.value.year = new Date().getFullYear() - 1911
@@ -1350,6 +1356,11 @@ const downloadReport = async (reportCode: string) => {
         )
         break
       case 'A04':
+        // A04 原民區域統計報表
+        await statisticsService.downloadAboriginalStatsExcel(
+          filters.year
+        )
+        break
       case 'B01-1':
       case 'B01-2':
       case 'B01-3':

@@ -100,6 +100,8 @@ export const STATISTICS = {
   OFFICE_SUMMARY_EXCEL: `${BASE}/grants/statistics/office-summary/excel`,
   COUNTY_TOWN_YEARLY_EXCEL: `${BASE}/grants/statistics/county-town-yearly/excel`,
   OFFICE_SUMMARY_YEARLY_EXCEL: `${BASE}/grants/statistics/office-summary-yearly/excel`,
+  // A04 原民區域統計
+  ABORIGINAL_STATS_EXCEL: `${BASE}/grants/statistics/aboriginal/excel`,
 }
 
 // Pipe Fittings related endpoints

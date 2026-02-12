@@ -1971,3 +1971,70 @@ async def download_office_summary_yearly_excel(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"生成 A02-4 報表失敗: {str(e)}")
+
+
+# ==================== A04 原民區域統計報表 ====================
+
+
+@router.get(
+    "/statistics/aboriginal/excel",
+    summary="下載 A04 原民區域統計報表 Excel",
+    description="生成並下載指定年度的 A04 原民區域統計報表（Excel 格式），統計 isAboriginalArea = true 的補助案件"
+)
+async def download_aboriginal_statistics_excel(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    strict_first_land: bool = Query(
+        False,
+        description="嚴格第一筆土地模式：True=與A02-1一致，第一筆有效土地必須為原民才計入；False=找第一筆原民有效土地歸屬"
+    ),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """
+    下載 A04 原民區域統計報表 Excel
+
+    報表包含 5 個欄位：
+    - 縣市、鄉鎮區、補助案件數、補助面積（公頃）、補助金額（元）
+
+    篩選規則（兩種模式）：
+    - strict_first_land=false (預設): 找第一筆原民有效土地歸屬
+    - strict_first_land=true: 與 A02-1 一致，第一筆有效土地須為原民才計入
+    """
+    try:
+        mode_desc = "嚴格第一筆土地" if strict_first_land else "第一筆原民土地"
+        logger.info(f"📊 [A04] 生成原民區域統計報表: year={year}, mode={mode_desc}, user={current_user.username}")
+
+        data = await GrantStatisticsCRUD.get_aboriginal_statistics(
+            year=year, strict_first_land=strict_first_land
+        )
+
+        if not data.get('stats'):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"{year} 年度無原民區域案件資料"
+            )
+
+        excel_service = ExcelGeneratorService()
+        excel_file_path = await excel_service.generate_a04_aboriginal_report(
+            data=data,
+            year=year
+        )
+
+        filename = f"A04_原民區域統計_{year}年度.xlsx"
+        encoded_filename = quote(filename, safe='')
+
+        logger.info(f"✅ [A04] 成功生成報表: {excel_file_path}")
+
+        return FileResponse(
+            path=excel_file_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [A04] 生成報表失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"生成 A04 報表失敗: {str(e)}")
