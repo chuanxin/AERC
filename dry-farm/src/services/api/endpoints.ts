@@ -94,6 +94,7 @@ export const STATISTICS = {
   BUDGET_ANALYSIS: `${BASE}/grants/statistics/budget-analysis`,
   // Excel 報表下載
   EXECUTION_PROGRESS_EXCEL: `${BASE}/grants/statistics/execution-progress/excel`,
+  BUDGET_ANALYSIS_EXCEL: `${BASE}/grants/statistics/budget-analysis/excel`,
   // A02 系列
   COUNTY_TOWN_EXCEL: `${BASE}/grants/statistics/county-town/excel`,
   OFFICE_SUMMARY_EXCEL: `${BASE}/grants/statistics/office-summary/excel`,
