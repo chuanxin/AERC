@@ -621,9 +621,8 @@ class GrantStatisticsCRUD:
         """
         A02-1: 取得各縣市鄉鎮區統計資料
 
-        歸屬規則（per research.md RU-001）：
-        - 案件數 + 補助金額 → 歸屬至第一筆有效土地的縣市/鄉鎮區
-        - 補助面積 → 按各筆土地實際所屬縣市/鄉鎮區分攤
+        歸屬規則：
+        - 案件數 + 補助面積 + 補助金額 → 全數歸屬至第一筆有效土地的縣市/鄉鎮區
         """
         county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
 
@@ -647,9 +646,9 @@ class GrantStatisticsCRUD:
             steps = all_steps_data.get('steps', {})
             lands = steps.get('2', {}).get('lands', [])
 
-            _, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+            grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
 
-            # 案件數 + 補助金額 → 第一筆有效土地
+            # 案件數 + 面積 + 補助金額 → 全數歸屬至第一筆有效土地
             c_id, c_name, t_id, t_name = GrantStatisticsCRUD._find_first_valid_county_town(
                 lands, county_lookup, town_lookup
             )
@@ -663,27 +662,8 @@ class GrantStatisticsCRUD:
                         'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0'),
                     }
                 ct_data[key]['cases'] += 1
+                ct_data[key]['area'] += grant_area
                 ct_data[key]['subsidy'] += grant_subsidy
-
-            # 面積 → 按各筆土地實際所屬縣市/鄉鎮區分攤
-            for land in lands:
-                land_county = land.get('landCounty')
-                land_town = land.get('landTown')
-                if not land_county or not land_town:
-                    continue
-                if land_county not in county_lookup or land_town not in town_lookup:
-                    continue
-                area_key = (land_county, land_town)
-                if area_key not in ct_data:
-                    ct_data[area_key] = {
-                        'county_id': land_county,
-                        'county_name': county_lookup[land_county],
-                        'town_id': land_town,
-                        'town_name': town_lookup[land_town][0],
-                        'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0'),
-                    }
-                facility_area = Decimal(str(land.get('facilityAreaHa', 0) or 0))
-                ct_data[area_key]['area'] += facility_area
 
         # 排序：county_id ASC, town_id ASC
         sorted_keys = sorted(ct_data.keys())
@@ -727,7 +707,7 @@ class GrantStatisticsCRUD:
         # 🔥 分年度查詢以避免 SQL 參數超過 32767 限制
         # 當查詢跨度較大時（如 97-115 年），一次性 prefetch 所有案件會超過限制
         ct_data: dict = {}
-        
+
         for year in range(start_year, end_year + 1):
             query = Grants.filter(
                 year=year,
@@ -747,7 +727,7 @@ class GrantStatisticsCRUD:
                 steps = all_steps_data.get('steps', {})
                 lands = steps.get('2', {}).get('lands', [])
 
-                _, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+                grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
 
                 c_id, c_name, t_id, t_name = GrantStatisticsCRUD._find_first_valid_county_town(
                     lands, county_lookup, town_lookup
@@ -761,25 +741,8 @@ class GrantStatisticsCRUD:
                             'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0'),
                         }
                     ct_data[key]['cases'] += 1
+                    ct_data[key]['area'] += grant_area
                     ct_data[key]['subsidy'] += grant_subsidy
-
-                for land in lands:
-                    land_county = land.get('landCounty')
-                    land_town = land.get('landTown')
-                    if not land_county or not land_town:
-                        continue
-                    if land_county not in county_lookup or land_town not in town_lookup:
-                        continue
-                    area_key = (land_county, land_town)
-                    if area_key not in ct_data:
-                        ct_data[area_key] = {
-                            'county_id': land_county,
-                            'county_name': county_lookup[land_county],
-                            'town_id': land_town,
-                            'town_name': town_lookup[land_town][0],
-                            'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0'),
-                        }
-                    ct_data[area_key]['area'] += Decimal(str(land.get('facilityAreaHa', 0) or 0))
 
         sorted_keys = sorted(ct_data.keys())
         stats = []
