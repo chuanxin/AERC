@@ -702,6 +702,211 @@ class ExcelGeneratorService:
             filename_prefix=f"A02-4_{start_year}-{end_year}",
         )
 
+    # ==================== A03 管理處經費統計報表 ====================
+
+    async def generate_a03_budget_analysis_report(
+        self,
+        data: Dict[str, Any],
+        year: int
+    ) -> str:
+        """
+        生成 A03 各管理處經費統計報表 Excel 檔案
+
+        範本驅動 + 動態增長架構（同 A01/A02 模式）：
+        - 範本 A03.xlsx 提供：標題格式、欄寬、資料列樣式參考（Row 4）、備註文字
+        - 程式碼負責：清除範例資料 → 動態寫入實際資料（12欄位）→ 合計列 → 備註跟隨尾端
+
+        Args:
+            data: BudgetAnalysisResponse 資料（包含 offices、total_* 等欄位）
+            year: 統計年度（民國年）
+
+        Returns:
+            str: 生成的 Excel 檔案路徑
+        """
+        from openpyxl import load_workbook
+        from openpyxl.styles import Border, Font
+        from decimal import Decimal
+
+        template_path = settings.get_template_path("A03.xlsx")
+        if not template_path.exists():
+            raise FileNotFoundError(f"範本檔案不存在: {template_path}")
+
+        workbook = load_workbook(str(template_path))
+        worksheet = workbook.active
+
+        DATA_START_ROW = 4  # 範本中資料區塊起始列（同時作為樣式參考列）
+        HEADER_ROW = 3
+        COL_COUNT = 12  # A03 報表共 12 個欄位
+
+        # 1. 從範本擷取樣式參考（Row 4 的每欄格式 + 表頭外框粗細）
+        col_styles = {}
+        frame_bottom_sides = {}
+        for col in range(1, COL_COUNT + 1):
+            ref_cell = worksheet.cell(row=DATA_START_ROW, column=col)
+            col_styles[col] = {
+                'font': copy(ref_cell.font) if ref_cell.font else None,
+                'alignment': copy(ref_cell.alignment) if ref_cell.alignment else None,
+                'border': copy(ref_cell.border) if ref_cell.border else None,
+                'fill': copy(ref_cell.fill) if ref_cell.fill else None,
+                'number_format': ref_cell.number_format,
+            }
+            # 表頭底部邊框 = 表格外框粗細（用於最後一列資料的底線）
+            header_cell = worksheet.cell(row=HEADER_ROW, column=col)
+            if header_cell.border and header_cell.border.bottom:
+                frame_bottom_sides[col] = header_cell.border.bottom
+
+        # 2. 擷取備註（解除 Row 4 以下的所有合併儲存格）
+        footnote_text = None
+        footnote_font = None
+        footnote_alignment = None
+        footnote_row_height = None
+        footnote_rich_text = None  # 保存 Rich Text 數據
+        for merge in list(worksheet.merged_cells.ranges):
+            if merge.min_row >= DATA_START_ROW:
+                cell = worksheet.cell(row=merge.min_row, column=1)
+                # 檢查是否為 Rich Text（部分文字有不同格式）
+                if hasattr(cell, '_value') and hasattr(cell._value, '__iter__') and not isinstance(cell._value, str):
+                    # 保存 Rich Text 數據（包含所有格式信息）
+                    footnote_rich_text = cell._value
+                    footnote_text = cell.value  # 保存純文字作為後備
+                else:
+                    footnote_text = cell.value
+                footnote_font = copy(cell.font) if cell.font else None
+                footnote_alignment = copy(cell.alignment) if cell.alignment else None
+                footnote_row_height = worksheet.row_dimensions[merge.min_row].height
+                worksheet.unmerge_cells(str(merge))
+
+        # 3. 清除範本的範例資料（Row 4 到最後一行：內容、邊框、行高）
+        max_row = worksheet.max_row
+        for row in range(DATA_START_ROW, max_row + 1):
+            for col in range(1, COL_COUNT + 1):
+                cell = worksheet.cell(row=row, column=col)
+                cell.value = None
+                cell.border = Border()
+            # 重置行高（移除範本殘留的自訂行高）
+            if row in worksheet.row_dimensions:
+                del worksheet.row_dimensions[row]
+
+        # 4. 更新標題和製表日期
+        worksheet['A1'].value = (
+            f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度各管理處經費統計"
+        )
+        today = datetime.now()
+        date_str = f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日"
+        self._set_cell_value_safe(worksheet, 'L2', date_str)
+
+        # 5. 動態寫入資料列（套用範本樣式）
+        offices = data.get('offices', [])
+        for idx, office in enumerate(offices):
+            row = DATA_START_ROW + idx
+            row_values = [
+                office.get('office_name', ''),
+                float(office.get('planned_area', 0) or 0),
+                office.get('planned_budget', 0) or 0,
+                office.get('budgeted_cases', 0) or 0,
+                float(office.get('budgeted_area', 0) or 0),
+                office.get('budgeted_subsidy', 0) or 0,
+                office.get('unbudgeted_subsidy', 0) or 0,
+                office.get('verified_cases', 0) or 0,
+                float(office.get('verified_area', 0) or 0),
+                office.get('verified_amount', 0) or 0,
+                float(office.get('area_execution_rate', 0) or 0),
+                float(office.get('budget_execution_rate', 0) or 0),
+            ]
+            for col, value in enumerate(row_values, start=1):
+                cell = worksheet.cell(row=row, column=col, value=value)
+                style = col_styles[col]
+                if style['font']:
+                    cell.font = style['font']
+                if style['alignment']:
+                    cell.alignment = style['alignment']
+                if style['border']:
+                    cell.border = style['border']
+                if style['fill']:
+                    cell.fill = style['fill']
+                if style['number_format']:
+                    cell.number_format = style['number_format']
+
+        # 6. 新增合計列（使用粗體字）
+        if offices:
+            total_row = DATA_START_ROW + len(offices)
+            total_values = [
+                '合計',
+                float(data.get('total_planned_area', 0) or 0),
+                data.get('total_planned_budget', 0) or 0,
+                sum(o.get('budgeted_cases', 0) or 0 for o in offices),
+                sum(float(o.get('budgeted_area', 0) or 0) for o in offices),
+                data.get('total_budgeted_subsidy', 0) or 0,
+                data.get('total_unbudgeted_subsidy', 0) or 0,
+                sum(o.get('verified_cases', 0) or 0 for o in offices),
+                sum(float(o.get('verified_area', 0) or 0) for o in offices),
+                data.get('total_verified_amount', 0) or 0,
+                float(data.get('overall_area_execution_rate', 0) or 0),
+                float(data.get('overall_budget_execution_rate', 0) or 0),
+            ]
+            for col, value in enumerate(total_values, start=1):
+                cell = worksheet.cell(row=total_row, column=col, value=value)
+                style = col_styles[col]
+                # 套用樣式並將字體設為粗體
+                if style['font']:
+                    bold_font = copy(style['font'])
+                    bold_font.bold = True
+                    cell.font = bold_font
+                else:
+                    cell.font = Font(bold=True)
+                if style['alignment']:
+                    cell.alignment = style['alignment']
+                if style['border']:
+                    cell.border = style['border']
+                if style['fill']:
+                    cell.fill = style['fill']
+                if style['number_format']:
+                    cell.number_format = style['number_format']
+
+            # 6.1 合計列套用表格外框底線（與表頭粗細一致）
+            for col in range(1, COL_COUNT + 1):
+                cell = worksheet.cell(row=total_row, column=col)
+                if col in frame_bottom_sides and cell.border:
+                    cell.border = Border(
+                        left=cell.border.left,
+                        right=cell.border.right,
+                        top=cell.border.top,
+                        bottom=frame_bottom_sides[col],
+                    )
+
+        # 7. 動態定位備註（緊跟合計列，空一行）
+        if footnote_text:
+            footnote_row = DATA_START_ROW + len(offices) + 2  # 資料列 + 合計列 + 空行
+            worksheet.merge_cells(f"A{footnote_row}:L{footnote_row}")
+            cell = worksheet.cell(row=footnote_row, column=1)
+            
+            # 優先使用 Rich Text（保留底線等格式），否則使用純文字
+            if footnote_rich_text:
+                cell._value = footnote_rich_text
+                cell.data_type = 's'  # 設定為字串類型
+            else:
+                cell.value = footnote_text
+                
+            if footnote_font:
+                cell.font = footnote_font
+            if footnote_alignment:
+                cell.alignment = footnote_alignment
+            if footnote_row_height:
+                worksheet.row_dimensions[footnote_row].height = footnote_row_height
+
+        # 8. 生成檔案
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"A03_budget_analysis_{year}_{timestamp}.xlsx"
+        file_path = self.temp_dir / filename
+
+        try:
+            workbook.save(str(file_path))
+            return str(file_path)
+        except Exception as e:
+            print(f"Excel save error: {e}")
+            print(f"File path: {file_path}")
+            raise
+
     def cleanup_temp_files(self, max_age_hours: int = 24):
         """清理超過指定時間的臨時檔案"""
         import time

@@ -1343,6 +1343,12 @@ const downloadReport = async (reportCode: string) => {
         break
       }
       case 'A03':
+        // A03 各管理處經費統計報表
+        await statisticsService.downloadBudgetAnalysisExcel(
+          filters.year,
+          filters.office
+        )
+        break
       case 'A04':
       case 'B01-1':
       case 'B01-2':

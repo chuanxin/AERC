@@ -103,6 +103,21 @@ export const statisticsService = {
   },
 
   /**
+   * 下載 A03 各管理處經費統計報表 Excel
+   * @param year 統計年度（民國年）
+   * @param officeId 管理處 ID（選填）
+   */
+  async downloadBudgetAnalysisExcel(year: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { year }
+    if (officeId) {
+      params.office_id = officeId
+    }
+
+    const filename = `A03_各管理處經費統計_${year}年度.xlsx`
+    await apiService.download(STATISTICS.BUDGET_ANALYSIS_EXCEL, params, filename)
+  },
+
+  /**
    * 下載 A02-1 各縣市鄉鎮區統計報表 Excel
    */
   async downloadCountyTownExcel(year: number, officeId?: number | null): Promise<void> {

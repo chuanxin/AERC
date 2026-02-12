@@ -1738,6 +1738,100 @@ async def download_execution_progress_excel(
         )
 
 
+# ==================== A03 管理處經費統計報表 ====================
+
+
+@router.get(
+    "/statistics/budget-analysis/excel",
+    summary="下載 A03 各管理處經費統計報表 Excel",
+    description="生成並下載指定年度的 A03 各管理處經費統計報表（Excel 格式），包含預定執行、已編列、已驗收、執行率等 12 個欄位"
+)
+async def download_budget_analysis_excel(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """
+    下載 A03 各管理處經費統計報表 Excel
+
+    報表包含 12 個欄位：
+    - 管理處
+    - 預定執行面積（公頃）
+    - 預定執行預算（元）
+    - 已編預算案件數
+    - 已編預算面積（公頃）
+    - 已編列補助款（元）
+    - 未編列補助款（元）
+    - 已驗收案件數
+    - 已驗收面積（公頃）
+    - 已驗收金額（元）
+    - 面積執行率（%）
+    - 預算執行率（%）
+
+    權限控制：
+    - admin: 可下載所有管理處資料
+    - 其他角色: 僅能下載所屬管理處資料
+    """
+    try:
+        logger.info(f"📊 [download_budget_analysis_excel] 生成 A03 報表: year={year}, office_id={office_id}, user={current_user.username}")
+
+        # 權限控制：非 admin 使用者只能查詢自己的辦公室
+        if current_user.role != "admin":
+            if office_id is not None and office_id != current_user.office.id:
+                logger.warning(f"⚠️ [download_budget_analysis_excel] 權限不足: user={current_user.username} 嘗試查詢 office_id={office_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="您沒有權限查詢此管理處資料"
+                )
+            # 強制設定為使用者自己的辦公室
+            office_id = current_user.office.id if current_user.office else None
+
+        # 查詢經費統計資料（複用現有 CRUD 方法）
+        result = await GrantStatisticsCRUD.get_budget_analysis(
+            year=year,
+            office_id=office_id,
+        )
+
+        # 將 Pydantic model 轉換為 dict
+        data = result.model_dump()
+
+        # 生成 Excel 檔案
+        excel_service = ExcelGeneratorService()
+        excel_file_path = await excel_service.generate_a03_budget_analysis_report(
+            data=data,
+            year=year
+        )
+
+        # 生成下載檔名（根據是否篩選辦公室調整檔名）
+        if office_id is None:
+            filename = f"A03_各管理處經費統計_{year}年度.xlsx"
+        else:
+            office_name = data['offices'][0].get('office_name', '管理處') if data.get('offices') else '管理處'
+            filename = f"A03_{office_name}經費統計_{year}年度.xlsx"
+        
+        encoded_filename = quote(filename, safe='')
+
+        logger.info(f"✅ [download_budget_analysis_excel] 成功生成報表: {excel_file_path}")
+
+        return FileResponse(
+            path=excel_file_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [download_budget_analysis_excel] 生成報表失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"生成 A03 報表失敗: {str(e)}"
+        )
+
+
 # ==================== A02 系列統計報表 ====================
 
 
