@@ -6994,8 +6994,18 @@ const generateDripperHeads = (data: any) => {
 // 生成滴水管系統材料
 const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
   const materials = [];
-  const branchSpecName = pipeDiameterOptions.value.find(d => d.id === data.BranchSpec)?.name || '16mm';
   const mainSpecName = pipeDiameterOptions.value.find(d => d.id === mainPipeSpec)?.name || '1"';
+
+  // ID=8：規格從末端管材 (endFacilityPomno) 的 diameter1 取得，
+  // 而非 branchPipeDiameterId（那是 ID=7 滴嘴滴灌系統的欄位）
+  const endFacilityMatch = localFormData.endFacilityPomno
+    ? matchMaterialByPomno(localFormData.endFacilityPomno)
+    : { matchedData: null, pomno: null, matprice: null };
+  const selectedEndFacility = localFormData.endFacilityPomno
+    ? filteredEndFacilityPipeFittings.value.find(f => f.pomno === localFormData.endFacilityPomno)
+    : undefined;
+  const branchSpecName = endFacilityMatch.matchedData?.diameter1?.name
+    || selectedEndFacility?.specName;
 
   // 滴水帶 - 管材用無條件進位
   // addMaterial(materials, 12, branchSpecName, 'PE', '', {
@@ -7014,37 +7024,29 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
   // });
 
   // 末端管材 - 使用與滴水帶相同的計算公式（管材類：無條件進位）
-  if (localFormData.endFacilityPomno) {
-    const endFacilityMatch = matchMaterialByPomno(localFormData.endFacilityPomno);
-    const selectedEndFacility = filteredEndFacilityPipeFittings.value.find(
-      fitting => fitting.pomno === localFormData.endFacilityPomno
-    );
+  if (localFormData.endFacilityPomno && (endFacilityMatch.matchedData || selectedEndFacility)) {
+    const endFacilityName = endFacilityMatch.matchedData?.name || selectedEndFacility?.displayName || '末端管材';
+    const endFacilityMaterial = endFacilityMatch.matchedData?.material?.name || selectedEndFacility?.materialName || 'PE';
 
-    if (endFacilityMatch.matchedData || selectedEndFacility) {
-      const endFacilityName = endFacilityMatch.matchedData?.name || selectedEndFacility?.displayName || '末端管材';
-      const endFacilityMaterial = endFacilityMatch.matchedData?.material?.name || selectedEndFacility?.materialName || 'PE';
-      const endFacilitySpec = endFacilityMatch.matchedData?.diameter1?.name || selectedEndFacility?.specName || branchSpecName;
+    // 計算管材數量：總長度除以標準長度，當length欄位為空值時固定除4
+    const materialLength = endFacilityMatch.matchedData?.length || 4;
+    const totalLength = data.BranchAmt * data.width;
+    const materialQuantity = Math.ceil(totalLength / materialLength);
 
-      // 計算管材數量：總長度除以標準長度，當length欄位為空值時固定除4
-      const materialLength = endFacilityMatch.matchedData?.length || 4;
-      const totalLength = data.BranchAmt * data.width;
-      const materialQuantity = Math.ceil(totalLength / materialLength);
-
-      addMaterial(materials, localFormData.endFacilityPomno, endFacilitySpec, endFacilityMaterial, '', {
-        module: '滴灌管',
-        matname: endFacilityName,
-        module_id: 12, // 使用與滴水帶相同的模組ID，表示管材類
-        mattype: endFacilityMaterial,
-        spec1: endFacilitySpec,
-        spec2: '',
-        spec3: '',
-        itemunit: `${materialLength}m`,
-        matamount: materialQuantity,
-        description: `滴灌管材`,
-        order: 1,
-        group: 4
-      });
-    }
+    addMaterial(materials, localFormData.endFacilityPomno, branchSpecName, endFacilityMaterial, '', {
+      module: '滴灌管',
+      matname: endFacilityName,
+      module_id: 12, // 使用與滴水帶相同的模組ID，表示管材類
+      mattype: endFacilityMaterial,
+      spec1: branchSpecName,
+      spec2: '',
+      spec3: '',
+      itemunit: `${materialLength}m`,
+      matamount: materialQuantity,
+      description: `滴灌管材`,
+      order: 1,
+      group: 4
+    });
   }
 
   // 三通 - 配件用無條件捨去
