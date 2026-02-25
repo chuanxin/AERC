@@ -549,6 +549,9 @@ class CompletionStatementPDFGenerator:
                 font_size=12,
                 line_spacing=16
             )
+        else :
+            self._draw_checkbox(c, content_x, y_pos + row_height_3 / 2 - 3, True)
+            c.drawString(content_x + 13, y_pos + row_height_3 / 2 - 3, "未申請")
 
         c.setLineWidth(2)
         c.rect(table_x + table_width * 0.75, y_pos, table_width * 0.25, row_height_3)
@@ -590,6 +593,9 @@ class CompletionStatementPDFGenerator:
                 font_size=12,
                 line_spacing=16
             )
+        else:
+            self._draw_checkbox(c, content_x, y_pos + row_height_4 / 2 - 3, True)
+            c.drawString(content_x + 13, y_pos + row_height_4 / 2 - 3, "未申請")
 
         c.setLineWidth(2)
         c.rect(table_x + table_width * 0.75, y_pos, table_width * 0.25, row_height_4)

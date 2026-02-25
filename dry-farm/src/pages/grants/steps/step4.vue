@@ -1442,9 +1442,9 @@
                   點擊下方按鈕可根據您選擇的灌溉型式和設施配置，自動帶入相應的材料清單。
                 </div>
 
-                <!-- 版本選擇控制項 -->
+                <!-- 版本選擇控制項 20260224 關閉按鈕選項 避免使用者混淆-->
                 <div>
-                  <v-chip-group
+                  <!-- <v-chip-group
                     v-model="materialGenerationVersion"
                     mandatory
                     selected-class="text-primary"
@@ -1465,7 +1465,7 @@
                     >
                       v2 - 只帶入有單價的材料
                     </v-chip>
-                  </v-chip-group>
+                  </v-chip-group> -->
                   <div class="text-caption text-grey-darken-1">
                     {{ materialGenerationVersion === 'v1' ? '帶入所有材料項目（含無單價項目）' : '只帶入資料庫中具有單價的材料項目' }}
                   </div>

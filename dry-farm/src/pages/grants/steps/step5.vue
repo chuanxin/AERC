@@ -534,7 +534,7 @@ const availableInspectors = computed(() => {
   return inspectors
     .filter(i => 
       i.office_id === currentOfficeId && // 這裡現在是 number === number
-      i.is_inspector // 只顯示具備勘查資格的人
+      i.is_designer // 只顯示具備勘查資格的人 勘查人員 = 設計者
     )
     .map(i => i.name); // 只回傳名字陣列給下拉選單
 });
@@ -636,7 +636,7 @@ const buttonConfig = computed(() => {
     disabled: false
   };
 });
-const noPhotoReasonOptions = ['未達15萬書審'];
+const noPhotoReasonOptions = ['未達15萬書審', '僅單獨申請動力/調控設備/調蓄設施', '其他原因:'];
 // 本地表單數據
 const localFormData = reactive({
   inspector: '',

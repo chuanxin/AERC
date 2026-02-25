@@ -1392,7 +1392,16 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
 
                     # 格式化規格（∮ {spec1}"）
                     spec1 = pipe.get('spec1', '')
+                    spec2 = pipe.get('spec2', '')
+                    spec3 = pipe.get('spec3', '')
                     spec_formatted = f"∮ {spec1}" if spec1 else ''
+                    # 如果 spec2 有值，串接 " x ∮ {spec2}"
+                    if spec2:
+                        spec_formatted += f"x{spec2}"
+
+                    # 如果 spec3 有值，串接 "x{spec3}"
+                    if spec3:
+                        spec_formatted += f"x{spec3}"
 
                     pipe_materials.append({
                         'category': f"{sequential_group_number}. {group_name}",  # 連續群組編號 + groupName
