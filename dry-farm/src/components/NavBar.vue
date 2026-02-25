@@ -363,7 +363,8 @@ onUnmounted(() => {
       title: '統計報表',
       value: 'statistics',
       to: { path: '/statistics' },
-      icon: 'mdi-chart-bar'
+      icon: 'mdi-chart-bar',
+      disabled: true,
     },
     {
       title: '材料管理',
