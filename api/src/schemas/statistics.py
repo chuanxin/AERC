@@ -152,6 +152,134 @@ class OfficeSummaryStatsResponse(BaseModel):
         json_encoders = {Decimal: lambda v: float(v)}
 
 
+# ── A02-3 / A02-4 橫向年度展開統計（每年度獨立顯示） ──────────────────────────────
+
+class YearMetrics(BaseModel):
+    """單一年度的三項統計指標（A02-3/A02-4 共用）"""
+    year: int = Field(..., description="所屬年度")
+    completed_cases: int = Field(default=0, description="補助案件數")
+    total_area: Decimal = Field(default=Decimal('0'), description="補助面積（公頃）")
+    total_subsidy: Decimal = Field(default=Decimal('0'), description="補助金額（元）")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class CountyTownYearlyRow(BaseModel):
+    """A02-3 一列 = 一個縣市/鄉鎮區，含所有年度指標"""
+    county_id: int = Field(..., description="縣市 ID（排序用）")
+    county_name: str = Field(..., description="縣市名稱")
+    town_id: int = Field(..., description="鄉鎮區 ID（排序用）")
+    town_name: str = Field(..., description="鄉鎮區名稱")
+    year_metrics: List[YearMetrics] = Field(default_factory=list, description="各年度統計，按 year 升序")
+
+
+class CountyTownYearlyStatsResponse(BaseModel):
+    """A02-3 各縣市鄉鎮區歷年橫向年度展開統計回應"""
+    start_year: int = Field(..., description="起始年度")
+    end_year: int = Field(..., description="結束年度")
+    years: List[int] = Field(default_factory=list, description="實際包含資料的年度清單（升序）")
+    rows: List[CountyTownYearlyRow] = Field(default_factory=list, description="各縣市/鄉鎮區列，按 county_id→town_id 排序")
+
+
+class OfficeSummaryYearlyRow(BaseModel):
+    """A02-4 一列 = 一個管理處，含所有年度指標"""
+    office_id: int = Field(..., description="管理處 ID（ALLOWED_OFFICE_IDS 順序）")
+    office_name: str = Field(..., description="管理處名稱")
+    year_metrics: List[YearMetrics] = Field(default_factory=list, description="各年度統計，按 year 升序")
+
+
+class OfficeSummaryYearlyStatsResponse(BaseModel):
+    """A02-4 各管理處歷年橫向年度展開統計回應"""
+    start_year: int = Field(..., description="起始年度")
+    end_year: int = Field(..., description="結束年度")
+    years: List[int] = Field(default_factory=list, description="實際包含資料的年度清單（升序）")
+    rows: List[OfficeSummaryYearlyRow] = Field(default_factory=list, description="各管理處列，按 ALLOWED_OFFICE_IDS 順序")
+
+
+# ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
+
+class CountyManagementAreaStats(BaseModel):
+    """單一縣市的管理區內外統計資料（已編列/已結案分組）"""
+    county_id: int = Field(..., description="縣市 ID")
+    county_name: str = Field(..., description="縣市名稱")
+
+    # 已編列 - 管理區外
+    budgeted_outside_cases: int = Field(default=0, description="已編列-管理區外案件數")
+    budgeted_outside_area: Decimal = Field(default=Decimal('0'), description="已編列-管理區外面積（公頃）")
+    budgeted_outside_subsidy: Decimal = Field(default=Decimal('0'), description="已編列-管理區外補助金額（元）")
+
+    # 已編列 - 管理區內
+    budgeted_inside_cases: int = Field(default=0, description="已編列-管理區內案件數")
+    budgeted_inside_area: Decimal = Field(default=Decimal('0'), description="已編列-管理區內面積（公頃）")
+    budgeted_inside_subsidy: Decimal = Field(default=Decimal('0'), description="已編列-管理區內補助金額（元）")
+
+    # 已結案 - 管理區外
+    completed_outside_cases: int = Field(default=0, description="已結案-管理區外案件數")
+    completed_outside_area: Decimal = Field(default=Decimal('0'), description="已結案-管理區外面積（公頃）")
+    completed_outside_subsidy: Decimal = Field(default=Decimal('0'), description="已結案-管理區外補助金額（元）")
+
+    # 已結案 - 管理區內
+    completed_inside_cases: int = Field(default=0, description="已結案-管理區內案件數")
+    completed_inside_area: Decimal = Field(default=Decimal('0'), description="已結案-管理區內面積（公頃）")
+    completed_inside_subsidy: Decimal = Field(default=Decimal('0'), description="已結案-管理區內補助金額（元）")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class OfficeManagementAreaStats(BaseModel):
+    """單一管理處的管理區內外統計資料"""
+    office_id: int = Field(..., description="管理處 ID")
+    office_name: str = Field(..., description="管理處名稱")
+
+    # 管理區內統計
+    inside_cases: int = Field(default=0, description="管理區內案件數")
+    inside_area: Decimal = Field(default=Decimal('0'), description="管理區內面積（公頃）")
+    inside_subsidy: Decimal = Field(default=Decimal('0'), description="管理區內補助金額（元）")
+
+    # 管理區外統計
+    outside_cases: int = Field(default=0, description="管理區外案件數")
+    outside_area: Decimal = Field(default=Decimal('0'), description="管理區外面積（公頃）")
+    outside_subsidy: Decimal = Field(default=Decimal('0'), description="管理區外補助金額（元）")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class CountyManagementAreaStatsResponse(BaseModel):
+    """B01-1/B01-3 各縣市管理區內外統計回應"""
+    year: Optional[int] = Field(None, description="統計年度（B01-1 單年度）")
+    start_year: Optional[int] = Field(None, description="起始年度（B01-3 歷年）")
+    end_year: Optional[int] = Field(None, description="結束年度（B01-3 歷年）")
+    stats: List[CountyManagementAreaStats] = Field(default_factory=list, description="縣市統計清單")
+
+    # 總計（管理區內 + 管理區外）
+    total_cases: int = Field(default=0, description="總案件數")
+    total_area: Decimal = Field(default=Decimal('0'), description="總面積（公頃）")
+    total_subsidy: Decimal = Field(default=Decimal('0'), description="總補助金額（元）")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class OfficeManagementAreaStatsResponse(BaseModel):
+    """B01-2/B01-4 各管理處管理區內外統計回應"""
+    year: Optional[int] = Field(None, description="統計年度（B01-2 單年度）")
+    start_year: Optional[int] = Field(None, description="起始年度（B01-4 歷年）")
+    end_year: Optional[int] = Field(None, description="結束年度（B01-4 歷年）")
+    office_id: Optional[int] = Field(None, description="篩選的管理處 ID，若為 None 則為全部管理處")
+    stats: List[OfficeManagementAreaStats] = Field(default_factory=list, description="管理處統計清單")
+
+    # 總計
+    total_cases: int = Field(default=0, description="總案件數")
+    total_area: Decimal = Field(default=Decimal('0'), description="總面積（公頃）")
+    total_subsidy: Decimal = Field(default=Decimal('0'), description="總補助金額（元）")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
 # ==================== A04 原民區域統計報表 ====================
 
 class AboriginalAreaStats(BaseModel):

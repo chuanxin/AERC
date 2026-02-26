@@ -1915,9 +1915,7 @@ async def download_county_town_yearly_excel(
         )
         data = result.model_dump()
         excel_service = ExcelGeneratorService()
-        excel_file_path = await excel_service.generate_a02_3_report(
-            data=data, start_year=start_year, end_year=end_year
-        )
+        excel_file_path = await excel_service.generate_a02_3_report(data=data)
         filename = f"A02-3_{start_year}-{end_year}年度.xlsx"
         encoded_filename = quote(filename, safe='')
         return FileResponse(
@@ -1954,9 +1952,7 @@ async def download_office_summary_yearly_excel(
         )
         data = result.model_dump()
         excel_service = ExcelGeneratorService()
-        excel_file_path = await excel_service.generate_a02_4_report(
-            data=data, start_year=start_year, end_year=end_year
-        )
+        excel_file_path = await excel_service.generate_a02_4_report(data=data)
         filename = f"A02-4_{start_year}-{end_year}年度.xlsx"
         encoded_filename = quote(filename, safe='')
         return FileResponse(
@@ -2038,3 +2034,160 @@ async def download_aboriginal_statistics_excel(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"生成 A04 報表失敗: {str(e)}")
+
+
+# ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
+
+
+@router.get(
+    "/statistics/b01-1/excel",
+    summary="下載 B01-1 各縣市管理區內外統計報表 Excel（單年度）",
+    description="生成並下載指定年度的 B01-1 各縣市推動成果統計表（Excel 格式），按管理區內/外分組統計"
+)
+async def download_b01_1_county_management_area_excel(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+) -> FileResponse:
+    """
+    下載 B01-1 各縣市管理區內外統計報表 Excel
+
+    統計維度：縣市 × 管理區內外（isIrrigationArea）
+    """
+    # 取得統計資料
+    stats_response = await GrantStatisticsCRUD.get_b01_1_county_management_area_stats(
+        year=year,
+        office_id=office_id
+    )
+
+    # 生成 Excel
+    excel_service = ExcelGeneratorService()
+    file_path = await excel_service.generate_b01_1_report(
+        data=stats_response.dict(),
+        year=year
+    )
+
+    return FileResponse(
+        path=file_path,
+        filename=f"B01-1_{year}年度.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+@router.get(
+    "/statistics/b01-2/excel",
+    summary="下載 B01-2 各管理處管理區內外統計報表 Excel（單年度）",
+    description="生成並下載指定年度的 B01-2 各管理處推動成果統計表（Excel 格式），按管理區內/外分組統計"
+)
+async def download_b01_2_office_management_area_excel(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+) -> FileResponse:
+    """
+    下載 B01-2 各管理處管理區內外統計報表 Excel
+
+    統計維度：管理處 × 管理區內外（isIrrigationArea）
+    """
+    # 取得統計資料
+    stats_response = await GrantStatisticsCRUD.get_b01_2_office_management_area_stats(
+        year=year,
+        office_id=office_id
+    )
+
+    # 生成 Excel
+    excel_service = ExcelGeneratorService()
+    file_path = await excel_service.generate_b01_2_report(
+        data=stats_response.dict(),
+        year=year
+    )
+
+    return FileResponse(
+        path=file_path,
+        filename=f"B01-2_{year}年度.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+@router.get(
+    "/statistics/b01-3/excel",
+    summary="下載 B01-3 歷年各縣市管理區內外統計報表 Excel",
+    description="生成並下載歷年累計的 B01-3 各縣市推動成果統計表（Excel 格式），按管理區內/外分組統計"
+)
+async def download_b01_3_county_management_area_yearly_excel(
+    start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
+    end_year: int = Query(..., description="結束年度（民國年）", ge=97, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+) -> FileResponse:
+    """
+    下載 B01-3 歷年各縣市管理區內外統計報表 Excel
+
+    統計維度：縣市 × 管理區內外（isIrrigationArea），歷年累計
+    """
+    # 驗證年度範圍
+    if start_year > end_year:
+        raise HTTPException(status_code=400, detail="起始年度不得大於結束年度")
+
+    # 取得統計資料
+    stats_response = await GrantStatisticsCRUD.get_b01_3_county_management_area_stats_yearly(
+        start_year=start_year,
+        end_year=end_year,
+        office_id=office_id
+    )
+
+    # 生成 Excel
+    excel_service = ExcelGeneratorService()
+    file_path = await excel_service.generate_b01_3_report(
+        data=stats_response.dict(),
+        start_year=start_year,
+        end_year=end_year
+    )
+
+    return FileResponse(
+        path=file_path,
+        filename=f"B01-3_{start_year}-{end_year}年度.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+@router.get(
+    "/statistics/b01-4/excel",
+    summary="下載 B01-4 歷年各管理處管理區內外統計報表 Excel",
+    description="生成並下載歷年累計的 B01-4 各管理處推動成果統計表（Excel 格式），按管理區內/外分組統計"
+)
+async def download_b01_4_office_management_area_yearly_excel(
+    start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
+    end_year: int = Query(..., description="結束年度（民國年）", ge=97, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+) -> FileResponse:
+    """
+    下載 B01-4 歷年各管理處管理區內外統計報表 Excel
+
+    統計維度：管理處 × 管理區內外（isIrrigationArea），歷年累計
+    """
+    # 驗證年度範圍
+    if start_year > end_year:
+        raise HTTPException(status_code=400, detail="起始年度不得大於結束年度")
+
+    # 取得統計資料
+    stats_response = await GrantStatisticsCRUD.get_b01_4_office_management_area_stats_yearly(
+        start_year=start_year,
+        end_year=end_year,
+        office_id=office_id
+    )
+
+    # 生成 Excel
+    excel_service = ExcelGeneratorService()
+    file_path = await excel_service.generate_b01_4_report(
+        data=stats_response.dict(),
+        start_year=start_year,
+        end_year=end_year
+    )
+
+    return FileResponse(
+        path=file_path,
+        filename=f"B01-4_{start_year}-{end_year}年度.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )

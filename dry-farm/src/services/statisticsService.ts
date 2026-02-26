@@ -170,4 +170,56 @@ export const statisticsService = {
     const filename = `A04_原民區域統計_${year}年度.xlsx`
     await apiService.download(STATISTICS.ABORIGINAL_STATS_EXCEL, params, filename)
   },
+
+  // ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
+
+  /**
+   * 下載 B01-1 各縣市管理區內外統計報表 Excel（單年度）
+   * @param year 統計年度（民國年）
+   * @param officeId 管理處 ID（選填）
+   */
+  async downloadB01_1Excel(year: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { year }
+    if (officeId) params.office_id = officeId
+    const filename = `B01-1_各縣市推動成果統計_${year}年度.xlsx`
+    await apiService.download(STATISTICS.B01_1_EXCEL, params, filename)
+  },
+
+  /**
+   * 下載 B01-2 各管理處管理區內外統計報表 Excel（單年度）
+   * @param year 統計年度（民國年）
+   * @param officeId 管理處 ID（選填）
+   */
+  async downloadB01_2Excel(year: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { year }
+    if (officeId) params.office_id = officeId
+    const filename = `B01-2_各管理處推動成果統計_${year}年度.xlsx`
+    await apiService.download(STATISTICS.B01_2_EXCEL, params, filename)
+  },
+
+  /**
+   * 下載 B01-3 歷年各縣市管理區內外統計報表 Excel
+   * @param startYear 起始年度（民國年）
+   * @param endYear 結束年度（民國年）
+   * @param officeId 管理處 ID（選填）
+   */
+  async downloadB01_3Excel(startYear: number, endYear: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { start_year: startYear, end_year: endYear }
+    if (officeId) params.office_id = officeId
+    const filename = `B01-3_歷年各縣市推動成果統計_${startYear}-${endYear}年度.xlsx`
+    await apiService.download(STATISTICS.B01_3_EXCEL, params, filename)
+  },
+
+  /**
+   * 下載 B01-4 歷年各管理處管理區內外統計報表 Excel
+   * @param startYear 起始年度（民國年）
+   * @param endYear 結束年度（民國年）
+   * @param officeId 管理處 ID（選填）
+   */
+  async downloadB01_4Excel(startYear: number, endYear: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { start_year: startYear, end_year: endYear }
+    if (officeId) params.office_id = officeId
+    const filename = `B01-4_歷年各管理處推動成果統計_${startYear}-${endYear}年度.xlsx`
+    await apiService.download(STATISTICS.B01_4_EXCEL, params, filename)
+  },
 }

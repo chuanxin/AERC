@@ -1362,11 +1362,39 @@ const downloadReport = async (reportCode: string) => {
         )
         break
       case 'B01-1':
+        await statisticsService.downloadB01_1Excel(
+          filters.year, filters.office
+        )
+        break
       case 'B01-2':
-      case 'B01-3':
-      case 'B01-4':
-        console.log(`報表 ${reportCode} 尚未實作`)
-        throw new Error(`報表 ${reportCode} 功能開發中`)
+        await statisticsService.downloadB01_2Excel(
+          filters.year, filters.office
+        )
+        break
+      case 'B01-3': {
+        const b01_3 = getFiltersForReport('B01-3')
+        const startYear = b01_3.startYear || 97
+        const endYear = b01_3.currentYear ? currentYear.value : b01_3.year
+        if (startYear > endYear) {
+          throw new Error('起始年度不得大於結束年度')
+        }
+        await statisticsService.downloadB01_3Excel(
+          startYear, endYear, b01_3.office
+        )
+        break
+      }
+      case 'B01-4': {
+        const b01_4 = getFiltersForReport('B01-4')
+        const startYear = b01_4.startYear || 97
+        const endYear = b01_4.currentYear ? currentYear.value : b01_4.year
+        if (startYear > endYear) {
+          throw new Error('起始年度不得大於結束年度')
+        }
+        await statisticsService.downloadB01_4Excel(
+          startYear, endYear, b01_4.office
+        )
+        break
+      }
 
       default:
         throw new Error(`未知的報表代碼: ${reportCode}`)
