@@ -171,6 +171,17 @@ export const statisticsService = {
     await apiService.download(STATISTICS.ABORIGINAL_STATS_EXCEL, params, filename)
   },
 
+  /**
+   * 下載 A08 歷年原民區域統計報表 Excel
+   * @param startYear 起始年度（民國年）
+   * @param endYear 結束年度（民國年）
+   */
+  async downloadAboriginalYearlyExcel(startYear: number, endYear: number): Promise<void> {
+    const params: Record<string, unknown> = { start_year: startYear, end_year: endYear }
+    const filename = `A08_歷年原民區域統計_${startYear}-${endYear}年度.xlsx`
+    await apiService.download(STATISTICS.ABORIGINAL_YEARLY_EXCEL, params, filename)
+  },
+
   // ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
 
   /**

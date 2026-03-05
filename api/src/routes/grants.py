@@ -2036,6 +2036,50 @@ async def download_aboriginal_statistics_excel(
         raise HTTPException(status_code=500, detail=f"生成 A04 報表失敗: {str(e)}")
 
 
+# ==================== A08 歷年原民區域統計報表 ====================
+
+
+@router.get(
+    "/statistics/aboriginal-yearly/excel",
+    summary="下載 A08 歷年原民區域統計報表 Excel",
+    description="生成並下載指定年度區間的 A08 歷年原民區域推動成果統計表（Excel 格式），橫向展開各年度，僅統計 isAboriginalArea = true 的補助案件"
+)
+async def download_aboriginal_yearly_excel(
+    start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
+    end_year: int = Query(..., description="結束年度（民國年）", ge=97, le=200),
+    strict_first_land: bool = Query(
+        False,
+        description="嚴格第一筆土地模式：True=第一筆有效土地必須為原民；False=找第一筆原民有效土地歸屬"
+    ),
+    current_user: UserOutSchema = Depends(get_current_user)
+):
+    """下載 A08 歷年原民區域統計報表 Excel"""
+    if start_year > end_year:
+        raise HTTPException(status_code=400, detail="起始年度不得大於結束年度")
+    try:
+        logger.info(f"📊 [A08] 生成報表: {start_year}-{end_year}, strict={strict_first_land}")
+        result = await GrantStatisticsCRUD.get_aboriginal_statistics_yearly(
+            start_year=start_year, end_year=end_year, strict_first_land=strict_first_land
+        )
+        data = result.model_dump()
+        excel_service = ExcelGeneratorService()
+        excel_file_path = await excel_service.generate_a08_aboriginal_yearly_report(data=data)
+        filename = f"A08_歷年原民區域統計_{start_year}-{end_year}年度.xlsx"
+        encoded_filename = quote(filename, safe='')
+        return FileResponse(
+            path=excel_file_path, filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [A08] 生成報表失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"生成 A08 報表失敗: {str(e)}")
+
+
 # ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
 
 

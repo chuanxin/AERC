@@ -1403,3 +1403,77 @@ class GrantStatisticsCRUD:
             'total_area': float(total_area),
             'total_subsidy': int(total_subsidy),
         }
+
+    @staticmethod
+    async def get_aboriginal_statistics_yearly(
+        start_year: int,
+        end_year: int,
+        strict_first_land: bool = False,
+    ) -> CountyTownYearlyStatsResponse:
+        """A08: 歷年原民區域統計（橫向年度展開）"""
+        county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
+
+        # ct_data[(county_name, town_name)][year] = {cases, area, subsidy}
+        ct_data: dict = {}
+        years_with_data: set = set()
+
+        for year in range(start_year, end_year + 1):
+            grants = await Grants.filter(
+                year=year,
+                status__in=['completed', 'submitted'],
+                office_id__in=ALLOWED_OFFICE_IDS,
+            ).prefetch_related('active_version').all()
+
+            for grant in grants:
+                if not grant.active_version:
+                    continue
+                all_steps_data = grant.active_version.all_steps_data or {}
+                steps = all_steps_data.get('steps', {})
+                lands = steps.get('2', {}).get('lands', [])
+
+                county_name, town_name = GrantStatisticsCRUD._find_first_valid_aboriginal_land(
+                    lands, county_lookup, town_lookup,
+                    strict_first_land=strict_first_land,
+                )
+                if county_name is None:
+                    continue
+
+                grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+
+                key = (county_name, town_name)
+                if key not in ct_data:
+                    ct_data[key] = {}
+                if year not in ct_data[key]:
+                    ct_data[key][year] = {'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0')}
+                ct_data[key][year]['cases'] += 1
+                ct_data[key][year]['area'] += grant_area
+                ct_data[key][year]['subsidy'] += grant_subsidy
+                years_with_data.add(year)
+
+        years = sorted(years_with_data)
+        rows = []
+        for key in sorted(ct_data.keys()):
+            county_name, town_name = key
+            year_metrics = [
+                YearMetrics(
+                    year=y,
+                    completed_cases=ct_data[key].get(y, {}).get('cases', 0),
+                    total_area=ct_data[key].get(y, {}).get('area', Decimal('0')),
+                    total_subsidy=ct_data[key].get(y, {}).get('subsidy', Decimal('0')),
+                )
+                for y in years
+            ]
+            rows.append(CountyTownYearlyRow(
+                county_id=0,
+                county_name=county_name,
+                town_id=0,
+                town_name=town_name,
+                year_metrics=year_metrics,
+            ))
+
+        return CountyTownYearlyStatsResponse(
+            start_year=start_year,
+            end_year=end_year,
+            years=years,
+            rows=rows,
+        )

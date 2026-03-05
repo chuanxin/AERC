@@ -100,8 +100,10 @@ export const STATISTICS = {
   OFFICE_SUMMARY_EXCEL: `${BASE}/grants/statistics/office-summary/excel`,
   COUNTY_TOWN_YEARLY_EXCEL: `${BASE}/grants/statistics/county-town-yearly/excel`,
   OFFICE_SUMMARY_YEARLY_EXCEL: `${BASE}/grants/statistics/office-summary-yearly/excel`,
-  // A04 原民區域統計
+  // A07 原民區域統計
   ABORIGINAL_STATS_EXCEL: `${BASE}/grants/statistics/aboriginal/excel`,
+  // A08 歷年原民區域統計
+  ABORIGINAL_YEARLY_EXCEL: `${BASE}/grants/statistics/aboriginal-yearly/excel`,
   // B01 系列推動成果統計（管理區內外分組）
   B01_1_EXCEL: `${BASE}/grants/statistics/b01-1/excel`,
   B01_2_EXCEL: `${BASE}/grants/statistics/b01-2/excel`,

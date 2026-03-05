@@ -8,6 +8,247 @@ from pathlib import Path
 from copy import copy
 from src.config.folder_mappings import settings
 
+# ── 共用樣式常數（全報表共用）────────────────────────────────────────────────────
+_XL_S_M = Side(style='medium')
+_XL_S_T = Side(style='thin')
+
+# 字型
+_XL_F16  = Font(name='微軟正黑體', size=16)
+_XL_F16B = Font(name='微軟正黑體', size=16, bold=True)
+_XL_F12  = Font(name='微軟正黑體', size=12)
+_XL_F14  = Font(name='微軟正黑體', size=14)
+
+# 對齊
+_XL_A_CTR  = Alignment(horizontal='center', vertical='center')
+_XL_A_WRAP = Alignment(horizontal='center', vertical='center', wrap_text=True)
+_XL_A_RT   = Alignment(horizontal='right', vertical='center')
+_XL_A_NOTE = Alignment(horizontal='left', vertical='top', wrap_text=True)
+
+# 列高
+_XL_ROW_H_TITLE = 83.0
+_XL_ROW_H_DATE  = 25.0
+_XL_ROW_H_HDR1  = 25.0
+_XL_ROW_H_HDR2  = 45.0
+_XL_ROW_H_DATA  = 21.0
+_XL_ROW_H_TOTAL = 21.0
+_XL_ROW_H_NOTE  = 96.0
+
+# ── A04/A05 規則建構常數（去範本化）──────────────────────────────────────────────
+# 備註文字（A04/A05 共用）
+_A0405_NOTE_TEXT = (
+    '備註 :\n'
+    '1、受理「補助案件」如跨越縣市/鄉鎮區土地，以第一筆縣市/鄉鎮區作為補助案件數之統計基準。\n'
+)
+
+# 每個年度欄頭的三格邊框（_tpl_merge_horizontal 使用；先設框再合併保留右外框）
+_A0405_YEAR_HDR_BORDERS = [
+    Border(left=_XL_S_M, right=_XL_S_M, top=_XL_S_M, bottom=_XL_S_T),  # 首欄
+    Border(left=None,     right=None,     top=_XL_S_M, bottom=_XL_S_T),   # 中欄
+    Border(left=None,     right=_XL_S_M, top=_XL_S_M, bottom=_XL_S_T),  # 末欄
+]
+
+# 子欄頭文字與邊框（補助案件數 / 補助面積 / 補助金額）
+_A0405_SUBHDR_TEXT = ['補助案件數\n(已結案)', '補助面積(公頃)', '補助金額(元)']
+_A0405_SUBHDR_BORDER = [
+    Border(left=_XL_S_M, right=_XL_S_T, bottom=_XL_S_M),
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_M),
+    Border(left=_XL_S_T, right=_XL_S_M, bottom=_XL_S_M),
+]
+
+# 資料格邊框（年度子欄，thin 分隔線）
+_A0405_DATA_YEAR_BORDER = [
+    Border(left=_XL_S_M, right=_XL_S_T, bottom=_XL_S_T),  # 案件數
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 面積
+    Border(left=_XL_S_T, right=_XL_S_M, bottom=_XL_S_T),  # 金額
+]
+
+# 固定欄頭邊框（key = (fixed_cols, col_0based)）
+_A0405_FIXED_HDR_BORDER = {
+    (2, 0): Border(left=_XL_S_M, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # A04 縣市
+    (2, 1): Border(left=_XL_S_T, right=None,     top=_XL_S_M, bottom=_XL_S_M),  # A04 鄉鎮區
+    (1, 0): Border(left=_XL_S_M, right=_XL_S_M, top=_XL_S_M, bottom=_XL_S_M),  # A05 管理處
+}
+
+# 固定欄 HDR2 底端格邊框（垂直合併後 _tpl_force_interior_border 注入）
+_A0405_FIXED_HDR2_BORDER = {
+    (2, 0): Border(left=_XL_S_M, right=_XL_S_T, bottom=_XL_S_M),
+    (2, 1): Border(left=_XL_S_T, right=None,     bottom=_XL_S_M),
+    (1, 0): Border(left=_XL_S_M, right=_XL_S_M, bottom=_XL_S_M),
+}
+
+# 固定欄資料格邊框
+_A0405_FIXED_DATA_BORDER = {
+    (2, 0): Border(left=_XL_S_M, right=_XL_S_T, bottom=_XL_S_T),
+    (2, 1): Border(left=_XL_S_T, right=None,     bottom=_XL_S_T),
+    (1, 0): Border(left=_XL_S_M, right=None,     bottom=_XL_S_T),
+}
+
+# 欄寬（fixed_cols → {col_0based: width, 'year': width_per_year_col}）
+_A0405_COL_WIDTHS = {
+    2: {0: 24.33, 1: 24.33, 'year': 24.33},  # A04 (fixed_cols=2)
+    1: {0: 35.33,            'year': 24.33},  # A05 (fixed_cols=1)
+}
+
+# ── A02/A03/A07 規則建構常數（去範本化）─────────────────────────────────────────
+# 表頭邊框（col_count, col_0based）
+_A0203_HDR_BORDER = {
+    # A02/A07 (5欄): 縣市 | 鄉鎮區 | 補助案件數 | 補助面積 | 補助金額
+    (5, 0): Border(left=_XL_S_M, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),
+    (5, 1): Border(left=_XL_S_T, right=_XL_S_M, top=_XL_S_M, bottom=_XL_S_M),
+    (5, 2): Border(left=None,     right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),
+    (5, 3): Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),
+    (5, 4): Border(left=_XL_S_T, right=_XL_S_M, top=_XL_S_M, bottom=_XL_S_M),
+    # A03 (4欄): 管理處 | 補助案件數 | 補助面積 | 補助金額
+    (4, 0): Border(left=_XL_S_M, right=_XL_S_M, top=_XL_S_M, bottom=_XL_S_M),
+    (4, 1): Border(left=None,     right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),
+    (4, 2): Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),
+    (4, 3): Border(left=_XL_S_T, right=_XL_S_M, top=_XL_S_M, bottom=_XL_S_M),
+}
+# 資料格邊框（col_count, col_0based）
+_A0203_DATA_BORDER = {
+    (5, 0): Border(left=_XL_S_M, right=_XL_S_T, bottom=_XL_S_T),
+    (5, 1): Border(left=_XL_S_T, right=_XL_S_M, bottom=_XL_S_T),
+    (5, 2): Border(left=None,     right=_XL_S_T, bottom=_XL_S_T),
+    (5, 3): Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),
+    (5, 4): Border(left=_XL_S_T, right=_XL_S_M, bottom=_XL_S_T),
+    (4, 0): Border(left=_XL_S_M, right=_XL_S_M, bottom=_XL_S_T),
+    (4, 1): Border(left=None,     right=_XL_S_T, bottom=_XL_S_T),
+    (4, 2): Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),
+    (4, 3): Border(left=_XL_S_T, right=_XL_S_M, bottom=_XL_S_T),
+}
+# 欄寬（col_count → {col_0based: width}）
+_A0203_COL_WIDTHS = {
+    5: {0: 24.33, 1: 24.33, 2: 24.33, 3: 24.33, 4: 24.33},  # A02/A07 (5欄)
+    4: {0: 35.33, 1: 24.33, 2: 24.33, 3: 24.33},             # A03 (4欄)
+}
+# 表頭文字（col_count → [col 名稱]）
+_A0203_HDR_TEXT = {
+    5: ['縣市', '鄉鎮區', '補助案件數\n(已結案)', '補助面積(公頃)', '補助金額(元)'],
+    4: ['管理處', '補助案件數\n(已結案)', '補助面積(公頃)', '補助金額(元)'],
+}
+# 表頭對齊（補助案件數含換行需 wrap_text）
+_A0203_HDR_ALIGN = {
+    5: [_XL_A_CTR, _XL_A_CTR, _XL_A_WRAP, _XL_A_CTR, _XL_A_CTR],
+    4: [_XL_A_CTR, _XL_A_WRAP, _XL_A_CTR, _XL_A_CTR],
+}
+
+# ── A06 規則建構常數（去範本化）────────────────────────────────────────────────
+_A06_COL_WIDTHS = {1: 35.33, **{i: 29 for i in range(2, 13)}}  # A欄35.33，其餘24.33
+# 數字格式（1-based，與欄位對應）
+_A06_NUM_FMT = {
+    1:  'General',
+    2:  'General',
+    3:  '#,##0_);[Red](#,##0)',
+    4:  'General',
+    5:  'General',
+    6:  '#,##0_);[Red](#,##0)',
+    7:  '#,##0_ ;[Red]\\-#,##0\\ ',
+    8:  'General',
+    9:  'General',
+    10: '#,##0_);[Red](#,##0)',
+    11: '0.00_);[Red]\\(0.00\\)',
+    12: '0.00_);[Red]\\(0.00\\)',
+}
+# 欄頭文字（Row 3，12 欄）
+_A06_HDR_TEXT = [
+    '管理處', '預定執行面積(公頃)', '預定執行預算(元)', '已編預算案件數',
+    '已編預算面積(公頃)', '已編列補助款(元)', '未編列補助款(元)',
+    '已驗收案件數', '已驗收面積(公頃)', '已驗收金額(元)', '面積執行率%', '計畫執行率%',
+]
+# 欄頭邊框（Row 3，0-based index；col 6/11 右側 None，視覺由相鄰格提供）
+_A06_HDR_BORDER = [
+    Border(left=_XL_S_M, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 0 管理處
+    Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 1 預定面積
+    Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 2 預定預算
+    Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 3 已編案件數
+    Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 4 已編面積
+    Border(left=_XL_S_T, right=None,     top=_XL_S_M, bottom=_XL_S_M),  # 5 已編補助款
+    Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 6 未編補助款
+    Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 7 已驗案件數
+    Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 8 已驗面積
+    Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 9 已驗金額
+    Border(left=_XL_S_T, right=None,     top=_XL_S_M, bottom=_XL_S_M),  # 10 面積執行率
+    Border(left=_XL_S_T, right=_XL_S_M, top=_XL_S_M, bottom=_XL_S_M),  # 11 計畫執行率
+]
+# 資料格邊框（0-based index；底線 thin，合計列改用 medium）
+_A06_DATA_BORDER = [
+    Border(left=_XL_S_M, right=_XL_S_T, bottom=_XL_S_T),  # 0
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 1
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 2
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 3
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 4
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 5
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 6
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 7
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 8
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 9
+    Border(left=_XL_S_T, right=None,     bottom=_XL_S_T),  # 10
+    Border(left=_XL_S_T, right=_XL_S_M, bottom=_XL_S_T),  # 11
+]
+_A06_ROW_H_NOTE = 110.0
+_A06_NOTE_TEXT = (
+    '備註：\n'
+    '    1、受理「補助案件」如跨越縣市/鄉鎮區土地，以第一筆縣市/鄉鎮區作為補助案件數之統計基準。\n'
+    '計算公式 :\n'
+    '    1、計畫執行率%=已編列補助款/預定執行預算。\n'
+    '    2、面積執行率%=已編預算面積/預定執行面積。'
+)
+# Rich Text runs（underline: bool, text: str）；preserve 由 _inject_note_rich_text 自動判斷
+_A06_NOTE_RUNS = (
+    (False, '備註：\n    1、受理「補助案件」如跨越縣市/鄉鎮區土地，以第一筆縣市/鄉鎮區作為'),
+    (True,  '補助案件數'),
+    (False, '之統計基準。\n'),
+    (True,  '計算公式 :'),
+    (False, '\n    1、計畫執行率%=已編列補助款/預定執行預算。\n    2、面積執行率%=已編預算面積/預定執行面積。'),
+)
+
+
+# ── A01 規則建構常數（去範本化）────────────────────────────────────────────────
+_A01_COL_WIDTHS = {1: 35.33, 2: 20.5, 3: 23.0, 4: 23.0, 5: 20.5, 6: 31.33}
+_A01_HDR_TEXT = [
+    '管理處', '核定金額(元)', '補助案件數\n(已結案)', '補助面積(公頃)', '補助金額(元)', '補助款\n執行率%',
+]
+_A01_HDR_ALIGN = [_XL_A_CTR, _XL_A_CTR, _XL_A_WRAP, _XL_A_CTR, _XL_A_CTR, _XL_A_WRAP]
+_A01_HDR_BORDER = [
+    Border(left=_XL_S_M, right=_XL_S_M, top=_XL_S_M, bottom=_XL_S_M),  # 0 管理處
+    Border(left=None,     right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 1 核定金額
+    Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 2 補助案件數
+    Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_M, bottom=_XL_S_M),  # 3 補助面積
+    Border(left=_XL_S_T, right=None,     top=_XL_S_M, bottom=_XL_S_M),  # 4 補助金額
+    Border(left=_XL_S_T, right=_XL_S_M, top=_XL_S_M, bottom=_XL_S_M),  # 5 執行率
+]
+_A01_DATA_BORDER = [
+    Border(left=_XL_S_M, right=_XL_S_M, bottom=_XL_S_T),  # 0 管理處（獨立欄，兩側 medium）
+    Border(left=None,     right=_XL_S_T, bottom=_XL_S_T),  # 1 核定金額
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 2 補助案件數
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 3 補助面積
+    Border(left=_XL_S_T, right=_XL_S_T, bottom=_XL_S_T),  # 4 補助金額
+    Border(left=_XL_S_T, right=_XL_S_M, bottom=_XL_S_T),  # 5 執行率
+]
+_A01_NUM_FMT = {1: 'General', 2: '#,##0_ ', 3: 'General', 4: 'General', 5: '#,##0_ ', 6: '0.00%'}
+_A01_NOTE_TEXT = (
+    '備註 :\n'
+    '1、受理「補助案件」如跨越縣市/鄉鎮區土地，以第一筆縣市/鄉鎮區作為補助案件數之統計基準。\n'
+    '2、計算公式：補助款執行率%=補助金額/核定金額。'
+)
+# Rich Text runs（underline: bool, text: str）；preserve 由 _inject_note_rich_text 自動判斷
+_A01_NOTE_RUNS = (
+    (False, '備註 :\n1、受理「補助案件」如跨越縣市/鄉鎮區土地，以第一筆縣市/鄉鎮區作為'),
+    (True,  '補助案件數'),
+    (False, '之統計基準。\n'),
+    (True,  '計算公式：\n'),
+    (False, '1、補助款執行率%=補助金額/核定金額。'),
+)
+
+
+# ── A07 規則建構常數（框線/欄寬/列高與 A02/A03 共用 _A0203_*/_XL_ROW_H_* 常數）──
+_A07_NUM_FMT = {1: 'General', 2: 'General', 3: 'General', 4: 'General', 5: '#,##0'}
+_A07_NOTE_TEXT = (
+    '備註 :\n'
+    '1、受理「補助案件」如跨越縣市/鄉鎮區土地，以第一筆縣市/鄉鎮區作為補助案件數之統計基準。'
+)
+
+
 class ExcelGeneratorService:
     """Excel 文件生成服務 - 基於範本驅動架構生成 .xlsx 檔案"""
 
@@ -295,93 +536,61 @@ class ExcelGeneratorService:
         year: int
     ) -> str:
         """
-        生成 A01 各管理處執行進度報表 Excel 檔案
-
-        範本驅動 + 動態增長架構：
-        - 範本 A01.xlsx 提供：標題格式、欄寬、資料列樣式參考（Row 4）、備註文字
-        - 程式碼負責：清除範例資料 → 動態寫入實際資料 → 備註跟隨資料尾端
+        生成 A01 各管理處執行進度報表 Excel 檔案（規則建構，無範本依賴）
 
         Args:
-            data: ExecutionProgressResponse 資料（包含 offices、total_* 等欄位）
+            data: ExecutionProgressResponse 資料（包含 offices 列表）
             year: 統計年度（民國年）
 
         Returns:
             str: 生成的 Excel 檔案路徑
         """
-        from openpyxl import load_workbook
-        from openpyxl.styles import Border
+        COL_COUNT = 6
+        DATA_START = 4
 
-        template_path = settings.get_template_path("A01.xlsx")
-        if not template_path.exists():
-            raise FileNotFoundError(f"範本檔案不存在: {template_path}")
+        workbook = Workbook()
+        ws = workbook.active
 
-        workbook = load_workbook(str(template_path))
-        worksheet = workbook.active
+        # 1. 欄寬
+        for col, w in _A01_COL_WIDTHS.items():
+            ws.column_dimensions[get_column_letter(col)].width = w
 
-        DATA_START_ROW = 4  # 範本中資料區塊起始列（同時作為樣式參考列）
+        # 2. Row 1 標題
+        ws.row_dimensions[1].height = _XL_ROW_H_TITLE
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=COL_COUNT)
+        c = ws.cell(1, 1)
+        c.value = f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度各管理處執行進度"
+        c.font = _XL_F16
+        c.alignment = _XL_A_WRAP
 
-        # 1. 從範本擷取樣式參考（Row 4 的每欄格式 + 表頭外框粗細）
-        HEADER_ROW = 3
-        col_styles = {}
-        frame_bottom_sides = {}
-        for col in range(1, 7):
-            ref_cell = worksheet.cell(row=DATA_START_ROW, column=col)
-            col_styles[col] = {
-                'font': copy(ref_cell.font) if ref_cell.font else None,
-                'alignment': copy(ref_cell.alignment) if ref_cell.alignment else None,
-                'border': copy(ref_cell.border) if ref_cell.border else None,
-                'fill': copy(ref_cell.fill) if ref_cell.fill else None,
-                'number_format': ref_cell.number_format,
-            }
-            # 表頭底部邊框 = 表格外框粗細（用於最後一列資料的底線）
-            header_cell = worksheet.cell(row=HEADER_ROW, column=col)
-            if header_cell.border and header_cell.border.bottom:
-                frame_bottom_sides[col] = header_cell.border.bottom
-
-        # 2. 擷取備註（解除 Row 4 以下的所有合併儲存格）
-        footnote_text = None
-        footnote_font = None
-        footnote_alignment = None
-        footnote_row_height = None
-        footnote_rich_text = None  # 保存 Rich Text 數據
-        for merge in list(worksheet.merged_cells.ranges):
-            if merge.min_row >= DATA_START_ROW:
-                cell = worksheet.cell(row=merge.min_row, column=1)
-                # 檢查是否為 Rich Text（部分文字有不同格式）
-                if hasattr(cell, '_value') and hasattr(cell._value, '__iter__') and not isinstance(cell._value, str):
-                    # 保存 Rich Text 數據（包含所有格式信息）
-                    footnote_rich_text = cell._value
-                    footnote_text = cell.value  # 保存純文字作為後備
-                else:
-                    footnote_text = cell.value
-                footnote_font = copy(cell.font) if cell.font else None
-                footnote_alignment = copy(cell.alignment) if cell.alignment else None
-                footnote_row_height = worksheet.row_dimensions[merge.min_row].height
-                worksheet.unmerge_cells(str(merge))
-
-        # 3. 清除範本的範例資料（Row 4 到最後一行：內容、邊框、行高）
-        max_row = worksheet.max_row
-        for row in range(DATA_START_ROW, max_row + 1):
-            for col in range(1, 7):
-                cell = worksheet.cell(row=row, column=col)
-                cell.value = None
-                cell.border = Border()
-            # 重置行高（移除範本殘留的自訂行高）
-            if row in worksheet.row_dimensions:
-                del worksheet.row_dimensions[row]
-
-        # 4. 更新標題和製表日期
-        worksheet['A1'].value = (
-            f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度各管理處執行進度"
-        )
+        # 3. Row 2 表號 + 製表日期（E2:F2 合併）
+        ws.row_dimensions[2].height = _XL_ROW_H_DATE
+        c2 = ws.cell(2, 1)
+        c2.value = 'A01'
+        c2.font = _XL_F16B
+        c2.alignment = _XL_A_CTR
         today = datetime.now()
         date_str = f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日"
-        self._set_cell_value_safe(worksheet, 'E2', date_str)
+        ws.merge_cells(start_row=2, start_column=5, end_row=2, end_column=COL_COUNT)
+        dc = ws.cell(2, 5)
+        dc.value = date_str
+        dc.font = _XL_F12
+        dc.alignment = _XL_A_RT
 
-        # 5. 動態寫入資料列（套用範本樣式）
+        # 4. Row 3 欄頭
+        ws.row_dimensions[3].height = _XL_ROW_H_HDR2
+        for j in range(COL_COUNT):
+            cell = ws.cell(3, j + 1)
+            cell.value = _A01_HDR_TEXT[j]
+            cell.font = _XL_F14
+            cell.alignment = _A01_HDR_ALIGN[j]
+            cell.border = _A01_HDR_BORDER[j]
+
+        # 5. 資料列
         offices = data.get('offices', [])
         for idx, office in enumerate(offices):
-            row = DATA_START_ROW + idx
+            row = DATA_START + idx
+            ws.row_dimensions[row].height = _XL_ROW_H_DATA
             row_values = [
                 office.get('office_name', ''),
                 office.get('approved_budget', 0) or 0,
@@ -390,64 +599,37 @@ class ExcelGeneratorService:
                 office.get('total_subsidy', 0) or 0,
                 float(office.get('execution_rate', 0) or 0),
             ]
-            for col, value in enumerate(row_values, start=1):
-                cell = worksheet.cell(row=row, column=col, value=value)
-                style = col_styles[col]
-                if style['font']:
-                    cell.font = style['font']
-                if style['alignment']:
-                    cell.alignment = style['alignment']
-                if style['border']:
-                    cell.border = style['border']
-                if style['fill']:
-                    cell.fill = style['fill']
-                if style['number_format']:
-                    cell.number_format = style['number_format']
+            for ci, val in enumerate(row_values):
+                cell = ws.cell(row, ci + 1)
+                cell.value = val
+                cell.font = _XL_F14
+                cell.alignment = _XL_A_CTR
+                cell.border = _A01_DATA_BORDER[ci]
+                cell.number_format = _A01_NUM_FMT[ci + 1]
 
-        # 5.1 最後一列資料套用表格外框底線（與表頭粗細一致）
+        # 6. 最末列外框底線（medium bottom）
         if offices:
-            last_row = DATA_START_ROW + len(offices) - 1
-            for col in range(1, 7):
-                cell = worksheet.cell(row=last_row, column=col)
-                if col in frame_bottom_sides and cell.border:
-                    cell.border = Border(
-                        left=cell.border.left,
-                        right=cell.border.right,
-                        top=cell.border.top,
-                        bottom=frame_bottom_sides[col],
-                    )
+            last_row = DATA_START + len(offices) - 1
+            for ci in range(COL_COUNT):
+                cell = ws.cell(last_row, ci + 1)
+                db = _A01_DATA_BORDER[ci]
+                cell.border = Border(left=db.left, right=db.right, bottom=_XL_S_M)
 
-        # 6. 動態定位備註（緊跟資料尾端，空一行）
-        if footnote_text:
-            footnote_row = DATA_START_ROW + len(offices) + 1
-            worksheet.merge_cells(f"A{footnote_row}:F{footnote_row}")
-            cell = worksheet.cell(row=footnote_row, column=1)
-            
-            # 優先使用 Rich Text（保留底線等格式），否則使用純文字
-            if footnote_rich_text:
-                cell._value = footnote_rich_text
-                cell.data_type = 's'  # 設定為字串類型
-            else:
-                cell.value = footnote_text
-                
-            if footnote_font:
-                cell.font = footnote_font
-            if footnote_alignment:
-                cell.alignment = footnote_alignment
-            if footnote_row_height:
-                worksheet.row_dimensions[footnote_row].height = footnote_row_height
+        # 7. 備註列（資料末列後空一行）
+        note_row = DATA_START + len(offices) + 1
+        ws.merge_cells(start_row=note_row, start_column=1, end_row=note_row, end_column=COL_COUNT)
+        note_c = ws.cell(note_row, 1)
+        note_c.value = _A01_NOTE_TEXT
+        note_c.font = _XL_F14
+        note_c.alignment = _XL_A_NOTE
+        ws.row_dimensions[note_row].height = _XL_ROW_H_NOTE
 
-        # 7. 生成檔案
+        # 8. 儲存後注入備註底線 Rich Text
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"A01_execution_progress_{year}_{timestamp}.xlsx"
-        file_path = self.temp_dir / filename
-
-        try:
-            workbook.save(str(file_path))
-            return str(file_path)
-        except Exception as e:
-            print(f"Excel save error: {e}")
-            raise
+        file_path = self.temp_dir / f"A01_execution_progress_{year}_{timestamp}.xlsx"
+        workbook.save(str(file_path))
+        self._inject_note_rich_text(str(file_path), note_row, _A01_NOTE_RUNS)
+        return str(file_path)
 
     # ==================== A02 系列統計報表 ====================
 
@@ -497,69 +679,9 @@ class ExcelGeneratorService:
             # 不是合併單元格，直接設定
             cell.value = value
 
-    # ── 範本一致性工具組 ─────────────────────────────────────────────────────
-    # 以下六個靜態方法封裝了「範本驅動 Excel 生成」時常見的樣式一致性問題，
-    # 供所有動態報表方法複用，避免在每份報表中重複解決相同的 openpyxl 陷阱。
-
-    @staticmethod
-    def _tpl_save_col_widths(ws) -> dict:
-        """
-        讀取工作表所有欄寬並展開為 {欄索引: 寬度} 字典。
-
-        必要性：openpyxl 的 DimensionHolder 可能以 min/max 範圍儲存欄寬
-        （例如 min=3, max=5, width=12.5 表示第3~5欄都是12.5），
-        直接用欄字母查詢只能取到範圍的代表欄，其他欄無法命中。
-        本方法將範圍展開為扁平字典，讓任意欄索引都可查到正確寬度。
-
-        使用時機：在任何修改工作表之前呼叫，以保留範本原始欄寬。
-        """
-        from openpyxl.utils import column_index_from_string
-        widths: dict[int, float] = {}
-        for col_letter, dim in ws.column_dimensions.items():
-            min_col = dim.min or column_index_from_string(col_letter)
-            max_col = dim.max or min_col
-            if dim.width and dim.width > 0:
-                for idx in range(min_col, max_col + 1):
-                    widths[idx] = dim.width
-        return widths
-
-    @staticmethod
-    def _tpl_apply_col_widths(
-        ws,
-        saved_widths: dict,
-        src_col_start: int,
-        src_count: int,
-        dst_col_start: int,
-    ) -> None:
-        """
-        將已儲存的欄寬套用到動態新增的欄位群。
-
-        Args:
-            ws: 工作表
-            saved_widths: _tpl_save_col_widths 回傳的字典
-            src_col_start: 來源欄群的起始欄索引（範本中的樣本欄）
-            src_count: 欄群欄數（每個重複單元的欄數）
-            dst_col_start: 目標欄群的起始欄索引（新增的欄）
-        """
-        from openpyxl.utils import get_column_letter
-        for j in range(src_count):
-            src_idx = src_col_start + j
-            dst_letter = get_column_letter(dst_col_start + j)
-            if src_idx in saved_widths:
-                ws.column_dimensions[dst_letter].width = saved_widths[src_idx]
-
-    @staticmethod
-    def _tpl_capture_row_borders(ws, row: int, col_start: int, count: int) -> list:
-        """
-        擷取指定列連續欄的邊框（必須在 unmerge 之後呼叫）。
-
-        必要性：openpyxl 讀取合併格非左上角格的邊框會得到空值（MergedCell 無樣式），
-        必須先 unmerge_cells 讓這些格恢復為普通格，才能正確讀取右邊界欄的外框線。
-
-        Returns:
-            list[Border]：長度為 count 的邊框列表（deep copy）
-        """
-        return [copy(ws.cell(row, col_start + j).border) for j in range(count)]
+    # ── openpyxl 工具組 ──────────────────────────────────────────────────────
+    # 以下兩個靜態方法封裝了 openpyxl 合併格的固有行為限制，
+    # 供所有動態報表方法複用。
 
     @staticmethod
     def _tpl_merge_horizontal(
@@ -613,40 +735,6 @@ class ExcelGeneratorService:
         interior.border = border
         ws._cells[(row, col)] = interior
 
-    @staticmethod
-    def _tpl_inner_style(style_dict: dict) -> dict:
-        """
-        將資料列樣式的 thick/medium 邊框降為 thin（用於表格內部分隔線）。
-
-        必要性（雙重陷阱）：
-        1. bottom：範本最後一筆資料列通常帶粗底線（外框底線），若原樣套用到所有資料列，
-           每列底部都會變粗。
-        2. top：相鄰列視覺邊框 = MAX(上列.bottom, 本列.top)。若本列.top 為粗線
-           （HDR2↔資料列的外框上線），後續列的分隔線也會顯示為粗線。
-        本方法同時處理 top 和 bottom，確保表格內部所有分隔線維持細線。
-        最末列的粗底線由呼叫端統一套用（_tpl_frame_bottom），不在此處處理。
-
-        Returns:
-            新的樣式字典（不修改原字典）
-        """
-        b = style_dict.get('border')
-        if not b:
-            return style_dict
-
-        def _thin_if_heavy(side):
-            if side and getattr(side, 'style', None) in ('thick', 'medium'):
-                return Side(style='thin')
-            return side
-
-        s2 = dict(style_dict)
-        s2['border'] = Border(
-            left=b.left,
-            right=b.right,
-            top=_thin_if_heavy(b.top),
-            bottom=_thin_if_heavy(b.bottom),
-        )
-        return s2
-
     def _generate_a02_report(
         self,
         template_name: str,
@@ -657,143 +745,98 @@ class ExcelGeneratorService:
         filename_prefix: str,
     ) -> str:
         """
-        A02 報表通用生成邏輯（範本驅動 + 動態增長）
+        A02-1/A02-2 報表通用生成邏輯（規則建構，無範本依賴）
 
-        架構與 A01 完全一致：
-        - 範本提供：標題格式、欄寬、Row 4 樣式參考、備註文字
-        - 程式碼：清除範例 → 動態寫入 → 備註跟隨尾端
+        生成結構：
+          Row 1: 標題（合併全欄，wrap_text）
+          Row 2: 表號 + 製表日期（最後兩欄合併）
+          Row 3 (HDR): 各欄頭（單列，高度 45）
+          Row 4+: 資料列
+          備註列: 純文字備註（合併全欄，與最末列間隔一空列）
         """
-        from openpyxl import load_workbook
+        from openpyxl import Workbook
         from openpyxl.styles import Border
-        from openpyxl.cell.cell import MergedCell
+        from openpyxl.utils import get_column_letter
 
-        template_path = settings.get_template_path(template_name)
-        if not template_path.exists():
-            raise FileNotFoundError(f"範本檔案不存在: {template_path}")
+        HDR        = 3
+        DATA_START = 4
+        tbl_num    = template_name.replace('.xlsx', '')
 
-        workbook = load_workbook(str(template_path))
-        worksheet = workbook.active
+        workbook = Workbook()
+        ws       = workbook.active
 
-        # 移除 Print Area 定義以避免警告
-        if 'Print_Area' in workbook.defined_names:
-            del workbook.defined_names['Print_Area']
+        # ── 1. 欄寬 ──────────────────────────────────────────────────────
+        for i, w in _A0203_COL_WIDTHS[col_count].items():
+            ws.column_dimensions[get_column_letter(i + 1)].width = w
 
-        DATA_START_ROW = 4
-        HEADER_ROW = 3
+        # ── 2. Row 1 標題 ────────────────────────────────────────────────
+        ws.row_dimensions[1].height = _XL_ROW_H_TITLE
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=col_count)
+        c           = ws.cell(1, 1)
+        c.value     = title_text
+        c.font      = _XL_F16
+        c.alignment = _XL_A_WRAP
 
-        # 1. 從範本擷取樣式參考（Row 4）
-        col_styles = {}
-        frame_bottom_sides = {}
-        for col in range(1, col_count + 1):
-            ref_cell = worksheet.cell(row=DATA_START_ROW, column=col)
-            col_styles[col] = {
-                'font': copy(ref_cell.font) if ref_cell.font else None,
-                'alignment': copy(ref_cell.alignment) if ref_cell.alignment else None,
-                'border': copy(ref_cell.border) if ref_cell.border else None,
-                'fill': copy(ref_cell.fill) if ref_cell.fill else None,
-                'number_format': ref_cell.number_format,
-            }
-            # 表頭底部邊框 = 表格外框粗細（用於最後一列資料的底線）
-            header_cell = worksheet.cell(row=HEADER_ROW, column=col)
-            if (header_cell.border and header_cell.border.bottom
-                    and getattr(header_cell.border.bottom, 'style', None)):
-                frame_bottom_sides[col] = header_cell.border.bottom
+        # ── 3. Row 2 表號 + 製表日期 ─────────────────────────────────────
+        ws.row_dimensions[2].height = _XL_ROW_H_DATE
+        c2           = ws.cell(2, 1)
+        c2.value     = tbl_num
+        c2.font      = _XL_F16B
+        c2.alignment = _XL_A_CTR
+        ws.merge_cells(start_row=2, start_column=col_count - 1, end_row=2, end_column=col_count)
+        dc           = ws.cell(2, col_count - 1)
+        dc.value     = date_text
+        dc.font      = _XL_F12
+        dc.alignment = _XL_A_RT
 
-        # 2. 擷取備註
-        footnote_text = None
-        footnote_font = None
-        footnote_alignment = None
-        footnote_row_height = None
-        footnote_rich_text = None
-        last_col_letter = get_column_letter(col_count)
-        for merge in list(worksheet.merged_cells.ranges):
-            if merge.min_row >= DATA_START_ROW:
-                cell = worksheet.cell(row=merge.min_row, column=1)
-                if hasattr(cell, '_value') and hasattr(cell._value, '__iter__') and not isinstance(cell._value, str):
-                    footnote_rich_text = cell._value
-                    footnote_text = cell.value
-                else:
-                    footnote_text = cell.value
-                footnote_font = copy(cell.font) if cell.font else None
-                footnote_alignment = copy(cell.alignment) if cell.alignment else None
-                footnote_row_height = worksheet.row_dimensions[merge.min_row].height
-                worksheet.unmerge_cells(str(merge))
+        # ── 4. Row 3 (HDR) 欄頭 ──────────────────────────────────────────
+        ws.row_dimensions[HDR].height = _XL_ROW_H_HDR2  # 45.0
+        hdr_texts  = _A0203_HDR_TEXT[col_count]
+        hdr_aligns = _A0203_HDR_ALIGN[col_count]
+        for j in range(col_count):
+            cell           = ws.cell(HDR, j + 1)
+            cell.value     = hdr_texts[j]
+            cell.font      = _XL_F14
+            cell.alignment = hdr_aligns[j]
+            cell.border    = _A0203_HDR_BORDER[(col_count, j)]
 
-        # 3. 清除範例資料
-        max_row = worksheet.max_row
-        for row in range(DATA_START_ROW, max_row + 1):
-            for col in range(1, col_count + 1):
-                cell = worksheet.cell(row=row, column=col)
-                # 跳過合併單元格（MergedCell 的 value 是唯讀的）
-                if not isinstance(cell, MergedCell):
-                    cell.value = None
-                    cell.border = Border()
-            if row in worksheet.row_dimensions:
-                del worksheet.row_dimensions[row]
-
-        # 4. 更新標題和日期
-        self._set_cell_value_safe_by_position(worksheet, 1, 1, title_text)
-        self._set_cell_value_safe(worksheet, f'{last_col_letter}2', date_text)
-
-        # 5. 動態寫入資料列
+        # ── 5. 資料列 ─────────────────────────────────────────────────────
         for idx, row_values in enumerate(rows):
-            row = DATA_START_ROW + idx
-            for col, value in enumerate(row_values, start=1):
-                cell = worksheet.cell(row=row, column=col, value=value)
-                style = col_styles[col]
-                
-                # 套用字體、對齊、填充、數字格式
-                if style['font']:
-                    cell.font = style['font']
-                if style['alignment']:
-                    cell.alignment = style['alignment']
-                if style['border']:
-                    cell.border = style['border']
-                if style['fill']:
-                    cell.fill = style['fill']
-                if style['number_format']:
-                    cell.number_format = style['number_format']
+            row_num                           = DATA_START + idx
+            ws.row_dimensions[row_num].height = _XL_ROW_H_DATA
+            for ci, val in enumerate(row_values):
+                cell           = ws.cell(row_num, ci + 1)
+                cell.value     = val
+                cell.font      = _XL_F14
+                cell.alignment = _XL_A_CTR
+                cell.border    = _A0203_DATA_BORDER[(col_count, ci)]
 
-        # 5.1 最後一列資料套用表格外框底線（與表頭粗細一致，同 A01 邏輯）
+        # ── 6. 最末列套用外框底線（medium bottom）────────────────────────
         if rows:
-            from openpyxl.styles import Side as BottomSide
-            default_bottom = BottomSide(style='medium')
-            last_row = DATA_START_ROW + len(rows) - 1
+            last_row = DATA_START + len(rows) - 1
             for col in range(1, col_count + 1):
-                cell = worksheet.cell(row=last_row, column=col)
-                bottom_side = frame_bottom_sides.get(col)
-                if not bottom_side or not getattr(bottom_side, 'style', None):
-                    bottom_side = default_bottom
-                if cell.border:
-                    cell.border = Border(
-                        left=cell.border.left,
-                        right=cell.border.right,
-                        top=cell.border.top,
-                        bottom=bottom_side,
-                    )
-                else:
-                    cell.border = Border(bottom=bottom_side)
+                cell = ws.cell(last_row, col)
+                b = cell.border
+                cell.border = Border(
+                    left   = b.left   if b else None,
+                    right  = b.right  if b else None,
+                    top    = b.top    if b else None,
+                    bottom = _XL_S_M,
+                )
 
-        # 6. 動態定位備註
-        if footnote_text:
-            footnote_row = DATA_START_ROW + len(rows) + 1
-            worksheet.merge_cells(f"A{footnote_row}:{last_col_letter}{footnote_row}")
-            cell = worksheet.cell(row=footnote_row, column=1)
-            if footnote_rich_text:
-                cell._value = footnote_rich_text
-                cell.data_type = 's'
-            else:
-                cell.value = footnote_text
-            if footnote_font:
-                cell.font = footnote_font
-            if footnote_alignment:
-                cell.alignment = footnote_alignment
-            if footnote_row_height:
-                worksheet.row_dimensions[footnote_row].height = footnote_row_height
+        # ── 7. 備註列（與最末列間隔一空列，與舊版行為一致）──────────────
+        note_row        = DATA_START + len(rows) + 1
+        last_col_letter = get_column_letter(col_count)
+        ws.merge_cells(f"A{note_row}:{last_col_letter}{note_row}")
+        note_c            = ws.cell(note_row, 1)
+        note_c.value      = _A0405_NOTE_TEXT
+        note_c.font       = _XL_F14
+        note_c.alignment  = _XL_A_NOTE
+        ws.row_dimensions[note_row].height = _XL_ROW_H_NOTE
 
-        # 7. 儲存
+        # ── 8. 儲存 ─────────────────────────────────────────────────────
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{filename_prefix}_{timestamp}.xlsx"
+        filename  = f"{filename_prefix}_{timestamp}.xlsx"
         file_path = self.temp_dir / filename
         workbook.save(str(file_path))
         return str(file_path)
@@ -811,12 +854,12 @@ class ExcelGeneratorService:
                 s.get('total_subsidy', 0) or 0,
             ])
         return self._generate_a02_report(
-            template_name="A02-1.xlsx",
+            template_name="A02.xlsx",
             col_count=5,
             title_text=f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度各縣市鄉鎮區統計",
             date_text=f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日",
             rows=rows,
-            filename_prefix=f"A02-1_{year}",
+            filename_prefix=f"A02_{year}",
         )
 
     async def generate_a02_2_report(self, data: Dict[str, Any], year: int) -> str:
@@ -831,31 +874,41 @@ class ExcelGeneratorService:
                 s.get('total_subsidy', 0) or 0,
             ])
         return self._generate_a02_report(
-            template_name="A02-2.xlsx",
+            template_name="A03.xlsx",
             col_count=4,
             title_text=f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度各管理處統計",
             date_text=f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日",
             rows=rows,
-            filename_prefix=f"A02-2_{year}",
+            filename_prefix=f"A03_{year}",
         )
 
     async def generate_a02_3_report(self, data: Dict[str, Any]) -> str:
         """生成 A02-3 歷年各縣市鄉鎮區統計報表（範本驅動橫向年度展開）"""
         return self._generate_a02_yearly_report(
-            template_name="A02-3.xlsx",
+            template_name="A04.xlsx",
             fixed_cols=2,
             data=data,
-            filename_prefix=f"A02-3_{data.get('start_year', '')}-{data.get('end_year', '')}",
+            filename_prefix=f"A04_{data.get('start_year', '')}-{data.get('end_year', '')}",
             show_total=False,
         )
 
     async def generate_a02_4_report(self, data: Dict[str, Any]) -> str:
         """生成 A02-4 歷年各管理處統計報表（範本驅動橫向年度展開）"""
         return self._generate_a02_yearly_report(
-            template_name="A02-4.xlsx",
+            template_name="A05.xlsx",
             fixed_cols=1,
             data=data,
-            filename_prefix=f"A02-4_{data.get('start_year', '')}-{data.get('end_year', '')}",
+            filename_prefix=f"A05_{data.get('start_year', '')}-{data.get('end_year', '')}",
+            show_total=False,
+        )
+
+    async def generate_a08_aboriginal_yearly_report(self, data: Dict[str, Any]) -> str:
+        """生成 A08 歷年原民區域統計報表（橫向年度展開，與 A04 結構相同）"""
+        return self._generate_a02_yearly_report(
+            template_name="A08.xlsx",
+            fixed_cols=2,
+            data=data,
+            filename_prefix=f"A08_{data.get('start_year', '')}-{data.get('end_year', '')}",
             show_total=False,
         )
 
@@ -868,335 +921,205 @@ class ExcelGeneratorService:
         show_total: bool = True,
     ) -> str:
         """
-        A02-3/A02-4 橫向年度展開報表生成（範本驅動 + 橫向欄組動態擴展）
+        A02-3/A02-4 橫向年度展開報表生成（規則建構，無範本依賴）
 
-        範本結構（7 列固定）：
-          Row 1: 標題（合併全欄）
-          Row 2: 表號(A2) + 製表日期（右側合併）
-          Row 3: 固定欄頭（合併 row3:4）+ 樣本年度合併欄頭
-          Row 4: 指標子欄頭（補助案件數 / 補助面積 / 補助金額）
-          Row 5: 樣本資料列（邊框樣式參考）
-          Row 6: 樣本合計列（邊框樣式參考）
-          Row 7: 備註（合併全欄）
-
-        生成步驟：
-          1. 擷取所有樣式（Rows 3-7）
-          2. unmerge_all + 清除 Row 3+ 內容
-          3. 重建 Row 1 合併至 total_cols
-          4. 重建 Row 2 日期（最後兩欄合併）
-          5. 重建 Row 3（固定欄頭合併 row3:4 + N 年度合併欄頭）
-          6. 重建 Row 4（N×3 指標子欄頭）
-          7. 寫入資料列（Row 5+）
-          8. 寫入合計列
-          9. 寫入備註列（合併至 total_cols）
+        生成結構：
+          Row 1: 標題（合併 A1:固定欄+3，wrap_text）
+          Row 2: 表號 + 製表日期（最後兩欄合併）
+          Row 3 (HDR1): 固定欄頭（合併 row3:4）+ N 年度合併欄頭
+          Row 4 (HDR2): 指標子欄頭（補助案件數 / 補助面積 / 補助金額）× N
+          Row 5+: 資料列（固定識別欄 + N×3 年度指標欄）
+          合計列: 合計（show_total=True）
+          備註列: 純文字備註（合併全欄）
         """
-        from openpyxl import load_workbook
+        from openpyxl import Workbook
         from openpyxl.styles import Border
+        from openpyxl.utils import get_column_letter
         from openpyxl.cell.cell import MergedCell
         from decimal import Decimal as _Decimal
-        import re
 
-        template_path = settings.get_template_path(template_name)
-        if not template_path.exists():
-            raise FileNotFoundError(f"範本檔案不存在: {template_path}")
-
-        workbook = load_workbook(str(template_path))
-        ws = workbook.active
-
-        if 'Print_Area' in workbook.defined_names:
-            del workbook.defined_names['Print_Area']
-
-        years = data.get('years', [])
-        rows_data = data.get('rows', [])
-        start_year = data.get('start_year', 0)
+        years        = data.get('years', [])
+        rows_data    = data.get('rows', [])
+        start_year   = data.get('start_year', 0)
         end_year_val = data.get('end_year', 0)
-        N = len(years)
-        total_cols = fixed_cols + N * 3
-
-        SAMPLE_YEAR_START_COL = fixed_cols + 1
-        HDR1 = 3   # Row 3: 年度合併欄頭 + 固定欄頭（合併 row3:4）
-        HDR2 = 4   # Row 4: 指標子欄頭
-        DATA_START = 5
-        TPL_TOTAL = 6
-        TPL_NOTE = 7
-
-        def _grab(cell):
-            """擷取儲存格樣式為可複製字典"""
-            return {
-                'font': copy(cell.font),
-                'alignment': copy(cell.alignment),
-                'border': copy(cell.border),
-                'fill': copy(cell.fill),
-                'number_format': cell.number_format,
-            }
-
-        def _apply(cell, s):
-            """套用樣式字典到儲存格"""
-            if s.get('font'):        cell.font = s['font']
-            if s.get('alignment'):   cell.alignment = s['alignment']
-            if s.get('border'):      cell.border = s['border']
-            if s.get('fill'):        cell.fill = s['fill']
-            if s.get('number_format'): cell.number_format = s['number_format']
-
-        # ── 0. 前置作業：儲存欄寬 + 解除合併（取得合併格各欄真實邊框）────
-        col_widths_by_idx = self._tpl_save_col_widths(ws)
-
-        for mr in list(ws.merged_cells.ranges):
-            ws.unmerge_cells(str(mr))
-
-        # 解除合併後各欄恢復為普通格，可正確讀取右邊界欄的真實邊框
-        year_hdr_col_borders = self._tpl_capture_row_borders(ws, HDR1, SAMPLE_YEAR_START_COL, 3)
-
-        # ── 1. 擷取樣式 ──────────────────────────────────────────────────
-        # 固定欄頭（Row 3 各固定欄）
-        fixed_header_values = [ws.cell(HDR1, c).value for c in range(1, fixed_cols + 1)]
-        fixed_header_styles = [_grab(ws.cell(HDR1, c)) for c in range(1, fixed_cols + 1)]
-
-        # 年度合併欄頭（Row 3 樣本年度欄）
-        year_group_hdr_style = _grab(ws.cell(HDR1, SAMPLE_YEAR_START_COL))
-
-        # 指標子欄頭（Row 4 三個樣本欄）
-        sub_hdr_values = [ws.cell(HDR2, SAMPLE_YEAR_START_COL + j).value for j in range(3)]
-        sub_hdr_styles  = [_grab(ws.cell(HDR2, SAMPLE_YEAR_START_COL + j)) for j in range(3)]
-
-        # 固定欄資料格（Row 5）
-        fixed_data_styles = [_grab(ws.cell(DATA_START, c)) for c in range(1, fixed_cols + 1)]
-
-        # 年度欄資料格（Row 5，三個樣本欄）
-        year_data_styles = [_grab(ws.cell(DATA_START, SAMPLE_YEAR_START_COL + j)) for j in range(3)]
-
-        # 合計列（Row 6）
-        fixed_total_styles = [_grab(ws.cell(TPL_TOTAL, c)) for c in range(1, fixed_cols + 1)]
-        year_total_styles  = [_grab(ws.cell(TPL_TOTAL, SAMPLE_YEAR_START_COL + j)) for j in range(3)]
-
-        # 備註（Row 7）
-        note_cell = ws.cell(TPL_NOTE, 1)
-        note_rich_text = None
-        if hasattr(note_cell, '_value') and hasattr(note_cell._value, '__iter__') and not isinstance(note_cell._value, str):
-            note_rich_text = note_cell._value
-            note_text = note_cell.value
-        else:
-            note_text = note_cell.value
-        note_font      = copy(note_cell.font)      if note_cell.font      else None
-        note_alignment = copy(note_cell.alignment) if note_cell.alignment else None
-        note_height = ws.row_dimensions[TPL_NOTE].height if TPL_NOTE in ws.row_dimensions else 96.0
-
-        # 列高（用於重建後套用）
-        hdr1_height  = ws.row_dimensions[HDR1].height      if HDR1      in ws.row_dimensions else 25.0
-        hdr2_height  = ws.row_dimensions[HDR2].height      if HDR2      in ws.row_dimensions else 45.0
-        data_height  = ws.row_dimensions[DATA_START].height if DATA_START in ws.row_dimensions else 21.0
-        total_height = ws.row_dimensions[TPL_TOTAL].height  if TPL_TOTAL  in ws.row_dimensions else 21.0
-
-        # Row 2 日期儲存格的字型與對齊
-        date_font = date_align = None
-        for col in range(1, ws.max_column + 1):
-            c = ws.cell(2, col)
-            if c.value and '製表日期' in str(c.value):
-                date_font  = copy(c.font)      if c.font      else None
-                date_align = copy(c.alignment) if c.alignment else None
-                break
-
-        # 外框底線（取自 TPL_TOTAL 列，用於最末資料列或合計列的底部粗線）
-        frame_bottom_sides = {}
-        for c in range(1, fixed_cols + 1):
-            cell = ws.cell(TPL_TOTAL, c)
-            if cell.border and cell.border.bottom and getattr(cell.border.bottom, 'style', None):
-                frame_bottom_sides[c] = copy(cell.border.bottom)
-        for j in range(3):
-            cell = ws.cell(TPL_TOTAL, SAMPLE_YEAR_START_COL + j)
-            if cell.border and cell.border.bottom and getattr(cell.border.bottom, 'style', None):
-                frame_bottom_sides[SAMPLE_YEAR_START_COL + j] = copy(cell.border.bottom)
-
-        # 固定欄頭 HDR2 列邊框（垂直合併底端格）
-        # 範本 XML 通常不為垂直合併底端格儲存明確樣式，故以 HDR1 邊框 + 外框底線重建：
-        # left/right 取自 HDR1（外框左線與內分隔右線），bottom 取自 frame_bottom_sides（外框底線）
-        fixed_hdr_hdr2_borders = []
-        for c in range(1, fixed_cols + 1):
-            b1 = fixed_header_styles[c - 1].get('border')
-            fixed_hdr_hdr2_borders.append(Border(
-                left=b1.left   if b1 else None,
-                right=b1.right if b1 else None,
-                bottom=frame_bottom_sides.get(c),
-            ))
-
-        fixed_data_styles_inner = [self._tpl_inner_style(s) for s in fixed_data_styles]
-        year_data_styles_inner  = [self._tpl_inner_style(s) for s in year_data_styles]
-
-        # ── 2. 更新標題文字（替換佔位符）──────────────────────────────────
-        title_text = re.sub(
-            r'OOO年度～OOO年度',
-            f'{start_year}年度～{end_year_val}年度',
-            str(ws.cell(1, 1).value or ''),
-        )
-
-        # ── 3. 清除 Row 2 日期區域 + 清除 Row 3+ ─────────────────────────
-        # （unmerge 已於步驟 0 前置完成）
-        # 清除 Row 2 中除表號欄(A2)以外的儲存格（移除舊日期佔位符）
-        for col in range(2, ws.max_column + 1):
-            ws.cell(2, col).value = None
-        # 清除 Row 3+ 所有儲存格
-        clear_cols = max(ws.max_column, total_cols)
-        for row in range(HDR1, ws.max_row + 1):
-            for col in range(1, clear_cols + 1):
-                cell = ws.cell(row, col)
-                if not isinstance(cell, MergedCell):
-                    cell.value  = None
-                    cell.border = Border()
-            if row in ws.row_dimensions:
-                del ws.row_dimensions[row]
-
-        # 範本原始總欄數（固定欄 + 1 個樣本年度組）；Row 1 與製表日期的合併範圍固定於此，
-        # 不隨動態年度數量延伸，與範本位置保持一致。
+        N            = len(years)
+        total_cols   = fixed_cols + N * 3
+        # Row 1/2 合併範圍（固定欄 + 1 個年度組），與舊範本版本保持一致
         TPL_TOTAL_COLS = fixed_cols + 3
+        HDR1       = 3
+        HDR2       = 4
+        DATA_START = 5
 
-        # ── 4. Row 1 標題：更新文字 + 合併至範本原始欄界（不延伸至動態年度欄）──
-        self._set_cell_value_safe_by_position(ws, 1, 1, title_text)
-        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=TPL_TOTAL_COLS)
+        # 從 template_name 衍生表號與固定欄頭（無須載入範本檔案）
+        tbl_num = template_name.replace('.xlsx', '')
+        _FIXED_HDR_NAMES = {2: ['縣市', '鄉鎮區'], 1: ['管理處']}
+        _TITLE_TMPLS = {
+            'A04.xlsx': '農業部農田水利署\n推廣管路灌溉設施計畫\nOOO年度～OOO年度各縣市鄉鎮區統計表',
+            'A05.xlsx': '農業部農田水利署\n推廣管路灌溉設施計畫\nOOO年度～OOO年度各管理處統計表',
+            'A08.xlsx': '農業部農田水利署\n推廣管路灌溉設施計畫\nOOO年度～OOO年度原住民地區推動成果統計表',
+        }
+        title_text      = _TITLE_TMPLS.get(template_name, '').replace(
+            'OOO年度～OOO年度', f'{start_year}年度～{end_year_val}年度'
+        )
+        fixed_hdr_names = _FIXED_HDR_NAMES[fixed_cols]
 
-        # ── 5. Row 2 日期：位置與範本一致（範本最後兩欄合併）──────────────
-        today = datetime.now()
-        new_date = f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日"
-        date_start_col = TPL_TOTAL_COLS - 1
-        ws.merge_cells(start_row=2, start_column=date_start_col, end_row=2, end_column=TPL_TOTAL_COLS)
-        date_cell = ws.cell(2, date_start_col)
-        date_cell.value = new_date
-        if date_font:  date_cell.font      = date_font
-        if date_align: date_cell.alignment = date_align
+        workbook = Workbook()
+        ws       = workbook.active
 
-        # ── 6. Row 3：固定欄頭（合併 row3:row4）+ N 年度合併欄頭 ────────
-        ws.row_dimensions[HDR1].height = hdr1_height
+        # ── 1. 欄寬 ──────────────────────────────────────────────────────
+        cw = _A0405_COL_WIDTHS[fixed_cols]
         for i in range(fixed_cols):
-            col = i + 1
-            ws.merge_cells(start_row=HDR1, start_column=col, end_row=HDR2, end_column=col)
-            cell = ws.cell(HDR1, col)
-            cell.value = fixed_header_values[i]
-            _apply(cell, fixed_header_styles[i])
-            # merge_cells 會刪除底端格（HDR2）；用 _tpl_force_interior_border 注入邊框，
-            # 確保 A4 行高區域的左外框與下外框在 XML 中有明確樣式。
-            self._tpl_force_interior_border(ws, HDR2, col, fixed_hdr_hdr2_borders[i])
-
-        for i, year in enumerate(years):
-            sc = fixed_cols + i * 3 + 1
-            # 先逐欄設定邊框再合併（保留右邊界欄右外框），由 _tpl_merge_horizontal 封裝
-            self._tpl_merge_horizontal(ws, HDR1, sc, 3, year_hdr_col_borders)
-            cell = ws.cell(HDR1, sc)
-            cell.value = f"{year}年度"
-            # 套用非邊框樣式（邊框已在合併前設定，不用 _apply 以免覆蓋）
-            cell.font          = year_group_hdr_style['font']
-            cell.alignment     = year_group_hdr_style['alignment']
-            cell.fill          = year_group_hdr_style['fill']
-            cell.number_format = year_group_hdr_style['number_format']
-
-        # ── 7. Row 4：N × 3 指標子欄頭 ──────────────────────────────────
-        ws.row_dimensions[HDR2].height = hdr2_height
+            ws.column_dimensions[get_column_letter(i + 1)].width = cw[i]
         for i in range(N):
             for j in range(3):
-                col = fixed_cols + i * 3 + j + 1
-                cell = ws.cell(HDR2, col)
-                cell.value = sub_hdr_values[j]
-                _apply(cell, sub_hdr_styles[j])
+                ws.column_dimensions[get_column_letter(fixed_cols + i * 3 + j + 1)].width = cw['year']
 
-        # ── 8. 資料列 ────────────────────────────────────────────────────
+        # ── 2. Row 1 標題 ────────────────────────────────────────────────
+        ws.row_dimensions[1].height = _XL_ROW_H_TITLE
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=TPL_TOTAL_COLS)
+        c           = ws.cell(1, 1)
+        c.value     = title_text
+        c.font      = _XL_F16
+        c.alignment = _XL_A_WRAP
+
+        # ── 3. Row 2 表號 + 製表日期 ─────────────────────────────────────
+        ws.row_dimensions[2].height = _XL_ROW_H_DATE
+        c2           = ws.cell(2, 1)
+        c2.value     = tbl_num
+        c2.font      = _XL_F16B
+        c2.alignment = _XL_A_CTR
+
+        today          = datetime.now()
+        date_txt       = f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日"
+        date_start_col = TPL_TOTAL_COLS - 1
+        ws.merge_cells(start_row=2, start_column=date_start_col, end_row=2, end_column=TPL_TOTAL_COLS)
+        dc           = ws.cell(2, date_start_col)
+        dc.value     = date_txt
+        dc.font      = _XL_F12
+        dc.alignment = _XL_A_RT
+
+        # ── 4. HDR1 (Row 3) 固定欄頭（合併 row3:4）──────────────────────
+        ws.row_dimensions[HDR1].height = _XL_ROW_H_HDR1
+        for i in range(fixed_cols):
+            col  = i + 1
+            ws.merge_cells(start_row=HDR1, start_column=col, end_row=HDR2, end_column=col)
+            cell           = ws.cell(HDR1, col)
+            cell.value     = fixed_hdr_names[i]
+            cell.font      = _XL_F16
+            cell.alignment = _XL_A_CTR
+            cell.border    = _A0405_FIXED_HDR_BORDER[(fixed_cols, i)]
+            # merge_cells 刪除底端格；強制注入邊框確保 HDR2 行高區域的框線顯示
+            self._tpl_force_interior_border(ws, HDR2, col, _A0405_FIXED_HDR2_BORDER[(fixed_cols, i)])
+
+        # ── 5. HDR1 (Row 3) 年度合併欄頭 ────────────────────────────────
+        for i, year in enumerate(years):
+            sc             = fixed_cols + i * 3 + 1
+            self._tpl_merge_horizontal(ws, HDR1, sc, 3, _A0405_YEAR_HDR_BORDERS)
+            cell           = ws.cell(HDR1, sc)
+            cell.value     = f"{year}年度"
+            cell.font      = _XL_F16
+            cell.alignment = _XL_A_CTR
+
+        # ── 6. HDR2 (Row 4) 指標子欄頭 ──────────────────────────────────
+        ws.row_dimensions[HDR2].height = _XL_ROW_H_HDR2
+        _subhdr_align = [_XL_A_WRAP, _XL_A_CTR, _XL_A_CTR]
+        for i in range(N):
+            for j in range(3):
+                col            = fixed_cols + i * 3 + j + 1
+                cell           = ws.cell(HDR2, col)
+                cell.value     = _A0405_SUBHDR_TEXT[j]
+                cell.font      = _XL_F14
+                cell.alignment = _subhdr_align[j]
+                cell.border    = _A0405_SUBHDR_BORDER[j]
+
+        # ── 7. 資料列 ─────────────────────────────────────────────────────
         year_totals = {y: {'cases': 0, 'area': _Decimal('0'), 'subsidy': 0} for y in years}
 
         for idx, row_item in enumerate(rows_data):
-            row_num = DATA_START + idx
-            ws.row_dimensions[row_num].height = data_height
+            row_num                           = DATA_START + idx
+            ws.row_dimensions[row_num].height = _XL_ROW_H_DATA
 
-            # 固定識別欄
-            if fixed_cols == 2:
-                fixed_vals = [row_item.get('county_name', ''), row_item.get('town_name', '')]
-            else:
-                fixed_vals = [row_item.get('office_name', '')]
+            fixed_vals = (
+                [row_item.get('county_name', ''), row_item.get('town_name', '')]
+                if fixed_cols == 2 else
+                [row_item.get('office_name', '')]
+            )
+            for ci, val in enumerate(fixed_vals):
+                cell           = ws.cell(row_num, ci + 1)
+                cell.value     = val
+                cell.font      = _XL_F14
+                cell.alignment = _XL_A_CTR
+                cell.border    = _A0405_FIXED_DATA_BORDER[(fixed_cols, ci)]
 
-            for ci, (val, s) in enumerate(zip(fixed_vals, fixed_data_styles_inner)):
-                cell = ws.cell(row_num, ci + 1)
-                cell.value = val
-                _apply(cell, s)
-
-            # 年度指標欄
             for i, ym in enumerate(row_item.get('year_metrics', [])):
-                y      = ym.get('year', 0)
-                cases  = int(ym.get('completed_cases', 0) or 0)
-                area   = float(ym.get('total_area', 0) or 0)
+                y       = ym.get('year', 0)
+                cases   = int(ym.get('completed_cases', 0) or 0)
+                area    = float(ym.get('total_area', 0) or 0)
                 subsidy = int(ym.get('total_subsidy', 0) or 0)
-                sc = fixed_cols + i * 3 + 1
-
-                for j, (val, s) in enumerate(zip([cases, area, subsidy], year_data_styles_inner)):
-                    cell = ws.cell(row_num, sc + j)
-                    cell.value = val
-                    _apply(cell, s)
-
+                sc      = fixed_cols + i * 3 + 1
+                for j, val in enumerate([cases, area, subsidy]):
+                    cell           = ws.cell(row_num, sc + j)
+                    cell.value     = val
+                    cell.font      = _XL_F14
+                    cell.alignment = _XL_A_CTR
+                    cell.border    = _A0405_DATA_YEAR_BORDER[j]
                 if y in year_totals:
                     year_totals[y]['cases']   += cases
                     year_totals[y]['area']    += _Decimal(str(area))
                     year_totals[y]['subsidy'] += subsidy
 
-        # ── 9. 合計列（僅 show_total=True 時生成）────────────────────────
+        # ── 8. 合計列（僅 show_total=True 時生成）────────────────────────
         if show_total:
-            total_row = DATA_START + len(rows_data)
-            ws.row_dimensions[total_row].height = total_height
-
+            total_row                           = DATA_START + len(rows_data)
+            ws.row_dimensions[total_row].height = _XL_ROW_H_TOTAL
+            # 先設邊框再合併，確保右邊界外框不遺失
+            for i in range(fixed_cols):
+                c           = ws.cell(total_row, i + 1)
+                c.font      = _XL_F14
+                c.alignment = _XL_A_CTR
+                c.border    = _A0405_FIXED_DATA_BORDER[(fixed_cols, i)]
             if fixed_cols == 2:
                 ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=2)
-            cell = ws.cell(total_row, 1)
-            cell.value = '合  計'
-            _apply(cell, fixed_total_styles[0])
-
+            ws.cell(total_row, 1).value = '合  計'
             for i, year in enumerate(years):
-                sc = fixed_cols + i * 3 + 1
-                yt = year_totals[year]
-                for j, (val, s) in enumerate(zip(
-                    [yt['cases'], float(yt['area']), yt['subsidy']],
-                    year_total_styles,
-                )):
-                    cell = ws.cell(total_row, sc + j)
-                    cell.value = val
-                    _apply(cell, s)
-
+                sc  = fixed_cols + i * 3 + 1
+                yt  = year_totals[year]
+                for j, val in enumerate([yt['cases'], float(yt['area']), yt['subsidy']]):
+                    cell           = ws.cell(total_row, sc + j)
+                    cell.value     = val
+                    cell.font      = _XL_F14
+                    cell.alignment = _XL_A_CTR
+                    cell.border    = _A0405_DATA_YEAR_BORDER[j]
             note_start_row = total_row + 1
         else:
             note_start_row = DATA_START + len(rows_data)
 
-        # ── 10. 最末列套用外框底線 ────────────────────────────────────────
-        last_table_row = (total_row if show_total else DATA_START + len(rows_data) - 1)
-        if rows_data and frame_bottom_sides:
+        # ── 9. 最末列套用外框底線（medium bottom）────────────────────────
+        last_table_row = total_row if show_total else DATA_START + len(rows_data) - 1
+        if rows_data:
             for col in range(1, total_cols + 1):
                 cell = ws.cell(last_table_row, col)
-                src_key = col if col <= fixed_cols else SAMPLE_YEAR_START_COL + (col - fixed_cols - 1) % 3
-                bottom = frame_bottom_sides.get(src_key)
-                if bottom and cell.border:
-                    cell.border = Border(
-                        left=cell.border.left,
-                        right=cell.border.right,
-                        top=cell.border.top,
-                        bottom=bottom,
-                    )
+                if isinstance(cell, MergedCell):
+                    continue
+                b = cell.border
+                cell.border = Border(
+                    left   = b.left   if b else None,
+                    right  = b.right  if b else None,
+                    top    = b.top    if b else None,
+                    bottom = _XL_S_M,
+                )
 
-        # ── 11. 新增年度欄的欄寬（僅設定超出範本原始欄的新增欄）────────────
-        for i in range(1, N):
-            self._tpl_apply_col_widths(
-                ws, col_widths_by_idx,
-                src_col_start=SAMPLE_YEAR_START_COL, src_count=3,
-                dst_col_start=fixed_cols + i * 3 + 1,
-            )
+        # ── 10. 備註列 ───────────────────────────────────────────────────
+        note_row        = note_start_row
+        last_col_letter = get_column_letter(total_cols)
+        ws.merge_cells(f"A{note_row}:{last_col_letter}{note_row}")
+        note_c            = ws.cell(note_row, 1)
+        note_c.value      = _A0405_NOTE_TEXT
+        note_c.font       = _XL_F14
+        note_c.alignment  = _XL_A_NOTE
+        ws.row_dimensions[note_row].height = _XL_ROW_H_NOTE
 
-        # ── 12. 備註列 ───────────────────────────────────────────────────
-        if note_text:
-            note_row = note_start_row
-            last_col_letter = get_column_letter(total_cols)
-            ws.merge_cells(f"A{note_row}:{last_col_letter}{note_row}")
-            note_c = ws.cell(note_row, 1)
-            if note_rich_text:
-                note_c._value    = note_rich_text
-                note_c.data_type = 's'
-            else:
-                note_c.value = note_text
-            if note_font:      note_c.font      = note_font
-            if note_alignment: note_c.alignment = note_alignment
-            ws.row_dimensions[note_row].height = note_height
-
-        # ── 13. 儲存 ─────────────────────────────────────────────────────
+        # ── 11. 儲存 ─────────────────────────────────────────────────────
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename  = f"{filename_prefix}_{timestamp}.xlsx"
         file_path = self.temp_dir / filename
@@ -1211,11 +1134,7 @@ class ExcelGeneratorService:
         year: int
     ) -> str:
         """
-        生成 A03 各管理處經費統計報表 Excel 檔案
-
-        範本驅動 + 動態增長架構（同 A01/A02 模式）：
-        - 範本 A03.xlsx 提供：標題格式、欄寬、資料列樣式參考（Row 4）、備註文字
-        - 程式碼負責：清除範例資料 → 動態寫入實際資料（12欄位）→ 合計列 → 備註跟隨尾端
+        生成 A03 各管理處經費統計報表 Excel 檔案（規則建構，無範本依賴）
 
         Args:
             data: BudgetAnalysisResponse 資料（包含 offices、total_* 等欄位）
@@ -1224,82 +1143,52 @@ class ExcelGeneratorService:
         Returns:
             str: 生成的 Excel 檔案路徑
         """
-        from openpyxl import load_workbook
-        from openpyxl.styles import Border, Font
-        from decimal import Decimal
+        DATA_START = 4
+        COL_COUNT = 12
 
-        template_path = settings.get_template_path("A03.xlsx")
-        if not template_path.exists():
-            raise FileNotFoundError(f"範本檔案不存在: {template_path}")
+        workbook = Workbook()
+        ws = workbook.active
 
-        workbook = load_workbook(str(template_path))
-        worksheet = workbook.active
+        # 1. 欄寬
+        for col, w in _A06_COL_WIDTHS.items():
+            ws.column_dimensions[get_column_letter(col)].width = w
 
-        DATA_START_ROW = 4  # 範本中資料區塊起始列（同時作為樣式參考列）
-        HEADER_ROW = 3
-        COL_COUNT = 12  # A03 報表共 12 個欄位
+        # 2. Row 1 標題
+        ws.row_dimensions[1].height = _XL_ROW_H_TITLE
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=COL_COUNT)
+        c = ws.cell(1, 1)
+        c.value = f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度各管理處經費統計表"
+        c.font = _XL_F16
+        c.alignment = _XL_A_WRAP
 
-        # 1. 從範本擷取樣式參考（Row 4 的每欄格式 + 表頭外框粗細）
-        col_styles = {}
-        frame_bottom_sides = {}
-        for col in range(1, COL_COUNT + 1):
-            ref_cell = worksheet.cell(row=DATA_START_ROW, column=col)
-            col_styles[col] = {
-                'font': copy(ref_cell.font) if ref_cell.font else None,
-                'alignment': copy(ref_cell.alignment) if ref_cell.alignment else None,
-                'border': copy(ref_cell.border) if ref_cell.border else None,
-                'fill': copy(ref_cell.fill) if ref_cell.fill else None,
-                'number_format': ref_cell.number_format,
-            }
-            # 表頭底部邊框 = 表格外框粗細（用於最後一列資料的底線）
-            header_cell = worksheet.cell(row=HEADER_ROW, column=col)
-            if header_cell.border and header_cell.border.bottom:
-                frame_bottom_sides[col] = header_cell.border.bottom
-
-        # 2. 擷取備註（解除 Row 4 以下的所有合併儲存格）
-        footnote_text = None
-        footnote_font = None
-        footnote_alignment = None
-        footnote_row_height = None
-        footnote_rich_text = None  # 保存 Rich Text 數據
-        for merge in list(worksheet.merged_cells.ranges):
-            if merge.min_row >= DATA_START_ROW:
-                cell = worksheet.cell(row=merge.min_row, column=1)
-                # 檢查是否為 Rich Text（部分文字有不同格式）
-                if hasattr(cell, '_value') and hasattr(cell._value, '__iter__') and not isinstance(cell._value, str):
-                    # 保存 Rich Text 數據（包含所有格式信息）
-                    footnote_rich_text = cell._value
-                    footnote_text = cell.value  # 保存純文字作為後備
-                else:
-                    footnote_text = cell.value
-                footnote_font = copy(cell.font) if cell.font else None
-                footnote_alignment = copy(cell.alignment) if cell.alignment else None
-                footnote_row_height = worksheet.row_dimensions[merge.min_row].height
-                worksheet.unmerge_cells(str(merge))
-
-        # 3. 清除範本的範例資料（Row 4 到最後一行：內容、邊框、行高）
-        max_row = worksheet.max_row
-        for row in range(DATA_START_ROW, max_row + 1):
-            for col in range(1, COL_COUNT + 1):
-                cell = worksheet.cell(row=row, column=col)
-                cell.value = None
-                cell.border = Border()
-            # 重置行高（移除範本殘留的自訂行高）
-            if row in worksheet.row_dimensions:
-                del worksheet.row_dimensions[row]
-
-        # 4. 更新標題和製表日期
-        worksheet['A1'].value = (
-            f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度各管理處經費統計表"
-        )
+        # 3. Row 2 表號 + 製表日期（K2:L2 合併）
+        ws.row_dimensions[2].height = _XL_ROW_H_DATE
+        c2 = ws.cell(2, 1)
+        c2.value = 'A06'
+        c2.font = _XL_F16B
+        c2.alignment = _XL_A_CTR
         today = datetime.now()
         date_str = f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日"
-        self._set_cell_value_safe(worksheet, 'L2', date_str)
+        ws.merge_cells(start_row=2, start_column=11, end_row=2, end_column=COL_COUNT)
+        dc = ws.cell(2, 11)
+        dc.value = date_str
+        dc.font = _XL_F12
+        dc.alignment = _XL_A_RT
 
-        # 5. 動態寫入資料列（套用範本樣式）
+        # 4. Row 3 欄頭
+        ws.row_dimensions[3].height = _XL_ROW_H_HDR2
+        for j in range(COL_COUNT):
+            cell = ws.cell(3, j + 1)
+            cell.value = _A06_HDR_TEXT[j]
+            cell.font = _XL_F14
+            cell.alignment = _XL_A_CTR
+            cell.border = _A06_HDR_BORDER[j]
+
+        # 5. 資料列
         offices = data.get('offices', [])
         for idx, office in enumerate(offices):
-            row = DATA_START_ROW + idx
+            row = DATA_START + idx
+            ws.row_dimensions[row].height = _XL_ROW_H_DATA
             row_values = [
                 office.get('office_name', ''),
                 float(office.get('planned_area', 0) or 0),
@@ -1314,99 +1203,92 @@ class ExcelGeneratorService:
                 float(office.get('area_execution_rate', 0) or 0),
                 float(office.get('budget_execution_rate', 0) or 0),
             ]
-            for col, value in enumerate(row_values, start=1):
-                cell = worksheet.cell(row=row, column=col, value=value)
-                style = col_styles[col]
-                if style['font']:
-                    cell.font = style['font']
-                if style['alignment']:
-                    cell.alignment = style['alignment']
-                if style['border']:
-                    cell.border = style['border']
-                if style['fill']:
-                    cell.fill = style['fill']
-                if style['number_format']:
-                    cell.number_format = style['number_format']
+            for ci, val in enumerate(row_values):
+                cell = ws.cell(row, ci + 1)
+                cell.value = val
+                cell.font = _XL_F14
+                cell.alignment = _XL_A_CTR
+                cell.border = _A06_DATA_BORDER[ci]
+                cell.number_format = _A06_NUM_FMT[ci + 1]
 
-        # 6. 新增合計列（使用粗體字）
+        # 6. 最末列外框底線（medium bottom）
         if offices:
-            total_row = DATA_START_ROW + len(offices)
-            total_values = [
-                '合計',
-                float(data.get('total_planned_area', 0) or 0),
-                data.get('total_planned_budget', 0) or 0,
-                sum(o.get('budgeted_cases', 0) or 0 for o in offices),
-                sum(float(o.get('budgeted_area', 0) or 0) for o in offices),
-                data.get('total_budgeted_subsidy', 0) or 0,
-                data.get('total_unbudgeted_subsidy', 0) or 0,
-                sum(o.get('verified_cases', 0) or 0 for o in offices),
-                sum(float(o.get('verified_area', 0) or 0) for o in offices),
-                data.get('total_verified_amount', 0) or 0,
-                float(data.get('overall_area_execution_rate', 0) or 0),
-                float(data.get('overall_budget_execution_rate', 0) or 0),
-            ]
-            for col, value in enumerate(total_values, start=1):
-                cell = worksheet.cell(row=total_row, column=col, value=value)
-                style = col_styles[col]
-                # 套用樣式並將字體設為粗體
-                if style['font']:
-                    bold_font = copy(style['font'])
-                    bold_font.bold = True
-                    cell.font = bold_font
-                else:
-                    cell.font = Font(bold=True)
-                if style['alignment']:
-                    cell.alignment = style['alignment']
-                if style['border']:
-                    cell.border = style['border']
-                if style['fill']:
-                    cell.fill = style['fill']
-                if style['number_format']:
-                    cell.number_format = style['number_format']
+            last_row = DATA_START + len(offices) - 1
+            for ci in range(COL_COUNT):
+                cell = ws.cell(last_row, ci + 1)
+                db = _A06_DATA_BORDER[ci]
+                cell.border = Border(left=db.left, right=db.right, bottom=_XL_S_M)
 
-            # 6.1 合計列套用表格外框底線（與表頭粗細一致）
-            for col in range(1, COL_COUNT + 1):
-                cell = worksheet.cell(row=total_row, column=col)
-                if col in frame_bottom_sides and cell.border:
-                    cell.border = Border(
-                        left=cell.border.left,
-                        right=cell.border.right,
-                        top=cell.border.top,
-                        bottom=frame_bottom_sides[col],
-                    )
+        # 7. 備註列（資料末列後空一行；平文字先寫，儲存後再注入 Rich Text）
+        note_row = DATA_START + len(offices) + 1
+        ws.merge_cells(start_row=note_row, start_column=1, end_row=note_row, end_column=COL_COUNT)
+        note_c = ws.cell(note_row, 1)
+        note_c.value = _A06_NOTE_TEXT
+        note_c.font = _XL_F14
+        note_c.alignment = _XL_A_NOTE
+        ws.row_dimensions[note_row].height = _A06_ROW_H_NOTE
 
-        # 7. 動態定位備註（緊跟合計列，空一行）
-        if footnote_text:
-            footnote_row = DATA_START_ROW + len(offices) + 2  # 資料列 + 合計列 + 空行
-            worksheet.merge_cells(f"A{footnote_row}:L{footnote_row}")
-            cell = worksheet.cell(row=footnote_row, column=1)
-            
-            # 優先使用 Rich Text（保留底線等格式），否則使用純文字
-            if footnote_rich_text:
-                cell._value = footnote_rich_text
-                cell.data_type = 's'  # 設定為字串類型
-            else:
-                cell.value = footnote_text
-                
-            if footnote_font:
-                cell.font = footnote_font
-            if footnote_alignment:
-                cell.alignment = footnote_alignment
-            if footnote_row_height:
-                worksheet.row_dimensions[footnote_row].height = footnote_row_height
-
-        # 8. 生成檔案
+        # 8. 儲存後注入備註底線 Rich Text
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"A03_budget_analysis_{year}_{timestamp}.xlsx"
-        file_path = self.temp_dir / filename
+        file_path = self.temp_dir / f"A06_budget_analysis_{year}_{timestamp}.xlsx"
+        workbook.save(str(file_path))
+        self._inject_note_rich_text(str(file_path), note_row, _A06_NOTE_RUNS)
+        return str(file_path)
 
-        try:
-            workbook.save(str(file_path))
-            return str(file_path)
-        except Exception as e:
-            print(f"Excel save error: {e}")
-            print(f"File path: {file_path}")
-            raise
+    @staticmethod
+    @staticmethod
+    def _inject_note_rich_text(file_path: str, note_row: int, runs: tuple) -> None:
+        """
+        ZIP 後處理：將備註列的平文字替換為帶底線的 Rich Text（通用）。
+
+        openpyxl 3.1.2 在無 lxml 環境下無法正確寫出 CellRichText，因此先以純文字
+        儲存，再直接操作 xlsx ZIP 內的 sheet XML，將 <is><t>...</t></is> 替換成
+        帶 <u/> run 的多段格式。
+
+        Args:
+            file_path: xlsx 路徑（原址覆蓋）
+            note_row:  備註列列號
+            runs:      tuple of (underline: bool, text: str)；
+                       xml:space="preserve" 依 text 內容自動套用
+        """
+        import zipfile
+        import re
+        import os
+
+        _RPR_NORMAL = '<rPr><sz val="14"/><rFont val="微軟正黑體"/></rPr>'
+        _RPR_ULINE  = '<rPr><u/><sz val="14"/><rFont val="微軟正黑體"/></rPr>'
+
+        def _run_xml(underline: bool, text: str) -> str:
+            rpr = _RPR_ULINE if underline else _RPR_NORMAL
+            preserve = '\n' in text or text != text.strip()
+            sp = ' xml:space="preserve"' if preserve else ''
+            esc = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            return f'<r>{rpr}<t{sp}>{esc}</t></r>'
+
+        rich_is = '<is>' + ''.join(_run_xml(*r) for r in runs) + '</is>'
+
+        with zipfile.ZipFile(file_path, 'r') as zin:
+            names = zin.namelist()
+            sheet_name = next(n for n in names if n.startswith('xl/worksheets/sheet') and n.endswith('.xml'))
+            data = {name: zin.read(name) for name in names}
+
+        sheet_str = data[sheet_name].decode('utf-8')
+        pattern = (
+            r'(<c\s[^>]*\br="A' + str(note_row) + r'"[^>]*\bt="inlineStr"[^>]*>)'
+            r'<is>.*?</is>'
+            r'(</c>)'
+        )
+        new_str, count = re.subn(pattern, r'\1' + rich_is + r'\2', sheet_str, flags=re.DOTALL)
+        if count == 0:
+            return  # 空資料列情境，找不到備註格，直接略過
+
+        data[sheet_name] = new_str.encode('utf-8')
+
+        tmp_path = file_path + '.tmp'
+        with zipfile.ZipFile(tmp_path, 'w', compression=zipfile.ZIP_DEFLATED) as zout:
+            for name in names:
+                zout.writestr(name, data[name])
+        os.replace(tmp_path, file_path)
 
     # ==================== A04 原民區域統計報表 ====================
 
@@ -1416,157 +1298,98 @@ class ExcelGeneratorService:
         year: int
     ) -> str:
         """
-        生成 A04 原民區域統計報表 Excel 檔案
-
-        範本驅動 + 動態增長架構（同 A01/A02/A03 模式）：
-        - 範本 A04.xlsx 提供：標題格式、欄寬、資料列樣式參考（Row 4）、備註文字
-        - 程式碼負責：清除範例資料 → 動態寫入實際資料（4 欄位）→ 備註跟隨尾端
-        - 無合計列；無資料的欄位以空白呈現
+        生成 A04 原民區域統計報表 Excel 檔案（規則建構，無範本依賴）
 
         Args:
-            data: 原民區域統計資料（包含 stats、total_* 等欄位）
+            data: 原民區域統計資料（包含 stats 列表）
             year: 統計年度（民國年）
 
         Returns:
             str: 生成的 Excel 檔案路徑
         """
-        from openpyxl import load_workbook
-        from openpyxl.styles import Border
+        COL_COUNT = 5
+        DATA_START = 4
 
-        template_path = settings.get_template_path("A04.xlsx")
-        if not template_path.exists():
-            raise FileNotFoundError(f"範本檔案不存在: {template_path}")
+        workbook = Workbook()
+        ws = workbook.active
 
-        workbook = load_workbook(str(template_path))
-        worksheet = workbook.active
+        # 1. 欄寬（與 A02-1 相同：全部 24.33）
+        for ci, w in _A0203_COL_WIDTHS[COL_COUNT].items():
+            ws.column_dimensions[get_column_letter(ci + 1)].width = w
 
-        DATA_START_ROW = 4
-        HEADER_ROW = 3
-        COL_COUNT = 5  # A04 共 5 欄（縣市、鄉鎮區、案件數、面積、金額）
+        # 2. Row 1 標題
+        ws.row_dimensions[1].height = _XL_ROW_H_TITLE
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=COL_COUNT)
+        c = ws.cell(1, 1)
+        c.value = f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度原住民地區推動成果統計表"
+        c.font = _XL_F16
+        c.alignment = _XL_A_WRAP
 
-        # 1. 從範本擷取樣式參考（Row 4 的每欄格式 + 表頭外框粗細）
-        col_styles = {}
-        frame_bottom_sides = {}
-        for col in range(1, COL_COUNT + 1):
-            ref_cell = worksheet.cell(row=DATA_START_ROW, column=col)
-            col_styles[col] = {
-                'font': copy(ref_cell.font) if ref_cell.font else None,
-                'alignment': copy(ref_cell.alignment) if ref_cell.alignment else None,
-                'border': copy(ref_cell.border) if ref_cell.border else None,
-                'fill': copy(ref_cell.fill) if ref_cell.fill else None,
-                'number_format': ref_cell.number_format,
-            }
-            header_cell = worksheet.cell(row=HEADER_ROW, column=col)
-            if header_cell.border and header_cell.border.bottom:
-                frame_bottom_sides[col] = header_cell.border.bottom
-
-        # 2. 擷取備註（解除 Row 4 以下的所有合併儲存格）
-        footnote_text = None
-        footnote_font = None
-        footnote_alignment = None
-        footnote_row_height = None
-        footnote_rich_text = None
-        last_col_letter = get_column_letter(COL_COUNT)
-
-        for merge in list(worksheet.merged_cells.ranges):
-            if merge.min_row >= DATA_START_ROW:
-                cell = worksheet.cell(row=merge.min_row, column=1)
-                if hasattr(cell, '_value') and hasattr(cell._value, '__iter__') and not isinstance(cell._value, str):
-                    footnote_rich_text = cell._value
-                    footnote_text = cell.value
-                else:
-                    footnote_text = cell.value
-                footnote_font = copy(cell.font) if cell.font else None
-                footnote_alignment = copy(cell.alignment) if cell.alignment else None
-                footnote_row_height = worksheet.row_dimensions[merge.min_row].height
-                worksheet.unmerge_cells(str(merge))
-
-        # 3. 清除範本的範例資料（Row 4 到最後一行：內容、邊框、行高）
-        max_row = worksheet.max_row
-        for row in range(DATA_START_ROW, max_row + 1):
-            for col in range(1, COL_COUNT + 1):
-                cell = worksheet.cell(row=row, column=col)
-                cell.value = None
-                cell.border = Border()
-            if row in worksheet.row_dimensions:
-                del worksheet.row_dimensions[row]
-
-        # 4. 更新標題和製表日期
-        worksheet['A1'].value = (
-            f"農業部農田水利署\n推廣管路灌溉設施計畫\n{year}年度原住民地區推動成果統計表"
-        )
+        # 3. Row 2 表號 + 製表日期（D2:E2 合併）
+        ws.row_dimensions[2].height = _XL_ROW_H_DATE
+        c2 = ws.cell(2, 1)
+        c2.value = 'A07'
+        c2.font = _XL_F16B
+        c2.alignment = _XL_A_CTR
         today = datetime.now()
         date_str = f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日"
-        self._set_cell_value_safe(worksheet, f'{last_col_letter}2', date_str)
+        ws.merge_cells(start_row=2, start_column=4, end_row=2, end_column=COL_COUNT)
+        dc = ws.cell(2, 4)
+        dc.value = date_str
+        dc.font = _XL_F12
+        dc.alignment = _XL_A_RT
 
-        # 5. 動態寫入資料列（套用範本樣式；無資料欄位以空白呈現）
+        # 4. Row 3 欄頭（與 A02-1 相同）
+        ws.row_dimensions[3].height = _XL_ROW_H_HDR2
+        for j in range(COL_COUNT):
+            cell = ws.cell(3, j + 1)
+            cell.value = _A0203_HDR_TEXT[COL_COUNT][j]
+            cell.font = _XL_F14
+            cell.alignment = _A0203_HDR_ALIGN[COL_COUNT][j]
+            cell.border = _A0203_HDR_BORDER[(COL_COUNT, j)]
+
+        # 5. 資料列
         stats = data.get('stats', [])
         for idx, stat in enumerate(stats):
-            row = DATA_START_ROW + idx
-            county = stat.get('county') or None
-            town = stat.get('town') or None
-            grant_count = stat['grant_count'] if stat.get('grant_count') else None
-            subsidy_area = stat['subsidy_area'] if stat.get('subsidy_area') else None
-            subsidy_amount = stat['subsidy_amount'] if stat.get('subsidy_amount') else None
-            row_values = [county, town, grant_count, subsidy_area, subsidy_amount]
-            for col, value in enumerate(row_values, start=1):
-                cell = worksheet.cell(row=row, column=col, value=value)
-                style = col_styles[col]
-                if style['font']:
-                    cell.font = style['font']
-                if style['alignment']:
-                    cell.alignment = style['alignment']
-                if style['border']:
-                    cell.border = style['border']
-                if style['fill']:
-                    cell.fill = style['fill']
-                if style['number_format']:
-                    cell.number_format = style['number_format']
+            row = DATA_START + idx
+            ws.row_dimensions[row].height = _XL_ROW_H_DATA
+            row_values = [
+                stat.get('county') or None,
+                stat.get('town') or None,
+                stat['grant_count'] if stat.get('grant_count') else None,
+                stat['subsidy_area'] if stat.get('subsidy_area') else None,
+                stat['subsidy_amount'] if stat.get('subsidy_amount') else None,
+            ]
+            for ci, val in enumerate(row_values):
+                cell = ws.cell(row, ci + 1)
+                cell.value = val
+                cell.font = _XL_F14
+                cell.alignment = _XL_A_CTR
+                cell.border = _A0203_DATA_BORDER[(COL_COUNT, ci)]
+                cell.number_format = _A07_NUM_FMT[ci + 1]
 
-        # 6. 最末資料列套用表格外框底線（與表頭粗細一致）
+        # 6. 最末列外框底線（medium bottom）
         if stats:
-            last_data_row = DATA_START_ROW + len(stats) - 1
-            for col in range(1, COL_COUNT + 1):
-                cell = worksheet.cell(row=last_data_row, column=col)
-                if col in frame_bottom_sides and cell.border:
-                    cell.border = Border(
-                        left=cell.border.left,
-                        right=cell.border.right,
-                        top=cell.border.top,
-                        bottom=frame_bottom_sides[col],
-                    )
+            last_row = DATA_START + len(stats) - 1
+            for ci in range(COL_COUNT):
+                cell = ws.cell(last_row, ci + 1)
+                db = _A0203_DATA_BORDER[(COL_COUNT, ci)]
+                cell.border = Border(left=db.left, right=db.right, bottom=_XL_S_M)
 
-        # 7. 動態定位備註（緊跟資料列，空一行）
-        if footnote_text:
-            footnote_row = DATA_START_ROW + len(stats) + 1  # 資料列 + 空行
-            worksheet.merge_cells(f"A{footnote_row}:{last_col_letter}{footnote_row}")
-            cell = worksheet.cell(row=footnote_row, column=1)
+        # 7. 備註列（資料末列後空一行）
+        note_row = DATA_START + len(stats) + 1
+        ws.merge_cells(start_row=note_row, start_column=1, end_row=note_row, end_column=COL_COUNT)
+        note_c = ws.cell(note_row, 1)
+        note_c.value = _A07_NOTE_TEXT
+        note_c.font = _XL_F14
+        note_c.alignment = _XL_A_NOTE
+        ws.row_dimensions[note_row].height = _XL_ROW_H_NOTE
 
-            if footnote_rich_text:
-                cell._value = footnote_rich_text
-                cell.data_type = 's'
-            else:
-                cell.value = footnote_text
-
-            if footnote_font:
-                cell.font = footnote_font
-            if footnote_alignment:
-                cell.alignment = footnote_alignment
-            if footnote_row_height:
-                worksheet.row_dimensions[footnote_row].height = footnote_row_height
-
-        # 8. 生成檔案
+        # 8. 儲存
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"A04_aboriginal_{year}_{timestamp}.xlsx"
-        file_path = self.temp_dir / filename
-
-        try:
-            workbook.save(str(file_path))
-            return str(file_path)
-        except Exception as e:
-            print(f"Excel save error: {e}")
-            print(f"File path: {file_path}")
-            raise
+        file_path = self.temp_dir / f"A07_aboriginal_{year}_{timestamp}.xlsx"
+        workbook.save(str(file_path))
+        return str(file_path)
 
     # ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
 

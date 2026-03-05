@@ -172,352 +172,159 @@
                       </v-card-text>
                     </v-card>
 
-                    <!-- A02 各管理處/縣市鄉鎮區統計 -->
-                    <v-card class="report-item-card mb-3" flat rounded="lg">
-                      <v-expansion-panels flat>
-                        <v-expansion-panel elevation="0" rounded="lg">
-                          <v-expansion-panel-title class="px-4 py-3">
-                            <div class="d-flex align-items-start w-100">
-                              <v-avatar color="#3ea0a3" size="52" rounded="lg">
-                                <span class="text-body-1 font-weight-bold">A02</span>
-                              </v-avatar>
-                              <div class="ms-3 flex-grow-1">
-                                <div class="report-title-text">
-                                  各管理處/縣市鄉鎮區統計
-                                </div>
-                                <div class="report-category-tags mt-1">
-                                  <v-chip size="x-small" color="orange-lighten-5" label class="me-1">
-                                    新增組
-                                  </v-chip>
-                                  <v-chip size="x-small" color="grey-lighten-4" class="me-1">
-                                    年報
-                                  </v-chip>
-                                  <v-chip size="x-small" color="grey-lighten-4">
-                                    區域統計
-                                  </v-chip>
-                                </div>
-                              </div>
-                            </div>
-                          </v-expansion-panel-title>
-                          <v-expansion-panel-text class="px-4 pb-4">
-                            <div class="expansion-content">
-                              <div class="text-body-2 text-grey-darken-1 mb-4 px-2">
-                                包含『各縣市鄉鎮區』及『各管理處』之統計數據分析
-                              </div>
-
-                              <!-- A02-1 各縣市鄉鎮區統計表 -->
-                              <div class="sub-report-item mb-3">
-                                <v-row align="center">
-                                  <v-col cols="12" md="4">
-                                    <div class="d-flex align-items-center">
-                                      <v-avatar color="#7ec8cb" size="36" rounded="lg">
-                                        <span class="text-caption font-weight-bold">A02-1</span>
-                                      </v-avatar>
-                                      <div class="ms-3">
-                                        <div class="sub-report-title">各縣市鄉鎮區統計表</div>
-                                        <div class="text-caption text-grey">County/Town Statistics</div>
-                                      </div>
-                                    </div>
-                                  </v-col>
-                                  <v-col cols="12" md="2">
-                                    <v-select
-                                      v-model="a02_1Filters.office"
-                                      :items="officeOptions"
-                                      label="管理處"
-                                      variant="outlined"
-                                      density="compact"
-                                      hide-details
-                                      color="#3ea0a3"
-                                    />
-                                  </v-col>
-                                  <v-col cols="12" md="4">
-                                    <div class="d-flex align-center">
-                                      <v-select
-                                        v-model="a02_1Filters.year"
-                                        :items="yearOptions"
-                                        label="統計年度"
-                                        variant="outlined"
-                                        density="compact"
-                                        hide-details
-                                        class="flex-grow-1"
-                                        :disabled="a02_1Filters.currentYear"
-                                        color="#3ea0a3"
-                                      />
-                                      <v-checkbox
-                                        v-model="a02_1Filters.currentYear"
-                                        label="本年度"
-                                        density="compact"
-                                        hide-details
-                                        class="ml-2 flex-shrink-0"
-                                        color="#3ea0a3"
-                                      />
-                                    </div>
-                                  </v-col>
-                                  <v-col cols="12" md="2" class="text-right">
-                                    <v-btn
-                                      color="#3ea0a3"
-                                      variant="outlined"
-                                      prepend-icon="mdi-file-download-outline"
-                                      size="small"
-                                      block
-                                      rounded="lg"
-                                      @click="downloadReport('A02-1')"
-                                    >
-                                      下載
-                                    </v-btn>
-                                  </v-col>
-                                </v-row>
-                              </div>
-
-                              <v-divider class="my-2" />
-
-                              <!-- A02-2 各管理處統計表 -->
-                              <div class="sub-report-item mb-3">
-                                <v-row align="center">
-                                  <v-col cols="12" md="4">
-                                    <div class="d-flex align-items-center">
-                                      <v-avatar color="#7ec8cb" size="36" rounded="lg">
-                                        <span class="text-caption font-weight-bold">A02-2</span>
-                                      </v-avatar>
-                                      <div class="ms-3">
-                                        <div class="sub-report-title">各管理處統計表</div>
-                                        <div class="text-caption text-grey">Office Summary Statistics</div>
-                                      </div>
-                                    </div>
-                                  </v-col>
-                                  <v-col cols="12" md="2">
-                                    <v-select
-                                      v-model="a02_2Filters.office"
-                                      :items="officeOptions"
-                                      label="管理處"
-                                      variant="outlined"
-                                      density="compact"
-                                      hide-details
-                                      color="#3ea0a3"
-                                    />
-                                  </v-col>
-                                  <v-col cols="12" md="4">
-                                    <div class="d-flex align-center">
-                                      <v-select
-                                        v-model="a02_2Filters.year"
-                                        :items="yearOptions"
-                                        label="統計年度"
-                                        variant="outlined"
-                                        density="compact"
-                                        hide-details
-                                        class="flex-grow-1"
-                                        :disabled="a02_2Filters.currentYear"
-                                        color="#3ea0a3"
-                                      />
-                                      <v-checkbox
-                                        v-model="a02_2Filters.currentYear"
-                                        label="本年度"
-                                        density="compact"
-                                        hide-details
-                                        class="ml-2 flex-shrink-0"
-                                        color="#3ea0a3"
-                                      />
-                                    </div>
-                                  </v-col>
-                                  <v-col cols="12" md="2" class="text-right">
-                                    <v-btn
-                                      color="#3ea0a3"
-                                      variant="outlined"
-                                      prepend-icon="mdi-file-download-outline"
-                                      size="small"
-                                      block
-                                      rounded="lg"
-                                      @click="downloadReport('A02-2')"
-                                    >
-                                      下載
-                                    </v-btn>
-                                  </v-col>
-                                </v-row>
-                              </div>
-
-                              <v-divider class="my-2" />
-
-                              <!-- A02-3 歷年各縣市鄉鎮區統計 -->
-                              <div class="sub-report-item mb-3">
-                                <v-row align="center">
-                                  <v-col cols="12" md="4">
-                                    <div class="d-flex align-items-center">
-                                      <v-avatar color="#7ec8cb" size="36" rounded="lg">
-                                        <span class="text-caption font-weight-bold">A02-3</span>
-                                      </v-avatar>
-                                      <div class="ms-3">
-                                        <div class="sub-report-title">歷年各縣市鄉鎮區統計</div>
-                                        <div class="text-caption text-grey">Historical County/Town Stats</div>
-                                      </div>
-                                    </div>
-                                  </v-col>
-                                  <v-col cols="12" md="2">
-                                    <v-select
-                                      v-model="a02_3Filters.office"
-                                      :items="officeOptions"
-                                      label="管理處"
-                                      variant="outlined"
-                                      density="compact"
-                                      hide-details
-                                      color="#3ea0a3"
-                                    />
-                                  </v-col>
-                                  <v-col cols="12" md="4">
-                                    <div class="d-flex align-center">
-                                      <v-select
-                                        v-model="a02_3Filters.startYear"
-                                        :items="yearOptions"
-                                        label="起始年度"
-                                        variant="outlined"
-                                        density="compact"
-                                        hide-details
-                                        class="flex-grow-1 me-2"
-                                        color="#3ea0a3"
-                                      />
-                                      <v-select
-                                        v-model="a02_3Filters.year"
-                                        :items="yearOptions"
-                                        label="結束年度"
-                                        variant="outlined"
-                                        density="compact"
-                                        hide-details
-                                        class="flex-grow-1"
-                                        :disabled="a02_3Filters.currentYear"
-                                        color="#3ea0a3"
-                                      />
-                                      <v-checkbox
-                                        v-model="a02_3Filters.currentYear"
-                                        label="本年度"
-                                        density="compact"
-                                        hide-details
-                                        class="ml-2 flex-shrink-0"
-                                        color="#3ea0a3"
-                                      />
-                                    </div>
-                                  </v-col>
-                                  <v-col cols="12" md="2" class="text-right">
-                                    <v-btn
-                                      color="#3ea0a3"
-                                      variant="outlined"
-                                      prepend-icon="mdi-file-download-outline"
-                                      size="small"
-                                      block
-                                      rounded="lg"
-                                      @click="downloadReport('A02-3')"
-                                    >
-                                      下載
-                                    </v-btn>
-                                  </v-col>
-                                </v-row>
-                              </div>
-
-                              <v-divider class="my-2" />
-
-                              <!-- A02-4 歷年各管理處統計 -->
-                              <div class="sub-report-item mb-2">
-                                <v-row align="center">
-                                  <v-col cols="12" md="4">
-                                    <div class="d-flex align-items-center">
-                                      <v-avatar color="#7ec8cb" size="36" rounded="lg">
-                                        <span class="text-caption font-weight-bold">A02-4</span>
-                                      </v-avatar>
-                                      <div class="ms-3">
-                                        <div class="sub-report-title">歷年各管理處統計</div>
-                                        <div class="text-caption text-grey">Historical Office Statistics</div>
-                                      </div>
-                                    </div>
-                                  </v-col>
-                                  <v-col cols="12" md="2">
-                                    <v-select
-                                      v-model="a02_4Filters.office"
-                                      :items="officeOptions"
-                                      label="管理處"
-                                      variant="outlined"
-                                      density="compact"
-                                      hide-details
-                                      color="#3ea0a3"
-                                    />
-                                  </v-col>
-                                  <v-col cols="12" md="4">
-                                    <div class="d-flex align-center">
-                                      <v-select
-                                        v-model="a02_4Filters.startYear"
-                                        :items="yearOptions"
-                                        label="起始年度"
-                                        variant="outlined"
-                                        density="compact"
-                                        hide-details
-                                        class="flex-grow-1 me-2"
-                                        color="#3ea0a3"
-                                      />
-                                      <v-select
-                                        v-model="a02_4Filters.year"
-                                        :items="yearOptions"
-                                        label="結束年度"
-                                        variant="outlined"
-                                        density="compact"
-                                        hide-details
-                                        class="flex-grow-1"
-                                        :disabled="a02_4Filters.currentYear"
-                                        color="#3ea0a3"
-                                      />
-                                      <v-checkbox
-                                        v-model="a02_4Filters.currentYear"
-                                        label="本年度"
-                                        density="compact"
-                                        hide-details
-                                        class="ml-2 flex-shrink-0"
-                                        color="#3ea0a3"
-                                      />
-                                    </div>
-                                  </v-col>
-                                  <v-col cols="12" md="2" class="text-right">
-                                    <v-btn
-                                      color="#3ea0a3"
-                                      variant="outlined"
-                                      prepend-icon="mdi-file-download-outline"
-                                      size="small"
-                                      block
-                                      rounded="lg"
-                                      @click="downloadReport('A02-4')"
-                                    >
-                                      下載
-                                    </v-btn>
-                                  </v-col>
-                                </v-row>
-                              </div>
-                            </div>
-                          </v-expansion-panel-text>
-                        </v-expansion-panel>
-                      </v-expansion-panels>
-                    </v-card>
-
-                    <!-- A03 各管理處經費統計表 -->
-                    <v-card class="report-item-card mb-3" flat rounded="lg">
+                    <!-- A02 各縣市鄉鎮區統計表 -->
+                    <v-card
+                      class="report-item-card mb-3"
+                      flat
+                      rounded="lg"
+                    >
                       <v-card-text class="pa-4">
                         <v-row align="center">
-                          <v-col cols="12" md="4">
+                          <v-col
+                            cols="12"
+                            md="4"
+                          >
                             <div class="d-flex align-items-start">
-                              <v-avatar color="#3ea0a3" size="52" rounded="lg">
-                                <span class="text-body-1 font-weight-bold">A03</span>
+                              <v-avatar
+                                color="#3ea0a3"
+                                size="52"
+                                rounded="lg"
+                              >
+                                <span class="text-body-1 font-weight-bold">A02</span>
                               </v-avatar>
                               <div class="ms-3">
                                 <div class="report-title-text">
-                                  各管理處經費統計
+                                  各縣市鄉鎮區統計
                                 </div>
                                 <div class="report-category-tags mt-1">
-                                  <v-chip size="x-small" color="grey-lighten-4" class="me-1">
+                                  <v-chip
+                                    size="x-small"
+                                    color="grey-lighten-4"
+                                    class="me-1"
+                                  >
                                     年報
                                   </v-chip>
-                                  <v-chip size="x-small" color="grey-lighten-4">
-                                    經費統計
+                                  <v-chip
+                                    size="x-small"
+                                    color="grey-lighten-4"
+                                  >
+                                    區域統計
                                   </v-chip>
                                 </div>
                               </div>
                             </div>
                           </v-col>
 
-                          <v-col cols="12" md="3">
+                          <v-col
+                            cols="12"
+                            md="3"
+                          >
+                            <v-select
+                              v-model="a02Filters.office"
+                              :items="officeOptions"
+                              label="管理處"
+                              variant="outlined"
+                              density="compact"
+                              hide-details
+                              color="#3ea0a3"
+                            />
+                          </v-col>
+
+                          <v-col
+                            cols="12"
+                            md="3"
+                          >
+                            <div class="d-flex align-center">
+                              <v-select
+                                v-model="a02Filters.year"
+                                :items="yearOptions"
+                                label="統計年度"
+                                variant="outlined"
+                                density="compact"
+                                hide-details
+                                class="flex-grow-1"
+                                :disabled="a02Filters.currentYear"
+                                color="#3ea0a3"
+                              />
+                              <v-checkbox
+                                v-model="a02Filters.currentYear"
+                                label="本年度"
+                                density="compact"
+                                hide-details
+                                class="ml-2 flex-shrink-0"
+                                color="#3ea0a3"
+                              />
+                            </div>
+                          </v-col>
+
+                          <v-col
+                            cols="12"
+                            md="2"
+                            class="text-right pr-6"
+                          >
+                            <v-btn
+                              color="#3ea0a3"
+                              variant="flat"
+                              prepend-icon="mdi-file-download-outline"
+                              size="small"
+                              block
+                              rounded="lg"
+                              @click="downloadReport('A02')"
+                            >
+                              下載
+                            </v-btn>
+                          </v-col>
+                        </v-row>
+                      </v-card-text>
+                    </v-card>
+
+                    <!-- A03 各管理處統計表 -->
+                    <v-card
+                      class="report-item-card mb-3"
+                      flat
+                      rounded="lg"
+                    >
+                      <v-card-text class="pa-4">
+                        <v-row align="center">
+                          <v-col
+                            cols="12"
+                            md="4"
+                          >
+                            <div class="d-flex align-items-start">
+                              <v-avatar
+                                color="#3ea0a3"
+                                size="52"
+                                rounded="lg"
+                              >
+                                <span class="text-body-1 font-weight-bold">A03</span>
+                              </v-avatar>
+                              <div class="ms-3">
+                                <div class="report-title-text">
+                                  各管理處統計
+                                </div>
+                                <div class="report-category-tags mt-1">
+                                  <v-chip
+                                    size="x-small"
+                                    color="grey-lighten-4"
+                                    class="me-1"
+                                  >
+                                    年報
+                                  </v-chip>
+                                  <v-chip
+                                    size="x-small"
+                                    color="grey-lighten-4"
+                                  >
+                                    區域統計
+                                  </v-chip>
+                                </div>
+                              </div>
+                            </div>
+                          </v-col>
+
+                          <v-col
+                            cols="12"
+                            md="3"
+                          >
                             <v-select
                               v-model="a03Filters.office"
                               :items="officeOptions"
@@ -529,7 +336,10 @@
                             />
                           </v-col>
 
-                          <v-col cols="12" md="3">
+                          <v-col
+                            cols="12"
+                            md="3"
+                          >
                             <div class="d-flex align-center">
                               <v-select
                                 v-model="a03Filters.year"
@@ -553,7 +363,11 @@
                             </div>
                           </v-col>
 
-                          <v-col cols="12" md="2" class="text-right">
+                          <v-col
+                            cols="12"
+                            md="2"
+                            class="text-right pr-6"
+                          >
                             <v-btn
                               color="#3ea0a3"
                               variant="flat"
@@ -570,39 +384,83 @@
                       </v-card-text>
                     </v-card>
 
-                    <!-- A04 原民區域執行成果 -->
-                    <v-card class="report-item-card mb-3" flat rounded="lg">
+                    <!-- A04 歷年各縣市鄉鎮區統計 -->
+                    <v-card
+                      class="report-item-card mb-3"
+                      flat
+                      rounded="lg"
+                    >
                       <v-card-text class="pa-4">
                         <v-row align="center">
-                          <v-col cols="12" md="4">
+                          <v-col
+                            cols="12"
+                            md="4"
+                          >
                             <div class="d-flex align-items-start">
-                              <v-avatar color="#3ea0a3" size="52" rounded="lg">
+                              <v-avatar
+                                color="#3ea0a3"
+                                size="52"
+                                rounded="lg"
+                              >
                                 <span class="text-body-1 font-weight-bold">A04</span>
                               </v-avatar>
                               <div class="ms-3">
                                 <div class="report-title-text">
-                                  原民區域統計
+                                  歷年各縣市鄉鎮區統計
                                 </div>
                                 <div class="report-category-tags mt-1">
-                                  <v-chip size="x-small" color="grey-lighten-4" class="me-1">
+                                  <v-chip
+                                    size="x-small"
+                                    color="grey-lighten-4"
+                                    class="me-1"
+                                  >
                                     年報
                                   </v-chip>
-                                  <v-chip size="x-small" color="grey-lighten-4">
-                                    經費統計
+                                  <v-chip
+                                    size="x-small"
+                                    color="grey-lighten-4"
+                                  >
+                                    歷年統計
                                   </v-chip>
                                 </div>
                               </div>
                             </div>
                           </v-col>
 
-                          <v-spacer />
+                          <v-col
+                            cols="12"
+                            md="2"
+                          >
+                            <v-select
+                              v-model="a04Filters.office"
+                              :items="officeOptions"
+                              label="管理處"
+                              variant="outlined"
+                              density="compact"
+                              hide-details
+                              color="#3ea0a3"
+                            />
+                          </v-col>
 
-                          <v-col cols="12" md="3">
+                          <v-col
+                            cols="12"
+                            md="4"
+                          >
                             <div class="d-flex align-center">
+                              <v-select
+                                v-model="a04Filters.startYear"
+                                :items="yearOptions"
+                                label="起始年度"
+                                variant="outlined"
+                                density="compact"
+                                hide-details
+                                class="flex-grow-1 me-2"
+                                color="#3ea0a3"
+                              />
                               <v-select
                                 v-model="a04Filters.year"
                                 :items="yearOptions"
-                                label="統計年度"
+                                label="結束年度"
                                 variant="outlined"
                                 density="compact"
                                 hide-details
@@ -621,7 +479,11 @@
                             </div>
                           </v-col>
 
-                          <v-col cols="12" md="2" class="text-right">
+                          <v-col
+                            cols="12"
+                            md="2"
+                            class="text-right pr-6"
+                          >
                             <v-btn
                               color="#3ea0a3"
                               variant="flat"
@@ -630,6 +492,343 @@
                               block
                               rounded="lg"
                               @click="downloadReport('A04')"
+                            >
+                              下載
+                            </v-btn>
+                          </v-col>
+                        </v-row>
+                      </v-card-text>
+                    </v-card>
+
+                    <!-- A05 歷年各管理處統計 -->
+                    <v-card
+                      class="report-item-card mb-3"
+                      flat
+                      rounded="lg"
+                    >
+                      <v-card-text class="pa-4">
+                        <v-row align="center">
+                          <v-col
+                            cols="12"
+                            md="4"
+                          >
+                            <div class="d-flex align-items-start">
+                              <v-avatar
+                                color="#3ea0a3"
+                                size="52"
+                                rounded="lg"
+                              >
+                                <span class="text-body-1 font-weight-bold">A05</span>
+                              </v-avatar>
+                              <div class="ms-3">
+                                <div class="report-title-text">
+                                  歷年各管理處統計
+                                </div>
+                                <div class="report-category-tags mt-1">
+                                  <v-chip
+                                    size="x-small"
+                                    color="grey-lighten-4"
+                                    class="me-1"
+                                  >
+                                    年報
+                                  </v-chip>
+                                  <v-chip
+                                    size="x-small"
+                                    color="grey-lighten-4"
+                                  >
+                                    歷年統計
+                                  </v-chip>
+                                </div>
+                              </div>
+                            </div>
+                          </v-col>
+
+                          <v-col
+                            cols="12"
+                            md="2"
+                          >
+                            <v-select
+                              v-model="a05Filters.office"
+                              :items="officeOptions"
+                              label="管理處"
+                              variant="outlined"
+                              density="compact"
+                              hide-details
+                              color="#3ea0a3"
+                            />
+                          </v-col>
+
+                          <v-col
+                            cols="12"
+                            md="4"
+                          >
+                            <div class="d-flex align-center">
+                              <v-select
+                                v-model="a05Filters.startYear"
+                                :items="yearOptions"
+                                label="起始年度"
+                                variant="outlined"
+                                density="compact"
+                                hide-details
+                                class="flex-grow-1 me-2"
+                                color="#3ea0a3"
+                              />
+                              <v-select
+                                v-model="a05Filters.year"
+                                :items="yearOptions"
+                                label="結束年度"
+                                variant="outlined"
+                                density="compact"
+                                hide-details
+                                class="flex-grow-1"
+                                :disabled="a05Filters.currentYear"
+                                color="#3ea0a3"
+                              />
+                              <v-checkbox
+                                v-model="a05Filters.currentYear"
+                                label="本年度"
+                                density="compact"
+                                hide-details
+                                class="ml-2 flex-shrink-0"
+                                color="#3ea0a3"
+                              />
+                            </div>
+                          </v-col>
+
+                          <v-col
+                            cols="12"
+                            md="2"
+                            class="text-right pr-6"
+                          >
+                            <v-btn
+                              color="#3ea0a3"
+                              variant="flat"
+                              prepend-icon="mdi-file-download-outline"
+                              size="small"
+                              block
+                              rounded="lg"
+                              @click="downloadReport('A05')"
+                            >
+                              下載
+                            </v-btn>
+                          </v-col>
+                        </v-row>
+                      </v-card-text>
+                    </v-card>
+
+                    <!-- A06 各管理處經費統計表 -->
+                    <v-card class="report-item-card mb-3" flat rounded="lg">
+                      <v-card-text class="pa-4">
+                        <v-row align="center">
+                          <v-col cols="12" md="4">
+                            <div class="d-flex align-items-start">
+                              <v-avatar color="#3ea0a3" size="52" rounded="lg">
+                                <span class="text-body-1 font-weight-bold">A06</span>
+                              </v-avatar>
+                              <div class="ms-3">
+                                <div class="report-title-text">
+                                  各管理處經費統計
+                                </div>
+                                <div class="report-category-tags mt-1">
+                                  <v-chip size="x-small" color="grey-lighten-4" class="me-1">
+                                    年報
+                                  </v-chip>
+                                  <v-chip size="x-small" color="grey-lighten-4">
+                                    經費統計
+                                  </v-chip>
+                                </div>
+                              </div>
+                            </div>
+                          </v-col>
+
+                          <v-col cols="12" md="3">
+                            <v-select
+                              v-model="a06Filters.office"
+                              :items="officeOptions"
+                              label="管理處"
+                              variant="outlined"
+                              density="compact"
+                              hide-details
+                              color="#3ea0a3"
+                            />
+                          </v-col>
+
+                          <v-col cols="12" md="3">
+                            <div class="d-flex align-center">
+                              <v-select
+                                v-model="a06Filters.year"
+                                :items="yearOptions"
+                                label="統計年度"
+                                variant="outlined"
+                                density="compact"
+                                hide-details
+                                class="flex-grow-1"
+                                :disabled="a06Filters.currentYear"
+                                color="#3ea0a3"
+                              />
+                              <v-checkbox
+                                v-model="a06Filters.currentYear"
+                                label="本年度"
+                                density="compact"
+                                hide-details
+                                class="ml-2 flex-shrink-0"
+                                color="#3ea0a3"
+                              />
+                            </div>
+                          </v-col>
+
+                          <v-col cols="12" md="2" class="text-right">
+                            <v-btn
+                              color="#3ea0a3"
+                              variant="flat"
+                              prepend-icon="mdi-file-download-outline"
+                              size="small"
+                              block
+                              rounded="lg"
+                              @click="downloadReport('A06')"
+                            >
+                              下載
+                            </v-btn>
+                          </v-col>
+                        </v-row>
+                      </v-card-text>
+                    </v-card>
+
+                    <!-- A07 原民區域統計 -->
+                    <v-card class="report-item-card mb-3" flat rounded="lg">
+                      <v-card-text class="pa-4">
+                        <v-row align="center">
+                          <v-col cols="12" md="4">
+                            <div class="d-flex align-items-start">
+                              <v-avatar color="#3ea0a3" size="52" rounded="lg">
+                                <span class="text-body-1 font-weight-bold">A07</span>
+                              </v-avatar>
+                              <div class="ms-3">
+                                <div class="report-title-text">
+                                  原民區域統計
+                                </div>
+                                <div class="report-category-tags mt-1">
+                                  <v-chip size="x-small" color="grey-lighten-4" class="me-1">
+                                    年報
+                                  </v-chip>
+                                  <v-chip size="x-small" color="grey-lighten-4">
+                                    原民統計
+                                  </v-chip>
+                                </div>
+                              </div>
+                            </div>
+                          </v-col>
+
+                          <v-spacer />
+
+                          <v-col cols="12" md="3">
+                            <div class="d-flex align-center">
+                              <v-select
+                                v-model="a07Filters.year"
+                                :items="yearOptions"
+                                label="統計年度"
+                                variant="outlined"
+                                density="compact"
+                                hide-details
+                                class="flex-grow-1"
+                                :disabled="a07Filters.currentYear"
+                                color="#3ea0a3"
+                              />
+                              <v-checkbox
+                                v-model="a07Filters.currentYear"
+                                label="本年度"
+                                density="compact"
+                                hide-details
+                                class="ml-2 flex-shrink-0"
+                                color="#3ea0a3"
+                              />
+                            </div>
+                          </v-col>
+
+                          <v-col cols="12" md="2" class="text-right">
+                            <v-btn
+                              color="#3ea0a3"
+                              variant="flat"
+                              prepend-icon="mdi-file-download-outline"
+                              size="small"
+                              block
+                              rounded="lg"
+                              @click="downloadReport('A07')"
+                            >
+                              下載
+                            </v-btn>
+                          </v-col>
+                        </v-row>
+                      </v-card-text>
+                    </v-card>
+                    <!-- A08 歷年原民區域統計 -->
+                    <v-card class="report-item-card mb-3" flat rounded="lg">
+                      <v-card-text class="pa-4">
+                        <v-row align="center">
+                          <v-col cols="12" md="4">
+                            <div class="d-flex align-items-start">
+                              <v-avatar color="#3ea0a3" size="52" rounded="lg">
+                                <span class="text-body-1 font-weight-bold">A08</span>
+                              </v-avatar>
+                              <div class="ms-3">
+                                <div class="report-title-text">
+                                  歷年原民區域統計
+                                </div>
+                                <div class="report-category-tags mt-1">
+                                  <v-chip size="x-small" color="grey-lighten-4" class="me-1">
+                                    年報
+                                  </v-chip>
+                                  <v-chip size="x-small" color="grey-lighten-4">
+                                    歷年統計
+                                  </v-chip>
+                                </div>
+                              </div>
+                            </div>
+                          </v-col>
+
+                          <v-col cols="12" md="4">
+                            <div class="d-flex align-center">
+                              <v-select
+                                v-model="a08Filters.startYear"
+                                :items="yearOptions"
+                                label="起始年度"
+                                variant="outlined"
+                                density="compact"
+                                hide-details
+                                class="flex-grow-1 me-2"
+                                color="#3ea0a3"
+                              />
+                              <v-select
+                                v-model="a08Filters.year"
+                                :items="yearOptions"
+                                label="結束年度"
+                                variant="outlined"
+                                density="compact"
+                                hide-details
+                                class="flex-grow-1"
+                                :disabled="a08Filters.currentYear"
+                                color="#3ea0a3"
+                              />
+                              <v-checkbox
+                                v-model="a08Filters.currentYear"
+                                label="本年度"
+                                density="compact"
+                                hide-details
+                                class="ml-2 flex-shrink-0"
+                                color="#3ea0a3"
+                              />
+                            </div>
+                          </v-col>
+
+                          <v-col cols="12" md="2" class="text-right pr-6">
+                            <v-btn
+                              color="#3ea0a3"
+                              variant="flat"
+                              prepend-icon="mdi-file-download-outline"
+                              size="small"
+                              block
+                              rounded="lg"
+                              @click="downloadReport('A08')"
                             >
                               下載
                             </v-btn>
@@ -1070,7 +1269,7 @@ const reportSections = [
     badge: 'A',
     title: '執行進度相關報表',
     icon: 'mdi-chart-line',
-    count: 4
+    count: 8
   },
   {
     id: 'achievement',
@@ -1093,42 +1292,51 @@ const a01Filters = ref({
   currentYear: true
 })
 
-// A02 子報表篩選條件
-const a02_1Filters = ref({
+// A02 / A03 篩選條件（單一年度）
+const a02Filters = ref({
   office: null as number | null,
   year: new Date().getFullYear() - 1911,
   currentYear: true
 })
-const a02_2Filters = ref({
-  office: null as number | null,
-  year: new Date().getFullYear() - 1911,
-  currentYear: true
-})
-const a02_3Filters = ref({
-  office: null as number | null,
-  year: new Date().getFullYear() - 1911,
-  currentYear: true,
-  startYear: 97
-})
-const a02_4Filters = ref({
-  office: null as number | null,
-  year: new Date().getFullYear() - 1911,
-  currentYear: true,
-  startYear: 97
-})
-
-// A03 篩選條件
 const a03Filters = ref({
   office: null as number | null,
   year: new Date().getFullYear() - 1911,
   currentYear: true
 })
 
-// A04 篩選條件
+// A04 / A05 篩選條件（年度區間）
 const a04Filters = ref({
   office: null as number | null,
   year: new Date().getFullYear() - 1911,
+  currentYear: true,
+  startYear: 97
+})
+const a05Filters = ref({
+  office: null as number | null,
+  year: new Date().getFullYear() - 1911,
+  currentYear: true,
+  startYear: 97
+})
+
+// A06 篩選條件
+const a06Filters = ref({
+  office: null as number | null,
+  year: new Date().getFullYear() - 1911,
   currentYear: true
+})
+
+// A07 篩選條件
+const a07Filters = ref({
+  office: null as number | null,
+  year: new Date().getFullYear() - 1911,
+  currentYear: true
+})
+
+// A08 篩選條件（年度區間）
+const a08Filters = ref({
+  year: new Date().getFullYear() - 1911,
+  currentYear: true,
+  startYear: 97
 })
 
 // B01-1 篩選條件
@@ -1202,28 +1410,34 @@ watch(() => a01Filters.value.currentYear, (isCurrentYear) => {
   }
 })
 
-watch(() => a02_1Filters.value.currentYear, (isCurrentYear) => {
-  if (isCurrentYear) a02_1Filters.value.year = new Date().getFullYear() - 1911
+watch(() => a02Filters.value.currentYear, (isCurrentYear) => {
+  if (isCurrentYear) a02Filters.value.year = new Date().getFullYear() - 1911
 })
-watch(() => a02_2Filters.value.currentYear, (isCurrentYear) => {
-  if (isCurrentYear) a02_2Filters.value.year = new Date().getFullYear() - 1911
+watch(() => a03Filters.value.currentYear, (isCurrentYear) => {
+  if (isCurrentYear) a03Filters.value.year = new Date().getFullYear() - 1911
 })
-watch(() => a02_3Filters.value.currentYear, (isCurrentYear) => {
-  if (isCurrentYear) a02_3Filters.value.year = new Date().getFullYear() - 1911
+watch(() => a04Filters.value.currentYear, (isCurrentYear) => {
+  if (isCurrentYear) a04Filters.value.year = new Date().getFullYear() - 1911
 })
-watch(() => a02_4Filters.value.currentYear, (isCurrentYear) => {
-  if (isCurrentYear) a02_4Filters.value.year = new Date().getFullYear() - 1911
+watch(() => a05Filters.value.currentYear, (isCurrentYear) => {
+  if (isCurrentYear) a05Filters.value.year = new Date().getFullYear() - 1911
 })
 
-watch(() => a03Filters.value.currentYear, (isCurrentYear) => {
+watch(() => a06Filters.value.currentYear, (isCurrentYear) => {
   if (isCurrentYear) {
-    a03Filters.value.year = new Date().getFullYear() - 1911
+    a06Filters.value.year = new Date().getFullYear() - 1911
   }
 })
 
-watch(() => a04Filters.value.currentYear, (isCurrentYear) => {
+watch(() => a07Filters.value.currentYear, (isCurrentYear) => {
   if (isCurrentYear) {
-    a04Filters.value.year = new Date().getFullYear() - 1911
+    a07Filters.value.year = new Date().getFullYear() - 1911
+  }
+})
+
+watch(() => a08Filters.value.currentYear, (isCurrentYear) => {
+  if (isCurrentYear) {
+    a08Filters.value.year = new Date().getFullYear() - 1911
   }
 })
 
@@ -1318,49 +1532,59 @@ const downloadReport = async (reportCode: string) => {
         )
         break
 
-      case 'A02-1':
+      case 'A02':
         await statisticsService.downloadCountyTownExcel(
           filters.year, filters.office
         )
         break
-      case 'A02-2':
+      case 'A03':
         await statisticsService.downloadOfficeSummaryExcel(
           filters.year, filters.office
         )
         break
-      case 'A02-3': {
-        const f3 = a02_3Filters.value
-        if (f3.startYear > f3.year) {
-          throw new Error('起始年度不得大於結束年度')
-        }
-        await statisticsService.downloadCountyTownYearlyExcel(
-          f3.startYear, f3.year, f3.office
-        )
-        break
-      }
-      case 'A02-4': {
-        const f4 = a02_4Filters.value
+      case 'A04': {
+        const f4 = a04Filters.value
         if (f4.startYear > f4.year) {
           throw new Error('起始年度不得大於結束年度')
         }
-        await statisticsService.downloadOfficeSummaryYearlyExcel(
+        await statisticsService.downloadCountyTownYearlyExcel(
           f4.startYear, f4.year, f4.office
         )
         break
       }
-      case 'A03':
-        // A03 各管理處經費統計報表
+      case 'A05': {
+        const f5 = a05Filters.value
+        if (f5.startYear > f5.year) {
+          throw new Error('起始年度不得大於結束年度')
+        }
+        await statisticsService.downloadOfficeSummaryYearlyExcel(
+          f5.startYear, f5.year, f5.office
+        )
+        break
+      }
+      case 'A06':
+        // A06 各管理處經費統計報表
         await statisticsService.downloadBudgetAnalysisExcel(
           filters.year,
           filters.office
         )
         break
-      case 'A04':
-        // A04 原民區域統計報表
+      case 'A07':
+        // A07 原民區域統計報表
         await statisticsService.downloadAboriginalStatsExcel(
           filters.year
         )
         break
+      case 'A08': {
+        const f8 = a08Filters.value
+        if (f8.startYear > f8.year) {
+          throw new Error('起始年度不得大於結束年度')
+        }
+        await statisticsService.downloadAboriginalYearlyExcel(
+          f8.startYear, f8.year
+        )
+        break
+      }
       case 'B01-1':
         await statisticsService.downloadB01_1Excel(
           filters.year, filters.office
@@ -1374,7 +1598,7 @@ const downloadReport = async (reportCode: string) => {
       case 'B01-3': {
         const b01_3 = getFiltersForReport('B01-3')
         const startYear = b01_3.startYear || 97
-        const endYear = b01_3.currentYear ? currentYear.value : b01_3.year
+        const endYear = b01_3.currentYear ? new Date().getFullYear() - 1911 : b01_3.year
         if (startYear > endYear) {
           throw new Error('起始年度不得大於結束年度')
         }
@@ -1386,7 +1610,7 @@ const downloadReport = async (reportCode: string) => {
       case 'B01-4': {
         const b01_4 = getFiltersForReport('B01-4')
         const startYear = b01_4.startYear || 97
-        const endYear = b01_4.currentYear ? currentYear.value : b01_4.year
+        const endYear = b01_4.currentYear ? new Date().getFullYear() - 1911 : b01_4.year
         if (startYear > endYear) {
           throw new Error('起始年度不得大於結束年度')
         }
@@ -1441,12 +1665,13 @@ interface ReportFilters {
 const getFiltersForReport = (reportCode: string): ReportFilters => {
   const filterMap: Record<string, ReportFilters> = {
     'A01': a01Filters.value,
-    'A02-1': a02_1Filters.value,
-    'A02-2': a02_2Filters.value,
-    'A02-3': a02_3Filters.value,
-    'A02-4': a02_4Filters.value,
+    'A02': a02Filters.value,
     'A03': a03Filters.value,
     'A04': a04Filters.value,
+    'A05': a05Filters.value,
+    'A06': a06Filters.value,
+    'A07': a07Filters.value,
+    'A08': a08Filters.value,
     'B01-1': b01_1Filters.value,
     'B01-2': b01_2Filters.value,
     'B01-3': b01_3Filters.value,
