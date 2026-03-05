@@ -836,6 +836,142 @@
                         </v-row>
                       </v-card-text>
                     </v-card>
+
+                    <!-- A09 各縣市事業區域內外推動成果統計 -->
+                    <v-card class="report-item-card mb-3" flat rounded="lg">
+                      <v-card-text class="pa-4">
+                        <v-row align="center">
+                          <v-col cols="12" md="4">
+                            <div class="d-flex align-items-start">
+                              <v-avatar color="#3ea0a3" size="52" rounded="lg">
+                                <span class="text-body-1 font-weight-bold">A09</span>
+                              </v-avatar>
+                              <div class="ms-3">
+                                <div class="report-title-text">
+                                  各縣市事業區域內外統計
+                                </div>
+                                <div class="report-category-tags mt-1">
+                                  <v-chip size="x-small" color="grey-lighten-4" class="me-1">
+                                    年報
+                                  </v-chip>
+                                  <v-chip size="x-small" color="grey-lighten-4">
+                                    縣市統計
+                                  </v-chip>
+                                </div>
+                              </div>
+                            </div>
+                          </v-col>
+
+                          <v-spacer />
+
+                          <v-col cols="12" md="3">
+                            <div class="d-flex align-center">
+                              <v-select
+                                v-model="a09Filters.year"
+                                :items="yearOptions"
+                                label="統計年度"
+                                variant="outlined"
+                                density="compact"
+                                hide-details
+                                class="flex-grow-1"
+                                :disabled="a09Filters.currentYear"
+                                color="#3ea0a3"
+                              />
+                              <v-checkbox
+                                v-model="a09Filters.currentYear"
+                                label="本年度"
+                                density="compact"
+                                hide-details
+                                class="ml-2 flex-shrink-0"
+                                color="#3ea0a3"
+                              />
+                            </div>
+                          </v-col>
+
+                          <v-col cols="12" md="2" class="text-right">
+                            <v-btn
+                              color="#3ea0a3"
+                              variant="flat"
+                              prepend-icon="mdi-file-download-outline"
+                              size="small"
+                              block
+                              rounded="lg"
+                              @click="downloadReport('A09')"
+                            >
+                              下載
+                            </v-btn>
+                          </v-col>
+                        </v-row>
+                      </v-card-text>
+                    </v-card>
+
+                    <!-- A10 各管理處事業區域內外推動成果統計 -->
+                    <v-card class="report-item-card mb-3" flat rounded="lg">
+                      <v-card-text class="pa-4">
+                        <v-row align="center">
+                          <v-col cols="12" md="4">
+                            <div class="d-flex align-items-start">
+                              <v-avatar color="#3ea0a3" size="52" rounded="lg">
+                                <span class="text-body-1 font-weight-bold">A10</span>
+                              </v-avatar>
+                              <div class="ms-3">
+                                <div class="report-title-text">
+                                  各管理處事業區域內外統計
+                                </div>
+                                <div class="report-category-tags mt-1">
+                                  <v-chip size="x-small" color="grey-lighten-4" class="me-1">
+                                    年報
+                                  </v-chip>
+                                  <v-chip size="x-small" color="grey-lighten-4">
+                                    管理處統計
+                                  </v-chip>
+                                </div>
+                              </div>
+                            </div>
+                          </v-col>
+
+                          <v-spacer />
+
+                          <v-col cols="12" md="3">
+                            <div class="d-flex align-center">
+                              <v-select
+                                v-model="a10Filters.year"
+                                :items="yearOptions"
+                                label="統計年度"
+                                variant="outlined"
+                                density="compact"
+                                hide-details
+                                class="flex-grow-1"
+                                :disabled="a10Filters.currentYear"
+                                color="#3ea0a3"
+                              />
+                              <v-checkbox
+                                v-model="a10Filters.currentYear"
+                                label="本年度"
+                                density="compact"
+                                hide-details
+                                class="ml-2 flex-shrink-0"
+                                color="#3ea0a3"
+                              />
+                            </div>
+                          </v-col>
+
+                          <v-col cols="12" md="2" class="text-right">
+                            <v-btn
+                              color="#3ea0a3"
+                              variant="flat"
+                              prepend-icon="mdi-file-download-outline"
+                              size="small"
+                              block
+                              rounded="lg"
+                              @click="downloadReport('A10')"
+                            >
+                              下載
+                            </v-btn>
+                          </v-col>
+                        </v-row>
+                      </v-card-text>
+                    </v-card>
                   </div>
 
                   <!-- B. 推動成果統計表 -->
@@ -1334,9 +1470,24 @@ const a07Filters = ref({
 
 // A08 篩選條件（年度區間）
 const a08Filters = ref({
+  office: null as number | null,
   year: new Date().getFullYear() - 1911,
   currentYear: true,
   startYear: 97
+})
+
+// A09 篩選條件
+const a09Filters = ref({
+  office: null as number | null,
+  year: new Date().getFullYear() - 1911,
+  currentYear: true
+})
+
+// A10 篩選條件
+const a10Filters = ref({
+  office: null as number | null,
+  year: new Date().getFullYear() - 1911,
+  currentYear: true
 })
 
 // B01-1 篩選條件
@@ -1438,6 +1589,18 @@ watch(() => a07Filters.value.currentYear, (isCurrentYear) => {
 watch(() => a08Filters.value.currentYear, (isCurrentYear) => {
   if (isCurrentYear) {
     a08Filters.value.year = new Date().getFullYear() - 1911
+  }
+})
+
+watch(() => a09Filters.value.currentYear, (isCurrentYear) => {
+  if (isCurrentYear) {
+    a09Filters.value.year = new Date().getFullYear() - 1911
+  }
+})
+
+watch(() => a10Filters.value.currentYear, (isCurrentYear) => {
+  if (isCurrentYear) {
+    a10Filters.value.year = new Date().getFullYear() - 1911
   }
 })
 
@@ -1585,6 +1748,12 @@ const downloadReport = async (reportCode: string) => {
         )
         break
       }
+      case 'A09':
+        await statisticsService.downloadA09Excel(a09Filters.value.year)
+        break
+      case 'A10':
+        await statisticsService.downloadA10Excel(a10Filters.value.year)
+        break
       case 'B01-1':
         await statisticsService.downloadB01_1Excel(
           filters.year, filters.office
@@ -1672,6 +1841,8 @@ const getFiltersForReport = (reportCode: string): ReportFilters => {
     'A06': a06Filters.value,
     'A07': a07Filters.value,
     'A08': a08Filters.value,
+    'A09': a09Filters.value,
+    'A10': a10Filters.value,
     'B01-1': b01_1Filters.value,
     'B01-2': b01_2Filters.value,
     'B01-3': b01_3Filters.value,

@@ -249,6 +249,31 @@ _A07_NOTE_TEXT = (
 )
 
 
+# ── A09/A10 規則建構常數（事業區域內外推動成果統計，無範本依賴）────────────────
+
+# 欄寬（當年度 16 欄 / 非當年度 7 欄，含 col 1 標籤欄）
+_A0910_COL_WIDTHS = {
+    16: {1: 27.0, **{i: 20.0 for i in range(2, 17)}},
+    7:  {1: 27.0, **{i: 20.0 for i in range(2, 8)}},
+}
+
+# 表頭填充色
+_A0910_FILL_BUDGETED  = PatternFill('solid', fgColor='E2EFDA')  # 已編列 淡綠
+_A0910_FILL_COMPLETED = PatternFill('solid', fgColor='DDEBF7')  # 已結案 淡藍
+_A0910_FILL_SUBTOTAL  = PatternFill('solid', fgColor='F2F2F2')  # 小計 淡灰
+
+# 數字格式（每組 3 欄依序：案件數, 面積, 金額）
+_A0910_NUM_FMT = ['General', '0.0000', '#,##0']
+
+# 備註文字
+_A0910_NOTE_TEXT = (
+    '備註：\n'
+    '1、事業區域歸屬依「任一土地」規則：補助案件所屬土地中任一筆 isIrrigationArea 為真，則整案歸入事業區域內，否則歸入事業區域外。\n'
+    '2、「已結案」係指 status 為 completed 或 submitted 之案件；「已編列」係指排除 rejected/withdrawn/deleted 之所有有效案件。'
+)
+_A0910_ROW_H_NOTE = 60.0
+
+
 class ExcelGeneratorService:
     """Excel 文件生成服務 - 基於範本驅動架構生成 .xlsx 檔案"""
 
@@ -1393,6 +1418,230 @@ class ExcelGeneratorService:
 
     # ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
 
+    def _generate_a09_a10_report(
+        self,
+        table_code: str,
+        label_col_name: str,
+        year: int,
+        is_current_year: bool,
+        rows: List[List[Any]],
+    ) -> str:
+        """
+        A09/A10 通用報表生成引擎（規則建構，無範本依賴）
+
+        生成結構：
+          Row 1: 標題（合併全欄，wrap_text）
+          Row 2: 表號 + 製表日期
+          Row 3 (HDR1): label 欄垂直合併 rows 3-5；主分組（已編列/已結案/小計）
+          Row 4 (HDR2): 事業區域外/事業區域內 子分組
+          Row 5 (HDR3): 案件數/面積(公頃)/金額(元) 指標欄
+          Row 6+: 資料列
+          備註列: 純文字備註（合併全欄）
+
+        Args:
+            table_code: 'A09' 或 'A10'
+            label_col_name: 標籤欄名稱（'縣 市' 或 '管理處'）
+            year: 統計年度（民國年）
+            is_current_year: 當年度（16欄）或非當年度（7欄）
+            rows: 資料列，每列含 col_count 個值（含 label）
+
+        Returns:
+            str: 生成的 Excel 檔案路徑
+        """
+        from openpyxl.cell.cell import MergedCell
+        from datetime import timezone
+
+        col_count  = 16 if is_current_year else 7
+        DATA_START = 6
+        last_col_letter = get_column_letter(col_count)
+
+        workbook = Workbook()
+        ws = workbook.active
+
+        # ── 1. 欄寬 ──────────────────────────────────────────────────────
+        for col, w in _A0910_COL_WIDTHS[col_count].items():
+            ws.column_dimensions[get_column_letter(col)].width = w
+
+        # ── 2. Row 1 標題 ────────────────────────────────────────────────
+        ws.row_dimensions[1].height = _XL_ROW_H_TITLE
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=col_count)
+        c = ws.cell(1, 1)
+        c.value = (
+            f"農業部農田水利署\n推廣管路灌溉設施計畫\n"
+            f"{year}年度各{label_col_name.strip()}事業區域內外推動成果統計表"
+        )
+        c.font = _XL_F16
+        c.alignment = _XL_A_WRAP
+
+        # ── 3. Row 2 表號 + 製表日期 ─────────────────────────────────────
+        ws.row_dimensions[2].height = _XL_ROW_H_DATE
+        c2 = ws.cell(2, 1)
+        c2.value = table_code
+        c2.font = _XL_F16B
+        c2.alignment = _XL_A_CTR
+        today = datetime.now(timezone.utc)
+        date_str = f"製表日期：{today.year - 1911}年{today.month:02d}月{today.day:02d}日"
+        ws.merge_cells(start_row=2, start_column=col_count - 1, end_row=2, end_column=col_count)
+        dc = ws.cell(2, col_count - 1)
+        dc.value = date_str
+        dc.font = _XL_F12
+        dc.alignment = _XL_A_RT
+
+        # ── 4. 三層表頭結構定義 ───────────────────────────────────────────
+        if is_current_year:
+            hdr1_groups = [
+                (2,  7,  '已編列', _A0910_FILL_BUDGETED),
+                (8,  13, '已結案', _A0910_FILL_COMPLETED),
+                (14, 16, '小計',   _A0910_FILL_SUBTOTAL),
+            ]
+            hdr2_groups = [
+                (2,  4,  '事業區域外', _A0910_FILL_BUDGETED,  True),
+                (5,  7,  '事業區域內', _A0910_FILL_BUDGETED,  False),
+                (8,  10, '事業區域外', _A0910_FILL_COMPLETED, True),
+                (11, 13, '事業區域內', _A0910_FILL_COMPLETED, False),
+                (14, 16, '小計',      _A0910_FILL_SUBTOTAL,  True),
+            ]
+            major_starts = {2, 8, 14}
+        else:
+            hdr1_groups = [
+                (2, 7, '已結案', _A0910_FILL_COMPLETED),
+            ]
+            hdr2_groups = [
+                (2, 4, '事業區域外', _A0910_FILL_COMPLETED, True),
+                (5, 7, '事業區域內', _A0910_FILL_COMPLETED, False),
+            ]
+            major_starts = {2}
+
+        for r in range(3, 6):
+            ws.row_dimensions[r].height = _XL_ROW_H_HDR2
+
+        # ── 5. Row 3-5 Col 1：垂直合併，顯示 label_col_name ─────────────
+        # 先設邊框（左中/右中/上中），再合併（合併後底端格用 _tpl_force_interior_border 注入）
+        for r in (3, 4, 5):
+            ws.cell(r, 1).border = Border(left=_XL_S_M, right=_XL_S_M, top=_XL_S_M)
+        ws.merge_cells(start_row=3, start_column=1, end_row=5, end_column=1)
+        label_cell = ws.cell(3, 1)
+        label_cell.value = label_col_name
+        label_cell.font = _XL_F14
+        label_cell.alignment = _XL_A_CTR
+        label_cell.border = Border(left=_XL_S_M, right=_XL_S_M, top=_XL_S_M, bottom=_XL_S_M)
+        # 強制注入底端格邊框
+        self._tpl_force_interior_border(ws, 4, 1, Border(left=_XL_S_M, right=_XL_S_M))
+        self._tpl_force_interior_border(ws, 5, 1, Border(left=_XL_S_M, right=_XL_S_M, bottom=_XL_S_M))
+
+        # ── 6. Row 3 (HDR1)：主分組合併欄頭 ─────────────────────────────
+        for (sc, ec, text, fill) in hdr1_groups:
+            # 先設每格邊框再合併（_tpl_merge_horizontal 模式）
+            for col in range(sc, ec + 1):
+                is_left  = (col == sc)
+                is_right = (col == ec)
+                ws.cell(3, col).border = Border(
+                    left   = _XL_S_M if is_left else None,
+                    right  = _XL_S_M if is_right else None,
+                    top    = _XL_S_M,
+                    bottom = _XL_S_T,
+                )
+            ws.merge_cells(start_row=3, start_column=sc, end_row=3, end_column=ec)
+            cell = ws.cell(3, sc)
+            cell.value = text
+            cell.font = _XL_F14
+            cell.alignment = _XL_A_CTR
+            cell.fill = fill
+
+        # ── 7. Row 4 (HDR2)：子分組合併欄頭 ─────────────────────────────
+        for (sc, ec, text, fill, is_major) in hdr2_groups:
+            left_side  = _XL_S_M if is_major else _XL_S_T
+            # 右側：若此子組緊接另一主分組，則 medium；否則 thin（非最後欄）
+            right_col  = ec + 1
+            is_last_col = (ec == col_count)
+            right_side = _XL_S_M if (is_last_col or right_col in major_starts) else _XL_S_T
+            for col in range(sc, ec + 1):
+                is_col_left  = (col == sc)
+                is_col_right = (col == ec)
+                ws.cell(4, col).border = Border(
+                    left   = left_side if is_col_left else None,
+                    right  = right_side if is_col_right else None,
+                    top    = _XL_S_T,
+                    bottom = _XL_S_T,
+                )
+            ws.merge_cells(start_row=4, start_column=sc, end_row=4, end_column=ec)
+            cell = ws.cell(4, sc)
+            cell.value = text
+            cell.font = _XL_F14
+            cell.alignment = _XL_A_CTR
+            cell.fill = fill
+
+        # ── 8. Row 5 (HDR3)：指標子欄頭（不合併，每格獨立）────────────
+        hdr3_texts = ['案件數', '面積\n(公頃)', '金額\n(元)']
+        for col in range(2, col_count + 1):
+            group_pos = (col - 2) % 3   # 0=案件數, 1=面積, 2=金額
+            is_major_left  = col in major_starts
+            left_side  = _XL_S_M if is_major_left else (_XL_S_T if group_pos == 0 else None)
+            is_last_col    = (col == col_count)
+            right_side = _XL_S_M if (is_last_col or col + 1 in major_starts) else (
+                         _XL_S_M if group_pos == 2 else None)
+            cell = ws.cell(5, col)
+            cell.value = hdr3_texts[group_pos]
+            cell.font = _XL_F14
+            cell.alignment = _XL_A_WRAP
+            cell.border = Border(
+                left   = left_side,
+                right  = right_side,
+                top    = _XL_S_T,
+                bottom = _XL_S_M,
+            )
+
+        # ── 9. 資料列 ─────────────────────────────────────────────────────
+        for idx, row_data in enumerate(rows):
+            row_num = DATA_START + idx
+            ws.row_dimensions[row_num].height = _XL_ROW_H_DATA
+            for col_i, val in enumerate(row_data):
+                col_num = col_i + 1
+                cell = ws.cell(row_num, col_num, value=val)
+                cell.font = _XL_F14
+                cell.alignment = _XL_A_CTR
+                if col_num == 1:
+                    cell.border = Border(left=_XL_S_M, right=_XL_S_M, bottom=_XL_S_T)
+                else:
+                    group_pos  = (col_num - 2) % 3
+                    is_maj_l   = col_num in major_starts
+                    left_side  = _XL_S_M if is_maj_l else (_XL_S_T if group_pos == 0 else None)
+                    is_last    = (col_num == col_count)
+                    right_side = _XL_S_M if (is_last or col_num + 1 in major_starts) else (
+                                 _XL_S_M if group_pos == 2 else None)
+                    cell.border = Border(left=left_side, right=right_side, bottom=_XL_S_T)
+                    cell.number_format = _A0910_NUM_FMT[group_pos]
+
+        # ── 10. 最末列外框底線（medium bottom）───────────────────────────
+        if rows:
+            last_data_row = DATA_START + len(rows) - 1
+            for col_num in range(1, col_count + 1):
+                cell = ws.cell(last_data_row, col_num)
+                if isinstance(cell, MergedCell):
+                    continue
+                b = cell.border
+                cell.border = Border(
+                    left   = b.left   if b else None,
+                    right  = b.right  if b else None,
+                    top    = b.top    if b else None,
+                    bottom = _XL_S_M,
+                )
+
+        # ── 11. 備註列（與末列間隔一空列）───────────────────────────────
+        note_row = DATA_START + len(rows) + 1
+        ws.merge_cells(f"A{note_row}:{last_col_letter}{note_row}")
+        note_c = ws.cell(note_row, 1)
+        note_c.value = _A0910_NOTE_TEXT
+        note_c.font = _XL_F14
+        note_c.alignment = _XL_A_NOTE
+        ws.row_dimensions[note_row].height = _A0910_ROW_H_NOTE
+
+        # ── 12. 儲存 ──────────────────────────────────────────────────────
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        file_path = self.temp_dir / f"{table_code}_{year}_{timestamp}.xlsx"
+        workbook.save(str(file_path))
+        return str(file_path)
+
     def _generate_b01_report(
         self,
         template_name: str,
@@ -1524,6 +1773,58 @@ class ExcelGeneratorService:
         output_path = self.temp_dir / output_filename
         workbook.save(str(output_path))
         return str(output_path)
+
+    async def generate_a09_report(self, data: Dict[str, Any], year: int) -> str:
+        """生成 A09 各縣市事業區域內外推動成果統計表"""
+        is_current_year: bool = data.get('is_current_year', False)
+        rows = []
+        for s in data.get('stats', []):
+            boc = s.get('budgeted_outside_cases', 0) or 0
+            boa = float(s.get('budgeted_outside_area', 0) or 0)
+            bos = s.get('budgeted_outside_subsidy', 0) or 0
+            bic = s.get('budgeted_inside_cases', 0) or 0
+            bia = float(s.get('budgeted_inside_area', 0) or 0)
+            bis_ = s.get('budgeted_inside_subsidy', 0) or 0
+            coc = s.get('completed_outside_cases', 0) or 0
+            coa = float(s.get('completed_outside_area', 0) or 0)
+            cos_ = s.get('completed_outside_subsidy', 0) or 0
+            cic = s.get('completed_inside_cases', 0) or 0
+            cia = float(s.get('completed_inside_area', 0) or 0)
+            cis = s.get('completed_inside_subsidy', 0) or 0
+            row: list = [s.get('county_name', '')]
+            if is_current_year:
+                row += [boc, boa, bos, bic, bia, bis_]
+            row += [coc, coa, cos_, cic, cia, cis]
+            if is_current_year:
+                row += [boc + bic + coc + cic, boa + bia + coa + cia, bos + bis_ + cos_ + cis]
+            rows.append(row)
+        return self._generate_a09_a10_report('A09', '縣 市', year, is_current_year, rows)
+
+    async def generate_a10_report(self, data: Dict[str, Any], year: int) -> str:
+        """生成 A10 各管理處事業區域內外推動成果統計表"""
+        is_current_year: bool = data.get('is_current_year', False)
+        rows = []
+        for s in data.get('stats', []):
+            boc = s.get('budgeted_outside_cases', 0) or 0
+            boa = float(s.get('budgeted_outside_area', 0) or 0)
+            bos = s.get('budgeted_outside_subsidy', 0) or 0
+            bic = s.get('budgeted_inside_cases', 0) or 0
+            bia = float(s.get('budgeted_inside_area', 0) or 0)
+            bis_ = s.get('budgeted_inside_subsidy', 0) or 0
+            coc = s.get('completed_outside_cases', 0) or 0
+            coa = float(s.get('completed_outside_area', 0) or 0)
+            cos_ = s.get('completed_outside_subsidy', 0) or 0
+            cic = s.get('completed_inside_cases', 0) or 0
+            cia = float(s.get('completed_inside_area', 0) or 0)
+            cis = s.get('completed_inside_subsidy', 0) or 0
+            row: list = [s.get('office_name', '')]
+            if is_current_year:
+                row += [boc, boa, bos, bic, bia, bis_]
+            row += [coc, coa, cos_, cic, cia, cis]
+            if is_current_year:
+                row += [boc + bic + coc + cic, boa + bia + coa + cia, bos + bis_ + cos_ + cis]
+            rows.append(row)
+        return self._generate_a09_a10_report('A10', '管理處', year, is_current_year, rows)
 
     async def generate_b01_1_report(self, data: Dict[str, Any], year: int) -> str:
         """生成 B01-1 各縣市管理區內外統計報表（單年度）"""

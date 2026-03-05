@@ -182,6 +182,26 @@ export const statisticsService = {
     await apiService.download(STATISTICS.ABORIGINAL_YEARLY_EXCEL, params, filename)
   },
 
+  // ==================== A09/A10 事業區域內外推動成果統計報表 ====================
+
+  /**
+   * 下載 A09 各縣市事業區域內外統計報表 Excel
+   * @param year 統計年度（民國年）
+   */
+  async downloadA09Excel(year: number): Promise<void> {
+    const filename = `A09_${year}年度各縣市事業區域內外推動成果統計.xlsx`
+    await apiService.download(STATISTICS.A09_EXCEL, { year }, filename)
+  },
+
+  /**
+   * 下載 A10 各管理處事業區域內外統計報表 Excel
+   * @param year 統計年度（民國年）
+   */
+  async downloadA10Excel(year: number): Promise<void> {
+    const filename = `A10_${year}年度各管理處事業區域內外推動成果統計.xlsx`
+    await apiService.download(STATISTICS.A10_EXCEL, { year }, filename)
+  },
+
   // ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
 
   /**

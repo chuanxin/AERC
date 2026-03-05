@@ -5,6 +5,7 @@ Grant Statistics CRUD Operations
 
 from typing import List, Optional
 from decimal import Decimal
+from datetime import datetime, timezone
 
 from ..database.models import Grants, GrantVersions, Offices, SubsidyAnnualBudget, Counties, Towns
 from ..schemas.statistics import (
@@ -25,6 +26,10 @@ from ..schemas.statistics import (
     OfficeManagementAreaStats,
     CountyManagementAreaStatsResponse,
     OfficeManagementAreaStatsResponse,
+    CountyIrrigationBudgetCompletedStats,
+    OfficeIrrigationBudgetCompletedStats,
+    A09StatsResponse,
+    A10StatsResponse,
 )
 
 # 允許查詢的管理處 ID 清單（與前端 ALLOWED_OFFICE_IDS 保持一致）
@@ -167,6 +172,32 @@ class GrantStatisticsCRUD:
 
         # null 或 False 都視為管理區外，僅 True 視為管理區內
         return MANAGEMENT_AREA_INSIDE if is_irrigation_area is True else MANAGEMENT_AREA_OUTSIDE
+
+    @staticmethod
+    def _get_irrigation_area_any_land(grant) -> str:
+        """
+        A09/A10 專用：依「任一土地」規則判斷事業區域歸屬
+
+        只要 steps.2.lands[] 中任一筆土地 isIrrigationArea is True，整案歸事業區域內。
+        不修改 B01 使用的 _get_management_area_type()（第一筆土地規則）。
+
+        Args:
+            grant: Grants model instance with active_version prefetched
+
+        Returns:
+            str: MANAGEMENT_AREA_INSIDE ("inside") 或 MANAGEMENT_AREA_OUTSIDE ("outside")
+        """
+        if not grant.active_version:
+            return MANAGEMENT_AREA_OUTSIDE
+
+        all_steps_data = grant.active_version.all_steps_data or {}
+        steps = all_steps_data.get('steps', {})
+        lands = steps.get('2', {}).get('lands', [])
+
+        for land in lands:
+            if land.get('isIrrigationArea') is True:
+                return MANAGEMENT_AREA_INSIDE
+        return MANAGEMENT_AREA_OUTSIDE
 
     @staticmethod
     async def get_execution_progress(
@@ -899,6 +930,200 @@ class GrantStatisticsCRUD:
             years=years,
             rows=rows,
         )
+
+    # ==================== A09/A10 事業區域內外推動成果統計報表 ====================
+
+    @staticmethod
+    async def get_a09_county_stats(year: int) -> A09StatsResponse:
+        """
+        A09: 各縣市事業區域內外推動成果統計
+
+        當年度回傳已編列 + 已結案（16 欄）；非當年度僅回傳已結案（7 欄）。
+        事業區域歸屬：任一土地 isIrrigationArea=True → 事業區域內（任一土地規則）。
+        縣市歸屬：第一筆有效土地的縣市。
+        """
+        current_tw_year = datetime.now(timezone.utc).year - 1911
+        is_current_year = (year == current_tw_year)
+
+        county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
+
+        county_data: dict = {}
+
+        def _ensure_county(c_id: int, c_name: str) -> None:
+            if c_id not in county_data:
+                empty = lambda: {'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0')}
+                county_data[c_id] = {
+                    'county_id':   c_id,
+                    'county_name': c_name,
+                    'budgeted':  {'inside': empty(), 'outside': empty()},
+                    'completed': {'inside': empty(), 'outside': empty()},
+                }
+
+        def _acc_county(bucket: str, c_id: int, area_type: str, area: Decimal, subsidy: Decimal) -> None:
+            county_data[c_id][bucket][area_type]['cases'] += 1
+            county_data[c_id][bucket][area_type]['area'] += area
+            county_data[c_id][bucket][area_type]['subsidy'] += subsidy
+
+        # 1. 已結案案件（當年度與非當年度均需要）
+        completed_grants = await Grants.filter(
+            year=year,
+            status__in=['completed', 'submitted'],
+            office_id__in=ALLOWED_OFFICE_IDS,
+        ).prefetch_related('active_version').all()
+
+        for grant in completed_grants:
+            if not grant.active_version:
+                continue
+            lands = (grant.active_version.all_steps_data or {}).get('steps', {}).get('2', {}).get('lands', [])
+            c_id, c_name, _, _ = GrantStatisticsCRUD._find_first_valid_county_town(lands, county_lookup, town_lookup)
+            if c_id is None:
+                continue
+            area_type = GrantStatisticsCRUD._get_irrigation_area_any_land(grant)
+            grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+            _ensure_county(c_id, c_name)
+            _acc_county('completed', c_id, area_type, grant_area, grant_subsidy)
+
+        # 2. 已編列案件（僅當年度）
+        if is_current_year:
+            budgeted_grants = await Grants.filter(
+                year=year,
+                office_id__in=ALLOWED_OFFICE_IDS,
+            ).exclude(
+                status__in=['rejected', 'withdrawn', 'deleted']
+            ).prefetch_related('active_version').all()
+
+            for grant in budgeted_grants:
+                if not grant.active_version:
+                    continue
+                lands = (grant.active_version.all_steps_data or {}).get('steps', {}).get('2', {}).get('lands', [])
+                c_id, c_name, _, _ = GrantStatisticsCRUD._find_first_valid_county_town(lands, county_lookup, town_lookup)
+                if c_id is None:
+                    continue
+                area_type = GrantStatisticsCRUD._get_irrigation_area_any_land(grant)
+                grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+                _ensure_county(c_id, c_name)
+                _acc_county('budgeted', c_id, area_type, grant_area, grant_subsidy)
+
+        # 3. 排序並組裝 response
+        stats = []
+        for c_id in sorted(county_data.keys()):
+            d = county_data[c_id]
+            b = d['budgeted']
+            c = d['completed']
+            stats.append(CountyIrrigationBudgetCompletedStats(
+                county_id=d['county_id'],
+                county_name=d['county_name'],
+                budgeted_outside_cases=b['outside']['cases'],
+                budgeted_outside_area=b['outside']['area'],
+                budgeted_outside_subsidy=b['outside']['subsidy'],
+                budgeted_inside_cases=b['inside']['cases'],
+                budgeted_inside_area=b['inside']['area'],
+                budgeted_inside_subsidy=b['inside']['subsidy'],
+                completed_outside_cases=c['outside']['cases'],
+                completed_outside_area=c['outside']['area'],
+                completed_outside_subsidy=c['outside']['subsidy'],
+                completed_inside_cases=c['inside']['cases'],
+                completed_inside_area=c['inside']['area'],
+                completed_inside_subsidy=c['inside']['subsidy'],
+            ))
+
+        return A09StatsResponse(year=year, is_current_year=is_current_year, stats=stats)
+
+    @staticmethod
+    async def get_a10_office_stats(year: int) -> A10StatsResponse:
+        """
+        A10: 各管理處事業區域內外推動成果統計
+
+        邏輯與 get_a09_county_stats 相同，但分組維度改為管理處（直接用 grant.office_id）。
+        """
+        current_tw_year = datetime.now(timezone.utc).year - 1911
+        is_current_year = (year == current_tw_year)
+
+        offices = await Offices.filter(id__in=ALLOWED_OFFICE_IDS).order_by('id').all()
+        office_name_map = {o.id: o.name for o in offices}
+
+        office_data: dict = {}
+
+        def _ensure_office(o_id: int) -> None:
+            if o_id not in office_data:
+                empty = lambda: {'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0')}
+                office_data[o_id] = {
+                    'office_id':   o_id,
+                    'office_name': office_name_map.get(o_id, f'管理處{o_id}'),
+                    'budgeted':  {'inside': empty(), 'outside': empty()},
+                    'completed': {'inside': empty(), 'outside': empty()},
+                }
+
+        def _acc_office(bucket: str, o_id: int, area_type: str, area: Decimal, subsidy: Decimal) -> None:
+            office_data[o_id][bucket][area_type]['cases'] += 1
+            office_data[o_id][bucket][area_type]['area'] += area
+            office_data[o_id][bucket][area_type]['subsidy'] += subsidy
+
+        # 1. 已結案案件
+        completed_grants = await Grants.filter(
+            year=year,
+            status__in=['completed', 'submitted'],
+            office_id__in=ALLOWED_OFFICE_IDS,
+        ).prefetch_related('active_version').all()
+
+        for grant in completed_grants:
+            if not grant.active_version:
+                continue
+            o_id = grant.office_id
+            if o_id not in office_name_map:
+                continue
+            area_type = GrantStatisticsCRUD._get_irrigation_area_any_land(grant)
+            grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+            _ensure_office(o_id)
+            _acc_office('completed', o_id, area_type, grant_area, grant_subsidy)
+
+        # 2. 已編列案件（僅當年度）
+        if is_current_year:
+            budgeted_grants = await Grants.filter(
+                year=year,
+                office_id__in=ALLOWED_OFFICE_IDS,
+            ).exclude(
+                status__in=['rejected', 'withdrawn', 'deleted']
+            ).prefetch_related('active_version').all()
+
+            for grant in budgeted_grants:
+                if not grant.active_version:
+                    continue
+                o_id = grant.office_id
+                if o_id not in office_name_map:
+                    continue
+                area_type = GrantStatisticsCRUD._get_irrigation_area_any_land(grant)
+                grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+                _ensure_office(o_id)
+                _acc_office('budgeted', o_id, area_type, grant_area, grant_subsidy)
+
+        # 3. 按 ALLOWED_OFFICE_IDS 順序組裝 response（確保所有管理處均出現）
+        stats = []
+        for o_id in ALLOWED_OFFICE_IDS:
+            if o_id not in office_name_map:
+                continue
+            _ensure_office(o_id)
+            d = office_data[o_id]
+            b = d['budgeted']
+            c = d['completed']
+            stats.append(OfficeIrrigationBudgetCompletedStats(
+                office_id=d['office_id'],
+                office_name=d['office_name'],
+                budgeted_outside_cases=b['outside']['cases'],
+                budgeted_outside_area=b['outside']['area'],
+                budgeted_outside_subsidy=b['outside']['subsidy'],
+                budgeted_inside_cases=b['inside']['cases'],
+                budgeted_inside_area=b['inside']['area'],
+                budgeted_inside_subsidy=b['inside']['subsidy'],
+                completed_outside_cases=c['outside']['cases'],
+                completed_outside_area=c['outside']['area'],
+                completed_outside_subsidy=c['outside']['subsidy'],
+                completed_inside_cases=c['inside']['cases'],
+                completed_inside_area=c['inside']['area'],
+                completed_inside_subsidy=c['inside']['subsidy'],
+            ))
+
+        return A10StatsResponse(year=year, is_current_year=is_current_year, stats=stats)
 
     # ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
 
