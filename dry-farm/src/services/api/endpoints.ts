@@ -92,6 +92,28 @@ export const GRANTS = {
 export const STATISTICS = {
   EXECUTION_PROGRESS: `${BASE}/grants/statistics/execution-progress`,
   BUDGET_ANALYSIS: `${BASE}/grants/statistics/budget-analysis`,
+  // Excel 報表下載
+  EXECUTION_PROGRESS_EXCEL: `${BASE}/grants/statistics/execution-progress/excel`,
+  BUDGET_ANALYSIS_EXCEL: `${BASE}/grants/statistics/budget-analysis/excel`,
+  // A02 系列
+  COUNTY_TOWN_EXCEL: `${BASE}/grants/statistics/county-town/excel`,
+  OFFICE_SUMMARY_EXCEL: `${BASE}/grants/statistics/office-summary/excel`,
+  COUNTY_TOWN_YEARLY_EXCEL: `${BASE}/grants/statistics/county-town-yearly/excel`,
+  OFFICE_SUMMARY_YEARLY_EXCEL: `${BASE}/grants/statistics/office-summary-yearly/excel`,
+  // A07 原民區域統計
+  ABORIGINAL_STATS_EXCEL: `${BASE}/grants/statistics/aboriginal/excel`,
+  // A08 歷年原民區域統計
+  ABORIGINAL_YEARLY_EXCEL: `${BASE}/grants/statistics/aboriginal-yearly/excel`,
+  // B01 系列推動成果統計（管理區內外分組）
+  B01_1_EXCEL: `${BASE}/grants/statistics/b01-1/excel`,
+  B01_2_EXCEL: `${BASE}/grants/statistics/b01-2/excel`,
+  B01_3_EXCEL: `${BASE}/grants/statistics/b01-3/excel`,
+  B01_4_EXCEL: `${BASE}/grants/statistics/b01-4/excel`,
+  // A09/A10 事業區域內外推動成果統計
+  A09_EXCEL: `${BASE}/grants/statistics/a09/excel`,
+  A10_EXCEL: `${BASE}/grants/statistics/a10/excel`,
+  // B03 各縣市鄉鎮區各類補助項目統計
+  B03_EXCEL: `${BASE}/grants/statistics/b03/excel`,
 }
 
 // Pipe Fittings related endpoints
