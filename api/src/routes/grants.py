@@ -25,7 +25,7 @@ from src.services.authorization_pdf_generator import AuthorizationPDFGenerator
 from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
 from src.services.excel_generator import ExcelGeneratorService
 from src.crud.grant_statistics import GrantStatisticsCRUD
-from src.schemas.statistics import ExecutionProgressResponse, BudgetAnalysisResponse
+from src.schemas.statistics import ExecutionProgressResponse, BudgetAnalysisResponse, B03StatsResponse
 
 import logging
 import tempfile
@@ -2306,5 +2306,41 @@ async def download_b01_4_office_management_area_yearly_excel(
     return FileResponse(
         path=file_path,
         filename=f"B01-4_{start_year}-{end_year}年度.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+# ==================== B03 各縣市鄉鎮區各類補助項目統計報表 ====================
+
+
+@router.get(
+    "/statistics/b03/excel",
+    summary="下載 B03 各縣市鄉鎮區各類補助項目統計表 Excel",
+    description="生成並下載指定年度的 B03 各縣市鄉鎮區各類補助項目統計表（Excel 格式）"
+)
+async def download_b03_county_town_subsidy_excel(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+) -> FileResponse:
+    """
+    下載 B03 各縣市鄉鎮區各類補助項目統計表 Excel
+
+    統計維度：縣市 × 鄉鎮區 × 灌溉型式
+    """
+    stats_response = await GrantStatisticsCRUD.get_b03_county_town_subsidy_stats(
+        year=year,
+        office_id=office_id
+    )
+
+    excel_service = ExcelGeneratorService()
+    file_path = await excel_service.generate_b03_report(
+        data=stats_response.dict(),
+        year=year
+    )
+
+    return FileResponse(
+        path=file_path,
+        filename=f"B03_{year}年度各縣市鄉鎮區各類補助項目統計.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )

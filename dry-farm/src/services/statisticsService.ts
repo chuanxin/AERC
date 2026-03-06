@@ -253,4 +253,18 @@ export const statisticsService = {
     const filename = `B01-4_歷年各管理處推動成果統計_${startYear}-${endYear}年度.xlsx`
     await apiService.download(STATISTICS.B01_4_EXCEL, params, filename)
   },
+
+  // ==================== B03 各縣市鄉鎮區各類補助項目統計報表 ====================
+
+  /**
+   * 下載 B03 各縣市鄉鎮區各類補助項目統計報表 Excel
+   * @param year 統計年度（民國年）
+   * @param officeId 管理處 ID（選填）
+   */
+  async downloadB03Excel(year: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { year }
+    if (officeId) params.office_id = officeId
+    const filename = `B03_${year}年度各縣市鄉鎮區各類補助項目統計.xlsx`
+    await apiService.download(STATISTICS.B03_EXCEL, params, filename)
+  },
 }

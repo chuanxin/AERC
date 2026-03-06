@@ -30,6 +30,8 @@ from ..schemas.statistics import (
     OfficeIrrigationBudgetCompletedStats,
     A09StatsResponse,
     A10StatsResponse,
+    B03CountyTownSubsidyRow,
+    B03StatsResponse,
 )
 
 # 允許查詢的管理處 ID 清單（與前端 ALLOWED_OFFICE_IDS 保持一致）
@@ -1701,4 +1703,274 @@ class GrantStatisticsCRUD:
             end_year=end_year,
             years=years,
             rows=rows,
+        )
+
+    # ==================== B03 各縣市鄉鎮區各類補助項目統計報表 ====================
+
+    @staticmethod
+    def _get_irrigation_type_str(step5_data: dict) -> str:
+        """解析 step5 資料，回傳灌溉型式字串（不含安裝型式前綴）"""
+        irrigation_type_id = step5_data.get('irrigationTypeId', 0)
+        irrigation_type_raw = step5_data.get('irrigationType', '')
+        sprinkler_subtype_id = step5_data.get('sprinklerSubtypeId', 0)
+        dripper_subtype_id = step5_data.get('dripperSubtypeId', 0)
+
+        if irrigation_type_id in [1, 3]:
+            result = irrigation_type_raw
+        elif irrigation_type_id == 2:
+            if sprinkler_subtype_id == 6:
+                result = '高壓大型噴頭系統'
+            elif sprinkler_subtype_id == 2:
+                result = '一般噴頭系統'
+            else:
+                result = irrigation_type_raw
+        elif irrigation_type_id == 4:
+            if dripper_subtype_id == 7:
+                result = '滴嘴滴灌系統'
+            elif dripper_subtype_id == 8:
+                result = '滴水管滴灌系統'
+            else:
+                result = irrigation_type_raw
+        else:
+            result = irrigation_type_raw
+
+        return result or '其它'
+
+    @staticmethod
+    def _calculate_b03_grant_breakdown(grant) -> dict:
+        """
+        計算單一案件的 B03 各項補助明細
+
+        設計費與田間管路設施費均為獨立記錄（無須 legacy 分支）。
+
+        Returns:
+            dict with keys: area, irrigation_type, pipeline_subsidy, design_fee_subsidy,
+                control_subsidy, power_subsidy, storage_subsidy, pipeline_self_paid,
+                control_self_paid, power_self_paid, storage_self_paid,
+                storage_tonnage, storage_count, pump_count
+        """
+        result = {
+            'area': Decimal('0'),
+            'irrigation_type': '其它',
+            'pipeline_subsidy': Decimal('0'),
+            'design_fee_subsidy': Decimal('0'),
+            'control_subsidy': Decimal('0'),
+            'power_subsidy': Decimal('0'),
+            'storage_subsidy': Decimal('0'),
+            'pipeline_self_paid': Decimal('0'),
+            'control_self_paid': Decimal('0'),
+            'power_self_paid': Decimal('0'),
+            'storage_self_paid': Decimal('0'),
+            'storage_tonnage': 0,
+            'storage_count': 0,
+            'pump_count': 0,
+        }
+
+        if not grant.active_version:
+            return result
+
+        all_steps_data = grant.active_version.all_steps_data or {}
+        steps = all_steps_data.get('steps', {})
+
+        # 補助面積（步驟 2）
+        step2_data = steps.get('2', {})
+        for land in step2_data.get('lands', []):
+            result['area'] += Decimal(str(land.get('facilityAreaHa', 0) or 0))
+
+        # 灌溉型式（步驟 5）
+        step5_data = steps.get('5', {})
+        result['irrigation_type'] = GrantStatisticsCRUD._get_irrigation_type_str(step5_data)
+
+        # 田間管路設施補助 + 自備款（步驟 5）
+        result['pipeline_subsidy'] = Decimal(str(step5_data.get('subsidyAmount', 0) or 0))
+        result['design_fee_subsidy'] = Decimal(str(step5_data.get('designFee', 0) or 0))
+        result['pipeline_self_paid'] = Decimal(str(step5_data.get('selfPaidAmount', 0) or 0))
+
+        # 步驟 4 設施分類統計
+        step4_data = steps.get('4', {})
+        for facility in step4_data.get('facilities', []):
+            ftype = facility.get('type', '')
+            subsidy = Decimal(str(facility.get('subsidyAmount', 0) or 0))
+            self_paid = Decimal(str(facility.get('selfPaidAmount', 0) or 0))
+            qty = int(facility.get('quantity', 0) or 0)
+            tonnage = Decimal(str(facility.get('tonnage', 0) or 0))
+
+            if ftype == 'control':
+                result['control_subsidy'] += subsidy
+                result['control_self_paid'] += self_paid
+            elif ftype == 'power':
+                result['power_subsidy'] += subsidy
+                result['power_self_paid'] += self_paid
+                result['pump_count'] += qty
+            elif ftype == 'storage':
+                result['storage_subsidy'] += subsidy
+                result['storage_self_paid'] += self_paid
+                result['storage_count'] += qty
+                result['storage_tonnage'] += int(tonnage * qty)
+
+        return result
+
+    @staticmethod
+    async def get_b03_county_town_subsidy_stats(
+        year: int,
+        office_id: Optional[int] = None,
+    ) -> B03StatsResponse:
+        """
+        B03: 取得各縣市鄉鎮區各類補助項目統計資料
+
+        分組鍵：(county_id, town_id, irrigation_type)
+        排序：county_id ASC, town_id ASC, irrigation_type ASC
+        """
+        county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
+
+        query = Grants.filter(year=year, status__in=['completed', 'submitted'])
+        if office_id is not None:
+            query = query.filter(office_id=office_id)
+        else:
+            query = query.filter(office_id__in=ALLOWED_OFFICE_IDS)
+
+        grants = await query.prefetch_related('active_version').all()
+
+        # 分組彙總：key = (county_id, town_id, irrigation_type)
+        groups: dict = {}
+
+        for grant in grants:
+            if not grant.active_version:
+                continue
+
+            all_steps_data = grant.active_version.all_steps_data or {}
+            steps = all_steps_data.get('steps', {})
+            lands = steps.get('2', {}).get('lands', [])
+
+            c_id, c_name, t_id, t_name = GrantStatisticsCRUD._find_first_valid_county_town(
+                lands, county_lookup, town_lookup
+            )
+            if c_id is None:
+                continue
+
+            bd = GrantStatisticsCRUD._calculate_b03_grant_breakdown(grant)
+            key = (c_id, t_id, bd['irrigation_type'])
+
+            if key not in groups:
+                groups[key] = {
+                    'county_id': c_id, 'county_name': c_name,
+                    'town_id': t_id, 'town_name': t_name,
+                    'irrigation_type': bd['irrigation_type'],
+                    'cases': 0,
+                    'area': Decimal('0'),
+                    'pipeline_subsidy': Decimal('0'),
+                    'design_fee_subsidy': Decimal('0'),
+                    'control_subsidy': Decimal('0'),
+                    'power_subsidy': Decimal('0'),
+                    'storage_subsidy': Decimal('0'),
+                    'farmer_contribution': Decimal('0'),
+                    'storage_tonnage': 0,
+                    'storage_count': 0,
+                    'pump_count': 0,
+                }
+
+            g = groups[key]
+            g['cases'] += 1
+            g['area'] += bd['area']
+            g['pipeline_subsidy'] += bd['pipeline_subsidy']
+            g['design_fee_subsidy'] += bd['design_fee_subsidy']
+            g['control_subsidy'] += bd['control_subsidy']
+            g['power_subsidy'] += bd['power_subsidy']
+            g['storage_subsidy'] += bd['storage_subsidy']
+            farmer_contrib = (
+                bd['pipeline_self_paid'] + bd['control_self_paid'] +
+                bd['power_self_paid'] + bd['storage_self_paid']
+            )
+            g['farmer_contribution'] += max(Decimal('0'), farmer_contrib)
+            g['storage_tonnage'] += bd['storage_tonnage']
+            g['storage_count'] += bd['storage_count']
+            g['pump_count'] += bd['pump_count']
+
+        # 排序並建構 rows
+        sorted_keys = sorted(groups.keys(), key=lambda k: (k[0], k[1], k[2]))
+        rows = []
+
+        # 全表合計
+        gt_area = Decimal('0')
+        gt_cases = 0
+        gt_farmer = Decimal('0')
+        gt_pipeline = Decimal('0')
+        gt_storage = Decimal('0')
+        gt_power = Decimal('0')
+        gt_control = Decimal('0')
+        gt_design = Decimal('0')
+        gt_subsidy = Decimal('0')
+        gt_engineering = Decimal('0')
+        gt_tonnage = 0
+        gt_count = 0
+        gt_pump = 0
+
+        for key in sorted_keys:
+            g = groups[key]
+            total_subsidy = (
+                g['pipeline_subsidy'] + g['design_fee_subsidy'] +
+                g['control_subsidy'] + g['power_subsidy'] + g['storage_subsidy']
+            )
+            total_engineering = g['farmer_contribution'] + total_subsidy
+            area = g['area']
+
+            subsidy_per_ha = (g['pipeline_subsidy'] / area) if area > 0 else Decimal('0')
+            pipeline_ratio = (g['pipeline_subsidy'] / total_engineering) if total_engineering > 0 else Decimal('0')
+            engineering_per_ha = (total_engineering / area) if area > 0 else Decimal('0')
+
+            rows.append(B03CountyTownSubsidyRow(
+                county_id=g['county_id'],
+                county_name=g['county_name'],
+                town_id=g['town_id'],
+                town_name=g['town_name'],
+                irrigation_type=g['irrigation_type'],
+                total_area=area,
+                completed_cases=g['cases'],
+                farmer_contribution=g['farmer_contribution'],
+                pipeline_subsidy=g['pipeline_subsidy'],
+                storage_subsidy=g['storage_subsidy'],
+                power_subsidy=g['power_subsidy'],
+                control_subsidy=g['control_subsidy'],
+                design_fee_subsidy=g['design_fee_subsidy'],
+                total_subsidy=total_subsidy,
+                total_engineering=total_engineering,
+                storage_tonnage=g['storage_tonnage'],
+                storage_count=g['storage_count'],
+                pump_count=g['pump_count'],
+                subsidy_per_ha=subsidy_per_ha,
+                pipeline_ratio=pipeline_ratio,
+                engineering_per_ha=engineering_per_ha,
+            ))
+
+            gt_area += area
+            gt_cases += g['cases']
+            gt_farmer += g['farmer_contribution']
+            gt_pipeline += g['pipeline_subsidy']
+            gt_storage += g['storage_subsidy']
+            gt_power += g['power_subsidy']
+            gt_control += g['control_subsidy']
+            gt_design += g['design_fee_subsidy']
+            gt_subsidy += total_subsidy
+            gt_engineering += total_engineering
+            gt_tonnage += g['storage_tonnage']
+            gt_count += g['storage_count']
+            gt_pump += g['pump_count']
+
+        return B03StatsResponse(
+            year=year,
+            office_id=office_id,
+            rows=rows,
+            total_area=gt_area,
+            total_cases=gt_cases,
+            total_farmer_contribution=gt_farmer,
+            total_pipeline_subsidy=gt_pipeline,
+            total_storage_subsidy=gt_storage,
+            total_power_subsidy=gt_power,
+            total_control_subsidy=gt_control,
+            total_design_fee_subsidy=gt_design,
+            total_subsidy=gt_subsidy,
+            total_engineering=gt_engineering,
+            total_storage_tonnage=gt_tonnage,
+            total_storage_count=gt_count,
+            total_pump_count=gt_pump,
         )
