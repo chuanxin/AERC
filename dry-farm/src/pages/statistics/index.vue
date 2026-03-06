@@ -722,7 +722,7 @@
                                     年報
                                   </v-chip>
                                   <v-chip size="x-small" color="orange" variant="tonal">
-                                    原住民族
+                                    原民區域
                                   </v-chip>
                                 </div>
                               </div>
@@ -789,7 +789,7 @@
                                     歷年趨勢
                                   </v-chip>
                                   <v-chip size="x-small" color="orange" variant="tonal">
-                                    原住民族
+                                    原民區域
                                   </v-chip>
                                 </div>
                               </div>
