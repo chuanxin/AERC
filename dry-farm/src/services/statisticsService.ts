@@ -182,6 +182,26 @@ export const statisticsService = {
     await apiService.download(STATISTICS.ABORIGINAL_YEARLY_EXCEL, params, filename)
   },
 
+  // ==================== A09/A10 事業區域內外推動成果統計報表 ====================
+
+  /**
+   * 下載 A09 各縣市事業區域內外統計報表 Excel
+   * @param year 統計年度（民國年）
+   */
+  async downloadA09Excel(year: number): Promise<void> {
+    const filename = `A09_${year}年度各縣市事業區域內外推動成果統計.xlsx`
+    await apiService.download(STATISTICS.A09_EXCEL, { year }, filename)
+  },
+
+  /**
+   * 下載 A10 各管理處事業區域內外統計報表 Excel
+   * @param year 統計年度（民國年）
+   */
+  async downloadA10Excel(year: number): Promise<void> {
+    const filename = `A10_${year}年度各管理處事業區域內外推動成果統計.xlsx`
+    await apiService.download(STATISTICS.A10_EXCEL, { year }, filename)
+  },
+
   // ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
 
   /**
@@ -232,5 +252,19 @@ export const statisticsService = {
     if (officeId) params.office_id = officeId
     const filename = `B01-4_歷年各管理處推動成果統計_${startYear}-${endYear}年度.xlsx`
     await apiService.download(STATISTICS.B01_4_EXCEL, params, filename)
+  },
+
+  // ==================== B03 各縣市鄉鎮區各類補助項目統計報表 ====================
+
+  /**
+   * 下載 B03 各縣市鄉鎮區各類補助項目統計報表 Excel
+   * @param year 統計年度（民國年）
+   * @param officeId 管理處 ID（選填）
+   */
+  async downloadB03Excel(year: number, officeId?: number | null): Promise<void> {
+    const params: Record<string, unknown> = { year }
+    if (officeId) params.office_id = officeId
+    const filename = `B03_${year}年度各縣市鄉鎮區各類補助項目統計.xlsx`
+    await apiService.download(STATISTICS.B03_EXCEL, params, filename)
   },
 }

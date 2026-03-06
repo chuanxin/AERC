@@ -280,6 +280,86 @@ class OfficeManagementAreaStatsResponse(BaseModel):
         json_encoders = {Decimal: lambda v: float(v)}
 
 
+# ==================== A09/A10 事業區域內外推動成果統計報表 ====================
+
+class CountyIrrigationBudgetCompletedStats(BaseModel):
+    """單一縣市的事業區域內外統計資料（已編列/已結案分組）"""
+    county_id: int = Field(..., description="縣市 ID")
+    county_name: str = Field(..., description="縣市名稱")
+
+    # 已編列 - 事業區域外
+    budgeted_outside_cases: int = Field(default=0, description="已編列-事業區域外案件數")
+    budgeted_outside_area: Decimal = Field(default=Decimal('0'), description="已編列-事業區域外面積（公頃）")
+    budgeted_outside_subsidy: Decimal = Field(default=Decimal('0'), description="已編列-事業區域外補助金額（元）")
+
+    # 已編列 - 事業區域內
+    budgeted_inside_cases: int = Field(default=0, description="已編列-事業區域內案件數")
+    budgeted_inside_area: Decimal = Field(default=Decimal('0'), description="已編列-事業區域內面積（公頃）")
+    budgeted_inside_subsidy: Decimal = Field(default=Decimal('0'), description="已編列-事業區域內補助金額（元）")
+
+    # 已結案 - 事業區域外
+    completed_outside_cases: int = Field(default=0, description="已結案-事業區域外案件數")
+    completed_outside_area: Decimal = Field(default=Decimal('0'), description="已結案-事業區域外面積（公頃）")
+    completed_outside_subsidy: Decimal = Field(default=Decimal('0'), description="已結案-事業區域外補助金額（元）")
+
+    # 已結案 - 事業區域內
+    completed_inside_cases: int = Field(default=0, description="已結案-事業區域內案件數")
+    completed_inside_area: Decimal = Field(default=Decimal('0'), description="已結案-事業區域內面積（公頃）")
+    completed_inside_subsidy: Decimal = Field(default=Decimal('0'), description="已結案-事業區域內補助金額（元）")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class OfficeIrrigationBudgetCompletedStats(BaseModel):
+    """單一管理處的事業區域內外統計資料（已編列/已結案分組）"""
+    office_id: int = Field(..., description="管理處 ID")
+    office_name: str = Field(..., description="管理處名稱")
+
+    # 已編列 - 事業區域外
+    budgeted_outside_cases: int = Field(default=0, description="已編列-事業區域外案件數")
+    budgeted_outside_area: Decimal = Field(default=Decimal('0'), description="已編列-事業區域外面積（公頃）")
+    budgeted_outside_subsidy: Decimal = Field(default=Decimal('0'), description="已編列-事業區域外補助金額（元）")
+
+    # 已編列 - 事業區域內
+    budgeted_inside_cases: int = Field(default=0, description="已編列-事業區域內案件數")
+    budgeted_inside_area: Decimal = Field(default=Decimal('0'), description="已編列-事業區域內面積（公頃）")
+    budgeted_inside_subsidy: Decimal = Field(default=Decimal('0'), description="已編列-事業區域內補助金額（元）")
+
+    # 已結案 - 事業區域外
+    completed_outside_cases: int = Field(default=0, description="已結案-事業區域外案件數")
+    completed_outside_area: Decimal = Field(default=Decimal('0'), description="已結案-事業區域外面積（公頃）")
+    completed_outside_subsidy: Decimal = Field(default=Decimal('0'), description="已結案-事業區域外補助金額（元）")
+
+    # 已結案 - 事業區域內
+    completed_inside_cases: int = Field(default=0, description="已結案-事業區域內案件數")
+    completed_inside_area: Decimal = Field(default=Decimal('0'), description="已結案-事業區域內面積（公頃）")
+    completed_inside_subsidy: Decimal = Field(default=Decimal('0'), description="已結案-事業區域內補助金額（元）")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class A09StatsResponse(BaseModel):
+    """A09 各縣市事業區域內外推動成果統計回應"""
+    year: int = Field(..., description="統計年度（民國年）")
+    is_current_year: bool = Field(..., description="是否為當年度（決定欄位模式）")
+    stats: List[CountyIrrigationBudgetCompletedStats] = Field(default_factory=list, description="縣市統計清單")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class A10StatsResponse(BaseModel):
+    """A10 各管理處事業區域內外推動成果統計回應"""
+    year: int = Field(..., description="統計年度（民國年）")
+    is_current_year: bool = Field(..., description="是否為當年度（決定欄位模式）")
+    stats: List[OfficeIrrigationBudgetCompletedStats] = Field(default_factory=list, description="管理處統計清單")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
 # ==================== A04 原民區域統計報表 ====================
 
 class AboriginalAreaStats(BaseModel):
@@ -289,6 +369,64 @@ class AboriginalAreaStats(BaseModel):
     grant_count: int = Field(default=0, ge=0, description="補助案件數")
     subsidy_area: Decimal = Field(default=Decimal('0'), ge=0, description="補助面積（公頃）")
     subsidy_amount: int = Field(default=0, ge=0, description="補助金額（元）")
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+# ==================== B03 各縣市鄉鎮區各類補助項目統計報表 ====================
+
+class B03CountyTownSubsidyRow(BaseModel):
+    """B03 每一行統計資料（以縣市/鄉鎮區/灌溉型式為分組鍵）"""
+    county_id: int
+    county_name: str
+    town_id: int
+    town_name: str
+    irrigation_type: str
+
+    total_area: Decimal = Field(default=Decimal('0'))
+    completed_cases: int = Field(default=0)
+    farmer_contribution: Decimal = Field(default=Decimal('0'))
+
+    pipeline_subsidy: Decimal = Field(default=Decimal('0'))
+    storage_subsidy: Decimal = Field(default=Decimal('0'))
+    power_subsidy: Decimal = Field(default=Decimal('0'))
+    control_subsidy: Decimal = Field(default=Decimal('0'))
+    design_fee_subsidy: Decimal = Field(default=Decimal('0'))
+    total_subsidy: Decimal = Field(default=Decimal('0'))
+    total_engineering: Decimal = Field(default=Decimal('0'))
+
+    storage_tonnage: int = Field(default=0)
+    storage_count: int = Field(default=0)
+    pump_count: int = Field(default=0)
+
+    subsidy_per_ha: Decimal = Field(default=Decimal('0'))
+    pipeline_ratio: Decimal = Field(default=Decimal('0'))
+    engineering_per_ha: Decimal = Field(default=Decimal('0'))
+
+    class Config:
+        json_encoders = {Decimal: lambda v: float(v)}
+
+
+class B03StatsResponse(BaseModel):
+    """B03 API 完整回應"""
+    year: int
+    office_id: Optional[int] = None
+    rows: List[B03CountyTownSubsidyRow] = Field(default_factory=list)
+
+    total_area: Decimal = Field(default=Decimal('0'))
+    total_cases: int = Field(default=0)
+    total_farmer_contribution: Decimal = Field(default=Decimal('0'))
+    total_pipeline_subsidy: Decimal = Field(default=Decimal('0'))
+    total_storage_subsidy: Decimal = Field(default=Decimal('0'))
+    total_power_subsidy: Decimal = Field(default=Decimal('0'))
+    total_control_subsidy: Decimal = Field(default=Decimal('0'))
+    total_design_fee_subsidy: Decimal = Field(default=Decimal('0'))
+    total_subsidy: Decimal = Field(default=Decimal('0'))
+    total_engineering: Decimal = Field(default=Decimal('0'))
+    total_storage_tonnage: int = Field(default=0)
+    total_storage_count: int = Field(default=0)
+    total_pump_count: int = Field(default=0)
 
     class Config:
         json_encoders = {Decimal: lambda v: float(v)}

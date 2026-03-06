@@ -109,6 +109,11 @@ export const STATISTICS = {
   B01_2_EXCEL: `${BASE}/grants/statistics/b01-2/excel`,
   B01_3_EXCEL: `${BASE}/grants/statistics/b01-3/excel`,
   B01_4_EXCEL: `${BASE}/grants/statistics/b01-4/excel`,
+  // A09/A10 事業區域內外推動成果統計
+  A09_EXCEL: `${BASE}/grants/statistics/a09/excel`,
+  A10_EXCEL: `${BASE}/grants/statistics/a10/excel`,
+  // B03 各縣市鄉鎮區各類補助項目統計
+  B03_EXCEL: `${BASE}/grants/statistics/b03/excel`,
 }
 
 // Pipe Fittings related endpoints

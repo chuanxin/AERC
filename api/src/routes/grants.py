@@ -25,7 +25,7 @@ from src.services.authorization_pdf_generator import AuthorizationPDFGenerator
 from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
 from src.services.excel_generator import ExcelGeneratorService
 from src.crud.grant_statistics import GrantStatisticsCRUD
-from src.schemas.statistics import ExecutionProgressResponse, BudgetAnalysisResponse
+from src.schemas.statistics import ExecutionProgressResponse, BudgetAnalysisResponse, B03StatsResponse
 
 import logging
 import tempfile
@@ -2080,6 +2080,79 @@ async def download_aboriginal_yearly_excel(
         raise HTTPException(status_code=500, detail=f"生成 A08 報表失敗: {str(e)}")
 
 
+# ==================== A09/A10 事業區域內外推動成果統計報表 ====================
+
+
+@router.get(
+    "/statistics/a09/excel",
+    summary="下載 A09 各縣市事業區域內外統計報表 Excel",
+    description="生成並下載指定年度的 A09 各縣市推動成果統計表（Excel 格式），按事業區域內/外分組統計（任一土地規則）"
+)
+async def download_a09_county_irrigation_area_excel(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    current_user: UserOutSchema = Depends(get_current_user)
+) -> FileResponse:
+    """下載 A09 各縣市事業區域內外統計報表 Excel"""
+    try:
+        logger.info(f"📊 [A09] 生成報表: year={year}")
+        stats_response = await GrantStatisticsCRUD.get_a09_county_stats(year=year)
+        excel_service = ExcelGeneratorService()
+        file_path = await excel_service.generate_a09_report(
+            data=stats_response.model_dump(),
+            year=year
+        )
+        filename = f"A09_{year}年度各縣市事業區域內外推動成果統計.xlsx"
+        encoded_filename = quote(filename, safe='')
+        return FileResponse(
+            path=file_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [A09] 生成報表失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"生成 A09 報表失敗: {str(e)}")
+
+
+@router.get(
+    "/statistics/a10/excel",
+    summary="下載 A10 各管理處事業區域內外統計報表 Excel",
+    description="生成並下載指定年度的 A10 各管理處推動成果統計表（Excel 格式），按事業區域內/外分組統計（任一土地規則）"
+)
+async def download_a10_office_irrigation_area_excel(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    current_user: UserOutSchema = Depends(get_current_user)
+) -> FileResponse:
+    """下載 A10 各管理處事業區域內外統計報表 Excel"""
+    try:
+        logger.info(f"📊 [A10] 生成報表: year={year}")
+        stats_response = await GrantStatisticsCRUD.get_a10_office_stats(year=year)
+        excel_service = ExcelGeneratorService()
+        file_path = await excel_service.generate_a10_report(
+            data=stats_response.model_dump(),
+            year=year
+        )
+        filename = f"A10_{year}年度各管理處事業區域內外推動成果統計.xlsx"
+        encoded_filename = quote(filename, safe='')
+        return FileResponse(
+            path=file_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [A10] 生成報表失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"生成 A10 報表失敗: {str(e)}")
+
+
 # ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
 
 
@@ -2233,5 +2306,41 @@ async def download_b01_4_office_management_area_yearly_excel(
     return FileResponse(
         path=file_path,
         filename=f"B01-4_{start_year}-{end_year}年度.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+# ==================== B03 各縣市鄉鎮區各類補助項目統計報表 ====================
+
+
+@router.get(
+    "/statistics/b03/excel",
+    summary="下載 B03 各縣市鄉鎮區各類補助項目統計表 Excel",
+    description="生成並下載指定年度的 B03 各縣市鄉鎮區各類補助項目統計表（Excel 格式）"
+)
+async def download_b03_county_town_subsidy_excel(
+    year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
+    office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
+    current_user: UserOutSchema = Depends(get_current_user)
+) -> FileResponse:
+    """
+    下載 B03 各縣市鄉鎮區各類補助項目統計表 Excel
+
+    統計維度：縣市 × 鄉鎮區 × 灌溉型式
+    """
+    stats_response = await GrantStatisticsCRUD.get_b03_county_town_subsidy_stats(
+        year=year,
+        office_id=office_id
+    )
+
+    excel_service = ExcelGeneratorService()
+    file_path = await excel_service.generate_b03_report(
+        data=stats_response.dict(),
+        year=year
+    )
+
+    return FileResponse(
+        path=file_path,
+        filename=f"B03_{year}年度各縣市鄉鎮區各類補助項目統計.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )

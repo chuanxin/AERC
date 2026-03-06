@@ -5,6 +5,7 @@ Grant Statistics CRUD Operations
 
 from typing import List, Optional
 from decimal import Decimal
+from datetime import datetime, timezone
 
 from ..database.models import Grants, GrantVersions, Offices, SubsidyAnnualBudget, Counties, Towns
 from ..schemas.statistics import (
@@ -25,6 +26,12 @@ from ..schemas.statistics import (
     OfficeManagementAreaStats,
     CountyManagementAreaStatsResponse,
     OfficeManagementAreaStatsResponse,
+    CountyIrrigationBudgetCompletedStats,
+    OfficeIrrigationBudgetCompletedStats,
+    A09StatsResponse,
+    A10StatsResponse,
+    B03CountyTownSubsidyRow,
+    B03StatsResponse,
 )
 
 # 允許查詢的管理處 ID 清單（與前端 ALLOWED_OFFICE_IDS 保持一致）
@@ -167,6 +174,32 @@ class GrantStatisticsCRUD:
 
         # null 或 False 都視為管理區外，僅 True 視為管理區內
         return MANAGEMENT_AREA_INSIDE if is_irrigation_area is True else MANAGEMENT_AREA_OUTSIDE
+
+    @staticmethod
+    def _get_irrigation_area_any_land(grant) -> str:
+        """
+        A09/A10 專用：依「任一土地」規則判斷事業區域歸屬
+
+        只要 steps.2.lands[] 中任一筆土地 isIrrigationArea is True，整案歸事業區域內。
+        不修改 B01 使用的 _get_management_area_type()（第一筆土地規則）。
+
+        Args:
+            grant: Grants model instance with active_version prefetched
+
+        Returns:
+            str: MANAGEMENT_AREA_INSIDE ("inside") 或 MANAGEMENT_AREA_OUTSIDE ("outside")
+        """
+        if not grant.active_version:
+            return MANAGEMENT_AREA_OUTSIDE
+
+        all_steps_data = grant.active_version.all_steps_data or {}
+        steps = all_steps_data.get('steps', {})
+        lands = steps.get('2', {}).get('lands', [])
+
+        for land in lands:
+            if land.get('isIrrigationArea') is True:
+                return MANAGEMENT_AREA_INSIDE
+        return MANAGEMENT_AREA_OUTSIDE
 
     @staticmethod
     async def get_execution_progress(
@@ -900,6 +933,200 @@ class GrantStatisticsCRUD:
             rows=rows,
         )
 
+    # ==================== A09/A10 事業區域內外推動成果統計報表 ====================
+
+    @staticmethod
+    async def get_a09_county_stats(year: int) -> A09StatsResponse:
+        """
+        A09: 各縣市事業區域內外推動成果統計
+
+        當年度回傳已編列 + 已結案（16 欄）；非當年度僅回傳已結案（7 欄）。
+        事業區域歸屬：任一土地 isIrrigationArea=True → 事業區域內（任一土地規則）。
+        縣市歸屬：第一筆有效土地的縣市。
+        """
+        current_tw_year = datetime.now(timezone.utc).year - 1911
+        is_current_year = (year == current_tw_year)
+
+        county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
+
+        county_data: dict = {}
+
+        def _ensure_county(c_id: int, c_name: str) -> None:
+            if c_id not in county_data:
+                empty = lambda: {'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0')}
+                county_data[c_id] = {
+                    'county_id':   c_id,
+                    'county_name': c_name,
+                    'budgeted':  {'inside': empty(), 'outside': empty()},
+                    'completed': {'inside': empty(), 'outside': empty()},
+                }
+
+        def _acc_county(bucket: str, c_id: int, area_type: str, area: Decimal, subsidy: Decimal) -> None:
+            county_data[c_id][bucket][area_type]['cases'] += 1
+            county_data[c_id][bucket][area_type]['area'] += area
+            county_data[c_id][bucket][area_type]['subsidy'] += subsidy
+
+        # 1. 已結案案件（當年度與非當年度均需要）
+        completed_grants = await Grants.filter(
+            year=year,
+            status__in=['completed', 'submitted'],
+            office_id__in=ALLOWED_OFFICE_IDS,
+        ).prefetch_related('active_version').all()
+
+        for grant in completed_grants:
+            if not grant.active_version:
+                continue
+            lands = (grant.active_version.all_steps_data or {}).get('steps', {}).get('2', {}).get('lands', [])
+            c_id, c_name, _, _ = GrantStatisticsCRUD._find_first_valid_county_town(lands, county_lookup, town_lookup)
+            if c_id is None:
+                continue
+            area_type = GrantStatisticsCRUD._get_irrigation_area_any_land(grant)
+            grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+            _ensure_county(c_id, c_name)
+            _acc_county('completed', c_id, area_type, grant_area, grant_subsidy)
+
+        # 2. 已編列案件（僅當年度）
+        if is_current_year:
+            budgeted_grants = await Grants.filter(
+                year=year,
+                office_id__in=ALLOWED_OFFICE_IDS,
+            ).exclude(
+                status__in=['rejected', 'withdrawn', 'deleted']
+            ).prefetch_related('active_version').all()
+
+            for grant in budgeted_grants:
+                if not grant.active_version:
+                    continue
+                lands = (grant.active_version.all_steps_data or {}).get('steps', {}).get('2', {}).get('lands', [])
+                c_id, c_name, _, _ = GrantStatisticsCRUD._find_first_valid_county_town(lands, county_lookup, town_lookup)
+                if c_id is None:
+                    continue
+                area_type = GrantStatisticsCRUD._get_irrigation_area_any_land(grant)
+                grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+                _ensure_county(c_id, c_name)
+                _acc_county('budgeted', c_id, area_type, grant_area, grant_subsidy)
+
+        # 3. 排序並組裝 response
+        stats = []
+        for c_id in sorted(county_data.keys()):
+            d = county_data[c_id]
+            b = d['budgeted']
+            c = d['completed']
+            stats.append(CountyIrrigationBudgetCompletedStats(
+                county_id=d['county_id'],
+                county_name=d['county_name'],
+                budgeted_outside_cases=b['outside']['cases'],
+                budgeted_outside_area=b['outside']['area'],
+                budgeted_outside_subsidy=b['outside']['subsidy'],
+                budgeted_inside_cases=b['inside']['cases'],
+                budgeted_inside_area=b['inside']['area'],
+                budgeted_inside_subsidy=b['inside']['subsidy'],
+                completed_outside_cases=c['outside']['cases'],
+                completed_outside_area=c['outside']['area'],
+                completed_outside_subsidy=c['outside']['subsidy'],
+                completed_inside_cases=c['inside']['cases'],
+                completed_inside_area=c['inside']['area'],
+                completed_inside_subsidy=c['inside']['subsidy'],
+            ))
+
+        return A09StatsResponse(year=year, is_current_year=is_current_year, stats=stats)
+
+    @staticmethod
+    async def get_a10_office_stats(year: int) -> A10StatsResponse:
+        """
+        A10: 各管理處事業區域內外推動成果統計
+
+        邏輯與 get_a09_county_stats 相同，但分組維度改為管理處（直接用 grant.office_id）。
+        """
+        current_tw_year = datetime.now(timezone.utc).year - 1911
+        is_current_year = (year == current_tw_year)
+
+        offices = await Offices.filter(id__in=ALLOWED_OFFICE_IDS).order_by('id').all()
+        office_name_map = {o.id: o.name for o in offices}
+
+        office_data: dict = {}
+
+        def _ensure_office(o_id: int) -> None:
+            if o_id not in office_data:
+                empty = lambda: {'cases': 0, 'area': Decimal('0'), 'subsidy': Decimal('0')}
+                office_data[o_id] = {
+                    'office_id':   o_id,
+                    'office_name': office_name_map.get(o_id, f'管理處{o_id}'),
+                    'budgeted':  {'inside': empty(), 'outside': empty()},
+                    'completed': {'inside': empty(), 'outside': empty()},
+                }
+
+        def _acc_office(bucket: str, o_id: int, area_type: str, area: Decimal, subsidy: Decimal) -> None:
+            office_data[o_id][bucket][area_type]['cases'] += 1
+            office_data[o_id][bucket][area_type]['area'] += area
+            office_data[o_id][bucket][area_type]['subsidy'] += subsidy
+
+        # 1. 已結案案件
+        completed_grants = await Grants.filter(
+            year=year,
+            status__in=['completed', 'submitted'],
+            office_id__in=ALLOWED_OFFICE_IDS,
+        ).prefetch_related('active_version').all()
+
+        for grant in completed_grants:
+            if not grant.active_version:
+                continue
+            o_id = grant.office_id
+            if o_id not in office_name_map:
+                continue
+            area_type = GrantStatisticsCRUD._get_irrigation_area_any_land(grant)
+            grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+            _ensure_office(o_id)
+            _acc_office('completed', o_id, area_type, grant_area, grant_subsidy)
+
+        # 2. 已編列案件（僅當年度）
+        if is_current_year:
+            budgeted_grants = await Grants.filter(
+                year=year,
+                office_id__in=ALLOWED_OFFICE_IDS,
+            ).exclude(
+                status__in=['rejected', 'withdrawn', 'deleted']
+            ).prefetch_related('active_version').all()
+
+            for grant in budgeted_grants:
+                if not grant.active_version:
+                    continue
+                o_id = grant.office_id
+                if o_id not in office_name_map:
+                    continue
+                area_type = GrantStatisticsCRUD._get_irrigation_area_any_land(grant)
+                grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
+                _ensure_office(o_id)
+                _acc_office('budgeted', o_id, area_type, grant_area, grant_subsidy)
+
+        # 3. 按 ALLOWED_OFFICE_IDS 順序組裝 response（確保所有管理處均出現）
+        stats = []
+        for o_id in ALLOWED_OFFICE_IDS:
+            if o_id not in office_name_map:
+                continue
+            _ensure_office(o_id)
+            d = office_data[o_id]
+            b = d['budgeted']
+            c = d['completed']
+            stats.append(OfficeIrrigationBudgetCompletedStats(
+                office_id=d['office_id'],
+                office_name=d['office_name'],
+                budgeted_outside_cases=b['outside']['cases'],
+                budgeted_outside_area=b['outside']['area'],
+                budgeted_outside_subsidy=b['outside']['subsidy'],
+                budgeted_inside_cases=b['inside']['cases'],
+                budgeted_inside_area=b['inside']['area'],
+                budgeted_inside_subsidy=b['inside']['subsidy'],
+                completed_outside_cases=c['outside']['cases'],
+                completed_outside_area=c['outside']['area'],
+                completed_outside_subsidy=c['outside']['subsidy'],
+                completed_inside_cases=c['inside']['cases'],
+                completed_inside_area=c['inside']['area'],
+                completed_inside_subsidy=c['inside']['subsidy'],
+            ))
+
+        return A10StatsResponse(year=year, is_current_year=is_current_year, stats=stats)
+
     # ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
 
     @staticmethod
@@ -1476,4 +1703,274 @@ class GrantStatisticsCRUD:
             end_year=end_year,
             years=years,
             rows=rows,
+        )
+
+    # ==================== B03 各縣市鄉鎮區各類補助項目統計報表 ====================
+
+    @staticmethod
+    def _get_irrigation_type_str(step5_data: dict) -> str:
+        """解析 step5 資料，回傳灌溉型式字串（不含安裝型式前綴）"""
+        irrigation_type_id = step5_data.get('irrigationTypeId', 0)
+        irrigation_type_raw = step5_data.get('irrigationType', '')
+        sprinkler_subtype_id = step5_data.get('sprinklerSubtypeId', 0)
+        dripper_subtype_id = step5_data.get('dripperSubtypeId', 0)
+
+        if irrigation_type_id in [1, 3]:
+            result = irrigation_type_raw
+        elif irrigation_type_id == 2:
+            if sprinkler_subtype_id == 6:
+                result = '高壓大型噴頭系統'
+            elif sprinkler_subtype_id == 2:
+                result = '一般噴頭系統'
+            else:
+                result = irrigation_type_raw
+        elif irrigation_type_id == 4:
+            if dripper_subtype_id == 7:
+                result = '滴嘴滴灌系統'
+            elif dripper_subtype_id == 8:
+                result = '滴水管滴灌系統'
+            else:
+                result = irrigation_type_raw
+        else:
+            result = irrigation_type_raw
+
+        return result or '其它'
+
+    @staticmethod
+    def _calculate_b03_grant_breakdown(grant) -> dict:
+        """
+        計算單一案件的 B03 各項補助明細
+
+        設計費與田間管路設施費均為獨立記錄（無須 legacy 分支）。
+
+        Returns:
+            dict with keys: area, irrigation_type, pipeline_subsidy, design_fee_subsidy,
+                control_subsidy, power_subsidy, storage_subsidy, pipeline_self_paid,
+                control_self_paid, power_self_paid, storage_self_paid,
+                storage_tonnage, storage_count, pump_count
+        """
+        result = {
+            'area': Decimal('0'),
+            'irrigation_type': '其它',
+            'pipeline_subsidy': Decimal('0'),
+            'design_fee_subsidy': Decimal('0'),
+            'control_subsidy': Decimal('0'),
+            'power_subsidy': Decimal('0'),
+            'storage_subsidy': Decimal('0'),
+            'pipeline_self_paid': Decimal('0'),
+            'control_self_paid': Decimal('0'),
+            'power_self_paid': Decimal('0'),
+            'storage_self_paid': Decimal('0'),
+            'storage_tonnage': 0,
+            'storage_count': 0,
+            'pump_count': 0,
+        }
+
+        if not grant.active_version:
+            return result
+
+        all_steps_data = grant.active_version.all_steps_data or {}
+        steps = all_steps_data.get('steps', {})
+
+        # 補助面積（步驟 2）
+        step2_data = steps.get('2', {})
+        for land in step2_data.get('lands', []):
+            result['area'] += Decimal(str(land.get('facilityAreaHa', 0) or 0))
+
+        # 灌溉型式（步驟 5）
+        step5_data = steps.get('5', {})
+        result['irrigation_type'] = GrantStatisticsCRUD._get_irrigation_type_str(step5_data)
+
+        # 田間管路設施補助 + 自備款（步驟 5）
+        result['pipeline_subsidy'] = Decimal(str(step5_data.get('subsidyAmount', 0) or 0))
+        result['design_fee_subsidy'] = Decimal(str(step5_data.get('designFee', 0) or 0))
+        result['pipeline_self_paid'] = Decimal(str(step5_data.get('selfPaidAmount', 0) or 0))
+
+        # 步驟 4 設施分類統計
+        step4_data = steps.get('4', {})
+        for facility in step4_data.get('facilities', []):
+            ftype = facility.get('type', '')
+            subsidy = Decimal(str(facility.get('subsidyAmount', 0) or 0))
+            self_paid = Decimal(str(facility.get('selfPaidAmount', 0) or 0))
+            qty = int(facility.get('quantity', 0) or 0)
+            tonnage = Decimal(str(facility.get('tonnage', 0) or 0))
+
+            if ftype == 'control':
+                result['control_subsidy'] += subsidy
+                result['control_self_paid'] += self_paid
+            elif ftype == 'power':
+                result['power_subsidy'] += subsidy
+                result['power_self_paid'] += self_paid
+                result['pump_count'] += qty
+            elif ftype == 'storage':
+                result['storage_subsidy'] += subsidy
+                result['storage_self_paid'] += self_paid
+                result['storage_count'] += qty
+                result['storage_tonnage'] += int(tonnage * qty)
+
+        return result
+
+    @staticmethod
+    async def get_b03_county_town_subsidy_stats(
+        year: int,
+        office_id: Optional[int] = None,
+    ) -> B03StatsResponse:
+        """
+        B03: 取得各縣市鄉鎮區各類補助項目統計資料
+
+        分組鍵：(county_id, town_id, irrigation_type)
+        排序：county_id ASC, town_id ASC, irrigation_type ASC
+        """
+        county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
+
+        query = Grants.filter(year=year, status__in=['completed', 'submitted'])
+        if office_id is not None:
+            query = query.filter(office_id=office_id)
+        else:
+            query = query.filter(office_id__in=ALLOWED_OFFICE_IDS)
+
+        grants = await query.prefetch_related('active_version').all()
+
+        # 分組彙總：key = (county_id, town_id, irrigation_type)
+        groups: dict = {}
+
+        for grant in grants:
+            if not grant.active_version:
+                continue
+
+            all_steps_data = grant.active_version.all_steps_data or {}
+            steps = all_steps_data.get('steps', {})
+            lands = steps.get('2', {}).get('lands', [])
+
+            c_id, c_name, t_id, t_name = GrantStatisticsCRUD._find_first_valid_county_town(
+                lands, county_lookup, town_lookup
+            )
+            if c_id is None:
+                continue
+
+            bd = GrantStatisticsCRUD._calculate_b03_grant_breakdown(grant)
+            key = (c_id, t_id, bd['irrigation_type'])
+
+            if key not in groups:
+                groups[key] = {
+                    'county_id': c_id, 'county_name': c_name,
+                    'town_id': t_id, 'town_name': t_name,
+                    'irrigation_type': bd['irrigation_type'],
+                    'cases': 0,
+                    'area': Decimal('0'),
+                    'pipeline_subsidy': Decimal('0'),
+                    'design_fee_subsidy': Decimal('0'),
+                    'control_subsidy': Decimal('0'),
+                    'power_subsidy': Decimal('0'),
+                    'storage_subsidy': Decimal('0'),
+                    'farmer_contribution': Decimal('0'),
+                    'storage_tonnage': 0,
+                    'storage_count': 0,
+                    'pump_count': 0,
+                }
+
+            g = groups[key]
+            g['cases'] += 1
+            g['area'] += bd['area']
+            g['pipeline_subsidy'] += bd['pipeline_subsidy']
+            g['design_fee_subsidy'] += bd['design_fee_subsidy']
+            g['control_subsidy'] += bd['control_subsidy']
+            g['power_subsidy'] += bd['power_subsidy']
+            g['storage_subsidy'] += bd['storage_subsidy']
+            farmer_contrib = (
+                bd['pipeline_self_paid'] + bd['control_self_paid'] +
+                bd['power_self_paid'] + bd['storage_self_paid']
+            )
+            g['farmer_contribution'] += max(Decimal('0'), farmer_contrib)
+            g['storage_tonnage'] += bd['storage_tonnage']
+            g['storage_count'] += bd['storage_count']
+            g['pump_count'] += bd['pump_count']
+
+        # 排序並建構 rows
+        sorted_keys = sorted(groups.keys(), key=lambda k: (k[0], k[1], k[2]))
+        rows = []
+
+        # 全表合計
+        gt_area = Decimal('0')
+        gt_cases = 0
+        gt_farmer = Decimal('0')
+        gt_pipeline = Decimal('0')
+        gt_storage = Decimal('0')
+        gt_power = Decimal('0')
+        gt_control = Decimal('0')
+        gt_design = Decimal('0')
+        gt_subsidy = Decimal('0')
+        gt_engineering = Decimal('0')
+        gt_tonnage = 0
+        gt_count = 0
+        gt_pump = 0
+
+        for key in sorted_keys:
+            g = groups[key]
+            total_subsidy = (
+                g['pipeline_subsidy'] + g['design_fee_subsidy'] +
+                g['control_subsidy'] + g['power_subsidy'] + g['storage_subsidy']
+            )
+            total_engineering = g['farmer_contribution'] + total_subsidy
+            area = g['area']
+
+            subsidy_per_ha = (g['pipeline_subsidy'] / area) if area > 0 else Decimal('0')
+            pipeline_ratio = (g['pipeline_subsidy'] / total_engineering) if total_engineering > 0 else Decimal('0')
+            engineering_per_ha = (total_engineering / area) if area > 0 else Decimal('0')
+
+            rows.append(B03CountyTownSubsidyRow(
+                county_id=g['county_id'],
+                county_name=g['county_name'],
+                town_id=g['town_id'],
+                town_name=g['town_name'],
+                irrigation_type=g['irrigation_type'],
+                total_area=area,
+                completed_cases=g['cases'],
+                farmer_contribution=g['farmer_contribution'],
+                pipeline_subsidy=g['pipeline_subsidy'],
+                storage_subsidy=g['storage_subsidy'],
+                power_subsidy=g['power_subsidy'],
+                control_subsidy=g['control_subsidy'],
+                design_fee_subsidy=g['design_fee_subsidy'],
+                total_subsidy=total_subsidy,
+                total_engineering=total_engineering,
+                storage_tonnage=g['storage_tonnage'],
+                storage_count=g['storage_count'],
+                pump_count=g['pump_count'],
+                subsidy_per_ha=subsidy_per_ha,
+                pipeline_ratio=pipeline_ratio,
+                engineering_per_ha=engineering_per_ha,
+            ))
+
+            gt_area += area
+            gt_cases += g['cases']
+            gt_farmer += g['farmer_contribution']
+            gt_pipeline += g['pipeline_subsidy']
+            gt_storage += g['storage_subsidy']
+            gt_power += g['power_subsidy']
+            gt_control += g['control_subsidy']
+            gt_design += g['design_fee_subsidy']
+            gt_subsidy += total_subsidy
+            gt_engineering += total_engineering
+            gt_tonnage += g['storage_tonnage']
+            gt_count += g['storage_count']
+            gt_pump += g['pump_count']
+
+        return B03StatsResponse(
+            year=year,
+            office_id=office_id,
+            rows=rows,
+            total_area=gt_area,
+            total_cases=gt_cases,
+            total_farmer_contribution=gt_farmer,
+            total_pipeline_subsidy=gt_pipeline,
+            total_storage_subsidy=gt_storage,
+            total_power_subsidy=gt_power,
+            total_control_subsidy=gt_control,
+            total_design_fee_subsidy=gt_design,
+            total_subsidy=gt_subsidy,
+            total_engineering=gt_engineering,
+            total_storage_tonnage=gt_tonnage,
+            total_storage_count=gt_count,
+            total_pump_count=gt_pump,
         )
