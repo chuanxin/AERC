@@ -5,7 +5,8 @@ from pydantic import BaseModel
 from src.database.models import Grants, GrantVersions, Users
 from src.auth.jwthandler import get_current_user
 from src.services.excel_generator import ExcelGeneratorService
-from src.services.budget_pdf_generator import BudgetPDFGenerator, extract_grant_budget_data
+from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
+from src.routes.grants import extract_budget_statement_data
 from src.schemas.static_downloads import (
     StaticDownloadsListResponse,
     StaticDownloadsFilterRequest,
@@ -236,14 +237,14 @@ async def download_budget_book(
             grant = grants[0]
             version_data = grant.active_version.all_steps_data if grant.active_version else {}
 
-            # 提取預算書資料
-            grant_data, budget_items, land_data = extract_grant_budget_data(grant, version_data)
+            # 提取並生成工程預算書
+            grant_data = await extract_budget_statement_data(grant, version_data)
+            pdf_bytes = BudgetStatementPDFGenerator().generate(grant_data)
 
-            # 生成PDF
-            pdf_generator = BudgetPDFGenerator()
-            pdf_file_path = pdf_generator.generate_complete_budget_book(
-                grant_data, budget_items, land_data
-            )
+            temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+            temp_pdf.write(pdf_bytes)
+            temp_pdf.close()
+            pdf_file_path = temp_pdf.name
 
             # 生成下載檔名
             filename = f"budget_book_{grant_data['case_number']}_{request.year}.pdf"
@@ -261,14 +262,11 @@ async def download_budget_book(
 
         else:
             # 多個案件時，生成ZIP包含多個PDF
-            import zipfile
-            import tempfile
-
             # 創建臨時ZIP檔案
             temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
             temp_zip.close()
 
-            pdf_generator = BudgetPDFGenerator()
+            pdf_generator = BudgetStatementPDFGenerator()
             generated_files = []
 
             try:
@@ -276,18 +274,18 @@ async def download_budget_book(
                     for grant in grants:
                         version_data = grant.active_version.all_steps_data if grant.active_version else {}
 
-                        # 提取預算書資料
-                        grant_data, budget_items, land_data = extract_grant_budget_data(grant, version_data)
+                        # 提取並生成工程預算書
+                        grant_data = await extract_budget_statement_data(grant, version_data)
+                        pdf_bytes = pdf_generator.generate(grant_data)
 
-                        # 生成單個PDF
-                        pdf_file_path = pdf_generator.generate_complete_budget_book(
-                            grant_data, budget_items, land_data
-                        )
-                        generated_files.append(pdf_file_path)
+                        temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+                        temp_pdf.write(pdf_bytes)
+                        temp_pdf.close()
+                        generated_files.append(temp_pdf.name)
 
-                        # 加入ZIP檔案
-                        pdf_filename = f"budget_book_{grant_data['case_number']}.pdf"
-                        zip_file.write(pdf_file_path, pdf_filename)
+                        # 加入ZIP檔案（附加 grant.id 避免重複案號蓋檔）
+                        pdf_filename = f"budget_book_{grant_data['case_number']}_{grant.id}.pdf"
+                        zip_file.write(temp_pdf.name, pdf_filename)
 
                 # 生成ZIP下載檔名
                 zip_filename = f"budget_books_{request.year}.zip"
