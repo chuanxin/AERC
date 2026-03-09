@@ -544,6 +544,24 @@ class BudgetStatementPDFGenerator:
         buffer.seek(0)
         return buffer.getvalue()
 
+    def generate_receipt(self, data: Dict[str, Any]) -> bytes:
+        """
+        生成領款收據 PDF（單頁）
+
+        Args:
+            data: 包含 govt_subsidy_total, office_name, case_number,
+                  applicant_name, id_number, address, phone 的字典
+
+        Returns:
+            PDF 二進位資料（單頁）
+        """
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        self._generate_receipt_page(c, data)
+        c.save()
+        buffer.seek(0)
+        return buffer.getvalue()
+
     # =========================================================================
     # 第 1 頁：封面頁
     # =========================================================================
@@ -659,9 +677,9 @@ class BudgetStatementPDFGenerator:
         # 無論有多少行，從第一行頂部向下固定 60pt 作為下一欄位的位置
         current_y = line_start_y - 60
 
-        # === 申請面積 ===
+        # === 施設面積 ===
         facility_area_ha = data.get('facility_area_ha', '0.0000')
-        area_text = f"申請面積：{facility_area_ha}公頃"
+        area_text = f"施設面積：{facility_area_ha}公頃"
         c.drawString(left_margin, current_y, area_text)
         current_y -= 60
 
@@ -1966,7 +1984,7 @@ class BudgetStatementPDFGenerator:
         c.drawString(60, current_y, f"二、設施地點：{data.get('land_location', '')}{data.get('first_lot_number', '')}號,等{data.get('land_count', 1)}筆(詳如土地清冊)。")
         current_y -= 18
 
-        c.drawString(60, current_y, f"三、申請面積：{data.get('facility_area_ha', '0.45')}公頃")
+        c.drawString(60, current_y, f"三、施設面積：{data.get('facility_area_ha', '0.45')}公頃")
         current_y -= 18
 
         c.drawString(60, current_y, f"四、設施型式：{data.get('facility_type', '')}")

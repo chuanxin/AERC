@@ -571,7 +571,7 @@ const allFiles = ref<FileOption[]>([
   // D. 其他
   { id: 'address_labels', title: '住址標籤', category: 'D. 其他', format: 'XLSX', formatColor: '#4CAF50', apiEndpoint: '/api/download/address-labels' },
   { id: 'cover_page', title: '封面', category: 'D. 其他', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/cover-page' },
-  { id: 'documents_package', title: '切結書、收據、結案申報書', category: 'D. 其他', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/documents-package' }
+  { id: 'closing_docs', title: 'D.其他 - 切結書、收據、結案申報書', category: 'D. 其他', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/closing-docs' }
 ])
 
 // 按類別分組的檔案
@@ -808,6 +808,9 @@ const handleDownload = async () => {
         break
       case 'address_labels':
         await downloadsService.downloadAddressLabels(downloadRequest)
+        break
+      case 'closing_docs':
+        await downloadsService.downloadClosingDocs(downloadRequest)
         break
       default:
         throw new Error(`尚未支援的檔案類型: ${selectedFileType.value}`)

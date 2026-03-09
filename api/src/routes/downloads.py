@@ -7,6 +7,7 @@ from src.auth.jwthandler import get_current_user
 from src.services.excel_generator import ExcelGeneratorService
 from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
 from src.services.construction_photos_pdf_generator import ConstructionPhotosPDFGenerator
+from src.services.closing_docs_pdf_generator import ClosingDocsPDFGenerator
 from src.routes.grants import extract_budget_statement_data
 from src.schemas.static_downloads import (
     StaticDownloadsListResponse,
@@ -471,6 +472,82 @@ async def download_address_labels(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
     )
+
+
+@router.post("/closing-docs")
+async def download_closing_docs(
+    request: DownloadRequest,
+    current_user: Users = Depends(get_current_user)
+):
+    """下載結案文件合併 PDF（切結書 + 收據 + 結案申報書）"""
+    try:
+        if not request.year:
+            raise HTTPException(status_code=400, detail="年度參數為必填")
+
+        if (request.case_number_start and request.case_number_end and
+                int(request.case_number_start) > int(request.case_number_end)):
+            raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
+
+        all_grants = await Grants.filter(year=int(request.year)).select_related("active_version").all()
+
+        grants = all_grants
+        if request.case_number_start or request.case_number_end:
+            grants = []
+            for grant in all_grants:
+                case_num = grant.case_number
+                if case_num and case_num.isdigit():
+                    case_num_int = int(case_num)
+                    in_range = True
+                    if request.case_number_start and case_num_int < int(request.case_number_start):
+                        in_range = False
+                    if request.case_number_end and case_num_int > int(request.case_number_end):
+                        in_range = False
+                    if in_range:
+                        grants.append(grant)
+
+        if not grants:
+            raise HTTPException(status_code=404, detail="找不到符合條件的案件")
+
+        generator = ClosingDocsPDFGenerator()
+        all_pdf_bytes = []
+
+        for grant in grants:
+            version_data = grant.active_version.all_steps_data if grant.active_version else {}
+            grant_data = await extract_budget_statement_data(grant, version_data)
+
+            steps_data = version_data.get('steps', {})
+            step2_data = steps_data.get('2', {})
+            land_data = step2_data.get('lands', [])
+            step4_data = steps_data.get('4', {})
+            step5_data = steps_data.get('5', {})
+
+            grant_pdf = generator.generate_for_grant(grant_data, land_data, step4_data, step5_data)
+            all_pdf_bytes.append(grant_pdf)
+
+        final_pdf = generator.merge_pdfs(all_pdf_bytes)
+
+        temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+        temp_pdf.write(final_pdf)
+        temp_pdf.close()
+
+        filename = f"closing_docs_{request.year}.pdf"
+        if request.case_number_start or request.case_number_end:
+            start = request.case_number_start or 'start'
+            end = request.case_number_end or 'end'
+            filename = f"closing_docs_{request.year}_{start}-{end}.pdf"
+
+        encoded_filename = quote(filename, safe='')
+        return FileResponse(
+            path=temp_pdf.name,
+            filename=filename,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成結案文件失敗: {str(e)}")
 
 
 @router.get("/test")

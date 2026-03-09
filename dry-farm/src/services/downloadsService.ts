@@ -133,6 +133,15 @@ class DownloadsService {
     }
   }
 
+  async downloadClosingDocs(params: DownloadRequest): Promise<void> {
+    try {
+      await apiService.downloadPost(DOWNLOADS.CLOSING_DOCS, params)
+    } catch (error) {
+      console.error('下載結案文件失敗:', error)
+      throw error
+    }
+  }
+
   /**
    * 測試下載端點
    * @returns Promise<any>
