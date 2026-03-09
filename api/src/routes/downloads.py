@@ -419,6 +419,60 @@ async def download_construction_photos(
         raise HTTPException(status_code=500, detail=f"生成施工前後照片ZIP失敗: {str(e)}")
 
 
+@router.post("/address-labels")
+async def download_address_labels(
+    request: DownloadRequest,
+    current_user: Users = Depends(get_current_user)
+):
+    """下載住址標籤 Excel"""
+    if not request.year:
+        raise HTTPException(status_code=400, detail="年度參數為必填")
+
+    all_grants = await Grants.filter(year=int(request.year)).all()
+
+    grants = all_grants
+    if request.case_number_start or request.case_number_end:
+        grants = []
+        for grant in all_grants:
+            case_num = grant.case_number
+            if case_num and case_num.isdigit():
+                case_num_int = int(case_num)
+                in_range = True
+                if request.case_number_start and case_num_int < int(request.case_number_start):
+                    in_range = False
+                if request.case_number_end and case_num_int > int(request.case_number_end):
+                    in_range = False
+                if in_range:
+                    grants.append(grant)
+
+    if not grants:
+        raise HTTPException(status_code=404, detail="找不到符合條件的案件")
+
+    grants_data = [
+        {
+            "case_number": str(g.case_number or ""),
+            "applicant_name": str(g.applicant_name or ""),
+            "county": str(g.county or ""),
+            "town": str(g.town or ""),
+            "village": str(g.village or "") if g.village else "",
+            "address": str(g.address or ""),
+        }
+        for g in grants
+    ]
+
+    excel_service = ExcelGeneratorService()
+    file_path = await excel_service.generate_address_labels(grants_data, request.year)
+
+    filename = f"address_labels_{request.year}.xlsx"
+    encoded_filename = quote(filename, safe='')
+    return FileResponse(
+        path=file_path,
+        filename=filename,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+    )
+
+
 @router.get("/test")
 async def test_download_endpoint():
     """測試下載端點是否正常"""
