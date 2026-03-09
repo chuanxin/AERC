@@ -228,6 +228,7 @@ export const DOWNLOADS = {
   BASE: `${BASE}/download`,
   PHOTOGRAPH_CARRY_FORM: `${BASE}/download/photograph-carry-form`,
   BUDGET_BOOK: `${BASE}/download/budget-book`,
+  CONSTRUCTION_PHOTOS: `${BASE}/download/construction-photos`,
   COMPLETION_STATEMENT: `${BASE}/download/completion-statement`,
   CHECK_DATA: `${BASE}/download/check-data`,
   TEST: `${BASE}/download/test`,
