@@ -806,6 +806,9 @@ const handleDownload = async () => {
       case 'construction_photos':
         await downloadsService.downloadConstructionPhotos(downloadRequest)
         break
+      case 'address_labels':
+        await downloadsService.downloadAddressLabels(downloadRequest)
+        break
       default:
         throw new Error(`尚未支援的檔案類型: ${selectedFileType.value}`)
     }
