@@ -114,6 +114,16 @@ class DownloadsService {
     }
   }
 
+  async downloadConstructionPhotos(params: DownloadRequest): Promise<Blob> {
+    try {
+      const blob = await apiService.downloadPost(DOWNLOADS.CONSTRUCTION_PHOTOS, params)
+      return blob
+    } catch (error) {
+      console.error('下載施工前後照片失敗:', error)
+      throw error
+    }
+  }
+
   /**
    * 測試下載端點
    * @returns Promise<any>

@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from typing import Optional
 from pydantic import BaseModel
-from src.database.models import Grants, GrantVersions, Users
+from src.database.models import Grants, GrantVersions, Users, GrantAttachments
 from src.auth.jwthandler import get_current_user
 from src.services.excel_generator import ExcelGeneratorService
 from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
+from src.services.construction_photos_pdf_generator import ConstructionPhotosPDFGenerator
 from src.routes.grants import extract_budget_statement_data
 from src.schemas.static_downloads import (
     StaticDownloadsListResponse,
@@ -313,6 +314,110 @@ async def download_budget_book(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成工程預算書失敗: {str(e)}")
+
+@router.post("/construction-photos")
+async def download_construction_photos(
+    request: DownloadRequest,
+    current_user: Users = Depends(get_current_user)
+):
+    """下載施工前後照片（PDF 範本 + 原始照片 ZIP）"""
+    try:
+        if not request.year:
+            raise HTTPException(status_code=400, detail="年度參數為必填")
+
+        all_grants = await Grants.filter(year=int(request.year)).all()
+
+        grants = all_grants
+        if request.case_number_start or request.case_number_end:
+            grants = []
+            for grant in all_grants:
+                case_num = grant.case_number
+                if case_num and case_num.isdigit():
+                    case_num_int = int(case_num)
+                    in_range = True
+                    if request.case_number_start and case_num_int < int(request.case_number_start):
+                        in_range = False
+                    if request.case_number_end and case_num_int > int(request.case_number_end):
+                        in_range = False
+                    if in_range:
+                        grants.append(grant)
+
+        if not grants:
+            raise HTTPException(status_code=404, detail="找不到符合條件的案件")
+
+        temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+        temp_zip.close()
+
+        pdf_generator = ConstructionPhotosPDFGenerator()
+
+        try:
+            with zipfile.ZipFile(temp_zip.name, 'w') as zip_file:
+                for grant in grants:
+                    if len(grants) == 1:
+                        pdf_basename = f"construction_photos_{grant.case_number}_{request.year}"
+                    else:
+                        pdf_basename = f"construction_photos_{grant.case_number}_{grant.id}"
+
+                    grant_data = {
+                        "case_number": str(grant.case_number) if grant.case_number else "",
+                        "applicant_name": str(grant.applicant_name) if grant.applicant_name else ""
+                    }
+                    pdf_bytes = pdf_generator.generate(grant_data)
+                    zip_file.writestr(f"{pdf_basename}.pdf", pdf_bytes)
+
+                    before_attachments = await GrantAttachments.filter(
+                        grant_id=grant.id,
+                        step=3,
+                        category='inspection_before',
+                        status='active'
+                    ).order_by('uploaded_at').all()
+
+                    for idx, att in enumerate(before_attachments, start=1):
+                        ext = os.path.splitext(att.original_filename)[1]
+                        abs_path = settings.get_absolute_path(att.filepath)
+                        photo_filename = f"{pdf_basename}_before_{idx}{ext}"
+                        try:
+                            zip_file.write(abs_path, photo_filename)
+                        except (OSError, IOError) as e:
+                            print(f"[警告] 讀取附件 {att.id} 失敗，略過：{e}")
+
+                    after_attachments = await GrantAttachments.filter(
+                        grant_id=grant.id,
+                        step=7,
+                        category='inspection_after',
+                        status='active'
+                    ).order_by('uploaded_at').all()
+
+                    for idx, att in enumerate(after_attachments, start=1):
+                        ext = os.path.splitext(att.original_filename)[1]
+                        abs_path = settings.get_absolute_path(att.filepath)
+                        photo_filename = f"{pdf_basename}_after_{idx}{ext}"
+                        try:
+                            zip_file.write(abs_path, photo_filename)
+                        except (OSError, IOError) as e:
+                            print(f"[警告] 讀取附件 {att.id} 失敗，略過：{e}")
+
+            zip_filename = f"construction_photos_{request.year}.zip"
+            if request.case_number_start or request.case_number_end:
+                zip_filename = f"construction_photos_{request.year}_{request.case_number_start or 'start'}-{request.case_number_end or 'end'}.zip"
+
+            encoded_zip_filename = quote(zip_filename, safe='')
+
+            return FileResponse(
+                path=temp_zip.name,
+                filename=zip_filename,
+                media_type="application/zip",
+                headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_zip_filename}"}
+            )
+
+        finally:
+            pass  # temp_zip 由 FileResponse 使用中，不在此清理
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成施工前後照片ZIP失敗: {str(e)}")
+
 
 @router.get("/test")
 async def test_download_endpoint():
