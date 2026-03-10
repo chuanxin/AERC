@@ -544,6 +544,24 @@ class BudgetStatementPDFGenerator:
         buffer.seek(0)
         return buffer.getvalue()
 
+    def generate_test_report(self, data: Dict[str, Any]) -> bytes:
+        """
+        生成功能測試報告書 PDF（單頁）
+
+        Args:
+            data: 包含 applicant_name, case_number, land_location,
+                  first_lot_number, land_count, facility_area_ha, facility_type 的字典
+
+        Returns:
+            PDF 二進位資料（單頁）
+        """
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        self._generate_test_report_page(c, data)
+        c.save()
+        buffer.seek(0)
+        return buffer.getvalue()
+
     def generate_receipt(self, data: Dict[str, Any]) -> bytes:
         """
         生成領款收據 PDF（單頁）
