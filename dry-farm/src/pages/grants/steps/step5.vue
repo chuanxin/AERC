@@ -914,7 +914,7 @@ const loadPhotos = async () => {
   }
 
   try {
-    const stepNumber = 5;
+    const stepNumber = 3;  // UI Step 3 = data step 3（統一架構）
     console.log(`[step3] 開始載入照片 - grantId: ${props.grantId}, step: ${stepNumber}`);
 
     const response = await attachmentService.list(props.grantId, stepNumber, 'inspection_before');
@@ -971,7 +971,7 @@ const handleSinglePhotoUpload = async (event: Event) => {
 
     // 開始上傳
     uploading.value = true;
-    const stepNumber = 5;
+    const stepNumber = 3;  // UI Step 3 = data step 3（統一架構）
     const progressKey = file.name;
 
     try {

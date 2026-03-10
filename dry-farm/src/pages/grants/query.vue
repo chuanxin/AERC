@@ -567,7 +567,7 @@ const allFiles = ref<FileOption[]>([
   { id: 'budget_book', title: '工程預算書', category: 'B. 經費與預算類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/budget-book' },
   { id: 'subsidy_details_list', title: '管路補助金額明細表', category: 'B. 經費與預算類', format: 'XLSX', formatColor: '#4CAF50', apiEndpoint: '/api/download/subsidy-details-list' },
   { id: 'subsidy_list', title: '印領清冊', category: 'B. 經費與預算類', format: 'XLSX', formatColor: '#4CAF50', apiEndpoint: '/api/download/subsidy-list' },
-  { id: 'payment_receipt', title: '領款收據', category: 'B. 經費與預算類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/payment-receipt' },
+  { id: 'receipts', title: '領款收據', category: 'B. 經費與預算類', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/receipts' },
 
   // C. 設計與地籍類
   { id: 'system_facility_design_drawings', title: '管路灌溉系統設施設計表', category: 'C. 設計與地籍類', format: 'XLSX', formatColor: '#4CAF50', apiEndpoint: '/api/download/system-facility-design-drawings' },
@@ -576,7 +576,7 @@ const allFiles = ref<FileOption[]>([
   // D. 其他
   { id: 'address_labels', title: '住址標籤', category: 'D. 其他', format: 'XLSX', formatColor: '#4CAF50', apiEndpoint: '/api/download/address-labels' },
   { id: 'cover_page', title: '封面', category: 'D. 其他', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/cover-page' },
-  { id: 'documents_package', title: '切結書、收據、結案申報書', category: 'D. 其他', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/documents-package' }
+  { id: 'closing_docs', title: '切結書、收據、結案申報書', category: 'D. 其他', format: 'PDF', formatColor: '#f44336', apiEndpoint: '/api/download/closing-docs' }
 ])
 
 // 按類別分組的檔案
@@ -810,6 +810,27 @@ const handleDownload = async () => {
         break
       case 'budget_book':
         await downloadsService.downloadBudgetBook(downloadRequest)
+        break
+      case 'construction_photos':
+        await downloadsService.downloadConstructionPhotos(downloadRequest)
+        break
+      case 'address_labels':
+        await downloadsService.downloadAddressLabels(downloadRequest)
+        break
+      case 'receipts':
+        await downloadsService.downloadReceipts(downloadRequest)
+        break
+      case 'site_investigation_report':
+        await downloadsService.downloadTestReports(downloadRequest)
+        break
+      case 'review_form':
+        await downloadsService.downloadReviewForm(downloadRequest)
+        break
+      case 'cover_page':
+        await downloadsService.downloadCoverPage(downloadRequest)
+        break
+      case 'closing_docs':
+        await downloadsService.downloadClosingDocs(downloadRequest)
         break
       default:
         throw new Error(`尚未支援的檔案類型: ${selectedFileType.value}`)

@@ -2468,7 +2468,7 @@ const loadBeforePhotos = async () => {
   }
 
   try {
-    const stepNumber = 5;  // 施工前照片存在 3
+    const stepNumber = 3;  // UI Step 3 = data step 3（統一架構）
     console.log(`[step7] 開始載入施工前照片 - grantId: ${props.grantId}, step: ${stepNumber}`);
 
     const response = await attachmentService.list(props.grantId, stepNumber, 'inspection_before');

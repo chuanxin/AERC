@@ -115,6 +115,70 @@ class DownloadsService {
     }
   }
 
+  async downloadConstructionPhotos(params: DownloadRequest): Promise<Blob> {
+    try {
+      const blob = await apiService.downloadPost(DOWNLOADS.CONSTRUCTION_PHOTOS, params)
+      return blob
+    } catch (error) {
+      console.error('下載施工前後照片失敗:', error)
+      throw error
+    }
+  }
+
+  async downloadAddressLabels(params: DownloadRequest): Promise<void> {
+    try {
+      await apiService.downloadPost(DOWNLOADS.ADDRESS_LABELS, params)
+    } catch (error) {
+      console.error('下載住址標籤失敗:', error)
+      throw error
+    }
+  }
+
+  async downloadClosingDocs(params: DownloadRequest): Promise<void> {
+    try {
+      await apiService.downloadPost(DOWNLOADS.CLOSING_DOCS, params)
+    } catch (error) {
+      console.error('下載結案文件失敗:', error)
+      throw error
+    }
+  }
+
+  async downloadReceipts(params: DownloadRequest): Promise<void> {
+    try {
+      await apiService.downloadPost(DOWNLOADS.RECEIPTS, params)
+    } catch (error) {
+      console.error('下載領款收據失敗:', error)
+      throw error
+    }
+  }
+
+  async downloadTestReports(params: DownloadRequest): Promise<void> {
+    try {
+      await apiService.downloadPost(DOWNLOADS.TEST_REPORTS, params)
+    } catch (error) {
+      console.error('下載功能測試報告書失敗:', error)
+      throw error
+    }
+  }
+
+  async downloadReviewForm(params: DownloadRequest): Promise<void> {
+    try {
+      await apiService.downloadPost(DOWNLOADS.REVIEW_FORM, params)
+    } catch (error) {
+      console.error('下載書面審查表失敗:', error)
+      throw error
+    }
+  }
+
+  async downloadCoverPage(params: DownloadRequest): Promise<void> {
+    try {
+      await apiService.downloadPost(DOWNLOADS.COVER_PAGE, params)
+    } catch (error) {
+      console.error('下載封面失敗:', error)
+      throw error
+    }
+  }
+
   /**
    * 測試下載端點
    * @returns Promise<any>
