@@ -815,6 +815,9 @@ const handleDownload = async () => {
       case 'site_investigation_report':
         await downloadsService.downloadTestReports(downloadRequest)
         break
+      case 'review_form':
+        await downloadsService.downloadReviewForm(downloadRequest)
+        break
       case 'closing_docs':
         await downloadsService.downloadClosingDocs(downloadRequest)
         break

@@ -160,6 +160,15 @@ class DownloadsService {
     }
   }
 
+  async downloadReviewForm(params: DownloadRequest): Promise<void> {
+    try {
+      await apiService.downloadPost(DOWNLOADS.REVIEW_FORM, params)
+    } catch (error) {
+      console.error('下載書面審查表失敗:', error)
+      throw error
+    }
+  }
+
   /**
    * 測試下載端點
    * @returns Promise<any>
