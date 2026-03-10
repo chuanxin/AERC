@@ -142,6 +142,15 @@ class DownloadsService {
     }
   }
 
+  async downloadReceipts(params: DownloadRequest): Promise<void> {
+    try {
+      await apiService.downloadPost(DOWNLOADS.RECEIPTS, params)
+    } catch (error) {
+      console.error('下載領款收據失敗:', error)
+      throw error
+    }
+  }
+
   /**
    * 測試下載端點
    * @returns Promise<any>

@@ -550,6 +550,75 @@ async def download_closing_docs(
         raise HTTPException(status_code=500, detail=f"生成結案文件失敗: {str(e)}")
 
 
+@router.post("/receipts")
+async def download_receipts(
+    request: DownloadRequest,
+    current_user: Users = Depends(get_current_user)
+):
+    """批次下載領款收據合併 PDF（每案件一頁）"""
+    try:
+        if not request.year:
+            raise HTTPException(status_code=400, detail="年度參數為必填")
+
+        if (request.case_number_start and request.case_number_end and
+                int(request.case_number_start) > int(request.case_number_end)):
+            raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
+
+        all_grants = await Grants.filter(year=int(request.year)).select_related("active_version").order_by('case_number').all()
+
+        grants = all_grants
+        if request.case_number_start or request.case_number_end:
+            grants = []
+            for grant in all_grants:
+                case_num = grant.case_number
+                if case_num and case_num.isdigit():
+                    case_num_int = int(case_num)
+                    in_range = True
+                    if request.case_number_start and case_num_int < int(request.case_number_start):
+                        in_range = False
+                    if request.case_number_end and case_num_int > int(request.case_number_end):
+                        in_range = False
+                    if in_range:
+                        grants.append(grant)
+
+        if not grants:
+            raise HTTPException(status_code=404, detail="找不到符合條件的案件")
+
+        all_pdf_bytes = []
+        receipt_generator = BudgetStatementPDFGenerator()
+        merger = ClosingDocsPDFGenerator()
+
+        for grant in grants:
+            version_data = grant.active_version.all_steps_data if grant.active_version else {}
+            grant_data = await extract_budget_statement_data(grant, version_data)
+            all_pdf_bytes.append(receipt_generator.generate_receipt(grant_data))
+
+        final_pdf = merger.merge_pdfs(all_pdf_bytes)
+
+        temp_pdf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+        temp_pdf.write(final_pdf)
+        temp_pdf.close()
+
+        filename = f"receipts_{request.year}.pdf"
+        if request.case_number_start or request.case_number_end:
+            start = request.case_number_start or 'start'
+            end = request.case_number_end or 'end'
+            filename = f"receipts_{request.year}_{start}-{end}.pdf"
+
+        encoded_filename = quote(filename, safe='')
+        return FileResponse(
+            path=temp_pdf.name,
+            filename=filename,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成收據 PDF 失敗: {str(e)}")
+
+
 @router.get("/test")
 async def test_download_endpoint():
     """測試下載端點是否正常"""
