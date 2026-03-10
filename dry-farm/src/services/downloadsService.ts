@@ -151,6 +151,15 @@ class DownloadsService {
     }
   }
 
+  async downloadTestReports(params: DownloadRequest): Promise<void> {
+    try {
+      await apiService.downloadPost(DOWNLOADS.TEST_REPORTS, params)
+    } catch (error) {
+      console.error('下載功能測試報告書失敗:', error)
+      throw error
+    }
+  }
+
   /**
    * 測試下載端點
    * @returns Promise<any>
