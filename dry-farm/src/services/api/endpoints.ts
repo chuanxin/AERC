@@ -231,6 +231,7 @@ export const DOWNLOADS = {
   CONSTRUCTION_PHOTOS: `${BASE}/download/construction-photos`,
   ADDRESS_LABELS: `${BASE}/download/address-labels`,
   CLOSING_DOCS: `${BASE}/download/closing-docs`,
+  RECEIPTS: `${BASE}/download/receipts`,
   COMPLETION_STATEMENT: `${BASE}/download/completion-statement`,
   CHECK_DATA: `${BASE}/download/check-data`,
   TEST: `${BASE}/download/test`,
