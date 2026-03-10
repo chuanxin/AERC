@@ -544,6 +544,23 @@ class BudgetStatementPDFGenerator:
         buffer.seek(0)
         return buffer.getvalue()
 
+    def generate_review_checklist(self, data: Dict[str, Any]) -> bytes:
+        """
+        生成書面審查表 PDF（單頁）
+
+        Args:
+            data: 包含 case_number 的字典
+
+        Returns:
+            PDF 二進位資料（單頁）
+        """
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        self._generate_review_checklist_page(c, data)
+        c.save()
+        buffer.seek(0)
+        return buffer.getvalue()
+
     def generate_test_report(self, data: Dict[str, Any]) -> bytes:
         """
         生成功能測試報告書 PDF（單頁）
