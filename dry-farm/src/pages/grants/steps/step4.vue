@@ -5985,7 +5985,7 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
     spec3: '',
     itemunit: '只',
     matamount: Math.floor(data.BranchAmt * multiplier),
-    description: '穿孔管首端配件',
+    description: '穿孔管快接頭',
     order: 4,
     group: 3
   });

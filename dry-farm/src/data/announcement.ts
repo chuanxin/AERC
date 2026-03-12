@@ -11,6 +11,35 @@ export interface Announcement {
 // 這是唯一的資料來源 (Single Source of Truth)
 export const announcementsData: Announcement[] = [
   {
+    id: 5,
+  date: '115.03.05',
+  type: '系統公告',
+  content: '115年度 推廣管路灌溉設施作業指引',
+  fullContent: `
+    <div class="pdf-announcement">
+      <p>115年度推廣管路灌溉設施作業指引已正式發佈，歡迎相關人員下載查閱 。</p>
+      
+      <div class="pdf-thumbnail" style="margin: 15px 0;">
+        <a href="https://drive.google.com/file/d/1ciYxgwwkq0yvdkmd6SymoiQLuoHFGE73/view?usp=sharing" target="_blank">
+          <img src="https://drive.google.com/thumbnail?id=1ciYxgwwkq0yvdkmd6SymoiQLuoHFGE73&sz=w300" 
+               alt="115年度推廣管路灌溉設施作業指引" 
+               style="border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: 0.3s;"
+               onmouseover="this.style.opacity='0.8'" 
+               onmouseout="this.style.opacity='1'">
+        </a>
+      </div>
+
+      <div class="download-link">
+        <a href="https://drive.google.com/file/d/1ciYxgwwkq0yvdkmd6SymoiQLuoHFGE73/view?usp=sharing" 
+           target="_blank" 
+           style="color: #2c3e50; text-decoration: underline; font-weight: bold;">
+           👉 點此下載：推廣管路灌溉設施作業指引115年版.pdf 
+        </a>
+      </div>
+    </div>
+  `
+  },
+  {
     id: 4,
     date: '115.01.08',
     type: '系統公告',

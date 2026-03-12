@@ -43,9 +43,12 @@
           <v-divider class="mb-4"></v-divider>
 
           <v-card-text>
-            <div v-if="announcement.fullContent" class="content-text text-body-1">
-              {{ announcement.fullContent }}
-            </div>
+           
+          <div 
+            v-if="announcement.fullContent" 
+            class="content-text text-body-1"
+            v-html="announcement.fullContent"
+          ></div>
             <div v-else class="text-body-1 text-grey">
               (此公告暫無詳細內容)
             </div>
