@@ -519,11 +519,11 @@
                     <strong>補助額度狀態（{{ irrigationSystemDisplayName }}）：</strong>
                     <!-- 判斷限制類型並顯示對應說明 -->
                     <template v-if="grantsStore.hasSubsidySummary && effectivePipelineSubsidyLimit < pipelineSubsidyLimit">
-                      面積 {{ (facilityAreaFromStep2 / 10000).toFixed(4) }} 公頃 → 有效額度 ${{ effectivePipelineSubsidyLimit.toLocaleString() }}
+                      面積 {{ truncHa(facilityAreaFromStep2 / 10000) }} 公頃 → 有效額度 ${{ effectivePipelineSubsidyLimit.toLocaleString() }}
                       <span class="text-warning font-weight-bold">（原補助上限 ${{ pipelineSubsidyLimit.toLocaleString() }} 超過個人年度補助限額）</span>
                     </template>
                     <template v-else>
-                      面積 {{ (facilityAreaFromStep2 / 10000).toFixed(4) }} 公頃 → 補助上限 ${{ effectivePipelineSubsidyLimit.toLocaleString() }}
+                      面積 {{ truncHa(facilityAreaFromStep2 / 10000) }} 公頃 → 補助上限 ${{ effectivePipelineSubsidyLimit.toLocaleString() }}
                     </template>
                     |
                     本次申請 ${{ currentPipelineSubsidy.toLocaleString() }} |
@@ -2670,6 +2670,7 @@ import {
   getPipelineSubsidyLimit,
   type PipelineSubsidyResult
 } from '@/utils/subsidyStandards'
+import { truncHa } from '@/utils/subsidyCalc'
 
 // Type definitions for material generation
 interface MaterialData {
@@ -3411,11 +3412,11 @@ const isLegacyData = computed(() => {
 
 const mainPipeTotalPrice = computed(() => {
   if (!localFormData.mainPipeQuantity || !localFormData.mainPipeUnitPrice) return '0';
-  return Math.round(localFormData.mainPipeQuantity * localFormData.mainPipeUnitPrice).toLocaleString();
+  return Math.floor(localFormData.mainPipeQuantity * localFormData.mainPipeUnitPrice).toLocaleString();
 });
 const mainPipe2TotalPrice = computed(() => {
   if (!localFormData.mainPipe2Enabled || !localFormData.mainPipe2Quantity || !localFormData.mainPipe2UnitPrice) return '0';
-  return Math.round(localFormData.mainPipe2Quantity * localFormData.mainPipe2UnitPrice).toLocaleString();
+  return Math.floor(localFormData.mainPipe2Quantity * localFormData.mainPipe2UnitPrice).toLocaleString();
 });
 
 // 支管總價等原有的 computed properties 保持不變或按需調整
@@ -4274,7 +4275,7 @@ const updatePipeQuantity = (groupNo: number, pipeIndex: number, newQuantity: num
   pipe.matamount = newQuantity;
 
   // 重新計算總價
-  pipe.totalPrice = Math.round(pipe.matprice * newQuantity);
+  pipe.totalPrice = Math.floor(pipe.matprice * newQuantity);
 
   // 在原始數組中找到對應項目並更新
   const originalIndex = localFormData.pipes.findIndex(p =>
@@ -4313,7 +4314,7 @@ const updatePipePrice = (groupNo: number, pipeIndex: number, newPrice: number) =
   pipe.matprice = newPrice;
 
   // 重新計算總價
-  pipe.totalPrice = Math.round(pipe.matprice * pipe.matamount);
+  pipe.totalPrice = Math.floor(pipe.matprice * pipe.matamount);
 
   // 在原始數組中找到對應項目並更新
   const originalIndex = localFormData.pipes.findIndex(p =>
@@ -4654,7 +4655,7 @@ const autoFillMaterials = async () => {
           description: material.description,
           matprice: material.matprice,
           matamount: material.matamount,
-          totalPrice: Math.round(material.matprice * material.matamount),
+          totalPrice: Math.floor(material.matprice * material.matamount),
           order: material.order,
           // debugMatchData: material.debugMatchData // 加入除錯比對資料
         });
@@ -4795,8 +4796,8 @@ const calculateSubsidy = async () => {
     }
 
     // 更新表單數據
-    localFormData.subsidyAmount = Math.round(finalSubsidy);
-    localFormData.selfPaidAmount = Math.round(finalSelfPaid);
+    localFormData.subsidyAmount = Math.floor(finalSubsidy);
+    localFormData.selfPaidAmount = Math.floor(finalSelfPaid);
     localFormData.designFee = subsidyResult.designFee;
     localFormData.totalAmount = finalTotalCost;
 

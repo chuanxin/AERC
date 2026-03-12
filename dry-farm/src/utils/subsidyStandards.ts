@@ -432,7 +432,7 @@ export const getPipelineSubsidyLimit = (
  * 計算田間管路規劃設計費 (2%)
  */
 export const calculatePipelineDesignFee = (pipelineMaterialCost: number): number => {
-  return Math.round(pipelineMaterialCost * 0.02);
+  return Math.floor(pipelineMaterialCost * 0.02);
 };
 
 /**

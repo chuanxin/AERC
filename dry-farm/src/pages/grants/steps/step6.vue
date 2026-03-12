@@ -817,25 +817,46 @@ const totalBudget = computed(() => {
 // 將金額轉換為中文大寫
 const amountInWords = computed(() => {
   const amount = parseInt(totalBudget.value.replace(/,/g, ''));
-  if (isNaN(amount)) return '零';
+  if (isNaN(amount) || amount === 0) return '零';
 
   const digits = ['零', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖'];
-  const units = ['', '拾', '佰', '仟', '萬', '拾', '佰', '仟', '億'];
+
+  // 將 0–9999 的數字轉為中文，自動處理中間的零
+  const fourDigits = (n: number): string => {
+    if (n === 0) return '';
+    const units: [string, number][] = [['仟', 1000], ['佰', 100], ['拾', 10], ['', 1]];
+    let result = '';
+    let needZero = false;
+    for (const [unitName, unitVal] of units) {
+      const d = Math.floor(n / unitVal);
+      n %= unitVal;
+      if (d) {
+        if (needZero) { result += '零'; needZero = false; }
+        result += digits[d] + unitName;
+      } else if (result) {
+        needZero = true;
+      }
+    }
+    return result;
+  };
+
+  // 億 / 萬 / 個位，直接附加 '億'/'萬' 單位字元
+  const yiPart  = Math.floor(amount / 100000000);
+  const wanPart = Math.floor((amount % 100000000) / 10000);
+  const gePart  = amount % 10000;
 
   let result = '';
-  const amountStr = amount.toString();
-
-  for (let i = 0; i < amountStr.length; i++) {
-    const digit = parseInt(amountStr[i]);
-    const unit = units[amountStr.length - 1 - i];
-
-    if (digit === 0) {
-      if (i === amountStr.length - 1 || amountStr[i + 1] !== '0') {
-        result += digits[digit];
-      }
-    } else {
-      result += digits[digit] + unit;
-    }
+  if (yiPart) {
+    result += fourDigits(yiPart) + '億';
+    if (!wanPart && gePart) result += '零';
+  }
+  if (wanPart) {
+    if (yiPart && wanPart < 1000) result += '零';
+    result += fourDigits(wanPart) + '萬';
+  }
+  if (gePart) {
+    if ((yiPart || wanPart) && gePart < 1000) result += '零';
+    result += fourDigits(gePart);
   }
 
   return result;

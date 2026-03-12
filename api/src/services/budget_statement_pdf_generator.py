@@ -17,6 +17,23 @@ from reportlab.lib import colors
 from src.utils.chinese_pdf import setup_kaiu_font, setup_chinese_font, format_case_number
 
 
+def _fmt_ha(value) -> str:
+    """截斷至小數第6位顯示（公頃），無條件捨去，不四捨五入"""
+    s = f"{float(value):.10f}"
+    dot = s.index('.')
+    return s[:dot + 7]  # 整數部分 + '.' + 4位小數字元
+
+
+def _fmt_m2(value, comma: bool = False) -> str:
+    """截斷至小數第2位顯示（平方公尺），無條件捨去，不四捨五入"""
+    s = f"{float(value):.10f}"
+    dot = s.index('.')
+    if comma:
+        int_part = f"{int(s[:dot]):,}"
+        return f"{int_part}.{s[dot+1:dot+3]}"
+    return s[:dot + 3]  # 整數部分 + '.' + 2位小數字元
+
+
 class BudgetStatementPDFGenerator:
     """工程預算書 PDF 生成器（11 頁完整版本）"""
 
@@ -766,8 +783,8 @@ class BudgetStatementPDFGenerator:
         current_y = line_start_y - 60
 
         # === 施設面積 ===
-        facility_area_ha = data.get('facility_area_ha', '0.0000')
-        area_text = f"施設面積：{facility_area_ha}公頃"
+        facility_area_ha = data.get('facility_area_ha', 0)
+        area_text = f"施設面積：{_fmt_ha(facility_area_ha)}公頃"
         c.drawString(left_margin, current_y, area_text)
         current_y -= 60
 
@@ -932,7 +949,7 @@ class BudgetStatementPDFGenerator:
         c.line(table_x + col1_width, table_y, table_x + col1_width, table_y - row_height)
         c.line(table_x, table_y - row_height, table_x + col1_width + col2_width + col3_width + col4_width, table_y - row_height)
         self._draw_justified_text(c, "設施面積", table_x + 4, table_y - 17, col1_width - 8, font_size=table_font_size)
-        c.drawString(table_x + col1_width + 4, table_y - 17, f"{data.get('facility_area_ha', '0.0000')} 公頃")
+        c.drawString(table_x + col1_width + 4, table_y - 17, f"{_fmt_ha(data.get('facility_area_ha', 0))} 公頃")
 
         # 第 5 行：設施型式
         table_y -= row_height
@@ -1073,7 +1090,7 @@ class BudgetStatementPDFGenerator:
 
                 # 土地面積（置中對齊）
                 self._draw_centered_text(
-                    c, f"{int(land_area):,}" if land_area else "0",
+                    c, _fmt_m2(land_area, comma=True) if land_area else "0.00",
                     table_x + sum(col_widths[:2]), row_y,
                     col_widths[2],
                     font_size=table_font_size
@@ -1081,7 +1098,7 @@ class BudgetStatementPDFGenerator:
 
                 # 施設面積（置中對齊）
                 self._draw_centered_text(
-                    c, f"{int(facility_area):,}" if facility_area else "0",
+                    c, _fmt_m2(facility_area, comma=True) if facility_area else "0.00",
                     table_x + sum(col_widths[:3]), row_y,
                     col_widths[3],
                     font_size=table_font_size
@@ -1107,7 +1124,7 @@ class BudgetStatementPDFGenerator:
 
             # 土地面積合計（置中對齊）
             self._draw_centered_text(
-                c, f"{int(total_land_area):,}",
+                c, _fmt_m2(total_land_area, comma=True),
                 table_x + sum(col_widths[:2]), row_y,
                 col_widths[2],
                 font_size=table_font_size
@@ -1115,7 +1132,7 @@ class BudgetStatementPDFGenerator:
 
             # 施設面積合計（置中對齊）
             self._draw_centered_text(
-                c, f"{int(total_facility_area):,}",
+                c, _fmt_m2(total_facility_area, comma=True),
                 table_x + sum(col_widths[:3]), row_y,
                 col_widths[3],
                 font_size=table_font_size
@@ -1711,7 +1728,7 @@ class BudgetStatementPDFGenerator:
         current_y -= 18
 
         land_location = data.get('land_location', '')
-        c.drawString(left_margin, current_y, f"施設縣市、鄉鎮、地段、地號及面積詳如土地清冊，合計面積{data.get('total_facility_area_m2', 4500)} m²")
+        c.drawString(left_margin, current_y, f"施設縣市、鄉鎮、地段、地號及面積詳如土地清冊，合計面積{_fmt_m2(data.get('total_facility_area_m2', 0))} m²")
         current_y -= 18
 
         # 從後端取得灌溉型式 ID 和各項參數（空值或 0 顯示刪節符號）
@@ -1930,7 +1947,7 @@ class BudgetStatementPDFGenerator:
         c.drawString(60, current_y, f"二、設施地點：{data.get('land_location', '')}{data.get('first_lot_number', '')}號,等{data.get('land_count', 1)}筆(詳如土地清冊)。")
         current_y -= 18
 
-        c.drawString(60, current_y, f"三、施設面積：{data.get('facility_area_ha', '0.45')}公頃")
+        c.drawString(60, current_y, f"三、施設面積：{_fmt_ha(data.get('facility_area_ha', 0))}公頃")
         current_y -= 18
 
         c.drawString(60, current_y, f"四、設施型式：{data.get('facility_type', '')}")
@@ -2684,30 +2701,52 @@ class BudgetStatementPDFGenerator:
         Returns:
             中文大寫金額字串
         """
-        # 簡化版本：僅處理常見金額範圍
-        digits = ['零', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖']
-        units = ['', '拾', '佰', '仟', '萬', '拾', '佰', '仟', '億']
-
         if amount == 0:
             return "零元整"
 
-        # 轉換為字串並反轉
-        amount_str = str(amount)
-        result = []
+        digits = ['零', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖']
 
-        for i, digit in enumerate(reversed(amount_str)):
-            digit_val = int(digit)
-            if digit_val != 0:
-                result.append(digits[digit_val] + units[i])
-            elif i > 0 and result and result[-1] != '零':
-                result.append('零')
+        def four_digits(n: int) -> str:
+            """將 0–9999 轉為中文，自動處理中間的零"""
+            if n == 0:
+                return ''
+            units = [('仟', 1000), ('佰', 100), ('拾', 10), ('', 1)]
+            result = []
+            need_zero = False
+            for unit_name, unit_val in units:
+                d = n // unit_val
+                n %= unit_val
+                if d:
+                    if need_zero:
+                        result.append('零')
+                        need_zero = False
+                    result.append(digits[d] + unit_name)
+                elif result:
+                    need_zero = True
+            return ''.join(result)
 
-        # 反轉回來並清理多餘的零
-        result.reverse()
-        chinese_amount = ''.join(result)
+        yi_part  = amount // 100000000
+        wan_part = (amount % 100000000) // 10000
+        ge_part  = amount % 10000
 
-        # 簡化處理：直接返回（實際應該有更複雜的規則處理）
-        return f"{chinese_amount} 元整"
+        result = ''
+
+        if yi_part:
+            result += four_digits(yi_part) + '億'
+            if not wan_part and ge_part:
+                result += '零'
+
+        if wan_part:
+            if yi_part and wan_part < 1000:
+                result += '零'
+            result += four_digits(wan_part) + '萬'
+
+        if ge_part:
+            if (yi_part or wan_part) and ge_part < 1000:
+                result += '零'
+            result += four_digits(ge_part)
+
+        return result + ' 元整'
 
     def _draw_signature_section(self, c: canvas.Canvas, x: float, current_y: float) -> float:
         """

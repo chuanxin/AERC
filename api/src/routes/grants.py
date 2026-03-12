@@ -1497,7 +1497,7 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         'land_location': land_location,
         'first_lot_number': first_lot_number,
         'land_count': len(lands),
-        'facility_area_ha': f"{total_facility_area_ha:.4f}",  # 直接使用資料記錄的公頃面積
+        'facility_area_ha': total_facility_area_ha,  # 原始數值，顯示層再格式化
         'total_facility_area_m2': total_facility_area,
         'lands': land_list,
 
