@@ -127,6 +127,7 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       allowedHosts: [
         'cxin.mynetgear.com',
+        'uat-dryfarm.cxin.io',
       ],
       ...(httpsConfig && { https: httpsConfig }),
       fs: {

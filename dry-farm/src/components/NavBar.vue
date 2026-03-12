@@ -364,7 +364,7 @@ onUnmounted(() => {
       value: 'statistics',
       to: { path: '/statistics' },
       icon: 'mdi-chart-bar',
-      disabled: true,
+      disabled: false,
     },
     {
       title: '材料管理',
