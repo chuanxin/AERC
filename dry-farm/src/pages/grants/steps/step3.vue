@@ -303,7 +303,7 @@
                 </template>
                 <div class="text-caption">
                   <strong>容量狀態：</strong>
-                  面積 {{ facilityArea.toFixed(4) }} 公頃 →
+                  面積 {{ truncHa(facilityArea) }} 公頃 →
                   最大容量 {{ maxStorageCapacity }} 噸 |
                   本次申請 {{ existingStorageCapacity }} 噸 |
                   剩餘可申請 {{ availableStorageCapacity }} 噸
@@ -409,11 +409,11 @@
                   <strong>補助額度狀態：</strong>
                   <!-- 判斷限制類型並顯示對應說明 -->
                   <template v-if="grantsStore.hasSubsidySummary && totalControlSubsidyLimit < getControlSubsidyLimit(facilityArea, regionType)">
-                    面積 {{ facilityArea.toFixed(4) }} 公頃 → 有效額度 ${{ totalControlSubsidyLimit.toLocaleString() }}
+                    面積 {{ truncHa(facilityArea) }} 公頃 → 有效額度 ${{ totalControlSubsidyLimit.toLocaleString() }}
                     <span class="text-warning font-weight-bold">（原補助上限 ${{ getControlSubsidyLimit(facilityArea, regionType).toLocaleString() }} 超過個人年度補助限額）</span>
                   </template>
                   <template v-else>
-                    面積 {{ facilityArea.toFixed(4) }} 公頃 → 補助上限 ${{ totalControlSubsidyLimit.toLocaleString() }}
+                    面積 {{ truncHa(facilityArea) }} 公頃 → 補助上限 ${{ totalControlSubsidyLimit.toLocaleString() }}
                   </template>
                   |
                   本次申請 ${{ totalControlSubsidy.toLocaleString() }} |
@@ -821,6 +821,7 @@
 import { useGrantsStore } from '@/stores/grants';
 import { useOfficesStore } from '@/stores/offices';
 import { calculateSubsidyAmount, determineRegionType, validateStorageFacility, getStorageCapacityLimit, calculateExistingStorageCapacity, getAvailableStorageCapacity, canAddStorageFacility as canAddStorageFacilityUtil, getControlSubsidyLimit, calculateControlFacilitiesAllocation } from '@/utils/subsidyStandards';
+import { truncHa } from '@/utils/subsidyCalc';
 import { useRoute } from 'vue-router';
 
 // Props definition
@@ -1291,7 +1292,7 @@ const addStorageFacility = () => {
       const available = availableStorageCapacity.value;
 
       alert(`無法加入 ${tonnage} 噸調蓄設施！\n\n` +
-            `面積限制：${area.toFixed(4)} 公頃 → 最大容量 ${maxCap} 噸\n` +
+            `面積限制：${truncHa(area)} 公頃 → 最大容量 ${maxCap} 噸\n` +
             `申請容量：${existing} 噸\n` +
             `剩餘可申請：${available} 噸\n` +
             `嘗試加入：${tonnage} 噸`);
@@ -1609,7 +1610,7 @@ const updateFacilityTotal = (index: number) => {
         const maxAllowedQuantity = Math.floor(available / tonnage);
 
         alert(`調蓄設施數量超過容量限制！\n\n` +
-              `面積限制：${area.toFixed(4)} 公頃 → 最大補助容量 ${maxCap} 噸\n` +
+              `面積限制：${truncHa(area)} 公頃 → 最大補助容量 ${maxCap} 噸\n` +
               `${tonnage} 噸設施最多可申請 ${maxAllowedQuantity} 個\n` +
               `其他設施已用：${otherStorageCapacity} 噸\n`);
 
@@ -1877,8 +1878,8 @@ const reallocateControlSubsidies = () => {
 };
 
 const formatArea = (area: number): string => {
-  if (!area && area !== 0) return '0.0000';
-  return Number(area).toFixed(4);
+  if (!area && area !== 0) return '0.000000';
+  return truncHa(Number(area));
 };
 
 const getFundingSourceName = (fundingSourceId: string | number): string => {

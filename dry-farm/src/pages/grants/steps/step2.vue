@@ -124,7 +124,7 @@
                     <strong>地段:</strong> {{ selectedFeatureInfo.section }}
                   </div>
                   <div v-if="selectedFeatureInfo.area">
-                    <strong>面積:</strong> {{ Number(selectedFeatureInfo.area).toFixed(2) }} 平方公尺
+                    <strong>面積:</strong> {{ truncM2(Number(selectedFeatureInfo.area)) }} 平方公尺
                     <!-- <span class="text-caption text-grey-darken-1">
                       ({{ (Number(selectedFeatureInfo.area) / 3.305785).toFixed(2) }} 坪)
                     </span> -->
@@ -1948,6 +1948,7 @@
 <script setup lang="ts">
 // Import OpenLayers dependencies
 import 'ol/ol.css';
+import { truncM2 } from '@/utils/subsidyCalc';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import WMTS from 'ol/source/WMTS';
