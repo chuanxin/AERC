@@ -44,8 +44,8 @@ async def upload_attachment(
         if not grant:
             raise HTTPException(status_code=404, detail="補助申請案件不存在")
 
-        if step not in [5, 6, 7, 8]:
-            raise HTTPException(status_code=400, detail="步驟編號必須在5-8之間")
+        if step not in [3, 7, 8]:
+            raise HTTPException(status_code=400, detail="非法的步驟編號")
 
         # 解析類別列表
         category_list = []
