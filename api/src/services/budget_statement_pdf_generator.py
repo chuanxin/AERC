@@ -14,24 +14,26 @@ from reportlab.lib.units import mm, cm
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 
+from decimal import Decimal, ROUND_DOWN
+
 from src.utils.chinese_pdf import setup_kaiu_font, setup_chinese_font, format_case_number
 
 
 def _fmt_ha(value) -> str:
     """截斷至小數第6位顯示（公頃），無條件捨去，不四捨五入"""
-    s = f"{float(value):.10f}"
-    dot = s.index('.')
-    return s[:dot + 7]  # 整數部分 + '.' + 4位小數字元
+    d = Decimal(str(value)).quantize(Decimal('0.000001'), rounding=ROUND_DOWN)
+    return str(d)
 
 
 def _fmt_m2(value, comma: bool = False) -> str:
     """截斷至小數第2位顯示（平方公尺），無條件捨去，不四捨五入"""
-    s = f"{float(value):.10f}"
-    dot = s.index('.')
+    d = Decimal(str(value)).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+    d_str = str(d)
+    dot = d_str.index('.')
     if comma:
-        int_part = f"{int(s[:dot]):,}"
-        return f"{int_part}.{s[dot+1:dot+3]}"
-    return s[:dot + 3]  # 整數部分 + '.' + 2位小數字元
+        int_part = f"{int(d_str[:dot]):,}"
+        return f"{int_part}.{d_str[dot+1:]}"
+    return d_str
 
 
 class BudgetStatementPDFGenerator:
@@ -1021,8 +1023,8 @@ class BudgetStatementPDFGenerator:
             current_y = table_start_y - row_height
 
             # === 繪製土地資料 ===
-            total_land_area = 0.0
-            total_facility_area = 0.0
+            total_land_area = Decimal('0')
+            total_facility_area = Decimal('0')
 
             for land in lands:
                 # 縣市、鄉鎮、地段資訊
@@ -1034,16 +1036,16 @@ class BudgetStatementPDFGenerator:
                 # 組合完整地段資訊：縣市 + 鄉鎮 + 地段
                 full_section = f"{land_county}{land_town}-{section}"
 
-                # 安全轉換為 float
+                # 安全轉換為 Decimal
                 try:
-                    land_area = float(land.get('land_area', 0) or 0)
-                except (ValueError, TypeError):
-                    land_area = 0.0
+                    land_area = Decimal(str(land.get('land_area', 0) or 0))
+                except Exception:
+                    land_area = Decimal('0')
 
                 try:
-                    facility_area = float(land.get('facility_area', 0) or 0)
-                except (ValueError, TypeError):
-                    facility_area = 0.0
+                    facility_area = Decimal(str(land.get('facility_area', 0) or 0))
+                except Exception:
+                    facility_area = Decimal('0')
 
                 # 繪製資料（使用垂直置中）
                 row_y = current_y - row_height / 2 - table_font_size * 0.3

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Dict, List, Optional, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Path, UploadFile, File, Form, Body
@@ -1019,9 +1020,9 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
 
     # 組裝土地清冊資料
     land_list = []
-    total_land_area = 0
-    total_facility_area = 0
-    total_facility_area_ha = 0
+    total_land_area = Decimal('0')
+    total_facility_area = Decimal('0')
+    total_facility_area_ha = Decimal('0')
 
     for land in lands:
         # 取得縣市和鄉鎮資訊（可能是 ID 或名稱）
@@ -1036,21 +1037,21 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         land_section = land.get('landSecName', '') or land.get('section', '') or land.get('landSection', '') or land.get('land_section', '')
         lot_number = land.get('landNumber', '') or land.get('lotNumber', '') or land.get('lot_number', '')
 
-        # 安全轉換為 float（處理前端可能傳來字串的情況）
+        # 安全轉換為 Decimal（處理前端可能傳來字串的情況）
         try:
-            land_area_m2 = float(land.get('landArea', 0) or 0)
-        except (ValueError, TypeError):
-            land_area_m2 = 0.0
+            land_area_m2 = Decimal(str(land.get('landArea', 0) or 0))
+        except Exception:
+            land_area_m2 = Decimal('0')
 
         try:
-            facility_area_m2 = float(land.get('facilityArea', 0) or 0)
-        except (ValueError, TypeError):
-            facility_area_m2 = 0.0
+            facility_area_m2 = Decimal(str(land.get('facilityArea', 0) or 0))
+        except Exception:
+            facility_area_m2 = Decimal('0')
 
         try:
-            facility_area_ha = float(land.get('facilityAreaHa', 0) or land.get('facility_area_ha', 0) or 0)
-        except (ValueError, TypeError):
-            facility_area_ha = 0.0
+            facility_area_ha = Decimal(str(land.get('facilityAreaHa', 0) or land.get('facility_area_ha', 0) or 0))
+        except Exception:
+            facility_area_ha = Decimal('0')
 
         land_list.append({
             'land_county': land_county_name,
