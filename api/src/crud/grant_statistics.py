@@ -121,11 +121,8 @@ class GrantStatisticsCRUD:
         data_schema_version = grant.active_version.data_schema_version if hasattr(grant.active_version, 'data_schema_version') else None
         is_legacy_data = data_schema_version == 'legacy'
 
-        # A項補助：田間管路設施補助費
-        if is_legacy_data:
-            pipeline_subsidy = min(pipeline_material_cost, subsidy_amount)
-        else:
-            pipeline_subsidy = max(Decimal('0'), subsidy_amount - design_fee_amount)
+        # A項補助：田間管路設施補助費 (20260316 fix: 不再判斷資料來源)
+        pipeline_subsidy = min(pipeline_material_cost, subsidy_amount)
 
         # B項補助：灌溉調控設施補助費
         facilities = step4_data.get('facilities', [])
