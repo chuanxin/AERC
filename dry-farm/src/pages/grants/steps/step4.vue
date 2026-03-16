@@ -519,11 +519,11 @@
                     <strong>補助額度狀態（{{ irrigationSystemDisplayName }}）：</strong>
                     <!-- 判斷限制類型並顯示對應說明 -->
                     <template v-if="grantsStore.hasSubsidySummary && effectivePipelineSubsidyLimit < pipelineSubsidyLimit">
-                      面積 {{ truncHa(facilityAreaFromStep2 / 10000) }} 公頃 → 有效額度 ${{ effectivePipelineSubsidyLimit.toLocaleString() }}
+                      面積 {{ facilityAreaHaFromStep2 }} 公頃 → 有效額度 ${{ effectivePipelineSubsidyLimit.toLocaleString() }}
                       <span class="text-warning font-weight-bold">（原補助上限 ${{ pipelineSubsidyLimit.toLocaleString() }} 超過個人年度補助限額）</span>
                     </template>
                     <template v-else>
-                      面積 {{ truncHa(facilityAreaFromStep2 / 10000) }} 公頃 → 補助上限 ${{ effectivePipelineSubsidyLimit.toLocaleString() }}
+                      面積 {{ facilityAreaHaFromStep2 }} 公頃 → 補助上限 ${{ effectivePipelineSubsidyLimit.toLocaleString() }}
                     </template>
                     |
                     本次申請 ${{ currentPipelineSubsidy.toLocaleString() }} |
@@ -2653,6 +2653,7 @@
 </template>
 
 <script setup lang="ts">
+import Big from 'big.js';
 import { nextTick } from 'vue'
 import { useGrantsStore } from '@/stores/grants';
 import { useOfficesStore } from '@/stores/offices'
@@ -2670,7 +2671,7 @@ import {
   getPipelineSubsidyLimit,
   type PipelineSubsidyResult
 } from '@/utils/subsidyStandards'
-import { truncHa } from '@/utils/subsidyCalc'
+
 
 // Type definitions for material generation
 interface MaterialData {
@@ -3376,6 +3377,13 @@ const facilityAreaFromStep2 = computed(() => {
   return step2Data.totalFacilityArea || 0;
 })
 
+// 直接取 step2 已截斷至第 6 位小數的公頃值，避免 / 10000 浮點誤差
+const facilityAreaHaFromStep2 = computed(() => {
+  const step2Data = getStepDataSafely(2);
+  if (!step2Data) return 0;
+  return step2Data.totalFacilityAreaHa || 0;
+})
+
 const filteredPipeFittingsByModule = computed(() => {
   const moduleFilters = {
     mainPipe: 1, // 輸水管模組 ID
@@ -3537,7 +3545,7 @@ const pipelineSubsidyLimit = computed(() => {
   const irrigationTypeId = localFormData.irrigationTypeId;
   if (!irrigationTypeId) return 0;
 
-  const facilityAreaInHectares = facilityAreaFromStep2.value / 10000;
+  const facilityAreaInHectares = facilityAreaHaFromStep2.value;
   if (facilityAreaInHectares <= 0) return 0;
 
   // 獲取地區類型
@@ -3857,7 +3865,7 @@ const calculateWidth = () => {
   const area = facilityAreaFromStep2.value || 0;
   // 2026_01更新：寬度計算改為無條件捨去
   if (length > 0 && area > 0) {
-    localFormData.fieldWidth = Math.floor(area / length);
+    localFormData.fieldWidth = new Big(area).div(length).round(0, Big.roundDown).toNumber();
   }
   // updateFormData();
 };
@@ -3931,7 +3939,7 @@ const calculateMainPipeQuantity = async () => {
         1 // module_id=1 for main pipe
     );
     localFormData.mainPipeStandardLength = standardLength;
-    localFormData.mainPipeQuantity = Math.ceil(length / standardLength); // 無條件進位
+    localFormData.mainPipeQuantity = new Big(length).div(standardLength).round(0, Big.roundUp).toNumber(); // 無條件進位
   }
   updateFormData();
 };
@@ -3946,7 +3954,7 @@ const calculateMainPipe2Quantity = async () => {
         1 // module_id=1 for main pipe
     );
     localFormData.mainPipe2StandardLength = standardLength;
-    localFormData.mainPipe2Quantity = Math.ceil(length / standardLength); // 無條件進位
+    localFormData.mainPipe2Quantity = new Big(length).div(standardLength).round(0, Big.roundUp).toNumber(); // 無條件進位
   }
   updateFormData();
 };
@@ -4722,7 +4730,7 @@ const calculateSubsidy = async () => {
   try {
     // 根據灌溉型式和原民區域狀態計算補助金額
     const currentTotalPipesPrice = parseFloat(totalPipesPrice.value.replace(/,/g, ''));
-    const facilityAreaInHectares = facilityAreaFromStep2.value / 10000; // 轉換為公頃
+    const facilityAreaInHectares = facilityAreaHaFromStep2.value;
 
     // 從 step2 數據中獲取原民區域狀態
     const step2Data = getStepDataSafely(2);
@@ -4762,7 +4770,7 @@ const calculateSubsidy = async () => {
 
     const irrigationSystemName = irrigationSystemNameMap[irrigationTypeId] || '';
 
-    // 🎯 使用統一的補助分配計算（包含設計費）
+    // 使用統一的補助分配計算（不應包含設計費）
     const subsidyResult: PipelineSubsidyResult = calculatePipelineSubsidyAllocation(
       irrigationSystemName,
       facilityAreaInHectares,
@@ -5201,9 +5209,9 @@ const mapToLegacyFields = (formInputs: FormInputs) => {
 
   // 計算支管數量和末端設施數量
   // 穿孔管配件計算使用 Math.floor (無條件捨去)
-  const branchAmt = branchPipeSpacing > 0 ? Math.floor(fieldLength / branchPipeSpacing) : 0;
+  const branchAmt = branchPipeSpacing > 0 ? new Big(fieldLength).div(branchPipeSpacing).round(0, Big.roundDown).toNumber() : 0;
   const branchLength = fieldWidth; // 支管長度通常等於田區寬度
-  const nozzlePerBranch = sprinklerSpacing > 0 ? Math.floor(fieldWidth / sprinklerSpacing) : 0;
+  const nozzlePerBranch = sprinklerSpacing > 0 ? new Big(fieldWidth).div(sprinklerSpacing).round(0, Big.roundDown).toNumber() : 0;
   const totalNozzles = branchAmt * nozzlePerBranch;
 
   return {
@@ -5745,7 +5753,7 @@ const generateL1MainPipeLine = (data: any) => {
     spec2: '',
     spec3: '',
     itemunit: '支',
-    matamount: Math.ceil(data.L1MatAmt || Math.ceil(data.L1Len / 4)),
+    matamount: Math.ceil(data.L1MatAmt || new Big(data.L1Len).div(4).round(0, Big.roundUp).toNumber()),
     description: '主管管材(L1)',
     order: 1,
     group: 1
@@ -5846,7 +5854,7 @@ const generateL2MainPipeLine = (data: any) => {
     spec2: '',
     spec3: '',
     itemunit: '支',
-    matamount: Math.ceil(data.L2MatAmt || Math.ceil(data.L2Len / 4)),
+    matamount: Math.ceil(data.L2MatAmt || new Big(data.L2Len).div(4).round(0, Big.roundUp).toNumber()),
     description: '主管管材(L2)',
     order: 3,
     group: 1
@@ -5890,7 +5898,7 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
   const multiplier = isDoubleDirection ? 2 : 1; // 僅用於配件計算
 
   // 計算以100m為單位的穿孔管數量（不受雙向影響）
-  const perforatedQuantityPer100m = Math.ceil(perforatedTotalLength / 100);
+  const perforatedQuantityPer100m = new Big(perforatedTotalLength).div(100).round(0, Big.roundUp).toNumber();
 
   // 從用戶選擇的末端設施中獲取正確的規格和材質資訊
   const selectedEndFacility = pipeFittingsStore.pipeFittings.find(
@@ -5923,7 +5931,7 @@ const generatePerforatedPipe = (data: any, mainPipeSpec: any) => {
   const standardLength = perforatedPipeMatch.matchedData?.length || 100;
 
   // 計算穿孔管數量 = Math.ceil(總長度 / 標準長度)
-  const perforatedQuantity = Math.ceil(perforatedTotalLength / standardLength);
+  const perforatedQuantity = new Big(perforatedTotalLength).div(standardLength).round(0, Big.roundUp).toNumber();
 
   // 穿孔管
   addMaterial(materials, localFormData.endFacilityPomno, nozzleSpecName, endFacilityMaterial, '', {
@@ -6048,7 +6056,7 @@ const generateBranchPipeMaterials = (data: any, mainPipeSpec: any, groupId: numb
   // 計算支管總長度
   const totalBranchLength = data.BranchAmt * data.BranchLength;
   // 計算支管數量
-  const branchQuantity = Math.ceil(totalBranchLength / standardLength);
+  const branchQuantity = new Big(totalBranchLength).div(standardLength).round(0, Big.roundUp).toNumber();
 
   // 支管
   addMaterial(materials, 1, branchSpecName, branchMaterialName, '', {
@@ -6153,7 +6161,7 @@ const generateBranchPipeMaterialsWithSpecChange = (data: any, mainPipeSpec: any,
   const totalBranchLength = data.BranchAmt * data.BranchLength;
 
   // 1. 原規格支管 (2/3 數量)
-  const originalBranchQuantity = Math.ceil((totalBranchLength * 2/3) / branchStandardLength);
+  const originalBranchQuantity = new Big(totalBranchLength).times(2).div(3).div(branchStandardLength).round(0, Big.roundUp).toNumber();
   addMaterial(materials, 1, branchSpecName, branchMaterialName, '', {
     module: '支管',
     matname: `${branchMaterialName} ${branchSpecName}`,
@@ -6170,7 +6178,7 @@ const generateBranchPipeMaterialsWithSpecChange = (data: any, mainPipeSpec: any,
   });
 
   // 2. 變徑規格支管 (1/3 數量)
-  const changeBranchQuantity = Math.ceil((totalBranchLength * 1/3) / changeBranchStandardLength);
+  const changeBranchQuantity = new Big(totalBranchLength).div(3).div(changeBranchStandardLength).round(0, Big.roundUp).toNumber();
   addMaterial(materials, 1, changeBranchSpecName, branchMaterialName, '', {
     module: '支管',
     matname: `${branchMaterialName} ${changeBranchSpecName}`,
@@ -6293,7 +6301,7 @@ const generateStandPipeMaterials = (data: any, groupId: number) => {
   // 計算豎管總長度
   const totalStandPipeLength = data.NozzleAmt * data.StandPipeLength;
   // 計算豎管數量
-  const standPipeQuantity = Math.ceil(totalStandPipeLength / standardLength);
+  const standPipeQuantity = new Big(totalStandPipeLength).div(standardLength).round(0, Big.roundUp).toNumber();
 
   // 豎管
   addMaterial(materials, 4, standPipeSpecName, standPipeMaterialName, '', {
@@ -6391,7 +6399,7 @@ const generateStandPipeMaterialsWithSpecChange = (data: any, groupId: number) =>
   // 計算豎管總長度
   const totalStandPipeLength = data.NozzleAmt * data.StandPipeLength;
   // 計算豎管數量
-  const standPipeQuantity = Math.ceil(totalStandPipeLength / standardLength);
+  const standPipeQuantity = new Big(totalStandPipeLength).div(standardLength).round(0, Big.roundUp).toNumber();
 
   // 1. 豎管 (與公式3相同)
   addMaterial(materials, 4, standPipeSpecName, standPipeMaterialName, '', {
@@ -6419,7 +6427,7 @@ const generateStandPipeMaterialsWithSpecChange = (data: any, groupId: number) =>
     spec2: standPipeSpecName,
     spec3: '',
     itemunit: '只',
-    matamount: Math.floor(data.NozzleAmt * 2/3),
+    matamount: new Big(data.NozzleAmt).times(2).div(3).round(0, Big.roundDown).toNumber(),
     description: '支管轉豎管三通 (支管規格)',
     order: 2,
     group: groupId
@@ -6435,7 +6443,7 @@ const generateStandPipeMaterialsWithSpecChange = (data: any, groupId: number) =>
     spec2: standPipeSpecName,
     spec3: '',
     itemunit: '只',
-    matamount: Math.floor(data.NozzleAmt * 1/3),
+    matamount: new Big(data.NozzleAmt).div(3).round(0, Big.roundDown).toNumber(),
     description: '支管轉豎管三通 (變徑規格)',
     order: 3,
     group: groupId
@@ -6635,7 +6643,7 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
       // 計算管材數量：總長度除以標準長度，當length欄位為空值時固定除4
       const materialLength = branchPipeMatch.matchedData?.length || 4;
       const totalLength = data.BranchAmt * data.width;
-      const materialQuantity = Math.ceil(totalLength / materialLength);
+      const materialQuantity = new Big(totalLength).div(materialLength).round(0, Big.roundUp).toNumber();
 
       addMaterial(materials, localFormData.branchPipePomno, branchPipeSpec, branchPipeMaterial, '', {
         module: '滴灌管',
@@ -6656,7 +6664,7 @@ const generateDripIrrigationSystem = (data: any, mainPipeSpec: any) => {
     // 其他情況：使用原有邏輯，預設長度為4m計價
     const defaultMaterialLength = 4;
     const totalLength = data.BranchAmt * data.width;
-    const materialQuantity = Math.ceil(totalLength / defaultMaterialLength);
+    const materialQuantity = new Big(totalLength).div(defaultMaterialLength).round(0, Big.roundUp).toNumber();
 
     addMaterial(materials, 12, branchSpecName, branchMaterialName, '', {
       module: '滴灌管',
@@ -6816,7 +6824,7 @@ const generateDripPipeIrrigationSystem = (data: any, mainPipeSpec: any) => {
     // 計算管材數量：總長度除以標準長度，當length欄位為空值時固定除4
     const materialLength = endFacilityMatch.matchedData?.length || 4;
     const totalLength = data.BranchAmt * data.width;
-    const materialQuantity = Math.ceil(totalLength / materialLength);
+    const materialQuantity = new Big(totalLength).div(materialLength).round(0, Big.roundUp).toNumber();
 
     addMaterial(materials, localFormData.endFacilityPomno, branchSpecName, endFacilityMaterial, '', {
       module: '滴灌管',

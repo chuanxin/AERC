@@ -422,7 +422,7 @@
                     v-if="overallControlSubsidyRatio > 0"
                     class="ms-2"
                   >
-                    (整體補助比例: {{ (overallControlSubsidyRatio * 100).toFixed(1) }}%)
+                    (整體補助比例: {{ new Big(overallControlSubsidyRatio).times(100).toFixed(1) }}%)
                   </span>
                 </div>
               </v-alert>
@@ -818,6 +818,7 @@
 </template>
 
 <script setup lang="ts">
+import Big from 'big.js';
 import { useGrantsStore } from '@/stores/grants';
 import { useOfficesStore } from '@/stores/offices';
 import { calculateSubsidyAmount, determineRegionType, validateStorageFacility, getStorageCapacityLimit, calculateExistingStorageCapacity, getAvailableStorageCapacity, canAddStorageFacility as canAddStorageFacilityUtil, getControlSubsidyLimit, calculateControlFacilitiesAllocation } from '@/utils/subsidyStandards';
@@ -1004,6 +1005,7 @@ const regionType = computed(() => {
 });
 
 // 使用安全資料來源，消除reload問題
+// TODO: 應該直接取得 step2 的計算結果，不應該重複計算
 const facilityArea = computed(() => {
   const step2Data = getStepDataSafely(2) || {};
 
@@ -1013,8 +1015,8 @@ const facilityArea = computed(() => {
   // 新版多筆土地格式
   if (step2Data.lands && Array.isArray(step2Data.lands)) {
     totalArea = step2Data.lands.reduce((sum: number, land: any) => {
-      const area = parseFloat(land.facilityArea) || 0;
-      return sum + area;
+      const area = land.facilityArea || '0';
+      return new Big(sum).plus(isNaN(parseFloat(area)) ? 0 : area).toNumber();
     }, 0);
     console.log('[Step3] 多筆土地總面積計算 - lands:', step2Data.lands.length, 'totalArea:', totalArea);
   }
@@ -1034,7 +1036,7 @@ const facilityArea = computed(() => {
   }
 
   // 轉換為公頃
-  const areaHa = totalArea / 10000;
+  const areaHa = new Big(totalArea).div(10000).round(6, Big.roundDown).toNumber();
   console.log('[Step3] 設施面積計算完成 - 總面積:', totalArea, 'm², 公頃:', areaHa);
   return areaHa;
 });
@@ -1102,7 +1104,7 @@ const overallControlSubsidyRatio = computed(() => {
   const totalSubsidy = controlFacilities.reduce((sum, f) => sum + (f.subsidyAmount || 0), 0);
 
   if (totalCost === 0) return 0;
-  return totalSubsidy / totalCost;
+  return new Big(totalSubsidy).div(totalCost).toNumber();
 });
 
 // 簡單直接的補助計算 - 總成本與剩餘額度取最小值
@@ -1170,7 +1172,7 @@ const remainingSubsidyQuota = computed(() => {
 const quotaUsageRate = computed(() => {
   if (!grantsStore.hasSubsidySummary || grantsStore.subsidyLimit === 0) return '0.0';
   const estimatedTotal = grantsStore.totalSubsidyAmount + currentGrantTotalSubsidy.value;
-  const rate = (estimatedTotal / grantsStore.subsidyLimit) * 100;
+  const rate = new Big(estimatedTotal).div(grantsStore.subsidyLimit).times(100);
   return rate.toFixed(1);
 });
 
@@ -1607,7 +1609,7 @@ const updateFacilityTotal = (index: number) => {
       if (!canAddStorageFacilityUtil(area, otherStorageCapacity, tonnage, newQuantity)) {
         const maxCap = maxStorageCapacity.value;
         const available = getAvailableStorageCapacity(area, otherStorageCapacity);
-        const maxAllowedQuantity = Math.floor(available / tonnage);
+        const maxAllowedQuantity = new Big(available).div(tonnage).round(0, Big.roundDown).toNumber();
 
         alert(`調蓄設施數量超過容量限制！\n\n` +
               `面積限制：${truncHa(area)} 公頃 → 最大補助容量 ${maxCap} 噸\n` +
@@ -1810,7 +1812,7 @@ const reallocateAllFacilitiesSubsidies = () => {
           facility.selfPaidAmount = allocation.selfPaidAmount;
           remainingYearlyQuota -= allocation.subsidyAmount;
 
-          console.log(`💡 [調節控制] ${facility.name}: 總成本=${allocation.totalCost.toLocaleString()}, 分配補助=${allocation.subsidyAmount.toLocaleString()}, 自備=${allocation.selfPaidAmount.toLocaleString()}, 比例=${(allocation.subsidyRatio * 100).toFixed(1)}%, 剩餘額度=${remainingYearlyQuota.toLocaleString()}`);
+          console.log(`💡 [調節控制] ${facility.name}: 總成本=${allocation.totalCost.toLocaleString()}, 分配補助=${allocation.subsidyAmount.toLocaleString()}, 自備=${allocation.selfPaidAmount.toLocaleString()}, 比例=${new Big(allocation.subsidyRatio).times(100).toFixed(1)}%, 剩餘額度=${remainingYearlyQuota.toLocaleString()}`);
         }
         controlIndex++;
       }
@@ -1867,7 +1869,7 @@ const reallocateControlSubsidies = () => {
         facility.subsidyAmount = allocation.subsidyAmount;
         facility.selfPaidAmount = allocation.selfPaidAmount;
 
-        console.log(`[調節控制設施重新分配] 設施${controlIndex + 1}: 成本${allocation.totalCost}, 補助${allocation.subsidyAmount}, 自備${allocation.selfPaidAmount}, 比例${(allocation.subsidyRatio * 100).toFixed(1)}%`);
+        console.log(`[調節控制設施重新分配] 設施${controlIndex + 1}: 成本${allocation.totalCost}, 補助${allocation.subsidyAmount}, 自備${allocation.selfPaidAmount}, 比例${new Big(allocation.subsidyRatio).times(100).toFixed(1)}%`);
       }
       controlIndex++;
     }

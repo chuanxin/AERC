@@ -2,6 +2,7 @@
  * AERC 灌溉設施補助標準配置
  * 基於 PDF 附表規範建立正確的補助金額計算標準
  */
+import Big from 'big.js';
 
 export interface SubsidyStandards {
   powerEquipment: {
@@ -144,7 +145,7 @@ export const calculateSubsidyAmount = (
         console.warn(`調節控制設施需要提供設施面積進行計算`);
         return 0;
       }
-      return Math.floor(unitSubsidy * area);
+      return new Big(unitSubsidy).times(area).round(0, Big.roundDown).toNumber();
     }
 
     default:
@@ -272,7 +273,7 @@ export const calculateExistingControlSubsidy = (facilities: Array<{
 
 /**
  * 根據面積和地區類型計算調節控制設施的總補助上限
- * 🔥 Good Taste: 同時考慮面積上限和個人年度剩餘額度，返回較小者
+ * 同時考慮面積上限和個人年度剩餘額度，返回較小者
  */
 export const getControlSubsidyLimit = (
   area: number,
@@ -280,7 +281,7 @@ export const getControlSubsidyLimit = (
   userAvailableSubsidy?: number
 ): number => {
   const unitSubsidy = SUBSIDY_STANDARDS.controlEquipment[region];
-  const areaBasedLimit = Math.floor(unitSubsidy * area);
+  const areaBasedLimit = new Big(unitSubsidy).times(area).round(0, Big.roundDown).toNumber();
 
   // 如果提供了個人年度可用額度，返回兩者中較小的值
   if (userAvailableSubsidy !== undefined) {
@@ -364,7 +365,7 @@ export const calculateControlFacilitiesAllocation = (
     // 扣除已分配的額度
     remainingSubsidy -= subsidyAmount;
 
-    const subsidyRatio = facilityCost > 0 ? subsidyAmount / facilityCost : 0;
+    const subsidyRatio = facilityCost > 0 ? new Big(subsidyAmount).div(facilityCost).toNumber() : 0;
 
     console.log(`[調節控制設施分配] 設施${index + 1}: 成本${facilityCost}, 補助${subsidyAmount}, 自備${selfPaidAmount}, 剩餘額度${remainingSubsidy}`);
 
@@ -425,14 +426,14 @@ export const getPipelineSubsidyLimit = (
     console.warn(`未找到灌溉系統 "${irrigationSystem}" 在 ${region} 地區的補助標準`);
     return 0;
   }
-  return Math.floor(unitSubsidy * area);
+  return new Big(unitSubsidy).times(area).round(0, Big.roundDown).toNumber();
 };
 
 /**
  * 計算田間管路規劃設計費 (2%)
  */
 export const calculatePipelineDesignFee = (pipelineMaterialCost: number): number => {
-  return Math.floor(pipelineMaterialCost * 0.02);
+  return new Big(pipelineMaterialCost).times('0.02').round(0, Big.roundDown).toNumber();
 };
 
 /**
