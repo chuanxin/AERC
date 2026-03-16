@@ -124,7 +124,7 @@
                     <strong>地段:</strong> {{ selectedFeatureInfo.section }}
                   </div>
                   <div v-if="selectedFeatureInfo.area">
-                    <strong>面積:</strong> {{ truncM2(Number(selectedFeatureInfo.area)) }} 平方公尺
+                    <strong>面積:</strong> {{ Number(selectedFeatureInfo.area).toFixed(2) }} 平方公尺
                     <!-- <span class="text-caption text-grey-darken-1">
                       ({{ (Number(selectedFeatureInfo.area) / 3.305785).toFixed(2) }} 坪)
                     </span> -->
@@ -813,7 +813,7 @@
                                 density="compact"
                                 color="#3ea0a3"
                                 bg-color="white"
-                                type="tel"
+                                pattern="[0-9]*"
                                 maxlength="4"
                                 style="width: 90px"
                                 hide-details
@@ -821,7 +821,7 @@
                                 autocomplete="off"
                                 :rules="[v => !!v || '請輸入主地號']"
                                 @focus="landNumberMainFocused = true"
-                                @blur="landNumberMainFocused = false"
+                                @blur="onLandNumberMainBlur"
                                 @input="onLandNumberMainInput"
                               >
                                 <template #label>
@@ -848,14 +848,14 @@
                                 density="compact"
                                 color="#3ea0a3"
                                 bg-color="white"
-                                type="tel"
+                                pattern="[0-9]*"
                                 maxlength="4"
                                 style="width: 90px"
                                 hide-details
                                 placeholder="0000"
                                 autocomplete="off"
                                 @focus="landNumberSubFocused = true"
-                                @blur="landNumberSubFocused = false"
+                                @blur="onLandNumberSubBlur"
                                 @input="onLandNumberSubInput"
                               >
                                 <template #label>
@@ -1276,6 +1276,7 @@
                       class="me-2"
                       style="width: 60px"
                       :rules="[v => !!v || '請輸入土地面積']"
+                      @blur="() => { const v = parseFloat(localFormData.landArea); if (!isNaN(v)) localFormData.landArea = m2Truncate(v) }"
                       @update:model-value="updateFormData"
                     />
                     <div class="me-2">
@@ -1313,6 +1314,7 @@
                         v => !!v || '請輸入施作面積',
                         v => !v || parseFloat(v) <= parseFloat(localFormData.landArea) || '施作面積不能大於農地地籍面積'
                       ]"
+                      @blur="() => { const v = parseFloat(localFormData.facilityArea); if (!isNaN(v)) localFormData.facilityArea = m2Truncate(v) }"
                       @update:model-value="updateFormData"
                     />
                     <div class="me-2">
@@ -1946,9 +1948,9 @@
 </template>
 
 <script setup lang="ts">
+import Big from 'big.js';
 // Import OpenLayers dependencies
 import 'ol/ol.css';
-import { truncM2 } from '@/utils/subsidyCalc';
 import { Map, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import WMTS from 'ol/source/WMTS';
@@ -2219,7 +2221,7 @@ const createEventEmitter = (
   const emitDataChangedInternal = (immediate = false) => {
     if (!guard.isInitialized || guard.isInitializing) return
 
-    // 🔥 Good Taste: 只發送持久化資料（lands 陣列 + 計算欄位），單筆編輯欄位不發送
+    // 只發送持久化資料（lands 陣列 + 計算欄位），單筆編輯欄位不發送
     const persistentData = {
       lands: formData.lands,
       totalFacilityArea: formData.totalFacilityArea,
@@ -2227,11 +2229,6 @@ const createEventEmitter = (
       valid: formData.valid
     }
 
-    console.log(`🚀 step${stepNumber}.vue: Emitting step-data-changed event (lands + totals, immediate: ${immediate})`, {
-      landsCount: persistentData.lands?.length || 0,
-      totalFacilityArea: persistentData.totalFacilityArea,
-      totalFacilityAreaHa: persistentData.totalFacilityAreaHa
-    })
     emit('step-data-changed', {
       step: stepNumber,
       data: persistentData,
@@ -3193,6 +3190,33 @@ const onLandNumberSubInput = () => {
   }
 };
 
+// Blur handlers: normalize to 4-digit padded format without triggering clearLocationAndAreaInfo
+const onLandNumberMainBlur = () => {
+  landNumberMainFocused.value = false;
+  if (localFormData.landNumberMain) {
+    const padded = (localFormData.landNumberMain.replace(/^0+/, '') || '0').padStart(4, '0');
+    if (padded !== localFormData.landNumberMain) {
+      isLandNumberUpdateProgrammatic.value = true;
+      localFormData.landNumberMain = padded;
+      updateLandNumber();
+      setTimeout(() => { isLandNumberUpdateProgrammatic.value = false; }, 0);
+    }
+  }
+};
+
+const onLandNumberSubBlur = () => {
+  landNumberSubFocused.value = false;
+  if (localFormData.landNumberSub) {
+    const padded = (localFormData.landNumberSub.replace(/^0+/, '') || '0').padStart(4, '0');
+    if (padded !== localFormData.landNumberSub) {
+      isLandNumberUpdateProgrammatic.value = true;
+      localFormData.landNumberSub = padded;
+      updateLandNumber();
+      setTimeout(() => { isLandNumberUpdateProgrammatic.value = false; }, 0);
+    }
+  }
+};
+
 const formattedLandNumberMain = computed({
   get: () => {
     // When focused, show the raw value
@@ -3205,8 +3229,8 @@ const formattedLandNumberMain = computed({
   },
   set: (val) => {
     const previousValue = localFormData.landNumberMain;
-    // Store numeric value (remove leading zeros)
-    const newValue = val ? val.replace(/^0+/, '') || '0' : '';
+    // Store value as-is; padStart normalization happens on blur
+    const newValue = val || '';
     localFormData.landNumberMain = newValue;
 
     // Clear coordinate and area info if the value actually changed and it's a manual user input
@@ -3229,8 +3253,8 @@ const formattedLandNumberSub = computed({
   },
   set: (val) => {
     const previousValue = localFormData.landNumberSub;
-    // Store numeric value (remove leading zeros)
-    const newValue = val ? val.replace(/^0+/, '') || '0' : '';
+    // Store value as-is; padStart normalization happens on blur
+    const newValue = val || '';
     localFormData.landNumberSub = newValue;
 
     // Clear coordinate and area info if the value actually changed and it's a manual user input
@@ -3246,7 +3270,7 @@ const landAreaHaComputed = computed({
   get: () => {
     if (!localFormData.landArea) return '';
     const area = parseFloat(localFormData.landArea);
-    return !isNaN(area) ? (area / 10000).toString() : '';
+    return !isNaN(area) ? m2ToHa(area) : '';
   },
   set: (val) => {
     if (val) {
@@ -3261,11 +3285,19 @@ const landAreaHaComputed = computed({
   }
 });
 
+// 平方公尺截斷至小數第 2 位（不四捨五入）
+const m2Truncate = (m2: number): string =>
+  new Big(m2).round(2, Big.roundDown).toString()
+
+// 平方公尺轉公頃，截斷至第 6 位小數（不四捨五入）
+const m2ToHa = (m2: number): string =>
+  new Big(m2).div(10000).round(6, Big.roundDown).toString()
+
 const facilityAreaHaComputed = computed({
   get: () => {
     if (!localFormData.facilityArea) return '';
     const area = parseFloat(localFormData.facilityArea);
-    return !isNaN(area) ? (area / 10000).toString() : '';
+    return !isNaN(area) ? m2ToHa(area) : '';
   },
   set: (val) => {
     if (val) {
@@ -3291,7 +3323,7 @@ const ownerAreaComputed = computed({
     const share2 = parseFloat(localFormData.ownerShare2);
 
     if (!isNaN(landArea) && !isNaN(share1) && !isNaN(share2) && share2 !== 0) {
-      const calculatedValue = ((landArea * share1) / share2).toFixed(1);
+      const calculatedValue = new Big(landArea).times(share1).div(share2).round(1, Big.roundDown).toString();
       // 在 getter 中同步更新 localFormData.ownerArea
       localFormData.ownerArea = calculatedValue;
       return calculatedValue;
@@ -3308,13 +3340,16 @@ const ownerAreaComputed = computed({
 // 多筆土地計算屬性
 const totalFacilityArea = computed(() => {
   return landManagement.lands.reduce((total, land) => {
-    const area = parseFloat(land.facilityArea || '0')
-    return total + (isNaN(area) ? 0 : area)
+    const area = land.facilityArea || '0'
+    return new Big(total).plus(isNaN(parseFloat(area)) ? 0 : area).toNumber()
   }, 0)
 })
 
 const totalFacilityAreaHa = computed(() => {
-  return totalFacilityArea.value / 10000
+  return landManagement.lands.reduce((total, land) => {
+    const area = land.facilityAreaHa || '0'
+    return new Big(total).plus(isNaN(parseFloat(area)) ? 0 : area).toNumber()
+  }, 0)
 })
 
 // 追蹤上一次的面積值，用於檢測變化
@@ -3357,8 +3392,8 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
       // 顯示提示說明（不提供取消選項）
       alert(
         '⚠️ 設施面積已變更！\n\n' +
-        `原面積：${(oldArea / 10000).toFixed(4)} 公頃\n` +
-        `新面積：${(area / 10000).toFixed(4)} 公頃\n\n` +
+        `原面積：${(Big(oldArea).div(10000).round(6, Big.roundDown).toString())} 公頃\n` +
+        `新面積：${(Big(area).div(10000).round(6, Big.roundDown).toString())} 公頃\n\n` +
         '面積變更會影響補助額度計算，系統將自動清除以下步驟的資料：\n' +
         (hasStep4Data ? '• Step 4 - 灌溉調控設施\n' : '') +
         (hasStep5Data ? '• Step 5 - 田間管路設施\n' : '') +
@@ -3721,8 +3756,9 @@ const confirmDate = stepManager.createProtectedHandler(() => {
   showDatePicker.value = false;
 });
 
+// TODO：持分人土地功能尚未實現
 const calculateTotalShare = () => {
-  let totalShare = 0;
+  let totalShare = new Big(0);
 
   if (localFormData.owners && localFormData.owners.length > 0) {
     localFormData.owners.forEach(owner => {
@@ -3732,13 +3768,13 @@ const calculateTotalShare = () => {
         const denominator = parseFloat(shareParts[1]);
 
         if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
-          totalShare += numerator / denominator;
+          totalShare = totalShare.plus(new Big(numerator).div(denominator));
         }
       }
     });
   }
 
-  return totalShare;
+  return totalShare.toNumber();
 };
 
 // Get area source display text
@@ -4204,7 +4240,7 @@ const initializeStep2WithCascadeData = async () => {
 
     // 🔥 初始化面積追蹤值，避免首次載入時觸發清除邏輯
     previousTotalFacilityArea.value = totalFacilityArea.value
-    console.log(`📏 [Step2] 初始化面積追蹤值: ${(totalFacilityArea.value / 10000).toFixed(4)} 公頃`)
+    // console.log(`📏 [Step2] 初始化面積追蹤值: ${(totalFacilityArea.value / 10000).toFixed(4)} 公頃`)
 
     // 主動發送一次完整的初始化資料狀態給父組件
     // 這確保 grants store 的 previousFormData 與當前資料一致
@@ -4267,7 +4303,7 @@ watch(() => localFormData.landArea, stepManager.createProtectedWatch((...args: u
 
           if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
             // 重新計算持分面積
-            const newArea = ((landArea * numerator) / denominator).toFixed(1);
+            const newArea = new Big(landArea).times(numerator).div(denominator).round(1, Big.roundDown).toString();
             localFormData.owners[index] = {
               ...owner,
               area: newArea
@@ -4281,8 +4317,8 @@ watch(() => localFormData.landArea, stepManager.createProtectedWatch((...args: u
   if (newVal) {
     const area = parseFloat(newVal);
     if (!isNaN(area)) {
-      // 更新農地地籍面積公頃值
-      const calculatedHa = (area / 10000).toString()
+      // 更新農地地籍面積公頃值（以截斷後的 m² 為基準）
+      const calculatedHa = m2ToHa(area)
       localFormData.landAreaHa = calculatedHa
 
       // 檢查設施面積是否超出農地地籍面積
@@ -4313,8 +4349,7 @@ watch(() => localFormData.facilityArea as string, stepManager.createProtectedWat
         localFormData.facilityArea = localFormData.landArea;
         localFormData.facilityAreaHa = localFormData.landAreaHa;
       } else {
-        // 正常更新公頃值
-        localFormData.facilityAreaHa = (facilityArea / 10000).toString();
+        localFormData.facilityAreaHa = m2ToHa(facilityArea);
       }
     }
   } else {
@@ -4585,13 +4620,14 @@ const handleFeatureModify = (event: { features: { getArray: () => Feature<Geomet
 
       // Update the land area in the form if this is the currently used feature
       if (landInfo.number === feature.get('Land_no')) {
-        localFormData.landArea = preciseArea.toString();
-        localFormData.landAreaHa = (preciseArea / 10000).toString();
+        const truncatedM2 = m2Truncate(preciseArea);
+        localFormData.landArea = truncatedM2;
+        localFormData.landAreaHa = m2ToHa(parseFloat(truncatedM2));
 
         // If facility area is not set, set it to the same value
         if (!localFormData.facilityArea) {
-          localFormData.facilityArea = preciseArea.toString();
-          localFormData.facilityAreaHa = (preciseArea / 10000).toString();
+          localFormData.facilityArea = truncatedM2;
+          localFormData.facilityAreaHa = m2ToHa(parseFloat(truncatedM2));
         }
 
         // 使用統一的事件保護
@@ -4854,13 +4890,13 @@ const useSelectedFeature = async () => {
 
     // If the feature has an area, update the area fields
     if (selectedFeatureInfo.value.area) {
-      localFormData.landArea = String(selectedFeatureInfo.value.area);
-      // Convert to hectares
-      const areaInHa = (parseFloat(String(selectedFeatureInfo.value.area)) / 10000).toString();
+      const truncatedM2 = m2Truncate(parseFloat(String(selectedFeatureInfo.value.area)));
+      const areaInHa = m2ToHa(parseFloat(truncatedM2));
+      localFormData.landArea = truncatedM2;
       localFormData.landAreaHa = areaInHa;
 
       // Set the facility area to match land area by default
-      localFormData.facilityArea = String(selectedFeatureInfo.value.area);
+      localFormData.facilityArea = truncatedM2;
       localFormData.facilityAreaHa = areaInHa;
     }
 

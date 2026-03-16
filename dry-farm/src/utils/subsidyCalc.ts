@@ -20,8 +20,3 @@ export const truncM2 = (value: number): string => {
   const dot = s.indexOf('.')
   return s.slice(0, dot + 3).padEnd(dot + 3, '0')
 }
-
-/**
- * 無條件捨去取整數
- */
-export const floorInt = (value: number): number => Math.floor(value)
