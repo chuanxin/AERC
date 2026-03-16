@@ -680,7 +680,7 @@ class BudgetStatementPDFGenerator:
         if self.revision_date:
             c.setFont(self.font_name, 8)
             c.setFillColorRGB(0.6, 0.6, 0.6)  # 淡灰色
-            revision_text = f"{self.revision_date}修訂"
+            revision_text = f"{self.revision_date}印製"  #0306改為印製
             revision_text_width = c.stringWidth(revision_text, self.font_name, 8)
             # 右上角位置：右邊距 20pt，上邊距 30pt
             c.drawString(width - revision_text_width - 20, height - 30, revision_text)

@@ -11,10 +11,39 @@ export interface Announcement {
 // 這是唯一的資料來源 (Single Source of Truth)
 export const announcementsData: Announcement[] = [
   {
+    id: 6,
+  date: '115.03.13',
+  type: '系統公告',
+  content: '115年度 管灌設施補助宣導摺頁 下載 🆕',
+  fullContent: `
+    <div class="pdf-announcement">
+      <p>115年管灌設施補助宣導摺頁已正式發佈，歡迎相關人員下載查閱 。</p>
+      
+      <div class="pdf-thumbnail" style="margin: 15px 0;">
+        <a href="https://drive.google.com/file/d/1XaMky1eUa24kzVublY7mffOfvGDAu-aV/view?usp=sharing" target="_blank">
+          <img src="https://drive.google.com/thumbnail?id=1XaMky1eUa24kzVublY7mffOfvGDAu-aV&sz=w300" 
+               alt="115年度管灌設施補助宣導摺頁" 
+               style="border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: 0.3s;"
+               onmouseover="this.style.opacity='0.8'" 
+               onmouseout="this.style.opacity='1'">
+        </a>
+      </div>
+
+      <div class="download-link">
+        <a href="https://drive.google.com/file/d/1XaMky1eUa24kzVublY7mffOfvGDAu-aV/view?usp=sharing" 
+           target="_blank" 
+           style="color: #2c3e50; text-decoration: underline; font-weight: bold;">
+           👉 點此下載：115年管灌設施補助宣導摺頁.pdf 
+        </a>
+      </div>
+    </div>
+  `
+  },
+  {
     id: 5,
   date: '115.03.05',
   type: '系統公告',
-  content: '115年度 推廣管路灌溉設施作業指引',
+  content: '115年度 推廣管路灌溉設施作業指引 🆕',
   fullContent: `
     <div class="pdf-announcement">
       <p>115年度推廣管路灌溉設施作業指引已正式發佈，歡迎相關人員下載查閱 。</p>
@@ -59,12 +88,12 @@ export const announcementsData: Announcement[] = [
     type: '系統公告',
     content: '承辦窗口資訊',
     fullContent: '新系統有操作問題可以洽詢農工中心以下窗口\n(1)林佩瑩小姐 電話：03-4521314#221 \n(2)陳力苑小姐 電話：03-4521314#231。'
-  },
-  {
-    id: 1,
-    date: '114.01.02',
-    type: '停機公告',
-    content: '2025/01/05 ~ 2025/01/08 18:00系統將進行資料更新',
-    fullContent: '為提供更優質的服務，系統將於2025/01/05 ~ 2025/01/08 進行匯入114年度申請案。\n並清空114年12月30日～115年1月4日於新系統新增的測試案件。'
-  }
+   }//,
+  // {
+  //   id: 1,
+  //   date: '114.01.02',
+  //   type: '停機公告',
+  //   content: '2025/01/05 ~ 2025/01/08 18:00系統將進行資料更新',
+  //   fullContent: '為提供更優質的服務，系統將於2025/01/05 ~ 2025/01/08 進行匯入114年度申請案。\n並清空114年12月30日～115年1月4日於新系統新增的測試案件。'
+  // }
 ];
