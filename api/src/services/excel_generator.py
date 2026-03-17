@@ -478,6 +478,46 @@ _B03_NOTE_TEXT = (
     '3、*調蓄設施蓄水池欄位：噸的數量為蓄水池座數容量的總和。'
 )
 
+# ── 外出拍攝照片攜帶表（PCF）常數 ──────────────────────────────────────────────
+_PCF_COL_WIDTHS = {1: 12, 2: 15, 3: 12, 4: 15, 5: 40, 6: 18, 7: 16, 8: 20, 9: 24, 10: 18, 11: 60}
+_PCF_HDR_TEXT = ['案件編號', '申請人姓名', '鄉鎮', '段名', '地號', '面積（公頃）', '設施類型', '末端型式', '農作物', '電話', '通訊地址']
+_PCF_DATA_ROWS_PER_PAGE = 16  # 每頁資料列數
+_PCF_THIN_BORDER = Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_T, bottom=_XL_S_T)
+_PCF_HDR_FONT = Font(name='微軟正黑體', size=12, bold=True)
+_PCF_DATA_FONT = Font(name='微軟正黑體', size=11)
+_PCF_TITLE_FONT = Font(name='微軟正黑體', size=14, bold=True)
+_PCF_HDR_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=True)
+_PCF_DATA_ALIGN = Alignment(horizontal='left', vertical='center', wrap_text=True)
+_PCF_TITLE_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=True)
+_PCF_PAGE_ALIGN = Alignment(horizontal='right', vertical='center')
+
+
+def _fmt_ha(value) -> str:
+    """面積公頃格式化：截斷至小數第6位，不四捨五入（與 budget_statement_pdf_generator._fmt_ha 相同）"""
+    try:
+        s = f"{float(value):.10f}"
+        dot = s.index('.')
+        return s[:dot + 7]
+    except (ValueError, TypeError):
+        return '0.000000'
+
+
+def _pcf_row_height(texts_and_widths: list, base: float = 21.0, line_h: float = 18.0) -> float:
+    """
+    估算 wrap_text 情境下所需的列高。
+    texts_and_widths: [(text, col_width_chars), ...]
+    中文字元寬度約為 2 個半形單位；line_h 為每行點數。
+    """
+    max_lines = 1
+    for text, cw in texts_and_widths:
+        if not text or cw <= 0:
+            continue
+        # 將全形（中文）字元視為 2 個半形單位
+        char_units = sum(2 if ord(ch) > 127 else 1 for ch in text)
+        lines = max(1, -(-char_units // max(1, int(cw * 0.9))))  # ceiling div
+        max_lines = max(max_lines, lines)
+    return max(base, max_lines * line_h)
+
 
 class ExcelGeneratorService:
     """Excel 文件生成服務 - 基於範本驅動架構生成 .xlsx 檔案"""
@@ -496,39 +536,142 @@ class ExcelGeneratorService:
 
     async def generate_photograph_carry_form(self, data: List[Dict[str, Any]], year: str, enable_pagination: bool = True) -> str:
         """
-        生成外出拍攝照片攜帶表 Excel 檔案 - 完全基於範本驅動
+        生成外出拍攝照片攜帶表 Excel 檔案（程式化建構，無範本依賴）
 
-        範本結構定義：
-        - 第1-3列：標題區塊（包含機構名稱、年度、表單標題、欄位標題）
-        - 第4-19列：資料區塊樣本（16列資料格式範本）
-        - 第20列：頁數列樣本
+        每個案件依 (鄉鎮, 段名) 聚合土地資料，一組對應一列；
+        案件層級欄位（A, B, G, H, I, J, K）跨列合併顯示。
 
         Args:
-            data: 案件資料列表
+            data: 案件資料列表，每筆含 case_number, applicant_name, land_groups,
+                  facility_type, irrigation_type, crops_text, phone, address, office_name
             year: 申請年度
-            enable_pagination: 分頁模式控制
-                - True: 分頁模式 - 每頁顯示標題列和頁數，每頁16筆資料
-                - False: 不分頁模式 - 只有第一頁標題列，連續顯示所有資料，無頁數
+            enable_pagination: True 分頁（每頁16列，不拆散案件）；False 不分頁
 
         Returns:
             str: 生成的 Excel 檔案路徑
         """
-        # 使用環境配置取得範本檔案路徑 - 跨平台相容
-        template_path = settings.get_template_path("photograph_carry_form_template.xlsx")
+        COL_COUNT = 11
+        ROWS_PER_PAGE = _PCF_DATA_ROWS_PER_PAGE
 
-        if not template_path.exists():
-            raise FileNotFoundError(f"範本檔案不存在: {template_path}\n環境: {settings.environment}\n根目錄: {settings.data_root}")
+        office_name = data[0].get('office_name', '') if data else ''
 
-        # 載入範本檔案
-        from openpyxl import load_workbook
-        workbook = load_workbook(str(template_path))
-        worksheet = workbook.active
+        # 預先分頁：不拆散案件（一個案件的所有土地列保持在同一頁）
+        if enable_pagination:
+            pages: List[List[Dict[str, Any]]] = []
+            cur_page: List[Dict[str, Any]] = []
+            cur_rows = 0
+            for item in data:
+                n = len(item.get('land_groups') or [{}])
+                if cur_rows > 0 and cur_rows + n > ROWS_PER_PAGE:
+                    pages.append(cur_page)
+                    cur_page = []
+                    cur_rows = 0
+                cur_page.append(item)
+                cur_rows += n
+            if cur_page:
+                pages.append(cur_page)
+            total_pages = len(pages) if pages else 1
+        else:
+            pages = [data]
+            total_pages = 1
 
-        # 更新年度
-        worksheet['F1'] = year
+        wb = Workbook()
+        ws = wb.active
 
-        # 使用範本驅動的資料填寫邏輯
-        return await self._fill_template_data(workbook, worksheet, data, year, enable_pagination)
+        for col, w in _PCF_COL_WIDTHS.items():
+            ws.column_dimensions[get_column_letter(col)].width = w
+
+        def _write_header(title_row: int) -> int:
+            """寫標題列 + 欄頭列，回傳第一筆資料列號"""
+            ws.row_dimensions[title_row].height = 45.0
+            ws.merge_cells(start_row=title_row, start_column=1, end_row=title_row, end_column=COL_COUNT)
+            tc = ws.cell(title_row, 1)
+            tc.value = f"農業部農田水利署{office_name}\n外出拍攝照片攜帶表"
+            tc.font = _PCF_TITLE_FONT
+            tc.alignment = _PCF_TITLE_ALIGN
+            tc.border = _PCF_THIN_BORDER
+
+            hdr_row = title_row + 1
+            ws.row_dimensions[hdr_row].height = 30.0
+            for ci, txt in enumerate(_PCF_HDR_TEXT, start=1):
+                c = ws.cell(hdr_row, ci)
+                c.value = txt
+                c.font = _PCF_HDR_FONT
+                c.alignment = _PCF_HDR_ALIGN
+                c.border = _PCF_THIN_BORDER
+            return hdr_row + 1
+
+        cur_row = 1
+        for page_idx, page_items in enumerate(pages):
+            page_num = page_idx + 1
+            cur_row = _write_header(cur_row)
+
+            for item in page_items:
+                land_groups = item.get('land_groups') or [
+                    {'land_town': '', 'land_section': '', 'lot_numbers': '', 'facility_area_ha': 0}
+                ]
+                n = len(land_groups)
+                grant_start = cur_row
+                grant_end = cur_row + n - 1
+
+                # 土地列欄位（C=3, D=4, E=5, F=6, I=9）：每個聚合組對應一列
+                for lg_idx, lg in enumerate(land_groups):
+                    row = cur_row + lg_idx
+                    lot_numbers_str = str(lg.get('lot_numbers', ''))
+                    crops_str = str(lg.get('crops_text', ''))
+                    ws.row_dimensions[row].height = _pcf_row_height([
+                        (lot_numbers_str, _PCF_COL_WIDTHS[5]),
+                        (crops_str,       _PCF_COL_WIDTHS[9]),
+                    ])
+                    for ci, val in (
+                        (3, str(lg.get('land_town', ''))),
+                        (4, str(lg.get('land_section', ''))),
+                        (5, lot_numbers_str),
+                        (6, _fmt_ha(lg.get('facility_area_ha', 0))),
+                        (9, crops_str),
+                    ):
+                        c = ws.cell(row, ci)
+                        c.value = val
+                        c.font = _PCF_DATA_FONT
+                        c.alignment = _PCF_DATA_ALIGN
+                        c.border = _PCF_THIN_BORDER
+
+                # 案件層級欄位（A=1, B=2, G=7, H=8, J=10, K=11）：寫入第一列，多列時合併
+                for ci, val in (
+                    (1, str(item.get('case_number', ''))),
+                    (2, str(item.get('applicant_name', ''))),
+                    (7, str(item.get('facility_type', ''))),
+                    (8, str(item.get('irrigation_type', ''))),
+                    (10, str(item.get('phone', ''))),
+                    (11, str(item.get('address', ''))),
+                ):
+                    c = ws.cell(grant_start, ci)
+                    c.value = val
+                    c.font = _PCF_DATA_FONT
+                    c.alignment = _PCF_DATA_ALIGN
+                    c.border = _PCF_THIN_BORDER
+                    if n > 1:
+                        ws.merge_cells(
+                            start_row=grant_start, start_column=ci,
+                            end_row=grant_end, end_column=ci
+                        )
+
+                cur_row += n
+
+            # 頁碼列
+            if enable_pagination:
+                ws.row_dimensions[cur_row].height = 15.0
+                pc = ws.cell(cur_row, COL_COUNT)
+                pc.value = f'第{page_num}頁，共{total_pages}頁'
+                pc.font = _PCF_DATA_FONT
+                pc.alignment = _PCF_PAGE_ALIGN
+                cur_row += 1
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"photograph_carry_form_{year}_{timestamp}.xlsx"
+        file_path = self.temp_dir / filename
+        wb.save(str(file_path))
+        return str(file_path)
 
     async def _fill_template_data(self, workbook, worksheet, data: List[Dict[str, Any]], year: str,
                                   enable_pagination: bool = True) -> str:

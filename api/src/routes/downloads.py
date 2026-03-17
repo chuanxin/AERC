@@ -88,19 +88,63 @@ async def download_photograph_carry_form(
         # 準備資料供 Excel 生成
         excel_data = []
         for grant in grants:
-            # 解析需要的欄位（從版本資料中取得）
             version_data = grant.active_version.all_steps_data if grant.active_version else {}
+
+            # 使用 extract_budget_statement_data 取得正確欄位資料
+            grant_data = await extract_budget_statement_data(grant, version_data)
+
+            steps_data = version_data.get('steps', {}) if version_data else {}
+            step2_lands = steps_data.get('2', {}).get('lands', [])
+
+            # G欄（設施類型）+ H欄（末端型式）：
+            # extract_budget_statement_data 已計算 facility_type = "{安裝型式} {末端型式}"
+            # 與 budget_statement_pdf_generator.py 使用相同來源，以空格分割取兩欄
+            combined_facility = grant_data.get('facility_type', '')
+            _parts = combined_facility.split(' ', 1)
+            facility_type = _parts[0]                          # G欄：安裝型式
+            irrigation_type = _parts[1] if len(_parts) > 1 else ''  # H欄：末端型式
+
+            # 依 (鄉鎮, 段名) 聚合土地資料
+            # 每組：地號「、」分隔、面積加總、農作物去重後「、」分隔
+            conv_lands = grant_data.get('lands', [])
+            land_groups_dict: dict = {}
+            for raw_land, conv_land in zip(step2_lands, conv_lands):
+                key = (conv_land.get('land_town', ''), conv_land.get('section', ''))
+                lot_num = conv_land.get('lot_number', '')
+                try:
+                    area_ha = float(raw_land.get('facilityAreaHa', 0) or 0)
+                except (ValueError, TypeError):
+                    area_ha = 0.0
+                if key not in land_groups_dict:
+                    land_groups_dict[key] = {'lot_numbers': [], 'facility_area_ha': 0.0, 'crops': {}}
+                if lot_num:
+                    land_groups_dict[key]['lot_numbers'].append(lot_num)
+                land_groups_dict[key]['facility_area_ha'] += area_ha
+                for crop in raw_land.get('crops', []):
+                    name = crop.get('name', '').strip()
+                    if name:
+                        land_groups_dict[key]['crops'][name] = None  # 插入順序去重
+
+            land_groups = [
+                {
+                    'land_town': k[0],
+                    'land_section': k[1],
+                    'lot_numbers': '、'.join(v['lot_numbers']),
+                    'facility_area_ha': v['facility_area_ha'],
+                    'crops_text': '、'.join(f'□{n}' for n in v['crops'].keys()),
+                }
+                for k, v in land_groups_dict.items()
+            ] or [{'land_town': '', 'land_section': '', 'lot_numbers': '', 'facility_area_ha': 0.0, 'crops_text': ''}]
+
             row_data = {
-                "case_number": str(grant.case_number) if grant.case_number else "",
-                "applicant_name": str(grant.applicant_name) if grant.applicant_name else "",
-                "county": str(grant.county) if grant.county else "",
-                "town": str(grant.town) if grant.town else "",
-                "address": str(grant.address) if grant.address else "",
-                "office": str(grant.office) if grant.office else "",
-                "undertracker": str(grant.undertracker) if grant.undertracker else "",
-                "received_date": str(grant.received_date) if grant.received_date else "",
-                "land_data": version_data.get("step2", {}) if version_data else {},
-                "facility_data": version_data.get("step3", {}) if version_data else {},
+                'case_number': grant_data.get('case_number', ''),
+                'applicant_name': grant_data.get('applicant_name', ''),
+                'land_groups': land_groups,
+                'facility_type': facility_type,
+                'irrigation_type': irrigation_type,
+                'phone': grant_data.get('phone', ''),
+                'address': grant_data.get('address', ''),
+                'office_name': grant_data.get('office_name', ''),
             }
             excel_data.append(row_data)
 
@@ -109,7 +153,7 @@ async def download_photograph_carry_form(
         excel_file_path = await excel_service.generate_photograph_carry_form(
             excel_data,
             request.year,
-            request.enable_pagination
+            request.enable_pagination if request.enable_pagination is not None else True
         )
 
         # 生成下載檔名 - 使用英文避免編碼問題

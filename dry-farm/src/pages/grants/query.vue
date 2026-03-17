@@ -45,9 +45,11 @@
                         查詢年度 *
                       </div>
                       <div class="field-control">
-                        <v-select
+                        <v-combobox
                           v-model="searchFilters.year"
                           :items="yearOptions"
+                          item-title="title"
+                          item-value="value"
                           density="comfortable"
                           variant="outlined"
                           hide-details
@@ -55,6 +57,7 @@
                           clearable
                           bg-color="white"
                           rounded="lg"
+                          autocomplete="off"
                         />
                       </div>
                     </div>
@@ -491,22 +494,22 @@ const selectedFileType = ref<string | null>('photograph_carry_form')
 
 // 搜尋篩選條件
 const searchFilters = ref({
-  year: '115' as string | null, // 預設選取115年度
+  year: null as string | null,
   caseNumberStart: '',
   caseNumberEnd: '',
   applicantName: '',
   status: null as string | null,
 })
 
-// 年度選項
-const yearOptions = [
-  { title: '115', value: '115' },
-  { title: '114', value: '114' },
-  { title: '113', value: '113' },
-  { title: '112', value: '112' },
-  { title: '111', value: '111' },
-  { title: '110', value: '110' },
-]
+// 年度選項（97 年起到當前民國年，降序）
+const yearOptions = computed(() => {
+  const currentRocYear = new Date().getFullYear() - 1911
+  const years = []
+  for (let y = currentRocYear; y >= 97; y--) {
+    years.push({ title: String(y), value: String(y) })
+  }
+  return years
+})
 
 const userStore = useUserStore(); //added by Joya
 const currentOfficeId = computed(() => {
@@ -610,7 +613,7 @@ const fileCategories = ref<FileCategory[]>([
 // 工具函數：取得年度顯示名稱
 const getYearDisplay = (year: string | null) => {
   if (!year) return ''
-  const yearOption = yearOptions.find(option => option.value === year)
+  const yearOption = yearOptions.value.find((option: { title: string; value: string }) => option.value === year)
   return yearOption ? `${yearOption.title}年度` : year
 }
 
@@ -854,6 +857,13 @@ const handleDownload = async () => {
     downloading.value = false
   }
 }
+
+// 正規化 v-combobox 年度值：從選單選取時回傳物件，手動輸入時回傳字串，統一轉為字串
+watch(() => searchFilters.value.year, (val) => {
+  if (val && typeof val === 'object') {
+    searchFilters.value.year = (val as { value: string }).value
+  }
+})
 
 // 監聽查詢條件改變，自動檢查資料可用性
 watch([selectedFileType, () => searchFilters.value.year, () => searchFilters.value.caseNumberStart, () => searchFilters.value.caseNumberEnd],
