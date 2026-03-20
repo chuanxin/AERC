@@ -1367,39 +1367,34 @@ class BudgetStatementPDFGenerator:
         c.showPage()
 
     def _generate_pipe_materials_table_page(self, c: canvas.Canvas, data: Dict[str, Any]) -> None:
-        """生成第 5 頁：管路灌溉系統材料數量表（支援自動換頁）"""
+        """生成第 5 頁：管路灌溉系統材料數量表"""
         width, height = A4
+        current_y = height - 60
         left_margin = 40
-        bottom_limit = 50  # 頁面底部預留空間
-        table_x = left_margin
-        col_widths = [40, 172, 110, 41, 45, 45, 60]
-        total_width = sum(col_widths)
-        row_height = 22
-        table_font_size = 12
-        
-        pipe_materials = data.get('pipe_materials', [])
-        
-        # 定義繪製頁首資訊的內部函式
-        def draw_page_header(current_y):
-            c.setFont(self.font_name, 22)
-            title = "管路灌溉系統材料數量表"
-            title_width = c.stringWidth(title, self.font_name, 22)
-            c.drawString((width - title_width) / 2, current_y, title)
-            current_y -= 48
-            
-            c.setFont(self.font_name, 14)
-            c.drawString(left_margin, current_y, f"申請案號：{format_case_number(data.get('case_number', ''))}")
-            current_y -= 25
-            c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
-            current_y -= 25
-            block_shape = self._format_value_or_dash(data.get('block_shape', ''))
-            c.drawString(left_margin, current_y, f"坵塊形狀：{block_shape}")
-            current_y -= 25
-            nozzle_spacing_label = data.get('nozzle_spacing_label', '')
-            nozzle_spacing = self._format_value_or_dash(data.get('nozzle_spacing', ''))
-            if nozzle_spacing_label:
-                c.drawString(left_margin, current_y, f"{nozzle_spacing_label}：{nozzle_spacing}")
-            return current_y - 40
+
+        # 標題
+        c.setFont(self.font_name, 22)
+        title = "管路灌溉系統材料數量表"
+        title_width = c.stringWidth(title, self.font_name, 22)
+        c.drawString((width - title_width) / 2, current_y, title)
+        current_y -= 48
+
+        # 基本資訊
+        c.setFont(self.font_name, 14)
+        c.drawString(left_margin, current_y, f"申請案號：{format_case_number(data.get('case_number', ''))}")
+        current_y -= 25
+        c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
+        current_y -= 25
+        # 坵塊形狀：空值或 0 顯示刪節符號
+        block_shape = self._format_value_or_dash(data.get('block_shape', ''))
+        c.drawString(left_margin, current_y, f"坵塊形狀：{block_shape}")
+        current_y -= 25
+        # 噴頭配置間距（根據資料動態顯示標籤，空值顯示刪節符號）
+        nozzle_spacing_label = data.get('nozzle_spacing_label', '')
+        nozzle_spacing = self._format_value_or_dash(data.get('nozzle_spacing', ''))
+        if nozzle_spacing_label:
+            c.drawString(left_margin, current_y, f"{nozzle_spacing_label}：{nozzle_spacing}")
+        current_y -= 40
 
         # === 材料數量表 ===
         c.setLineWidth(0.5)
@@ -1595,46 +1590,38 @@ class BudgetStatementPDFGenerator:
         separator = "--------------------以下空白--------------------"
         sep_width = c.stringWidth(separator, self.font_name, 10)
         c.drawString((width - sep_width) / 2, current_y, separator)
-        
+
         c.showPage()
 
     def _generate_control_materials_table_page(self, c: canvas.Canvas, data: Dict[str, Any]) -> None:
-        """生成第 6 頁：調控設施材料數量表（移除規格/單位，支援自動換頁）"""
+        """生成第 6 頁：調控設施材料數量表"""
         width, height = A4
+        current_y = height - 60
         left_margin = 40
-        bottom_limit = 50  # 頁面底部預留空間
-        table_x = left_margin
-        
-        # 重新定義欄位寬度：[項目, 材料名稱, 單價, 數量, 總價]
-        # 原本材料名稱 126，合併規格 86 與 單位 50 後為 126+86+50 = 262
-        col_widths = [40, 262, 76, 62, 76] 
-        total_width = sum(col_widths)
-        row_height = 22
-        table_font_size = 12
-        
-        control_materials = data.get('control_materials', [])
 
-        # 定義繪製頁首資訊
-        def draw_page_header(y_pos):
-            c.setFont(self.font_name, 22)
-            title = "調控設施材料數量表"
-            title_width = c.stringWidth(title, self.font_name, 22)
-            c.drawString((width - title_width) / 2, y_pos, title)
-            y_pos -= 48
-            
-            c.setFont(self.font_name, 14)
-            c.drawString(left_margin, y_pos, f"申請案號：{format_case_number(data.get('case_number', ''))}")
-            y_pos -= 25
-            c.drawString(left_margin, y_pos, f"設施型式：{data.get('facility_type', '')}")
-            y_pos -= 25
-            block_shape = self._format_value_or_dash(data.get('block_shape', ''))
-            c.drawString(left_margin, y_pos, f"坵塊形狀：{block_shape}")
-            y_pos -= 25
-            nozzle_spacing_label = data.get('nozzle_spacing_label', '')
-            nozzle_spacing = self._format_value_or_dash(data.get('nozzle_spacing', ''))
-            if nozzle_spacing_label:
-                c.drawString(left_margin, y_pos, f"{nozzle_spacing_label}：{nozzle_spacing}")
-            return y_pos - 40
+        # 標題
+        c.setFont(self.font_name, 22)
+        title = "調控設施材料數量表"
+        title_width = c.stringWidth(title, self.font_name, 22)
+        c.drawString((width - title_width) / 2, current_y, title)
+        current_y -= 48
+
+        # 基本資訊
+        c.setFont(self.font_name, 14)
+        c.drawString(left_margin, current_y, f"申請案號：{format_case_number(data.get('case_number', ''))}")
+        current_y -= 25
+        c.drawString(left_margin, current_y, f"設施型式：{data.get('facility_type', '')}")
+        current_y -= 25
+        # 坵塊形狀：空值或 0 顯示刪節符號
+        block_shape = self._format_value_or_dash(data.get('block_shape', ''))
+        c.drawString(left_margin, current_y, f"坵塊形狀：{block_shape}")
+        current_y -= 25
+        # 噴頭配置間距（根據資料動態顯示標籤，空值顯示刪節符號）
+        nozzle_spacing_label = data.get('nozzle_spacing_label', '')
+        nozzle_spacing = self._format_value_or_dash(data.get('nozzle_spacing', ''))
+        if nozzle_spacing_label:
+            c.drawString(left_margin, current_y, f"{nozzle_spacing_label}：{nozzle_spacing}")
+        current_y -= 40
 
         # === 調控設施材料表 ===
         control_materials = data.get('control_materials', [
@@ -1711,7 +1698,8 @@ class BudgetStatementPDFGenerator:
                     category_number = category.split('.')[0].strip()
                     category_name = category.split('.', 1)[1].strip()
                 else:
-                    category_number, category_name = '', category
+                    category_number = ''
+                    category_name = category
 
                 row_y = current_y - row_height / 2 - table_font_size * 0.3
 
@@ -1794,6 +1782,7 @@ class BudgetStatementPDFGenerator:
         c.drawString((width - sep_width) / 2, current_y, separator)
 
         c.showPage()
+
     def _generate_design_diagram_page(self, c: canvas.Canvas, data: Dict[str, Any]) -> None:
         """生成第 7 頁：推廣管路灌溉設施計畫系統設施設計圖"""
         width, height = A4
