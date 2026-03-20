@@ -1460,7 +1460,6 @@ const handleFilterReset = () => {
   if (allLoadedFeatures.value.length > 0) {
     filteredFeatures.value = allLoadedFeatures.value;
     updateLayersWithFilteredData();
-    gisStore.updateFeatures(allLoadedFeatures.value);
   }
 
   showSnackbar.value = true;
@@ -3656,6 +3655,11 @@ const showGridPopup = (coordinate: number[], properties: Record<string, unknown>
   alert(info)
 }
 
+const formatCaseStatus = (status: unknown): string => {
+  if (status === 'completed' || status === 'submitted') return '已結案'
+  return '未結案'
+}
+
 // 顯示案件詳細資訊彈出視窗（簡化版）
 const showGrantPopup = (coordinate: number[], properties: Record<string, unknown>) => {
   let info: string
@@ -3678,7 +3682,7 @@ const showGrantPopup = (coordinate: number[], properties: Record<string, unknown
 📍 地段: ${properties.land_section || '未提供'}
 📍 地號: ${properties.land_number || '未提供'}
 📅 申請年度: 民國${properties.apply_year}年
-📊 案件狀態: ${properties.case_status || '未提供'}`
+📊 案件狀態: ${formatCaseStatus(properties.case_status)}`
   }
 
   alert(info)
