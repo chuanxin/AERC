@@ -676,16 +676,28 @@ class BudgetStatementPDFGenerator:
         """生成第 1 頁：封面頁"""
         width, height = A4
 
-        # === 修訂日期（右上角）===
-        if self.revision_date:
-            c.setFont(self.font_name, 8)
-            c.setFillColorRGB(0.6, 0.6, 0.6)  # 淡灰色
-            revision_text = f"{self.revision_date}印製"  #0306改為印製
-            revision_text_width = c.stringWidth(revision_text, self.font_name, 8)
-            # 右上角位置：右邊距 20pt，上邊距 30pt
-            c.drawString(width - revision_text_width - 20, height - 30, revision_text)
-            # 重設顏色為黑色
-            c.setFillColorRGB(0, 0, 0)
+        # === 印製日期（右上角）===
+        now = datetime.now()
+        roc_year = now.year - 1911
+        print_date_text = f"印製日期：民國{roc_year}年{now.month}月{now.day}日"
+        c.setFont(self.font_name, 8)
+        c.setFillColorRGB(0.6, 0.6, 0.6)  # 淡灰色
+        print_date_width = c.stringWidth(print_date_text, self.font_name, 8)
+        # 右上角位置：右邊距 20pt，上邊距 30pt
+        c.drawString(width - print_date_width - 20, height - 30, print_date_text)
+        # 重設顏色為黑色
+        c.setFillColorRGB(0, 0, 0)
+
+        # === 修訂日期（右上角）===（已停用，改用印製日期）
+        # if self.revision_date:
+        #     c.setFont(self.font_name, 8)
+        #     c.setFillColorRGB(0.6, 0.6, 0.6)  # 淡灰色
+        #     revision_text = f"{self.revision_date}修訂"
+        #     revision_text_width = c.stringWidth(revision_text, self.font_name, 8)
+        #     # 右上角位置：右邊距 20pt，上邊距 30pt
+        #     c.drawString(width - revision_text_width - 20, height - 30, revision_text)
+        #     # 重設顏色為黑色
+        #     c.setFillColorRGB(0, 0, 0)
 
         # 設置初始位置
         current_y = height - 75 # 從頂部開始，留出邊距
@@ -1449,114 +1461,198 @@ class BudgetStatementPDFGenerator:
                 c.drawString(left_margin, current_y, f"{nozzle_spacing_label}：{nozzle_spacing}")
             return current_y - 40
 
-        # 定義繪製表格標題的內部函式
-        def draw_table_header(y):
-            c.setLineWidth(0.5)
-            # 繪製標題列背景與文字
-            headers = ["項目", "材料名稱", "規格", "單位", "單價", "數量", "總價"]
-            c.setFont(self.font_name, table_font_size)
-            
-            # 繪製標題行頂線與底線
-            c.line(table_x, y, table_x + total_width, y)
-            c.line(table_x, y - row_height, table_x + total_width, y - row_height)
-            
-            vertical_pos = table_x
-            for i, header in enumerate(headers):
-                self._draw_centered_text(c, header, vertical_pos, y - row_height / 2 - table_font_size * 0.2, col_widths[i], font_size=table_font_size)
-                # 繪製垂直線
-                c.line(vertical_pos, y, vertical_pos, y - row_height)
-                vertical_pos += col_widths[i]
-            c.line(table_x + total_width, y, table_x + total_width, y - row_height)
-            return y - row_height
+        # === 材料數量表 ===
+        c.setLineWidth(0.5)
+        pipe_materials = data.get('pipe_materials', [])
+        table_x = left_margin
+        col_widths = [40, 126, 86, 50, 76, 62, 76]
+        base_row_height = 22
+        table_font_size = 12
+        line_height = table_font_size + 4   # 16pt：單行文字的行距
 
-        # --- 開始繪製流程 ---
-        current_y = draw_page_header(height - 60)
-        current_y = draw_table_header(current_y)
-        table_top_y = current_y + row_height # 記錄目前表格的最頂端用於畫外框垂直線
-        
-        grand_total = 0
-        
-        for index, item in enumerate(pipe_materials):
-            # 預估需要的行數 (如果 item 是分組起點，需要 2 行)
-            needed_rows = 2 if item.get('is_first_in_group', False) else 1
-            
-            # 檢查高度是否足夠
-            if current_y - (needed_rows * row_height) < bottom_limit:
-                # 1. 補齊當前頁面表格的垂直邊框線
-                c.line(table_x, table_top_y, table_x, current_y)
-                c.line(table_x + total_width, table_top_y, table_x + total_width, current_y)
-                vertical_pos = table_x
-                # for w in col_widths:
-                #     vertical_pos += w
-                #     c.line(vertical_pos, table_top_y, vertical_pos, current_y)
-                
-                # 2. 換頁
-                c.showPage()
-                current_y = draw_page_header(height - 60)
-                current_y = draw_table_header(current_y)
-                table_top_y = current_y + row_height
+        total_width = sum(col_widths)
 
-            # 繪製資料 (類別行)
+        # === 第一遍：預計算每一列的高度與換行結果 ===
+        # row_infos 存放有序的列資訊（類別列 + 材料列交叉排列）
+        row_infos = []
+        for item in pipe_materials:
             if item.get('is_first_in_group', False):
+                # 類別列：名稱跨越 col[1] 以後所有欄位
                 category = item.get('category', '')
                 if '.' in category:
-                    num, name = category.split('.', 1)
-                    category_number, category_name = num.strip(), name.strip()
+                    cat_number = category.split('.')[0].strip()
+                    cat_name = category.split('.', 1)[1].strip()
                 else:
-                    category_number, category_name = '', category
+                    cat_number = ''
+                    cat_name = category
+                cat_usable_w = sum(col_widths[1:]) - 8
+                cat_lines = self._wrap_text_to_lines(cat_name, self.font_name, table_font_size, cat_usable_w, c) or ['']
+                n = len(cat_lines)
+                cat_h = base_row_height if n <= 1 else max(base_row_height, n * line_height + 4)
+                row_infos.append({
+                    'type': 'category',
+                    'cat_number': cat_number,
+                    'cat_lines': cat_lines,
+                    'height': cat_h,
+                })
 
-                # 類別行
-                row_y = current_y - row_height / 2 - table_font_size * 0.3
-                self._draw_centered_text(c, category_number, table_x, row_y, col_widths[0], font_size=table_font_size)
-                self._draw_left_aligned_text(c, category_name, table_x + col_widths[0], row_y, sum(col_widths[1:]), font_size=table_font_size)
-                
-                current_y -= row_height
-                c.line(table_x, current_y, table_x + total_width, current_y)
-                # 類別行垂直線 (僅最左欄旁)
-                c.line(table_x, current_y + row_height, table_x, current_y)
-                #c.line(table_x + col_widths[0], current_y + row_height, table_x + col_widths[0], current_y)
-                c.line(table_x + total_width, current_y + row_height, table_x + total_width, current_y)
+            # 材料列：材料名稱與規格欄可能 overflow
+            material_name = (item.get('name', '') or '').strip()
+            spec = (item.get('spec', '') or '').strip()
+            name_lines = self._wrap_text_to_lines(material_name, self.font_name, table_font_size, col_widths[1] - 8, c) or ['']
+            spec_lines = self._wrap_text_to_lines(spec, self.font_name, table_font_size, col_widths[2] - 8, c) or ['']
+            n = max(len(name_lines), len(spec_lines))
+            mat_h = base_row_height if n <= 1 else max(base_row_height, n * line_height + 4)
+            row_infos.append({
+                'type': 'material',
+                'item': item,
+                'name_lines': name_lines,
+                'spec_lines': spec_lines,
+                'height': mat_h,
+            })
 
-            # 繪製資料 (材料行)
-            row_y = current_y - row_height / 2 - table_font_size * 0.3
-            self._draw_centered_text(c, item.get('item_id', ''), table_x, row_y, col_widths[0], font_size=table_font_size)
-            c.drawString(table_x + col_widths[0] + 5, row_y, (item.get('name', '') or '').strip())
-            c.drawString(table_x + sum(col_widths[:2]) + 5, row_y, item.get('spec', ''))
-            self._draw_centered_text(c, item.get('unit', ''), table_x + sum(col_widths[:3]), row_y, col_widths[3], font_size=table_font_size)
-            self._draw_centered_text(c, str(item.get('price', '')), table_x + sum(col_widths[:4]), row_y, col_widths[4], font_size=table_font_size)
-            self._draw_centered_text(c, str(item.get('quantity', '')), table_x + sum(col_widths[:5]), row_y, col_widths[5], font_size=table_font_size)
-            self._draw_right_aligned_text(c, f"{item.get('total', 0):,}", table_x + sum(col_widths[:6]), row_y, col_widths[6], font_size=table_font_size)
+        header_h = base_row_height
+        total_row_h = base_row_height
+        # 下邊距：至少保留總價行 + 分隔線的空間
+        bottom_margin = total_row_h + 40
 
-            grand_total += item.get('total', 0)
-            current_y -= row_height
-            c.line(table_x, current_y, table_x + total_width, current_y)
-            
-            # 繪製材料行所有垂直分隔線
-            v_p = table_x
-            for cw in col_widths:
-                c.line(v_p, current_y + row_height, v_p, current_y)
-                v_p += cw
-            c.line(table_x + total_width, current_y + row_height, table_x + total_width, current_y)
+        # === 垂直分隔線累積位置 ===
+        vertical_positions = [0]
+        for w in col_widths:
+            vertical_positions.append(vertical_positions[-1] + w)
 
-        # 繪製最後的總價行 (也要檢查高度)
-        if current_y - row_height < bottom_limit:
+        # --- 輔助：繪製表格標題行，回傳繪製後的 current_y ---
+        def draw_table_header(start_y: float) -> float:
+            headers = ["項目", "材料名稱", "規格", "單位", "單價", "數量", "總價"]
+            c.setFont(self.font_name, table_font_size)
+            hy = start_y - header_h / 2 - table_font_size * 0.2
+            for i, hdr in enumerate(headers):
+                self._draw_centered_text(c, hdr, table_x + vertical_positions[i], hy, col_widths[i], font_size=table_font_size)
+            c.line(table_x, start_y - header_h, table_x + total_width, start_y - header_h)
+            for i in range(1, len(vertical_positions) - 1):
+                c.line(table_x + vertical_positions[i], start_y, table_x + vertical_positions[i], start_y - header_h)
+            return start_y - header_h
+
+        # --- 輔助：封閉本頁表格外框並換至續頁，回傳 (current_y, table_segment_start_y) ---
+        def start_continuation_page(seg_start_y: float, seg_bottom_y: float):
+            # 封閉本段外框
+            c.rect(table_x, seg_bottom_y, total_width, seg_start_y - seg_bottom_y)
             c.showPage()
-            current_y = draw_page_header(height - 60)
-            current_y = draw_table_header(current_y)
+            c.setLineWidth(0.5)  # showPage() 重置 canvas 狀態，需重設線寬
 
-        row_y = current_y - row_height / 2 - table_font_size * 0.2
-        self._draw_centered_text(c, "總價", table_x, row_y, sum(col_widths[:6]), font_size=table_font_size)
-        self._draw_right_aligned_text(c, f"{grand_total:,}", table_x + sum(col_widths[:6]), row_y, col_widths[6], font_size=table_font_size)
-        
-        current_y -= row_height
-        c.line(table_x, current_y, table_x + total_width, current_y)
-        # 總價行垂直線
-        c.line(table_x, current_y + row_height, table_x, current_y)
-        c.line(table_x + sum(col_widths[:6]), current_y + row_height, table_x + sum(col_widths[:6]), current_y)
-        c.line(table_x + total_width, current_y + row_height, table_x + total_width, current_y)
+            # 續頁頁首
+            cy = height - 50
+            c.setFont(self.font_name, 13)
+            cont_title = "管路灌溉系統材料數量表（續）"
+            cont_w = c.stringWidth(cont_title, self.font_name, 13)
+            c.drawString((width - cont_w) / 2, cy, cont_title)
+            cy -= 30
 
-        # 結尾空白標示
+            new_seg_start = cy
+            cy = draw_table_header(cy)
+            return cy, new_seg_start
+
+        # 首頁：繪製表格標題行
+        table_segment_start_y = current_y
+        current_y = draw_table_header(current_y)
+
+        # === 第二遍：依預計算高度繪製每一列（含動態換頁）===
+        grand_total = 0
+
+        for row_info in row_infos:
+            rh = row_info['height']
+
+            # 換頁判斷：本列放不下（同時保留總價行空間）
+            if current_y - rh < bottom_margin:
+                current_y, table_segment_start_y = start_continuation_page(
+                    table_segment_start_y, current_y
+                )
+
+            row_top_y = current_y
+
+            if row_info['type'] == 'category':
+                cat_lines = row_info['cat_lines']
+                n = len(cat_lines)
+                block_h = n * line_height
+                first_baseline = current_y - (rh - block_h) / 2 - table_font_size
+
+                # 項目欄：類別編號，垂直置中（單行）
+                self._draw_centered_text(
+                    c, row_info['cat_number'],
+                    table_x, current_y - rh / 2 - table_font_size * 0.2,
+                    col_widths[0], font_size=table_font_size
+                )
+
+                # 類別名稱：跨欄，每行水平置中
+                cat_x = table_x + col_widths[0]
+                cat_span_w = sum(col_widths[1:])
+                c.setFont(self.font_name, table_font_size)
+                for idx, line_text in enumerate(cat_lines):
+                    tw = c.stringWidth(line_text, self.font_name, table_font_size)
+                    c.drawString(cat_x + (cat_span_w - tw) / 2, first_baseline - idx * line_height, line_text)
+
+                current_y -= rh
+                c.line(table_x, current_y, table_x + total_width, current_y)
+                # 類別列只畫第一欄右側垂直線
+                c.line(table_x + vertical_positions[1], row_top_y, table_x + vertical_positions[1], current_y)
+
+            else:  # material
+                item = row_info['item']
+                name_lines = row_info['name_lines']
+                spec_lines = row_info['spec_lines']
+
+                # 項目欄（單行，垂直置中）
+                self._draw_centered_text(
+                    c, item.get('item_id', ''),
+                    table_x, current_y - rh / 2 - table_font_size * 0.2,
+                    col_widths[0], font_size=table_font_size
+                )
+
+                # 材料名稱（多行，左對齊，依自身行數垂直置中）
+                c.setFont(self.font_name, table_font_size)
+                name_block_h = len(name_lines) * line_height
+                name_baseline = current_y - (rh - name_block_h) / 2 - table_font_size
+                name_x = table_x + col_widths[0] + 5
+                for idx, line_text in enumerate(name_lines):
+                    c.drawString(name_x, name_baseline - idx * line_height, line_text)
+
+                # 規格（多行，左對齊，依自身行數垂直置中）
+                spec_block_h = len(spec_lines) * line_height
+                spec_baseline = current_y - (rh - spec_block_h) / 2 - table_font_size
+                spec_x = table_x + sum(col_widths[:2]) + 5
+                for idx, line_text in enumerate(spec_lines):
+                    c.drawString(spec_x, spec_baseline - idx * line_height, line_text)
+
+                # 其餘單行欄位：單位、單價、數量、總價（垂直置中）
+                single_y = current_y - rh / 2 - table_font_size * 0.2
+                self._draw_centered_text(c, item.get('unit', ''), table_x + sum(col_widths[:3]), single_y, col_widths[3], font_size=table_font_size)
+                self._draw_centered_text(c, str(item.get('price', '')), table_x + sum(col_widths[:4]), single_y, col_widths[4], font_size=table_font_size)
+                self._draw_centered_text(c, str(item.get('quantity', '')), table_x + sum(col_widths[:5]), single_y, col_widths[5], font_size=table_font_size)
+                self._draw_right_aligned_text(c, f"{item.get('total', 0):,}", table_x + sum(col_widths[:6]), single_y, col_widths[6], font_size=table_font_size)
+
+                grand_total += item.get('total', 0)
+                current_y -= rh
+                c.line(table_x, current_y, table_x + total_width, current_y)
+                # 材料列畫所有內部垂直線
+                for i in range(1, len(vertical_positions) - 1):
+                    c.line(table_x + vertical_positions[i], row_top_y, table_x + vertical_positions[i], current_y)
+
+        # === 總價行（永遠在最後一頁）===
+        total_row_top_y = current_y
+        total_y = current_y - total_row_h / 2 - table_font_size * 0.2
+        self._draw_centered_text(c, "總價", table_x, total_y, col_widths[0], font_size=table_font_size)
+        self._draw_right_aligned_text(c, f"{grand_total:,}", table_x + sum(col_widths[:6]), total_y, col_widths[6], font_size=table_font_size)
+        for i in range(1, len(vertical_positions) - 1):
+            c.line(table_x + vertical_positions[i], total_row_top_y, table_x + vertical_positions[i], total_row_top_y - total_row_h)
+
+        current_y -= total_row_h
+
+        # 封閉最後一頁的表格外框
+        c.rect(table_x, current_y, total_width, table_segment_start_y - current_y)
+
         current_y -= 20
+
+        # "以下空白"分隔線
         c.setFont(self.font_name, 10)
         separator = "--------------------以下空白--------------------"
         sep_width = c.stringWidth(separator, self.font_name, 10)
