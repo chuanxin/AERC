@@ -1344,7 +1344,11 @@ async def delete_grant(grant_id: int, current_user: UserOutSchema) -> Dict[str, 
             await Grants.filter(id=grant_id).update(
                 status=GrantStatus.SOFT_DELETE
             )
-            
+
+            # 同步 grant_locations（去正規化副本）
+            from src.crud.grant_locations import sync_single_grant_metadata
+            await sync_single_grant_metadata(grant_id, GrantStatus.SOFT_DELETE, grant.year)
+
             logger.info(f"[delete_grant] Grant {grant.case_number} (ID: {grant_id}) soft deleted by user {current_user.id}")
             
             # 返回結果
