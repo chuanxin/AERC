@@ -228,9 +228,10 @@ class BudgetStatementPDFGenerator:
         text: str,
         x: float,
         y: float,
-        width: float, # 雖然置左不一定需要 width，但為了參數一致性保留
+        width: float,
         font_name: str = None,
-        font_size: float = 12
+        font_size: float = 12,
+        padding: float = 5
     ) -> None:
         """
         繪製靠左對齊的文字
@@ -243,18 +244,14 @@ class BudgetStatementPDFGenerator:
             width: 欄位寬度
             font_name: 字體名稱（None 則使用預設字體）
             font_size: 字體大小
+            padding: 左側內邊距（預設 5pt）
         """
         if not text:
             return
 
         font = font_name or self.font_name
         c.setFont(font, font_size)
-
-        # 計算靠左位置：起始 x 座標加上一個內距，確保不貼邊
-        left_x = x + 8 
-
-        # 繪製文字
-        c.drawString(left_x, y, str(text))
+        c.drawString(x + padding, y, text)
 
     def _wrap_and_draw_multiline_text(
         self,
@@ -1025,62 +1022,74 @@ class BudgetStatementPDFGenerator:
         if lands:
             # 表格設定
             table_x = left_margin
-            # 寬度:516
             col_widths = [200, 76, 120, 120]
             row_height = 22
             table_font_size = 12
+            line_height = table_font_size + 4   # 16pt：單行文字行距
+            total_row_h = row_height
+            bottom_margin = total_row_h + 40  # 保留合計行空間
 
-            # 計算表格總高度
             total_width = sum(col_widths)
-            table_height = row_height * (len(lands) + 2)  # 標題行 + 資料行 + 合計行
-            table_start_y = current_y
 
-            headers = ["地段", "地號", "土地面積(m²)", "施設面積(m²)"]
-            c.setFont(self.font_name, table_font_size)
+            # 垂直分隔線累積位置
+            vertical_positions = [0]
+            for w in col_widths:
+                vertical_positions.append(vertical_positions[-1] + w)
+
+            # === 前置計算：地段欄文字分行、動態列高 ===
+            row_infos = []
+            for land in lands:
+                land_county = land.get('land_county', '')
+                land_town = land.get('land_town', '')
+                section = land.get('section', '')
+                full_section = f"{land_county}{land_town}-{section}"
+                section_lines = self._wrap_text_to_lines(full_section, self.font_name, table_font_size, col_widths[0] - 10, c) or ['']
+                n = len(section_lines)
+                rh = max(row_height, n * line_height + 4)
+                row_infos.append({'land': land, 'section_lines': section_lines, 'height': rh})
+
+            # --- 輔助：繪製表格標題行，回傳繪製後的 current_y ---
+            def draw_land_header(start_y: float) -> float:
+                headers = ["地段", "地號", "土地面積(m²)", "施設面積(m²)"]
+                c.setFont(self.font_name, table_font_size)
+                hy = start_y - row_height / 2 - table_font_size * 0.2
+                for i, hdr in enumerate(headers):
+                    self._draw_centered_text(c, hdr, table_x + vertical_positions[i], hy, col_widths[i], font_size=table_font_size)
+                c.line(table_x, start_y - row_height, table_x + total_width, start_y - row_height)
+                for i in range(1, len(vertical_positions) - 1):
+                    c.line(table_x + vertical_positions[i], start_y, table_x + vertical_positions[i], start_y - row_height)
+                return start_y - row_height
+
             c.setLineWidth(0.5)
 
-            # === 繪製表格外框 ===
-            c.rect(table_x, table_start_y - table_height, total_width, table_height)
-
-            # === 繪製垂直分隔線 ===
-            vertical_positions = [0]
-            for width_val in col_widths:
-                vertical_positions.append(vertical_positions[-1] + width_val)
-
-            # 繪製內部垂直線（除了最左和最右的邊框）
-            for i in range(1, len(vertical_positions) - 1):
-                line_x = table_x + vertical_positions[i]
-                c.line(line_x, table_start_y, line_x, table_start_y - table_height)
-
-            # === 繪製標題行 ===
-            for i, header in enumerate(headers):
-                col_x = table_x + vertical_positions[i]
-                col_width = col_widths[i]
-                # 使用置中對齊繪製標題
-                self._draw_centered_text(
-                    c, header,
-                    col_x, table_start_y - row_height / 2 - table_font_size * 0.2,
-                    col_width,
-                    font_size=table_font_size
-                )
-
-            # 標題行底線
-            c.line(table_x, table_start_y - row_height, table_x + total_width, table_start_y - row_height)
-            current_y = table_start_y - row_height
+            # 首頁：繪製表格標題行
+            table_segment_start_y = current_y
+            current_y = draw_land_header(current_y)
 
             # === 繪製土地資料 ===
             total_land_area = Decimal('0')
             total_facility_area = Decimal('0')
 
-            for land in lands:
-                # 縣市、鄉鎮、地段資訊
-                land_county = land.get('land_county', '')
-                land_town = land.get('land_town', '')
-                section = land.get('section', '')
-                lot_number = land.get('lot_number', '')
+            for row_info in row_infos:
+                land = row_info['land']
+                section_lines = row_info['section_lines']
+                rh = row_info['height']
 
-                # 組合完整地段資訊：縣市 + 鄉鎮 + 地段
-                full_section = f"{land_county}{land_town}-{section}"
+                # 換頁判斷
+                if current_y - rh < bottom_margin:
+                    c.rect(table_x, current_y, total_width, table_segment_start_y - current_y)
+                    c.showPage()
+                    c.setLineWidth(0.5)
+                    cont_y = height - 50
+                    c.setFont(self.font_name, 13)
+                    cont_title = "設施土地清冊（續）"
+                    cont_w = c.stringWidth(cont_title, self.font_name, 13)
+                    c.drawString((width - cont_w) / 2, cont_y, cont_title)
+                    cont_y -= 30
+                    table_segment_start_y = cont_y
+                    current_y = draw_land_header(cont_y)
+
+                lot_number = land.get('lot_number', '')
 
                 # 安全轉換為 Decimal
                 try:
@@ -1093,66 +1102,55 @@ class BudgetStatementPDFGenerator:
                 except Exception:
                     facility_area = Decimal('0')
 
-                # 繪製資料（使用垂直置中）
-                row_y = current_y - row_height / 2 - table_font_size * 0.3
+                # 地段（多行，垂直置中）
+                section_block_h = len(section_lines) * line_height
+                section_baseline = current_y - (rh - section_block_h) / 2 - table_font_size
+                c.setFont(self.font_name, table_font_size)
+                for idx, line_text in enumerate(section_lines):
+                    c.drawString(table_x + 10, section_baseline - idx * line_height, line_text)
 
-                # 地段（左對齊，包含縣市鄉鎮資訊）
-                c.drawString(table_x + 10, row_y, full_section)
+                # 其餘單行欄位（垂直置中）
+                single_y = current_y - rh / 2 - table_font_size * 0.3
 
                 # 地號（左對齊）
-                c.drawString(table_x + col_widths[0] + 10, row_y, lot_number)
+                c.drawString(table_x + col_widths[0] + 10, single_y, lot_number)
 
                 # 土地面積（置中對齊）
                 self._draw_centered_text(
                     c, _fmt_m2(land_area, comma=True) if land_area else "0.00",
-                    table_x + sum(col_widths[:2]), row_y,
-                    col_widths[2],
-                    font_size=table_font_size
+                    table_x + sum(col_widths[:2]), single_y,
+                    col_widths[2], font_size=table_font_size
                 )
 
                 # 施設面積（置中對齊）
                 self._draw_centered_text(
                     c, _fmt_m2(facility_area, comma=True) if facility_area else "0.00",
-                    table_x + sum(col_widths[:3]), row_y,
-                    col_widths[3],
-                    font_size=table_font_size
+                    table_x + sum(col_widths[:3]), single_y,
+                    col_widths[3], font_size=table_font_size
                 )
 
                 total_land_area += land_area
                 total_facility_area += facility_area
 
-                # 資料行底線
-                current_y -= row_height
+                current_y -= rh
                 c.line(table_x, current_y, table_x + total_width, current_y)
+                # 資料行垂直線
+                for i in range(1, len(vertical_positions) - 1):
+                    c.line(table_x + vertical_positions[i], current_y + rh, table_x + vertical_positions[i], current_y)
 
-            # === 合計行 ===
-            row_y = current_y - row_height / 2 - table_font_size * 0.2
+            # === 合計行（永遠在最後一頁）===
+            total_row_top_y = current_y
+            row_y = current_y - total_row_h / 2 - table_font_size * 0.2
+            self._draw_centered_text(c, "合計", table_x, row_y, col_widths[0], font_size=table_font_size)
+            self._draw_centered_text(c, _fmt_m2(total_land_area, comma=True), table_x + sum(col_widths[:2]), row_y, col_widths[2], font_size=table_font_size)
+            self._draw_centered_text(c, _fmt_m2(total_facility_area, comma=True), table_x + sum(col_widths[:3]), row_y, col_widths[3], font_size=table_font_size)
+            for i in range(1, len(vertical_positions) - 1):
+                c.line(table_x + vertical_positions[i], total_row_top_y, table_x + vertical_positions[i], total_row_top_y - total_row_h)
 
-            # "合計"文字（置中對齊，跨前兩欄）
-            self._draw_centered_text(
-                c, "合計",
-                table_x, row_y,
-                col_widths[0],
-                font_size=table_font_size
-            )
+            current_y -= total_row_h
 
-            # 土地面積合計（置中對齊）
-            self._draw_centered_text(
-                c, _fmt_m2(total_land_area, comma=True),
-                table_x + sum(col_widths[:2]), row_y,
-                col_widths[2],
-                font_size=table_font_size
-            )
-
-            # 施設面積合計（置中對齊）
-            self._draw_centered_text(
-                c, _fmt_m2(total_facility_area, comma=True),
-                table_x + sum(col_widths[:3]), row_y,
-                col_widths[3],
-                font_size=table_font_size
-            )
-
-            current_y -= row_height
+            # 封閉最後一頁的表格外框
+            c.rect(table_x, current_y, total_width, table_segment_start_y - current_y)
 
         current_y -= 20
         # "以下空白"分隔線
@@ -1193,230 +1191,172 @@ class BudgetStatementPDFGenerator:
             c.drawString(left_margin, current_y, f"{nozzle_spacing_label}：{nozzle_spacing}")
         current_y -= 40
 
-        # === 動力設施數量表 ===
+        table_x = left_margin
+        row_height = 25
+        table_font_size = 12
+        c.setLineWidth(0.5)
+
+        # --- 共用輔助：換頁並繪製續頁頁首 ---
+        def start_cont_page(title: str):
+            c.showPage()
+            c.setLineWidth(0.5)
+            cy = height - 50
+            c.setFont(self.font_name, 13)
+            tw = c.stringWidth(title, self.font_name, 13)
+            c.drawString((width - tw) / 2, cy, title)
+            return cy - 30
+
+        # ====== 動力設施數量表 ======
+        power_col_widths = [320, 58, 138]
+        power_total_width = sum(power_col_widths)
+
+        power_vert_pos = [0]
+        for w in power_col_widths:
+            power_vert_pos.append(power_vert_pos[-1] + w)
+
+        def draw_power_header(start_y: float) -> float:
+            headers = ["動力設備", "數量", "金額"]
+            c.setFont(self.font_name, table_font_size)
+            hy = start_y - row_height / 2 - table_font_size * 0.2
+            for i, hdr in enumerate(headers):
+                self._draw_centered_text(c, hdr, table_x + power_vert_pos[i], hy, power_col_widths[i], font_size=table_font_size)
+            c.line(table_x, start_y - row_height, table_x + power_total_width, start_y - row_height)
+            for i in range(1, len(power_vert_pos) - 1):
+                c.line(table_x + power_vert_pos[i], start_y, table_x + power_vert_pos[i], start_y - row_height)
+            return start_y - row_height
+
+        # 動力設施小計行高度 + 調蓄設施小計行高度 + 調蓄設施副標題 + 最小一行
+        power_bottom_margin = row_height * 2 + 40  # 小計行 + 一行空間
+        storage_bottom_margin = row_height + 40
+
+        # 動力設施副標題
         c.setFont(self.font_name, 14)
         subtitle = "動力設施數量表"
         subtitle_width = c.stringWidth(subtitle, self.font_name, 14)
         c.drawString((width - subtitle_width) / 2, current_y, subtitle)
         current_y -= 10
 
-        # 動力設施表格
-        c.setLineWidth(0.5)
+        power_seg_start_y = current_y
+        current_y = draw_power_header(current_y)
+
         power_items = data.get('power_items', [{'name': '馬達+抽水機', 'quantity': 1, 'amount': 4000}])
-        table_x = left_margin
-        col_widths = [320, 58, 138]
-        row_height = 25
-        table_font_size = 12
-
-        # 計算表格高度
-        total_width = sum(col_widths)
-        # 確保即使沒有資料也至少有一行空白行
-        data_rows = len(power_items) if power_items else 1
-        table_height = row_height * (data_rows + 2)  # 標題行 + 資料行 + 小計行
-        table_start_y = current_y
-
-        # === 繪製表格外框 ===
-        c.rect(table_x, table_start_y - table_height, total_width, table_height)
-
-        # === 繪製垂直分隔線 ===
-        vertical_positions = [0]
-        for width_val in col_widths:
-            vertical_positions.append(vertical_positions[-1] + width_val)
-
-        for i in range(1, len(vertical_positions) - 1):
-            line_x = table_x + vertical_positions[i]
-            c.line(line_x, table_start_y, line_x, table_start_y - table_height)
-
-        # === 繪製標題行 ===
-        headers = ["動力設備", "數量", "金額"]
-        c.setFont(self.font_name, table_font_size)
-
-        for i, header in enumerate(headers):
-            col_x = table_x + vertical_positions[i]
-            col_width = col_widths[i]
-            self._draw_centered_text(
-                c, header,
-                col_x, table_start_y - row_height / 2 - table_font_size * 0.2,
-                col_width,
-                font_size=table_font_size
-            )
-
-        # 標題行底線
-        c.line(table_x, table_start_y - row_height, table_x + total_width, table_start_y - row_height)
-        current_y = table_start_y - row_height
-
-        # === 繪製資料行 ===
         power_total = 0
-        
-        # 如果沒有動力設施資料，繪製一行空白
+
         if not power_items:
-            row_y = current_y - row_height / 2 - table_font_size * 0.2
-            # 空白行不繪製任何內容，但保留表格結構
+            # 空白行
             current_y -= row_height
-            c.line(table_x, current_y, table_x + total_width, current_y)
+            c.line(table_x, current_y, table_x + power_total_width, current_y)
+            for i in range(1, len(power_vert_pos) - 1):
+                c.line(table_x + power_vert_pos[i], current_y + row_height, table_x + power_vert_pos[i], current_y)
         else:
             for item in power_items:
+                if current_y - row_height < power_bottom_margin:
+                    c.rect(table_x, current_y, power_total_width, power_seg_start_y - current_y)
+                    current_y = start_cont_page("動力設施與調蓄設施數量表（續）")
+                    power_seg_start_y = current_y
+                    current_y = draw_power_header(current_y)
+
                 row_y = current_y - row_height / 2 - table_font_size * 0.2
-
-                # 動力設備名稱（左對齊）
                 c.drawString(table_x + 10, row_y, item.get('name', ''))
-
-                # 數量（置中對齊）
-                self._draw_centered_text(
-                    c, str(item.get('quantity', '')),
-                    table_x + col_widths[0], row_y,
-                    col_widths[1],
-                    font_size=table_font_size
-                )
-
-                # 金額（置中對齊）
-                self._draw_right_aligned_text(
-                    c, f"{item.get('amount', 0):,}",
-                    table_x + sum(col_widths[:2]), row_y,
-                    col_widths[2],
-                    font_size=table_font_size
-                )
-
+                self._draw_centered_text(c, str(item.get('quantity', '')), table_x + power_col_widths[0], row_y, power_col_widths[1], font_size=table_font_size)
+                self._draw_right_aligned_text(c, f"{item.get('amount', 0):,}", table_x + sum(power_col_widths[:2]), row_y, power_col_widths[2], font_size=table_font_size)
                 power_total += item.get('amount', 0)
                 current_y -= row_height
-                c.line(table_x, current_y, table_x + total_width, current_y)
+                c.line(table_x, current_y, table_x + power_total_width, current_y)
+                for i in range(1, len(power_vert_pos) - 1):
+                    c.line(table_x + power_vert_pos[i], current_y + row_height, table_x + power_vert_pos[i], current_y)
 
-        # === 小計行 ===
+        # 動力設施小計行
+        subtotal_top_y = current_y
         row_y = current_y - row_height / 2 - table_font_size * 0.2
+        self._draw_centered_text(c, "小計", table_x, row_y, power_col_widths[0], font_size=table_font_size)
+        self._draw_right_aligned_text(c, f"{power_total:,}", table_x + sum(power_col_widths[:2]), row_y, power_col_widths[2], font_size=table_font_size)
+        for i in range(1, len(power_vert_pos) - 1):
+            c.line(table_x + power_vert_pos[i], subtotal_top_y, table_x + power_vert_pos[i], subtotal_top_y - row_height)
+        current_y -= row_height
 
-        # "小計"文字（置中對齊，跨前兩欄）
-        self._draw_centered_text(
-            c, "小計",
-            table_x, row_y,
-            sum(col_widths[:1]),
-            font_size=table_font_size
-        )
+        # 封閉動力設施表格外框
+        c.rect(table_x, current_y, power_total_width, power_seg_start_y - current_y)
 
-        # 金額小計（置中對齊）
-        self._draw_right_aligned_text(
-            c, f"{power_total:,}",
-            table_x + sum(col_widths[:2]), row_y,
-            col_widths[2],
-            font_size=table_font_size
-        )
+        current_y -= 50  # 兩表之間間距
 
-        current_y -= row_height + 50
+        # ====== 調蓄設施數量表 ======
+        storage_col_widths = [240, 80, 58, 138]
+        storage_total_width = sum(storage_col_widths)
 
-        # === 調蓄設施數量表 ===
+        storage_vert_pos = [0]
+        for w in storage_col_widths:
+            storage_vert_pos.append(storage_vert_pos[-1] + w)
+
+        def draw_storage_header(start_y: float) -> float:
+            headers = ["材質", "噸數", "數量", "金額"]
+            c.setFont(self.font_name, table_font_size)
+            hy = start_y - row_height / 2 - table_font_size * 0.2
+            for i, hdr in enumerate(headers):
+                self._draw_centered_text(c, hdr, table_x + storage_vert_pos[i], hy, storage_col_widths[i], font_size=table_font_size)
+            c.line(table_x, start_y - row_height, table_x + storage_total_width, start_y - row_height)
+            for i in range(1, len(storage_vert_pos) - 1):
+                c.line(table_x + storage_vert_pos[i], start_y, table_x + storage_vert_pos[i], start_y - row_height)
+            return start_y - row_height
+
+        # 檢查調蓄設施副標題 + 表頭是否需要換頁
+        if current_y - row_height * 3 < 40:
+            current_y = start_cont_page("動力設施與調蓄設施數量表（續）")
+
+        # 調蓄設施副標題
         c.setFont(self.font_name, 14)
         subtitle = "調蓄設施數量表"
         subtitle_width = c.stringWidth(subtitle, self.font_name, 14)
         c.drawString((width - subtitle_width) / 2, current_y, subtitle)
         current_y -= 10
 
-        # 調蓄設施表格
+        storage_seg_start_y = current_y
+        current_y = draw_storage_header(current_y)
+
         storage_items = data.get('storage_items', [
             {'material': '不鏽鋼', 'tonnage': 10, 'quantity': 1, 'amount': 40000},
             {'material': '不鏽鋼', 'tonnage': 10, 'quantity': 1, 'amount': 40000}
         ])
-        col_widths = [240, 80, 58, 138]
-
-        # 計算表格高度
-        total_width = sum(col_widths)
-        # 確保即使沒有資料也至少有一行空白行
-        data_rows = len(storage_items) if storage_items else 1
-        table_height = row_height * (data_rows + 2)  # 標題行 + 資料行 + 小計行
-        table_start_y = current_y
-
-        # === 繪製表格外框 ===
-        c.rect(table_x, table_start_y - table_height, total_width, table_height)
-
-        # === 繪製垂直分隔線 ===
-        vertical_positions = [0]
-        for width_val in col_widths:
-            vertical_positions.append(vertical_positions[-1] + width_val)
-
-        for i in range(1, len(vertical_positions) - 1):
-            line_x = table_x + vertical_positions[i]
-            c.line(line_x, table_start_y, line_x, table_start_y - table_height)
-
-        # === 繪製標題行 ===
-        headers = ["材質", "噸數", "數量", "金額"]
-        c.setFont(self.font_name, table_font_size)
-
-        for i, header in enumerate(headers):
-            col_x = table_x + vertical_positions[i]
-            col_width = col_widths[i]
-            self._draw_centered_text(
-                c, header,
-                col_x, table_start_y - row_height / 2 - table_font_size * 0.2,
-                col_width,
-                font_size=table_font_size
-            )
-
-        # 標題行底線
-        c.line(table_x, table_start_y - row_height, table_x + total_width, table_start_y - row_height)
-        current_y = table_start_y - row_height
-
-        # === 繪製資料行 ===
         storage_total = 0
-        
-        # 如果沒有調蓄設施資料，繪製一行空白
+
         if not storage_items:
-            row_y = current_y - row_height / 2 - table_font_size * 0.2
-            # 空白行不繪製任何內容，但保留表格結構
+            # 空白行
             current_y -= row_height
-            c.line(table_x, current_y, table_x + total_width, current_y)
+            c.line(table_x, current_y, table_x + storage_total_width, current_y)
+            for i in range(1, len(storage_vert_pos) - 1):
+                c.line(table_x + storage_vert_pos[i], current_y + row_height, table_x + storage_vert_pos[i], current_y)
         else:
             for item in storage_items:
+                if current_y - row_height < storage_bottom_margin:
+                    c.rect(table_x, current_y, storage_total_width, storage_seg_start_y - current_y)
+                    current_y = start_cont_page("動力設施與調蓄設施數量表（續）")
+                    storage_seg_start_y = current_y
+                    current_y = draw_storage_header(current_y)
+
                 row_y = current_y - row_height / 2 - table_font_size * 0.2
-
-                # 材質（置中對齊）
                 c.drawString(table_x + 10, row_y, item.get('material', ''))
-
-                # 噸數（置中對齊）
-                self._draw_centered_text(
-                    c, str(item.get('tonnage', '')),
-                    table_x + col_widths[0], row_y,
-                    col_widths[1],
-                    font_size=table_font_size
-                )
-
-                # 數量（置中對齊）
-                self._draw_centered_text(
-                    c, str(item.get('quantity', '')),
-                    table_x + sum(col_widths[:2]), row_y,
-                    col_widths[2],
-                    font_size=table_font_size
-                )
-
-                # 金額（置中對齊）
-                self._draw_right_aligned_text(
-                    c, f"{item.get('amount', 0):,}",
-                    table_x + sum(col_widths[:3]), row_y,
-                    col_widths[3],
-                    font_size=table_font_size
-                )
-
+                self._draw_centered_text(c, str(item.get('tonnage', '')), table_x + storage_col_widths[0], row_y, storage_col_widths[1], font_size=table_font_size)
+                self._draw_centered_text(c, str(item.get('quantity', '')), table_x + sum(storage_col_widths[:2]), row_y, storage_col_widths[2], font_size=table_font_size)
+                self._draw_right_aligned_text(c, f"{item.get('amount', 0):,}", table_x + sum(storage_col_widths[:3]), row_y, storage_col_widths[3], font_size=table_font_size)
                 storage_total += item.get('amount', 0)
                 current_y -= row_height
-                c.line(table_x, current_y, table_x + total_width, current_y)
+                c.line(table_x, current_y, table_x + storage_total_width, current_y)
+                for i in range(1, len(storage_vert_pos) - 1):
+                    c.line(table_x + storage_vert_pos[i], current_y + row_height, table_x + storage_vert_pos[i], current_y)
 
-        # === 小計行 ===
+        # 調蓄設施小計行
+        subtotal_top_y = current_y
         row_y = current_y - row_height / 2 - table_font_size * 0.2
+        self._draw_centered_text(c, "小計", table_x, row_y, storage_col_widths[0], font_size=table_font_size)
+        self._draw_right_aligned_text(c, f"{storage_total:,}", table_x + sum(storage_col_widths[:3]), row_y, storage_col_widths[3], font_size=table_font_size)
+        for i in range(1, len(storage_vert_pos) - 1):
+            c.line(table_x + storage_vert_pos[i], subtotal_top_y, table_x + storage_vert_pos[i], subtotal_top_y - row_height)
+        current_y -= row_height
 
-        # "小計"文字（置中對齊，跨前三欄）
-        self._draw_centered_text(
-            c, "小計",
-            table_x, row_y,
-            sum(col_widths[:1]),
-            font_size=table_font_size
-        )
+        # 封閉調蓄設施表格外框
+        c.rect(table_x, current_y, storage_total_width, storage_seg_start_y - current_y)
 
-        # 金額小計（置中對齊）
-        self._draw_right_aligned_text(
-            c, f"{storage_total:,}",
-            table_x + sum(col_widths[:3]), row_y,
-            col_widths[3],
-            font_size=table_font_size
-        )
-
-        current_y -= row_height + 20
+        current_y -= 20
 
         # "以下空白"分隔線
         c.setFont(self.font_name, 10)
@@ -1465,7 +1405,7 @@ class BudgetStatementPDFGenerator:
         c.setLineWidth(0.5)
         pipe_materials = data.get('pipe_materials', [])
         table_x = left_margin
-        col_widths = [40, 126, 86, 50, 76, 62, 76]
+        col_widths = [40, 172, 110, 41, 45, 45, 60]
         base_row_height = 22
         table_font_size = 12
         line_height = table_font_size + 4   # 16pt：單行文字的行距
@@ -1583,18 +1523,16 @@ class BudgetStatementPDFGenerator:
                     col_widths[0], font_size=table_font_size
                 )
 
-                # 類別名稱：跨欄，每行水平置中
+                # 類別名稱：跨欄，靠左對齊
                 cat_x = table_x + col_widths[0]
                 cat_span_w = sum(col_widths[1:])
-                c.setFont(self.font_name, table_font_size)
                 for idx, line_text in enumerate(cat_lines):
-                    tw = c.stringWidth(line_text, self.font_name, table_font_size)
-                    c.drawString(cat_x + (cat_span_w - tw) / 2, first_baseline - idx * line_height, line_text)
+                    self._draw_left_aligned_text(c, line_text, cat_x, first_baseline - idx * line_height, cat_span_w, font_size=table_font_size)
 
                 current_y -= rh
                 c.line(table_x, current_y, table_x + total_width, current_y)
-                # 類別列只畫第一欄右側垂直線
-                c.line(table_x + vertical_positions[1], row_top_y, table_x + vertical_positions[1], current_y)
+                # 類別列不繪製欄位分隔線（類別編號與名稱視覺上合為一欄）
+                # c.line(table_x + vertical_positions[1], row_top_y, table_x + vertical_positions[1], current_y)
 
             else:  # material
                 item = row_info['item']
@@ -1698,107 +1636,158 @@ class BudgetStatementPDFGenerator:
                 c.drawString(left_margin, y_pos, f"{nozzle_spacing_label}：{nozzle_spacing}")
             return y_pos - 40
 
-        # 定義繪製表格標題列
-        def draw_table_header(y_pos):
+        # === 調控設施材料表 ===
+        control_materials = data.get('control_materials', [
+            {'category': '1. 微氣象調節', 'name': '微噴霧降溫設施', 'price': 473340, 'quantity': 1, 'total': 473340}
+        ])
+        c.setLineWidth(0.5)
+        table_x = left_margin
+        col_widths = [40, 262, 76, 62, 76]  # 5欄：項目/材料名稱/單價/數量/總價（總寬 516pt）
+        row_height = 22
+        table_font_size = 12
+        line_height = table_font_size + 4   # 16pt：單行文字行距
+        total_row_h = row_height
+        bottom_margin = total_row_h + 40  # 保留總價行空間
+
+        total_width = sum(col_widths)
+
+        # === 垂直分隔線累積位置 ===
+        vertical_positions = [0]
+        for w in col_widths:
+            vertical_positions.append(vertical_positions[-1] + w)
+
+        # === 前置計算：材料名稱欄文字分行、動態列高 ===
+        mat_row_infos = []
+        for item in control_materials:
+            material_name = (item.get('name', '') or '').strip()
+            name_lines = self._wrap_text_to_lines(material_name, self.font_name, table_font_size, col_widths[1] - 8, c) or ['']
+            n = len(name_lines)
+            rh = max(row_height, n * line_height + 4)
+            mat_row_infos.append({'name_lines': name_lines, 'height': rh})
+
+        # --- 輔助：繪製表格標題行，回傳繪製後的 current_y ---
+        def draw_control_header(start_y: float) -> float:
             headers = ["項目", "材料名稱", "單價", "數量", "總價"]
             c.setFont(self.font_name, table_font_size)
-            c.setLineWidth(0.5)
-            
-            c.line(table_x, y_pos, table_x + total_width, y_pos) # 頂線
-            c.line(table_x, y_pos - row_height, table_x + total_width, y_pos - row_height) # 底線
-            
-            current_v_x = table_x
-            for i, header in enumerate(headers):
-                self._draw_centered_text(c, header, current_v_x, y_pos - row_height / 2 - table_font_size * 0.3, col_widths[i], font_size=table_font_size)
-                c.line(current_v_x, y_pos, current_v_x, y_pos - row_height)
-                current_v_x += col_widths[i]
-            c.line(table_x + total_width, y_pos, table_x + total_width, y_pos - row_height)
-            return y_pos - row_height
+            hy = start_y - row_height / 2 - table_font_size * 0.3
+            for i, hdr in enumerate(headers):
+                self._draw_centered_text(c, hdr, table_x + vertical_positions[i], hy, col_widths[i], font_size=table_font_size)
+            c.line(table_x, start_y - row_height, table_x + total_width, start_y - row_height)
+            for i in range(1, len(vertical_positions) - 1):
+                c.line(table_x + vertical_positions[i], start_y, table_x + vertical_positions[i], start_y - row_height)
+            return start_y - row_height
 
-        # --- 開始繪製 ---
-        current_y = draw_page_header(height - 60)
-        current_y = draw_table_header(current_y)
+        # 首頁：繪製表格標題行
+        table_segment_start_y = current_y
+        current_y = draw_control_header(current_y)
+
+        # === 繪製資料行 ===
         grand_total = 0
 
-        for item in control_materials:
-            # 判斷是否需要分組行 (需要 2 行高度)
-            is_group_start = item.get('is_first_in_group', False)
-            needed_h = row_height * 2 if is_group_start else row_height
-            
-            # 檢查換頁
-            if current_y - needed_h < bottom_limit:
-                c.showPage()
-                current_y = draw_page_header(height - 60)
-                current_y = draw_table_header(current_y)
+        for item, mat_info in zip(control_materials, mat_row_infos):
+            category = item.get('category', '')
+            is_first_in_group = item.get('is_first_in_group', False)
+            name_lines = mat_info['name_lines']
+            rh = mat_info['height']
 
-            if is_group_start:
-                category = item.get('category', '')
+            # 只在該群組的第一個項目時顯示類別行（固定行高）
+            if is_first_in_group:
+                # 換頁判斷（類別行 + 至少一個材料行）
+                if current_y - row_height - rh < bottom_margin:
+                    c.rect(table_x, current_y, total_width, table_segment_start_y - current_y)
+                    c.showPage()
+                    c.setLineWidth(0.5)
+                    cont_y = height - 50
+                    c.setFont(self.font_name, 13)
+                    cont_title = "調控設施材料數量表（續）"
+                    cont_w = c.stringWidth(cont_title, self.font_name, 13)
+                    c.drawString((width - cont_w) / 2, cont_y, cont_title)
+                    cont_y -= 30
+                    table_segment_start_y = cont_y
+                    current_y = draw_control_header(cont_y)
+
+                # 提取類別編號和名稱（從 "1. 微氣象調節" 分離為 "1" 和 "微氣象調節"）
                 if '.' in category:
                     category_number = category.split('.')[0].strip()
                     category_name = category.split('.', 1)[1].strip()
                 else:
                     category_number, category_name = '', category
 
-                # 繪製類別行
                 row_y = current_y - row_height / 2 - table_font_size * 0.3
+
+                # 項目欄：類別編號（置中對齊）
                 self._draw_centered_text(c, category_number, table_x, row_y, col_widths[0], font_size=table_font_size)
-                # 類別名稱跨越後面所有欄位
-                #self._draw_centered_text(c, category_name, table_x + col_widths[0], row_y, sum(col_widths[1:]), font_size=table_font_size)
-                self._draw_left_aligned_text(c, category_name, table_x + col_widths[0] + 5, row_y, sum(col_widths[1:]), font_size=table_font_size)
-                
+
+                # 類別名稱：靠左對齊，跨越第2欄到最後一欄
+                self._draw_left_aligned_text(c, category_name, table_x + col_widths[0], row_y, sum(col_widths[1:]), font_size=table_font_size)
+
                 current_y -= row_height
                 c.line(table_x, current_y, table_x + total_width, current_y)
-                # 類別行垂直線
-                c.line(table_x, current_y + row_height, table_x, current_y)
-                c.line(table_x + col_widths[0], current_y + row_height, table_x + col_widths[0], current_y)
-                c.line(table_x + total_width, current_y + row_height, table_x + total_width, current_y)
+                # 類別行不繪製欄位分隔線（類別編號與名稱視覺上合為一欄）
+                # c.line(table_x + vertical_positions[1], category_row_top_y, table_x + vertical_positions[1], current_y)
 
-            # 繪製材料資料行
-            item_row_top_y = current_y
-            row_y = current_y - row_height / 2 - table_font_size * 0.3
-            
-            # 1. 項目編號
-            self._draw_centered_text(c, item.get('item_id', ''), table_x, row_y, col_widths[0], font_size=table_font_size)
-            # 2. 材料名稱 (長度已合併)
-            material_name = (item.get('name', '') or '').strip()
-            c.drawString(table_x + col_widths[0] + 5, row_y, material_name)
-            # 3. 單價
-            self._draw_right_aligned_text(c, f"{item.get('price', 0):,}", table_x + sum(col_widths[:2]), row_y, col_widths[2], font_size=table_font_size)
-            # 4. 數量
-            self._draw_centered_text(c, str(item.get('quantity', '')), table_x + sum(col_widths[:3]), row_y, col_widths[3], font_size=table_font_size)
-            # 5. 總價
-            self._draw_right_aligned_text(c, f"{item.get('total', 0):,}", table_x + sum(col_widths[:4]), row_y, col_widths[4], font_size=table_font_size)
+            # 換頁判斷（材料行，使用動態 rh）
+            if current_y - rh < bottom_margin:
+                c.rect(table_x, current_y, total_width, table_segment_start_y - current_y)
+                c.showPage()
+                c.setLineWidth(0.5)
+                cont_y = height - 50
+                c.setFont(self.font_name, 13)
+                cont_title = "調控設施材料數量表（續）"
+                cont_w = c.stringWidth(cont_title, self.font_name, 13)
+                c.drawString((width - cont_w) / 2, cont_y, cont_title)
+                cont_y -= 30
+                table_segment_start_y = cont_y
+                current_y = draw_control_header(cont_y)
+
+            item_number = item.get('item_id', '')
+            material_row_top_y = current_y
+
+            # 項目欄：項目編號（置中對齊，垂直置中）
+            self._draw_centered_text(c, item_number, table_x, current_y - rh / 2 - table_font_size * 0.3, col_widths[0], font_size=table_font_size)
+
+            # 材料名稱欄（多行，垂直置中）
+            name_block_h = len(name_lines) * line_height
+            name_baseline = current_y - (rh - name_block_h) / 2 - table_font_size
+            c.setFont(self.font_name, table_font_size)
+            for idx, line_text in enumerate(name_lines):
+                c.drawString(table_x + col_widths[0] + 5, name_baseline - idx * line_height, line_text)
+
+            # 其餘單行欄位（垂直置中）
+            single_y = current_y - rh / 2 - table_font_size * 0.3
+
+            # 單價（靠右對齊，千分位格式）
+            self._draw_right_aligned_text(c, f"{item.get('price', 0):,}", table_x + sum(col_widths[:2]), single_y, col_widths[2], font_size=table_font_size)
+
+            # 數量（置中對齊）
+            self._draw_centered_text(c, str(item.get('quantity', '')), table_x + sum(col_widths[:3]), single_y, col_widths[3], font_size=table_font_size)
+
+            # 總價（靠右對齊）
+            self._draw_right_aligned_text(c, f"{item.get('total', 0):,}", table_x + sum(col_widths[:4]), single_y, col_widths[4], font_size=table_font_size)
 
             grand_total += item.get('total', 0)
-            current_y -= row_height
+            current_y -= rh
             c.line(table_x, current_y, table_x + total_width, current_y)
-            
-            # 繪製資料行所有垂直線
-            v_p = table_x
-            for cw in col_widths:
-                c.line(v_p, item_row_top_y, v_p, current_y)
-                v_p += cw
-            c.line(table_x + total_width, item_row_top_y, table_x + total_width, current_y)
+            # 材料行：繪製所有內部垂直線
+            for i in range(1, len(vertical_positions) - 1):
+                c.line(table_x + vertical_positions[i], material_row_top_y, table_x + vertical_positions[i], current_y)
 
-        # 繪製總價行 (檢查高度)
-        if current_y - row_height < bottom_limit:
-            c.showPage()
-            current_y = draw_page_header(height - 60)
-            current_y = draw_table_header(current_y)
+        # === 總價行（永遠在最後一頁）===
+        total_row_top_y = current_y
+        total_row_y = current_y - total_row_h / 2 - table_font_size * 0.3
+        self._draw_centered_text(c, "總價", table_x, total_row_y, col_widths[0], font_size=table_font_size)
+        self._draw_right_aligned_text(c, f"{grand_total:,}", table_x + sum(col_widths[:4]), total_row_y, col_widths[4], font_size=table_font_size)
+        for i in range(1, len(vertical_positions) - 1):
+            c.line(table_x + vertical_positions[i], total_row_top_y, table_x + vertical_positions[i], total_row_top_y - total_row_h)
 
-        row_y = current_y - row_height / 2 - table_font_size * 0.3
-        self._draw_centered_text(c, "總價", table_x, row_y, col_widths[0], font_size=table_font_size)
-        self._draw_right_aligned_text(c, f"{grand_total:,}", table_x + sum(col_widths[:4]), row_y, col_widths[4], font_size=table_font_size)
-        
-        current_y -= row_height
-        c.line(table_x, current_y, table_x + total_width, current_y)
-        # 總價行垂直線
-        c.line(table_x, current_y + row_height, table_x, current_y)
-        c.line(table_x + sum(col_widths[:4]), current_y + row_height, table_x + sum(col_widths[:4]), current_y)
-        c.line(table_x + total_width, current_y + row_height, table_x + total_width, current_y)
+        current_y -= total_row_h
 
-        # 以下空白
+        # 封閉最後一頁的表格外框
+        c.rect(table_x, current_y, total_width, table_segment_start_y - current_y)
+
         current_y -= 20
+
+        # "以下空白"分隔線
         c.setFont(self.font_name, 10)
         separator = "--------------------以下空白--------------------"
         sep_width = c.stringWidth(separator, self.font_name, 10)
@@ -2218,7 +2207,6 @@ class BudgetStatementPDFGenerator:
 
         # 簽核欄位
         table_x = 40
-        # self._draw_signature_section(c, table_x, current_y)
         self._draw_acceptance_signature_section(c, table_x, current_y)
 
         c.showPage()
@@ -2913,67 +2901,66 @@ class BudgetStatementPDFGenerator:
         return table_bottom_y - 10  # 留一點間距
 
     def _draw_acceptance_signature_section(self, c: canvas.Canvas, x: float, current_y: float) -> float:
-            """
-            繪製簽核欄位（多頁共用）
+        """
+        繪製功能測試報告書驗收簽核欄位
 
-            Args:
-                c: Canvas 物件
-                x: 起始 X 座標
-                current_y: 當前 Y 座標（從上往下繪製的頂部位置）
+        Args:
+            c: Canvas 物件
+            x: 起始 X 座標
+            current_y: 當前 Y 座標（從上往下繪製的頂部位置）
 
-            Returns:
-                繪製結束後的 Y 座標
-            """
-            c.setFont(self.font_name, 12)
+        Returns:
+            繪製結束後的 Y 座標
+        """
+        c.setFont(self.font_name, 12)
 
-            # 繪製 3x6 簽核表格（職稱欄 + 簽名欄交替）
-            title_col_width = 70   # 職稱欄位寬度（1, 3, 5）
-            sign_col_width = 102   # 簽名欄位寬度（2, 4, 6）
-            row_height = 40
+        # 繪製 3x6 簽核表格（職稱欄 + 簽名欄交替）
+        title_col_width = 70   # 職稱欄位寬度（1, 3, 5）
+        sign_col_width = 102   # 簽名欄位寬度（2, 4, 6）
+        row_height = 40
 
-            # 欄位寬度數組（交替排列：職稱-簽名-職稱-簽名-職稱-簽名）
-            col_widths = [title_col_width, sign_col_width, title_col_width, sign_col_width, title_col_width, sign_col_width]
-            table_width = sum(col_widths)
-            table_height = row_height * 3
+        # 欄位寬度數組（交替排列：職稱-簽名-職稱-簽名-職稱-簽名）
+        col_widths = [title_col_width, sign_col_width, title_col_width, sign_col_width, title_col_width, sign_col_width]
+        table_width = sum(col_widths)
+        table_height = row_height * 3
 
-            # 計算表格底部位置（PDF 座標系統從下往上）
-            table_bottom_y = current_y - table_height
+        # 計算表格底部位置（PDF 座標系統從下往上）
+        table_bottom_y = current_y - table_height
 
-            # 外框
-            c.rect(x, table_bottom_y, table_width, table_height)
+        # 外框
+        c.rect(x, table_bottom_y, table_width, table_height)
 
-            # 計算每個欄位的起始位置
-            col_positions = [0]
-            for width in col_widths:
-                col_positions.append(col_positions[-1] + width)
+        # 計算每個欄位的起始位置
+        col_positions = [0]
+        for width in col_widths:
+            col_positions.append(col_positions[-1] + width)
 
-            # 垂直線
-            for i in range(1, len(col_widths)):
-                line_x = x + col_positions[i]
-                c.line(line_x, table_bottom_y, line_x, table_bottom_y + table_height)
+        # 垂直線
+        for i in range(1, len(col_widths)):
+            line_x = x + col_positions[i]
+            c.line(line_x, table_bottom_y, line_x, table_bottom_y + table_height)
 
-            # 水平線
-            for i in range(1, 3):
-                c.line(x, table_bottom_y + row_height * i, x + table_width, table_bottom_y + row_height * i)
+        # 水平線
+        for i in range(1, 3):
+            c.line(x, table_bottom_y + row_height * i, x + table_width, table_bottom_y + row_height * i)
 
-            # 填入標籤（1,3,5 欄為標題；2,4,6 欄為簽名空白欄）
-            labels = [
-                ["測試人員", "", "股長", "", "主任工程師", ""],
-                ["會辦", "", "組長", "", "副處長", ""],
-                ["主辦", "", "主計單位", "", "處長", ""]
-            ]
+        # 驗收流程職稱標籤
+        labels = [
+            ["測試人員", "", "組長", "", "主任工程師", ""],
+            ["會辦",   "", "組長", "", "副處長",    ""],
+            ["主辦",   "", "主計單位", "", "處長",  ""]
+        ]
 
-            for row_idx, row in enumerate(labels):
-                for col_idx, label in enumerate(row):
-                    # 使用對應欄位的起始位置
-                    text_x = x + col_positions[col_idx]
-                    text_y = table_bottom_y + row_height * (3 - row_idx - 1) + 15
-                    self._draw_centered_text(
-                        c, label,
-                        text_x, text_y,
-                        title_col_width,
-                        font_size=12
-                    )
+        for row_idx, row in enumerate(labels):
+            for col_idx, label in enumerate(row):
+                text_x = x + col_positions[col_idx]
+                text_y = table_bottom_y + row_height * (3 - row_idx - 1) + 15
+                self._draw_centered_text(
+                    c, label,
+                    text_x, text_y,
+                    title_col_width,
+                    font_size=12
+                )
 
-            # 返回繪製結束後的 Y 座標
-            return table_bottom_y - 10  # 留一點間距
+        # 返回繪製結束後的 Y 座標
+        return table_bottom_y - 10  # 留一點間距
