@@ -1460,11 +1460,12 @@ const saveItem = async () => {
     let savedPipeFittingId;
 
     if (editedItem.id) {
+      saveData.modified_by_id = userStore.currentUser?.id;
       await store.updatePipeFitting(editedItem.id, saveData);
       savedPipeFittingId = editedItem.id;
     } else {
-      // await store.createPipeFitting(saveData);
-      // 創建新管件並獲取回傳的資料，其中應包含新建的管件ID
+      saveData.year = new Date().getFullYear() - 1911;
+      saveData.created_by_id = userStore.currentUser?.id;
       const newPipeFitting = await store.createPipeFitting(saveData);
       savedPipeFittingId = newPipeFitting.pomno;
     }

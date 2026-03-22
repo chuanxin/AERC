@@ -34,15 +34,22 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
 
     current_location_keys = set()
 
-    # 🔧 修復：使用正確的 Tortoise 連接方式
+    # 取得案件資訊（在迴圈外取得，避免重複查詢）
+    grant = await Grants.get(id=grant_id)
+    applicant_name = grant.applicant_name
+    apply_year = grant.year
+    case_status = grant.status
+    case_number = grant.case_number
+
+    # 🔧 修復：使用正確的 Tortoise 連接方式（僅用於 PostGIS upsert）
     conn = connections.get("default")
-    
+
     try:
         for parcel in land_parcels:
             try:
                 # 🔧 修復：使用正確的欄位名稱 (camelCase -> snake_case 轉換)
                 land_section = parcel.get('landSec')          # 前端: landSec
-                land_number = parcel.get('landNumber')        # 前端: landNumber  
+                land_number = parcel.get('landNumber')        # 前端: landNumber
                 longitude = parcel.get('longitude')           # 前端: longitude (根層級)
                 latitude = parcel.get('latitude')             # 前端: latitude (根層級)
                 # address_data = parcel.get('facilityAddress', {})
@@ -74,13 +81,6 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                 except (ValueError, TypeError) as e:
                     logger.error(f"Invalid coordinates for grant {grant_id}: lng={longitude}, lat={latitude}, error={e}")
                     continue
-                
-                # 取得案件資訊
-                grant = await Grants.get(id=grant_id)
-                applicant_name = grant.applicant_name
-                apply_year = grant.year
-                case_status = grant.status
-                case_number = grant.case_number
                 
                 # 🔧 修復：建立更詳細的註釋
                 county_name = parcel.get('landCounty', '')
@@ -145,34 +145,21 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                 logger.error(f"❌ Error processing parcel for grant {grant_id}: {parcel}. Error: {e}")
                 # 繼續處理下一筆，不要讓單筆錯誤影響整體同步
 
-        # 🔧 修復：清理不再存在的土地資料 (Pruning)
+        # 清理不再存在的土地資料 (Pruning)
         if current_location_keys:
-            # 查詢現有的位置資料
-            existing_query = """
-            SELECT id, source_id, land_section, land_number 
-            FROM grant_locations 
-            WHERE source_system = $1 AND source_id = $2
-            """
-            
-            existing_results = await conn.execute_query_dict(
-                existing_query, 
-                ['new_aerc', str(grant_id)]
-            )
+            existing_results = await GrantLocations.filter(
+                source_system='new_aerc',
+                source_id=str(grant_id)
+            ).values('id', 'land_section', 'land_number')
 
-            # 找出需要刪除的位置資料
-            locations_to_delete = []
-            for loc in existing_results:
-                existing_key = f"{grant_id}_{loc['land_section']}_{loc['land_number']}"
-                if existing_key not in current_location_keys:
-                    locations_to_delete.append(loc['id'])
-            
-            # 🔧 修復：批次刪除過時的位置資料
+            locations_to_delete = [
+                loc['id']
+                for loc in existing_results
+                if f"{grant_id}_{loc['land_section']}_{loc['land_number']}" not in current_location_keys
+            ]
+
             if locations_to_delete:
-                # 使用 IN 子句而不是 ANY() - 更簡單可靠
-                placeholders = ','.join([f'${i+1}' for i in range(len(locations_to_delete))])
-                delete_sql = f"DELETE FROM grant_locations WHERE id IN ({placeholders})"
-                
-                await conn.execute_query_dict(delete_sql, locations_to_delete)
+                await GrantLocations.filter(id__in=locations_to_delete).delete()
                 logger.info(f"🗑️ Pruned {len(locations_to_delete)} old locations for grant {grant_id}")
 
         logger.info(f"🎯 Synchronization complete for grant {grant_id}. Processed {len(current_location_keys)} locations.")
@@ -180,3 +167,21 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
     except Exception as e:
         logger.error(f"❌ Fatal error during sync_grant_locations for grant {grant_id}: {e}")
         raise  # 重新拋出錯誤，讓上層處理
+
+
+async def sync_single_grant_metadata(grant_id: int, status: str, year: int) -> None:
+    """
+    當 grants.status 異動時，同步對應的 grant_locations 欄位。
+    僅更新 source_system = 'new_aerc' 的資料列。
+    使用 ORM filter().update() 以確保在 in_transaction() 內使用正確的 transaction connection。
+    """
+    await GrantLocations.filter(
+        source_system='new_aerc',
+        source_id=str(grant_id)
+    ).update(
+        case_status=status,
+        apply_year=year,
+    )
+    logger.info(f"✅ sync_single_grant_metadata: grant_id={grant_id}, status={status}, year={year}")
+
+
