@@ -4010,8 +4010,9 @@ const deleteLand = (landId: string) => {
       cancelLandEdit()
     }
 
-    // watch(localFormData) 會自動觸發 updateFormData()
-    // 不需要手動呼叫 eventEmitter.emitDataChanged()
+    // 土地刪除是破壞性操作，必須立即儲存，不能依賴 watch debounce (300ms) + autosave timer (3s)
+    // 若使用者在 ~3.3 秒內 reload，被刪除的土地會重新出現
+    stepManager.emitDataChanged(true)
 
     console.log('✅ step2.vue: Land deleted successfully, lands count:', landManagement.lands.length)
   }
