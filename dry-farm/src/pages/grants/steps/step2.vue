@@ -281,7 +281,7 @@
           </div>
         </v-alert>
 
-        <!-- ⚠️ 軟鎖定警告 -->
+        <!-- 軟鎖定警告 -->
         <v-alert
           v-if="props.softLocked && !props.readonly"
           color="warning"
@@ -1980,7 +1980,7 @@ interface SelectedFeatureInfo {
   area?: string | number; // 面積（平方公尺，多個 polygon 時為總和）
   areaSource?: string;    // 面積來源（地籍登記面積、測量面積、地圖幾何計算）
 
-  // 🆕 NLSC GML 欄位（從 CadasMapQuery API 獲取）
+  // NLSC GML 欄位（從 CadasMapQuery API 獲取）
   LANDNO?: string;        // GML 地號 8 碼（例如：00010000）
   SECT?: string;          // GML 地段代碼（例如：0532）
   CITY?: string;          // 縣市（例如：臺中市）
@@ -2088,7 +2088,7 @@ interface Step2Events {
 const emit = defineEmits<Step2Events>();
 
 // 事件驅動架構：移除 props 依賴，但保留 currentStep
-// 🆕 新增 readonly 和 softLocked prop 支援
+// 新增 readonly 和 softLocked prop 支援
 const props = withDefaults(defineProps<{
   currentStep: number;
   readonly?: boolean;
@@ -2242,7 +2242,7 @@ const createEventEmitter = (
   return {
     emitDataChanged: (immediate = false) => {
       if (!guard.isInitialized || guard.isInitializing) {
-        console.log(`⏸️ step${stepNumber}.vue: Skipping event emission during initialization`)
+        console.log(`step${stepNumber}.vue: Skipping event emission during initialization`)
         return
       }
       // 🔥 如果 immediate=true，立即發送事件；否則使用 debounce
@@ -2257,12 +2257,12 @@ const createEventEmitter = (
       if (!guard.isInitializing && guard.isInitialized) {
         emit('validation-changed', { step: stepNumber, valid })
       } else {
-        console.log(`⏸️ step${stepNumber}.vue: Skipping validation event emission during initialization`)
+        console.log(`step${stepNumber}.vue: Skipping validation event emission during initialization`)
       }
     },
 
     emitReadyToProceed: () => {
-      console.log(`✅ step${stepNumber}.vue: Emitting ready-to-proceed event`)
+      console.log(`step${stepNumber}.vue: Emitting ready-to-proceed event`)
       emit('ready-to-proceed', {
         step: stepNumber,
         data: { ...formData }
@@ -2301,16 +2301,16 @@ const createCascadeSelectManager = (
   guard: StepInitializationGuard
 ): CascadeSelectManager => ({
   loadCascadeData: async () => {
-    console.log('🔗 Loading cascade data for address fields...')
+    console.log('Loading cascade data for address fields...')
 
     try {
       // 載入設施地址的級聯資料
       if (formData.landCounty) {
-        console.log('📍 Loading towns for landCounty:', formData.landCounty)
+        console.log('Loading towns for landCounty:', formData.landCounty)
         await loadTownsForCounty(formData.landCounty as string | number)
 
         if (formData.landTown) {
-          console.log('📍 Loading sections for landTown:', formData.landTown)
+          console.log('Loading sections for landTown:', formData.landTown)
           // 檢查是否為特殊城市代碼，如果是則跳過
           const isSpecialCityCode = formData.landTown === 'O01' || formData.landTown === 'I01';
           if (!isSpecialCityCode) {
@@ -2321,30 +2321,30 @@ const createCascadeSelectManager = (
 
       // 載入所有權人地址的級聯資料
       if (formData.ownerCounty) {
-        console.log('📍 Loading towns for ownerCounty:', formData.ownerCounty)
+        console.log('Loading towns for ownerCounty:', formData.ownerCounty)
         await loadTownsForCounty(formData.ownerCounty as string | number)
 
         if (formData.ownerTown) {
-          console.log('📍 Loading villages for ownerTown:', formData.ownerTown)
+          console.log('Loading villages for ownerTown:', formData.ownerTown)
           const townId = typeof formData.ownerTown === 'number' ? formData.ownerTown : parseInt(formData.ownerTown as string)
           await domicileStore.loadVillagesByTownId(townId)
         }
       }
 
-      console.log('✅ Cascade data loaded successfully')
+      console.log('Cascade data loaded successfully')
     } catch (error) {
-      console.error('❌ Failed to load cascade data:', error)
+      console.error('Failed to load cascade data:', error)
     }
   },
 
   resetCascadeSelections: (level: 'county' | 'town' | 'village') => {
     // 🔥 修復：防止載入時錯誤清空級聯選擇
     if (guard.isInitializing) {
-      console.log('⏸️ resetCascadeSelections blocked during data loading')
+      console.log('resetCascadeSelections blocked during data loading')
       return
     }
 
-    console.log(`🔄 resetCascadeSelections: ${level}`)
+    console.log(`resetCascadeSelections: ${level}`)
     switch (level) {
       case 'county':
         formData.landTown = ''
@@ -2399,7 +2399,7 @@ const createUnifiedStepManager = (
         if (!guard.isInitializing && guard.isInitialized) {
           eventEmitter.emitValidationChanged(valid)
         } else {
-          console.log('⏸️ step2.vue: Skipping validation event emission during initialization')
+          console.log('step2.vue: Skipping validation event emission during initialization')
         }
 
         return valid
@@ -2411,7 +2411,7 @@ const createUnifiedStepManager = (
     updateFormData: () => {
       // 在初始化期間不執行更新,避免重置資料庫資料
       if (!guard.isInitialized || guard.isInitializing) {
-        console.log('⏸️ step2.vue: Skipping updateFormData during initialization')
+        console.log('step2.vue: Skipping updateFormData during initialization')
         return
       }
 
@@ -2599,9 +2599,9 @@ const landUtils = {
     if (needProtection) {
       initGuard.isInitializing = true
       isLandNumberUpdateProgrammatic.value = true
-      console.log('🔒 loadLandToCurrentForm - 開啟載入保護')
+      console.log('loadLandToCurrentForm - 開啟載入保護')
     } else {
-      console.log('⏭️ loadLandToCurrentForm - 跳過保護（外層已管理）')
+      console.log('loadLandToCurrentForm - 跳過保護（外層已管理）')
     }
 
     try {
@@ -2658,7 +2658,7 @@ const landUtils = {
         nextTick(() => {
           initGuard.isInitializing = false
           isLandNumberUpdateProgrammatic.value = false
-          console.log('✅ loadLandToCurrentForm - 載入保護已關閉')
+          console.log('loadLandToCurrentForm - 載入保護已關閉')
         })
       }
     }
@@ -2710,16 +2710,16 @@ const landInfo = reactive({
 const featureInfoVisible = ref(false);
 const selectedFeatureInfo = ref<SelectedFeatureInfo>({});
 
-// 🆕 存儲當前查詢到的地籍 feature（用於「使用此地號」功能）
+// 存儲當前查詢到的地籍 feature（用於「使用此地號」功能）
 const currentCadastralFeature = ref<Feature<Geometry> | null>(null);
 
-// 🆕 地籍圖資料載入狀態
+// 地籍圖資料載入狀態
 const isCadastralLoading = ref(false);
 
-// 🆕 無地段圖資提示 overlay 狀態
+// 無地段圖資提示 overlay 狀態
 const noSectionDataOverlay = ref(false);
 
-// 🆕 查無地號提示 alert 狀態
+// 查無地號提示 alert 狀態
 const landParcelNotFoundAlert = ref(false);
 const landParcelNotFoundMessage = ref('');
 
@@ -2737,7 +2737,7 @@ const counties = computed(() => {
   }));
 });
 
-// 🆕 顯示縣市名稱（處理代碼轉換）
+// 顯示縣市名稱（處理代碼轉換）
 const displayCountyName = computed(() => {
   const countyValue = landInfo.county;
 
@@ -2795,7 +2795,7 @@ const towns = computed(() => {
   return domicileStore.getTownsForCountyId(countyId);
 });
 
-// 🆕 獲取其他土地資料（排除當前編輯的土地）
+// 獲取其他土地資料（排除當前編輯的土地）
 const otherLands = computed(() => {
   if (!landManagement.isEditingMode || !landManagement.currentEditingLandId) {
     return landManagement.lands;
@@ -2803,14 +2803,14 @@ const otherLands = computed(() => {
   return landManagement.lands.filter(land => land.id !== landManagement.currentEditingLandId);
 });
 
-// 🆕 編輯模式下的縣市選項過濾
+// 編輯模式下的縣市選項過濾
 const filteredCounties = computed(() => {
   // 客戶需求修改（2025-11-08）：
   // 第二筆土地的縣市不做限制，只限制鄉鎮市區的原住民屬性
   return counties.value;
 });
 
-// 🆕 編輯模式下的鄉鎮市區選項過濾
+// 編輯模式下的鄉鎮市區選項過濾
 const filteredTowns = computed(() => {
   const allTowns = towns.value;
 
@@ -2951,7 +2951,7 @@ const onSectionChange = (sectionCode: string | number) => {
     if (selectedSection) {
       // 同時儲存地段名稱
       localFormData.landSecName = selectedSection.displayName || selectedSection.name;
-      // console.log('🏷️ 地段選擇:', { code: sectionCode, name: localFormData.landSecName });
+      // console.log('地段選擇:', { code: sectionCode, name: localFormData.landSecName });
     }
   } else {
     // 清空時也清空名稱
@@ -3137,7 +3137,7 @@ const clearLocationAndAreaInfo = () => {
   localFormData.isIrrigationArea = false;
 };
 
-// 🆕 當設施地段（縣市/鄉鎮/地段）變更時，重置相關資訊
+// 當設施地段（縣市/鄉鎮/地段）變更時，重置相關資訊
 const resetLandRelatedInfo = () => {
   // 重置地號資訊
   localFormData.landNumberMain = '';
@@ -3158,7 +3158,7 @@ const resetLandRelatedInfo = () => {
   localFormData.cropCategory = '';
   localFormData.cropName = '';
 
-  console.log('🔄 已重置地號、坐標、面積、作物資訊');
+  console.log('已重置地號、坐標、面積、作物資訊');
 };
 
 // Previous values to track manual changes
@@ -3391,7 +3391,7 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
     if (hasStep4Data || hasStep5Data) {
       // 顯示提示說明（不提供取消選項）
       alert(
-        '⚠️ 設施面積已變更！\n\n' +
+        '設施面積已變更！\n\n' +
         `原面積：${(Big(oldArea).div(10000).round(6, Big.roundDown).toString())} 公頃\n` +
         `新面積：${(Big(area).div(10000).round(6, Big.roundDown).toString())} 公頃\n\n` +
         '面積變更會影響補助額度計算，系統將自動清除以下步驟的資料：\n' +
@@ -3401,7 +3401,7 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
       )
 
       try {
-        // 🔥 Phase 1: 使用新的原子性清除方法
+        // Phase 1: 使用新的原子性清除方法
         const clearFailures: number[] = []
 
         if (hasStep4Data) {
@@ -3422,13 +3422,13 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
 
         // 檢查是否有清除失敗
         if (clearFailures.length > 0) {
-          alert(`❌ 清除步驟 ${clearFailures.join(', ')} 資料失敗，請稍後再試。`)
+          alert(`清除步驟 ${clearFailures.join(', ')} 資料失敗，請稍後再試。`)
         } else {
-          alert('✅ 已成功清除相關步驟資料，請重新填寫設施資訊。')
+          alert('已成功清除相關步驟資料，請重新填寫設施資訊。')
         }
       } catch (error) {
-        console.error('❌ [Step2] 清除步驟資料時發生例外:', error)
-        alert('❌ 清除步驟資料時發生錯誤，請稍後再試。')
+        console.error('清除步驟資料時發生例外:', error)
+        alert('清除步驟資料時發生錯誤，請稍後再試。')
       }
     }
   }
@@ -3542,7 +3542,7 @@ const onCountyChange = stepManager.createCascadeHandler(async () => {
   localFormData.landSecName = '';
   nlscSections.value = [];
 
-  // 🆕 重置地號、坐標、面積等相關資訊（從 watch 整合過來）
+  // 重置地號、坐標、面積等相關資訊（從 watch 整合過來）
   resetLandRelatedInfo();
 
   // 強制重新渲染地段選單
@@ -3673,7 +3673,7 @@ const loadLandSections = async (preserveSelection = false) => {
       if (matchingSection) {
         // 使用找到的項目的原始代碼格式
         localFormData.landSec = matchingSection.code;
-        console.log('🔄 恢復地段選擇:', {
+        console.log('恢復地段選擇:', {
           original: currentSelection,
           matched: matchingSection.code,
           name: matchingSection.name
@@ -3681,7 +3681,7 @@ const loadLandSections = async (preserveSelection = false) => {
       } else {
         // 如果找不到匹配項，保持原始選擇
         localFormData.landSec = currentSelection;
-        console.log('⚠️ 無法找到匹配的地段，保持原始選擇:', currentSelection);
+        console.log('無法找到匹配的地段，保持原始選擇:', currentSelection);
       }
     }
   }
@@ -3690,13 +3690,13 @@ const loadLandSections = async (preserveSelection = false) => {
 const onTownChange = stepManager.createCascadeHandler(async () => {
   cascadeManager.resetCascadeSelections('town');
 
-  // 🆕 重置地號、坐標、面積等相關資訊（從 watch 整合過來）
+  // 重置地號、坐標、面積等相關資訊（從 watch 整合過來）
   resetLandRelatedInfo();
 
   // 載入 NLSC 地段資料
   await loadLandSections();
 
-  // 🆕 檢查並更新原住民地區（從 watch 整合過來）
+  // 檢查並更新原住民地區（從 watch 整合過來）
   if (localFormData.landTown) {
     const townId = typeof localFormData.landTown === 'number'
       ? localFormData.landTown
@@ -3863,22 +3863,22 @@ const handleProceedToNext = async () => {
 
   const isValid = await validateForm();
   if (isValid) {
-    console.log('✅ step2.vue: Form is valid, emitting ready-to-proceed');
+    console.log('step2.vue: Form is valid, emitting ready-to-proceed');
     eventEmitter.emitReadyToProceed();
   } else {
-    console.log('❌ step2.vue: Form validation failed');
+    console.log('step2.vue: Form validation failed');
   }
 };
 
 // 事件驅動架構:處理返回請求
 const handleGoBack = () => {
-  console.log('🔙 step2.vue: handleGoBack called');
+  console.log('step2.vue: handleGoBack called');
   eventEmitter.emitGoBackRequested();
 };
 
 // 多筆土地管理功能
 const addNewLand = () => {
-  console.log('🏞️ step2.vue: Adding new land')
+  console.log('step2.vue: Adding new land')
 
   // 清空當前表單
   landUtils.clearCurrentForm()
@@ -3887,30 +3887,30 @@ const addNewLand = () => {
   landManagement.currentEditingLandId = null
   landManagement.isEditingMode = true // 這裡會觸發 watch，自動發送事件
 
-  console.log('✅ step2.vue: Ready for new land input')
+  console.log('step2.vue: Ready for new land input')
 }
 
 const editLand = async (landId: string) => {
-  console.log('✏️ step2.vue: Editing land:', landId)
+  console.log('step2.vue: Editing land:', landId)
 
   const land = landManagement.lands.find(l => l.id === landId)
   if (!land) {
-    console.error('❌ step2.vue: Land not found:', landId)
+    console.error('step2.vue: Land not found:', landId)
     return
   }
 
-  // 🆕 開啟載入保護，防止 watch 誤觸發重置
+  // 開啟載入保護，防止 watch 誤觸發重置
   initGuard.isInitializing = true
   isLandNumberUpdateProgrammatic.value = true
 
   try {
-    // 🔥 P0 修復：載入該土地的級聯資料
-    console.log('🔗 Loading cascade data for editing land...')
+    // P0 修復：載入該土地的級聯資料
+    console.log('Loading cascade data for editing land...')
     try {
       await preloadCascadeDataForLands([land])
-      console.log('✅ Cascade data loaded for editing')
+      console.log('Cascade data loaded for editing')
     } catch (error) {
-      console.warn('⚠️ Failed to load cascade data for editing:', error)
+      console.warn('Failed to load cascade data for editing:', error)
     }
 
     // 載入土地資料到當前表單（修復後的版本包含類型轉換）
@@ -3919,7 +3919,7 @@ const editLand = async (landId: string) => {
 
     // 如果該土地有地段資料，載入對應的 NLSC 地段選項
     if (land.landCounty && land.landTown && land.landSec) {
-      console.log('🎯 載入編輯土地的地段資料:', {
+      console.log('Loading land section data for editing:', {
         county: land.landCounty,
         town: land.landTown,
         section: land.landSec
@@ -3929,9 +3929,9 @@ const editLand = async (landId: string) => {
         // 等待一下確保表單資料已載入
         await nextTick();
         await loadLandSections(true); // 保留現有的地段選擇
-        console.log('✅ 編輯模式地段資料載入完成');
+        console.log('Land section data loaded for editing');
       } catch (error) {
-        console.warn('⚠️ 編輯模式地段資料載入失敗:', error);
+        console.warn('Failed to load land section data for editing:', error);
       }
     }
 
@@ -3939,18 +3939,18 @@ const editLand = async (landId: string) => {
     landManagement.currentEditingLandId = landId
     landManagement.isEditingMode = true
 
-    console.log('✅ step2.vue: Land loaded for editing')
+    console.log('step2.vue: Land loaded for editing')
   } finally {
-    // 🆕 所有載入完成後才關閉保護
+    // 所有載入完成後才關閉保護
     await nextTick()
     initGuard.isInitializing = false
     isLandNumberUpdateProgrammatic.value = false
-    console.log('✅ editLand - 載入保護已關閉')
+    console.log('editLand - 載入保護已關閉')
   }
 }
 
 const saveLandEdit = () => {
-  console.log('💾 step2.vue: Saving land edit')
+  console.log('step2.vue: Saving land edit')
 
   // 創建土地資料
   const landData = landUtils.createLandFromCurrentForm()
@@ -3961,12 +3961,12 @@ const saveLandEdit = () => {
     if (index !== -1) {
       landData.id = landManagement.currentEditingLandId
       landManagement.lands[index] = landData
-      console.log('✅ step2.vue: Land updated successfully')
+      console.log('step2.vue: Land updated successfully')
     }
   } else {
     // 新增土地
     landManagement.lands.push(landData)
-    console.log('✅ step2.vue: New land added successfully')
+    console.log('step2.vue: New land added successfully')
   }
 
   // 退出編輯模式（會自動觸發導航狀態更新）
@@ -3975,15 +3975,15 @@ const saveLandEdit = () => {
   // 同步到 localFormData.lands 以便儲存
   localFormData.lands = [...landManagement.lands]
 
-  // 🔥 立即觸發資料儲存（不等待 3 秒自動儲存延遲）
+  // 立即觸發資料儲存（不等待 3 秒自動儲存延遲）
   if (!initGuard.isInitializing && initGuard.isInitialized) {
-    console.log('💾 step2.vue: Triggering immediate save after land edit')
+    console.log('step2.vue: Triggering immediate save after land edit')
     eventEmitter.emitDataChanged(true)  // 傳遞 immediate=true
   }
 }
 
 const cancelLandEdit = () => {
-  console.log('❌ step2.vue: Cancelling land edit')
+  console.log('step2.vue: Cancelling land edit')
 
   // 清空當前表單
   landUtils.clearCurrentForm()
@@ -3992,11 +3992,11 @@ const cancelLandEdit = () => {
   landManagement.currentEditingLandId = null
   landManagement.isEditingMode = false // 這裡會觸發 watch，自動發送事件
 
-  console.log('✅ step2.vue: Edit cancelled')
+  console.log('step2.vue: Edit cancelled')
 }
 
 const deleteLand = (landId: string) => {
-  console.log('🗑️ step2.vue: Deleting land:', landId)
+  console.log('step2.vue: Deleting land:', landId)
 
   const index = landManagement.lands.findIndex(l => l.id === landId)
   if (index !== -1) {
@@ -4009,11 +4009,10 @@ const deleteLand = (landId: string) => {
     if (landManagement.currentEditingLandId === landId) {
       cancelLandEdit()
     }
+    // 0321 嘗試修正土地刪除問題，立即觸發資料儲存（不等待 3 秒自動儲存延遲）
+    stepManager.emitDataChanged(true)
 
-    // watch(localFormData) 會自動觸發 updateFormData()
-    // 不需要手動呼叫 eventEmitter.emitDataChanged()
-
-    console.log('✅ step2.vue: Land deleted successfully, lands count:', landManagement.lands.length)
+    console.log('step2.vue: Land deleted successfully, lands count:', landManagement.lands.length)
   }
 }
 
@@ -4022,7 +4021,7 @@ watch(() => landManagement.isEditingMode, async (isEditing, wasEditing) => {
   // 避免初始化時觸發
   if (isEditing === wasEditing) return
 
-  console.log(`🎛️ step2.vue: Navigation state changed - isEditing: ${isEditing}`)
+  console.log(`step2.vue: Navigation state changed - isEditing: ${isEditing}`)
 
   // 發送導航狀態變更事件
   emit('navigation-state-changed', {
@@ -4032,27 +4031,9 @@ watch(() => landManagement.isEditingMode, async (isEditing, wasEditing) => {
     reason: isEditing ? '正在編輯土地資料，請先完成或取消編輯' : undefined
   })
 
-  // ✅ 地圖初始化由 landInfoDialog watch 統一處理
+  // 地圖初始化由 landInfoDialog watch 統一處理
   // 編輯模式切換時不主動初始化，避免與對話框 watch 衝突
 }, { immediate: false })
-
-// 向後相容性處理：從舊版單筆土地資料轉換為多筆土地格式
-// const convertLegacyDataToMultipleLands = () => {
-//   // 檢查是否有舊版資料但沒有新版 lands 陣列
-//   if (localFormData.landCounty && (!localFormData.lands || localFormData.lands.length === 0)) {
-//     console.log('🔄 step2.vue: Converting legacy single land data to multiple lands format')
-
-//     // 創建土地資料
-//     const legacyLandData = landUtils.createLandFromCurrentForm()
-//     legacyLandData.id = 'legacy_land_1'
-
-//     // 加入到土地陣列
-//     landManagement.lands = [legacyLandData]
-//     localFormData.lands = [...landManagement.lands]
-
-//     console.log('✅ step2.vue: Legacy data converted successfully')
-//   }
-// }
 
 // 瀏覽器原生防護
 const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
@@ -4077,7 +4058,7 @@ defineExpose({
   }))
 });
 
-// 🔥 P0 修復：級聯選擇載入邏輯
+// P0 修復：級聯選擇載入邏輯
 // Linus 原則：Simple, Predictable, Fast
 
 // 簡化的級聯資料預載 - 消除複雜的保護機制
@@ -4110,19 +4091,19 @@ const preloadCascadeDataForLands = async (lands: LandData[]) => {
       try {
         await domicileStore.loadTownsByCountyId(countyId)
       } catch (error) {
-        console.warn(`⚠️ Failed to load towns for county ${countyId}:`, error)
+        console.warn(`Failed to load towns for county ${countyId}:`, error)
       }
     })
 
     await Promise.all(townPromises)
   } catch (error) {
-    console.error('❌ [P0 Fix] Cascade data preloading failed:', error)
+    console.error('[P0 Fix] Cascade data preloading failed:', error)
   }
 }
 
 // 修復初始化邏輯 - 去除過度複雜的保護機制
 const initializeStep2WithCascadeData = async () => {
-  console.log('🎯 [P0 Fix] Initializing Step2 with proper cascade loading...')
+  console.log('[P0 Fix] Initializing Step2 with proper cascade loading...')
 
   try {
     // 標記開始初始化
@@ -4131,11 +4112,11 @@ const initializeStep2WithCascadeData = async () => {
     // 1. 首先載入步驟資料
     const caseNumber = grantsStore.caseNumber
     if (!caseNumber) {
-      console.log('⚠️ No case number available, skipping data load')
+      console.log('No case number available, skipping data load')
       return
     }
 
-    console.log(`📦 Loading step data for case: ${caseNumber}`)
+    console.log(`Loading step data for case: ${caseNumber}`)
     const stepData = await grantsStore.loadStepData(caseNumber, 2)
 
     // 2. 處理土地資料 - 向後相容
@@ -4144,7 +4125,7 @@ const initializeStep2WithCascadeData = async () => {
     if (stepData?.lands?.length) {
       // 新版多筆土地資料
       lands = stepData.lands as LandData[]
-      console.log(`📍 Found ${lands.length} lands in new format`)
+      console.log(`Found ${lands.length} lands in new format`)
     } else if (stepData?.landCounty) {
       // 向後相容：轉換舊版單筆資料
       const legacyLand = {
@@ -4183,7 +4164,7 @@ const initializeStep2WithCascadeData = async () => {
       } as LandData
 
       lands = [legacyLand]
-      console.log('🔄 Converted legacy single land data')
+      console.log('Converted legacy single land data')
     }
 
     // 3. 關鍵修復：預載所有級聯資料
@@ -4227,27 +4208,27 @@ const initializeStep2WithCascadeData = async () => {
       }, 100); // Use a bit longer delay for initialization
     }
 
-    // 🔥 Linus式修復：完成初始化
-    console.log('✅ [P0 Fix] Step2 initialization completed successfully')
+    // Linus式修復：完成初始化
+    console.log('[P0 Fix] Step2 initialization completed successfully')
 
     // 先標記為已初始化
     initGuard.isInitialized = true
     initGuard.isInitializing = false
 
-    // 🔥 關鍵修復：使用 nextTick 確保所有初始化副作用完成後再發送資料
+    // 關鍵修復：使用 nextTick 確保所有初始化副作用完成後再發送資料
     // 這樣可以避免初始化過程中的欄位修改被視為「變更」
     await nextTick()
 
-    // 🔥 初始化面積追蹤值，避免首次載入時觸發清除邏輯
+    // 初始化面積追蹤值，避免首次載入時觸發清除邏輯
     previousTotalFacilityArea.value = totalFacilityArea.value
-    // console.log(`📏 [Step2] 初始化面積追蹤值: ${(totalFacilityArea.value / 10000).toFixed(4)} 公頃`)
+    // console.log(`[Step2] 初始化面積追蹤值: ${(totalFacilityArea.value / 10000).toFixed(4)} 公頃`)
 
     // 主動發送一次完整的初始化資料狀態給父組件
     // 這確保 grants store 的 previousFormData 與當前資料一致
     eventEmitter.emitDataChanged()
 
   } catch (error) {
-    console.error('❌ [P0 Fix] Step2 initialization failed:', error)
+    console.error('[P0 Fix] Step2 initialization failed:', error)
     initGuard.isInitializing = false
     // 確保即使初始化失敗，基本的縣市資料也要載入
     try {
@@ -4255,7 +4236,7 @@ const initializeStep2WithCascadeData = async () => {
         await domicileStore.loadCounties()
       }
     } catch (fallbackError) {
-      console.error('❌ Even fallback county loading failed:', fallbackError)
+      console.error('Even fallback county loading failed:', fallbackError)
     }
   }
 }
@@ -4264,21 +4245,21 @@ const initializeStep2WithCascadeData = async () => {
 onMounted(async () => {
   window.addEventListener('beforeunload', beforeUnloadHandler)
 
-  // 🌾 載入作物資料 (從資料庫)
+  // 載入作物資料 (從資料庫)
   try {
     if (!cropsStore.isInitialized) {
       await cropsStore.initializeStore()
     }
   } catch (error) {
-    console.error('❌ [step2.vue] Failed to initialize crops store:', error)
+    console.error('[step2.vue] Failed to initialize crops store:', error)
     // 即使作物資料載入失敗，仍允許頁面繼續渲染
   }
 
-  // 🔥 P0 修復：使用新的初始化邏輯
+  // P0 修復：使用新的初始化邏輯
   try {
     await initializeStep2WithCascadeData()
   } catch (error) {
-    console.error('❌ [step2.vue] Failed to initialize step2 cascade data:', error)
+    console.error('[step2.vue] Failed to initialize step2 cascade data:', error)
     // 錯誤已記錄，允許頁面繼續渲染
   }
 })
@@ -4393,7 +4374,7 @@ const showLandInfoDialog = async () => {
   }
 
   landInfoDialog.value = true;
-  // ✅ 地圖初始化已由 landInfoDialog watch 處理
+  // 地圖初始化已由 landInfoDialog watch 處理
 
   // 等待地圖初始化完成後，自動載入地籍圖
   await nextTick();
@@ -4515,7 +4496,7 @@ const initMap = async () => {
     // Add selection interaction
     addSelectInteraction();
 
-    // 🆕 添加地圖點擊事件監聽器，用於點座標查詢地籍圖
+    // 添加地圖點擊事件監聽器，用於點座標查詢地籍圖
     map.on('click', handleMapClick);
 
     // Load cadastral map from NLSC API (if land info is available)
@@ -4783,10 +4764,10 @@ const performSpatialQueries = async (feature: Feature<Geometry>) => {
 // Function to use selected feature data
 const useSelectedFeature = async () => {
   if (selectedFeatureInfo.value) {
-    // 🎯 步驟 1: 先更新設施地段（縣市、鄉鎮市區、地段）- 必須在設置地號資料之前執行
+    // 步驟 1: 先更新設施地段（縣市、鄉鎮市區、地段）- 必須在設置地號資料之前執行
     // 這樣級聯清除就不會影響到地號資料
     if (selectedFeatureInfo.value.CITY || selectedFeatureInfo.value.TOWN || selectedFeatureInfo.value.SECT) {
-      console.log('🔄 [Step 1] Updating facility location from GML data...');
+      console.log('[Step 1] Updating facility location from GML data...');
 
       // 1. 根據 CITY 名稱找到縣市 ID
       if (selectedFeatureInfo.value.CITY) {
@@ -4797,12 +4778,12 @@ const useSelectedFeature = async () => {
 
         if (matchedCounty) {
           localFormData.landCounty = matchedCounty.value;
-          console.log(`✅ Updated landCounty: ${cityName} (${matchedCounty.value})`);
+          console.log(`Updated landCounty: ${cityName} (${matchedCounty.value})`);
 
           // 等待 Vue 更新 towns computed property
           await nextTick();
         } else {
-          console.warn(`⚠️ County not found: ${cityName}`);
+          console.warn(`County not found: ${cityName}`);
         }
       }
 
@@ -4819,7 +4800,7 @@ const useSelectedFeature = async () => {
 
         if (matchedTown) {
           localFormData.landTown = matchedTown.value;
-          console.log(`✅ Updated landTown: ${townName} (${matchedTown.value})`);
+          console.log(`Updated landTown: ${townName} (${matchedTown.value})`);
 
           // 觸發地段資料載入
           await onTownChange();
@@ -4827,7 +4808,7 @@ const useSelectedFeature = async () => {
           // 等待地段資料載入完成
           await nextTick();
         } else {
-          console.warn(`⚠️ Town not found: ${townName}`);
+          console.warn(`Town not found: ${townName}`);
         }
       }
 
@@ -4846,16 +4827,16 @@ const useSelectedFeature = async () => {
         if (matchedSection) {
           localFormData.landSec = matchedSection.value;
           localFormData.landSecName = matchedSection.displayName || matchedSection.name;
-          console.log(`✅ Updated landSec: ${sectionCode} (${matchedSection.displayName})`);
+          console.log(`Updated landSec: ${sectionCode} (${matchedSection.displayName})`);
         } else {
-          console.warn(`⚠️ Section not found: ${sectionCode}`);
+          console.warn(`Section not found: ${sectionCode}`);
         }
       }
 
-      console.log('✅ [Step 1] Facility location update completed');
+      console.log('Facility location update completed');
     }
 
-    // 🎯 步驟 2: 更新地號資料（在設施地段同步完成後執行，避免被級聯清除）
+    // 步驟 2: 更新地號資料（在設施地段同步完成後執行，避免被級聯清除）
     if (selectedFeatureInfo.value.Land_no) {
       const landNo = selectedFeatureInfo.value.Land_no;
 
@@ -4900,7 +4881,7 @@ const useSelectedFeature = async () => {
       localFormData.facilityAreaHa = areaInHa;
     }
 
-    // 🆕 使用當前查詢到的 cadastral feature（從 NLSC API）
+    // 使用當前查詢到的 cadastral feature（從 NLSC API）
     const feature = currentCadastralFeature.value;
     if (feature) {
       const geometry = feature.getGeometry();
@@ -4979,24 +4960,24 @@ const useSelectedFeature = async () => {
   }
 };
 
-// 🗺️ Load Cadastral Map from NLSC API (按需查詢地籍圖)
+// Load Cadastral Map from NLSC API (按需查詢地籍圖)
 // 使用國土測繪中心 CadasMapQuery API 查詢指定地號的地籍圖資料
 // API: https://api.nlsc.gov.tw/dmaps/CadasMapQuery/[縣市]/[地段]/[地號]/[格式]/[坐標系統]
 const loadCadastralMapFromAPI = async () => {
   try {
-    // 🎯 開始載入，顯示 loading 動畫
+    // 開始載入，顯示 loading 動畫
     isCadastralLoading.value = true;
     featureInfoVisible.value = true;  // 顯示地號資訊面板以展示 loading
 
     // 驗證必要欄位
     if (!localFormData.landSec) {
-      console.warn('⚠️ Missing landSec, cannot query cadastral map');
+      console.warn('Missing landSec, cannot query cadastral map');
       isCadastralLoading.value = false;
       return;
     }
 
     if (!localFormData.landNumberMain) {
-      console.warn('⚠️ Missing landNumberMain, cannot query cadastral map');
+      console.warn('Missing landNumberMain, cannot query cadastral map');
       isCadastralLoading.value = false;
       return;
     }
@@ -5008,7 +4989,7 @@ const loadCadastralMapFromAPI = async () => {
     );
 
     if (!validation.valid) {
-      console.error('❌ Invalid land number:', validation.message);
+      console.error('Invalid land number:', validation.message);
       isCadastralLoading.value = false;
       return;
     }
@@ -5023,7 +5004,7 @@ const loadCadastralMapFromAPI = async () => {
     );
 
     if (!selectedSection) {
-      console.error('❌ Cannot find selected section:', currentSectionCode);
+      console.error('Cannot find selected section:', currentSectionCode);
       isCadastralLoading.value = false;
       return;
     }
@@ -5038,13 +5019,13 @@ const loadCadastralMapFromAPI = async () => {
       srid: '4326'                                    // 使用 WGS84 坐標系統
     };
 
-    console.log('🔍 Querying cadastral map with params:', queryParams);
+    console.log('Querying cadastral map with params:', queryParams);
 
     // 呼叫 NLSC API
     const result = await queryCadastralMap(queryParams);
 
     if (!result.success || result.features.length === 0) {
-      console.error('❌ No cadastral data found:', result.message);
+      console.error('No cadastral data found:', result.message);
       noSectionDataOverlay.value = true;
       isCadastralLoading.value = false;
       return;
@@ -5054,15 +5035,15 @@ const loadCadastralMapFromAPI = async () => {
     await displayCadastralFeatures(result.features);
 
   } catch (error) {
-    console.error('❌ Failed to load cadastral map from API:', error);
+    console.error('Failed to load cadastral map from API:', error);
     isCadastralLoading.value = false;
   }
 };
 
-// 🆕 處理地圖點擊事件，使用點座標查詢地籍圖
+// 處理地圖點擊事件，使用點座標查詢地籍圖
 const handleMapClick = async (event: any) => {
   try {
-    // 🎯 開始載入，顯示 loading 動畫
+    // 開始載入，顯示 loading 動畫
     isCadastralLoading.value = true;
     featureInfoVisible.value = true;  // 顯示地號資訊面板以展示 loading
 
@@ -5074,13 +5055,13 @@ const handleMapClick = async (event: any) => {
     const lon = wgs84Coordinate[0];
     const lat = wgs84Coordinate[1];
 
-    console.log(`🖱️ Map clicked at: [${lon.toFixed(6)}, ${lat.toFixed(6)}]`);
+    console.log(`Map clicked at: [${lon.toFixed(6)}, ${lat.toFixed(6)}]`);
 
     // 調用 NLSC 點座標查詢 API
     const result = await queryCadastralMapByPoint(lon, lat, '4326', 'gml');
 
     if (!result.success || result.features.length === 0) {
-      console.warn('⚠️ No cadastral data at this point:', result.message);
+      console.warn('No cadastral data at this point:', result.message);
       isCadastralLoading.value = false;
       // 可以選擇顯示提示訊息，但不要覆蓋現有的地籍圖
       return;
@@ -5090,7 +5071,7 @@ const handleMapClick = async (event: any) => {
     await displayCadastralFeatures(result.features);
 
   } catch (error) {
-    console.error('❌ Failed to query cadastral map by point:', error);
+    console.error('Failed to query cadastral map by point:', error);
     isCadastralLoading.value = false;
   }
 };
@@ -5099,7 +5080,7 @@ const handleMapClick = async (event: any) => {
 const displayCadastralFeatures = async (features: any[]) => {
   // 檢查 features 是否有幾何資料
   if (features.length === 0) {
-    console.error('❌ No features to display');
+    console.error('No features to display');
     return;
   }
 
@@ -5107,7 +5088,7 @@ const displayCadastralFeatures = async (features: any[]) => {
   const firstFeature = features[0];
   const geometry = firstFeature.getGeometry();
   if (!geometry) {
-    console.error('❌ Feature has no geometry:', firstFeature.getProperties());
+    console.error('Feature has no geometry:', firstFeature.getProperties());
     return;
   }
 
@@ -5155,7 +5136,7 @@ const displayCadastralFeatures = async (features: any[]) => {
           duration: 500
         });
       } else {
-        console.warn('⚠️ Invalid extent, using feature geometry directly');
+        console.warn('Invalid extent, using feature geometry directly');
         // 使用第一個 feature 的幾何範圍
         const featureExtent = geometry.getExtent();
         if (featureExtent && featureExtent.every(val => isFinite(val))) {
@@ -5167,7 +5148,7 @@ const displayCadastralFeatures = async (features: any[]) => {
         }
       }
     } catch (error) {
-      console.error('❌ Error fitting extent:', error);
+      console.error('Error fitting extent:', error);
       // 如果縮放失敗，至少圖層已經加入，用戶可以手動縮放
     }
   }
@@ -5192,13 +5173,13 @@ const fetchSectionNameByCityAndTown = async (
     // 1. 查找縣市資料
     const county = domicileStore.countyOptions.find(c => c.title === cityName);
     if (!county || !county.land_code) {
-      console.warn(`⚠️ 找不到縣市或缺少 land_code: ${cityName}`);
+      console.warn(`找不到縣市或缺少 land_code: ${cityName}`);
       return '';
     }
 
     // 2. 確保該縣市的鄉鎮資料已載入
     if (!domicileStore.townsByCountyId.get(county.value)?.length) {
-      console.log(`📥 載入縣市 ${cityName} 的鄉鎮資料...`);
+      console.log(`載入縣市 ${cityName} 的鄉鎮資料...`);
       await domicileStore.loadTownsByCountyId(county.value);
     }
 
@@ -5206,12 +5187,12 @@ const fetchSectionNameByCityAndTown = async (
     const towns = domicileStore.getTownsForCountyId(county.value);
     const town = towns.find(t => t.title === townName);
     if (!town || !town.land_code) {
-      console.warn(`⚠️ 找不到鄉鎮或缺少 land_code: ${cityName} ${townName}`);
+      console.warn(`找不到鄉鎮或缺少 land_code: ${cityName} ${townName}`);
       return '';
     }
 
     // 4. 使用與下拉選單相同的方法載入地段清單
-    console.log(`📥 載入地段資料: ${cityName} ${townName} (${county.land_code}/${town.land_code})`);
+    console.log(`載入地段資料: ${cityName} ${townName} (${county.land_code}/${town.land_code})`);
     await domicileStore.loadLandSectionsByLandCodes(county.land_code, town.land_code);
     const sectionsToSearch = domicileStore.landSections.filter(s =>
       s.county_land_code === county.land_code && s.town_land_code === town.land_code
@@ -5226,14 +5207,14 @@ const fetchSectionNameByCityAndTown = async (
     );
 
     if (matchedSection) {
-      console.log(`✅ 找到地段名稱: ${matchedSection.name} (代碼: ${sectionCode})`);
+      console.log(`找到地段名稱: ${matchedSection.name} (代碼: ${sectionCode})`);
       return matchedSection.name;
     } else {
-      console.warn(`⚠️ 找不到地段代碼 ${sectionCode} 在 ${cityName} ${townName}`);
+      console.warn(`找不到地段代碼 ${sectionCode} 在 ${cityName} ${townName}`);
       return '';
     }
   } catch (error) {
-    console.error('❌ 動態載入地段清單失敗:', error);
+    console.error('動態載入地段清單失敗:', error);
     return '';
   }
 };
@@ -5270,7 +5251,7 @@ const processFeatureAreaData = async (features: any[]) => {
     }
   }
 
-  // 🆕 格式化地號：從 8 碼 (例如：00010000) 轉換為 ####-#### 格式 (例如：0001-0000)
+  // 格式化地號：從 8 碼 (例如：00010000) 轉換為 ####-#### 格式 (例如：0001-0000)
   let formattedLandNo = '';
   if (properties.LANDNO) {
     const landNo8 = properties.LANDNO.toString().padStart(8, '0');
@@ -5279,12 +5260,12 @@ const processFeatureAreaData = async (features: any[]) => {
     formattedLandNo = `${mainPart}-${subPart}`;
   }
 
-  // 🆕 獲取地段中文名稱
+  // 獲取地段中文名稱
   let sectionName = '';
   const sectionCodeToFind = properties.SECT || localFormData.landSec?.toString();
 
   if (sectionCodeToFind) {
-    // 🆕 優先使用 NLSC API 返回的 CITY 和 TOWN 動態載入地段清單（支援跨區查詢）
+    // 優先使用 NLSC API 返回的 CITY 和 TOWN 動態載入地段清單（支援跨區查詢）
     if (properties.CITY && properties.TOWN) {
       sectionName = await fetchSectionNameByCityAndTown(
         properties.CITY,
@@ -5305,7 +5286,7 @@ const processFeatureAreaData = async (features: any[]) => {
     }
   }
 
-  // 🆕 更新 selectedFeatureInfo 以顯示在地號資訊面板
+  // 更新 selectedFeatureInfo 以顯示在地號資訊面板
   selectedFeatureInfo.value = {
     Land_no: formattedLandNo,           // 格式化地號（####-####）
     section: sectionName,                // 地段中文名稱
@@ -5321,22 +5302,22 @@ const processFeatureAreaData = async (features: any[]) => {
     Sec_cns: sectionName                 // 地段中文名稱
   };
 
-  // 🆕 存儲當前的 cadastral feature（用於「使用此地號」功能）
+  // 存儲當前的 cadastral feature（用於「使用此地號」功能）
   currentCadastralFeature.value = feature;
 
-  // 🆕 執行空間查詢以獲取灌區及縣市資訊（用於「使用此地號」時的 isIrrigationArea 欄位）
+  // 執行空間查詢以獲取灌區及縣市資訊（用於「使用此地號」時的 isIrrigationArea 欄位）
   const geometry = feature.getGeometry();
   if (geometry) {
     performSpatialQueries(feature);
   }
 
-  // 🆕 顯示地號資訊面板
+  // 顯示地號資訊面板
   featureInfoVisible.value = true;
 
-  // 🎯 資料載入完成，關閉 loading 動畫
+  // 資料載入完成，關閉 loading 動畫
   isCadastralLoading.value = false;
 
-  console.log('✅ Updated selectedFeatureInfo:', selectedFeatureInfo.value);
+  console.log('Updated selectedFeatureInfo:', selectedFeatureInfo.value);
 };
 
 // Clean up interactions when map is destroyed - 增強版本
@@ -5356,7 +5337,7 @@ const cleanupMap = () => {
 
     // Clean up map instance
     if (map) {
-      // 🆕 移除地圖點擊事件監聽器
+      // 移除地圖點擊事件監聽器
       map.un('click', handleMapClick);
 
       // Release canvas rendering contexts
@@ -5483,7 +5464,7 @@ const checkAndUpdateIndigenousArea = stepManager.createProtectedHandler((...args
   }
 });
 
-// 🔥 Linus 式修復：移除重複的 watch，統一使用事件處理機制
+// Linus 式修復：移除重複的 watch，統一使用事件處理機制
 // - 消除"兩個機制做同一件事"的特殊情況
 // - 與 qualification/index.vue、maps/index.vue 保持一致
 // - 所有邏輯已整合到 onCountyChange 和 onTownChange 事件處理中
