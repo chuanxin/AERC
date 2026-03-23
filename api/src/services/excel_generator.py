@@ -420,7 +420,7 @@ _A0910_NUM_FMT = ['General', '0.0000', '#,##0']
 _A0910_NOTE_TEXT = (
     '備註：\n'
     '1、事業區域歸屬依「任一土地」規則：補助案件所屬土地中任一筆 isIrrigationArea 為真，則整案歸入事業區域內，否則歸入事業區域外。\n'
-    '2、「已結案」係指 status 為 completed 或 submitted 之案件；「已編列」係指排除 rejected/withdrawn/deleted 之所有有效案件。'
+    '2、「已結案」係指 status 為 completed 或 submitted 之案件；「已編列」係指案件狀態為 under review, ompleted 或 submitted 之所有有效案件。'
 )
 _A0910_ROW_H_NOTE = 60.0
 
