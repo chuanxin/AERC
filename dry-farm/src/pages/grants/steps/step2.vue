@@ -402,7 +402,7 @@
                           size="x-small"
                           color="error"
                           variant="text"
-                          @click.stop="deleteLand(land.id)"
+                          @click.stop="requestDeleteLand(land.id)"
                         >
                           <v-icon size="small">
                             mdi-close
@@ -1944,6 +1944,55 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Delete land confirmation dialog -->
+    <v-dialog
+      v-model="showDeleteLandDialog"
+      max-width="400px"
+      persistent
+    >
+      <v-card rounded="lg">
+        <v-card-title
+          class="text-subtitle-1 font-weight-bold pa-4 d-flex align-center"
+          style="color: #c62828; background-color: #ffebee;"
+        >
+          <v-icon
+            color="error"
+            class="me-2"
+            size="small"
+          >
+            mdi-alert-circle
+          </v-icon>
+          <span>確認刪除土地</span>
+        </v-card-title>
+
+        <v-card-text class="pa-4">
+          <p class="text-body-1">
+            確定要刪除這筆土地資料嗎？
+          </p>
+          <p class="text-body-2 text-grey-darken-1 mt-1">
+            此操作無法復原，土地資料將永久移除。
+          </p>
+        </v-card-text>
+
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn
+            variant="text"
+            @click="showDeleteLandDialog = false"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            color="error"
+            variant="flat"
+            @click="confirmDeleteLand"
+          >
+            確認刪除
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -3362,9 +3411,9 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
 
   // 當設施面積發生變化時，清除 step4 和 step5 的資料
   // 因為補助額度計算依賴面積，面積變更後原有設施資料可能不再適用
-  // 🔥 修正：統一架構後 UI step N = data step N
+  // 修正：統一架構後 UI step N = data step N
   if (previousTotalFacilityArea.value !== 0 && oldArea !== area && grantsStore.caseNumber) {
-    // 🔥 Phase 1: 從 API 查詢實際資料狀態（單一真實來源）
+    // Phase 1: 從 API 查詢實際資料狀態（單一真實來源）
     const checkStepHasData = async (step: number): Promise<boolean> => {
       try {
         // 從 API 載入步驟資料
@@ -3995,7 +4044,21 @@ const cancelLandEdit = () => {
   console.log('step2.vue: Edit cancelled')
 }
 
-const deleteLand = (landId: string) => {
+const showDeleteLandDialog = ref(false)
+const pendingDeleteLandId = ref<string | null>(null)
+
+const requestDeleteLand = (landId: string) => {
+  pendingDeleteLandId.value = landId
+  showDeleteLandDialog.value = true
+}
+
+const confirmDeleteLand = () => {
+  const landId = pendingDeleteLandId.value
+  if (!landId) return
+
+  showDeleteLandDialog.value = false
+  pendingDeleteLandId.value = null
+
   console.log('step2.vue: Deleting land:', landId)
 
   const index = landManagement.lands.findIndex(l => l.id === landId)
@@ -4009,7 +4072,7 @@ const deleteLand = (landId: string) => {
     if (landManagement.currentEditingLandId === landId) {
       cancelLandEdit()
     }
-    // 0321 嘗試修正土地刪除問題，立即觸發資料儲存（不等待 3 秒自動儲存延遲）
+    // 立即觸發資料儲存（不等待 3 秒自動儲存延遲）
     stepManager.emitDataChanged(true)
 
     console.log('step2.vue: Land deleted successfully, lands count:', landManagement.lands.length)
