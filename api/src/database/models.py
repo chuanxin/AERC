@@ -224,6 +224,34 @@ class GrantStatus(str, Enum):
     INACTIVE = "inactive"  # 歷史案件初始狀態（待認領）
 
 
+class GrantStatusGroup:
+    """統計範圍語義分組 — 案件狀態的唯一映射來源（SSOT）
+
+    所有統計查詢必須透過此分組引用狀態集合，
+    禁止在查詢中直接使用裸字串。
+    """
+
+    # 已結案：線上結案 + 完整封存
+    COMPLETED: frozenset = frozenset({
+        GrantStatus.COMPLETED,
+        GrantStatus.SUBMITTED,
+    })
+
+    # 已編列預算：審查中（業務定義的已編列範圍）
+    BUDGETED: frozenset = frozenset({
+        GrantStatus.UNDER_REVIEW,
+        GrantStatus.COMPLETED,
+        GrantStatus.SUBMITTED,
+    })
+
+    # 無效案件：已否決、撤回、邏輯刪除
+    EXCLUDED: frozenset = frozenset({
+        GrantStatus.REJECTED,
+        GrantStatus.WITHDRAWN,
+        GrantStatus.SOFT_DELETE,
+    })
+
+
 class GrantTypes(str, Enum):
     FARMING = "farming"
     IRRIGATION = "irrigation"

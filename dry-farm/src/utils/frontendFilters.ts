@@ -55,6 +55,12 @@ export function getInitialOverlayLoadingParams(): InitialOverlayLoadingParams {
 }
 
 /**
+ * EXCLUDED 狀態群組（對應後端 GrantStatusGroup.EXCLUDED）
+ * 駁回、撤回、邏輯刪除的案件不顯示在地圖上
+ */
+const EXCLUDED_STATUSES = new Set(['rejected', 'withdrawn', 'deleted'])
+
+/**
  * 對 GeoJSON 特徵進行前端篩選
  * @param features 原始特徵陣列
  * @param quickFilter 快速篩選關鍵字
@@ -71,6 +77,15 @@ export function applyFrontendFilters(
   }
 
   let filteredFeatures = features
+
+  // 0. 排除 EXCLUDED 狀態群組（駁回、撤回、邏輯刪除），null 狀態（歷史案件）保留
+  filteredFeatures = filteredFeatures.filter(feature => {
+    const properties = feature.properties as GrantLocationProperties
+    if (properties.cluster) return true // 聚合點位不篩選
+    const status = properties.case_status
+    if (!status) return true // null/空值（歷史案件）保留
+    return !EXCLUDED_STATUSES.has(status)
+  })
 
   // 1. 年度範圍篩選
   const yearMin = detailedFilters.yearStart

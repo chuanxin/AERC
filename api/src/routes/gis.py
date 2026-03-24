@@ -26,6 +26,7 @@ from fastapi import APIRouter, Query, HTTPException
 from typing import List, Optional, Dict, Any
 import json
 from tortoise import connections
+from src.database.models import GrantStatusGroup
 
 router = APIRouter(prefix="/gis", tags=["GIS"])
 
@@ -91,6 +92,10 @@ async def get_spatial_points(
         ]
         params = [min_lng, min_lat, max_lng, max_lat]
         
+        # 排除 EXCLUDED 狀態群組（駁回、撤回、邏輯刪除），null 狀態（歷史案件）保留
+        where_conditions.append(f"(case_status != ALL(${len(params)+1}::text[]))")
+        params.append(list(GrantStatusGroup.EXCLUDED))
+
         # 添加其他篩選條件
         if source_system:
             where_conditions.append(f"source_system = ${len(params)+1}")
@@ -279,7 +284,11 @@ async def search_by_criteria(
     try:
         where_conditions = ["geom IS NOT NULL"]
         params = []
-        
+
+        # 排除 EXCLUDED 狀態群組（駁回、撤回、邏輯刪除），null 狀態（歷史案件）保留
+        where_conditions.append(f"(case_status != ALL(${len(params)+1}::text[]))")
+        params.append(list(GrantStatusGroup.EXCLUDED))
+
         # 添加 bbox 篩選（如果提供）
         if bbox:
             try:

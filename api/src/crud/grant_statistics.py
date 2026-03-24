@@ -7,7 +7,7 @@ from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime, timezone
 
-from ..database.models import Grants, GrantVersions, Offices, SubsidyAnnualBudget, Counties, Towns
+from ..database.models import Grants, GrantVersions, Offices, SubsidyAnnualBudget, Counties, Towns, GrantStatusGroup
 from ..schemas.statistics import (
     ExecutionProgressResponse,
     OfficeExecutionStats,
@@ -299,7 +299,7 @@ class GrantStatisticsCRUD:
         completed_grants = await Grants.filter(
             year=year,
             office_id=office_id,
-            status__in=['completed', 'submitted']
+            status__in=list(GrantStatusGroup.COMPLETED)
         ).prefetch_related('active_version').all()
 
         completed_cases = 0
@@ -311,7 +311,7 @@ class GrantStatisticsCRUD:
             if not grant.active_version:
                 continue
             
-            # 🔥 與 A02 系列保持一致：只統計有有效土地縣市資料的案件
+            # 與 A02 系列保持一致：只統計有有效土地縣市資料的案件
             all_steps_data = grant.active_version.all_steps_data or {}
             steps = all_steps_data.get('steps', {})
             lands = steps.get('2', {}).get('lands', [])
@@ -442,7 +442,7 @@ class GrantStatisticsCRUD:
             OfficeBudgetStats: 辦公室經費統計資料
         """
         # 1. 從 SubsidyAnnualBudget 取得預定執行面積和預算
-        # 🔥 容錯處理：如果表不存在，使用預設值（適用於尚未執行遷移的生產環境）
+        # 容錯處理：如果表不存在，使用預設值（適用於尚未執行遷移的生產環境）
         try:
             annual_budget = await SubsidyAnnualBudget.filter(
                 year=year,
@@ -459,13 +459,11 @@ class GrantStatisticsCRUD:
             planned_area = Decimal('0')
             planned_budget = Decimal('0')
 
-        # 2. 查詢已編預算案件（狀態非 rejected, withdrawn, deleted）
-        # 🔥 統一實作：排除無效狀態，計算有效案件的統計數據
+        # 2. 查詢已編預算案件（BUDGETED：審查中案件）
         budgeted_grants = await Grants.filter(
             year=year,
-            office_id=office_id
-        ).exclude(
-            status__in=['rejected', 'withdrawn', 'deleted']
+            office_id=office_id,
+            status__in=list(GrantStatusGroup.BUDGETED)
         ).prefetch_related('active_version').all()
 
         budgeted_cases = 0
@@ -477,7 +475,7 @@ class GrantStatisticsCRUD:
             if not grant.active_version:
                 continue
             
-            # 🔥 與其他統計報表保持一致：只統計有有效土地縣市資料的案件
+            # 與其他統計報表保持一致：只統計有有效土地縣市資料的案件
             all_steps_data = grant.active_version.all_steps_data or {}
             steps = all_steps_data.get('steps', {})
             lands = steps.get('2', {}).get('lands', [])
@@ -499,7 +497,7 @@ class GrantStatisticsCRUD:
         verified_grants = await Grants.filter(
             year=year,
             office_id=office_id,
-            status__in=['completed', 'submitted']
+            status__in=list(GrantStatusGroup.COMPLETED)
         ).prefetch_related('active_version').all()
 
         verified_cases = 0
@@ -511,7 +509,7 @@ class GrantStatisticsCRUD:
             if not grant.active_version:
                 continue
             
-            # 🔥 與 A01, A02 系列保持一致：只統計有有效土地縣市資料的案件
+            # 與 A01, A02 系列保持一致：只統計有有效土地縣市資料的案件
             all_steps_data = grant.active_version.all_steps_data or {}
             steps = all_steps_data.get('steps', {})
             lands = steps.get('2', {}).get('lands', [])
@@ -576,7 +574,7 @@ class GrantStatisticsCRUD:
         # 查詢已結案案件
         query = Grants.filter(
             year=year,
-            status__in=['completed', 'submitted']
+            status__in=list(GrantStatusGroup.COMPLETED)
         )
         if office_id is not None:
             query = query.filter(office_id=office_id)
@@ -590,7 +588,7 @@ class GrantStatisticsCRUD:
         offices = await Offices.filter(id__in=office_ids).all()
         office_name_map = {o.id: o.name for o in offices}
 
-        # 🔥 建立縣市鄉鎮查詢表（用於驗證土地資料完整性）
+        # 建立縣市鄉鎮查詢表（用於驗證土地資料完整性）
         county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
 
         # 按管理處彙總
@@ -599,7 +597,7 @@ class GrantStatisticsCRUD:
             if not grant.active_version:
                 continue
             
-            # 🔥 與 A02-1, A02-3 保持一致：只統計有有效土地縣市資料的案件
+            # 與 A02-1, A02-3 保持一致：只統計有有效土地縣市資料的案件
             all_steps_data = grant.active_version.all_steps_data or {}
             steps = all_steps_data.get('steps', {})
             lands = steps.get('2', {}).get('lands', [])
@@ -700,7 +698,7 @@ class GrantStatisticsCRUD:
         county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
 
         # 查詢已結案案件
-        query = Grants.filter(year=year, status__in=['completed', 'submitted'])
+        query = Grants.filter(year=year, status__in=list(GrantStatusGroup.COMPLETED))
         if office_id is not None:
             query = query.filter(office_id=office_id)
         else:
@@ -782,9 +780,9 @@ class GrantStatisticsCRUD:
         ct_names: dict = {}   # {(c_id, t_id): (c_name, t_name)}
         years_with_data: set = set()
 
-        # 🔥 分年度查詢以避免 SQL 參數超過 32767 限制
+        # 分年度查詢以避免 SQL 參數超過 32767 限制
         for year in range(start_year, end_year + 1):
-            query = Grants.filter(year=year, status__in=['completed', 'submitted'])
+            query = Grants.filter(year=year, status__in=list(GrantStatusGroup.COMPLETED))
             if office_id is not None:
                 query = query.filter(office_id=office_id)
             else:
@@ -857,16 +855,16 @@ class GrantStatisticsCRUD:
         offices = await Offices.filter(id__in=office_ids).all()
         office_name_map = {o.id: o.name for o in offices}
 
-        # 🔥 建立縣市鄉鎮查詢表（與 A02-3 保持一致：只統計有有效土地縣市資料的案件）
+        # 建立縣市鄉鎮查詢表（與 A02-3 保持一致：只統計有有效土地縣市資料的案件）
         county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
 
         # office_data[office_id][year] = {cases, area, subsidy}
         office_data: dict = {}
         years_with_data: set = set()
 
-        # 🔥 分年度查詢以避免 SQL 參數超過 32767 限制
+        # 分年度查詢以避免 SQL 參數超過 32767 限制
         for year in range(start_year, end_year + 1):
-            query = Grants.filter(year=year, status__in=['completed', 'submitted'])
+            query = Grants.filter(year=year, status__in=list(GrantStatusGroup.COMPLETED))
             if office_id is not None:
                 query = query.filter(office_id=office_id)
             else:
@@ -966,7 +964,7 @@ class GrantStatisticsCRUD:
         # 1. 已結案案件（當年度與非當年度均需要）
         completed_grants = await Grants.filter(
             year=year,
-            status__in=['completed', 'submitted'],
+            status__in=list(GrantStatusGroup.COMPLETED),
             office_id__in=ALLOWED_OFFICE_IDS,
         ).prefetch_related('active_version').all()
 
@@ -982,13 +980,12 @@ class GrantStatisticsCRUD:
             _ensure_county(c_id, c_name)
             _acc_county('completed', c_id, area_type, grant_area, grant_subsidy)
 
-        # 2. 已編列案件（僅當年度）
+        # 2. 已編列案件（僅當年度，BUDGETED：審查中案件）
         if is_current_year:
             budgeted_grants = await Grants.filter(
                 year=year,
                 office_id__in=ALLOWED_OFFICE_IDS,
-            ).exclude(
-                status__in=['rejected', 'withdrawn', 'deleted']
+                status__in=list(GrantStatusGroup.BUDGETED),
             ).prefetch_related('active_version').all()
 
             for grant in budgeted_grants:
@@ -1061,7 +1058,7 @@ class GrantStatisticsCRUD:
         # 1. 已結案案件
         completed_grants = await Grants.filter(
             year=year,
-            status__in=['completed', 'submitted'],
+            status__in=list(GrantStatusGroup.COMPLETED),
             office_id__in=ALLOWED_OFFICE_IDS,
         ).prefetch_related('active_version').all()
 
@@ -1076,13 +1073,12 @@ class GrantStatisticsCRUD:
             _ensure_office(o_id)
             _acc_office('completed', o_id, area_type, grant_area, grant_subsidy)
 
-        # 2. 已編列案件（僅當年度）
+        # 2. 已編列案件（僅當年度，BUDGETED：審查中案件）
         if is_current_year:
             budgeted_grants = await Grants.filter(
                 year=year,
                 office_id__in=ALLOWED_OFFICE_IDS,
-            ).exclude(
-                status__in=['rejected', 'withdrawn', 'deleted']
+                status__in=list(GrantStatusGroup.BUDGETED),
             ).prefetch_related('active_version').all()
 
             for grant in budgeted_grants:
@@ -1146,7 +1142,7 @@ class GrantStatisticsCRUD:
         county_lookup, _ = await GrantStatisticsCRUD._build_county_town_lookup()
 
         # 查詢已結案案件
-        query = Grants.filter(year=year, status__in=['completed', 'submitted'])
+        query = Grants.filter(year=year, status__in=list(GrantStatusGroup.COMPLETED))
         if office_id is not None:
             query = query.filter(office_id=office_id)
         else:
@@ -1237,7 +1233,7 @@ class GrantStatisticsCRUD:
             OfficeManagementAreaStatsResponse: 各管理處管理區內外統計
         """
         # 查詢已結案案件
-        query = Grants.filter(year=year, status__in=['completed', 'submitted'])
+        query = Grants.filter(year=year, status__in=list(GrantStatusGroup.COMPLETED))
         if office_id is not None:
             query = query.filter(office_id=office_id)
         else:
@@ -1331,11 +1327,11 @@ class GrantStatisticsCRUD:
         # 按縣市 + 管理區類型彙總（歷年累計）
         county_data: dict = {}
 
-        # 🔥 分年度查詢以避免 SQL 參數超過 32767 限制
+        # 分年度查詢以避免 SQL 參數超過 32767 限制
         for year in range(start_year, end_year + 1):
             query = Grants.filter(
                 year=year,
-                status__in=['completed', 'submitted']
+                status__in=list(GrantStatusGroup.COMPLETED)
             )
             if office_id is not None:
                 query = query.filter(office_id=office_id)
@@ -1433,11 +1429,11 @@ class GrantStatisticsCRUD:
         # 按管理處 + 管理區類型彙總（歷年累計）
         office_data: dict = {}
 
-        # 🔥 分年度查詢以避免 SQL 參數超過 32767 限制
+        # 分年度查詢以避免 SQL 參數超過 32767 限制
         for year in range(start_year, end_year + 1):
             query = Grants.filter(
                 year=year,
-                status__in=['completed', 'submitted']
+                status__in=list(GrantStatusGroup.COMPLETED)
             )
             if office_id is not None:
                 query = query.filter(office_id=office_id)
@@ -1574,7 +1570,7 @@ class GrantStatisticsCRUD:
 
         grants = await Grants.filter(
             year=year,
-            status__in=['completed', 'submitted'],
+            status__in=list(GrantStatusGroup.COMPLETED),
             office_id__in=ALLOWED_OFFICE_IDS,
         ).prefetch_related('active_version').all()
 
@@ -1644,7 +1640,7 @@ class GrantStatisticsCRUD:
         for year in range(start_year, end_year + 1):
             grants = await Grants.filter(
                 year=year,
-                status__in=['completed', 'submitted'],
+                status__in=list(GrantStatusGroup.COMPLETED),
                 office_id__in=ALLOWED_OFFICE_IDS,
             ).prefetch_related('active_version').all()
 
@@ -1820,7 +1816,7 @@ class GrantStatisticsCRUD:
         """
         county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
 
-        query = Grants.filter(year=year, status__in=['completed', 'submitted'])
+        query = Grants.filter(year=year, status__in=list(GrantStatusGroup.COMPLETED))
         if office_id is not None:
             query = query.filter(office_id=office_id)
         else:
