@@ -13,7 +13,7 @@ from tortoise import timezone
 from tortoise.expressions import Q
 
 from ..database.geo_models import GrantLocations
-from ..database.models import QualificationQuery, QualificationQueryType, Towns, Counties, GrantVersions
+from ..database.models import QualificationQuery, QualificationQueryType, Towns, Counties, GrantVersions, GrantStatusGroup
 from ..schemas.qualification import (
     QualificationSearchRequest, GrantCaseItem, AreaStatistics,
     QueryInfo, ResponseMetadata, QualificationResponse,
@@ -153,8 +153,8 @@ class QualificationCRUD:
             if request.params.section:
                 conditions &= Q(land_section__icontains=request.params.section)
 
-        # 排除草稿狀態(可能不完整) - 所有查詢共通邏輯
-        conditions &= ~Q(case_status="draft")
+        # 排除無效案件（EXCLUDED：rejected/withdrawn/deleted） - 所有查詢共通邏輯
+        conditions &= ~Q(case_status__in=list(GrantStatusGroup.EXCLUDED))
 
         return conditions
 
