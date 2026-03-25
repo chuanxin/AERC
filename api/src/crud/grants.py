@@ -140,7 +140,8 @@ async def get_grants(
     status: Optional[str] = None,
     skip: int = 0,
     limit: Optional[int] = None,
-    current_user = None  # 添加使用者權限控制
+    current_user = None,  # 添加使用者權限控制
+    tag: Optional[str] = None,  # 標籤完全比對篩選
 ) -> List[Dict[str, Any]]:
     """取得補助申請案件列表，可依條件過濾
 
@@ -186,6 +187,8 @@ async def get_grants(
                 Q(applicant_name__icontains=search) |
                 Q(applicant_id__icontains=search)
             )
+        if tag:
+            query = query.filter(tag__icontains=tag)
         
         # 執行查詢並預載入相關資料
         query = query.prefetch_related(
@@ -226,6 +229,7 @@ async def get_grants(
                 "created_at": grant.created_at,
                 "modified_at": grant.modified_at,
                 "is_legacy": grant.is_legacy,
+                "tag": grant.tag,
             }
             
             # 添加建立者資訊（legacy 資料因 schema 不相容，不提供建立者資訊）
@@ -690,6 +694,7 @@ async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = 
             "office": grant.office,
             "office_id": grant.office_id,
             "undertracker": grant.undertracker,
+            "tag": grant.tag,
             "received_date": format_tw_date(grant.received_date) if grant.received_date else None,
             "received_time": grant.received_time.strftime("%H:%M") if grant.received_time else None,
             "status": grant.status,

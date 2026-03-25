@@ -452,9 +452,65 @@
                               版本 {{ grantsStore.currentGrant.active_version.version }}
                             </span>
                           </v-chip>
+                          <v-chip
+                            v-if="grantsStore.currentGrant?.id"
+                            size="small"
+                            class="ml-2 mb-1"
+                            color="amber-lighten-4"
+                            variant="flat"
+                            rounded="sm"
+                            prepend-icon="mdi-label-outline"
+                            append-icon="mdi-pencil"
+                            style="cursor: pointer;"
+                            :ripple="false"
+                            @click="openTagDialog"
+                          >
+                            {{ grantsStore.currentGrant?.tag || '設定標籤' }}
+                          </v-chip>
                         </span>
                       </v-card-title>
                     </v-card-item>
+
+                    <!-- 案件標籤編輯對話框 -->
+                    <v-dialog
+                      v-model="tagDialogOpen"
+                      max-width="380"
+                    >
+                      <v-card>
+                        <v-card-title class="text-subtitle-1 font-weight-medium pa-4 pb-2">
+                          編輯案件標籤
+                        </v-card-title>
+                        <v-card-text class="pb-0">
+                          <v-text-field
+                            v-model="grantTagInput"
+                            variant="outlined"
+                            density="comfortable"
+                            label="標籤"
+                            placeholder="輸入標籤（最多 50 字元）"
+                            clearable
+                            maxlength="50"
+                            autofocus
+                            @keyup.enter="confirmTagDialog"
+                          />
+                        </v-card-text>
+                        <v-card-actions class="pa-4 pt-0">
+                          <v-spacer />
+                          <v-btn
+                            variant="text"
+                            @click="tagDialogOpen = false"
+                          >
+                            取消
+                          </v-btn>
+                          <v-btn
+                            color="#3ea0a3"
+                            variant="flat"
+                            @click="confirmTagDialog"
+                          >
+                            確認
+                          </v-btn>
+                        </v-card-actions>
+                      </v-card>
+                    </v-dialog>
 
                     <v-card-text class="pb-0 mb-0">
                       <!-- Autosave indicator when there are unsaved changes -->
@@ -960,7 +1016,7 @@ import { useGrantsStore } from '@/stores/grants'
 import { GrantStorage } from '@/utils/grant-storage'
 import { debounce } from 'lodash-es'
 // 🆕 導入版本管理服務函數
-import { createGrantVersion, claimInactiveGrantOwnership } from '@/services/grantsService'
+import { createGrantVersion, claimInactiveGrantOwnership, setGrantTag } from '@/services/grantsService'
 import { formatCaseNumber } from '@/utils/frontendFilters'
 
 // Import step components
@@ -991,6 +1047,33 @@ const isAdminMode = computed(() => {
 const currentStep = ref(0)
 const submitting = ref(false)
 const isDataLoaded = ref(false)
+
+// 案件標籤
+const grantTagInput = ref<string>('')
+const tagDialogOpen = ref(false)
+
+const saveGrantTag = async (tag: string | null) => {
+  const grantId = grantsStore.currentGrant?.id
+  if (!grantId) return
+  try {
+    await setGrantTag(grantId, tag)
+    if (grantsStore.currentGrant) {
+      grantsStore.currentGrant.tag = tag ?? undefined
+    }
+  } catch (e) {
+    console.error('[edit.vue] 儲存標籤失敗:', e)
+  }
+}
+
+const openTagDialog = () => {
+  grantTagInput.value = grantsStore.currentGrant?.tag ?? ''
+  tagDialogOpen.value = true
+}
+
+const confirmTagDialog = async () => {
+  await saveGrantTag(grantTagInput.value.trim() || null)
+  tagDialogOpen.value = false
+}
 const isNavigating = ref(false)
 const autoSaveTimer = ref<number | null>(null)
 
@@ -1573,15 +1656,15 @@ const executeDesignChange = async (comment?: string) => {
     }
 
     // 5. 更新案件狀態為 draft（變更設計後需重新審核）
-    console.log('🔄 Updating grant status to draft after design change')
+    console.log('Updating grant status to draft after design change')
     await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'draft')
-    console.log('✅ Grant status updated to draft')
+    console.log('Grant status updated to draft')
 
     // 6. 清除步驟鎖定狀態（draft 狀態下所有步驟都可編輯）
-    console.log('🔓 Clearing step locks for draft status')
+    console.log('Clearing step locks for draft status')
     lockedSteps.value.clear()
     disabledSteps.value.clear()
-    console.log('✅ Step locks cleared')
+    console.log('Step locks cleared')
 
     // 7. 觸發版本比較資料的重新載入
     await nextTick()
@@ -1676,7 +1759,7 @@ const getDefaultStepData = (step: number): Record<string, unknown> => {
   }
 }
 
-// 🎯 優化的滾動處理 - 提前滾動避免看到頁面底部內容
+// 優化的滾動處理 - 提前滾動避免看到頁面底部內容
 const scrollToTopInstantly = () => {
   // 立即滾動到頂部，無動畫
   window.scrollTo(0, 0)
@@ -1688,84 +1771,84 @@ const scrollToTopInstantly = () => {
 
 
 
-// 🎯 優化的步驟驗證處理 - 加入過渡效果
+// 優化的步驟驗證處理 - 加入過渡效果
 const handleStepValidated = async ({ valid, step }: { valid: boolean; step: number }) => {
   if (valid && !isNavigating.value && !isStepTransitioning.value) {
     const nextStep = step + 1
 
     try {
-      // 1️⃣ 立即開始過渡狀態
+      // 立即開始過渡狀態
       isNavigating.value = true
       isStepTransitioning.value = true
       submitting.value = true
 
-      // 2️⃣ 立即滾動到頂部
+      // 立即滾動到頂部
       scrollToTopInstantly()
 
-      // 🆕 3️⃣ 當完成現場勘查（UI step 3）時，軟鎖定前三步（顯示警告但不禁用）
+      // 當完成現場勘查（UI step 3）時，軟鎖定前三步（顯示警告但不禁用）
       if (step === 3) {
         softLockSteps([1, 2, 3])
         console.log('⚠️ [edit.vue] Step 3 (現場勘查) completed, soft-locked steps 1, 2, 3')
 
-        // 💡 切換為硬鎖定版本：取消上面的 softLockSteps，啟用下面的 lockSteps
+        // 切換為硬鎖定版本：取消上面的 softLockSteps，啟用下面的 lockSteps
         // lockSteps([1, 2, 3])
         // console.log('🔒 [edit.vue] Step 3 (現場勘查) completed, hard-locked steps 1, 2, 3')
       }
 
-      // 🆕 3️⃣-2 當完成申報（UI step 6）時，更新狀態為 under_review 並鎖定前五步
+      // 當完成申報（UI step 6）時，更新狀態為 under_review 並鎖定前五步
       if (step === 6) {
         if (grantsStore.currentGrant?.case_number) {
           try {
-            console.log('🔄 [edit.vue] Step 6 (完成申報) updating status to under_review...')
+            console.log('[edit.vue] Step 6 (完成申報) updating status to under_review...')
             await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'under_review')
             lockSteps([1, 2, 3, 4, 5])
-            console.log('✅ [edit.vue] Status updated to under_review, locked steps 1-5')
+            console.log('[edit.vue] Status updated to under_review, locked steps 1-5')
           } catch (error) {
-            console.error('❌ [edit.vue] Failed to update status:', error)
+            console.error('[edit.vue] Failed to update status:', error)
             // 即使狀態更新失敗，仍允許繼續流程
           }
         } else {
-          console.error('❌ [edit.vue] No case_number available for step 6 status update')
+          console.error('[edit.vue] No case_number available for step 6 status update')
         }
       }
 
-      // 🆕 3️⃣-3 當結案（UI step 7）時，更新狀態為 completed 並鎖定 steps 1-5, 7
+      // 當結案（UI step 7）時，更新狀態為 completed 並鎖定 steps 1-5, 7
       if (step === 7) {
         if (grantsStore.currentGrant?.case_number) {
           try {
-            console.log('🔄 [edit.vue] Step 7 (結案) updating status to completed...')
+            console.log('[edit.vue] Step 7 (結案) updating status to completed...')
             await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'completed')
             lockSteps([1, 2, 3, 4, 5, 7])
-            console.log('✅ [edit.vue] Status updated to completed, locked steps 1-5, 7')
+            console.log('[edit.vue] Status updated to completed, locked steps 1-5, 7')
           } catch (error) {
-            console.error('❌ [edit.vue] Failed to update status:', error)
+            console.error('[edit.vue] Failed to update status:', error)
             // 即使狀態更新失敗，仍允許繼續流程
           }
         } else {
-          console.error('❌ [edit.vue] No case_number available for step 7 status update')
+          console.error('[edit.vue] No case_number available for step 7 status update')
         }
       }
 
-      // 🆕 3️⃣-4 當完成 step 8 時，更新狀態為 submitted
+      // 當完成 step 8 時，更新狀態為 submitted
       if (step === 8) {
         if (grantsStore.currentGrant?.case_number) {
           try {
-            console.log('🔄 [edit.vue] Step 8 (完成) updating status to submitted...')
+            console.log('[edit.vue] Step 8 (完成) updating status to submitted...')
             await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'submitted')
-            console.log('✅ [edit.vue] Status updated to submitted')
+            console.log('[edit.vue] Status updated to submitted')
           } catch (error) {
-            console.error('❌ [edit.vue] Failed to update status:', error)
+            console.error('[edit.vue] Failed to update status:', error)
             // 即使狀態更新失敗，仍允許繼續流程
           }
         } else {
-          console.error('❌ [edit.vue] No case_number available for step 8 status update')
+          console.error('[edit.vue] No case_number available for step 8 status update')
         }
       }
 
-      // 4️⃣ 保存當前步驟數據
+      // 保存當前步驟數據
       await saveAllChanges()
 
-      // 5️⃣ 進入下一步或完成表單
+      // 進入下一步或完成表單
       if (step < steps.length) {
         targetStep.value = nextStep
         currentStep.value = nextStep
@@ -1778,7 +1861,7 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
         updateStepInURL(currentStep.value)
         await loadStepData(currentStep.value)
 
-        // 6️⃣ 短暫延遲後結束過渡
+        // 短暫延遲後結束過渡
         setTimeout(() => {
           isStepTransitioning.value = false
           targetStep.value = null
@@ -2192,6 +2275,11 @@ onMounted(async () => {
 });
 
 // Watch for URL step parameter changes with improved logic
+// 案件載入後同步標籤 input
+watch(() => grantsStore.currentGrant?.tag, (newTag) => {
+  grantTagInput.value = newTag ?? ''
+}, { immediate: true })
+
 watch(() => route.query.step, (newStepParam, oldStepParam) => {
   // Skip if values are effectively the same or we're currently navigating
   if (isNavigating.value ||

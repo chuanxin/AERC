@@ -394,6 +394,23 @@ class GrantLandInSchema(BaseSchema):
 
 
 # 年度補助額度相關模型
+class GrantTagSetSchema(BaseModel):
+    """設定或清除案件標籤的請求模型"""
+    tag: Optional[str] = Field(None, description="標籤文字（None 表示清除標籤）")
+
+    @field_validator("tag", mode="before")
+    @classmethod
+    def normalize_tag(cls, v):
+        if v is None:
+            return None
+        v = str(v).strip()
+        if not v:
+            return None  # 空白字串視為清除
+        if len(v) > 50:
+            raise ValueError("標籤長度不得超過 50 字元")
+        return v
+
+
 class ApplicantGrantSummaryItemSchema(BaseSchema):
     """申請人單筆補助案件摘要"""
     case_number: str = Field(..., description="案件編號")

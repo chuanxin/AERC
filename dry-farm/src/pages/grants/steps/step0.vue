@@ -375,7 +375,25 @@
 
           <v-col
             cols="12"
-            sm="9"
+            sm="3"
+            class="my-0 py-0"
+          >
+            <v-text-field
+              v-model="localFormData.tag"
+              variant="outlined"
+              density="comfortable"
+              label="案件標籤"
+              placeholder="輸入標籤（選填）"
+              clearable
+              hide-details
+              maxlength="50"
+              bg-color="rgba(255, 255, 255, 1)"
+            />
+          </v-col>
+
+          <v-col
+            cols="12"
+            sm="6"
             class="my-0 py-0"
           >
             <div class="d-flex">
@@ -522,12 +540,14 @@ const localFormData = reactive<GrantCreateRequest>({
   village: '',
   villageId: null,
   address: '',
+  phone2: null,
   undertracker: '',
   office: userStore.currentUser?.office?.name || '',
   officeId: userStore.currentUser?.office?.id || null,
   valid: false,
   isDisasterCase: false, // 預設為否
-  disasterCaseDescription: ''
+  disasterCaseDescription: '',
+  tag: ''
 });
 
 // For the v-select components

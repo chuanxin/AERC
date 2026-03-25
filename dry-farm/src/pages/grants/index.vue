@@ -168,6 +168,22 @@
                       @update:model-value="updateFilters"
                     />
                     <v-text-field
+                      v-model="tagFilter"
+                      density="comfortable"
+                      label="標籤"
+                      prepend-inner-icon="mdi-tag-outline"
+                      variant="outlined"
+                      hide-details
+                      clearable
+                      style="min-width: 140px"
+                      bg-color="white"
+                      rounded="lg"
+                      class="mr-2"
+                      :disabled="listLoading"
+                      @keyup.enter="updateTagFilter"
+                      @click:clear="clearTagFilter"
+                    />
+                    <v-text-field
                       v-model="search"
                       density="comfortable"
                       label="搜尋"
@@ -243,6 +259,20 @@
                   <!-- 末端形式欄位 -->
                   <template #[`item.facility_type`]="{ item }">
                     {{ (item.current_step === 8) && !item.facility_type ? '其它' : (item.facility_type || '-') }}
+                  </template>
+
+                  <!-- 標籤欄位 -->
+                  <template #[`item.tag`]="{ item }">
+                    <v-chip
+                      v-if="item.tag"
+                      color="amber-lighten-4"
+                      variant="flat"
+                      size="x-small"
+                      label
+                      class="tag-label-chip mx-0 pr-1 pl-0"
+                    >
+                      {{ item.tag }}
+                    </v-chip>
                   </template>
 
                   <!-- 公告狀態欄位 -->
@@ -543,6 +573,27 @@ const loading = ref(true)
 const search = ref('')
 const selected = ref<string[]>([])
 
+// 標籤篩選
+const tagFilter = ref('')
+
+const updateTagFilter = async () => {
+  grantsStore.clearSelectedGrants()
+  const filterParams = {
+    year: filters.year || undefined,
+    office_id: filters.office_id || undefined,
+    status: '',
+    limit: undefined,
+    skip: 0,
+    tag: tagFilter.value || undefined,
+  }
+  await grantsStore.loadGrantsList(filterParams)
+}
+
+const clearTagFilter = async () => {
+  tagFilter.value = ''
+  await updateTagFilter()
+}
+
 // 🔥 用於強制 v-data-table 重新渲染的 key（清除選取狀態時使用）
 const tableKey = ref(0)
 
@@ -592,9 +643,10 @@ const officeOptions = [
 const headers = ref([
   { title: '管理處', key: 'office', align: 'start' as const, width: '120px' },
   { title: '年度', key: 'year', align: 'start' as const, width: '60px' },
+  { title: '', key: 'tag', align: 'end' as const, width: '0px', sortable: false },
   { title: '案號', key: 'case_number', align: 'start' as const },
   { title: '申請人姓名', key: 'applicant_name', align: 'start' as const, width: '130px' },
-  // 🔥 使用 land_data_search 欄位，支援搜尋位置文字和未格式化數字
+  // 使用 land_data_search 欄位，支援搜尋位置文字和未格式化數字
   { title: '土地資料', key: 'land_data_search', align: 'start' as const, width: '280px'},
   { title: '末端形式', key: 'facility_type', align: 'start' as const, width: '130px' },
   { title: '案件狀態', key: 'status', align: 'start' as const, width: '150px' },
@@ -1229,5 +1281,12 @@ watch(() => grantsStore.currentStep, (newStep) => {
   font-size: 0.75rem;
   color: #666;
   font-weight: 400;
+}
+
+/* 標籤紙形狀：左側切出尖角，模擬 mdi-label-outline 輪廓 */
+.tag-label-chip {
+  clip-path: polygon(10px 0%, 100% 0%, 100% 100%, 10px 100%, 0% 50%);
+  padding-left: 13px !important;
+  border-radius: 0 !important;
 }
 </style>
