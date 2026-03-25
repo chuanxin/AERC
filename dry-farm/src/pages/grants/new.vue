@@ -138,6 +138,7 @@ import step0 from '@/pages/grants/steps/step0.vue'
 import { useGrantsStore } from '@/stores/grants'
 import { useRouter, useRoute } from 'vue-router'
 import type { GrantCreateRequest } from '@/types/grantForms'
+import { setGrantTag } from '@/services/grantsService'
 
 // const userStore = useUserStore()
 const grantsStore = useGrantsStore()
@@ -161,6 +162,11 @@ const createCase = async (data: GrantCreateRequest) => {
 
     // 呼叫 store 建立專案
     const result = await grantsStore.createProject(data);
+
+    // 若有標籤，在案件建立後設定
+    if (data.tag?.trim()) {
+      await setGrantTag(result.id, data.tag.trim());
+    }
 
     // 處理建立案件邏輯
     await handleCreateCase({ caseNumber: result.case_number });

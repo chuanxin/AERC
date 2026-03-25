@@ -12,7 +12,8 @@ from src.schemas.grants import (
     GrantInSchema, GrantOutSchema, GrantListSchema,
     GrantUpdateSchema, GrantCreateResponseSchema,
     GrantStepSchema, GrantLandInSchema, GrantSearchSchema,
-    GrantCreateRequestSchema, ApplicantSubsidySummarySchema
+    GrantCreateRequestSchema, ApplicantSubsidySummarySchema,
+    GrantTagSetSchema
 )
 # import src.crud.offices as crud
 import src.crud.grants as crud
@@ -129,10 +130,33 @@ async def read_grants(
     search: Optional[str] = Query(None, description="搜尋關鍵字"),
     skip: int = Query(0, description="分頁用 - 跳過筆數"),
     limit: Optional[int] = Query(None, description="筆數上限（不設定則查詢全部）"),
+    tag: Optional[str] = Query(None, description="標籤完全比對篩選"),
     current_user: UserOutSchema = Depends(get_current_user)
 ):
     """取得補助申請案件列表，可依條件過濾"""
-    return await crud.get_grants(year, office_id, search, status, skip, limit, current_user)
+    return await crud.get_grants(year, office_id, search, status, skip, limit, current_user, tag)
+
+
+@router.patch(
+    "/{grant_id}/tag",
+    response_model=Dict[str, Any],
+    dependencies=[Depends(get_current_user)],
+)
+async def set_grant_tag(
+    grant_id: int = Path(..., description="補助案件ID"),
+    tag_data: GrantTagSetSchema = Body(..., description="標籤資料"),
+    current_user: UserOutSchema = Depends(get_current_user),
+):
+    """設定或清除案件標籤"""
+    grant = await Grants.get_or_none(id=grant_id)
+    if not grant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="案件不存在",
+        )
+    grant.tag = tag_data.tag
+    await grant.save(update_fields=["tag", "modified_at"])
+    return {"grant_id": grant_id, "tag": grant.tag}
 
 
 @router.get(
