@@ -373,8 +373,9 @@
         class="mt-0 mb-0 pa-4 pb-0"
         rounded="lg"
       >
+        <!-- 第一列：案件收件人 + 快速選擇 | 操作提示 -->
         <v-row class="my-0 py-0 align-center">
-          <v-col cols="12" md="6" >
+          <v-col cols="12" md="6" class="my-0 py-0">
             <div class="d-flex align-start">
               <v-text-field
                 v-model="localFormData.undertracker"
@@ -383,6 +384,7 @@
                 autocomplete="off"
                 bg-color="rgba(255, 255, 255, 1)"
                 class="flex-grow-1 me-2"
+                hide-details="auto"
                 :rules="[v => !!v || '請填寫案件收件人']"
               >
                 <template #label>
@@ -408,35 +410,16 @@
               </v-select>
             </div>
           </v-col>
-          
 
           <v-col
             cols="12"
-            sm="3"
+            md="6"
             class="my-0 py-0"
+            align-self="start"
           >
-            <v-text-field
-              v-model="localFormData.tag"
-              variant="outlined"
-              density="comfortable"
-              label="自定義分類標籤（選填）"
-              placeholder="輸入標籤"
-              clearable
-              hide-details
-              maxlength="50"
-              bg-color="rgba(255, 255, 255, 1)"
-            />
-          </v-col>
-
-          <v-col
-            cols="12"
-            sm="6"
-            class="my-0 py-0"
-          >
-            <div class="d-flex">
+            <div class="d-flex my-0 py-0 align-start">
               <v-icon
                 color="blue-grey-darken-1"
-                class="me-2"
               >
                 mdi-information-outline
               </v-icon>
@@ -446,6 +429,22 @@
                 成立案件後，系統將保留此記錄並可於「補助申請」頁面查詢。
               </div>
             </div>
+          </v-col>
+        </v-row>
+
+        <!-- 第二列：自定義分類標籤欄位 -->
+        <v-row class="my-0 py-0">
+          <v-col cols="12" md="6" class="pb-0">
+            <v-text-field
+              v-model="localFormData.tag"
+              variant="outlined"
+              density="comfortable"
+              label="自定義分類標籤（選填）"
+              placeholder="輸入標籤"
+              clearable
+              maxlength="50"
+              bg-color="rgba(255, 255, 255, 1)"
+            />
           </v-col>
         </v-row>
 
