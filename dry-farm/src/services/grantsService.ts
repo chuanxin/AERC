@@ -62,6 +62,9 @@ export interface GrantCreateResponse {
 
   // 歷史資料標記
   is_legacy?: boolean; // 🔥 新增
+
+  // 案件標籤
+  tag?: string | null;
 }
 
 export interface GrantStepData {
@@ -100,6 +103,7 @@ export interface GrantListItem {
     full_name: string;
   };
   is_legacy?: boolean; // 是否為舊版案件
+  tag?: string | null; // 案件標籤（自由文字，承辦人員自行設定）
 }
 
 export interface GrantListParams {
@@ -109,6 +113,7 @@ export interface GrantListParams {
   skip?: number;
   limit?: number;
   status?: string;
+  tag?: string; // 標籤完全比對篩選
 }
 
 // 服務狀態追蹤
@@ -351,6 +356,22 @@ export const getGrantsFromAPI = async (params: GrantListParams = {}): Promise<Gr
   } catch (error) {
     console.error('📡 [getGrants] API error:', error)
     throw handleApiError(error, 'grantsService.getGrants')
+  }
+}
+
+/**
+ * 設定或清除案件標籤
+ */
+export const setGrantTag = async (grantId: number, tag: string | null): Promise<{ grant_id: number; tag: string | null }> => {
+  try {
+    const response = await apiService.patch<{ grant_id: number; tag: string | null }>(
+      `/grants/${grantId}/tag`,
+      { tag }
+    )
+    return response
+  } catch (error) {
+    console.error(`📡 [setGrantTag] Failed to set tag for grant ${grantId}:`, error)
+    throw handleApiError(error, 'grantsService.setGrantTag')
   }
 }
 

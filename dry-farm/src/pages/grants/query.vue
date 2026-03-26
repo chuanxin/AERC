@@ -193,6 +193,32 @@
                       </div>
                     </div>
                   </v-col>
+                  <v-col
+                    cols="12"
+                    md="8"
+                    offset-md="4"
+                    class="query-field"
+                  >
+                    <div class="field-layout">
+                      <div class="field-label">
+                        自定義分類標籤
+                      </div>
+                      <div class="field-control">
+                        <v-text-field
+                          v-model="searchFilters.tag"
+                          density="comfortable"
+                          variant="outlined"
+                          hide-details
+                          placeholder="輸入標籤關鍵字篩選"
+                          bg-color="white"
+                          rounded="lg"
+                          autocomplete="off"
+                          clearable
+                          prepend-inner-icon="mdi-tag-outline"
+                        />
+                      </div>
+                    </div>
+                  </v-col>
                 </v-row>
               </div>
 
@@ -338,6 +364,7 @@
                     將下載：<strong>{{ getSelectedFileName() }}</strong>
                     <span>· {{ getYearDisplay(searchFilters.year) }}</span>
                     <span v-if="getCaseNumberRange()">· 案號範圍：{{ getCaseNumberRange() }}</span>
+                    <span v-if="searchFilters.tag">· 標籤：{{ searchFilters.tag }}</span>
                   </div>
                   <div
                     v-else
@@ -497,6 +524,7 @@ const searchFilters = ref({
   year: null as string | null,
   caseNumberStart: '',
   caseNumberEnd: '',
+  tag: '',
   applicantName: '',
   status: null as string | null,
 })
@@ -662,6 +690,7 @@ const checkDataAvailability = async () => {
       year: searchFilters.value.year,
       case_number_start: searchFilters.value.caseNumberStart || null,
       case_number_end: searchFilters.value.caseNumberEnd || null,
+      tag: searchFilters.value.tag || null,
       file_type: selectedFileType.value,
       office_id: currentOfficeId.value //added by Joya
     }
@@ -680,7 +709,8 @@ const checkDataAvailability = async () => {
       if ('message' in error) {
         errorMessage = `檢查失敗: ${error.message}`
       } else if ('response' in error && error.response) {
-        errorMessage = `API 錯誤: ${error.response.status} ${error.response.statusText || ''}`
+        const resp = error.response as { status?: number; statusText?: string }
+        errorMessage = `API 錯誤: ${resp.status} ${resp.statusText || ''}`
       }
     }
 
@@ -787,6 +817,7 @@ const handleDownload = async () => {
       year: searchFilters.value.year,
       caseNumberStart: searchFilters.value.caseNumberStart || null,
       caseNumberEnd: searchFilters.value.caseNumberEnd || null,
+      tag: searchFilters.value.tag || null,
       fileType: selectedFileType.value,
       office_id: currentOfficeId.value //added by Joya
     }
@@ -797,6 +828,7 @@ const handleDownload = async () => {
       year: downloadParams.year,
       case_number_start: downloadParams.caseNumberStart,
       case_number_end: downloadParams.caseNumberEnd,
+      tag: downloadParams.tag,
       file_type: downloadParams.fileType,
       enable_pagination: true, // 預設啟用分頁
       office_id: downloadParams.office_id //added by Joya
@@ -866,7 +898,7 @@ watch(() => searchFilters.value.year, (val) => {
 })
 
 // 監聽查詢條件改變，自動檢查資料可用性
-watch([selectedFileType, () => searchFilters.value.year, () => searchFilters.value.caseNumberStart, () => searchFilters.value.caseNumberEnd],
+watch([selectedFileType, () => searchFilters.value.year, () => searchFilters.value.caseNumberStart, () => searchFilters.value.caseNumberEnd, () => searchFilters.value.tag],
   () => {
     checkDataAvailability()
   },

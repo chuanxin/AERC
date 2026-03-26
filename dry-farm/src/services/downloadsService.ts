@@ -8,6 +8,7 @@ export interface DownloadRequest {
   file_type: string
   office_id?: number // added by Joya
   enable_pagination?: boolean
+  tag?: string | null
 }
 
 export interface DataCheckResponse {

@@ -324,6 +324,9 @@ class Grants(models.Model):
     )
     is_legacy = fields.BooleanField(default=False, description="是否為歷史匯入資料")
 
+    # 案件標籤（自由文字，承辦人員自行設定）
+    tag = fields.CharField(max_length=50, null=True, description="案件標籤（自由文字，最多 50 字元）")
+
     # 時間戳記
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
     modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
