@@ -170,7 +170,7 @@
                     <v-text-field
                       v-model="tagFilter"
                       density="comfortable"
-                      label="標籤"
+                      label="自定義分類"
                       prepend-inner-icon="mdi-tag-outline"
                       variant="outlined"
                       hide-details

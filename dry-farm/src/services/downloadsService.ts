@@ -7,6 +7,7 @@ export interface DownloadRequest {
   case_number_end?: string | null
   file_type: string
   enable_pagination?: boolean
+  tag?: string | null
 }
 
 export interface DataCheckResponse {

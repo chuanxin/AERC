@@ -382,8 +382,8 @@
               v-model="localFormData.tag"
               variant="outlined"
               density="comfortable"
-              label="案件標籤"
-              placeholder="輸入標籤（選填）"
+              label="自定義分類標籤（選填）"
+              placeholder="輸入標籤"
               clearable
               hide-details
               maxlength="50"

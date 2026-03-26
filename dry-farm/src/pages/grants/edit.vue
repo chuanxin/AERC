@@ -478,7 +478,7 @@
                     >
                       <v-card>
                         <v-card-title class="text-subtitle-1 font-weight-medium pa-4 pb-2">
-                          編輯案件標籤
+                          編輯案件自定義分類標籤
                         </v-card-title>
                         <v-card-text class="pb-0">
                           <v-text-field

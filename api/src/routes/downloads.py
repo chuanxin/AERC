@@ -36,6 +36,7 @@ class DownloadRequest(BaseModel):
     case_number_end: Optional[str] = None
     file_type: str
     enable_pagination: Optional[bool] = True  # 分頁模式控制，預設開啟
+    tag: Optional[str] = None  # 自定義分類標籤篩選（部分比對）
 
 @router.post("/photograph-carry-form")
 async def download_photograph_carry_form(
@@ -50,6 +51,8 @@ async def download_photograph_carry_form(
 
         # 建構查詢條件
         query = Grants.filter(year=int(request.year))
+        if request.tag:
+            query = query.filter(tag__icontains=request.tag)
 
         # 先取得所有該年度的案件
         all_grants = await query.select_related("active_version").all()
@@ -187,6 +190,8 @@ async def check_data_availability(
 
         # 建構查詢條件（與實際下載邏輯相同）
         query = Grants.filter(year=int(request.year))
+        if request.tag:
+            query = query.filter(tag__icontains=request.tag)
 
         # 先取得所有該年度的案件
         all_grants = await query.all()
@@ -244,6 +249,8 @@ async def download_budget_book(
 
         # 建構查詢條件
         query = Grants.filter(year=int(request.year))
+        if request.tag:
+            query = query.filter(tag__icontains=request.tag)
 
         # 先取得所有該年度的案件
         all_grants = await query.select_related("active_version").all()
@@ -370,7 +377,10 @@ async def download_construction_photos(
         if not request.year:
             raise HTTPException(status_code=400, detail="年度參數為必填")
 
-        all_grants = await Grants.filter(year=int(request.year)).all()
+        query = Grants.filter(year=int(request.year))
+        if request.tag:
+            query = query.filter(tag__icontains=request.tag)
+        all_grants = await query.all()
 
         grants = all_grants
         if request.case_number_start or request.case_number_end:
@@ -473,7 +483,10 @@ async def download_address_labels(
     if not request.year:
         raise HTTPException(status_code=400, detail="年度參數為必填")
 
-    all_grants = await Grants.filter(year=int(request.year)).all()
+    query = Grants.filter(year=int(request.year))
+    if request.tag:
+        query = query.filter(tag__icontains=request.tag)
+    all_grants = await query.all()
 
     grants = all_grants
     if request.case_number_start or request.case_number_end:
@@ -532,7 +545,10 @@ async def download_closing_docs(
                 int(request.case_number_start) > int(request.case_number_end)):
             raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
 
-        all_grants = await Grants.filter(year=int(request.year)).select_related("active_version").all()
+        query = Grants.filter(year=int(request.year))
+        if request.tag:
+            query = query.filter(tag__icontains=request.tag)
+        all_grants = await query.select_related("active_version").all()
 
         grants = all_grants
         if request.case_number_start or request.case_number_end:
@@ -608,7 +624,10 @@ async def download_receipts(
                 int(request.case_number_start) > int(request.case_number_end)):
             raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
 
-        all_grants = await Grants.filter(year=int(request.year)).select_related("active_version").order_by('case_number').all()
+        query = Grants.filter(year=int(request.year))
+        if request.tag:
+            query = query.filter(tag__icontains=request.tag)
+        all_grants = await query.select_related("active_version").order_by('case_number').all()
 
         grants = all_grants
         if request.case_number_start or request.case_number_end:
@@ -677,7 +696,10 @@ async def download_test_reports(
                 int(request.case_number_start) > int(request.case_number_end)):
             raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
 
-        all_grants = await Grants.filter(year=int(request.year)).select_related("active_version").order_by('case_number').all()
+        query = Grants.filter(year=int(request.year))
+        if request.tag:
+            query = query.filter(tag__icontains=request.tag)
+        all_grants = await query.select_related("active_version").order_by('case_number').all()
 
         grants = all_grants
         if request.case_number_start or request.case_number_end:
@@ -746,7 +768,10 @@ async def download_review_form(
                 int(request.case_number_start) > int(request.case_number_end)):
             raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
 
-        all_grants = await Grants.filter(year=int(request.year)).select_related("active_version").order_by('case_number').all()
+        query = Grants.filter(year=int(request.year))
+        if request.tag:
+            query = query.filter(tag__icontains=request.tag)
+        all_grants = await query.select_related("active_version").order_by('case_number').all()
 
         grants = all_grants
         if request.case_number_start or request.case_number_end:
@@ -815,7 +840,10 @@ async def download_cover_page(
                 int(request.case_number_start) > int(request.case_number_end)):
             raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
 
-        all_grants = await Grants.filter(year=int(request.year)).select_related("active_version").order_by('case_number').all()
+        query = Grants.filter(year=int(request.year))
+        if request.tag:
+            query = query.filter(tag__icontains=request.tag)
+        all_grants = await query.select_related("active_version").order_by('case_number').all()
 
         grants = all_grants
         if request.case_number_start or request.case_number_end:
