@@ -193,12 +193,10 @@
                       </div>
                     </div>
                   </v-col>
-                </v-row>
-
-                <v-row class="query-fields">
                   <v-col
                     cols="12"
-                    md="4"
+                    md="8"
+                    offset-md="4"
                     class="query-field"
                   >
                     <div class="field-layout">
@@ -706,7 +704,8 @@ const checkDataAvailability = async () => {
       if ('message' in error) {
         errorMessage = `檢查失敗: ${error.message}`
       } else if ('response' in error && error.response) {
-        errorMessage = `API 錯誤: ${error.response.status} ${error.response.statusText || ''}`
+        const resp = error.response as { status?: number; statusText?: string }
+        errorMessage = `API 錯誤: ${resp.status} ${resp.statusText || ''}`
       }
     }
 
