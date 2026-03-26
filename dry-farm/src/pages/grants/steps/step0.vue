@@ -607,7 +607,6 @@ const localFormData = reactive<GrantCreateRequest>({
   name: '',
   id: '',
   phone: '',
-  phone2: '',
   county: '',
   countyId: null,
   town: '',
