@@ -1,8 +1,10 @@
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.pagebreak import Break
 import tempfile
 from datetime import datetime
+from decimal import Decimal, ROUND_DOWN
 from typing import List, Dict, Any
 from pathlib import Path
 from copy import copy
@@ -490,6 +492,53 @@ _PCF_HDR_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=Tru
 _PCF_DATA_ALIGN = Alignment(horizontal='left', vertical='center', wrap_text=True)
 _PCF_TITLE_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=True)
 _PCF_PAGE_ALIGN = Alignment(horizontal='right', vertical='center')
+
+
+# ── 管路補助金額明細表（SDT）常數 ──────────────────────────────────────────────
+_SDT_COL_WIDTHS = {
+    1: 18,  # A 案件編號
+    2: 12,  # B 農戶姓名
+    3: 10,  # C 面積（公頃）
+    4: 40,  # D 設施地點
+    5: 9,   # E 灌溉型式
+    6: 10,  # F 農戶配合款
+    7: 10,  # G 末端設施
+    8: 10,  # H 水源設施
+    9: 10,  # I 調控設施
+    10: 10, # J 蓄水池
+    11: 10, # K 動力設備
+    12: 12, # L 小計
+    13: 10, # M 設計費
+    14: 12, # N 總計
+    15: 12, # O 工程費合計
+    16: 10, # P 每公頃補助費
+    17: 10,  # Q 百分比（留空）
+    18: 12, # R 每公頃總工程費
+    19: 10, # S 設計者
+}
+_SDT_THIN_BORDER = Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_T, bottom=_XL_S_T)
+_SDT_FONT_NAME   = '標楷體'                                        # 全表唯一字型來源
+_SDT_HDR_FONT    = Font(name=_SDT_FONT_NAME, size=10, bold=True)
+_SDT_DATA_FONT   = Font(name=_SDT_FONT_NAME, size=10)
+_SDT_TITLE_FONT  = Font(name=_SDT_FONT_NAME, size=14, bold=True)
+_SDT_FOOTER_FONT_TAG = f'&"{_SDT_FONT_NAME},Regular"'             # 頁尾字型標籤（從 _SDT_FONT_NAME 衍生）
+_SDT_CTR  = Alignment(horizontal='center', vertical='center', wrap_text=True)
+_SDT_RT   = Alignment(horizontal='right',  vertical='center')
+_SDT_LT   = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+_SDT_NUM_FMT_INT  = '#,##0'        # 金額欄（整數）
+_SDT_NUM_FMT_HA   = '0.000000'     # 面積欄（公頃）
+_SDT_NUM_FMT_R    = '#,##0'        # R欄每公頃總工程費（無條件捨去取整數）
+_SDT_NUM_FMT_PCT  = '0.00%'        # Q欄百分比（值為 0-1 小數，Excel 自動 ×100 顯示）
+_SDT_IRRIGATION_TYPES = ['穿孔管', '噴頭', '滴灌', '微噴', '其它']
+_SDT_SIGN_TITLES = ['灌推承辦人', '灌推股長', '灌推主任', '主計室',
+                    '主計室股長', '主計室股長', '總幹事', '會長']
+_SDT_ROWS_PER_PAGE = 37   # 每頁案件列數（合計區不含在內）
+# 55% 縮放下實際可容納：一般頁 ~42 列、含合計的最後頁 ~36 列
+# 設 35 保留緩衝；若列印結果有多餘空白或溢出，可在此調整
+_SDT_SUMMARY_ROWS  = 6    # 5 灌溉型式合計 + 1 總計（簽核移至頁尾）
+_SDT_PAPER_SIZE   = 9   # A4
+_SDT_ORIENTATION = 'landscape'
+_SDT_SCALE       = 60
 
 
 def _fmt_ha(value) -> str:
@@ -2563,6 +2612,403 @@ class ExcelGeneratorService:
         output_path = self.temp_dir / f"address_labels_{year}.xlsx"
         wb.save(str(output_path))
         return str(output_path)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # 管路補助金額明細表（SDT）
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _write_sdt_sheet_header(self, ws, roc_year: int, office_name: str, start_row: int = 1) -> int:
+        """
+        寫入管路補助金額明細表的表頭（start_row 起 4 列），回傳第一筆資料列號。
+        換頁時以目前的 cur_row 傳入。
+
+        邊框策略：
+        - 水平合併：先對每欄設 border 再 merge（同 _tpl_merge_horizontal 模式），
+          確保合併範圍內各欄的 border XML 均已寫入
+        - 垂直合併：起始格設 border + _tpl_force_interior_border 注入底格邊框
+        - Row 1 標題列：A1/G1/H1 無框線；Q1/R1 以 _tpl_force_interior_border 注入上緣
+        """
+        cur_row = start_row
+
+        # ── Row 1：標題列（A1/G1/H1 無框線）──────────────────────────────
+        ws.row_dimensions[cur_row].height = 30.0
+
+        ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=6)
+        c = ws.cell(cur_row, 1)
+        c.value     = office_name
+        c.font      = _SDT_TITLE_FONT
+        c.alignment = _SDT_RT
+
+        g1 = ws.cell(cur_row, 7)
+        g1.value     = roc_year
+        g1.font      = _SDT_TITLE_FONT
+        g1.alignment = _SDT_LT
+
+        ws.merge_cells(start_row=cur_row, start_column=8, end_row=cur_row, end_column=18)
+        c = ws.cell(cur_row, 8)
+        c.value     = '年度管路補助金額明細表'
+        c.font      = _SDT_TITLE_FONT
+        c.alignment = _SDT_LT
+
+        # ── Row 2：空白列 ───────────────────────────────────────────────────
+        r2 = cur_row + 1
+        ws.row_dimensions[r2].height = 8.0
+
+        # ── Row 3–4：欄位標題 ────────────────────────────────────────────
+        r3 = cur_row + 2
+        r4 = cur_row + 3
+        ws.row_dimensions[r3].height = 20.0
+        ws.row_dimensions[r4].height = 20.0
+
+        def _hdr(row, col, text):
+            c = ws.cell(row, col)
+            c.value     = text
+            c.font      = _SDT_HDR_FONT
+            c.alignment = _SDT_CTR
+            c.border    = _SDT_THIN_BORDER
+
+        # 垂直合併（A3:A4 等）：起始格設 border，再 merge，再注入底格 border
+        def _vmhdr(col, text):
+            c = ws.cell(r3, col)
+            c.value     = text
+            c.font      = _SDT_HDR_FONT
+            c.alignment = _SDT_CTR
+            c.border    = _SDT_THIN_BORDER
+            ws.merge_cells(start_row=r3, start_column=col, end_row=r4, end_column=col)
+            self._tpl_force_interior_border(ws, r4, col, _SDT_THIN_BORDER)
+
+        # 水平合併（G3:N3 等）：先對每欄設 border，再 merge
+        def _hmhdr(col_start, col_end, text):
+            for c in range(col_start, col_end + 1):
+                ws.cell(r3, c).border = _SDT_THIN_BORDER
+            ws.merge_cells(start_row=r3, start_column=col_start, end_row=r3, end_column=col_end)
+            c = ws.cell(r3, col_start)
+            c.value     = text
+            c.font      = _SDT_HDR_FONT
+            c.alignment = _SDT_CTR
+
+        # Row 3 垂直合併欄（R3:R4）
+        _vmhdr(1,  '案件編號')        # A3:A4
+        _vmhdr(2,  '農戶姓名')        # B3:B4
+        _vmhdr(3,  '面積\n(公頃)')           # C3:C4
+        _vmhdr(4,  '設施地點')            # D3:D4
+        _vmhdr(5,  '灌溉\n型式')            # D3:D4
+        _vmhdr(6,  '農戶\n配合款')            # D3:D4
+        _vmhdr(15, '工程費\n合計')    # O3:O4
+        _vmhdr(19, '設計者')          # S3:S4
+
+        # Row 3 水平合併欄
+        _hmhdr(7,  14, '政府補助案')              # G3:N3
+        _hmhdr(16, 18, '每公頃田間設施工程費價')  # P3:R3
+
+        # Row 3 單欄標題
+        # _hdr(r3, 3, '面積')    # C3
+        # _hdr(r3, 5, '灌溉')    # E3
+        # _hdr(r3, 6, '農戶')    # F3
+
+        # Row 4 細項標題
+        for col, text in (
+            (7,  '末端設施'), (8, '水源設施'), (9, '調控設施'),
+            (10, '蓄水池'), (11, '動力設備'), (12, '小計'),
+            (13, '設計費'), (14, '總計'),
+            (16, '補助費'), (17, '百分比'), (18, '總工程費'),
+        ):
+            _hdr(r4, col, text)
+
+        return cur_row + 4  # 第一筆資料列
+
+    def _write_sdt_data_row(self, ws, row_num: int, row_data: dict):
+        """寫入單筆案件資料列（A–S，19 欄）"""
+        ws.row_dimensions[row_num].height = 18.0
+
+        values = [
+            row_data.get('case_number', ''),
+            row_data.get('applicant_name', ''),
+            float(row_data.get('area_ha', 0) or 0),
+            row_data.get('location', ''),
+            row_data.get('irrigation_type', ''),
+            row_data.get('farmer_contribution', 0),
+            row_data.get('end_facility', 0),
+            0,  # H 水源設施固定為 0
+            row_data.get('control_facility', 0),
+            row_data.get('reservoir', 0),
+            row_data.get('power_equipment', 0),
+            row_data.get('govt_subtotal', 0),
+            row_data.get('design_fee', 0),
+            row_data.get('total', 0),
+            row_data.get('grand_total', 0),
+            row_data.get('per_ha_subsidy', 0),
+            row_data.get('per_ha_pct'),   # Q 百分比（P/R，Decimal ROUND_DOWN 至小數第二位）
+            row_data.get('per_ha_grand_total', 0),
+            row_data.get('designer', ''),
+        ]
+
+        for col_idx, val in enumerate(values, start=1):
+            c = ws.cell(row_num, col_idx)
+            c.value  = val
+            c.font   = _SDT_DATA_FONT
+            c.border = _SDT_THIN_BORDER
+            if col_idx == 3:
+                c.number_format = _SDT_NUM_FMT_HA
+                c.alignment = _SDT_RT
+            elif 6 <= col_idx <= 16:
+                c.number_format = _SDT_NUM_FMT_INT
+                c.alignment = _SDT_RT
+            elif col_idx == 17:
+                c.number_format = _SDT_NUM_FMT_PCT
+                c.alignment = _SDT_RT
+            elif col_idx == 18:
+                c.number_format = _SDT_NUM_FMT_R
+                c.alignment = _SDT_RT
+            elif col_idx in (1, 2, 5, 19):  # 案件編號、農戶姓名、灌溉型式、設計者
+                c.alignment = _SDT_CTR
+            else:
+                c.alignment = _SDT_LT
+
+    @staticmethod
+    def _build_irrigation_summaries(rows: list) -> dict:
+        """
+        依灌溉型式分組計算合計，回傳固定 5 個 key 的 dict：
+        { '穿孔管': {...}, '噴頭': {...}, '滴灌': {...}, '微噴': {...}, '其它': {...} }
+        """
+        totals: dict = {t: {'count': 0, 'area_ha': 0.0,
+                            'farmer_contribution': 0, 'end_facility': 0,
+                            'water_source': 0, 'control_facility': 0,
+                            'reservoir': 0, 'power_equipment': 0,
+                            'govt_subtotal': 0, 'design_fee': 0,
+                            'total': 0, 'grand_total': 0}
+                        for t in _SDT_IRRIGATION_TYPES}
+        for row in rows:
+            irr = row.get('irrigation_type', '其它')
+            if irr not in totals:
+                irr = '其它'
+            t = totals[irr]
+            t['count']              += 1
+            t['area_ha']            += float(row.get('area_ha', 0) or 0)
+            t['farmer_contribution'] += int(row.get('farmer_contribution', 0))
+            t['end_facility']        += int(row.get('end_facility', 0))
+            t['water_source']        += 0
+            t['control_facility']    += int(row.get('control_facility', 0))
+            t['reservoir']           += int(row.get('reservoir', 0))
+            t['power_equipment']     += int(row.get('power_equipment', 0))
+            t['govt_subtotal']       += int(row.get('govt_subtotal', 0))
+            t['design_fee']          += int(row.get('design_fee', 0))
+            t['total']               += int(row.get('total', 0))
+            t['grand_total']         += int(row.get('grand_total', 0))
+        # 計算每公頃欄位（無條件捨去，取整數）與 Q 欄百分比
+        for irr_type, t in totals.items():
+            a = t['area_ha']
+            if a > 0:
+                _a = Decimal(str(a))
+                t['per_ha_subsidy']     = int((Decimal(str(t['end_facility'])) / _a).to_integral_value(rounding=ROUND_DOWN))
+                t['per_ha_grand_total'] = int((Decimal(str(t['grand_total']))   / _a).to_integral_value(rounding=ROUND_DOWN))
+            else:
+                t['per_ha_subsidy']     = 0
+                t['per_ha_grand_total'] = 0
+            # Q 欄：補助費 / 總工程費，精確至小數第二位，無條件捨去
+            if t['per_ha_grand_total'] > 0:
+                t['per_ha_pct'] = float(
+                    (Decimal(str(t['per_ha_subsidy'])) / Decimal(str(t['per_ha_grand_total'])))
+                    .quantize(Decimal('0.0001'), rounding=ROUND_DOWN)
+                )
+            else:
+                t['per_ha_pct'] = None
+        return totals
+
+    def _write_sdt_summary_block(self, ws, start_row: int, summaries: dict, total_row: dict):
+        """
+        寫入固定 5 列灌溉型式合計 + 1 列總計（共 6 列）。
+        start_row：合計區第一列（A欄顯示「合計」）。
+        """
+        ws.row_dimensions[start_row].height = 18.0
+        ws.merge_cells(
+            start_row=start_row, start_column=1,
+            end_row=start_row + 4, end_column=1
+        )
+        c = ws.cell(start_row, 1)
+        c.value     = '合計'
+        c.font      = _SDT_HDR_FONT
+        c.alignment = _SDT_CTR
+        c.border    = _SDT_THIN_BORDER
+
+        for i, irr_type in enumerate(_SDT_IRRIGATION_TYPES):
+            r = start_row + i
+            ws.row_dimensions[r].height = 18.0
+            t = summaries.get(irr_type, {})
+            values = [
+                None,  # A（合併）
+                f"{t.get('count', 0)}件設施",
+                t.get('area_ha', 0),
+                None,  # D 地點空白
+                irr_type,
+                t.get('farmer_contribution', 0),
+                t.get('end_facility', 0),
+                0,
+                t.get('control_facility', 0),
+                t.get('reservoir', 0),
+                t.get('power_equipment', 0),
+                t.get('govt_subtotal', 0),
+                t.get('design_fee', 0),
+                t.get('total', 0),
+                t.get('grand_total', 0),
+                t.get('per_ha_subsidy', 0),
+                t.get('per_ha_pct'),      # Q 百分比（Decimal ROUND_DOWN 至小數第二位）
+                t.get('per_ha_grand_total', 0),
+                None,  # S 設計者空白
+            ]
+            for col_idx, val in enumerate(values, start=1):
+                c = ws.cell(r, col_idx)
+                if col_idx == 1:
+                    c.border = _SDT_THIN_BORDER
+                    continue
+                c.value  = val
+                c.font   = _SDT_DATA_FONT
+                c.border = _SDT_THIN_BORDER
+                if col_idx == 3:
+                    c.number_format = _SDT_NUM_FMT_HA
+                    c.alignment = _SDT_RT
+                elif 6 <= col_idx <= 16:
+                    c.number_format = _SDT_NUM_FMT_INT
+                    c.alignment = _SDT_RT
+                elif col_idx == 17:
+                    c.number_format = _SDT_NUM_FMT_PCT
+                    c.alignment = _SDT_RT
+                elif col_idx == 18:
+                    c.number_format = _SDT_NUM_FMT_R
+                    c.alignment = _SDT_RT
+                else:
+                    c.alignment = _SDT_CTR
+
+        # 總計列
+        total_r = start_row + 5
+        ws.row_dimensions[total_r].height = 18.0
+        ws.merge_cells(start_row=total_r, start_column=1, end_row=total_r, end_column=2)
+        c = ws.cell(total_r, 1)
+        c.value     = '總計'
+        c.font      = _SDT_HDR_FONT
+        c.alignment = _SDT_CTR
+        c.border    = _SDT_THIN_BORDER
+
+        total_values = {
+            3:  total_row.get('area_ha', 0),
+            6:  total_row.get('farmer_contribution', 0),
+            7:  total_row.get('end_facility', 0),
+            8:  0,
+            9:  total_row.get('control_facility', 0),
+            10: total_row.get('reservoir', 0),
+            11: total_row.get('power_equipment', 0),
+            12: total_row.get('govt_subtotal', 0),
+            13: total_row.get('design_fee', 0),
+            14: total_row.get('total', 0),
+            15: total_row.get('grand_total', 0),
+        }
+        for col_idx in range(2, 20):
+            c = ws.cell(total_r, col_idx)
+            c.border = _SDT_THIN_BORDER
+            if col_idx in total_values:
+                c.value = total_values[col_idx]
+                c.font  = _SDT_DATA_FONT
+                if col_idx == 3:
+                    c.number_format = _SDT_NUM_FMT_HA
+                    c.alignment = _SDT_RT
+                else:
+                    c.number_format = _SDT_NUM_FMT_INT
+                    c.alignment = _SDT_RT
+
+    @staticmethod
+    def _set_sdt_footer(ws) -> None:
+        """
+        設定管路補助金額明細表的頁尾：
+        - 左區：簽核職稱以固定空格分隔，單列顯示
+        - 右區：頁碼（當頁/總頁）
+        """
+        titles_text = '          '.join(_SDT_SIGN_TITLES)   # 10 格空格固定分隔
+        ws.oddFooter.left.text  = f'{_SDT_FOOTER_FONT_TAG}{titles_text}'
+        ws.oddFooter.left.size  = 10
+        ws.oddFooter.right.text = f'{_SDT_FOOTER_FONT_TAG}&P/&N'
+        ws.oddFooter.right.size = 10
+
+    async def generate_subsidy_details_list(
+        self,
+        grants_by_sheet: dict,
+        year: str,
+        office_name: str,
+    ) -> str:
+        """
+        生成管路補助金額明細表 XLSX（3 個工作表）。
+
+        Args:
+            grants_by_sheet: {'農水署明細表': [...], '瑠公明細表': [...], '七星明細表': [...]}
+            year: 民國年字串（如 '114'）
+            office_name: 使用者所屬單位名稱（顯示於 A1:F1）
+
+        Returns:
+            str: 臨時檔案絕對路徑
+        """
+        roc_year = int(year)
+        wb = Workbook()
+        wb.remove(wb.active)  # 移除預設空白工作表
+
+        for sheet_name in ['農水署明細表', '瑠公明細表', '七星明細表']:
+            rows = grants_by_sheet.get(sheet_name, [])
+            ws = wb.create_sheet(title=sheet_name)
+
+            # 設定欄寬
+            for col_idx, width in _SDT_COL_WIDTHS.items():
+                ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+            # 頁面設定（A4 橫向，明確縮放比）
+            # 使用 scale 取代 fitToWidth=1：
+            ws.page_setup.paperSize   = _SDT_PAPER_SIZE
+            ws.page_setup.orientation = _SDT_ORIENTATION
+            ws.page_setup.scale       = _SDT_SCALE
+
+            # 開啟時使用整頁模式（Page Layout view）
+            ws.sheet_view.view = 'pageLayout'
+
+            # 分頁寫入資料列
+            cur_row = self._write_sdt_sheet_header(ws, roc_year, office_name, start_row=1)
+            data_rows_on_page = 0
+
+            for row_data in rows:
+                if data_rows_on_page >= _SDT_ROWS_PER_PAGE:
+                    ws.row_breaks.append(Break(id=cur_row - 1))  # 手動分頁符
+                    cur_row = self._write_sdt_sheet_header(ws, roc_year, office_name, start_row=cur_row)
+                    data_rows_on_page = 0
+                self._write_sdt_data_row(ws, cur_row, row_data)
+                cur_row += 1
+                data_rows_on_page += 1
+
+            if rows:
+                # 確保合計區整塊不跨頁
+                if data_rows_on_page + _SDT_SUMMARY_ROWS > _SDT_ROWS_PER_PAGE:
+                    ws.row_breaks.append(Break(id=cur_row - 1))
+                    cur_row = self._write_sdt_sheet_header(ws, roc_year, office_name, start_row=cur_row)
+
+                # 計算合計資料
+                summaries = self._build_irrigation_summaries(rows)
+                total_row = {
+                    'area_ha':            sum(float(r.get('area_ha', 0) or 0) for r in rows),
+                    'farmer_contribution': sum(int(r.get('farmer_contribution', 0)) for r in rows),
+                    'end_facility':        sum(int(r.get('end_facility', 0)) for r in rows),
+                    'control_facility':    sum(int(r.get('control_facility', 0)) for r in rows),
+                    'reservoir':           sum(int(r.get('reservoir', 0)) for r in rows),
+                    'power_equipment':     sum(int(r.get('power_equipment', 0)) for r in rows),
+                    'govt_subtotal':       sum(int(r.get('govt_subtotal', 0)) for r in rows),
+                    'design_fee':          sum(int(r.get('design_fee', 0)) for r in rows),
+                    'total':               sum(int(r.get('total', 0)) for r in rows),
+                    'grand_total':         sum(int(r.get('grand_total', 0)) for r in rows),
+                }
+
+                self._write_sdt_summary_block(ws, cur_row, summaries, total_row)
+
+            self._set_sdt_footer(ws)
+
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        filename  = f"subsidy_details_list_{year}_{timestamp}.xlsx"
+        file_path = self.temp_dir / filename
+        wb.save(str(file_path))
+        return str(file_path)
 
     def cleanup_temp_files(self, max_age_hours: int = 24):
         """清理超過指定時間的臨時檔案"""
