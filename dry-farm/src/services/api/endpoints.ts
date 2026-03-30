@@ -235,6 +235,7 @@ export const DOWNLOADS = {
   TEST_REPORTS: `${BASE}/download/test-reports`,
   REVIEW_FORM: `${BASE}/download/review-form`,
   COVER_PAGE: `${BASE}/download/cover-page`,
+  SUBSIDY_DETAILS_LIST: `${BASE}/download/subsidy-details-list`,
   COMPLETION_STATEMENT: `${BASE}/download/completion-statement`,
   CHECK_DATA: `${BASE}/download/check-data`,
   TEST: `${BASE}/download/test`,
