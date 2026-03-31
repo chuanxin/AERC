@@ -1092,6 +1092,7 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         total_facility_area_ha += facility_area_ha
 
     # 第一筆土地資訊（用於封面和表格）
+    land_town = ''
     if land_list:
         first_land = land_list[0]
         land_county = first_land.get('land_county', '')
@@ -1102,6 +1103,7 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         land_location = f"{land_county}{land_town}-{land_section}" if land_section else f"{land_county}{land_town}"
     else:
         land_location = ""
+        land_town = ""
         first_lot_number = ""
 
     # 設施型式（組合「設施型式」+ 「灌溉型式」）
@@ -1520,6 +1522,7 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
 
         # 土地資訊
         'land_location': land_location,
+        'land_town': land_town,
         'first_lot_number': first_lot_number,
         'land_count': len(lands),
         'facility_area_ha': total_facility_area_ha,  # 原始數值，顯示層再格式化
