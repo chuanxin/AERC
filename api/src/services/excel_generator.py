@@ -496,25 +496,25 @@ _PCF_PAGE_ALIGN = Alignment(horizontal='right', vertical='center')
 
 # ── 管路補助金額明細表（SDT）常數 ──────────────────────────────────────────────
 _SDT_COL_WIDTHS = {
-    1: 18,  # A 案件編號
+    1: 18,  # A 設施編號
     2: 12,  # B 農戶姓名
-    3: 10,  # C 面積（公頃）
-    4: 40,  # D 設施地點
+    3: 12,  # C 面積（公頃）
+    4: 11,  # D 地點
     5: 9,   # E 灌溉型式
     6: 10,  # F 農戶配合款
-    7: 10,  # G 末端設施
+    7: 12,  # G 末端設施
     8: 10,  # H 水源設施
     9: 10,  # I 調控設施
-    10: 10, # J 蓄水池
+    10: 12, # J 蓄水池
     11: 10, # K 動力設備
-    12: 12, # L 小計
+    12: 13, # L 小計
     13: 10, # M 設計費
     14: 12, # N 總計
     15: 12, # O 工程費合計
     16: 10, # P 每公頃補助費
-    17: 10,  # Q 百分比（留空）
+    17: 8,  # Q 百分比（留空）
     18: 12, # R 每公頃總工程費
-    19: 10, # S 設計者
+    # 19: S 設計者（資料萃取保留，不輸出至 Excel）
 }
 _SDT_THIN_BORDER = Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_T, bottom=_XL_S_T)
 _SDT_FONT_NAME   = '標楷體'                                        # 全表唯一字型來源
@@ -531,14 +531,14 @@ _SDT_NUM_FMT_R    = '#,##0'        # R欄每公頃總工程費（無條件捨去
 _SDT_NUM_FMT_PCT  = '0.00%'        # Q欄百分比（值為 0-1 小數，Excel 自動 ×100 顯示）
 _SDT_IRRIGATION_TYPES = ['穿孔管', '噴頭', '滴灌', '微噴', '其它']
 _SDT_SIGN_TITLES = ['灌推承辦人', '灌推股長', '灌推主任', '主計室',
-                    '主計室股長', '主計室股長', '總幹事', '會長']
+                    '主計室股長', '主計室主任', '主任工程師', '副處長', '處長']
 _SDT_ROWS_PER_PAGE = 37   # 每頁案件列數（合計區不含在內）
 # 55% 縮放下實際可容納：一般頁 ~42 列、含合計的最後頁 ~36 列
 # 設 35 保留緩衝；若列印結果有多餘空白或溢出，可在此調整
 _SDT_SUMMARY_ROWS  = 6    # 5 灌溉型式合計 + 1 總計（簽核移至頁尾）
 _SDT_PAPER_SIZE   = 9   # A4
 _SDT_ORIENTATION = 'landscape'
-_SDT_SCALE       = 60
+_SDT_SCALE       = 67
 
 
 def _fmt_ha(value) -> str:
@@ -2635,7 +2635,7 @@ class ExcelGeneratorService:
 
         ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=6)
         c = ws.cell(cur_row, 1)
-        c.value     = office_name
+        c.value     = '農業部農田水利署' + office_name
         c.font      = _SDT_TITLE_FONT
         c.alignment = _SDT_RT
 
@@ -2688,14 +2688,14 @@ class ExcelGeneratorService:
             c.alignment = _SDT_CTR
 
         # Row 3 垂直合併欄（R3:R4）
-        _vmhdr(1,  '案件編號')        # A3:A4
+        _vmhdr(1,  '設施編號')        # A3:A4
         _vmhdr(2,  '農戶姓名')        # B3:B4
         _vmhdr(3,  '面積\n(公頃)')           # C3:C4
-        _vmhdr(4,  '設施地點')            # D3:D4
+        _vmhdr(4,  '地點')                # D3:D4
         _vmhdr(5,  '灌溉\n型式')            # D3:D4
         _vmhdr(6,  '農戶\n配合款')            # D3:D4
         _vmhdr(15, '工程費\n合計')    # O3:O4
-        _vmhdr(19, '設計者')          # S3:S4
+        # 設計者欄（col 19）已隱藏，不輸出標頭
 
         # Row 3 水平合併欄
         _hmhdr(7,  14, '政府補助案')              # G3:N3
@@ -2740,7 +2740,7 @@ class ExcelGeneratorService:
             row_data.get('per_ha_subsidy', 0),
             row_data.get('per_ha_pct'),   # Q 百分比（P/R，Decimal ROUND_DOWN 至小數第二位）
             row_data.get('per_ha_grand_total', 0),
-            row_data.get('designer', ''),
+            # designer（col 19）已隱藏，不輸出
         ]
 
         for col_idx, val in enumerate(values, start=1):
@@ -2760,7 +2760,7 @@ class ExcelGeneratorService:
             elif col_idx == 18:
                 c.number_format = _SDT_NUM_FMT_R
                 c.alignment = _SDT_RT
-            elif col_idx in (1, 2, 5, 19):  # 案件編號、農戶姓名、灌溉型式、設計者
+            elif col_idx in (1, 2, 4, 5):  # 設施編號、農戶姓名、地點、灌溉型式
                 c.alignment = _SDT_CTR
             else:
                 c.alignment = _SDT_LT
@@ -2854,7 +2854,7 @@ class ExcelGeneratorService:
                 t.get('per_ha_subsidy', 0),
                 t.get('per_ha_pct'),      # Q 百分比（Decimal ROUND_DOWN 至小數第二位）
                 t.get('per_ha_grand_total', 0),
-                None,  # S 設計者空白
+                # designer（col 19）已隱藏，不輸出
             ]
             for col_idx, val in enumerate(values, start=1):
                 c = ws.cell(r, col_idx)
@@ -2902,7 +2902,7 @@ class ExcelGeneratorService:
             14: total_row.get('total', 0),
             15: total_row.get('grand_total', 0),
         }
-        for col_idx in range(2, 20):
+        for col_idx in range(2, 19):  # col 19（設計者）已隱藏
             c = ws.cell(total_r, col_idx)
             c.border = _SDT_THIN_BORDER
             if col_idx in total_values:
@@ -2919,13 +2919,22 @@ class ExcelGeneratorService:
     def _set_sdt_footer(ws) -> None:
         """
         設定管路補助金額明細表的頁尾：
-        - 左區：簽核職稱以固定空格分隔，單列顯示
-        - 右區：頁碼（當頁/總頁）
+        - 全部職稱置於 left 區塊，以測試確認的固定空格數分隔
+        - 前 8 個職稱間隔 26 個空格；主任工程師/副處長、副處長/處長 間隔 25 個空格
+        - right 區塊：頁碼
         """
-        titles_text = '          '.join(_SDT_SIGN_TITLES)   # 10 格空格固定分隔
-        ws.oddFooter.left.text  = f'{_SDT_FOOTER_FONT_TAG}{titles_text}'
+        sp26 = ' ' * 15
+        sp25 = ' ' * 20
+        titles = _SDT_SIGN_TITLES   # 9 個職稱
+        body = (
+            sp26.join(titles[:7])   # 灌推承辦人…主任工程師（前 7，間距 15×6）
+            + sp25 + titles[7]      # 副處長（間距 20）
+            + sp25 + titles[8]      # 處長（間距 20）
+        )
+        font = _SDT_FOOTER_FONT_TAG
+        ws.oddFooter.left.text  = f'{font}{body}'
         ws.oddFooter.left.size  = 10
-        ws.oddFooter.right.text = f'{_SDT_FOOTER_FONT_TAG}&P/&N'
+        ws.oddFooter.right.text = f'{font}   &P/&N'
         ws.oddFooter.right.size = 10
 
     async def generate_subsidy_details_list(
@@ -2962,6 +2971,14 @@ class ExcelGeneratorService:
             ws.page_setup.paperSize   = _SDT_PAPER_SIZE
             ws.page_setup.orientation = _SDT_ORIENTATION
             ws.page_setup.scale       = _SDT_SCALE
+
+            # 邊距（單位：英寸）
+            ws.page_margins.top    = 0.5
+            ws.page_margins.bottom = 0.35  # 縮小下邊距，讓頁尾上移靠近內容
+            ws.page_margins.left   = 0.5
+            ws.page_margins.right  = 0.5
+            ws.page_margins.header = 0.3
+            ws.page_margins.footer = 0.65   # 頁尾距頁底縮小，配合 bottom 調整
 
             # 開啟時使用整頁模式（Page Layout view）
             ws.sheet_view.view = 'pageLayout'

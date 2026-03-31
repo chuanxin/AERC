@@ -974,11 +974,7 @@ async def extract_subsidy_row_data(grant, version_data: dict) -> dict:
         'case_number': base.get('case_number', ''),
         'applicant_name': base.get('applicant_name', ''),
         'area_ha': area_ha,
-        'location': (
-            f"{base.get('land_location', '')}"
-            # f",地號：{base.get('first_lot_number', '')}"
-            f"，等{base.get('land_count', 1)}筆土地"
-        ),
+        'location': base.get('land_town', ''),
         'irrigation_type': irrigation_type,
         'farmer_contribution': farmer_contribution,
         'end_facility': end_facility,
