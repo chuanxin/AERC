@@ -27,6 +27,7 @@ from pathlib import Path
 import mimetypes
 import zipfile
 from collections import defaultdict
+from decimal import Decimal, ROUND_DOWN
 
 router = APIRouter(prefix="/download", tags=["File Downloads"])
 
@@ -38,6 +39,13 @@ class DownloadRequest(BaseModel):
     enable_pagination: Optional[bool] = True  # 分頁模式控制，預設開啟
     tag: Optional[str] = None  # 自定義分類標籤篩選（部分比對）
     office_id: Optional[int] = None  # added by Joya
+
+
+class SubsidyDetailsListRequest(BaseModel):
+    year: str
+    case_number_start: Optional[str] = None
+    case_number_end: Optional[str] = None
+    tag: Optional[str] = None
 
 @router.post("/photograph-carry-form")
 async def download_photograph_carry_form(
@@ -897,6 +905,178 @@ async def download_cover_page(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成封面 PDF 失敗: {str(e)}")
+
+
+# ── 管路補助金額明細表所需的灌溉型式正規化映射 ─────────────────────────────────
+_IRRIGATION_TYPE_MAP = {1: '穿孔管', 2: '噴頭', 3: '微噴', 4: '滴灌'}
+_FUNDING_SOURCE_SHEETS = {0: '農水署明細表', 16: '七星明細表', 17: '瑠公明細表'}
+
+
+async def extract_subsidy_row_data(grant, version_data: dict) -> dict:
+    """
+    萃取單筆案件的管路補助金額明細表資料列。
+    複用 extract_budget_statement_data() 的全部資料萃取邏輯，
+    並額外讀取 fundingSourceId 與灌溉型式短名。
+    """
+    base = await extract_budget_statement_data(grant, version_data)
+    budget = base.get('budget_items', {})
+
+    # 灌溉型式短名（供 E 欄顯示及分組合計使用）
+    irrigation_type_id = base.get('irrigation_type_id', 0)
+    irrigation_type = _IRRIGATION_TYPE_MAP.get(irrigation_type_id, '其它')
+
+    # 設計者：歷史案件從 legacy_data.designer_name，新系統案件從 steps["5"].designerName
+    steps = version_data.get('steps', {}) if version_data else {}
+    if getattr(grant, 'is_legacy', False):
+        legacy = (version_data or {}).get('legacy_data', {})
+        designer = legacy.get('designer_name', '') or '未設定'
+    else:
+        designer = steps.get('5', {}).get('designerName', '') or '未設定'
+
+    # fundingSourceId：優先新系統 steps['4']['fundingSourceId']，歷史資料回退
+    step4_data = steps.get('4', {})
+    fid = step4_data.get('fundingSourceId')
+    if not (isinstance(fid, int) and fid in _FUNDING_SOURCE_SHEETS):
+        legacy = (version_data or {}).get('legacy_data', {})
+        fid = legacy.get('fundingSourceId')
+        if not (isinstance(fid, int) and fid in _FUNDING_SOURCE_SHEETS):
+            fid = 0
+
+    area_ha = float(base.get('facility_area_ha', 0) or 0)
+    end_facility = int(budget.get('a_item_total', 0))
+    control_facility = int(budget.get('c_control_total', 0))
+    reservoir = int(budget.get('e_storage_total', 0))
+    power_equipment = int(budget.get('d_power_total', 0))
+    design_fee = int(budget.get('b_design_fee', 0))
+    farmer_contribution = max(0, int(budget.get('farmer_contribution', 0)))
+
+    govt_subtotal = end_facility + control_facility + reservoir + power_equipment  # H欄水源設施固定為0
+    total = govt_subtotal + design_fee
+    grand_total = farmer_contribution + total
+    if area_ha > 0:
+        _area = Decimal(str(area_ha))
+        per_ha_subsidy     = int((Decimal(str(end_facility)) / _area).to_integral_value(rounding=ROUND_DOWN))
+        per_ha_grand_total = int((Decimal(str(grand_total))  / _area).to_integral_value(rounding=ROUND_DOWN))
+    else:
+        per_ha_subsidy     = 0
+        per_ha_grand_total = 0
+
+    # Q 欄百分比：補助費 / 總工程費，Decimal 精確計算至小數第二位，無條件捨去
+    if per_ha_grand_total > 0:
+        per_ha_pct = float(
+            (Decimal(str(per_ha_subsidy)) / Decimal(str(per_ha_grand_total)))
+            .quantize(Decimal('0.0001'), rounding=ROUND_DOWN)
+        )
+    else:
+        per_ha_pct = None
+
+    return {
+        'funding_source_id': fid,
+        'case_number': base.get('case_number', ''),
+        'applicant_name': base.get('applicant_name', ''),
+        'area_ha': area_ha,
+        'location': (
+            f"{base.get('land_location', '')}"
+            # f",地號：{base.get('first_lot_number', '')}"
+            f"，等{base.get('land_count', 1)}筆土地"
+        ),
+        'irrigation_type': irrigation_type,
+        'farmer_contribution': farmer_contribution,
+        'end_facility': end_facility,
+        'water_source': 0,
+        'control_facility': control_facility,
+        'reservoir': reservoir,
+        'power_equipment': power_equipment,
+        'govt_subtotal': govt_subtotal,
+        'design_fee': design_fee,
+        'total': total,
+        'grand_total': grand_total,
+        'per_ha_subsidy': int(per_ha_subsidy),
+        'per_ha_pct': per_ha_pct,
+        'per_ha_grand_total': per_ha_grand_total,
+        'designer': designer,
+    }
+
+
+@router.post("/subsidy-details-list")
+async def download_subsidy_details_list(
+    request: SubsidyDetailsListRequest,
+    current_user: Users = Depends(get_current_user)
+):
+    """下載管路補助金額明細表 XLSX（3 個工作表，依 fundingSourceId 分類）"""
+    if not request.year:
+        raise HTTPException(status_code=400, detail="年度為必填欄位")
+
+    try:
+        query = Grants.filter(year=int(request.year))
+        if request.tag:
+            query = query.filter(tag__icontains=request.tag)
+
+        all_grants = await query.select_related("active_version").order_by('case_number').all()
+
+        # 案件號碼範圍篩選（沿用現有端點的 Python 層篩選模式）
+        grants = all_grants
+        if request.case_number_start or request.case_number_end:
+            grants = []
+            for grant in all_grants:
+                case_num = grant.case_number
+                if case_num and case_num.isdigit():
+                    case_num_int = int(case_num)
+                    in_range = True
+                    if request.case_number_start and case_num_int < int(request.case_number_start):
+                        in_range = False
+                    if request.case_number_end and case_num_int > int(request.case_number_end):
+                        in_range = False
+                    if in_range:
+                        grants.append(grant)
+
+        # 狀態篩選：排除已刪除及退件案件
+        filtered = []
+        for grant in grants:
+            if not grant.is_legacy:
+                if grant.status == 'deleted':
+                    continue
+            else:
+                if grant.status == '99':
+                    continue
+                if grant.status_detail and '退件' in (grant.status_detail or ''):
+                    continue
+            filtered.append(grant)
+
+        # 依 fundingSourceId 分配至三個工作表
+        grants_by_sheet: dict = {'農水署明細表': [], '瑠公明細表': [], '七星明細表': []}
+        for grant in filtered:
+            version_data = grant.active_version.all_steps_data if grant.active_version else {}
+            row_data = await extract_subsidy_row_data(grant, version_data)
+            sheet_name = _FUNDING_SOURCE_SHEETS.get(row_data['funding_source_id'], '農水署明細表')
+            grants_by_sheet[sheet_name].append(row_data)
+
+        # 取得使用者所屬單位名稱（get_current_user 已載入 office）
+        if not current_user.office:
+            raise HTTPException(status_code=400, detail="使用者未綁定所屬單位，無法生成明細表")
+        office_name = current_user.office.name
+
+        # 生成 Excel 並回傳
+        excel_service = ExcelGeneratorService()
+        file_path = await excel_service.generate_subsidy_details_list(
+            grants_by_sheet=grants_by_sheet,
+            year=request.year,
+            office_name=office_name,
+        )
+
+        filename = f"subsidy_details_list_{request.year}.xlsx"
+        encoded_filename = quote(filename, safe='')
+        return FileResponse(
+            path=file_path,
+            filename=filename,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"生成明細表失敗：{str(e)}")
 
 
 @router.get("/test")

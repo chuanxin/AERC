@@ -867,6 +867,9 @@ const handleDownload = async () => {
       case 'closing_docs':
         await downloadsService.downloadClosingDocs(downloadRequest)
         break
+      case 'subsidy_details_list':
+        await downloadsService.downloadSubsidyDetailsList(downloadRequest)
+        break
       default:
         throw new Error(`尚未支援的檔案類型: ${selectedFileType.value}`)
     }

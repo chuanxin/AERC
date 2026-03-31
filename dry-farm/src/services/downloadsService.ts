@@ -180,6 +180,15 @@ class DownloadsService {
     }
   }
 
+  async downloadSubsidyDetailsList(params: DownloadRequest): Promise<void> {
+    try {
+      await apiService.downloadPost(DOWNLOADS.SUBSIDY_DETAILS_LIST, params, `subsidy_details_list_${params.year}.xlsx`)
+    } catch (error) {
+      console.error('下載管路補助金額明細表失敗:', error)
+      throw error
+    }
+  }
+
   /**
    * 測試下載端點
    * @returns Promise<any>
