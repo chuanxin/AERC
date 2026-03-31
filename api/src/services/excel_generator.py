@@ -2978,7 +2978,7 @@ class ExcelGeneratorService:
             ws.page_margins.left   = 0.5
             ws.page_margins.right  = 0.5
             ws.page_margins.header = 0.3
-            ws.page_margins.footer = 0.65   # 頁尾距頁底縮小，配合 bottom 調整
+            ws.page_margins.footer = 0.6   # 頁尾距頁底縮小，配合 bottom 調整
 
             # 開啟時使用整頁模式（Page Layout view）
             ws.sheet_view.view = 'pageLayout'
