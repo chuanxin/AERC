@@ -1161,7 +1161,8 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         facility_type = '其它'
 
     # 補助標準（從 step2_data 的第一筆土地資料 isAboriginalArea 判斷）
-    first_land = lands[0]
+    first_land = lands[0] if lands else {}
+
     is_aboriginal_area = first_land.get('isAboriginalArea')
 
     subsidy_standard = '原民區域' if is_aboriginal_area else '一般地區'

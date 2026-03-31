@@ -17,6 +17,7 @@ from src.schemas.static_downloads import (
     BatchDownloadRequest
 )
 from src.config.folder_mappings import settings
+import logging
 import os
 import tempfile
 import re
@@ -28,6 +29,8 @@ import mimetypes
 import zipfile
 from collections import defaultdict
 from decimal import Decimal, ROUND_DOWN
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/download", tags=["File Downloads"])
 
@@ -1040,11 +1043,17 @@ async def download_subsidy_details_list(
 
         # 依 fundingSourceId 分配至三個工作表
         grants_by_sheet: dict = {'農水署明細表': [], '瑠公明細表': [], '七星明細表': []}
+        skipped_cases = []
         for grant in filtered:
-            version_data = grant.active_version.all_steps_data if grant.active_version else {}
-            row_data = await extract_subsidy_row_data(grant, version_data)
-            sheet_name = _FUNDING_SOURCE_SHEETS.get(row_data['funding_source_id'], '農水署明細表')
-            grants_by_sheet[sheet_name].append(row_data)
+            try:
+                version_data = grant.active_version.all_steps_data if grant.active_version else {}
+                row_data = await extract_subsidy_row_data(grant, version_data)
+                sheet_name = _FUNDING_SOURCE_SHEETS.get(row_data['funding_source_id'], '農水署明細表')
+                grants_by_sheet[sheet_name].append(row_data)
+            except Exception as row_err:
+                skipped_cases.append(grant.case_number or str(grant.id))
+                logger.warning("subsidy-details-list: skipped grant %s due to error: %s", grant.case_number, row_err)
+                continue
 
         # 取得使用者所屬單位名稱（get_current_user 已載入 office）
         if not current_user.office:
