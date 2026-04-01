@@ -945,11 +945,11 @@ async def extract_subsidy_row_data(grant, version_data: dict) -> dict:
             fid = 0
 
     area_ha = float(base.get('facility_area_ha', 0) or 0)
-    end_facility = int(budget.get('a_item_total', 0))
+    end_facility = int(budget.get('govt_subsidy_a', 0))          # 末端設施 = A 項政府補助（不含農戶自付）
     control_facility = int(budget.get('c_control_total', 0))
     reservoir = int(budget.get('e_storage_total', 0))
     power_equipment = int(budget.get('d_power_total', 0))
-    design_fee = int(budget.get('b_design_fee', 0))
+    design_fee = int(budget.get('actual_subsidized_design_fee', 0))  # 設計費 = 政府實際補助設計費（B 項）
     farmer_contribution = max(0, int(budget.get('farmer_contribution', 0)))
 
     govt_subtotal = end_facility + control_facility + reservoir + power_equipment  # H欄水源設施固定為0
