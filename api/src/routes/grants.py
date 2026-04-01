@@ -1300,37 +1300,53 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     data_schema_version = grant.active_version.data_schema_version if grant.active_version else None
     is_legacy_data = data_schema_version == 'legacy'
 
-    # === 政府補助款（使用前端已計算的值）===
-    # A 項：田間管路補助
-    if is_legacy_data:
-        # 歷史資料：subsidyAmount 不包含設計費，直接使用
-        # 補助優先用於管路材料
-        govt_subsidy_a = int(min(a_item_total, step5_subsidy_amount))
-    else:
-        # 新資料：subsidyAmount 包含設計費，需要扣除
-        # A 項補助 = 總補助 - 設計費（不得小於 0）
-        # govt_subsidy_a = int(max(0, step5_subsidy_amount - b_design_fee)) （0128_2026 修改）
-        govt_subsidy_a = int(step5_subsidy_amount)
-    
+    # === 政府補助款：A 項 + 設計費（B 項）===
+    # 設計費必須獨立於 A 項補助分列，兩者依資料版本採不同計算邏輯
     govt_subsidy_c = c_control_subsidy  # C 項：調節控制設施（使用前端計算值）
     govt_subsidy_d = d_power_subsidy  # D 項：動力設備（使用前端計算值）
     govt_subsidy_e = e_storage_subsidy  # E 項：調蓄設施（使用前端計算值）
 
-    # 實際獲得補助的規劃設計費
-    # if is_legacy_data:
-        # 歷史資料：subsidyAmount 不含設計費，設計費全額補助
-        # actual_subsidized_design_fee = b_design_fee
-    # else:
-        # 新資料：subsidyAmount 包含設計費，取補助額度和設計費的最小值
-        # actual_subsidized_design_fee = min(step5_subsidy_amount, b_design_fee)
-
-    actual_subsidized_design_fee = b_design_fee
+    if is_legacy_data:
+        # 歷史資料：由帳面收支推算政府設計費補助，再反推 A 項補助
+        #
+        # 恆等式：govt_a + actual_design + self_paid = a_item + b_design
+        # 令 S = sub + self_paid - a_item（step5 帳面超出 A 項的金額）
+        #
+        # 適用情境：
+        #   ① S = 0, b_design = 0：無設計費異常案件，actual_design = 0，govt_a = sub
+        #   ② S = 0, b_design > 0：step5 數字只含田間管路，設計費完全獨立
+        #                           → actual_design = b_design，govt_a = sub
+        #   ③ S = b_design        ：sub 已含設計費補助 → actual_design = b_design
+        #                           govt_a = sub - b_design
+        #   ④ 0 < S < b_design    ：actual_design = S (理論上不存在)
+        #   ⑤ S < 0               ：異常案件
+        S = step5_subsidy_amount + step5_self_paid_amount - a_item_total
+        if S == 0:
+            # 設計費完全獨立於 step5 帳面數字（田間管路補助與自備款之和等於 A 項總額）
+            # step5 數字中不含設計費，不從 sub 中扣除
+            actual_subsidized_design_fee = int(b_design_fee)
+            govt_subsidy_a = int(min(a_item_total, step5_subsidy_amount))
+        else:
+            # S ≠ 0：帳面超出量反映設計費
+            actual_subsidized_design_fee = int(max(0, min(b_design_fee, S)))
+            govt_subsidy_a = int(min(a_item_total, step5_subsidy_amount - actual_subsidized_design_fee))
+    else:
+        # 新資料：subsidyAmount 不包含設計費（前端 subsidyStandards.ts totalCost = pipelineMaterialCost）
+        # 設計費由政府全額補助（B 項），農戶不需負擔
+        govt_subsidy_a = int(min(step5_subsidy_amount, a_item_total))
+        actual_subsidized_design_fee = b_design_fee
 
     # === 農戶配合款（使用前端已計算的值）===
     total_amount = a_item_total + b_design_fee + c_control_total + d_power_total + e_storage_total
     govt_subsidy_total = govt_subsidy_a + govt_subsidy_c + govt_subsidy_d + govt_subsidy_e
     # 農戶配合款 = C/D/E 項的自備款總和 + step5 的自備款
-    farmer_contribution = c_control_self_paid + d_power_self_paid + e_storage_self_paid + step5_self_paid_amount
+    # 各項獨立截底為 0，避免單項負值侵蝕其他項目的正常自備款
+    farmer_contribution = (
+        max(0, c_control_self_paid) +
+        max(0, d_power_self_paid) +
+        max(0, e_storage_self_paid) +
+        max(0, step5_self_paid_amount)
+    )
 
     budget_items = {
         'a_item_total': int(a_item_total),
@@ -1353,7 +1369,7 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         'd_power_quantity': int(d_power_quantity),  # 動力設備數量總和
         'e_storage_total': int(e_storage_total),
         'e_storage_tonnage': int(e_storage_tonnage),  # 調蓄設施噸位總和
-        'farmer_contribution': max(0, int(farmer_contribution)),  # 確保不為負數
+        'farmer_contribution': int(farmer_contribution),
         'govt_subsidy_a': int(govt_subsidy_a),
         'govt_subsidy_c': int(govt_subsidy_c),
         'govt_subsidy_d': int(govt_subsidy_d),
