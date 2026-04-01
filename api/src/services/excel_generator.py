@@ -518,9 +518,10 @@ _SDT_COL_WIDTHS = {
 }
 _SDT_THIN_BORDER = Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_T, bottom=_XL_S_T)
 _SDT_FONT_NAME   = '標楷體'                                        # 全表唯一字型來源
-_SDT_HDR_FONT    = Font(name=_SDT_FONT_NAME, size=10, bold=True)
-_SDT_DATA_FONT   = Font(name=_SDT_FONT_NAME, size=10)
-_SDT_TITLE_FONT  = Font(name=_SDT_FONT_NAME, size=14, bold=True)
+_SDT_HDR_FONT    = Font(name=_SDT_FONT_NAME, size=12, bold=True)
+_SDT_DATA_FONT   = Font(name=_SDT_FONT_NAME, size=12)
+_SDT_TITLE_FONT  = Font(name=_SDT_FONT_NAME, size=20, bold=True)
+_SDT_FOOTER_FONT = Font(name=_SDT_FONT_NAME, size=12)
 _SDT_FOOTER_FONT_TAG = f'&"{_SDT_FONT_NAME},Regular"'             # 頁尾字型標籤（從 _SDT_FONT_NAME 衍生）
 _SDT_CTR  = Alignment(horizontal='center', vertical='center', wrap_text=True)
 _SDT_RT   = Alignment(horizontal='right',  vertical='center')
@@ -2923,8 +2924,8 @@ class ExcelGeneratorService:
         - 前 8 個職稱間隔 26 個空格；主任工程師/副處長、副處長/處長 間隔 25 個空格
         - right 區塊：頁碼
         """
-        sp26 = ' ' * 15
-        sp25 = ' ' * 20
+        sp26 = ' ' * 11
+        sp25 = ' ' * 16
         titles = _SDT_SIGN_TITLES   # 9 個職稱
         body = (
             sp26.join(titles[:7])   # 灌推承辦人…主任工程師（前 7，間距 15×6）
@@ -2933,9 +2934,9 @@ class ExcelGeneratorService:
         )
         font = _SDT_FOOTER_FONT_TAG
         ws.oddFooter.left.text  = f'{font}{body}'
-        ws.oddFooter.left.size  = 10
+        ws.oddFooter.left.size  = 12
         ws.oddFooter.right.text = f'{font}   &P/&N'
-        ws.oddFooter.right.size = 10
+        ws.oddFooter.right.size = 12
 
     async def generate_subsidy_details_list(
         self,
@@ -2978,10 +2979,13 @@ class ExcelGeneratorService:
             ws.page_margins.left   = 0.5
             ws.page_margins.right  = 0.5
             ws.page_margins.header = 0.3
-            ws.page_margins.footer = 0.6   # 頁尾距頁底縮小，配合 bottom 調整
+            ws.page_margins.footer = 0.58   # 頁尾距頁底縮小，配合 bottom 調整
 
             # 開啟時使用整頁模式（Page Layout view）
             ws.sheet_view.view = 'pageLayout'
+            # 關閉背景格線：資料列已有明確 border，不受影響；
+            # 空白列因此不再顯示格線，防止「空白表格」在 Page Layout view 覆蓋頁尾
+            ws.sheet_view.showGridLines = False
 
             # 分頁寫入資料列
             cur_row = self._write_sdt_sheet_header(ws, roc_year, office_name, start_row=1)
@@ -3018,6 +3022,16 @@ class ExcelGeneratorService:
                 }
 
                 self._write_sdt_summary_block(ws, cur_row, summaries, total_row)
+                last_row = cur_row + _SDT_SUMMARY_ROWS - 1
+            else:
+                last_row = cur_row - 1  # 無案件：僅標題列
+
+            # 明確限定列印範圍，防止空白列在 Page Layout view 覆蓋頁尾
+            ws.print_area = f'A1:R{last_row}'
+            # 在最後一列後插入 row break，讓 Excel 明確知道這頁在此結束，
+            # 避免 Page Layout view 將最後一頁延伸至預設頁面容量底部（多 ~7 列），
+            # 覆蓋頁尾簽核欄位。
+            ws.row_breaks.append(Break(id=last_row))
 
             self._set_sdt_footer(ws)
 
