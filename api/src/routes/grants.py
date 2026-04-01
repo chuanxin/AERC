@@ -1311,7 +1311,7 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
         # 恆等式：govt_a + actual_design + self_paid = a_item + b_design
         # 令 S = sub + self_paid - a_item（step5 帳面超出 A 項的金額）
         #
-        # 適用情境：
+        # 適用情境（20260401 歷史翻不過去）：
         #   ① S = 0, b_design = 0：無設計費異常案件，actual_design = 0，govt_a = sub
         #   ② S = 0, b_design > 0：step5 數字只含田間管路，設計費完全獨立
         #                           → actual_design = b_design，govt_a = sub
