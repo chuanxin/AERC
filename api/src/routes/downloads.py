@@ -67,7 +67,7 @@ async def download_photograph_carry_form(
             query = query.filter(tag__icontains=request.tag)
         
         # 先取得所有該年度的案件
-        all_grants = await query.select_related("active_version").all()
+        all_grants = await query.select_related("active_version").order_by('case_number').all()
 
         # 在 Python 中進行案件編號範圍篩選
         grants = all_grants
