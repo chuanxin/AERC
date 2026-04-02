@@ -481,17 +481,21 @@ _B03_NOTE_TEXT = (
 )
 
 # ── 外出拍攝照片攜帶表（PCF）常數 ──────────────────────────────────────────────
-_PCF_COL_WIDTHS = {1: 12, 2: 15, 3: 12, 4: 15, 5: 40, 6: 18, 7: 16, 8: 20, 9: 24, 10: 18, 11: 60}
-_PCF_HDR_TEXT = ['案件編號', '申請人姓名', '鄉鎮', '段名', '地號', '面積（公頃）', '設施類型', '末端型式', '農作物', '電話', '通訊地址']
-_PCF_DATA_ROWS_PER_PAGE = 16  # 每頁資料列數
+_PCF_COL_WIDTHS = {1: 12, 2: 14, 3: 10, 4: 12, 5: 40, 6: 14, 7: 16, 8: 20, 9: 24, 10: 15, 11: 50}
+_PCF_HDR_TEXT = ['案件編號', '申請人姓名', '鄉鎮', '段名', '地號', '面積\n（公頃）', '設施類型', '末端型式', '農作物', '電話', '通訊地址']
+_PCF_PAGE_HEIGHT_PT = 770  # 每頁可用資料高度（pt）（A4 橫向，以列印預覽確認後微調）
 _PCF_THIN_BORDER = Border(left=_XL_S_T, right=_XL_S_T, top=_XL_S_T, bottom=_XL_S_T)
-_PCF_HDR_FONT = Font(name='微軟正黑體', size=12, bold=True)
-_PCF_DATA_FONT = Font(name='微軟正黑體', size=11)
-_PCF_TITLE_FONT = Font(name='微軟正黑體', size=14, bold=True)
-_PCF_HDR_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=True)
-_PCF_DATA_ALIGN = Alignment(horizontal='left', vertical='center', wrap_text=True)
+_PCF_FONT_NAME       = '標楷體'
+_PCF_HDR_FONT        = Font(name=_PCF_FONT_NAME, size=12, bold=True)
+_PCF_DATA_FONT       = Font(name=_PCF_FONT_NAME, size=12)
+_PCF_TITLE_FONT      = Font(name=_PCF_FONT_NAME, size=20, bold=True)
+_PCF_FOOTER_FONT_TAG = f'&"{_PCF_FONT_NAME},Regular"'  # 頁尾字型標籤（從 _PCF_FONT_NAME 衍生）
+_PCF_HDR_ALIGN   = Alignment(horizontal='center', vertical='center', wrap_text=True)
+_PCF_LFT_ALIGN  = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+_PCF_CTR_ALIGN   = Alignment(horizontal='center', vertical='center', wrap_text=True)
+_PCF_RGT_ALIGN   = Alignment(horizontal='right', vertical='center', wrap_text=True)
 _PCF_TITLE_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=True)
-_PCF_PAGE_ALIGN = Alignment(horizontal='right', vertical='center')
+_PCF_SCALE      = 60  # 列印縮放比（A4 橫向，以列印預覽確認後微調）
 
 
 # ── 管路補助金額明細表（SDT）常數 ──────────────────────────────────────────────
@@ -552,7 +556,7 @@ def _fmt_ha(value) -> str:
         return '0.000000'
 
 
-def _pcf_row_height(texts_and_widths: list, base: float = 21.0, line_h: float = 18.0) -> float:
+def _pcf_row_height(texts_and_widths: list, base: float = 21.0, line_h: float = 21.0) -> float:
     """
     估算 wrap_text 情境下所需的列高。
     texts_and_widths: [(text, col_width_chars), ...]
@@ -564,7 +568,7 @@ def _pcf_row_height(texts_and_widths: list, base: float = 21.0, line_h: float = 
             continue
         # 將全形（中文）字元視為 2 個半形單位
         char_units = sum(2 if ord(ch) > 127 else 1 for ch in text)
-        lines = max(1, -(-char_units // max(1, int(cw * 0.9))))  # ceiling div
+        lines = max(1, -(-char_units // max(1, int(cw * 0.8))))  # ceiling div
         max_lines = max(max_lines, lines)
     return max(base, max_lines * line_h)
 
@@ -591,39 +595,25 @@ class ExcelGeneratorService:
         每個案件依 (鄉鎮, 段名) 聚合土地資料，一組對應一列；
         案件層級欄位（A, B, G, H, I, J, K）跨列合併顯示。
 
+        分頁策略（enable_pagination=True）：
+        - Excel 原生 row breaks，每頁最多 _PCF_DATA_ROWS_PER_PAGE 列資料
+        - 案件不跨頁拆散：若加入當前案件超出單頁，先插入分頁符
+        - print_title_rows 確保每頁列印時自動重複標題列（row 1-2）
+        - Trailing row break 防止最後一頁後出現多餘空白頁
+        - 開啟時預設 Page Layout view，顯示列印邊界
+
         Args:
             data: 案件資料列表，每筆含 case_number, applicant_name, land_groups,
                   facility_type, irrigation_type, crops_text, phone, address, office_name
             year: 申請年度
-            enable_pagination: True 分頁（每頁16列，不拆散案件）；False 不分頁
+            enable_pagination: True 分頁（Excel 原生 row breaks，案件不跨頁）；False 不分頁
 
         Returns:
             str: 生成的 Excel 檔案路徑
         """
         COL_COUNT = 11
-        ROWS_PER_PAGE = _PCF_DATA_ROWS_PER_PAGE
 
         office_name = data[0].get('office_name', '') if data else ''
-
-        # 預先分頁：不拆散案件（一個案件的所有土地列保持在同一頁）
-        if enable_pagination:
-            pages: List[List[Dict[str, Any]]] = []
-            cur_page: List[Dict[str, Any]] = []
-            cur_rows = 0
-            for item in data:
-                n = len(item.get('land_groups') or [{}])
-                if cur_rows > 0 and cur_rows + n > ROWS_PER_PAGE:
-                    pages.append(cur_page)
-                    cur_page = []
-                    cur_rows = 0
-                cur_page.append(item)
-                cur_rows += n
-            if cur_page:
-                pages.append(cur_page)
-            total_pages = len(pages) if pages else 1
-        else:
-            pages = [data]
-            total_pages = 1
 
         wb = Workbook()
         ws = wb.active
@@ -633,13 +623,13 @@ class ExcelGeneratorService:
 
         def _write_header(title_row: int) -> int:
             """寫標題列 + 欄頭列，回傳第一筆資料列號"""
-            ws.row_dimensions[title_row].height = 45.0
+            ws.row_dimensions[title_row].height = 60.0
             ws.merge_cells(start_row=title_row, start_column=1, end_row=title_row, end_column=COL_COUNT)
             tc = ws.cell(title_row, 1)
             tc.value = f"農業部農田水利署{office_name}\n外出拍攝照片攜帶表"
             tc.font = _PCF_TITLE_FONT
             tc.alignment = _PCF_TITLE_ALIGN
-            tc.border = _PCF_THIN_BORDER
+            tc.border = Border(right=_XL_S_T, bottom=_XL_S_T)
 
             hdr_row = title_row + 1
             ws.row_dimensions[hdr_row].height = 30.0
@@ -651,71 +641,103 @@ class ExcelGeneratorService:
                 c.border = _PCF_THIN_BORDER
             return hdr_row + 1
 
-        cur_row = 1
-        for page_idx, page_items in enumerate(pages):
-            page_num = page_idx + 1
-            cur_row = _write_header(cur_row)
+        # 寫入標題列（row 1-2）；列印時由 print_title_rows 在每頁自動重複
+        cur_row = _write_header(1)
+        cur_page_height = 0.0
 
-            for item in page_items:
-                land_groups = item.get('land_groups') or [
-                    {'land_town': '', 'land_section': '', 'lot_numbers': '', 'facility_area_ha': 0}
-                ]
-                n = len(land_groups)
-                grant_start = cur_row
-                grant_end = cur_row + n - 1
+        for item in data:
+            land_groups = item.get('land_groups') or [
+                {'land_town': '', 'land_section': '', 'lot_numbers': '', 'facility_area_ha': 0}
+            ]
+            n = len(land_groups)
+            address_str = str(item.get('address', ''))
 
-                # 土地列欄位（C=3, D=4, E=5, F=6, I=9）：每個聚合組對應一列
-                for lg_idx, lg in enumerate(land_groups):
-                    row = cur_row + lg_idx
-                    lot_numbers_str = str(lg.get('lot_numbers', ''))
-                    crops_str = str(lg.get('crops_text', ''))
-                    ws.row_dimensions[row].height = _pcf_row_height([
-                        (lot_numbers_str, _PCF_COL_WIDTHS[5]),
-                        (crops_str,       _PCF_COL_WIDTHS[9]),
-                    ])
-                    for ci, val in (
-                        (3, str(lg.get('land_town', ''))),
-                        (4, str(lg.get('land_section', ''))),
-                        (5, lot_numbers_str),
-                        (6, _fmt_ha(lg.get('facility_area_ha', 0))),
-                        (9, crops_str),
-                    ):
-                        c = ws.cell(row, ci)
-                        c.value = val
-                        c.font = _PCF_DATA_FONT
-                        c.alignment = _PCF_DATA_ALIGN
-                        c.border = _PCF_THIN_BORDER
+            # 預算此案件所有土地列的行高，供換頁判斷與後續寫入共用
+            row_heights = [
+                _pcf_row_height([
+                    (str(lg.get('lot_numbers', '')), _PCF_COL_WIDTHS[5]),
+                    (str(lg.get('crops_text', '')),  _PCF_COL_WIDTHS[9]),
+                    # 地址跨 n 列合併，等效欄寬 × n 讓高度平均分攤至每列
+                    (address_str, _PCF_COL_WIDTHS[11] * n),
+                ])
+                for lg in land_groups
+            ]
+            case_height = sum(row_heights)
 
-                # 案件層級欄位（A=1, B=2, G=7, H=8, J=10, K=11）：寫入第一列，多列時合併
-                for ci, val in (
-                    (1, str(item.get('case_number', ''))),
-                    (2, str(item.get('applicant_name', ''))),
-                    (7, str(item.get('facility_type', ''))),
-                    (8, str(item.get('irrigation_type', ''))),
-                    (10, str(item.get('phone', ''))),
-                    (11, str(item.get('address', ''))),
+            # 案件不跨頁：若加入當前案件超出單頁可用高度，先插入分頁符
+            if enable_pagination and cur_page_height > 0 and cur_page_height + case_height > _PCF_PAGE_HEIGHT_PT:
+                ws.row_breaks.append(Break(id=cur_row - 1))
+                cur_page_height = 0.0
+
+            grant_start = cur_row
+            grant_end = cur_row + n - 1
+
+            # 土地列欄位（C=3, D=4, E=5, F=6, I=9）：每個聚合組對應一列
+            for lg_idx, lg in enumerate(land_groups):
+                row = cur_row + lg_idx
+                lot_numbers_str = str(lg.get('lot_numbers', ''))
+                crops_str = str(lg.get('crops_text', ''))
+                ws.row_dimensions[row].height = row_heights[lg_idx]
+                for ci, val, align in (
+                    (3, str(lg.get('land_town', '')),   _PCF_CTR_ALIGN),
+                    (4, str(lg.get('land_section', '')), _PCF_CTR_ALIGN),
+                    (5, lot_numbers_str,                 _PCF_LFT_ALIGN),
+                    (6, _fmt_ha(lg.get('facility_area_ha', 0)), _PCF_RGT_ALIGN),
+                    (9, crops_str,                       _PCF_LFT_ALIGN),
                 ):
-                    c = ws.cell(grant_start, ci)
+                    c = ws.cell(row, ci)
                     c.value = val
                     c.font = _PCF_DATA_FONT
-                    c.alignment = _PCF_DATA_ALIGN
+                    c.alignment = align
                     c.border = _PCF_THIN_BORDER
-                    if n > 1:
-                        ws.merge_cells(
-                            start_row=grant_start, start_column=ci,
-                            end_row=grant_end, end_column=ci
-                        )
 
-                cur_row += n
+            # 案件層級欄位（A=1, B=2, G=7, H=8, J=10, K=11）：寫入第一列，多列時合併
+            for ci, val, align in (
+                (1,  str(item.get('case_number', '')),    _PCF_CTR_ALIGN),
+                (2,  str(item.get('applicant_name', '')), _PCF_CTR_ALIGN),
+                (7,  str(item.get('facility_type', '')),  _PCF_CTR_ALIGN),
+                (8,  str(item.get('irrigation_type', '')), _PCF_CTR_ALIGN),
+                (10, str(item.get('phone', '')),           _PCF_CTR_ALIGN),
+                (11, str(item.get('address', '')),         _PCF_LFT_ALIGN),
+            ):
+                c = ws.cell(grant_start, ci)
+                c.value = val
+                c.font = _PCF_DATA_FONT
+                c.alignment = align
+                c.border = _PCF_THIN_BORDER
+                if n > 1:
+                    ws.merge_cells(
+                        start_row=grant_start, start_column=ci,
+                        end_row=grant_end, end_column=ci
+                    )
 
-            # 頁碼列
-            if enable_pagination:
-                ws.row_dimensions[cur_row].height = 15.0
-                pc = ws.cell(cur_row, COL_COUNT)
-                pc.value = f'第{page_num}頁，共{total_pages}頁'
-                pc.font = _PCF_DATA_FONT
-                pc.alignment = _PCF_PAGE_ALIGN
-                cur_row += 1
+            cur_row += n
+            cur_page_height += case_height
+
+        if enable_pagination:
+            # 頁面設定：A4 橫向，固定縮放比（取代 fitToWidth，確保 Page Layout view 正確計算邊界）
+            ws.page_setup.paperSize   = 9
+            ws.page_setup.orientation = 'landscape'
+            ws.page_setup.scale       = _PCF_SCALE
+
+            # 邊距（單位：英寸）
+            ws.page_margins.top    = 0.5
+            ws.page_margins.bottom = 0.48  # 縮小下邊距，讓頁尾上移靠近內容
+            ws.page_margins.left   = 0.5
+            ws.page_margins.right  = 0.5
+            ws.page_margins.header = 0.3
+            ws.page_margins.footer = 0.38   # 頁尾距頁底縮小，配合 bottom 調整
+
+            # 開啟時預設 Page Layout view；關閉背景格線使頁面邊界清晰
+            ws.sheet_view.view          = 'pageLayout'
+            ws.sheet_view.showGridLines = False
+            # 每頁列印時自動重複 row 1-2（主標題 + 欄位標題）
+            ws.print_title_rows = '1:2'
+            # 頁尾右側：頁碼
+            ws.oddFooter.center.text = f'{_PCF_FOOTER_FONT_TAG}第&P頁/共&N頁'
+            # Trailing row break：防止 Page Layout view 最後一頁後出現多餘空白頁
+            if cur_page_height > 0:
+                ws.row_breaks.append(Break(id=cur_row - 1))
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"photograph_carry_form_{year}_{timestamp}.xlsx"
