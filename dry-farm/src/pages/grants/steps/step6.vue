@@ -551,52 +551,25 @@ const getStepDataSafely = (step: number) => {
 // Computed properties for facility data - 直接從 grantsStore 讀取資料，不維護本地副本
 const mainPipes = computed(() => {
   const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
-  if (!step4Data || Object.keys(step4Data).length === 0) return [];
+  if (!step4Data?.pipes || !Array.isArray(step4Data.pipes)) return [];
 
-  const mainPipeData = [];
-
-  // Main pipe 1
-  if (step4Data.mainPipeQuantity && parseInt(step4Data.mainPipeQuantity as string) > 0) {
-    const mainPipe1Total = parseInt(step4Data.mainPipeQuantity as string || '0') *
-                          parseFloat(step4Data.mainPipeUnitPrice as string || '0');
-    mainPipeData.push({
-      name: '田間主管1',
-      quantity: step4Data.mainPipeQuantity as string,
-      unitPrice: step4Data.mainPipeUnitPrice ? parseFloat(step4Data.mainPipeUnitPrice as string).toLocaleString() : '-',
-      totalPrice: mainPipe1Total > 0 ? mainPipe1Total.toLocaleString() : '-',
-      unit: '支',
-      remark: step4Data.mainPipeMaterialId ? `管材長度: ${step4Data.mainPipeLength} 公尺` : '-'
+  return step4Data.pipes
+    .filter((p: any) => p.groupId === 1 && p.module === '主管')
+    .map((p: any, index: number) => {
+      const label = `田間主管${index + 1}`;
+      if (p.totalPrice == null || p.totalPrice === '')
+        console.warn(`[step6] ${label} totalPrice 缺失，資料可能損壞`);
+      if (p.matamount == null) console.warn(`[step6] ${label} matamount 缺失`);
+      if (p.matprice == null) console.warn(`[step6] ${label} matprice 缺失`);
+      return {
+        name: label,
+        quantity: p.matamount ?? '⚠️缺失',
+        unitPrice: p.matprice != null ? Number(p.matprice).toLocaleString() : '⚠️缺失',
+        totalPrice: p.totalPrice != null ? Number(p.totalPrice).toLocaleString() : '⚠️缺失',
+        unit: '支',
+        remark: p.matname ? `管材長度: ${step4Data['mainPipeLength'] ?? '-'} 公尺` : '-'
+      };
     });
-  }
-
-  // Main pipe 2
-  if (step4Data.mainPipe2Quantity && parseInt(step4Data.mainPipe2Quantity as string) > 0) {
-    const mainPipe2Total = parseInt(step4Data.mainPipe2Quantity as string || '0') *
-                          parseFloat(step4Data.mainPipe2UnitPrice as string || '0');
-    mainPipeData.push({
-      name: '田間主管2',
-      quantity: step4Data.mainPipe2Quantity as string,
-      unitPrice: step4Data.mainPipe2UnitPrice ? parseFloat(step4Data.mainPipe2UnitPrice as string).toLocaleString() : '-',
-      totalPrice: mainPipe2Total > 0 ? mainPipe2Total.toLocaleString() : '-',
-      unit: '支',
-      remark: step4Data.mainPipe2MaterialId ? `管材長度: ${step4Data.mainPipe2Length} 公尺` : '-'
-    });
-  }
-
-  // Legacy pipes support
-  if (mainPipeData.length === 0 && step4Data.pipes && Array.isArray(step4Data.pipes)) {
-    const legacyMainPipes = step4Data.pipes.filter((p: any) => p.type === 'main' || (p.groupId === 1 && p.module === '主管'));
-    return legacyMainPipes.map((p: any) => ({
-      name: p.name || '田間主管',
-      quantity: p.quantity,
-      unitPrice: p.unitPrice,
-      totalPrice: typeof p.totalPrice === 'number' ? p.totalPrice.toLocaleString() : p.totalPrice,
-      unit: '支',
-      remark: p.specification || '-'
-    }));
-  }
-
-  return mainPipeData;
 });
 
 const irrigationSystem = computed(() => {
@@ -706,15 +679,16 @@ const pipeLineTotal = computed(() => {
   let pipelineTotal = 0;
   let irrigationTotal = 0;
 
-  // Main pipe calculation
-  if (step4Data.mainPipeQuantity && step4Data.mainPipeUnitPrice) {
-    pipelineTotal += parseInt(step4Data.mainPipeQuantity as string || '0') *
-                    parseFloat(step4Data.mainPipeUnitPrice as string || '0');
-  }
-
-  if (step4Data.mainPipe2Quantity && step4Data.mainPipe2UnitPrice) {
-    pipelineTotal += parseInt(step4Data.mainPipe2Quantity as string || '0') *
-                    parseFloat(step4Data.mainPipe2UnitPrice as string || '0');
+  // 主管費用：統一從 pipes[] 讀取（groupId=1 && module==='主管'）
+  if (step4Data.pipes && Array.isArray(step4Data.pipes)) {
+    pipelineTotal = step4Data.pipes
+      .filter((p: any) => p.groupId === 1 && p.module === '主管')
+      .reduce((sum: number, p: any) => {
+        const tp = typeof p.totalPrice === 'number'
+          ? p.totalPrice
+          : parseFloat(String(p.totalPrice || '0').replace(/,/g, ''));
+        return sum + (isNaN(tp) ? 0 : tp);
+      }, 0);
   }
 
   // Irrigation system calculation

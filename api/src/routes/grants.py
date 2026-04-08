@@ -1172,30 +1172,55 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     # === A 項：田間管路設施費（從 step5_data 提取）===
     a_item_total = 0
 
-    # 田間主管 1
-    main_pipe_1_qty = int(step5_data.get('mainPipeQuantity', 0) or 0)
-    main_pipe_1_price = float(step5_data.get('mainPipeUnitPrice', 0) or 0)
-    main_pipe_1_total = main_pipe_1_qty * main_pipe_1_price
+    # 從 pipes[] 提取所有管路資料（主管與灌溉系統共用同一個 pipes 陣列）
+    pipes = step5_data.get('pipes', [])
+
+    # 主管：groupId=1 && module==='主管'，按出現順序取前兩筆
+    main_pipe_items = [
+        p for p in pipes
+        if p.get('groupId') == 1 and p.get('module') == '主管'
+    ]
+
+    def _get_pipe_total_price(item, pipe_label: str) -> float:
+        """取主管 totalPrice，缺失時拋出明確錯誤"""
+        v = item.get('totalPrice')
+        if v is None or v == '':
+            raise ValueError(f"主管項目「{pipe_label}」的 totalPrice 缺失，無法計算費用")
+        try:
+            return float(str(v).replace(',', ''))
+        except (ValueError, TypeError):
+            raise ValueError(f"主管項目「{pipe_label}」的 totalPrice 格式無效：{v!r}")
+
+    def _get_pipe_field(item, key: str, pipe_label: str) -> float:
+        """取主管數值欄位，缺失或格式無效時拋出明確錯誤"""
+        v = item.get(key)
+        if v is None or v == '':
+            raise ValueError(f"主管項目「{pipe_label}」的 {key} 缺失，無法計算費用")
+        try:
+            return float(str(v).replace(',', ''))
+        except (ValueError, TypeError):
+            raise ValueError(f"主管項目「{pipe_label}」的 {key} 格式無效：{v!r}")
+
+    # 區分「案件無主管」（pipes[] 過濾後為空，費用合法為 0）
+    # 與「主管資料損壞」（項目存在但欄位缺失，必須報錯）
+    p1 = main_pipe_items[0] if len(main_pipe_items) > 0 else {}
+    p2 = main_pipe_items[1] if len(main_pipe_items) > 1 else {}
+
+    main_pipe_1_qty   = int(_get_pipe_field(p1, 'matamount', '主管1')) if p1 else 0
+    main_pipe_1_price = _get_pipe_field(p1, 'matprice', '主管1') if p1 else 0.0
+    main_pipe_1_total = _get_pipe_total_price(p1, '主管1') if p1 else 0.0
     main_pipe_1_length = int(step5_data.get('mainPipeLength', 0) or 0)
     a_item_total += main_pipe_1_total
 
-    # 田間主管 2（如果啟用）
-    # main_pipe_2_enabled = step5_data.get('mainPipe2Enabled', False)
-    # main_pipe_2_qty = 0
-    # main_pipe_2_price = 0
-    # main_pipe_2_total = 0
-    # main_pipe_2_length = 0
-    # if main_pipe_2_enabled:
-    main_pipe_2_qty = int(step5_data.get('mainPipe2Quantity', 0) or 0)
-    main_pipe_2_price = float(step5_data.get('mainPipe2UnitPrice', 0) or 0)
-    main_pipe_2_total = main_pipe_2_qty * main_pipe_2_price
+    main_pipe_2_qty   = int(_get_pipe_field(p2, 'matamount', '主管2')) if p2 else 0
+    main_pipe_2_price = _get_pipe_field(p2, 'matprice', '主管2') if p2 else 0.0
+    main_pipe_2_total = _get_pipe_total_price(p2, '主管2') if p2 else 0.0
     main_pipe_2_length = int(step5_data.get('mainPipe2Length', 0) or 0)
     a_item_total += main_pipe_2_total
 
-    # 灌溉系統（pipes 陣列的總和）
+    # 灌溉系統（pipes 陣列的總和，排除主管項目）
     # 根據前端邏輯：只計算 groupId 為 2,3,4,5,6,7,8 或 (groupId=1 且 module!='主管') 的管路
     irrigation_system_total = 0
-    pipes = step5_data.get('pipes', [])
     if pipes:
         for pipe in pipes:
             try:

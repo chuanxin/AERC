@@ -326,10 +326,10 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
-                    color="#3ea0a3"
                     style="width: 100px"
-                    :rules="[v => (v !== null && v !== '') || '請輸入單價']"
-                    @update:model-value="updateFormData"
+                    readonly
+                    bg-color="grey-lighten-4"
+                    persistent-hint
                   />
                   <v-text-field
                     v-model.number="localFormData.mainPipeQuantity"
@@ -338,10 +338,10 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
-                    color="#3ea0a3"
                     style="width: 80px"
-                    :rules="[v => (v !== null && v !== '') || '請輸入數量']"
-                    @update:model-value="updateFormData"
+                    readonly
+                    bg-color="grey-lighten-4"
+                    persistent-hint
                   />
                   <v-text-field
                     v-model="mainPipeTotalPrice"
@@ -433,10 +433,10 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
-                    color="#3ea0a3"
                     style="width: 100px"
-                    :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入單價') : true]"
-                    @update:model-value="updateFormData"
+                    readonly
+                    bg-color="grey-lighten-4"
+                    persistent-hint
                   />
                   <v-text-field
                     v-model.number="localFormData.mainPipe2Quantity"
@@ -445,10 +445,10 @@
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
-                    color="#3ea0a3"
                     style="width: 80px"
-                    :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入數量') : true]"
-                    @update:model-value="updateFormData"
+                    readonly
+                    bg-color="grey-lighten-4"
+                    persistent-hint
                   />
                   <v-text-field
                     v-model="mainPipe2TotalPrice"
@@ -3821,6 +3821,29 @@ watch(() => localFormData.fieldLength, (newLength, oldLength) => {
   }
 }, { immediate: false });
 
+// 管路設施列表 → 田間主管配置 單向同步（pipes[] 為唯一來源）
+watch(
+  () => localFormData.pipes,
+  (pipes) => {
+    const mainPipes = (pipes ?? []).filter(
+      (p: any) => p.groupId === 1 && p.module === '主管'
+    );
+    const p1 = mainPipes[0] ?? {};
+    const p2 = mainPipes[1] ?? {};
+
+    if (p1 && p1.matamount == null) console.warn('[step4 watch] 主管1 matamount 缺失');
+    if (p1 && p1.matprice  == null) console.warn('[step4 watch] 主管1 matprice 缺失');
+    if (p2 && p2.matamount == null) console.warn('[step4 watch] 主管2 matamount 缺失');
+    if (p2 && p2.matprice  == null) console.warn('[step4 watch] 主管2 matprice 缺失');
+
+    localFormData.mainPipeQuantity  = p1?.matamount  ?? 0;
+    localFormData.mainPipeUnitPrice = p1?.matprice   ?? 0;
+    localFormData.mainPipe2Quantity  = p2?.matamount  ?? 0;
+    localFormData.mainPipe2UnitPrice = p2?.matprice   ?? 0;
+  },
+  { deep: true }
+);
+
 const fetchPipeFittings = async () => {
   try {
     // Get the current grant's office_id
@@ -4272,17 +4295,6 @@ const updatePipePrice = (groupNo: number, pipeIndex: number, newPrice: number) =
   if (originalIndex !== -1) {
     localFormData.pipes[originalIndex].matprice = newPrice;
     localFormData.pipes[originalIndex].totalPrice = pipe.totalPrice;
-  }
-
-  // 如果是主管材料，同步更新田間主管配置的單價
-  if (pipe.isMainPipeMaterial) {
-    if (pipe.groupId === 1) { // 主管組
-      if (pipe.matname.includes('主管 1') || pipe.matname.includes('L1')) {
-        localFormData.mainPipeUnitPrice = newPrice;
-      } else if (pipe.matname.includes('主管 2') || pipe.matname.includes('L2')) {
-        localFormData.mainPipe2UnitPrice = newPrice;
-      }
-    }
   }
 
   // 更新父組件數據
@@ -7159,23 +7171,20 @@ watch(
 
 // 監聽「田間管路系統設計」欄位變化，清除管路設施列表
 // 排除：灌溉水源(waterSourceId)、設施型式(installationType)、設計人(designerName)
+// 主管配置：僅監聽長度和管徑，不監聽數量/單價/材質
+//   - 數量/單價由管路設施列表 pipes[] 驅動（deep watch 同步），不應觸發重置
+//   - 材質按使用者需求排除，不在本 watch 範圍
 watch(
   [
     // 田間坵塊
     () => localFormData.fieldLength,
 
-    // 田間主管配置
+    // 田間主管配置（僅長度與管徑）
     () => localFormData.mainPipeLength,
     () => localFormData.mainPipeDiameterId,
-    () => localFormData.mainPipeMaterialId,
-    () => localFormData.mainPipeUnitPrice,
-    () => localFormData.mainPipeQuantity,
     () => localFormData.mainPipe2Enabled,
     () => localFormData.mainPipe2Length,
     () => localFormData.mainPipe2DiameterId,
-    () => localFormData.mainPipe2MaterialId,
-    () => localFormData.mainPipe2UnitPrice,
-    () => localFormData.mainPipe2Quantity,
 
     // 灌溉管路配置
     () => localFormData.irrigationTypeId,
@@ -7210,8 +7219,8 @@ watch(
     const changedFields: string[] = [];
     const fieldNames = [
       'fieldLength',
-      'mainPipeLength', 'mainPipeDiameterId', 'mainPipeMaterialId', 'mainPipeUnitPrice', 'mainPipeQuantity',
-      'mainPipe2Enabled', 'mainPipe2Length', 'mainPipe2DiameterId', 'mainPipe2MaterialId', 'mainPipe2UnitPrice', 'mainPipe2Quantity',
+      'mainPipeLength', 'mainPipeDiameterId',
+      'mainPipe2Enabled', 'mainPipe2Length', 'mainPipe2DiameterId',
       'irrigationTypeId', 'perforatedPipeDirection', 'sprinklerSubtypeId', 'dripperSubtypeId',
       'branchPipeSpacing_SL', 'sprinklerSpacing_SS', 'branchPipeMaterialId', 'branchPipeDiameterId', 'branchPipePomno',
       'enableBranchDiameterChange', 'changeBranchSpecId', 'riserHeight_H',
