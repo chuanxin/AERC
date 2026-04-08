@@ -3821,25 +3821,31 @@ watch(() => localFormData.fieldLength, (newLength, oldLength) => {
   }
 }, { immediate: false });
 
-// 管路設施列表 → 田間主管配置 單向同步（pipes[] 為唯一來源）
+// 管路設施列表 → 田間主管配置 單向同步（pipes[] 有主管項目時才覆寫）
+// 當 pipes[] 為空或無主管項目時，外層欄位由 fetchPipePrice / calculateMainPipeQuantity 維護，
+// 作為 autoFillMaterials() 的 L1Price / L1MatAmt 輸入，不應被 watch 覆寫為 0
 watch(
   () => localFormData.pipes,
   (pipes) => {
     const mainPipes = (pipes ?? []).filter(
       (p: any) => p.groupId === 1 && p.module === '主管'
     );
-    const p1 = mainPipes[0] ?? {};
-    const p2 = mainPipes[1] ?? {};
 
-    if (p1 && p1.matamount == null) console.warn('[step4 watch] 主管1 matamount 缺失');
-    if (p1 && p1.matprice  == null) console.warn('[step4 watch] 主管1 matprice 缺失');
+    // 無主管項目：不覆寫，保留 fetchPipePrice / calculateMainPipeQuantity 的中間值
+    if (mainPipes.length === 0) return;
+
+    const p1 = mainPipes[0];
+    const p2 = mainPipes[1] ?? null;
+
+    if (p1.matamount == null) console.warn('[step4 watch] 主管1 matamount 缺失');
+    if (p1.matprice  == null) console.warn('[step4 watch] 主管1 matprice 缺失');
     if (p2 && p2.matamount == null) console.warn('[step4 watch] 主管2 matamount 缺失');
     if (p2 && p2.matprice  == null) console.warn('[step4 watch] 主管2 matprice 缺失');
 
-    localFormData.mainPipeQuantity  = p1?.matamount  ?? 0;
-    localFormData.mainPipeUnitPrice = p1?.matprice   ?? 0;
-    localFormData.mainPipe2Quantity  = p2?.matamount  ?? 0;
-    localFormData.mainPipe2UnitPrice = p2?.matprice   ?? 0;
+    localFormData.mainPipeQuantity  = p1.matamount  ?? 0;
+    localFormData.mainPipeUnitPrice = p1.matprice   ?? 0;
+    localFormData.mainPipe2Quantity  = p2?.matamount ?? 0;
+    localFormData.mainPipe2UnitPrice = p2?.matprice  ?? 0;
   },
   { deep: true }
 );
