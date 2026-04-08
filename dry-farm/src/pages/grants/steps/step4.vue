@@ -343,25 +343,26 @@
                     </template>
                   </v-select>
                   <v-text-field
-                    v-model.number="localFormData.mainPipeUnitPrice"
-                    label="單價"
-                    type="number"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 100px"
-                    readonly
-                    :rules="[v => (v !== null && v !== '') || '請輸入單價']"
-                    @update:model-value="updateFormData"
-                  />
-                  <v-text-field
-                    v-model.number="localFormData.mainPipeQuantity"
+                    :model-value="localFormData.mainPipeQuantity"
                     label="數量"
                     type="number"
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 80px"
+                    :readonly="mainPipeItems.length >= 1"
+                    :bg-color="mainPipeItems.length >= 1 ? 'grey-lighten-4' : undefined"
+                    persistent-hint
+                    @update:model-value="(v) => { if (mainPipeItems.length < 1) localFormData.mainPipeQuantity = Number(v) || 0 }"
+                  />
+                  <v-text-field
+                    :model-value="localFormData.mainPipeUnitPrice"
+                    label="單價"
+                    type="number"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 100px"
                     readonly
                     bg-color="grey-lighten-4"
                     persistent-hint
@@ -432,7 +433,7 @@
                     :items="pipe2MaterialOptions"
                     item-title="name"
                     item-value="id"
-                    label="主管2 材質"
+                    label="材質"
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
@@ -450,32 +451,33 @@
                     </template>
                   </v-select>
                   <v-text-field
-                    v-model.number="localFormData.mainPipe2UnitPrice"
-                    label="主管2 單價"
+                    :model-value="localFormData.mainPipe2Quantity"
+                    label="數量"
+                    type="number"
+                    variant="outlined"
+                    density="comfortable"
+                    class="me-2 mb-2"
+                    style="width: 80px"
+                    :readonly="mainPipeItems.length >= 2"
+                    :bg-color="mainPipeItems.length >= 2 ? 'grey-lighten-4' : undefined"
+                    persistent-hint
+                    @update:model-value="(v) => { if (mainPipeItems.length < 2) localFormData.mainPipe2Quantity = Number(v) || 0 }"
+                  />
+                  <v-text-field
+                    :model-value="localFormData.mainPipe2UnitPrice"
+                    label="單價"
                     type="number"
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
                     style="width: 100px"
                     readonly
-                    :rules="[localFormData.mainPipe2Enabled ? (v => (v !== null && v !== '') || '請輸入單價') : true]"
-                    @update:model-value="updateFormData"
-                  />
-                  <v-text-field
-                    v-model.number="localFormData.mainPipe2Quantity"
-                    label="主管2 數量"
-                    type="number"
-                    variant="outlined"
-                    density="comfortable"
-                    class="me-2 mb-2"
-                    style="width: 80px"
-                    readonly
                     bg-color="grey-lighten-4"
                     persistent-hint
                   />
                   <v-text-field
                     v-model="mainPipe2TotalPrice"
-                    label="主管2 總價"
+                    label="總價"
                     variant="outlined"
                     density="comfortable"
                     class="me-2 mb-2"
@@ -3882,15 +3884,24 @@ watch(() => localFormData.fieldLength, (newLength, oldLength) => {
   }
 }, { immediate: false });
 
+// 從 pipes[] 取得已排序的主管項目（供 deep watch 與 template readonly 條件共用）
+const mainPipeItems = computed(() =>
+  (localFormData.pipes ?? [])
+    .filter((p: { groupId?: number; module?: string }) => p.groupId === 1 && p.module === '主管')
+    .sort((a: { order?: number }, b: { order?: number }) => (a.order || 0) - (b.order || 0))
+);
+
 // 管路設施列表 → 田間主管配置 單向同步（pipes[] 有主管項目時才覆寫）
 // 當 pipes[] 為空或無主管項目時，外層欄位由 fetchPipePrice / calculateMainPipeQuantity 維護，
 // 作為 autoFillMaterials() 的 L1Price / L1MatAmt 輸入，不應被 watch 覆寫為 0
 watch(
   () => localFormData.pipes,
   (pipes) => {
-    const mainPipes = (pipes ?? []).filter(
-      (p: any) => p.groupId === 1 && p.module === '主管'
-    );
+    // 與 groupedPipes 的 items.sort((a,b) => (a.order||0)-(b.order||0)) 保持一致
+    // 確保 mainPipes[0] 對應使用者看到的第一筆主管，避免陣列位置 ≠ 顯示順序的錯誤同步
+    const mainPipes = (pipes ?? [])
+      .filter((p: any) => p.groupId === 1 && p.module === '主管')
+      .sort((a: { order?: number }, b: { order?: number }) => (a.order || 0) - (b.order || 0));
 
     // 無主管項目：不覆寫，保留 fetchPipePrice / calculateMainPipeQuantity 的中間值
     if (mainPipes.length === 0) return;
@@ -6963,7 +6974,14 @@ const loadDataFromProps = (propsData: Record<string, unknown>) => {
 
       // 🔥 Good Taste：pipes/subsidyAmount/selfPaidAmount 只在 mounted 時載入一次
       // 之後完全由本地管理，永不從 props 反向載入（避免清除後被恢復）
-      const localManagedFields = ['pipes', 'subsidyAmount', 'selfPaidAmount'];
+      // mainPipe(2)Quantity/UnitPrice：由 deep watch（pipes[] → 外層欄位）或
+      // fetchPipePrice/calculateMainPipeQuantity 維護；不從 props 載入，
+      // 避免 props watch 在 deep watch 之後觸發時以舊值覆寫正確結果
+      const localManagedFields = [
+        'pipes', 'subsidyAmount', 'selfPaidAmount',
+        'mainPipeQuantity', 'mainPipeUnitPrice',
+        'mainPipe2Quantity', 'mainPipe2UnitPrice',
+      ];
       if (localManagedFields.includes(key)) {
         // console.log(`⏸️ Skipping ${key} - locally managed field`);
         return;
