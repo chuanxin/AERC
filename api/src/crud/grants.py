@@ -1649,23 +1649,27 @@ async def claim_inactive_grant_ownership(grant_id: int, current_user):
                     detail=f"只能認領 inactive 狀態的案件，當前狀態為: {grant.status}"
                 )
 
-            # 保存舊的 created_by_id
+            # 保存舊的值
             old_created_by_id = grant.created_by_id
+            old_status = grant.status
 
-            # 更新 created_by_id 為當前用戶
-            await Grants.filter(id=grant.id).update(created_by_id=current_user.id)
+            # 更新 created_by_id 為當前用戶，同時將 status 設為 approved
+            await Grants.filter(id=grant.id).update(
+                created_by_id=current_user.id,
+                status='approved'
+            )
 
             # 建立歷史紀錄
             await GrantHistory.create(
                 grant=grant,
                 action_type=GrantActionType.OWNERSHIP_CLAIM,
-                grant_status=grant.status,
+                grant_status='approved',
                 step_number=grant.current_step,
-                changed_fields=['created_by_id'],
-                old_value={'created_by_id': old_created_by_id},
-                new_value={'created_by_id': current_user.id},
+                changed_fields=['created_by_id', 'status'],
+                old_value={'created_by_id': old_created_by_id, 'status': old_status},
+                new_value={'created_by_id': current_user.id, 'status': 'approved'},
                 changed_by_id=current_user.id,
-                notes=f"認領 inactive 案件所有權（原承辦人 ID: {old_created_by_id}）"
+                notes=f"認領 inactive 案件所有權（原承辦人 ID: {old_created_by_id}，狀態 {old_status} → approved）"
             )
 
             logger.info(
@@ -1680,7 +1684,8 @@ async def claim_inactive_grant_ownership(grant_id: int, current_user):
                 "grant_id": grant_id,
                 "case_number": grant.case_number,
                 "created_by_id": current_user.id,
-                "created_by_username": current_user.username
+                "created_by_username": current_user.username,
+                "status": "approved"
             }
 
         except HTTPException:

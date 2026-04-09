@@ -244,11 +244,12 @@ class GrantStatusGroup:
         GrantStatus.SUBMITTED,
     })
 
-    # 無效案件：已否決、撤回、邏輯刪除
+    # 無效案件：已否決、撤回、邏輯刪除、未啓用
     EXCLUDED: frozenset = frozenset({
         GrantStatus.REJECTED,
         GrantStatus.WITHDRAWN,
         GrantStatus.SOFT_DELETE,
+        GrantStatus.INACTIVE,
     })
 
 

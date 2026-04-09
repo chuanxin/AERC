@@ -72,8 +72,8 @@ class GrantVersionService:
                 current_version.all_steps_data['metadata'] = {
                     **current_version.all_steps_data.get('metadata', {}),
                     'last_updated': datetime.now().isoformat(),
-                    'current_step': max(grant.current_step, step),
-                    'status': grant.status
+                    # 'current_step': max(grant.current_step, step),
+                    # 'status': grant.status
                 }
                 
                 # 重新計算雜湊值
@@ -322,8 +322,8 @@ class GrantVersionService:
             'metadata': {
                 'created_at': grant.created_at.isoformat() if grant.created_at else None,
                 'case_number': grant.case_number,
-                'current_step': grant.current_step,
-                'status': grant.status,
+                # 'current_step': grant.current_step,
+                # 'status': grant.status,
                 'initial_version': True
             }
         }
