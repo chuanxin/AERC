@@ -60,6 +60,18 @@
       <span class="font-weight-medium">案件不受理（唯讀模式）</span>
     </v-alert>
 
+    <!-- Inactive status warning -->
+    <v-alert
+      v-if="grantsStore.currentGrant?.status === 'inactive'"
+      color="info"
+      variant="tonal"
+      density="compact"
+      icon="mdi-pause-circle"
+      class="ma-0 pa-1"
+    >
+      <span class="font-weight-medium">案件為閒置狀態：步驟 1-3（基本資料、土地、現場勘查）可編輯，步驟 4-8 為唯讀模式</span>
+    </v-alert>
+
     <!-- Main content -->
     <v-row justify="center">
       <v-col
@@ -939,6 +951,80 @@
       </v-card>
     </v-dialog>
 
+    <!-- 認領 inactive 案件確認對話框 -->
+    <v-dialog
+      v-model="showClaimDialog"
+      max-width="450"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h6 d-flex align-center pa-4">
+          <v-icon
+            color="#3ea0a3"
+            class="mr-3"
+          >
+            mdi-account-arrow-right
+          </v-icon>
+          <span>認領案件</span>
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="pa-4">
+          <p class="text-body-2 mb-3">
+            此案件目前為閒置狀態，確認認領後將：
+          </p>
+          <ul class="text-body-2 mb-3 pl-4">
+            <li>將案件承辦人變更為您</li>
+            <li>案件狀態更新為「已核准」</li>
+          </ul>
+          <v-card
+            variant="outlined"
+            color="#3ea0a3"
+            class="mt-2"
+          >
+            <v-card-text class="pa-3">
+              <div class="d-flex align-center">
+                <v-icon
+                  color="#3ea0a3"
+                  class="mr-2"
+                >
+                  mdi-tag
+                </v-icon>
+                <div class="text-subtitle-2 font-weight-medium">
+                  案件編號：{{ formatCaseNumber(claimCaseNumber) }}
+                </div>
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-spacer />
+          <v-btn
+            variant="text"
+            :disabled="claimLoading"
+            @click="handleClaimCancel"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            :loading="claimLoading"
+            color="#3ea0a3"
+            variant="elevated"
+            @click="handleClaimConfirm"
+          >
+            <v-icon start>
+              mdi-check
+            </v-icon>
+            確認認領
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- 重置步驟資料確認對話框 -->
     <v-dialog
       v-model="showResetStepDialog"
@@ -1184,6 +1270,12 @@ const showDesignChangeDialog = ref(false)
 const showResetStepDialog = ref(false)
 const resetStepLoading = ref(false)
 const designChangeComment = ref('')
+
+// 認領 inactive 案件對話窗狀態
+const showClaimDialog = ref(false)
+const claimLoading = ref(false)
+const claimGrantId = ref<number | null>(null)
+const claimCaseNumber = ref('')
 
 // 🆕 通知系統狀態
 const showNotification = ref(false)
@@ -1584,6 +1676,35 @@ const handleDesignChangeClick = () => {
   showDesignChangeDialog.value = true
 }
 
+// 認領 inactive 案件 - 確認認領
+const handleClaimConfirm = async () => {
+  if (!claimGrantId.value) return
+
+  claimLoading.value = true
+  try {
+    await claimInactiveGrantOwnership(claimGrantId.value)
+    showClaimDialog.value = false
+    // 重新載入案件以更新 created_by 和 status 資訊
+    const caseNumber = claimCaseNumber.value
+    const grantsIdParam = route.query.grants_id ? parseInt(route.query.grants_id as string, 10) : undefined
+    await grantsStore.loadGrant(caseNumber, grantsIdParam)
+    // 認領成功後繼續初始化編輯頁面
+    await initializeEditPage(caseNumber, route.query.step as string | undefined)
+  } catch (error) {
+    console.warn('[edit.vue] Failed to claim ownership of inactive grant:', error)
+    showClaimDialog.value = false
+    router.push('/grants')
+  } finally {
+    claimLoading.value = false
+  }
+}
+
+// 認領 inactive 案件 - 取消認領，返回列表頁
+const handleClaimCancel = () => {
+  showClaimDialog.value = false
+  router.push('/grants')
+}
+
 // 🆕 執行變更設計 - 重構錯誤處理
 const executeDesignChange = async (comment?: string) => {
   if (!grantsStore.currentGrant?.case_number) {
@@ -1896,6 +2017,12 @@ const handleFormDataUpdate = (dataStep: number, data: Record<string, unknown>, i
   console.log(`🔄 edit.vue handleFormDataUpdate called for dataStep ${dataStep}, immediate: ${immediate}`);
   console.log('📤 Received data keys:', Object.keys(data));
 
+  // 🔒 鎖定步驟防護：locked step 不允許資料更新，防止 inactive 等狀態下觸發後端儲存
+  if (lockedSteps.value.has(dataStep)) {
+    console.log(`🔒 [edit.vue] Step ${dataStep} is locked, ignoring data update`)
+    return
+  }
+
   // 🔥 關鍵修復：不修改 currentStep，只更新對應 dataStep 的資料
   // currentStep 表示 UI 顯示的步驟，dataStep 表示資料儲存的步驟
   grantsStore.updateFormData(dataStep, data)
@@ -2142,6 +2269,69 @@ const loadStepData = async (step: number) => {
   }
 };
 
+// 初始化編輯頁面（設定步驟、載入資料、套用鎖定狀態）
+const initializeEditPage = async (caseNumberFromRoute: string, stepParam?: string) => {
+  const grantData = GrantStorage.getGrant(caseNumberFromRoute);
+  const savedCurrentStep = grantData?.currentStep;
+
+  let startStep = 1;
+  if (stepParam) {
+    const stepValue = parseInt(stepParam as string, 10);
+    if (!isNaN(stepValue) && stepValue >= 1 && stepValue <= steps.length) {
+      startStep = stepValue;
+    } else {
+      startStep = savedCurrentStep || 1;
+    }
+  } else {
+    if (savedCurrentStep && savedCurrentStep >= 1 && savedCurrentStep <= steps.length) {
+      startStep = savedCurrentStep;
+    } else {
+      startStep = 1;
+    }
+  }
+
+  grantsStore.updateCurrentStep(startStep);
+  currentStep.value = startStep;
+
+  if (!stepParam) {
+    updateStepInURL(startStep);
+  }
+
+  await loadStepData(startStep);
+
+  // 根據案件狀態套用鎖定
+  const currentStatus = grantsStore.currentGrant?.status
+  if (currentStatus === 'rejected') {
+    const currentStepValue = startStep
+    const stepsToLock: number[] = []
+    for (let i = 1; i <= currentStepValue; i++) {
+      stepsToLock.push(i)
+    }
+    lockSteps(stepsToLock)
+    const stepsToDisable: number[] = []
+    for (let i = currentStepValue + 1; i <= steps.length; i++) {
+      stepsToDisable.push(i)
+    }
+    disableSteps(stepsToDisable)
+  } else if (currentStatus === 'inactive') {
+    // inactive 狀態：僅允許編輯步驟 1-3（基本資料、土地、現場勘查）
+    // 步驟 4-8（設施、管路、申報等）鎖定為唯讀，防止後端更新
+    lockSteps([4, 5, 6, 7, 8])
+  } else if (currentStatus === 'approved') {
+    softLockSteps([1, 2, 3])
+  } else if (currentStatus === 'under_review') {
+    lockSteps([1, 2, 3, 4, 5])
+  } else if (currentStatus === 'submitted') {
+    lockSteps([1, 2, 3, 4, 5, 6, 7, 8])
+  } else if (currentStatus === 'withdrawn') {
+    // withdrawn 狀態：待改善後複驗
+  } else if (currentStatus === 'completed') {
+    lockSteps([1, 2, 3, 4, 5, 7])
+  }
+
+  isDataLoaded.value = true;
+}
+
 // Initialize data with better error handling
 onMounted(async () => {
   const caseNumberFromRoute = route.query.id as string;
@@ -2162,109 +2352,15 @@ onMounted(async () => {
     await grantsStore.loadGrant(caseNumberFromRoute, grantsIdParam);
     // console.log('[edit.vue onMounted] grantsStore.loadGrant successful. Current grant:', JSON.stringify(grantsStore.currentGrant, null, 2));
 
-    // 🔥 自動認領 inactive 案件的所有權
+    // 偵測 inactive 案件，彈出認領確認對話窗
     if (grantsStore.currentGrant?.status === 'inactive' && grantsStore.currentGrant?.id) {
-      try {
-        console.log(`[edit.vue onMounted] Claiming ownership of inactive grant ID: ${grantsStore.currentGrant.id}`);
-        await claimInactiveGrantOwnership(grantsStore.currentGrant.id);
-        console.log(`[edit.vue onMounted] Successfully claimed ownership of inactive grant`);
-        // 重新載入案件以更新 created_by 資訊
-        await grantsStore.loadGrant(caseNumberFromRoute, grantsIdParam);
-      } catch (error) {
-        console.warn(`[edit.vue onMounted] Failed to claim ownership of inactive grant:`, error);
-        // 即使認領失敗，也繼續進入編輯頁面
-      }
+      claimGrantId.value = grantsStore.currentGrant.id
+      claimCaseNumber.value = grantsStore.currentGrant.case_number || caseNumberFromRoute
+      showClaimDialog.value = true
+      return // 等待使用者確認後才繼續載入編輯資料
     }
 
-    // 檢查 localStorage 中是否有已保存的 currentStep
-    const grantData = GrantStorage.getGrant(caseNumberFromRoute);
-    const savedCurrentStep = grantData?.currentStep;
-
-    let startStep = 1;
-    if (stepParam) {
-      // URL 中有指定步驟，使用 URL 中的步驟
-      const stepValue = parseInt(stepParam as string, 10);
-      if (!isNaN(stepValue) && stepValue >= 1 && stepValue <= steps.length) {
-        startStep = stepValue;
-        console.log(`[edit.vue onMounted] startStep determined from route.query.step: ${startStep}`);
-      } else {
-        console.warn(`[edit.vue onMounted] Invalid stepParam in route: ${stepParam}. Using saved step: ${savedCurrentStep} or defaulting to 1.`);
-        startStep = savedCurrentStep || 1;
-      }
-    } else {
-      // URL 中沒有步驟參數，優先使用 localStorage 中保存的步驟
-      if (savedCurrentStep && savedCurrentStep >= 1 && savedCurrentStep <= steps.length) {
-        startStep = savedCurrentStep;
-        console.log(`[edit.vue onMounted] Using saved current_step from localStorage: ${startStep}`);
-      } else {
-        console.log('[edit.vue onMounted] No valid saved step found, defaulting to step 1.');
-        startStep = 1;
-      }
-    }
-
-    // 使用 updateCurrentStep 來確保步驟同步到 localStorage
-    grantsStore.updateCurrentStep(startStep);
-    currentStep.value = startStep; // Update local currentStep ref
-
-    console.log(`[edit.vue onMounted] Final startStep: ${startStep}. grantsStore.current_step updated to: ${grantsStore.currentStep}`);
-
-    if (!stepParam) {
-      updateStepInURL(startStep); // Update URL if it was not set
-    }
-
-    console.log(`[edit.vue onMounted] Calling loadStepData for step: ${startStep}`);
-    await loadStepData(startStep);
-    console.log(`[edit.vue onMounted] loadStepData for step ${startStep} finished. grantsStore.formData[${startStep}]:`, JSON.stringify(grantsStore.formData[startStep], null, 2));
-
-    // 🆕 檢查案件狀態，根據不同狀態自動恢復鎖定
-    const currentStatus = grantsStore.currentGrant?.status
-    if (currentStatus === 'rejected') {
-      // rejected 狀態：案件已不受理（現場勘查不符合）
-      // ⚠️ 使用 startStep（UI step）作為基準，grantsStore.currentStep 作為備選
-      const currentStepValue = startStep  // startStep 是確定的 UI step
-
-      console.log(`📍 [edit.vue onMounted] Rejected case - Using UI step: ${currentStepValue}`)
-      console.log(`📊 [edit.vue onMounted] For reference - grantsStore.currentStep: ${grantsStore.currentStep}`)
-
-      // 鎖定當前步驟及之前的所有步驟（唯讀）
-      const stepsToLock: number[] = []
-      for (let i = 1; i <= currentStepValue; i++) {
-        stepsToLock.push(i)
-      }
-      lockSteps(stepsToLock)
-
-      // Disable 當前步驟之後的所有步驟（不可點擊）
-      const stepsToDisable: number[] = []
-      for (let i = currentStepValue + 1; i <= steps.length; i++) {
-        stepsToDisable.push(i)
-      }
-      disableSteps(stepsToDisable)
-
-      console.log(`🔒 [edit.vue onMounted] Case status: rejected - Locked UI steps 1-${currentStepValue}, Disabled UI steps ${currentStepValue + 1}-${steps.length}`)
-    } else if (currentStatus === 'approved') {
-      // 軟鎖定版本：現場勘查完成後，軟鎖定 steps 1-3（顯示警告但不禁用）
-      softLockSteps([1, 2, 3])
-      console.log('⚠️ [edit.vue onMounted] Auto-soft-locked steps 1, 2, 3 (case status: approved)')
-
-      // 💡 切換為硬鎖定版本：取消上面的 softLockSteps，啟用下面的 lockSteps
-      // lockSteps([1, 2, 3])
-      // console.log('🔒 [edit.vue onMounted] Auto-hard-locked steps 1, 2, 3 (case status: approved)')
-    } else if (currentStatus === 'under_review') {
-      lockSteps([1, 2, 3, 4, 5])
-      console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3, 4, 5 (case status: under_review)')
-    } else if (currentStatus === 'submitted') {
-      // submitted 狀態：step8 完成後，所有步驟都鎖定為唯讀
-      lockSteps([1, 2, 3, 4, 5, 6, 7, 8])
-      console.log('🔒 [edit.vue onMounted] Case status: submitted - Locked all steps 1-8 (readonly)')
-    } else if (currentStatus === 'withdrawn') {
-      // withdrawn 狀態：step7 存檔後，待改善後複驗
-      console.log('🔒 [edit.vue onMounted] Case status: withdrawn (needs improvement and reinspection)')
-    } else if (currentStatus === 'completed') {
-      lockSteps([1, 2, 3, 4, 5, 7])
-      console.log('🔒 [edit.vue onMounted] Auto-locked steps 1, 2, 3, 4, 5, 7 (case status: completed)')
-    }
-
-    isDataLoaded.value = true;
+    await initializeEditPage(caseNumberFromRoute, stepParam as string | undefined);
   } catch (error) {
     console.error('[edit.vue onMounted] Failed to initialize grant data:', error);
     // 即使初始化失敗，也要設置 isDataLoaded 避免頁面永久停止渲染

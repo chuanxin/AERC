@@ -402,6 +402,7 @@ export const claimInactiveGrantOwnership = async (grantId: number): Promise<{
   case_number: string
   created_by_id: number
   created_by_username: string
+  status: string
 }> => {
   try {
     const response = await apiService.patch(`/grants/${grantId}/claim-ownership`, {})
@@ -413,6 +414,7 @@ export const claimInactiveGrantOwnership = async (grantId: number): Promise<{
       case_number: string
       created_by_id: number
       created_by_username: string
+      status: string
     }
   } catch (error) {
     console.error(`📡 [claimInactiveGrantOwnership] Failed to claim ownership of grant ${grantId}:`, error)

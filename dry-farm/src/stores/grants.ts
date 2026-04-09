@@ -401,11 +401,18 @@ export const useGrantsStore = defineStore('grants', () => {
       return null
     }
 
-    // 🚫 禁止保存 rejected 狀態的案件
+    // 禁止保存 rejected 狀態的案件
     if (currentGrant.value?.status === 'rejected') {
-      console.warn('🚫 [grantsStore.saveStepData] Cannot save - Grant status is rejected (案件已不受理)')
-      console.warn(`📋 Case: ${currentGrant.value.case_number}, Status: ${currentGrant.value.status}, Step: ${step}`)
+      console.warn('[grantsStore.saveStepData] Cannot save - Grant status is rejected (案件已不受理)')
+      console.warn(`Case: ${currentGrant.value.case_number}, Status: ${currentGrant.value.status}, Step: ${step}`)
       error.value = '案件已不受理，無法儲存變更'
+      return null
+    }
+
+    // inactive 狀態：僅允許步驟 1-3 (UI step) 的資料儲存
+    if (currentGrant.value?.status === 'inactive' && step > 3) {
+      console.warn(`[grantsStore.saveStepData] Cannot save step ${step} - Grant is inactive (only steps 1-3 allowed)`)
+      console.warn(`Case: ${currentGrant.value.case_number}, Status: ${currentGrant.value.status}, Step: ${step}`)
       return null
     }
 
@@ -753,40 +760,47 @@ export const useGrantsStore = defineStore('grants', () => {
    * @returns {Promise<boolean>} Whether the save was successful
    */
   const saveAllChanges = async (targetDataStep?: number): Promise<boolean> => {
-    // console.log('💾 grantsStore.saveAllChanges called');
-    // console.log('📊 currentGrant.case_number:', currentGrant.value?.case_number);
-    // console.log('📊 hasUnsavedChanges:', hasUnsavedChanges.value);
-    // console.log('📊 currentStep:', currentStep.value);
+    // console.log('grantsStore.saveAllChanges called');
+    // console.log('currentGrant.case_number:', currentGrant.value?.case_number);
+    // console.log('hasUnsavedChanges:', hasUnsavedChanges.value);
+    // console.log('currentStep:', currentStep.value);
 
     if (!currentGrant.value?.case_number || !hasUnsavedChanges.value) {
-      // console.log('⚠️ Skipping save - no case number or no unsaved changes');
+      // console.log('Skipping save - no case number or no unsaved changes');
       return true;
     }
 
-    // 🚫 禁止保存 rejected 狀態的案件
+    // 禁止保存 rejected 狀態的案件
     if (currentGrant.value?.status === 'rejected') {
-      console.warn('🚫 [grantsStore.saveAllChanges] Cannot save - Grant status is rejected (案件已不受理)')
-      console.warn(`📋 Case: ${currentGrant.value.case_number}, Status: ${currentGrant.value.status}`)
+      console.warn('[grantsStore.saveAllChanges] Cannot save - Grant status is rejected (案件已不受理)')
+      console.warn(`Case: ${currentGrant.value.case_number}, Status: ${currentGrant.value.status}`)
       return false  // 返回 false 表示保存失敗
     }
 
     try {
       isSaving.value = true
-      // console.log('💾 Starting to save step data...');
+      // console.log('Starting to save step data...');
 
-      // 🔥 修復三層映射：使用 targetDataStep 或回退到 currentStep
+      // 修復三層映射：使用 targetDataStep 或回退到 currentStep
       const step = targetDataStep || currentStep.value
+
+      // inactive 狀態：僅允許步驟 1-3 (UI step) 的資料儲存
+      if (currentGrant.value?.status === 'inactive' && step > 3) {
+        console.warn(`[grantsStore.saveAllChanges] Cannot save step ${step} - Grant is inactive (only steps 1-3 allowed)`)
+        console.warn(`Case: ${currentGrant.value.case_number}, Status: ${currentGrant.value.status}`)
+        return false
+      }
       const stepData = formData[step]
       const caseNumber = currentGrant.value.case_number
 
-      console.log(`💾 saveAllChanges: saving dataStep ${step} ${targetDataStep ? '(targeted)' : '(current)'}`)
+      console.log(`saveAllChanges: saving dataStep ${step} ${targetDataStep ? '(targeted)' : '(current)'}`)
 
       // 準備追蹤資訊
       const sessionId = generateSessionId()
       const changed = changedFields.value[step] || []
       const oldData = previousFormData.value[step] || {}
 
-      // 🆕 根據步驟使用不同的保存方式，step2 優先使用 grant_versions API
+      // 根據步驟使用不同的保存方式，step2 優先使用 grant_versions API
       if (step === 1) {
         // Step 1 使用原有的 API 並支援詳細追蹤
         try {
@@ -817,12 +831,12 @@ export const useGrantsStore = defineStore('grants', () => {
           GrantStorage.saveStepData(caseNumber, step, stepData)
         }
       } else if (step >= 2 && step <= 8) {
-        // 🆕 Steps 2-8 使用現有的 API 儲存到 grant_versions.all_steps_data.steps[step]
-        console.log(`🎯 Step ${step} detected: Using existing API to save to grant_versions`);
-        console.log(`📦 Step ${step} data to save:`, JSON.stringify(stepData, null, 2));
+        // Steps 2-8 使用現有的 API 儲存到 grant_versions.all_steps_data.steps[step]
+        console.log(`Step ${step} detected: Using existing API to save to grant_versions`);
+        console.log(`Step ${step} data to save:`, JSON.stringify(stepData, null, 2));
 
         try {
-          // 🆕 使用現有的 updateGrantStepDataWithTracking API 儲存到 grant_versions
+          // 使用現有的 updateGrantStepDataWithTracking API 儲存到 grant_versions
           if (changed.length > 0) {
             // 使用擴展的追蹤版本
             const updateRequest: GrantStepDataUpdateRequest = {
@@ -840,14 +854,14 @@ export const useGrantsStore = defineStore('grants', () => {
             await updateGrantStepData(caseNumber, step, stepData)
           }
 
-          console.log(`✅ Step ${step} data saved to grant_versions via existing API`);
+          console.log(`Step ${step} data saved to grant_versions via existing API`);
 
           // 後端儲存成功後，同時更新 localStorage 作為本地備份
           GrantStorage.saveStepData(caseNumber, step, stepData);
-          console.log(`✅ localStorage backup saved for step ${step}`);
+          console.log(`localStorage backup saved for step ${step}`);
 
         } catch (apiError) {
-          console.warn(`❌ API error for step ${step}, falling back to localStorage only:`, apiError);
+          console.warn(`API error for step ${step}, falling back to localStorage only:`, apiError);
 
           // API 失敗時回退到僅 localStorage 儲存
           GrantStorage.saveStepData(caseNumber, step, stepData);
@@ -860,7 +874,7 @@ export const useGrantsStore = defineStore('grants', () => {
 
       // Update form data
       formData[step] = { ...stepData, valid: true }
-      // console.log(`📊 Updated formData[${step}] after save:`, JSON.stringify(formData[step], null, 2));
+      // console.log(`Updated formData[${step}] after save:`, JSON.stringify(formData[step], null, 2));
 
       // 更新 previousFormData 以便下次追蹤變更（深拷貝避免引用問題）
       previousFormData.value[step] = JSON.parse(JSON.stringify(formData[step]))
@@ -873,11 +887,11 @@ export const useGrantsStore = defineStore('grants', () => {
 
       // Reset unsaved changes flag
       hasUnsavedChanges.value = false
-      // console.log('✅ hasUnsavedChanges reset to false');
+      // console.log('hasUnsavedChanges reset to false');
 
       return true
     } catch (err) {
-      // console.error('❌ Error in saveAllChanges:', err);
+      // console.error('Error in saveAllChanges:', err);
       handleError(err, 'saveAllChanges')
       return false
     } finally {
