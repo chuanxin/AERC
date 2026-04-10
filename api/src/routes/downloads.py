@@ -8,7 +8,7 @@ from src.services.excel_generator import ExcelGeneratorService
 from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
 from src.services.construction_photos_pdf_generator import ConstructionPhotosPDFGenerator
 from src.services.closing_docs_pdf_generator import ClosingDocsPDFGenerator
-from src.routes.grants import extract_budget_statement_data
+from src.routes.grants import extract_budget_statement_data, extract_completion_statement_data
 from src.schemas.static_downloads import (
     StaticDownloadsListResponse,
     StaticDownloadsFilterRequest,
@@ -107,6 +107,9 @@ async def download_photograph_carry_form(
             # 使用 extract_budget_statement_data 取得正確欄位資料
             grant_data = await extract_budget_statement_data(grant, version_data)
 
+            # TODO: extract_budget_statement_data 目前未輸出 facilityAreaHa 和 crops 欄位。
+            # 待該函數補上這兩個欄位後，可移除此 step2_lands 補充讀取及下方的 zip 長度檢查，
+            # 改為直接從 conv_lands 取值，消除雙陣列對齊的隱式耦合。
             steps_data = version_data.get('steps', {}) if version_data else {}
             step2_lands = steps_data.get('2', {}).get('lands', [])
 
@@ -121,6 +124,11 @@ async def download_photograph_carry_form(
             # 依 (鄉鎮, 段名) 聚合土地資料
             # 每組：地號「、」分隔、面積加總、農作物去重後「、」分隔
             conv_lands = grant_data.get('lands', [])
+            if len(step2_lands) != len(conv_lands):
+                raise ValueError(
+                    f"案件 {grant.case_number}: step2_lands({len(step2_lands)}) 與 "
+                    f"conv_lands({len(conv_lands)}) 長度不一致，資料可能損毀"
+                )
             land_groups_dict: dict = {}
             for raw_land, conv_land in zip(step2_lands, conv_lands):
                 key = (conv_land.get('land_town', ''), conv_land.get('section', ''))
@@ -585,13 +593,10 @@ async def download_closing_docs(
 
         for grant in grants:
             version_data = grant.active_version.all_steps_data if grant.active_version else {}
+            # grant_data: 切結書/收據所需的豐富欄位（id_number, facility_type 等）
             grant_data = await extract_budget_statement_data(grant, version_data)
-
-            steps_data = version_data.get('steps', {})
-            step2_data = steps_data.get('2', {})
-            land_data = step2_data.get('lands', [])
-            step4_data = steps_data.get('4', {})
-            step5_data = steps_data.get('5', {})
+            # land_data/step4/step5: 結案申報書的 SSOT，確保 ID→名稱轉換與 snake_case 欄位一致
+            _, land_data, step4_data, step5_data = await extract_completion_statement_data(grant, version_data)
 
             grant_pdf = generator.generate_for_grant(grant_data, land_data, step4_data, step5_data)
             all_pdf_bytes.append(grant_pdf)
