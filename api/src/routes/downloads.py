@@ -272,7 +272,7 @@ async def download_budget_book(
             query = query.filter(tag__icontains=request.tag)
 
         # 先取得所有該年度的案件
-        all_grants = await query.select_related("active_version").all()
+        all_grants = await query.select_related("active_version").order_by('case_number').all()
 
         # 在 Python 中進行案件編號範圍篩選
         grants = all_grants
@@ -399,7 +399,7 @@ async def download_construction_photos(
         query = Grants.filter(year=int(request.year))
         if request.tag:
             query = query.filter(tag__icontains=request.tag)
-        all_grants = await query.all()
+        all_grants = await query.order_by('case_number').all()
 
         grants = all_grants
         if request.case_number_start or request.case_number_end:
@@ -505,7 +505,7 @@ async def download_address_labels(
     query = Grants.filter(year=int(request.year))
     if request.tag:
         query = query.filter(tag__icontains=request.tag)
-    all_grants = await query.all()
+    all_grants = await query.order_by('case_number').all()
 
     grants = all_grants
     if request.case_number_start or request.case_number_end:
@@ -567,7 +567,7 @@ async def download_closing_docs(
         query = Grants.filter(year=int(request.year))
         if request.tag:
             query = query.filter(tag__icontains=request.tag)
-        all_grants = await query.select_related("active_version").all()
+        all_grants = await query.select_related("active_version").order_by('case_number').all()
 
         grants = all_grants
         if request.case_number_start or request.case_number_end:
