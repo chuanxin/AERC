@@ -35,20 +35,26 @@ class ClosingDocsPDFGenerator:
 
     def generate_for_grant(
         self,
-        grant_data: Dict[str, Any],
-        land_data: List[Dict[str, Any]],
-        step4_data: Dict[str, Any],
-        step5_data: Dict[str, Any]
+        declaration_data: Dict[str, Any],      # SSOT: extract_declaration_data
+        receipt_data: Dict[str, Any],           # SSOT: extract_budget_statement_data
+        land_data: List[Dict[str, Any]],        # SSOT: extract_completion_statement_data
+        step4_data: Dict[str, Any],             # SSOT: extract_completion_statement_data
+        step5_data: Dict[str, Any]              # SSOT: extract_completion_statement_data
     ) -> bytes:
         """
         生成單一案件的合併 PDF（切結書 + 收據 + 結案申報書）
 
+        每份子文件使用各自的 SSOT 資料，呼叫端須分別透過對應的 extract_* 函數準備資料：
+        - declaration_data: extract_declaration_data()
+        - receipt_data:     extract_budget_statement_data()
+        - land/step data:   extract_completion_statement_data()
+
         Returns:
             合併後的 PDF bytes
         """
-        declaration_bytes = DeclarationPDFGenerator().generate(grant_data)
-        receipt_bytes = BudgetStatementPDFGenerator().generate_receipt(grant_data)
+        declaration_bytes = DeclarationPDFGenerator().generate(declaration_data)
+        receipt_bytes = BudgetStatementPDFGenerator().generate_receipt(receipt_data)
         completion_bytes = CompletionStatementPDFGenerator().generate_completion_statement(
-            grant_data, land_data, step4_data, step5_data
+            receipt_data, land_data, step4_data, step5_data
         )
         return self.merge_pdfs([declaration_bytes, receipt_bytes, completion_bytes])
