@@ -16,7 +16,8 @@ const publicRoutes = [
   '/login/reset',
   '/login/signup',
   '/login/migrate',
-  // Add other public routes here
+  // 注意：/login/change-password 刻意不列入 publicRoutes
+  // 需要有效 JWT（已登入）才能訪問，navguard 會攔截未登入者
 ]
 
 // Create auth middleware
