@@ -48,6 +48,7 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions = {}) {
     }
 
     // If there's a token but no current user, try to fetch the user
+    // （頁面 Refresh 場景：fetchCurrentUser 會從 /users/whoami 重建 passwordExpired 狀態）
     if (token && !userStore.currentUser) {
       try {
         // Try to fetch current user
@@ -64,7 +65,12 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions = {}) {
           });
         }
 
-        // User is authenticated, proceed
+        // fetch 完成後檢查密碼過期（Refresh 後的主要攔截點）
+        if (userStore.passwordExpired && !to.path.startsWith('/login')) {
+          return next({ path: '/login/change-password' });
+        }
+
+        // User is authenticated and password not expired, proceed
         return next();
       } catch {
         // Error fetching user, redirect to login
@@ -76,6 +82,11 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions = {}) {
           query: { redirect: to.fullPath }
         });
       }
+    }
+
+    // 密碼過期攔截（已認證使用者在頁面間導航的場景）
+    if (userStore.passwordExpired && !to.path.startsWith('/login')) {
+      return next({ path: '/login/change-password' });
     }
 
     // User has token and is already authenticated
