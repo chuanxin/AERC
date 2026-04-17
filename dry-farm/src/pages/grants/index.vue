@@ -172,7 +172,7 @@
                     <v-text-field
                       v-model="tagFilter"
                       density="comfortable"
-                      label="自定義分類"
+                      label="自定義分類搜尋"
                       prepend-inner-icon="mdi-tag-outline"
                       variant="outlined"
                       hide-details
@@ -260,7 +260,7 @@
 
                   <!-- 末端形式欄位 -->
                   <template #[`item.facility_type`]="{ item }">
-                    {{ (item.current_step === 8) && !item.facility_type ? '其它' : (item.facility_type || '-') }}
+                      {{ (item.current_step === 8) && !item.facility_type ? '其它' : (item.facility_type || '-') }}
                   </template>
 
                   <!-- 標籤欄位 -->
@@ -665,7 +665,7 @@ const headers = ref([
   { title: '申請人姓名', key: 'applicant_name', align: 'start' as const, width: '130px' },
   // 使用 land_data_search 欄位，支援搜尋位置文字和未格式化數字
   { title: '土地資料', key: 'land_data_search', align: 'start' as const, width: '280px'},
-  { title: '末端形式', key: 'facility_type', align: 'start' as const, width: '130px' },
+  { title: '灌溉形式', key: 'facility_type', align: 'start' as const, width: '130px' },
   { title: '案件狀態', key: 'status', align: 'start' as const, width: '150px' },
   { title: '填報人姓名', key: 'created_by.full_name', align: 'start' as const, width: '130px' },
   // { title: '公告狀態（農民卡）', key: 'card', align: 'end' as const },
@@ -704,14 +704,14 @@ const statusMapping = {
 
 // 整合後端 GrantStatus 枚舉的狀態映射表
 const grantStatusMapping = {
-  'draft': '草稿',
-  'submitted': '已提交',
-  'under_review': '審查中',
+  'draft': '草稿',  
+  'submitted': '已提交',     //步驟八 已按下完成 
+  'under_review': '審查中',  //步驟六 已按下完成申報
   'approved': '核准',
   'rejected': '駁回',
   'withdrawn': '撤銷',
   'cross_year': '跨年度案件',
-  'completed': '已結案',
+  'completed': '已結案',     //步驟七 已按下結案
   'deleted': '已刪除'
 } as const
 

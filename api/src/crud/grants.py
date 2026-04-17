@@ -272,7 +272,8 @@ async def get_grants(
                         else:
                             step5_data = steps.get("5", {}) or steps.get(5, {})
                             if step5_data:
-                                facility_type = step5_data.get("irrigationType")
+                                if step5_data.get('totalAmount', 0) > 0:  #應急方式 root cause : 需刪除田間管路設計步驟後，irrigationType 沒有跟著清掉
+                                   facility_type = step5_data.get("irrigationType")
 
                 except Exception as e:
                     logger.warning(f"解析版本資料失敗，案件: {grant.case_number}, 錯誤: {str(e)}")

@@ -192,7 +192,7 @@ class QualificationCRUD:
                     land_registered_area = Decimal(str(land_area))
                 crops = location.meta_data.get('crops', [])
                 is_aboriginal_area = location.meta_data.get('is_aboriginal_area')
-                case_type = QualificationCRUD._infer_case_type_from_crops(crops) #這裡要修改 應該是寫錯了
+                case_type = await QualificationCRUD._infer_new_aerc_case_type(location.source_id) #新增從新系統判斷案件類型的方法
             
         # 根據 source_system 決定 grant_id 的取得方式
         grant_id = ""
@@ -203,7 +203,7 @@ class QualificationCRUD:
             print("新案件 find grant_id is : ",grant_id)
             print(f" [Full Data Object]: {grant_version}")
             version_data = grant_version.all_steps_data
-            print(f" [Full Data]:\n{json.dumps(version_data, ensure_ascii=False, indent=2)}")
+            #print(f" [Full Data]:\n{json.dumps(version_data, ensure_ascii=False, indent=2)}")
             
             office = str(grant_version.grant.office)
             location.apply_year = grant_version.grant.year
@@ -222,25 +222,32 @@ class QualificationCRUD:
                         step5_data = steps.get("5") or steps.get(5) or steps.get("step5")
                     if step5_data:
                         irrigation_type = step5_data.get("irrigationType")
-            
+                else:
+                    # 如果沒有 legacy_data，直接檢查 Steps 表示新建案
+                    print("新案件 "+ grant_id + " 沒有 legacy_data，直接檢查 Steps 表示新建案")
+                    steps = version_data.get("steps", {})
+                    step5_data = steps.get("5") or steps.get(5) or steps.get("step5")
+                    if step5_data:
+                        irrigation_type = step5_data.get("irrigationType")
+                        print("irrigation_type "+ irrigation_type )
         elif "ardswc" in location.source_system: #水保署案件
             # 水保署案件：直接使用 source_id
             grant_id = str(location.source_id)     
             office = location.meta_data.get('data_source') or "水保署"
             case_type = location.meta_data.get('data_source') or "水保署"
             irrigation_type = location.meta_data.get('reservoir_scale') or ""
-            #print("水保署案件 find grant_id is : ",grant_id, ", case_type is : ",case_type, ", irrigation_type is : ",irrigation_type)
+            print("水保署案件 find grant_id is : ",grant_id, ", case_type is : ",case_type, ", irrigation_type is : ",irrigation_type)
         elif location.source_system in ("legacy_farmdata", "mssql_legacy") :
             # 舊系統 AERC：直接使用 source_id
             # 歷史資料：通過 source_id 查找 grant_versions，取得 grant_id
-            #print("歷史資料")
+            print("歷史資料")
             grant_version = await GrantVersions.filter(version=location.source_id).prefetch_related('grant').first()
             version_data = grant_version.all_steps_data
             if version_data.get("metadata").get("original_complete_status") == False :
                 office = str(grant_version.grant.office)
                 location.apply_year = version_data.get("steps", {}).get("7").get("applicationYear")
                 location.case_number = version_data.get("steps", {}).get("7").get("caseNumber")    
-                #print("114轉115未結案件 find grant_id is : ",grant_id)
+                print("114轉115未結案件 find grant_id is : ",grant_id)
             try:
                 if grant_version:
                     grant_id = str(grant_version.grant.id)
@@ -372,6 +379,53 @@ class QualificationCRUD:
         
         # 如果無法判斷或發生錯誤，回傳歷史案件作為預設值
         return "歷史案件"
+    @staticmethod
+    async def _infer_new_aerc_case_type(source_id: str) -> str:
+        """從 grant_versions.all_steps_data.steps.4 推斷案件類型"""
+        try:
+            grant_version = await GrantVersions.filter(grant_id=source_id).first()
+            
+            if grant_version and grant_version.all_steps_data:
+                steps = grant_version.all_steps_data.get('steps', {})
+                # 取得 step 4 的 facilities 列表
+                step4 = steps.get('4') or steps.get(4) or {}
+                step5 = steps.get('5') or steps.get(5) or {}
+
+                facilities = step4.get('facilities', [])
+                
+                if not isinstance(facilities, list):
+                    return "新系統案件"
+
+                # 確認有金額才加入設施
+                facility_types = set() # 使用 set 避免重複
+                
+                for item in facilities:
+                    # 檢查是否有金額且大於 0
+                    total_price = item.get('totalPrice', 0)
+                    if total_price > 0:
+                        label = item.get('typeLabel')
+                        if label:
+                            # 格式化標籤名稱（例如將 "調節控制設施" 統稱為 "調控設施"）
+                            if "控制" in label:
+                                facility_types.add("調控設施")
+                            elif "動力" in label:
+                                facility_types.add("動力設備")
+                            elif "調蓄" in label:
+                                facility_types.add("調蓄設施")
+                            else:
+                                facility_types.add(label)
+
+                if step5.get('totalAmount') >0:
+                    facility_types.add("田間管路")
+
+                if facility_types:
+                    return ", ".join(facility_types)
+                    
+        except Exception as e:
+            print(f"Error inferring case type: {e}")
+            pass
+        
+        return "新系統案件"
 
     @staticmethod
     def _infer_case_type_from_crops(crops: Optional[List[Dict[str, str]]]) -> str:

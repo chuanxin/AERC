@@ -477,7 +477,7 @@
                             :ripple="false"
                             @click="openTagDialog"
                           >
-                            {{ grantsStore.currentGrant?.tag || '設定標籤' }}
+                            {{ grantsStore.currentGrant?.tag || '設定自定義' }}
                           </v-chip>
                         </span>
                       </v-card-title>

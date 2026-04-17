@@ -101,17 +101,6 @@
                 </template>
               </v-text-field>
 
-              <!-- 密碼更換成功提示 -->
-              <v-alert
-                v-if="successMessage"
-                type="success"
-                variant="tonal"
-                density="compact"
-                class="mb-3"
-              >
-                {{ successMessage }}
-              </v-alert>
-
               <!-- Error Message Display -->
               <v-alert
                 v-if="errorMessage"
@@ -140,11 +129,11 @@
                   href="/login/reset"
                   class="footer-link"
                 >忘記密碼?</a>
-                <!--<span class="footer-separator">|</span>
+                <span class="footer-separator">|</span>
                  <a
                   href="/login/signup"
                   class="footer-link"
-                >帳號申請</a> -->
+                >帳號申請</a>
               </div>
             </v-form>
           </div>
@@ -223,17 +212,6 @@
                     </div>
                   </template>
                 </v-text-field>
-
-                <!-- 密碼更換成功提示 -->
-                <v-alert
-                  v-if="successMessage"
-                  type="success"
-                  variant="tonal"
-                  density="compact"
-                  class="mb-3"
-                >
-                  {{ successMessage }}
-                </v-alert>
 
                 <!-- Error Message Display -->
                 <v-alert
@@ -331,7 +309,6 @@
 
   const errorMessage = ref('');
   const isSubmitting = ref(false);
-  const successMessage = ref(route.query.message === 'password_changed' ? '密碼已成功更換，請以新密碼重新登入' : '');
 
   const currentYear = new Date().getFullYear();
 
@@ -428,8 +405,6 @@
           // Update both localStorage and store's token ref
           localStorage.setItem('auth_token', accessToken)
           userStore.setToken(accessToken)
-          // 設定密碼過期狀態（主要登入路徑）
-          userStore.passwordExpired = response?.password_expired ?? false
 
           // Fetch current user info
           await userStore.fetchCurrentUser()
@@ -439,12 +414,8 @@
             localStorage.setItem('remember_login', 'true')
           }
 
-          // 密碼過期則強制跳轉更換頁，否則導向原目標路徑
-          if (response?.password_expired) {
-            await router.push('/login/change-password')
-          } else {
-            await router.push(redirectPath.value)
-          }
+          // Navigate to the redirect path or home page
+          await router.push(redirectPath.value)
         } else {
           errorMessage.value = '登入失敗，未收到有效 token'
           await generateCaptcha() // Refresh captcha on failure
@@ -470,12 +441,7 @@
           if (rememberMe.value) {
             localStorage.setItem('remember_login', 'true')
           }
-          // 密碼過期則強制跳轉更換頁（fallback 路徑，passwordExpired 已由 userStore.login 設定）
-          if (userStore.passwordExpired) {
-            await router.push('/login/change-password')
-          } else {
-            await router.push(redirectPath.value)
-          }
+          await router.push(redirectPath.value)
         } else {
           alert(userStore.error || '登入失敗，請檢查帳號和密碼')
           await generateCaptcha()

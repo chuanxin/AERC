@@ -842,7 +842,9 @@
                                   <span class="text-caption">地籍登記面積</span>
                                 </div>
                                 <div class="text-h5 font-weight-bold text-blue">
-                                  {{ filteredLegacyResults.length > 0 ? selectedYearTotalApprovedArea.toLocaleString() : '-' }}
+                                  <!-- {{ filteredLegacyResults.length > 0 ? selectedYearTotalApprovedArea.toLocaleString() : '-' }} -->
+                                  {{ (filteredLegacyResults.length > 0 && selectedYearTotalApprovedArea > 0) ? selectedYearTotalApprovedArea.toLocaleString() : '--' }}
+                                  
                                 </div>
                                 <div class="text-caption">
                                   ㎡
@@ -1079,13 +1081,15 @@
                                       <div class="d-flex justify-end align-center mt-3 pt-2 border-t">
                                         <span class="text-caption text-grey-darken-1 me-2">地籍面積：</span>
                                         <span class="text-body-1 font-weight-bold text-primary">
-                                          {{ Number(caseItem.land_registered_area || 0).toLocaleString() }}
+                                          <!-- {{ Number(caseItem.land_registered_area || 0).toLocaleString() }} -->
+                                          {{ (caseItem.land_registered_area > 0) ? Number(caseItem.land_registered_area).toLocaleString() : '--' }}
                                         </span>
                                         <span class="text-caption ms-1">㎡</span>
                                         
                                         <span class="text-caption text-grey-darken-1 me-2 ms-4">施設面積：</span>
                                         <span class="text-body-1 font-weight-bold text-primary">
-                                          {{ Number(caseItem.approved_area || 0).toLocaleString() }}
+                                          <!-- {{ Number(caseItem.approved_area || 0).toLocaleString() }} -->
+                                          {{ (caseItem.approved_area > 0) ? Number(caseItem.approved_area).toLocaleString() : '--' }}
                                         </span>
                                         <span class="text-caption ms-1">㎡</span>
                                       </div>

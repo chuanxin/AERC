@@ -201,7 +201,7 @@
                   >
                     <div class="field-layout">
                       <div class="field-label">
-                        自定義分類標籤
+                        自定義分類搜尋
                       </div>
                       <div class="field-control">
                         <v-text-field
@@ -230,7 +230,7 @@
                     選擇要下載的檔案類型
                   </h3>
                   <div class="text-caption text-medium ml-auto">
-                    請選擇一種檔案類型，系統將收集所有符合條件的案件檔案
+                    請選擇一種檔案類型進行下載
                   </div>
                   <v-btn
                     :icon="isFileSelectionExpanded ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"

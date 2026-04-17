@@ -53,8 +53,6 @@ export const useUserStore = defineStore('user', () => {
   const token = ref<string | null>(localStorage.getItem('auth_token'))
   const isLoading = ref(false)
   const error = ref<string | null>(null)
-  // 密碼過期狀態（不存放在客戶端 localStorage，透過 fetchCurrentUser 在 Refresh 後重建）
-  const passwordExpired = ref<boolean>(false)
 
   // Flag to track if an auto-login attempt has been made
   const hasAttemptedAutoLogin = ref(false)
@@ -133,8 +131,6 @@ export const useUserStore = defineStore('user', () => {
         if (user) {
           currentUser.value = user
           hasAttemptedAutoLogin.value = true
-          // T013：從 /users/whoami 回應同步密碼過期狀態（Refresh 後重建）
-          passwordExpired.value = user.password_expired ?? false
           console.log('✅ [fetchCurrentUser] User data fetched successfully:', user.username)
           return user
         }
@@ -167,8 +163,6 @@ export const useUserStore = defineStore('user', () => {
     if (response?.access_token) {
       token.value = response.access_token
       localStorage.setItem('auth_token', response.access_token)
-      // 設定密碼過期狀態（fallback 登入路徑；主要路徑由 handleLogin 直接設定）
-      passwordExpired.value = response.password_expired ?? false
 
       // 獲取用戶信息
       const result = await fetchCurrentUser()
@@ -323,36 +317,23 @@ export const useUserStore = defineStore('user', () => {
   }, asyncOptions)
 
   /**
-   * 密碼過期強制更換（JWT 已驗證身份，無需提供舊密碼）
+   * 變更密碼
+   * @param oldPassword 舊密碼
    * @param newPassword 新密碼
    * @returns 操作是否成功
    */
-  const changePassword = wrapAsync(async (newPassword: string) => {
+  const changePassword = wrapAsync(async (oldPassword: string, newPassword: string) => {
     if (!currentUser.value) {
       throw new Error('未登入')
     }
 
-    await userService.changePassword(newPassword)
-    // 更換成功後清除密碼過期狀態
-    passwordExpired.value = false
-    return true  // 明確回傳 true，與失敗時的 null 區分（void return 導致 undefined 也是 falsy）
+    return await userService.changePassword(oldPassword, newPassword)
   }, {
     ...asyncOptions,
     errorFormatter: (err: unknown) => {
       if (err && typeof err === 'object') {
-        const apiError = err as { response?: { data?: { detail?: unknown } }; message?: string }
-        const detail = apiError.response?.data?.detail
-        // Pydantic 422 validation error：detail 為陣列，取 msg 欄位並去除 "Value error, " 前綴
-        if (Array.isArray(detail)) {
-          const msg = detail
-            .map((d: { msg?: string }) => (d.msg ?? '').replace(/^Value error,\s*/, ''))
-            .filter(Boolean)
-            .join('；')
-          return msg || '密碼變更失敗'
-        }
-        // 一般後端錯誤：detail 為字串
-        if (typeof detail === 'string') return detail
-        return (apiError as ApiError).message || '密碼變更失敗'
+        const apiError = err as ApiError
+        return apiError.response?.data?.detail || '密碼變更失敗'
       }
       return '密碼變更失敗'
     }
@@ -469,7 +450,6 @@ export const useUserStore = defineStore('user', () => {
     isLoading,
     error,
     hasAttemptedAutoLogin,
-    passwordExpired,
 
     // 手動提醒相關狀態
     showExpiryNotification,

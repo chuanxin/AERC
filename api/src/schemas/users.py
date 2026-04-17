@@ -47,7 +47,6 @@ class UserInfoSchema(BaseSchema):
     # last_login: Optional[datetime]
     office: Optional[SimpleOfficeSchema] = None
     department: Optional[dict] = None
-    password_expired: bool = False  # 密碼是否已過期（計算欄位，由 check_password_expired 填入）
 
 UserOutSchema = UserInfoSchema
 
@@ -427,16 +426,6 @@ class AccountMigrationCompleteRequest(BaseModel):
                 "confirm_password": "SecurePass123!"
             }
         }
-
-
-class ChangePasswordRequest(BaseModel):
-    """密碼過期強制更換請求（JWT 已驗證身份，無需再提供舊密碼）"""
-    new_password: str = Field(..., description="新密碼（明文，須通過強度驗證）")
-
-    @field_validator('new_password')
-    @classmethod
-    def validate_new_password(cls, v: str) -> str:
-        return validate_password_strength(v)
 
 
 class AccountMigrationCompleteResponse(BaseModel):

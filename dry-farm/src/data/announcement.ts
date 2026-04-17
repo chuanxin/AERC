@@ -10,11 +10,18 @@ export interface Announcement {
 
 // 這是唯一的資料來源 (Single Source of Truth)
 export const announcementsData: Announcement[] = [
+   {
+    id: 7,
+  date: '115.04.13',
+  type: '系統公告',
+  content: '系統更新公告：115/4/13 上線功能說明 🆕',
+  fullContent: '20260413 系統新上線功能如下 \n1.申請案件辦理結案過程中所需表單，請至系統之 「補助申請」 / 「申請案件查詢與列印功能」下載使用。\n已上線表單如下：\nA. 勘查審查類\nA1 外出照片攜帶表\nA2 施工前後照片\nA3 書面審查表.pdf\nA4 功能測試現地勘查報告書.pdf\n\nB. 經費與預算類\nB1 工程預算書.pdf (最多一次30筆)\nB2 管路補助金額明細表\nB4 領款收據.pdf\n\nD. 其他\nD1 住址標籤.xlsx\nD2 封面.pdf\nD3 切結書收據結案申報書.pdf(最多一次30筆)\n\n另C. 設計與地籍類，團隊將儘快完成功能並上線。\n\n2.申請案件各處自定義標註功能，請至系統之 「補助申請」 / 「補助案件申請」/申請案列表 頁面下進行。\n\n(1) 請點選需標註自定義之申請案，進入該案件進行定義(如115年度第一批、115年度第二批…等)。\n(2) 篩選條件列，提供自定義分類搜尋功能，請輸入自定義分類名稱，即可搜尋到相關案件。\n '
+  },
   {
     id: 6,
   date: '115.03.13',
   type: '系統公告',
-  content: '115年度 管灌設施補助宣導摺頁 下載 🆕',
+  content: '115年度 管灌設施補助宣導摺頁 下載 ',
   fullContent: `
     <div class="pdf-announcement">
       <p>115年管灌設施補助宣導摺頁已正式發佈，歡迎相關人員下載查閱 。</p>
@@ -43,7 +50,7 @@ export const announcementsData: Announcement[] = [
     id: 5,
   date: '115.03.05',
   type: '系統公告',
-  content: '115年度 推廣管路灌溉設施作業指引 🆕',
+  content: '115年度 推廣管路灌溉設施作業指引 ',
   fullContent: `
     <div class="pdf-announcement">
       <p>115年度推廣管路灌溉設施作業指引已正式發佈，歡迎相關人員下載查閱 。</p>
