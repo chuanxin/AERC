@@ -16,6 +16,7 @@ export interface User {
   username: string
   full_name?: string
   created_at?: string
+  password_expired?: boolean
   office?: {
     id: number
     name: string
@@ -27,6 +28,7 @@ export interface User {
 export interface LoginResponse {
   message: string
   access_token?: string
+  password_expired?: boolean
 }
 
 export interface UpdateUserData {
@@ -162,19 +164,17 @@ export const userService = {
   },
 
   /**
-   * 變更密碼
-   * @param oldPassword 舊密碼
+   * 密碼過期強制更換（JWT 已驗證身份，無需提供舊密碼）
    * @param newPassword 新密碼
    */
-  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+  async changePassword(newPassword: string): Promise<void> {
     try {
       const response = await apiService.post<void>(AUTH.CHANGE_PASSWORD, {
-        old_password: oldPassword,
         new_password: newPassword
       })
       return response
     } catch (error) {
-      console.error('變更密碼失敗:', error)
+      console.error('密碼變更失敗:', error)
       throw error
     }
   }

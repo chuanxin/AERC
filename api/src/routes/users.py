@@ -44,7 +44,8 @@ from src.schemas.users import (
     AccountMigrationOTPVerifyRequest,
     AccountMigrationOTPVerifyResponse,
     AccountMigrationCompleteRequest,
-    AccountMigrationCompleteResponse
+    AccountMigrationCompleteResponse,
+    ChangePasswordRequest,
 )
 
 
@@ -579,10 +580,44 @@ async def refresh_token(current_user: UserInfoSchema = Depends(get_current_user)
 
 
 @router.get(
-    "/users/whoami", response_model=UserInfoSchema, dependencies=[Depends(get_current_user)]
+    "/users/whoami", dependencies=[Depends(get_current_user)]
 )
 async def read_users_me(current_user: UserInfoSchema = Depends(get_current_user)):
-    return current_user
+    from src.auth.users import check_password_expired
+    user = await Users.get(username=current_user.username)
+    result = current_user.model_dump()
+    result['password_expired'] = check_password_expired(user)
+    return result
+
+
+@router.post("/change-password", status_code=200)
+async def change_password(
+    payload: ChangePasswordRequest,
+    request: Request,
+    current_user: UserInfoSchema = Depends(get_current_user)
+):
+    """
+    密碼過期強制更換
+
+    JWT 已驗證使用者身份（登入時已輸入正確密碼），此端點不再重複驗證舊密碼。
+    執行 PasswordPolicyService 進行：最短效期、三代不重複、歷史記錄。
+    成功回傳 200；政策違規回傳 400 含說明訊息。
+    """
+    success, error_msg = await PasswordPolicyService.change_password(
+        user_id=current_user.id,
+        new_password=payload.new_password,
+        change_method="user_change",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent")
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg
+        )
+
+    return {"message": "密碼已成功更換"}
 
 
 @router.delete(
