@@ -13,6 +13,7 @@ import App from './App.vue'
 // Composables
 import { createApp } from 'vue'
 import { useUserStore } from '@/stores/users'
+import { loadPasswordPolicy } from '@/services/passwordPolicyService'
 
 // Projection Configuration
 import { initProj4 } from '@/utils/proj4Config'
@@ -60,3 +61,4 @@ const initializeAuth = async () => {
 
 // Start authentication initialization
 initializeAuth()
+loadPasswordPolicy()

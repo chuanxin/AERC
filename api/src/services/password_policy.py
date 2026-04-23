@@ -29,20 +29,36 @@ ACCOUNT_LOCKOUT_MINUTES = 15   # Y: 帳號鎖定時間 (分鐘)
 
 
 # ============================================
+# 格式驗證常數（SSOT：所有格式驗證函數共同引用）
+# 規則：
+# 1. 至少 12 個字元
+# 2. 以下 4 項至少符合 3 項：
+#    - 包含數字
+#    - 包含英文大寫
+#    - 包含英文小寫
+#    - 包含特殊符號
+# ============================================
+
+PASSWORD_MIN_LENGTH = 12
+PASSWORD_REQUIRED_TYPES_COUNT = 3
+
+# pattern dict 是字元類型驗證的 SSOT，total_types_count 從 len() 自動推導
+CHAR_TYPE_PATTERNS: dict[str, str] = {
+    "digit":   r'\d',
+    "upper":   r'[A-Z]',
+    "lower":   r'[a-z]',
+    "special": r'[!@#$%^&*()_+\-=\[\]{};\':\"\\|,.<>\/?]',
+}
+PASSWORD_TOTAL_TYPES_COUNT = len(CHAR_TYPE_PATTERNS)
+
+
+# ============================================
 # 格式驗證（純函數，無副作用，無循環依賴）
 # ============================================
 
 def validate_password_strength(password: str) -> str:
     """
     驗證密碼強度（可重用於 Pydantic validator）
-
-    規則：
-    1. 至少 8 個字元
-    2. 以下 4 項至少符合 3 項：
-       - 包含數字
-       - 包含英文大寫
-       - 包含英文小寫
-       - 包含特殊符號
 
     Args:
         password: 密碼明文
@@ -53,24 +69,21 @@ def validate_password_strength(password: str) -> str:
     Raises:
         ValueError: 驗證失敗時拋出，包含具體錯誤訊息
     """
-    MIN_LENGTH = 8
-    REQUIRED_TYPES_COUNT = 3
-
-    if len(password) < MIN_LENGTH:
-        raise ValueError(f'密碼長度至少需要 {MIN_LENGTH} 個字元')
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise ValueError(f'密碼長度至少需要 {PASSWORD_MIN_LENGTH} 個字元')
 
     # 檢查各項條件
     has_digit = any(c.isdigit() for c in password)
     has_upper = any(c.isupper() for c in password)
     has_lower = any(c.islower() for c in password)
-    has_special = bool(re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]', password))
+    has_special = bool(re.search(CHAR_TYPE_PATTERNS["special"], password))
 
     # 計算符合的項目數
     conditions_met = sum([has_digit, has_upper, has_lower, has_special])
 
-    if conditions_met < REQUIRED_TYPES_COUNT:
+    if conditions_met < PASSWORD_REQUIRED_TYPES_COUNT:
         raise ValueError(
-            '密碼需符合以下 4 項中的至少 3 項：包含數字、包含英文大寫、包含英文小寫、包含特殊符號'
+            f'密碼需符合以下 {PASSWORD_TOTAL_TYPES_COUNT} 項中的至少 {PASSWORD_REQUIRED_TYPES_COUNT} 項：包含數字、包含英文大寫、包含英文小寫、包含特殊符號'
         )
 
     return password
@@ -95,23 +108,42 @@ def check_password_requirements(password: str) -> dict:
             "character_types_valid": bool
         }
     """
-    MIN_LENGTH = 8
-    REQUIRED_TYPES_COUNT = 3
-
     has_digit = any(c.isdigit() for c in password)
     has_upper = any(c.isupper() for c in password)
     has_lower = any(c.islower() for c in password)
-    has_special = bool(re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]', password))
+    has_special = bool(re.search(CHAR_TYPE_PATTERNS["special"], password))
     types_count = sum([has_digit, has_upper, has_lower, has_special])
 
     return {
-        "min_length": len(password) >= MIN_LENGTH,
+        "min_length": len(password) >= PASSWORD_MIN_LENGTH,
         "has_digit": has_digit,
         "has_upper": has_upper,
         "has_lower": has_lower,
         "has_special": has_special,
         "types_count": types_count,
-        "character_types_valid": types_count >= REQUIRED_TYPES_COUNT
+        "character_types_valid": types_count >= PASSWORD_REQUIRED_TYPES_COUNT
+    }
+
+
+def get_policy_config() -> dict:
+    """
+    回傳密碼格式規則設定（供 API endpoint 使用的 SSOT）
+    直接引用模組級常數，與 validate_password_strength() 保持同源。
+    """
+    return {
+        "min_length": PASSWORD_MIN_LENGTH,
+        "required_types_count": PASSWORD_REQUIRED_TYPES_COUNT,
+        "total_types_count": PASSWORD_TOTAL_TYPES_COUNT,
+        "special_chars_pattern": CHAR_TYPE_PATTERNS["special"],
+        "char_type_patterns": CHAR_TYPE_PATTERNS,
+        "labels": {
+            "min_length": f"密碼長度至少需要 {PASSWORD_MIN_LENGTH} 個字元",
+            "required_types": f"以下 {PASSWORD_TOTAL_TYPES_COUNT} 項至少符合 {PASSWORD_REQUIRED_TYPES_COUNT} 項",
+            "has_digit": "包含數字",
+            "has_upper": "包含英文大寫",
+            "has_lower": "包含英文小寫",
+            "has_special": "包含特殊符號",
+        }
     }
 
 

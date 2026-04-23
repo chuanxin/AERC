@@ -27,11 +27,12 @@ from src.schemas.users import (
     LoginWithCaptchaRequest,
     UserRegistrationRequest,
     UserRegistrationResponse,
+    PasswordPolicyResponse,
 )
 from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus
 from src.services.email_service import EmailService
 from src.services.captcha_service import CaptchaService
-from src.services.password_policy import PasswordPolicyService
+from src.services.password_policy import PasswordPolicyService, get_policy_config
 from datetime import datetime, timezone
 
 from src.auth.jwthandler import (
@@ -71,6 +72,17 @@ async def generate_captcha():
         captcha_token=captcha_token,
         captcha_code=captcha_code
     )
+
+
+@router.get(
+    "/password-policy",
+    response_model=PasswordPolicyResponse,
+    status_code=status.HTTP_200_OK,
+    summary="取得密碼格式規則",
+    description="回傳目前系統套用的密碼格式規則，無需身份驗證"
+)
+async def get_password_policy():
+    return get_policy_config()
 
 
 # ============================================
