@@ -199,60 +199,74 @@
                 >
                   <v-card-text class="text-medium-emphasis text-caption pa-3">
                     <div class="font-weight-medium mb-1">密碼要求：</div>
-                    <div class="d-flex align-center mb-1">
-                      <v-icon
-                        :icon="passwordRequirements.length ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                        :color="passwordRequirements.length ? 'success' : 'grey'"
-                        size="x-small"
-                        class="mr-1"
-                      />
-                      <span>至少 8 個字元</span>
-                    </div>
-                    <div class="d-flex align-center mb-1">
-                      <v-icon
-                        :icon="passwordRequirements.characterTypesValid ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                        :color="passwordRequirements.characterTypesValid ? 'success' : 'grey'"
-                        size="x-small"
-                        class="mr-1"
-                      />
-                      <span>以下 4 項至少符合 3 項 (目前 {{ passwordRequirements.characterTypesMet }}/4)</span>
-                    </div>
-                    <div class="ml-4">
-                      <div class="d-flex align-center">
-                        <v-icon
-                          :icon="passwordRequirements.number ? 'mdi-check' : 'mdi-minus'"
-                          :color="passwordRequirements.number ? 'success' : 'grey'"
-                          size="x-small"
-                          class="mr-1"
-                        />
-                        <span>包含數字</span>
-                        <span class="mx-1">•</span>
-                        <v-icon
-                          :icon="passwordRequirements.uppercase ? 'mdi-check' : 'mdi-minus'"
-                          :color="passwordRequirements.uppercase ? 'success' : 'grey'"
-                          size="x-small"
-                          class="mr-1"
-                        />
-                        <span>英文大寫</span>
+                    <template v-if="policyLoading">
+                      <div class="d-flex align-center text-grey py-1">
+                        <v-progress-circular size="14" width="2" indeterminate class="mr-2" />
+                        密碼規則載入中...
                       </div>
-                      <div class="d-flex align-center">
-                        <v-icon
-                          :icon="passwordRequirements.lowercase ? 'mdi-check' : 'mdi-minus'"
-                          :color="passwordRequirements.lowercase ? 'success' : 'grey'"
-                          size="x-small"
-                          class="mr-1"
-                        />
-                        <span>包含英文小寫</span>
-                        <span class="mx-1">•</span>
-                        <v-icon
-                          :icon="passwordRequirements.special ? 'mdi-check' : 'mdi-minus'"
-                          :color="passwordRequirements.special ? 'success' : 'grey'"
-                          size="x-small"
-                          class="mr-1"
-                        />
-                        <span>特殊符號</span>
+                    </template>
+                    <template v-else-if="policyLoadError">
+                      <div class="d-flex align-center text-error py-1">
+                        <v-icon size="small" icon="mdi-alert-circle" class="mr-1" />
+                        無法取得密碼規則，請重新整理頁面
                       </div>
-                    </div>
+                    </template>
+                    <template v-else-if="passwordRequirements">
+                      <div class="d-flex align-center mb-1">
+                        <v-icon
+                          :icon="passwordRequirements.length ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                          :color="passwordRequirements.length ? 'success' : 'grey'"
+                          size="x-small"
+                          class="mr-1"
+                        />
+                        <span>{{ passwordRequirements.labels.min_length }}</span>
+                      </div>
+                      <div class="d-flex align-center mb-1">
+                        <v-icon
+                          :icon="passwordRequirements.characterTypesValid ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                          :color="passwordRequirements.characterTypesValid ? 'success' : 'grey'"
+                          size="x-small"
+                          class="mr-1"
+                        />
+                        <span>{{ passwordRequirements.labels.required_types }} (目前 {{ passwordRequirements.characterTypesMet }}/{{ passwordRequirements.totalTypesCount }})</span>
+                      </div>
+                      <div class="ml-4">
+                        <div class="d-flex align-center">
+                          <v-icon
+                            :icon="passwordRequirements.number ? 'mdi-check' : 'mdi-minus'"
+                            :color="passwordRequirements.number ? 'success' : 'grey'"
+                            size="x-small"
+                            class="mr-1"
+                          />
+                          <span>{{ passwordRequirements.labels.has_digit }}</span>
+                          <span class="mx-1">•</span>
+                          <v-icon
+                            :icon="passwordRequirements.uppercase ? 'mdi-check' : 'mdi-minus'"
+                            :color="passwordRequirements.uppercase ? 'success' : 'grey'"
+                            size="x-small"
+                            class="mr-1"
+                          />
+                          <span>{{ passwordRequirements.labels.has_upper }}</span>
+                        </div>
+                        <div class="d-flex align-center">
+                          <v-icon
+                            :icon="passwordRequirements.lowercase ? 'mdi-check' : 'mdi-minus'"
+                            :color="passwordRequirements.lowercase ? 'success' : 'grey'"
+                            size="x-small"
+                            class="mr-1"
+                          />
+                          <span>{{ passwordRequirements.labels.has_lower }}</span>
+                          <span class="mx-1">•</span>
+                          <v-icon
+                            :icon="passwordRequirements.special ? 'mdi-check' : 'mdi-minus'"
+                            :color="passwordRequirements.special ? 'success' : 'grey'"
+                            size="x-small"
+                            class="mr-1"
+                          />
+                          <span>{{ passwordRequirements.labels.has_special }}</span>
+                        </div>
+                      </div>
+                    </template>
                   </v-card-text>
                 </v-card>
 
@@ -485,60 +499,74 @@
                   >
                     <v-card-text class="text-medium-emphasis text-caption pa-3">
                       <div class="font-weight-medium mb-1">密碼要求：</div>
-                      <div class="d-flex align-center mb-1">
-                        <v-icon
-                          :icon="passwordRequirements.length ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                          :color="passwordRequirements.length ? 'success' : 'grey'"
-                          size="x-small"
-                          class="mr-1"
-                        />
-                        <span>至少 8 個字元</span>
-                      </div>
-                      <div class="d-flex align-center mb-1">
-                        <v-icon
-                          :icon="passwordRequirements.characterTypesValid ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                          :color="passwordRequirements.characterTypesValid ? 'success' : 'grey'"
-                          size="x-small"
-                          class="mr-1"
-                        />
-                        <span>以下 4 項至少符合 3 項 (目前 {{ passwordRequirements.characterTypesMet }}/4)</span>
-                      </div>
-                      <div class="ml-4">
-                        <div class="d-flex align-center">
-                          <v-icon
-                            :icon="passwordRequirements.number ? 'mdi-check' : 'mdi-minus'"
-                            :color="passwordRequirements.number ? 'success' : 'grey'"
-                            size="x-small"
-                            class="mr-1"
-                          />
-                          <span>包含數字</span>
-                          <span class="mx-1">•</span>
-                          <v-icon
-                            :icon="passwordRequirements.uppercase ? 'mdi-check' : 'mdi-minus'"
-                            :color="passwordRequirements.uppercase ? 'success' : 'grey'"
-                            size="x-small"
-                            class="mr-1"
-                          />
-                          <span>英文大寫</span>
+                      <template v-if="policyLoading">
+                        <div class="d-flex align-center text-grey py-1">
+                          <v-progress-circular size="14" width="2" indeterminate class="mr-2" />
+                          密碼規則載入中...
                         </div>
-                        <div class="d-flex align-center">
-                          <v-icon
-                            :icon="passwordRequirements.lowercase ? 'mdi-check' : 'mdi-minus'"
-                            :color="passwordRequirements.lowercase ? 'success' : 'grey'"
-                            size="x-small"
-                            class="mr-1"
-                          />
-                          <span>包含英文小寫</span>
-                          <span class="mx-1">•</span>
-                          <v-icon
-                            :icon="passwordRequirements.special ? 'mdi-check' : 'mdi-minus'"
-                            :color="passwordRequirements.special ? 'success' : 'grey'"
-                            size="x-small"
-                            class="mr-1"
-                          />
-                          <span>特殊符號</span>
+                      </template>
+                      <template v-else-if="policyLoadError">
+                        <div class="d-flex align-center text-error py-1">
+                          <v-icon size="small" icon="mdi-alert-circle" class="mr-1" />
+                          無法取得密碼規則，請重新整理頁面
                         </div>
-                      </div>
+                      </template>
+                      <template v-else-if="passwordRequirements">
+                        <div class="d-flex align-center mb-1">
+                          <v-icon
+                            :icon="passwordRequirements.length ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                            :color="passwordRequirements.length ? 'success' : 'grey'"
+                            size="x-small"
+                            class="mr-1"
+                          />
+                          <span>{{ passwordRequirements.labels.min_length }}</span>
+                        </div>
+                        <div class="d-flex align-center mb-1">
+                          <v-icon
+                            :icon="passwordRequirements.characterTypesValid ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                            :color="passwordRequirements.characterTypesValid ? 'success' : 'grey'"
+                            size="x-small"
+                            class="mr-1"
+                          />
+                          <span>{{ passwordRequirements.labels.required_types }} (目前 {{ passwordRequirements.characterTypesMet }}/{{ passwordRequirements.totalTypesCount }})</span>
+                        </div>
+                        <div class="ml-4">
+                          <div class="d-flex align-center">
+                            <v-icon
+                              :icon="passwordRequirements.number ? 'mdi-check' : 'mdi-minus'"
+                              :color="passwordRequirements.number ? 'success' : 'grey'"
+                              size="x-small"
+                              class="mr-1"
+                            />
+                            <span>{{ passwordRequirements.labels.has_digit }}</span>
+                            <span class="mx-1">•</span>
+                            <v-icon
+                              :icon="passwordRequirements.uppercase ? 'mdi-check' : 'mdi-minus'"
+                              :color="passwordRequirements.uppercase ? 'success' : 'grey'"
+                              size="x-small"
+                              class="mr-1"
+                            />
+                            <span>{{ passwordRequirements.labels.has_upper }}</span>
+                          </div>
+                          <div class="d-flex align-center">
+                            <v-icon
+                              :icon="passwordRequirements.lowercase ? 'mdi-check' : 'mdi-minus'"
+                              :color="passwordRequirements.lowercase ? 'success' : 'grey'"
+                              size="x-small"
+                              class="mr-1"
+                            />
+                            <span>{{ passwordRequirements.labels.has_lower }}</span>
+                            <span class="mx-1">•</span>
+                            <v-icon
+                              :icon="passwordRequirements.special ? 'mdi-check' : 'mdi-minus'"
+                              :color="passwordRequirements.special ? 'success' : 'grey'"
+                              size="x-small"
+                              class="mr-1"
+                            />
+                            <span>{{ passwordRequirements.labels.has_special }}</span>
+                          </div>
+                        </div>
+                      </template>
                     </v-card-text>
                   </v-card>
 
@@ -629,6 +657,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiService } from '@/services/api/http'
 import { AUTH } from '@/services/api/endpoints'
+import { getPasswordPolicy, policyLoading, policyLoadError } from '@/services/passwordPolicyService'
 
 const route = useRoute()
 const router = useRouter()
@@ -659,15 +688,18 @@ const successTitle = ref('')
 
 // Password requirements validation
 const passwordRequirements = computed(() => {
+  const policy = getPasswordPolicy()
+  if (!policy) return null
+
+  const p = policy.char_type_patterns
   const reqs = {
-    length: newPassword.value.length >= 8,
-    uppercase: /[A-Z]/.test(newPassword.value),
-    lowercase: /[a-z]/.test(newPassword.value),
-    number: /\d/.test(newPassword.value),
-    special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword.value),
+    length:    newPassword.value.length >= policy.min_length,
+    uppercase: new RegExp(p.upper).test(newPassword.value),
+    lowercase: new RegExp(p.lower).test(newPassword.value),
+    number:    new RegExp(p.digit).test(newPassword.value),
+    special:   new RegExp(p.special).test(newPassword.value),
   }
 
-  // 計算符合的項目數（不包含長度）
   const characterTypesMet = [
     reqs.uppercase,
     reqs.lowercase,
@@ -677,15 +709,17 @@ const passwordRequirements = computed(() => {
 
   return {
     ...reqs,
-    characterTypesMet, // 符合的字元類型數量
-    characterTypesValid: characterTypesMet >= 3, // 至少3項
+    characterTypesMet,
+    characterTypesValid: characterTypesMet >= policy.required_types_count,
+    totalTypesCount: policy.total_types_count,
+    labels: policy.labels,
   }
 })
 
 const isPasswordValid = computed(() => {
   return (
-    passwordRequirements.value.length &&
-    passwordRequirements.value.characterTypesValid &&
+    passwordRequirements.value?.length &&
+    passwordRequirements.value?.characterTypesValid &&
     newPassword.value === confirmPassword.value
   )
 })
@@ -782,14 +816,27 @@ const handleResetPassword = async () => {
     return
   }
 
-  if (newPassword.value.length < 8) {
-    passwordError.value = '密碼長度至少需要 8 個字元'
+  const policy = getPasswordPolicy()
+  if (!policy) {
+    passwordError.value = '密碼規則尚未載入，請重新整理頁面'
+    return
+  }
+
+  if (newPassword.value.length < policy.min_length) {
+    passwordError.value = policy.labels.min_length
     return
   }
 
   // 檢查密碼強度：4 項至少符合 3 項
-  if (!passwordRequirements.value.characterTypesValid) {
-    passwordError.value = '密碼需符合以下 4 項中的至少 3 項：包含數字、包含英文大寫、包含英文小寫、包含特殊符號'
+  if (!passwordRequirements.value?.characterTypesValid) {
+    const policy = getPasswordPolicy()!
+    const typeList = [
+      policy.labels.has_digit,
+      policy.labels.has_upper,
+      policy.labels.has_lower,
+      policy.labels.has_special,
+    ].join('、')
+    passwordError.value = `密碼需符合以下 ${policy.required_types_count} 項中的至少 ${policy.required_types_count} 項：${typeList}`
     return
   }
 

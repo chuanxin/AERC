@@ -453,3 +453,44 @@ class AccountMigrationCompleteResponse(BaseModel):
                 "username": "user001"
             }
         }
+
+
+# ============================================
+# 密碼規則 API 相關 Schemas
+# ============================================
+
+class PasswordPolicyLabels(BaseModel):
+    """密碼格式規則的中文說明"""
+    min_length: str
+    required_types: str
+    has_digit: str
+    has_upper: str
+    has_lower: str
+    has_special: str
+
+    class Config:
+        from_attributes = True
+
+
+class CharTypePatterns(BaseModel):
+    """各字元類型的 regex pattern（前端本地驗證使用）"""
+    digit: str
+    upper: str
+    lower: str
+    special: str
+
+    class Config:
+        from_attributes = True
+
+
+class PasswordPolicyResponse(BaseModel):
+    """密碼格式規則回應（GET /password-policy 端點使用）"""
+    min_length: int
+    required_types_count: int
+    total_types_count: int
+    special_chars_pattern: str
+    char_type_patterns: CharTypePatterns
+    labels: PasswordPolicyLabels
+
+    class Config:
+        from_attributes = True
