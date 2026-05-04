@@ -40,6 +40,8 @@ services:
       - FAST_API_BASE_URL=${FAST_API_BASE_URL}
       - FAST_API_TARGET=${FAST_API_TARGET}
       - FAST_API_VERSION=${FAST_API_VERSION}
+      - VITE_STEP2_OFFLINE_TRAINING=${VITE_STEP2_OFFLINE_TRAINING}
+      - VITE_STEP2_OFFLINE_SECTIONS=${VITE_STEP2_OFFLINE_SECTIONS}
     volumes:
       - './dry-farm:/app'
       - '/app/node_modules'
