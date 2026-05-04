@@ -3131,6 +3131,14 @@ const landNumberSubFocused = ref(false);
 // NLSC 地段資料
 const nlscSections = ref<LandSection[]>([]);
 const loadingSections = ref(false);
+const isStep2OfflineTrainingMode = import.meta.env.VITE_STEP2_OFFLINE_TRAINING === 'true';
+const offlineTrainingSectionCodes = (import.meta.env.VITE_STEP2_OFFLINE_SECTIONS || 'KA0003,QE0907,BG5409,DF4350')
+  .split(',')
+  .map((code: string) => code.trim().toUpperCase())
+  .filter(Boolean);
+const offlineTrainingFeatures = ref<Feature<Geometry>[]>([]);
+const offlineTrainingSections = ref<LandSection[]>([]);
+let offlineTrainingLoadPromise: Promise<void> | null = null;
 // 地段搜尋文字
 const sectionSearchText = ref('');
 
@@ -3620,6 +3628,175 @@ const updateLandNumber = stepManager.createProtectedHandler(() => {
   }
 });
 
+const normalizeSectionCode = (code: unknown): string => String(code || '').trim().toUpperCase();
+
+const normalizeLandNo8 = (landNo: unknown): string => {
+  const digits = String(landNo || '').replace(/\D/g, '');
+  return digits ? digits.padStart(8, '0').slice(-8) : '';
+};
+
+const formatLandNoForDisplay = (landNo8: string): string => {
+  if (!landNo8) return '';
+  const normalized = normalizeLandNo8(landNo8);
+  if (!normalized) return '';
+  return `${normalized.substring(0, 4)}-${normalized.substring(4, 8)}`;
+};
+
+const toLandNo8FromParts = (main: string, sub: string): string => {
+  const mainPart = String(main || '').replace(/\D/g, '').padStart(4, '0').slice(-4);
+  const subPart = String(sub || '0').replace(/\D/g, '').padStart(4, '0').slice(-4);
+  return `${mainPart}${subPart}`;
+};
+
+const extractOfflineLandNo8 = (properties: Record<string, unknown>): string => {
+  const fromGml = normalizeLandNo8(properties.LANDNO);
+  if (fromGml) return fromGml;
+
+  const rawLandNo = String(properties.Land_no || '').trim();
+  if (!rawLandNo) return '';
+
+  const [main = '', sub = '0'] = rawLandNo.split('-');
+  return toLandNo8FromParts(main, sub);
+};
+
+const getOfflineSectionName = (properties: Record<string, unknown>): string => {
+  return String(properties.Sec_cns || properties.section || properties.Section || properties.SECT || '').trim();
+};
+
+const normalizeOfflineFeature = (feature: Feature<Geometry>, index: number) => {
+  const properties = feature.getProperties() as Record<string, unknown>;
+  const normalizedSectionCode = normalizeSectionCode(properties.SECT || properties.Section || properties.section);
+  const normalizedLandNo8 = extractOfflineLandNo8(properties);
+  const sectionName = getOfflineSectionName(properties) || normalizedSectionCode;
+
+  const areaFromProperties = Number(properties.Desc_area ?? properties.Map_area ?? properties.AREA ?? 0);
+  const normalizedArea = Number.isFinite(areaFromProperties) ? areaFromProperties : undefined;
+
+  feature.setProperties({
+    ...properties,
+    SECT: normalizedSectionCode,
+    LANDNO: normalizedLandNo8,
+    Land_no: formatLandNoForDisplay(normalizedLandNo8),
+    AREA: normalizedArea,
+    Sec_cns: sectionName,
+    // 標記資料來源，方便除錯與後續追蹤
+    source: 'offline-training'
+  }, true);
+
+  if (!feature.getId()) {
+    feature.setId(`offline-${normalizedSectionCode}-${normalizedLandNo8 || index}`);
+  }
+};
+
+const buildOfflineTrainingSections = (features: Feature<Geometry>[]): LandSection[] => {
+  const sectionMap: Record<string, LandSection> = {};
+
+  features.forEach(feature => {
+    const properties = feature.getProperties() as Record<string, unknown>;
+    const sectionCode = normalizeSectionCode(properties.SECT || properties.Section);
+
+    if (!sectionCode || sectionMap[sectionCode]) {
+      return;
+    }
+
+    sectionMap[sectionCode] = {
+      code: sectionCode,
+      name: getOfflineSectionName(properties) || sectionCode,
+      office: String(properties.office || properties.OFFICE || 'OFFLINE'),
+      office_name: String(properties.office_name || properties.OFFICE || '離線訓練資料'),
+      county_land_code: String(properties.county_land_code || ''),
+      town_land_code: String(properties.town_land_code || '')
+    };
+  });
+
+  const sectionList: LandSection[] = [];
+  for (const sectionCode in sectionMap) {
+    sectionList.push(sectionMap[sectionCode]);
+  }
+
+  return sectionList.sort((a, b) => a.code.localeCompare(b.code));
+};
+
+const ensureOfflineTrainingDataLoaded = async () => {
+  if (!isStep2OfflineTrainingMode) {
+    return;
+  }
+
+  if (offlineTrainingLoadPromise) {
+    await offlineTrainingLoadPromise;
+    return;
+  }
+
+  offlineTrainingLoadPromise = (async () => {
+    const response = await fetch('/land_parcels.geojson');
+    if (!response.ok) {
+      throw new Error(`載入離線地籍資料失敗: HTTP ${response.status}`);
+    }
+
+    const geoJsonData = await response.json();
+    const parser = new GeoJSON();
+    const allFeatures = parser.readFeatures(geoJsonData, {
+      dataProjection: 'EPSG:4326',
+      featureProjection: 'EPSG:3857'
+    }) as Feature<Geometry>[];
+
+    const filteredFeatures = allFeatures.filter(feature => {
+      const properties = feature.getProperties() as Record<string, unknown>;
+      const sectionCode = normalizeSectionCode(properties.SECT || properties.Section || properties.section);
+      return offlineTrainingSectionCodes.includes(sectionCode);
+    });
+
+    filteredFeatures.forEach((feature, index) => {
+      normalizeOfflineFeature(feature, index);
+    });
+
+    offlineTrainingFeatures.value = filteredFeatures;
+    offlineTrainingSections.value = buildOfflineTrainingSections(filteredFeatures);
+
+    console.log('離線訓練資料載入完成:', {
+      sectionCodes: offlineTrainingSections.value.map(section => section.code),
+      featureCount: offlineTrainingFeatures.value.length
+    });
+  })();
+
+  try {
+    await offlineTrainingLoadPromise;
+  } catch (error) {
+    offlineTrainingLoadPromise = null;
+    throw error;
+  }
+};
+
+const queryOfflineFeaturesByLandNo = (
+  sectionCode: string,
+  landNumberMain: string,
+  landNumberSub: string
+): Feature<Geometry>[] => {
+  const normalizedSectionCode = normalizeSectionCode(sectionCode);
+  const targetLandNo8 = toLandNo8FromParts(landNumberMain, landNumberSub || '0');
+
+  return offlineTrainingFeatures.value.filter(feature => {
+    const properties = feature.getProperties() as Record<string, unknown>;
+    const featureSectionCode = normalizeSectionCode(properties.SECT || properties.Section);
+    const featureLandNo8 = extractOfflineLandNo8(properties);
+
+    return featureSectionCode === normalizedSectionCode && featureLandNo8 === targetLandNo8;
+  }) as Feature<Geometry>[];
+};
+
+const queryOfflineFeatureByCoordinate = (coordinate: number[]): Feature<Geometry> | null => {
+  for (const feature of offlineTrainingFeatures.value) {
+    const geometry = feature.getGeometry();
+    if (!geometry) continue;
+
+    if (geometry.intersectsCoordinate(coordinate)) {
+      return feature as Feature<Geometry>;
+    }
+  }
+
+  return null;
+};
+
 const onCountyChange = stepManager.createCascadeHandler(async () => {
   cascadeManager.resetCascadeSelections('county');
 
@@ -3633,6 +3810,29 @@ const onCountyChange = stepManager.createCascadeHandler(async () => {
 
   // 強制重新渲染地段選單
   sectionSelectKey.value++;
+
+  if (isStep2OfflineTrainingMode) {
+    // 離線模式的地段使用固定資料；鄉鎮清單仍沿用既有 domicile API
+    try {
+      if (localFormData.landCounty) {
+        const countyId = typeof localFormData.landCounty === 'number'
+          ? localFormData.landCounty
+          : parseInt(localFormData.landCounty);
+
+        if (!isNaN(countyId)) {
+          await domicileStore.loadTownsByCountyId(countyId);
+        }
+      }
+
+      await ensureOfflineTrainingDataLoaded();
+      nlscSections.value = [...offlineTrainingSections.value];
+      localFormData.landTown = '';
+    } catch (error) {
+      console.error('離線模式載入地段失敗:', error);
+      nlscSections.value = [];
+    }
+    return;
+  }
 
   if (localFormData.landCounty) {
     const countyId = typeof localFormData.landCounty === 'number'
@@ -3687,6 +3887,30 @@ const loadLandSections = async (preserveSelection = false) => {
 
   // 使用 nextTick 確保重置生效
   await nextTick();
+
+  if (isStep2OfflineTrainingMode) {
+    try {
+      loadingSections.value = true;
+      await ensureOfflineTrainingDataLoaded();
+      nlscSections.value = [...offlineTrainingSections.value];
+    } catch (error) {
+      console.error('離線模式載入地段失敗:', error);
+      nlscSections.value = [];
+    } finally {
+      loadingSections.value = false;
+
+      if (preserveSelection && currentSelection && nlscSections.value.length > 0) {
+        const currentSelectionCode = normalizeSectionCode(currentSelection);
+        const matchingSection = nlscSections.value.find(section =>
+          normalizeSectionCode(section.code) === currentSelectionCode
+        );
+
+        localFormData.landSec = matchingSection ? matchingSection.code : currentSelection;
+      }
+    }
+
+    return;
+  }
 
   if (!localFormData.landCounty || !localFormData.landTown) {
     console.log('缺少縣市或鄉鎮資料，跳過地段載入');
@@ -4423,6 +4647,14 @@ const initializeStep2WithCascadeData = async () => {
 // 生命週期管理 - 使用修復後的邏輯
 onMounted(async () => {
   window.addEventListener('beforeunload', beforeUnloadHandler)
+
+  if (isStep2OfflineTrainingMode) {
+    try {
+      await ensureOfflineTrainingDataLoaded()
+    } catch (error) {
+      console.error('離線訓練資料預載失敗:', error)
+    }
+  }
 
   // 載入作物資料 (從資料庫)
   try {
@@ -5188,6 +5420,26 @@ const loadCadastralMapFromAPI = async () => {
       return;
     }
 
+    if (isStep2OfflineTrainingMode) {
+      await ensureOfflineTrainingDataLoaded();
+
+      const offlineMatchedFeatures = queryOfflineFeaturesByLandNo(
+        selectedSection.code,
+        localFormData.landNumberMain,
+        localFormData.landNumberSub || '0'
+      );
+
+      if (offlineMatchedFeatures.length === 0) {
+        console.warn('離線模式查無地籍資料');
+        noSectionDataOverlay.value = true;
+        isCadastralLoading.value = false;
+        return;
+      }
+
+      await displayCadastralFeatures(offlineMatchedFeatures);
+      return;
+    }
+
     // 建立查詢參數
     const queryParams: CadastralQueryParams = {
       countyCode: selectedSection.county_land_code,  // 縣市代碼
@@ -5228,6 +5480,20 @@ const handleMapClick = async (event: any) => {
 
     // 獲取點擊位置的座標 (EPSG:3857 Web Mercator)
     const clickedCoordinate = event.coordinate;
+
+    if (isStep2OfflineTrainingMode) {
+      await ensureOfflineTrainingDataLoaded();
+      const matchedFeature = queryOfflineFeatureByCoordinate(clickedCoordinate);
+
+      if (!matchedFeature) {
+        console.warn('離線模式點選位置查無地籍資料');
+        isCadastralLoading.value = false;
+        return;
+      }
+
+      await displayCadastralFeatures([matchedFeature]);
+      return;
+    }
 
     // 轉換為 WGS84 (EPSG:4326) 供 NLSC API 使用
     const wgs84Coordinate = transform(clickedCoordinate, 'EPSG:3857', 'EPSG:4326');

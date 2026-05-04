@@ -59,6 +59,8 @@ export default defineConfig(({ mode }) => {
     : undefined
 
   return {
+    // Keep Vite native import.meta.env (e.g. VITE_*) aligned with project root .env source.
+    envDir,
     publicDir: 'public', // 確保 public 資料夾包含 .well-known/acme-challenge
     plugins: [
       VueRouter({
