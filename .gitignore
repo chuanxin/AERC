@@ -78,6 +78,7 @@ dry-farm/certbot
 
 # Local data
 data/
+db/
 
 # Migration tools (contains sensitive data and temporary scripts)
 api/migrations/tools/
@@ -89,7 +90,8 @@ tests/
 # Documentation
 docs/
 *.pdf
-CLAUDE.md
+*.md
+claude/
 
 # Deployment files
 dev/
@@ -99,3 +101,8 @@ dev/
 
 # GitHub
 .github/
+
+# Knownledge
+.specify/
+specs/
+wiki/
