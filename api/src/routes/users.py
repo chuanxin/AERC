@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, status, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -47,7 +47,11 @@ from src.schemas.users import (
     AccountMigrationCompleteRequest,
     AccountMigrationCompleteResponse,
     ChangePasswordRequest,
+    EncryptedSecureLoginRequest,
+    EncryptedChangePasswordRequest,
 )
+from src.auth.encryption import decrypt_password, get_private_key_by_kid
+from src.auth.nonce import validate_and_store_nonce
 
 
 router = APIRouter()
@@ -439,24 +443,70 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
 
 
 @router.post("/login")
-async def login(user: OAuth2PasswordRequestForm = Depends()):
-    user = await validate_user(user)
+async def login(
+    username: str = Form(...),
+    encrypted_password: str = Form(...),
+    encrypted_key: str = Form(...),
+    iv: str = Form(...),
+    kid: str = Form(...),
+    timestamp: int = Form(...),
+    nonce: str = Form(..., min_length=32),
+):
+    """標準登入（加密格式 form-data）。步驟順序：kid → nonce → 解密 → 帳號密碼驗證。"""
+    from src.auth.users import (
+        verify_password,
+        check_account_locked,
+        record_failed_login,
+        reset_failed_login,
+        check_password_expired,
+    )
 
-    if not user:
+    # 1. 驗證 kid
+    try:
+        get_private_key_by_kid(kid)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail={"error_code": "UNKNOWN_KEY_ID", "message": "金鑰已更新，請重新操作"},
+        )
+
+    # 2. 防重放驗證
+    await validate_and_store_nonce(nonce, timestamp)
+
+    # 3. 解密密碼
+    plaintext_password = decrypt_password(encrypted_password, encrypted_key, iv, kid)
+
+    # 4. 驗證帳號密碼
+    try:
+        user = await Users.get(username=username)
+    except DoesNotExist:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="使用者名稱或密碼不正確",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="使用者名稱或密碼不正確",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # 使用 crud 函數更新最後登入時間
+
+    await check_account_locked(user)
+
+    if not verify_password(plaintext_password, user.password):
+        await record_failed_login(user)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="使用者名稱或密碼不正確",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    await reset_failed_login(user)
     await crud.update_last_login(user.id)
+
+    password_expired = check_password_expired(user)
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = await create_access_token(
@@ -466,7 +516,7 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
     content = {
         "message": "You've successfully logged in. Welcome back!",
         "access_token": token,
-        "password_expired": user.password_expired,  # 密碼是否已過期
+        "password_expired": password_expired,
     }
     response = JSONResponse(content=content)
     response.set_cookie(
@@ -481,22 +531,12 @@ async def login(user: OAuth2PasswordRequestForm = Depends()):
 
 
 @router.post("/login-secure")
-async def login_with_captcha(payload: LoginWithCaptchaRequest):
+async def login_with_captcha(payload: EncryptedSecureLoginRequest):
     """
-    帶驗證碼的安全登入
+    帶驗證碼的安全登入（加密格式）
 
-    - 先驗證驗證碼
-    - 再驗證帳號密碼（含鎖定檢查）
-    - 返回 JWT Token
+    步驟順序：kid 驗證 → captcha → nonce → 解密密碼 → 帳號密碼驗證
     """
-    # 1. 驗證驗證碼
-    if not CaptchaService.verify(payload.captcha_token, payload.captcha_code):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="驗證碼錯誤或已過期"
-        )
-
-    # 2. 驗證帳號密碼（含鎖定檢查）
     from src.auth.users import (
         verify_password,
         check_account_locked,
@@ -505,6 +545,31 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
         check_password_expired,
     )
 
+    # 1. 驗證 kid（快速拒絕過期金鑰，避免不必要的 DB 查詢）
+    try:
+        get_private_key_by_kid(payload.kid)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail={"error_code": "UNKNOWN_KEY_ID", "message": "金鑰已更新，請重新操作"},
+        )
+
+    # 2. 驗證驗證碼
+    if not CaptchaService.verify(payload.captcha_token, payload.captcha_code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="驗證碼錯誤或已過期"
+        )
+
+    # 3. 防重放驗證與 nonce 儲存
+    await validate_and_store_nonce(payload.nonce, payload.timestamp)
+
+    # 4. 解密密碼（解密失敗由 decrypt_password 內部拋出 400）
+    plaintext_password = decrypt_password(
+        payload.encrypted_password, payload.encrypted_key, payload.iv, payload.kid
+    )
+
+    # 5. 驗證帳號密碼（含鎖定檢查）
     try:
         user = await Users.get(username=payload.username)
     except DoesNotExist:
@@ -514,7 +579,6 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 檢查帳號是否啟用
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -522,11 +586,9 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 檢查帳號是否被鎖定
     await check_account_locked(user)
 
-    # 驗證密碼
-    if not verify_password(payload.password, user.password):
+    if not verify_password(plaintext_password, user.password):
         await record_failed_login(user)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -534,16 +596,15 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 登入成功，重置失敗計數
     await reset_failed_login(user)
 
-    # 3. 更新最後登入時間
+    # 6. 更新最後登入時間
     await crud.update_last_login(user.id)
 
-    # 4. 檢查密碼是否過期
+    # 7. 檢查密碼是否過期
     password_expired = check_password_expired(user)
 
-    # 5. 生成 JWT Token
+    # 8. 生成 JWT Token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = await create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
@@ -552,7 +613,7 @@ async def login_with_captcha(payload: LoginWithCaptchaRequest):
     content = {
         "message": "You've successfully logged in. Welcome back!",
         "access_token": token,
-        "password_expired": password_expired,  # 密碼是否已過期
+        "password_expired": password_expired,
     }
     response = JSONResponse(content=content)
     response.set_cookie(
@@ -604,20 +665,38 @@ async def read_users_me(current_user: UserInfoSchema = Depends(get_current_user)
 
 @router.post("/change-password", status_code=200)
 async def change_password(
-    payload: ChangePasswordRequest,
+    payload: EncryptedChangePasswordRequest,
     request: Request,
     current_user: UserInfoSchema = Depends(get_current_user)
 ):
     """
-    密碼過期強制更換
+    密碼過期強制更換（加密格式）
 
-    JWT 已驗證使用者身份（登入時已輸入正確密碼），此端點不再重複驗證舊密碼。
-    執行 PasswordPolicyService 進行：最短效期、三代不重複、歷史記錄。
-    成功回傳 200；政策違規回傳 400 含說明訊息。
+    JWT 已驗證使用者身份，無需舊密碼。
+    解密新密碼後執行 PasswordPolicyService：最短效期、三代不重複、歷史記錄。
+    成功回傳 200；政策違規回傳 400。
     """
+    # 1. 驗證 kid
+    try:
+        get_private_key_by_kid(payload.kid)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail={"error_code": "UNKNOWN_KEY_ID", "message": "金鑰已更新，請重新操作"},
+        )
+
+    # 2. 防重放驗證
+    await validate_and_store_nonce(payload.nonce, payload.timestamp)
+
+    # 3. 解密新密碼
+    new_password = decrypt_password(
+        payload.encrypted_password, payload.encrypted_key, payload.iv, payload.kid
+    )
+
+    # 4. 執行密碼政策與更換
     success, error_msg = await PasswordPolicyService.change_password(
         user_id=current_user.id,
-        new_password=payload.new_password,
+        new_password=new_password,
         change_method="user_change",
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")

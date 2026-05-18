@@ -4,7 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from src.database.models import GrantAttachments, Grants, Users
 from src.services.file_storage import FileStorageService
-from src.auth.jwthandler import get_current_user
+from src.auth.guard import require_full_auth
 import os
 
 router = APIRouter(prefix="/attachments", tags=["Grant Attachments"])
@@ -23,7 +23,7 @@ async def upload_attachment(
     category: Optional[str] = Form(None),
     categories: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """
     上傳補助申請案件附件
@@ -186,7 +186,7 @@ async def list_attachments(
         raise HTTPException(status_code=500, detail=f"查詢失敗: {str(e)}")
 
 @router.get("/download/{attachment_id}")
-async def download_attachment(attachment_id: int, current_user: Users = Depends(get_current_user)):
+async def download_attachment(attachment_id: int, current_user: Users = Depends(require_full_auth)):
     """下載附件"""
     try:
         attachment = await GrantAttachments.get_or_none(id=attachment_id, status="active")
@@ -209,7 +209,7 @@ async def download_attachment(attachment_id: int, current_user: Users = Depends(
         raise HTTPException(status_code=500, detail=f"下載失敗: {str(e)}")
 
 @router.get("/info/{attachment_id}")
-async def get_attachment_info(attachment_id: int, current_user: Users = Depends(get_current_user)):
+async def get_attachment_info(attachment_id: int, current_user: Users = Depends(require_full_auth)):
     """取得附件詳細資訊"""
     try:
         attachment = await GrantAttachments.select_related("uploaded_by", "grant").get_or_none(id=attachment_id, status="active")
@@ -236,7 +236,7 @@ async def get_attachment_info(attachment_id: int, current_user: Users = Depends(
         raise HTTPException(status_code=500, detail=f"查詢失敗: {str(e)}")
 
 @router.delete("/{attachment_id}")
-async def delete_attachment(attachment_id: int, current_user: Users = Depends(get_current_user)):
+async def delete_attachment(attachment_id: int, current_user: Users = Depends(require_full_auth)):
     """刪除附件"""
     try:
         attachment = await GrantAttachments.get_or_none(id=attachment_id, status="active")
@@ -262,7 +262,7 @@ async def delete_attachment(attachment_id: int, current_user: Users = Depends(ge
 @router.post("/batch-operation")
 async def batch_operation(
     request: BatchOperationRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """批量操作附件"""
     try:

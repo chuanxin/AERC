@@ -116,6 +116,22 @@ class AuthToken(models.Model):
         return f"{self.user.username} - {self.token_type.value} - {self.status.value}"
 
 
+class AuthNonce(models.Model):
+    """防重放(Replay Attack)攻擊 nonce 儲存表"""
+
+    id = fields.IntField(pk=True)
+    nonce = fields.CharField(max_length=128, unique=True)
+    expires_at = fields.DatetimeField()
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "auth_nonces"
+        indexes = [
+            ("nonce",),
+            ("expires_at",),
+        ]
+
+
 class RegistrationStatus(str, Enum):
     """帳號申請狀態枚舉"""
 

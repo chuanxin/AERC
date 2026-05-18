@@ -1,11 +1,7 @@
 import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
 import { mapApiPath } from './mapping'
-import { useUserStore } from '@/stores/users';
-
-// Define interface for our custom unauthorized handler
-interface TokenExpiredOptions {
-  onUnauthorized?: () => void
-}
+import { useUserStore } from '@/stores/users'
+import { clearKeyCache } from '@/services/authKeyService'
 
 // Simple event bus for auth events
 const authEvents = {
@@ -129,39 +125,45 @@ export function setupInterceptors(
         })
       }
 
-      // 處理未授權錯誤 (401)
-      if (error.response?.status === 401) {
-        // Check if this is a login-related request (credentials error, not session expiry)
-        const requestUrl = error.config?.url || ''
-        const isLoginAttempt = requestUrl.includes('/login') || requestUrl.includes('/login-secure')
+      const errorCode = (error.response?.data as any)?.error_code
+      const requestUrl = error.config?.url || ''
+      const isLoginAttempt = requestUrl.includes('/login') || requestUrl.includes('/login-secure')
 
-        // Only handle as session expiry if NOT a login attempt
-        if (!isLoginAttempt) {
-          // 清除認證信息
-          localStorage.removeItem('auth_token')
-
-          // Emit auth error event
-          authEvents.emit('unauthorized', { source: 'api', error })
-
-          // 調用自定義未授權處理函數
-          if (onUnauthorized) {
-            onUnauthorized();
-          } else {
-            // Default behavior: redirect to login page
-            if (typeof window !== 'undefined') {
-              const currentPath = window.location.pathname
-              // Avoid redirect loops
-              if (currentPath !== '/login') {
-                window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`
-              }
-            }
-          }
+      // 依 error_code 統一處理授權拒絕情境
+      if (errorCode === 'PASSWORD_EXPIRED') {
+        const userStore = useUserStore()
+        userStore.passwordExpired = true
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login/change-password') {
+          window.location.href = '/login/change-password'
         }
-        // For login attempts, let the error propagate naturally without side effects
-      }
-
-      // 處理禁止訪問錯誤 (403)
-      if (error.response?.status === 403) {
+      } else if (errorCode === 'TOKEN_INVALIDATED' && !isLoginAttempt) {
+        localStorage.removeItem('auth_token')
+        authEvents.emit('unauthorized', { source: 'api', error })
+        if (onUnauthorized) {
+          onUnauthorized()
+        } else if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
+      } else if ((errorCode === 'ACCOUNT_LOCKED' || errorCode === 'ACCOUNT_DISABLED') && !isLoginAttempt) {
+        localStorage.removeItem('auth_token')
+        authEvents.emit('unauthorized', { source: 'api', error })
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
+      } else if (errorCode === 'UNKNOWN_KEY_ID') {
+        // 清除公鑰快取後讓呼叫端自行重試（避免在攔截器層無限迴圈）
+        clearKeyCache()
+        authEvents.emit('keyRotated', { source: 'api', error })
+      } else if (error.response?.status === 401 && !isLoginAttempt) {
+        // 無 error_code 的 401（舊版 token 或框架層錯誤）
+        localStorage.removeItem('auth_token')
+        authEvents.emit('unauthorized', { source: 'api', error })
+        if (onUnauthorized) {
+          onUnauthorized()
+        } else if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+        }
+      } else if (error.response?.status === 403 && !errorCode) {
         console.error('權限不足，無法執行此操作')
         authEvents.emit('forbidden', { source: 'api', error })
       }

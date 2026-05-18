@@ -20,6 +20,7 @@ export const AUTH = {
   VERIFY_EMAIL: `${BASE}/verify-email`,
   CHANGE_PASSWORD: `${BASE}/change-password`,
   PASSWORD_POLICY: `${BASE}/password-policy`,
+  PUBLIC_KEY: `${BASE}/auth/public-key`,
 }
 
 // user management related endpoints

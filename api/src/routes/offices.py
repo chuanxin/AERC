@@ -13,7 +13,7 @@ from src.schemas.offices import (
 #     delete_office
 # )
 import src.crud.offices as crud
-from src.auth.jwthandler import get_current_user
+from src.auth.guard import require_full_auth
 from src.schemas.users import UserOutSchema
 from src.database.geo_models import OfficeBoundaries
 
@@ -33,11 +33,11 @@ async def get_offices():
     "/offices",
     response_model=OfficeOutSchema,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(get_current_user)]
+    dependencies=[Depends(require_full_auth)]
 )
 async def add_office(
     office: OfficeInSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """新增管理處/單位資料 (需要認證)"""
     # 檢查權限 (只有管理員可以新增)
@@ -54,12 +54,12 @@ async def add_office(
     "/offices/{office_id}",
     response_model=OfficeOutSchema,
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(get_current_user)]
+    dependencies=[Depends(require_full_auth)]
 )
 async def update_office_data(
     office_id: int,
     office: OfficeInSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """更新管理處/單位資料 (需要認證)"""
     # 檢查權限 (只有管理員可以更新)
@@ -75,11 +75,11 @@ async def update_office_data(
 @router.delete(
     "/offices/{office_id}",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(get_current_user)]
+    dependencies=[Depends(require_full_auth)]
 )
 async def remove_office(
     office_id: int,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """刪除管理處/單位資料 (需要認證)"""
     # 檢查權限 (只有管理員可以刪除)

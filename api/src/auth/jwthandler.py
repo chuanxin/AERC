@@ -65,6 +65,17 @@ security = OAuth2PasswordBearerCookie(token_url="/login")
 async def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
 
+    # 查詢 pwd_iat（必須在裸 except 的 try 區塊之外，避免靜默缺失導致所有 token 立即失效）
+    try:
+        _u = await Users.get(username=data.get("sub"))
+        pwd_iat = int(_u.password_changed_at.timestamp()) if _u.password_changed_at else 0
+    except DoesNotExist:
+        raise HTTPException(
+            status_code=500,
+            detail={"error_code": "TOKEN_CREATION_FAILED", "message": "無法建立憑證，使用者不存在"},
+        )
+    to_encode["pwd_iat"] = pwd_iat
+
     # 取得使用者資料以獲取角色和部門資訊
     try:
         user = await Users.get(username=data.get("sub"))
@@ -91,7 +102,7 @@ async def create_access_token(data: dict, expires_delta: Optional[timedelta] = N
 async def get_current_user(token: str = Depends(security)):
     credentials_exception = HTTPException(
         status_code=401,
-        detail="Could not validate credentials",
+        detail={"error_code": "TOKEN_INVALIDATED", "message": "憑證已失效，請重新登入"},
         headers={"WWW-Authenticate": "Bearer"},
     )
 
@@ -105,18 +116,42 @@ async def get_current_user(token: str = Depends(security)):
         raise credentials_exception
 
     try:
-        user = await Users.filter(username=token_data.username, is_active=True).only(
+        user = await Users.filter(username=token_data.username).only(
             'id', 'username', 'full_name', 'email', 'office_id',
             'job_title', 'is_active', 'role', 'permissions', 'last_login',
-            'department'
+            'department', 'password_changed_at'
         ).first()
+
+        if user is None:
+            raise credentials_exception
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=401,
+                detail={"error_code": "ACCOUNT_DISABLED", "message": "您的帳號已停用，請聯繫系統管理員"},
+            )
+
+        # pwd_iat 比對（缺少 claim 視為 token 無效）
+        jwt_pwd_iat = payload.get("pwd_iat")
+        if jwt_pwd_iat is None:
+            raise HTTPException(
+                status_code=401,
+                detail={"error_code": "TOKEN_INVALIDATED", "message": "憑證已失效，請重新登入"},
+            )
+        if user.password_changed_at is not None:
+            db_pwd_iat = int(user.password_changed_at.timestamp())
+            if db_pwd_iat != jwt_pwd_iat:
+                raise HTTPException(
+                    status_code=401,
+                    detail={"error_code": "TOKEN_INVALIDATED", "message": "憑證已失效，請重新登入"},
+                )
 
         office_data = None
         if user.office_id:
             office = await Offices.filter(id=user.office_id).only(
                 'id', 'name', 'short_name', 'code', 'classification', 'is_funding_source'
             ).first()
-            
+
             if office:
                 office_data = SimpleOfficeSchema(
                     id=office.id,
@@ -140,9 +175,11 @@ async def get_current_user(token: str = Depends(security)):
             office=office_data,
             department=user.department
         )
-    
+
     except DoesNotExist:
         raise credentials_exception
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in get_current_user: {e}")
         raise credentials_exception
