@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 from typing import Optional
 from pydantic import BaseModel
 from src.database.models import Grants, GrantVersions, Users, GrantAttachments
-from src.auth.jwthandler import get_current_user
+from src.auth.guard import require_full_auth
 from src.services.excel_generator import ExcelGeneratorService
 from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
 from src.services.construction_photos_pdf_generator import ConstructionPhotosPDFGenerator
@@ -52,7 +52,7 @@ class SubsidyDetailsListRequest(BaseModel):
 @router.post("/photograph-carry-form")
 async def download_photograph_carry_form(
     request: DownloadRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """下載外出拍攝照片攜帶表"""
     try:
@@ -199,7 +199,7 @@ async def download_photograph_carry_form(
 @router.post("/check-data")
 async def check_data_availability(
     request: DownloadRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """檢查指定條件下是否有可下載的資料"""
     try:
@@ -258,7 +258,7 @@ async def check_data_availability(
 @router.post("/budget-book")
 async def download_budget_book(
     request: DownloadRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """下載工程預算書PDF"""
     try:
@@ -389,7 +389,7 @@ async def download_budget_book(
 @router.post("/construction-photos")
 async def download_construction_photos(
     request: DownloadRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """下載施工前後照片（PDF 範本 + 原始照片 ZIP）"""
     try:
@@ -496,7 +496,7 @@ async def download_construction_photos(
 @router.post("/address-labels")
 async def download_address_labels(
     request: DownloadRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """下載住址標籤 Excel"""
     if not request.year:
@@ -553,7 +553,7 @@ async def download_address_labels(
 @router.post("/closing-docs")
 async def download_closing_docs(
     request: DownloadRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """下載結案文件合併 PDF（切結書 + 收據 + 結案申報書）"""
     try:
@@ -629,7 +629,7 @@ async def download_closing_docs(
 @router.post("/receipts")
 async def download_receipts(
     request: DownloadRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """批次下載領款收據合併 PDF（每案件一頁）"""
     try:
@@ -701,7 +701,7 @@ async def download_receipts(
 @router.post("/test-reports")
 async def download_test_reports(
     request: DownloadRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """批次下載功能測試現地勘查報告書合併 PDF（每案件一頁）"""
     try:
@@ -773,7 +773,7 @@ async def download_test_reports(
 @router.post("/review-form")
 async def download_review_form(
     request: DownloadRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """批次下載書面審查表合併 PDF（每案件一頁）"""
     try:
@@ -845,7 +845,7 @@ async def download_review_form(
 @router.post("/cover-page")
 async def download_cover_page(
     request: DownloadRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """批次下載封面合併 PDF（每案件一頁）"""
     try:
@@ -1004,7 +1004,7 @@ async def extract_subsidy_row_data(grant, version_data: dict) -> dict:
 @router.post("/subsidy-details-list")
 async def download_subsidy_details_list(
     request: SubsidyDetailsListRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """下載管路補助金額明細表 XLSX（3 個工作表，依 fundingSourceId 分類）"""
     if not request.year:
@@ -1193,7 +1193,7 @@ def _categorize_file(filename: str, format_ext: str) -> str:
 @router.post("/static-files")
 async def list_static_files(
     filter_request: StaticDownloadsFilterRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """取得靜態下載檔案清單"""
     try:
@@ -1289,7 +1289,7 @@ def _validate_file_security(file_path: Path) -> bool:
 @router.get("/static-file/{file_id}")
 async def download_static_file(
     file_id: str,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """下載靜態檔案"""
     try:
@@ -1356,7 +1356,7 @@ async def download_static_file(
 @router.post("/static-files/batch")
 async def batch_download_static_files(
     request: BatchDownloadRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """批量下載靜態檔案"""
     try:

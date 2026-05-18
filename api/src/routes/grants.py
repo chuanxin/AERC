@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse, FileResponse
 
 from starlette import status
 
-from src.auth.jwthandler import get_current_user
+from src.auth.guard import require_full_auth
 from src.schemas.users import UserOutSchema
 from src.schemas.grants import (
     GrantInSchema, GrantOutSchema, GrantListSchema,
@@ -39,7 +39,7 @@ router = APIRouter(prefix="/grants", tags=["grants"])
 @router.get(
     "/case/{case_number}/step/{step}",
     response_model=Dict[str, Any],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def read_grant_step(
     case_number: str = Path(..., description="案件編號"),
@@ -62,13 +62,13 @@ async def read_grant_step(
 @router.put(
     "/case/{case_number}/step/{step}",
     response_model=Dict[str, Any],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def update_grant_step_api(
     case_number: str = Path(..., description="案件編號"),
     step: int = Path(..., description="步驟編號", ge=1, le=8),
     step_data: Dict[str, Any] = Body(..., description="步驟資料"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """更新特定補助申請案件的特定步驟資料"""
     try:
@@ -82,12 +82,12 @@ async def update_grant_step_api(
 @router.patch(
     "/case/{case_number}/status",
     response_model=Dict[str, Any],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def update_grant_status_api(
     case_number: str = Path(..., description="案件編號"),
     status_data: Dict[str, str] = Body(..., description="狀態資料"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """更新補助申請案件的狀態"""
     try:
@@ -102,12 +102,12 @@ async def update_grant_status_api(
 @router.put(
     "/case/{case_number}/current-step",
     response_model=Dict[str, Any],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def update_current_step_api(
     case_number: str = Path(..., description="案件編號"),
     current_step_data: Dict[str, int] = Body(..., description="當前步驟資料"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """更新補助申請案件的當前步驟"""
     try:
@@ -121,7 +121,7 @@ async def update_current_step_api(
 @router.get(
     "",
     response_model=List[Dict[str, Any]],  # 修改回應模型以支援動態欄位
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def read_grants(
     status: Optional[str] = Query(None, description="案件狀態過濾"),
@@ -131,7 +131,7 @@ async def read_grants(
     skip: int = Query(0, description="分頁用 - 跳過筆數"),
     limit: Optional[int] = Query(None, description="筆數上限（不設定則查詢全部）"),
     tag: Optional[str] = Query(None, description="標籤完全比對篩選"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """取得補助申請案件列表，可依條件過濾"""
     return await crud.get_grants(year, office_id, search, status, skip, limit, current_user, tag)
@@ -140,12 +140,12 @@ async def read_grants(
 @router.patch(
     "/{grant_id}/tag",
     response_model=Dict[str, Any],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def set_grant_tag(
     grant_id: int = Path(..., description="補助案件ID"),
     tag_data: GrantTagSetSchema = Body(..., description="標籤資料"),
-    current_user: UserOutSchema = Depends(get_current_user),
+    current_user: UserOutSchema = Depends(require_full_auth),
 ):
     """設定或清除案件標籤"""
     grant = await Grants.get_or_none(id=grant_id)
@@ -162,7 +162,7 @@ async def set_grant_tag(
 @router.get(
     "/{grant_id}",
     response_model=GrantOutSchema,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def read_grant(grant_id: int = Path(..., description="補助案件ID")):
     """依ID取得單一補助申請案件詳細資料"""
@@ -179,7 +179,7 @@ async def read_grant(grant_id: int = Path(..., description="補助案件ID")):
     "/case/{case_number}",
     # response_model=GrantOutSchema,
     response_model=Dict[str, Any],  # Change this from GrantOutSchema to Dict[str, Any]
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def read_grant_by_case_number(
     case_number: str = Path(..., description="案件編號"),
@@ -202,11 +202,11 @@ async def read_grant_by_case_number(
     "",
     response_model=GrantCreateResponseSchema,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def create_grant_api(
     grant_data: GrantCreateRequestSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """建立新的補助申請案件 (Step 0 - 申請人資料)
     
@@ -224,12 +224,12 @@ async def create_grant_api(
 @router.put(
     "/{grant_id}",
     response_model=GrantOutSchema,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def update_grant_api(
     grant_id: int,
     grant_data: GrantUpdateSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """更新補助申請案件基本資料"""
     try:
@@ -244,13 +244,13 @@ async def update_grant_api(
 @router.patch(
     "/{grant_id}/step/{step}",
     response_model=GrantOutSchema,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def update_grant_step_api(
     grant_id: int,
     step: int,
     step_data: GrantStepSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """更新補助申請案件特定步驟資料"""
     try:
@@ -265,11 +265,11 @@ async def update_grant_step_api(
 @router.patch(
     "/{grant_id}/claim-ownership",
     response_model=Dict[str, Any],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def claim_inactive_grant_ownership(
     grant_id: int,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
     認領 inactive 案件的所有權
@@ -291,11 +291,11 @@ async def claim_inactive_grant_ownership(
 @router.delete(
     "/{grant_id}",
     response_model=Status,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def delete_grant_api(
     grant_id: int,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """刪除補助申請案件"""
     try:
@@ -310,7 +310,7 @@ async def delete_grant_api(
 @router.get(
     "/{grant_id}/land",
     response_model=dict,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def get_land_details(
     grant_id: int,
@@ -328,12 +328,12 @@ async def get_land_details(
 @router.post(
     "/{grant_id}/land",
     response_model=dict,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def create_land_api(
     grant_id: int,
     land_data: GrantLandInSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """建立/更新補助申請案件的土地資料 (Step 2 - 土地資料)"""
     try:
@@ -348,7 +348,7 @@ async def create_land_api(
 @router.post(
     "/search",
     response_model=List[GrantListSchema],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def search_grants_api(
     search_data: GrantSearchSchema,
@@ -368,13 +368,13 @@ async def search_grants_api(
 @router.post(
     "/{grant_id}/documents",
     response_model=dict,
-    dependencies=[Depends(get_current_user)]
+    dependencies=[Depends(require_full_auth)]
 )
 async def upload_document(
     grant_id: int,
     document_type: str = Form(..., description="文件類型"),
     file: UploadFile = File(..., description="上傳檔案"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """上傳補助申請案件相關文件"""
     from src.crud.documents import upload_grant_document
@@ -393,13 +393,13 @@ async def upload_document(
     "/case/{case_number}/create-version",
     response_model=Dict[str, Any],
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def create_version_from_frontend_data_api(
     case_number: str = Path(..., description="案件編號"),
     all_steps_data: Dict[str, Any] = Body(..., description="所有步驟的完整資料"),
     comment: Optional[str] = Body(None, description="版本說明"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """從前端提供的完整資料建立新版本（適用於變更設計功能）"""
     try:
@@ -434,7 +434,7 @@ async def create_version_from_frontend_data_api(
 @router.get(
     "/case/{case_number}/papers",
     response_model=Dict[str, Any],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def get_grant_papers_by_case_number(
     case_number: str = Path(..., description="案件編號"),
@@ -458,7 +458,7 @@ async def get_grant_papers_by_case_number(
 @router.get(
     "/case/{case_number}/versions/compare",
     response_model=Dict[str, Any],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def compare_grant_versions_api(
     case_number: str = Path(..., description="案件編號")
@@ -477,7 +477,7 @@ async def compare_grant_versions_api(
 @router.get(
     "/case/{case_number}/versions/summary",
     response_model=Dict[str, Any],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def get_grant_version_summary_api(
     case_number: str = Path(..., description="案件編號")
@@ -497,11 +497,11 @@ async def get_grant_version_summary_api(
     "/batch-cross-year",
     response_model=List[Dict[str, Any]],
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def batch_cross_year_grants_api(
     batch_data: Dict[str, Any] = Body(..., description="批次跨年度資料"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """批次跨年度處理 - 複製選取的案件並設定為跨年度狀態"""
     try:
@@ -536,13 +536,13 @@ async def batch_cross_year_grants_api(
 @router.get(
     "/applicant-subsidy-summary/{applicant_id}/{year}",
     response_model=Dict[str, Any],
-    dependencies=[Depends(get_current_user)],
+    dependencies=[Depends(require_full_auth)],
 )
 async def get_applicant_subsidy_summary(
     applicant_id: str = Path(..., description="申請人身分證字號"),
     year: int = Path(..., description="申請年度（民國年）"),
     current_grant_id: Optional[int] = Query(None, description="當前案件ID（用於排除自己）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
     查詢申請人年度補助額度摘要
@@ -757,7 +757,7 @@ async def extract_completion_statement_data(grant, version_data: dict) -> tuple:
 @router.post("/case/{case_number}/completion-statement")
 async def download_completion_statement(
     case_number: str = Path(..., description="案件編號"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
     下載結案申報書 PDF
@@ -882,7 +882,7 @@ async def extract_declaration_data(grant, version_data: dict) -> dict:
 @router.post("/case/{case_number}/declaration")
 async def download_declaration(
     case_number: str = Path(..., description="案件編號"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
     下載補助切結書 PDF
@@ -965,7 +965,7 @@ async def extract_authorization_data(grant, version_data) -> dict:
 @router.post("/case/{case_number}/authorization")
 async def download_authorization(
     case_number: str = Path(..., description="案件編號"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
     下載規劃委託書 PDF
@@ -1591,7 +1591,7 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
 async def download_budget_statement(
     case_number: str = Path(..., description="案件編號"),
     grants_id: Optional[int] = Query(None, description="案件ID（用於區分重複案件編號）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
     下載工程預算書 PDF（11頁完整版本）
@@ -1664,7 +1664,7 @@ async def download_budget_statement(
 )
 async def get_execution_progress_statistics(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
     取得即時執行進度統計
@@ -1708,7 +1708,7 @@ async def get_execution_progress_statistics(
 )
 async def get_budget_analysis_statistics(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
     取得即時經費統計分析
@@ -1752,7 +1752,7 @@ async def get_budget_analysis_statistics(
 async def download_execution_progress_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
     office_id: Optional[int] = Query(None, description="管理處 ID（選填，預設查詢全部）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
     下載 A01 各管理處執行進度報表 Excel
@@ -1819,7 +1819,7 @@ async def download_execution_progress_excel(
 async def download_budget_analysis_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
     office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
     下載 A03 各管理處經費統計報表 Excel
@@ -1912,7 +1912,7 @@ async def download_budget_analysis_excel(
 async def download_county_town_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
     office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """下載 A02-1 各縣市鄉鎮區統計報表"""
     try:
@@ -1942,7 +1942,7 @@ async def download_county_town_excel(
 async def download_office_summary_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
     office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """下載 A02-2 各管理處統計報表"""
     try:
@@ -1973,7 +1973,7 @@ async def download_county_town_yearly_excel(
     start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
     end_year: int = Query(..., description="結束年度（民國年）", ge=97, le=200),
     office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """下載 A02-3 歷年各縣市鄉鎮區統計報表"""
     if start_year > end_year:
@@ -2010,7 +2010,7 @@ async def download_office_summary_yearly_excel(
     start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
     end_year: int = Query(..., description="結束年度（民國年）", ge=97, le=200),
     office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """下載 A02-4 歷年各管理處統計報表"""
     if start_year > end_year:
@@ -2053,7 +2053,7 @@ async def download_aboriginal_statistics_excel(
         False,
         description="嚴格第一筆土地模式：True=與A02-1一致，第一筆有效土地必須為原民才計入；False=找第一筆原民有效土地歸屬"
     ),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
     下載 A04 原民區域統計報表 Excel
@@ -2121,7 +2121,7 @@ async def download_aboriginal_yearly_excel(
         False,
         description="嚴格第一筆土地模式：True=第一筆有效土地必須為原民；False=找第一筆原民有效土地歸屬"
     ),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """下載 A08 歷年原民區域統計報表 Excel"""
     if start_year > end_year:
@@ -2160,7 +2160,7 @@ async def download_aboriginal_yearly_excel(
 )
 async def download_a09_county_irrigation_area_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ) -> FileResponse:
     """下載 A09 各縣市事業區域內外統計報表 Excel"""
     try:
@@ -2195,7 +2195,7 @@ async def download_a09_county_irrigation_area_excel(
 )
 async def download_a10_office_irrigation_area_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ) -> FileResponse:
     """下載 A10 各管理處事業區域內外統計報表 Excel"""
     try:
@@ -2234,7 +2234,7 @@ async def download_a10_office_irrigation_area_excel(
 async def download_b01_1_county_management_area_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
     office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ) -> FileResponse:
     """
     下載 B01-1 各縣市管理區內外統計報表 Excel
@@ -2269,7 +2269,7 @@ async def download_b01_1_county_management_area_excel(
 async def download_b01_2_office_management_area_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
     office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ) -> FileResponse:
     """
     下載 B01-2 各管理處管理區內外統計報表 Excel
@@ -2305,7 +2305,7 @@ async def download_b01_3_county_management_area_yearly_excel(
     start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
     end_year: int = Query(..., description="結束年度（民國年）", ge=97, le=200),
     office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ) -> FileResponse:
     """
     下載 B01-3 歷年各縣市管理區內外統計報表 Excel
@@ -2347,7 +2347,7 @@ async def download_b01_4_office_management_area_yearly_excel(
     start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
     end_year: int = Query(..., description="結束年度（民國年）", ge=97, le=200),
     office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ) -> FileResponse:
     """
     下載 B01-4 歷年各管理處管理區內外統計報表 Excel
@@ -2391,7 +2391,7 @@ async def download_b01_4_office_management_area_yearly_excel(
 async def download_b03_county_town_subsidy_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
     office_id: Optional[int] = Query(None, description="管理處 ID（選填）"),
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ) -> FileResponse:
     """
     下載 B03 各縣市鄉鎮區各類補助項目統計表 Excel

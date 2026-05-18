@@ -14,7 +14,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from tortoise.exceptions import DoesNotExist
 
-from src.auth.jwthandler import get_current_user
+from src.auth.guard import require_full_auth
 from src.database.models import Users
 from src.schemas.users import UserInfoSchema
 from src.schemas.permissions import (
@@ -46,7 +46,7 @@ async def list_users(
     role: Optional[str] = Query(None, description="角色篩選"),
     office_id: Optional[int] = Query(None, description="管理處 ID 篩選"),
     search: Optional[str] = Query(None, description="搜尋關鍵字（帳號、姓名、Email）"),
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """
     取得使用者列表（分頁）
@@ -141,7 +141,7 @@ async def list_users(
 )
 async def get_user(
     user_id: int,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """取得單一使用者詳細資訊"""
     try:
@@ -167,7 +167,7 @@ async def get_user(
 async def update_user_permissions(
     user_id: int,
     request: UpdateUserPermissionsRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """
     更新使用者權限
@@ -232,7 +232,7 @@ async def update_user_permissions(
 )
 async def batch_activate_users(
     user_ids: List[int],
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """
     批次啟用帳號
@@ -300,7 +300,7 @@ async def batch_activate_users(
 )
 async def batch_deactivate_users(
     user_ids: List[int],
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """
     批次停用帳號
@@ -385,7 +385,7 @@ async def batch_deactivate_users(
 async def get_pending_approval_users(
     page: int = Query(1, ge=1, description="頁碼"),
     page_size: int = Query(20, ge=1, le=100, description="每頁筆數"),
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """
     取得待審核帳號列表
@@ -454,7 +454,7 @@ async def get_pending_approval_users(
 )
 async def approve_user(
     user_id: int,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """
     審核通過帳號
@@ -513,7 +513,7 @@ async def approve_user(
 async def reject_user(
     user_id: int,
     reason: Optional[str] = None,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """
     拒絕帳號申請

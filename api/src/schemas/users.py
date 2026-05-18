@@ -439,6 +439,39 @@ class ChangePasswordRequest(BaseModel):
         return validate_password_strength(v)
 
 
+# ============================================
+# 加密密碼請求 Schemas（Hybrid Encryption）
+# ============================================
+
+class EncryptedPasswordMixin(BaseModel):
+    """加密密碼欄位組（AES-GCM + RSA-OAEP Hybrid Encryption）"""
+    encrypted_password: str = Field(..., description="AES-GCM 加密後的密碼密文 + auth tag，base64url 編碼")
+    encrypted_key: str = Field(..., description="RSA-OAEP-SHA256 加密後的 AES-256 金鑰，base64url 編碼")
+    iv: str = Field(..., description="AES-GCM 初始化向量（12 bytes），base64url 編碼")
+    kid: str = Field(..., description="伺服器公鑰識別碼")
+    timestamp: int = Field(..., description="請求產生時間，Unix 毫秒時間戳")
+    nonce: str = Field(..., min_length=32, description="隨機唯一字串，每次請求不重複，用於防重放")
+
+
+class EncryptedSecureLoginRequest(EncryptedPasswordMixin):
+    """含驗證碼的安全登入請求（加密格式）"""
+    username: str = Field(..., min_length=1, description="使用者帳號")
+    captcha_token: str = Field(..., min_length=1, description="HMAC 簽名的驗證碼 token")
+    captcha_code: str = Field(..., min_length=4, max_length=4, description="使用者輸入的驗證碼")
+
+    @field_validator('captcha_code')
+    @classmethod
+    def validate_captcha_code(cls, v: str) -> str:
+        if not v.isdigit():
+            raise ValueError('驗證碼必須是 4 位數字')
+        return v
+
+
+class EncryptedChangePasswordRequest(EncryptedPasswordMixin):
+    """密碼更換請求（加密格式）；不含舊密碼，JWT 已驗身"""
+    pass
+
+
 class AccountMigrationCompleteResponse(BaseModel):
     """完成帳號轉移回應"""
     message: str

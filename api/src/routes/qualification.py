@@ -13,7 +13,7 @@ from ..schemas.qualification import (
     SearchHistoryResponse, RecentSearch
 )
 from ..crud.qualification import QualificationCRUD
-from ..auth.jwthandler import get_current_user
+from ..auth.guard import require_full_auth
 
 
 # 設置日誌
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/qualification", tags=["重複案件查詢"])
 @router.post("/search", response_model=QualificationResponse)
 async def search_qualification(
     request: QualificationSearchRequest,
-    current_user = Depends(get_current_user)
+    current_user = Depends(require_full_auth)
 ) -> QualificationResponse:
     """
     統一查詢介面 - 處理所有查詢類型
@@ -64,7 +64,7 @@ async def search_qualification(
 @router.post("/indigenous-check", response_model=AreaCheckResponse)
 async def check_indigenous_area(
     request: AreaCheckRequest,
-    current_user = Depends(get_current_user)
+    current_user = Depends(require_full_auth)
 ) -> AreaCheckResponse:
     """
     原住民鄉區域驗證
@@ -86,7 +86,7 @@ async def check_indigenous_area(
 @router.post("/slope-area-check", response_model=AreaCheckResponse)
 async def check_slope_area(
     request: AreaCheckRequest,
-    current_user = Depends(get_current_user)
+    current_user = Depends(require_full_auth)
 ) -> AreaCheckResponse:
     """
     山坡地區域驗證
@@ -108,7 +108,7 @@ async def check_slope_area(
 @router.get("/recent-searches", response_model=SearchHistoryResponse)
 async def get_recent_searches(
     limit: int = Query(default=5, le=20, description="返回的最近查詢記錄數量"),
-    current_user = Depends(get_current_user)
+    current_user = Depends(require_full_auth)
 ) -> SearchHistoryResponse:
     """
     獲取最近查詢記錄
@@ -131,7 +131,7 @@ async def get_recent_searches(
 
 @router.delete("/clear-history")
 async def clear_search_history(
-    current_user = Depends(get_current_user)
+    current_user = Depends(require_full_auth)
 ) -> dict:
     """
     清除查詢歷史記錄
@@ -152,7 +152,7 @@ async def clear_search_history(
 @router.get("/statistics/summary")
 async def get_statistics_summary(
     years: Optional[List[str]] = Query(default=None, description="統計年度"),
-    current_user = Depends(get_current_user)
+    current_user = Depends(require_full_auth)
 ) -> dict:
     """
     獲取查詢統計摘要
@@ -208,7 +208,7 @@ async def health_check() -> dict:
 
 @router.post("/admin/rebuild-cache")
 async def rebuild_cache(
-    current_user = Depends(get_current_user)  # 這裡應該檢查管理員權限
+    current_user = Depends(require_full_auth)  # 這裡應該檢查管理員權限
 ) -> dict:
     """
     重建查詢快取
@@ -230,7 +230,7 @@ async def rebuild_cache(
 
 @router.get("/admin/performance-metrics")
 async def get_performance_metrics(
-    current_user = Depends(get_current_user)  # 這裡應該檢查管理員權限
+    current_user = Depends(require_full_auth)  # 這裡應該檢查管理員權限
 ) -> dict:
     """
     獲取效能指標

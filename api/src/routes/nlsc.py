@@ -27,7 +27,7 @@ from ..schemas.nlsc import (
     CadastralErrorResponse,
 )
 from ..services.nlsc_service import NLSCService
-from ..auth.jwthandler import get_current_user
+from ..auth.guard import require_full_auth
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ async def query_cadastral_map(
     # 共用參數
     format: str = Query(default="gml", description="檔案格式（gml, kml, shp）"),
     srid: str = Query(default="4326", description="坐標系統（4326: WGS84, 3826: TWD97）"),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ) -> CadastralQueryResponse:
     """
     查詢地籍圖（統一資源端點）
@@ -162,7 +162,7 @@ async def query_cadastral_land(
     land_number_sub: str = Query(default="0", description="地號副號（例如：'0'）", max_length=4),
     format: str = Query(default="gml", description="檔案格式（gml, kml, shp）"),
     srid: str = Query(default="4326", description="坐標系統（4326: WGS84, 3826: TWD97）"),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ) -> CadastralQueryResponse:
     """
     查詢地籍圖（依地號）- 已棄用
@@ -197,7 +197,7 @@ async def query_cadastral_point(
     latitude: Decimal = Query(..., description="緯度（WGS84 或 TWD97）", ge=-90, le=90),
     srid: str = Query(default="4326", description="坐標系統（4326: WGS84, 3826: TWD97）"),
     format: str = Query(default="gml", description="檔案格式（gml, kml, shp）"),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ) -> CadastralQueryResponse:
     """
     查詢地籍圖（依座標點）- 已棄用
@@ -230,7 +230,7 @@ async def proxy_cadastral_wmts_tile(
     tile_matrix: int = Path(..., description="TileMatrix 索引（zoom level, 0-19）"),
     tile_row: int = Path(..., description="TileRow 索引（Y 軸）"),
     tile_col: int = Path(..., description="TileCol 索引（X 軸）"),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ):
     """
     NLSC 地籍圖 WMTS 代理端點
@@ -282,7 +282,7 @@ async def proxy_cadastral_wmts_tile(
 async def query_land_sections(
     county_land_code: str = Path(..., description="縣市地政代碼（例如：'A' for 台北市）"),
     town_land_code: str = Path(..., description="鄉鎮地政代碼（例如：'A01' for 中正區）"),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ) -> Dict[str, Any]:
     """
     查詢地段清單（依地政代碼）
@@ -331,7 +331,7 @@ async def query_land_sections(
 
 @router.get("/health")
 async def check_nlsc_api_health(
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ) -> Dict[str, Any]:
     """
     檢查 NLSC API 服務健康狀態
@@ -371,7 +371,7 @@ async def check_nlsc_api_health(
 @router.post("/cadastral/query-by-land-number", response_model=CadastralQueryResponse, deprecated=True)
 async def query_cadastral_by_land_number_deprecated(
     request: CadastralQueryByLandNumberRequest,
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ) -> CadastralQueryResponse:
     """
     查詢地籍圖（依地號）- 已棄用
@@ -399,7 +399,7 @@ async def query_cadastral_by_land_number_deprecated(
 @router.post("/cadastral/query-by-point", response_model=CadastralQueryResponse, deprecated=True)
 async def query_cadastral_by_point_deprecated(
     request: CadastralQueryByPointRequest,
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ) -> CadastralQueryResponse:
     """
     查詢地籍圖（依座標點）- 已棄用
