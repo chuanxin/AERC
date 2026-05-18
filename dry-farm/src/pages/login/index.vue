@@ -306,6 +306,8 @@
   import { useOfficesStore } from '@/stores/offices'
   import { apiService } from '@/services/api/http'
   import { AUTH } from '@/services/api/endpoints'
+  import { getServerPublicKey } from '@/services/authKeyService'
+  import { encryptPassword, generateNonce } from '@/utils/passwordEncryption'
   import packageInfo from '../../../package.json'
 // import { de } from 'vuetify/locale'
 
@@ -409,14 +411,22 @@
       // Check if we have backend captcha
       if (captchaToken.value) {
         // Use backend validation
+        const keyInfo = await getServerPublicKey()
+        const { encrypted_password, encrypted_key, iv } = await encryptPassword(
+          loginForm.value.password,
+          keyInfo.publicKey,
+        )
         const loginData = {
           username: loginForm.value.account,
-          password: loginForm.value.password,
           captcha_token: captchaToken.value,
-          captcha_code: userCaptcha.value
+          captcha_code: userCaptcha.value,
+          encrypted_password,
+          encrypted_key,
+          iv,
+          kid: keyInfo.kid,
+          timestamp: Date.now(),
+          nonce: generateNonce(),
         }
-
-        console.log('Attempting secure login with backend captcha')
 
         const response: any = await apiService.post(AUTH.LOGIN_SECURE, loginData)
 

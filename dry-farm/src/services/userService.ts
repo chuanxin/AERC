@@ -1,5 +1,7 @@
 import { apiService } from './api/http'
 import { AUTH, USERS } from './api/endpoints'
+import { getServerPublicKey } from './authKeyService'
+import { encryptPassword, generateNonce } from '@/utils/passwordEncryption'
 
 export interface UserCredentials {
   username: string
@@ -46,35 +48,28 @@ export const userService = {
    * @param credentials 登入憑證
    */
   async login(credentials: UserCredentials): Promise<LoginResponse> {
-    try {
-      console.log('發送登入請求，憑證:', credentials);
+    const keyInfo = await getServerPublicKey()
+    const { encrypted_password, encrypted_key, iv } = await encryptPassword(
+      credentials.password,
+      keyInfo.publicKey,
+    )
 
-      const response = await apiService.postForm<LoginResponse>(AUTH.LOGIN, {
-        username: credentials.username,
-        password: credentials.password
-      })
+    const response = await apiService.postForm<LoginResponse>(AUTH.LOGIN, {
+      username: credentials.username,
+      encrypted_password,
+      encrypted_key,
+      iv,
+      kid: keyInfo.kid,
+      timestamp: String(Date.now()),
+      nonce: generateNonce(),
+    })
 
-      console.log('登入響應:', response);
-
-      // 處理 token
-      const token = response?.access_token;
-      if (token) {
-        localStorage.setItem('auth_token', token);
-      }
-
-      return response;
-    } catch (error) {
-      console.error('登入失敗:', error);
-
-      if (error instanceof Error && 'response' in error && error.response) {
-        console.error('錯誤資訊:', {
-          status: (error as { response: { status: number } }).response.status,
-          data: (error as { response: { data: unknown } }).response.data
-        });
-      }
-
-      throw error;
+    const token = response?.access_token
+    if (token) {
+      localStorage.setItem('auth_token', token)
     }
+
+    return response
   },
 
   /**
@@ -167,15 +162,22 @@ export const userService = {
    * 密碼過期強制更換（JWT 已驗證身份，無需提供舊密碼）
    * @param newPassword 新密碼
    */
-  async changePassword(newPassword: string): Promise<void> {
-    try {
-      const response = await apiService.post<void>(AUTH.CHANGE_PASSWORD, {
-        new_password: newPassword
-      })
-      return response
-    } catch (error) {
-      console.error('密碼變更失敗:', error)
-      throw error
-    }
+  async changePassword(newPassword: string): Promise<true> {
+    const keyInfo = await getServerPublicKey()
+    const { encrypted_password, encrypted_key, iv } = await encryptPassword(
+      newPassword,
+      keyInfo.publicKey,
+    )
+
+    await apiService.post<void>(AUTH.CHANGE_PASSWORD, {
+      encrypted_password,
+      encrypted_key,
+      iv,
+      kid: keyInfo.kid,
+      timestamp: Date.now(),
+      nonce: generateNonce(),
+    })
+
+    return true
   }
 }

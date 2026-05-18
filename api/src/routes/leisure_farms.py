@@ -17,7 +17,7 @@ from ..schemas.leisure_farms import (
     LocationSearchRequest,
 )
 from ..crud.leisure_farms import LeisureFarmsCRUD
-from ..auth.jwthandler import get_current_user
+from ..auth.guard import require_full_auth
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/leisure-farms", tags=["休閒農場"])
 @router.post("/nearby", response_model=LeisureFarmNearbyResponse)
 async def search_nearby_farms(
     request: NearbySearchRequest,
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ) -> LeisureFarmNearbyResponse:
     """
     查詢指定座標附近的休閒農場
@@ -66,7 +66,7 @@ async def check_nearby_farms(
     longitude: Decimal = Query(..., description="查詢點經度 (WGS84)"),
     latitude: Decimal = Query(..., description="查詢點緯度 (WGS84)"),
     radius_meters: float = Query(default=1000, ge=100, le=10000, description="查詢半徑（公尺）"),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ) -> LeisureFarmCheckResponse:
     """
     快速檢查指定座標附近是否有休閒農場
@@ -99,7 +99,7 @@ async def check_nearby_farms(
 async def search_farms_by_location(
     county: Optional[str] = Query(None, description="縣市名稱"),
     township: Optional[str] = Query(None, description="鄉鎮市區名稱"),
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ) -> LeisureFarmByLocationResponse:
     """
     依縣市鄉鎮查詢休閒農場
@@ -127,7 +127,7 @@ async def search_farms_by_location(
 
 @router.get("/stats", response_model=LeisureFarmStatsResponse)
 async def get_farms_statistics(
-    current_user=Depends(get_current_user)
+    current_user=Depends(require_full_auth)
 ) -> LeisureFarmStatsResponse:
     """
     取得休閒農場統計資料

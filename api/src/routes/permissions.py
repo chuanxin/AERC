@@ -12,7 +12,7 @@ Created: 2025-12-08
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from src.auth.jwthandler import get_current_user
+from src.auth.guard import require_full_auth
 from src.database.models import Users
 from src.schemas.permissions import (
     PermissionCheckRequest,
@@ -39,7 +39,7 @@ router = APIRouter()
 )
 async def check_permission(
     request: PermissionCheckRequest,
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """
     檢查使用者權限
@@ -92,7 +92,7 @@ async def check_permission(
     description="取得當前使用者的完整權限摘要（用於前端顯示）"
 )
 async def get_permissions_summary(
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(require_full_auth)
 ):
     """
     取得當前使用者權限摘要

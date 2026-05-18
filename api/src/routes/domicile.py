@@ -6,7 +6,7 @@ from src.schemas.domicile import (
     CountyCreateSchema, TownCreateSchema, VillageCreateSchema
 )
 import src.crud.domicile as crud
-from src.auth.jwthandler import get_current_user
+from src.auth.guard import require_full_auth
 from src.schemas.users import UserOutSchema
 
 # router = APIRouter(prefix="/domicile", tags=["domicile"])
@@ -26,7 +26,7 @@ async def get_county(county_id: int):
 @router.post("/counties", response_model=CountySchema)
 async def create_county(
     county: CountyCreateSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """Create a new county (admin only)"""
     if current_user.role != "admin":
@@ -37,7 +37,7 @@ async def create_county(
 async def update_county(
     county_id: int,
     county: CountyCreateSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """Update a county (admin only)"""
     if current_user.role != "admin":
@@ -47,7 +47,7 @@ async def update_county(
 @router.delete("/counties/{county_id}")
 async def delete_county(
     county_id: int,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """Delete a county (admin only)"""
     if current_user.role != "admin":
@@ -69,7 +69,7 @@ async def get_town(town_id: int):
 @router.post("/towns", response_model=TownSchema)
 async def create_town(
     town: TownCreateSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """Create a new town (admin only)"""
     if current_user.role != "admin":
@@ -80,7 +80,7 @@ async def create_town(
 async def update_town(
     town_id: int,
     town: TownCreateSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """Update a town (admin only)"""
     if current_user.role != "admin":
@@ -90,7 +90,7 @@ async def update_town(
 @router.delete("/towns/{town_id}")
 async def delete_town(
     town_id: int,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """Delete a town (admin only)"""
     if current_user.role != "admin":
@@ -112,7 +112,7 @@ async def get_village(village_id: int):
 @router.post("/villages", response_model=VillageSchema)
 async def create_village(
     village: VillageCreateSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """Create a new village (admin only)"""
     if current_user.role != "admin":
@@ -123,7 +123,7 @@ async def create_village(
 async def update_village(
     village_id: int,
     village: VillageCreateSchema,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """Update a village (admin only)"""
     if current_user.role != "admin":
@@ -133,7 +133,7 @@ async def update_village(
 @router.delete("/villages/{village_id}")
 async def delete_village(
     village_id: int,
-    current_user: UserOutSchema = Depends(get_current_user)
+    current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """Delete a village (admin only)"""
     if current_user.role != "admin":
