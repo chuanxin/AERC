@@ -8,6 +8,8 @@ from cryptography.hazmat.primitives.serialization import (
 )
 from fastapi import APIRouter, HTTPException
 
+from ..auth.encryption import _load_private_key_pem
+
 router = APIRouter(tags=["Auth Keys"])
 
 
@@ -18,16 +20,15 @@ def _b64url_encode(data: bytes) -> str:
 @router.get("/auth/public-key")
 async def get_public_key():
     """Tier A 公開端點：回傳當前有效 RSA 公鑰與 kid（供前端 Hybrid Encryption 使用）。"""
-    pem = os.environ.get("AUTH_PRIVATE_KEY_PEM", "").replace("\\n", "\n")
     kid = os.environ.get("AUTH_PUBLIC_KEY_KID", "")
-
-    if not pem or not kid:
+    if not kid:
         raise HTTPException(
             status_code=503,
             detail={"error_code": "KEY_NOT_CONFIGURED", "message": "伺服器金鑰尚未設定，請聯繫管理員"},
         )
 
     try:
+        pem = _load_private_key_pem()
         private_key = load_pem_private_key(pem.encode(), password=None)
         public_key_der = private_key.public_key().public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
     except Exception:

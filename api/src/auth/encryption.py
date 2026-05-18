@@ -14,15 +14,24 @@ def _b64url_decode(s: str) -> bytes:
     return base64.urlsafe_b64decode(s + "=" * padding_needed)
 
 
+def _load_private_key_pem() -> str:
+    """優先讀 AUTH_PRIVATE_KEY_PATH（檔案），不存在則 fallback 到 AUTH_PRIVATE_KEY_PEM（環境變數）。"""
+    path = os.environ.get("AUTH_PRIVATE_KEY_PATH", "")
+    if path:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    pem = os.environ.get("AUTH_PRIVATE_KEY_PEM", "").replace("\\n", "\n")
+    if not pem:
+        raise ValueError("AUTH_PRIVATE_KEY_PEM not set and AUTH_PRIVATE_KEY_PATH not configured")
+    return pem
+
+
 def get_private_key_by_kid(kid: str):
-    """從環境變數 AUTH_PRIVATE_KEY_PEM 載入 RSA 私鑰；kid 不符則拋出 ValueError。"""
+    """載入 RSA 私鑰；kid 不符則拋出 ValueError。"""
     known_kid = os.environ.get("AUTH_PUBLIC_KEY_KID", "")
     if kid != known_kid:
         raise ValueError(f"Unknown kid: {kid}")
-    pem = os.environ.get("AUTH_PRIVATE_KEY_PEM", "").replace("\\n", "\n")
-    if not pem:
-        raise ValueError("AUTH_PRIVATE_KEY_PEM not set")
-    return load_pem_private_key(pem.encode(), password=None)
+    return load_pem_private_key(_load_private_key_pem().encode(), password=None)
 
 
 def decrypt_password(
