@@ -230,7 +230,7 @@ class GrantStatus(str, Enum):
 
     DRAFT = "draft"  # 草稿（編輯中）
     SUBMITTED = "submitted"  # 已結案，並完成文件上傳的完整封存狀態
-    UNDER_REVIEW = "under_review"  # 審查中（已編預算）
+    UNDER_REVIEW = "under_review"  # 審查中
     APPROVED = "approved"  # 核准
     REJECTED = "rejected"  # 駁回
     WITHDRAWN = "withdrawn"  # 撤回
@@ -253,8 +253,9 @@ class GrantStatusGroup:
         GrantStatus.SUBMITTED,
     })
 
-    # 已編列預算：審查中（業務定義的已編列範圍）
+    # 已編列預算：審查中（業務定義的已編列範圍）0518_2026 更新
     BUDGETED: frozenset = frozenset({
+        GrantStatus.DRAFT,
         GrantStatus.UNDER_REVIEW,
         GrantStatus.COMPLETED,
         GrantStatus.SUBMITTED,

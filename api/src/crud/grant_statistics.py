@@ -459,7 +459,7 @@ class GrantStatisticsCRUD:
             planned_area = Decimal('0')
             planned_budget = Decimal('0')
 
-        # 2. 查詢已編預算案件（BUDGETED：審查中案件）
+        # 2. 查詢已編預算案件（BUDGETED）
         budgeted_grants = await Grants.filter(
             year=year,
             office_id=office_id,
@@ -980,7 +980,7 @@ class GrantStatisticsCRUD:
             _ensure_county(c_id, c_name)
             _acc_county('completed', c_id, area_type, grant_area, grant_subsidy)
 
-        # 2. 已編列案件（僅當年度，BUDGETED：審查中案件）
+        # 2. 已編列案件（僅當年度，BUDGETED）
         if is_current_year:
             budgeted_grants = await Grants.filter(
                 year=year,
@@ -1073,7 +1073,7 @@ class GrantStatisticsCRUD:
             _ensure_office(o_id)
             _acc_office('completed', o_id, area_type, grant_area, grant_subsidy)
 
-        # 2. 已編列案件（僅當年度，BUDGETED：審查中案件）
+        # 2. 已編列案件（僅當年度，BUDGETED）
         if is_current_year:
             budgeted_grants = await Grants.filter(
                 year=year,
