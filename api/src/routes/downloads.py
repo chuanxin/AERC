@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from typing import Optional
 from pydantic import BaseModel
-from src.database.models import Grants, GrantVersions, Users, GrantAttachments
+from src.database.models import Grants, GrantVersions, Users, GrantAttachments, GrantStatusGroup
 from src.auth.guard import require_full_auth
 from src.services.excel_generator import ExcelGeneratorService
 from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
@@ -50,6 +50,70 @@ class SubsidyDetailsListRequest(BaseModel):
     case_number_end: Optional[str] = None
     tag: Optional[str] = None
 
+
+# ── 下載端點共用工具函數 ───────────────────────────────────────────────────────
+
+def _build_base_query(year: int, tag: Optional[str], current_user):
+    """建立下載查詢的基礎 queryset：年度 + 標籤 + 所屬單位過濾。
+
+    過濾規則：
+    - admin 角色：不限制，可查詢所有單位
+    - 非 admin 且有 office_id：限制在自己的單位
+    - 非 admin 且 office_id 為 null：不回傳任何資料（帳號未正確設定）
+    """
+    query = Grants.filter(year=year)
+    if tag:
+        query = query.filter(tag__icontains=tag)
+    is_admin = getattr(current_user, 'role', None) == 'admin'
+    if not is_admin:
+        office = getattr(current_user, 'office', None)
+        office_id = office.id if office else None
+        if office_id:
+            query = query.filter(office_id=office_id)
+        else:
+            query = query.filter(id__in=[])
+    return query
+
+
+def _is_excluded_status(grant) -> bool:
+    """依 GrantStatusGroup.EXCLUDED 語義判斷案件是否應排除於下載之外。"""
+    if grant.is_legacy:
+        return grant.status == '99' or '退件' in (grant.status_detail or '')
+    return grant.status in {s.value for s in GrantStatusGroup.EXCLUDED}
+
+
+def _case_number_in_range(case_num: str, start: Optional[str], end: Optional[str]) -> bool:
+    """
+    判斷 case_num 是否落在 [start, end] 區間內。
+    若 start 與 end 位數相同，只比對相同位數的案件編號（防止跨格式誤命中）。
+    """
+    if not case_num or not case_num.isdigit():
+        return False
+    case_int = int(case_num)
+    if start and end and len(start) == len(end):
+        if len(case_num) != len(start):
+            return False
+    elif start and not end:
+        if len(case_num) != len(start):
+            return False
+    elif end and not start:
+        if len(case_num) != len(end):
+            return False
+    if start and case_int < int(start):
+        return False
+    if end and case_int > int(end):
+        return False
+    return True
+
+
+def _filter_grants(grants: list, case_number_start: Optional[str], case_number_end: Optional[str]) -> list:
+    """套用狀態排除與案件編號區間過濾，回傳符合下載條件的案件清單。"""
+    result = [g for g in grants if not _is_excluded_status(g)]
+    if case_number_start or case_number_end:
+        result = [g for g in result if _case_number_in_range(g.case_number, case_number_start, case_number_end)]
+    return result
+
+
 @router.post("/photograph-carry-form")
 async def download_photograph_carry_form(
     request: DownloadRequest,
@@ -61,34 +125,10 @@ async def download_photograph_carry_form(
         if not request.year:
             raise HTTPException(status_code=400, detail="年度參數為必填")
 
-        # 建構查詢條件
-        query = Grants.filter(year=int(request.year), office_id=request.office_id) #  加入 office_id 過濾條件 - added by Joya
-        if request.tag:
-            query = query.filter(tag__icontains=request.tag)
-        
-        # 先取得所有該年度的案件
+        query = _build_base_query(int(request.year), request.tag, current_user)
         all_grants = await query.select_related("active_version").order_by('case_number').all()
+        grants = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
-        # 在 Python 中進行案件編號範圍篩選
-        grants = all_grants
-        if request.case_number_start or request.case_number_end:
-            grants = []
-            for grant in all_grants:
-                case_num = grant.case_number
-                if case_num and case_num.isdigit():
-                    case_num_int = int(case_num)
-
-                    # 檢查範圍
-                    in_range = True
-                    if request.case_number_start and case_num_int < int(request.case_number_start):
-                        in_range = False
-                    if request.case_number_end and case_num_int > int(request.case_number_end):
-                        in_range = False
-
-                    if in_range:
-                        grants.append(grant)
-
-        # 輸出資料庫查詢結果統計
         print(f"=== 資料庫查詢結果 ===")
         print(f"查詢年度: {request.year}")
         if request.case_number_start or request.case_number_end:
@@ -208,34 +248,9 @@ async def check_data_availability(
         if not request.year:
             raise HTTPException(status_code=400, detail="年度參數為必填")
 
-        # 建構查詢條件（與實際下載邏輯相同）
-        query = Grants.filter(year=int(request.year), office_id=request.office_id) #  加入 office_id 過濾條件 - added by Joya
-        if request.tag:
-            query = query.filter(tag__icontains=request.tag)
-
-        # 先取得所有該年度的案件
+        query = _build_base_query(int(request.year), request.tag, current_user)
         all_grants = await query.all()
-
-        # 在 Python 中進行案件編號範圍篩選
-        filtered_grants = all_grants
-        if request.case_number_start or request.case_number_end:
-            filtered_grants = []
-            for grant in all_grants:
-                case_num = grant.case_number
-                if case_num and case_num.isdigit():
-                    case_num_int = int(case_num)
-
-                    # 檢查範圍
-                    in_range = True
-                    if request.case_number_start and case_num_int < int(request.case_number_start):
-                        in_range = False
-                    if request.case_number_end and case_num_int > int(request.case_number_end):
-                        in_range = False
-
-                    if in_range:
-                        filtered_grants.append(grant)
-
-        # 計算符合條件的案件數量
+        filtered_grants = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
         total_count = len(filtered_grants)
 
         if total_count > 0:
@@ -267,34 +282,10 @@ async def download_budget_book(
         if not request.year:
             raise HTTPException(status_code=400, detail="年度參數為必填")
 
-        # 建構查詢條件
-        query = Grants.filter(year=int(request.year))
-        if request.tag:
-            query = query.filter(tag__icontains=request.tag)
-
-        # 先取得所有該年度的案件
+        query = _build_base_query(int(request.year), request.tag, current_user)
         all_grants = await query.select_related("active_version").order_by('case_number').all()
+        grants = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
-        # 在 Python 中進行案件編號範圍篩選
-        grants = all_grants
-        if request.case_number_start or request.case_number_end:
-            grants = []
-            for grant in all_grants:
-                case_num = grant.case_number
-                if case_num and case_num.isdigit():
-                    case_num_int = int(case_num)
-
-                    # 檢查範圍
-                    in_range = True
-                    if request.case_number_start and case_num_int < int(request.case_number_start):
-                        in_range = False
-                    if request.case_number_end and case_num_int > int(request.case_number_end):
-                        in_range = False
-
-                    if in_range:
-                        grants.append(grant)
-
-        # 輸出資料庫查詢結果統計
         print(f"=== 工程預算書查詢結果 ===")
         print(f"查詢年度: {request.year}")
         if request.case_number_start or request.case_number_end:
@@ -397,25 +388,9 @@ async def download_construction_photos(
         if not request.year:
             raise HTTPException(status_code=400, detail="年度參數為必填")
 
-        query = Grants.filter(year=int(request.year))
-        if request.tag:
-            query = query.filter(tag__icontains=request.tag)
+        query = _build_base_query(int(request.year), request.tag, current_user)
         all_grants = await query.order_by('case_number').all()
-
-        grants = all_grants
-        if request.case_number_start or request.case_number_end:
-            grants = []
-            for grant in all_grants:
-                case_num = grant.case_number
-                if case_num and case_num.isdigit():
-                    case_num_int = int(case_num)
-                    in_range = True
-                    if request.case_number_start and case_num_int < int(request.case_number_start):
-                        in_range = False
-                    if request.case_number_end and case_num_int > int(request.case_number_end):
-                        in_range = False
-                    if in_range:
-                        grants.append(grant)
+        grants = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
         if not grants:
             raise HTTPException(status_code=404, detail="找不到符合條件的案件")
@@ -503,25 +478,9 @@ async def download_address_labels(
     if not request.year:
         raise HTTPException(status_code=400, detail="年度參數為必填")
 
-    query = Grants.filter(year=int(request.year))
-    if request.tag:
-        query = query.filter(tag__icontains=request.tag)
+    query = _build_base_query(int(request.year), request.tag, current_user)
     all_grants = await query.order_by('case_number').all()
-
-    grants = all_grants
-    if request.case_number_start or request.case_number_end:
-        grants = []
-        for grant in all_grants:
-            case_num = grant.case_number
-            if case_num and case_num.isdigit():
-                case_num_int = int(case_num)
-                in_range = True
-                if request.case_number_start and case_num_int < int(request.case_number_start):
-                    in_range = False
-                if request.case_number_end and case_num_int > int(request.case_number_end):
-                    in_range = False
-                if in_range:
-                    grants.append(grant)
+    grants = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
     if not grants:
         raise HTTPException(status_code=404, detail="找不到符合條件的案件")
@@ -565,25 +524,9 @@ async def download_closing_docs(
                 int(request.case_number_start) > int(request.case_number_end)):
             raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
 
-        query = Grants.filter(year=int(request.year))
-        if request.tag:
-            query = query.filter(tag__icontains=request.tag)
+        query = _build_base_query(int(request.year), request.tag, current_user)
         all_grants = await query.select_related("active_version").order_by('case_number').all()
-
-        grants = all_grants
-        if request.case_number_start or request.case_number_end:
-            grants = []
-            for grant in all_grants:
-                case_num = grant.case_number
-                if case_num and case_num.isdigit():
-                    case_num_int = int(case_num)
-                    in_range = True
-                    if request.case_number_start and case_num_int < int(request.case_number_start):
-                        in_range = False
-                    if request.case_number_end and case_num_int > int(request.case_number_end):
-                        in_range = False
-                    if in_range:
-                        grants.append(grant)
+        grants = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
         if not grants:
             raise HTTPException(status_code=404, detail="找不到符合條件的案件")
@@ -641,25 +584,9 @@ async def download_receipts(
                 int(request.case_number_start) > int(request.case_number_end)):
             raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
 
-        query = Grants.filter(year=int(request.year))
-        if request.tag:
-            query = query.filter(tag__icontains=request.tag)
+        query = _build_base_query(int(request.year), request.tag, current_user)
         all_grants = await query.select_related("active_version").order_by('case_number').all()
-
-        grants = all_grants
-        if request.case_number_start or request.case_number_end:
-            grants = []
-            for grant in all_grants:
-                case_num = grant.case_number
-                if case_num and case_num.isdigit():
-                    case_num_int = int(case_num)
-                    in_range = True
-                    if request.case_number_start and case_num_int < int(request.case_number_start):
-                        in_range = False
-                    if request.case_number_end and case_num_int > int(request.case_number_end):
-                        in_range = False
-                    if in_range:
-                        grants.append(grant)
+        grants = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
         if not grants:
             raise HTTPException(status_code=404, detail="找不到符合條件的案件")
@@ -713,25 +640,9 @@ async def download_test_reports(
                 int(request.case_number_start) > int(request.case_number_end)):
             raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
 
-        query = Grants.filter(year=int(request.year))
-        if request.tag:
-            query = query.filter(tag__icontains=request.tag)
+        query = _build_base_query(int(request.year), request.tag, current_user)
         all_grants = await query.select_related("active_version").order_by('case_number').all()
-
-        grants = all_grants
-        if request.case_number_start or request.case_number_end:
-            grants = []
-            for grant in all_grants:
-                case_num = grant.case_number
-                if case_num and case_num.isdigit():
-                    case_num_int = int(case_num)
-                    in_range = True
-                    if request.case_number_start and case_num_int < int(request.case_number_start):
-                        in_range = False
-                    if request.case_number_end and case_num_int > int(request.case_number_end):
-                        in_range = False
-                    if in_range:
-                        grants.append(grant)
+        grants = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
         if not grants:
             raise HTTPException(status_code=404, detail="找不到符合條件的案件")
@@ -785,25 +696,9 @@ async def download_review_form(
                 int(request.case_number_start) > int(request.case_number_end)):
             raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
 
-        query = Grants.filter(year=int(request.year))
-        if request.tag:
-            query = query.filter(tag__icontains=request.tag)
+        query = _build_base_query(int(request.year), request.tag, current_user)
         all_grants = await query.select_related("active_version").order_by('case_number').all()
-
-        grants = all_grants
-        if request.case_number_start or request.case_number_end:
-            grants = []
-            for grant in all_grants:
-                case_num = grant.case_number
-                if case_num and case_num.isdigit():
-                    case_num_int = int(case_num)
-                    in_range = True
-                    if request.case_number_start and case_num_int < int(request.case_number_start):
-                        in_range = False
-                    if request.case_number_end and case_num_int > int(request.case_number_end):
-                        in_range = False
-                    if in_range:
-                        grants.append(grant)
+        grants = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
         if not grants:
             raise HTTPException(status_code=404, detail="找不到符合條件的案件")
@@ -857,25 +752,9 @@ async def download_cover_page(
                 int(request.case_number_start) > int(request.case_number_end)):
             raise HTTPException(status_code=400, detail="案件號碼起始值不得大於結束值")
 
-        query = Grants.filter(year=int(request.year))
-        if request.tag:
-            query = query.filter(tag__icontains=request.tag)
+        query = _build_base_query(int(request.year), request.tag, current_user)
         all_grants = await query.select_related("active_version").order_by('case_number').all()
-
-        grants = all_grants
-        if request.case_number_start or request.case_number_end:
-            grants = []
-            for grant in all_grants:
-                case_num = grant.case_number
-                if case_num and case_num.isdigit():
-                    case_num_int = int(case_num)
-                    in_range = True
-                    if request.case_number_start and case_num_int < int(request.case_number_start):
-                        in_range = False
-                    if request.case_number_end and case_num_int > int(request.case_number_end):
-                        in_range = False
-                    if in_range:
-                        grants.append(grant)
+        grants = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
         if not grants:
             raise HTTPException(status_code=404, detail="找不到符合條件的案件")
@@ -1012,40 +891,9 @@ async def download_subsidy_details_list(
         raise HTTPException(status_code=400, detail="年度為必填欄位")
 
     try:
-        query = Grants.filter(year=int(request.year))
-        if request.tag:
-            query = query.filter(tag__icontains=request.tag)
-
+        query = _build_base_query(int(request.year), request.tag, current_user)
         all_grants = await query.select_related("active_version").order_by('case_number').all()
-
-        # 案件號碼範圍篩選（沿用現有端點的 Python 層篩選模式）
-        grants = all_grants
-        if request.case_number_start or request.case_number_end:
-            grants = []
-            for grant in all_grants:
-                case_num = grant.case_number
-                if case_num and case_num.isdigit():
-                    case_num_int = int(case_num)
-                    in_range = True
-                    if request.case_number_start and case_num_int < int(request.case_number_start):
-                        in_range = False
-                    if request.case_number_end and case_num_int > int(request.case_number_end):
-                        in_range = False
-                    if in_range:
-                        grants.append(grant)
-
-        # 狀態篩選：排除已刪除及退件案件
-        filtered = []
-        for grant in grants:
-            if not grant.is_legacy:
-                if grant.status == 'deleted':
-                    continue
-            else:
-                if grant.status == '99':
-                    continue
-                if grant.status_detail and '退件' in (grant.status_detail or ''):
-                    continue
-            filtered.append(grant)
+        filtered = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
         # 依 fundingSourceId 分配至三個工作表
         grants_by_sheet: dict = {'農水署明細表': [], '瑠公明細表': [], '七星明細表': []}
