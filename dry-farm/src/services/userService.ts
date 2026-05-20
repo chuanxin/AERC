@@ -17,6 +17,7 @@ export interface User {
   id: number
   username: string
   full_name?: string
+  role?: string
   created_at?: string
   password_expired?: boolean
   office?: {

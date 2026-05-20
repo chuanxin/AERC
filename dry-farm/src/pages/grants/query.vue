@@ -90,7 +90,7 @@
                             </div>
                             <div class="tooltip-section">
                               <strong>新系統格式：</strong>年度+單位代碼+流水號
-                              <br>例：11401001, 11402015
+                              <br>例：114010001, 114020015
                             </div>
                             <div class="tooltip-section">
                               <strong>舊系統格式：</strong>純流水號
@@ -134,10 +134,10 @@
                                   class="case-number-examples-card"
                                   max-width="280"
                                 >
-                                  <v-card-title class="text-subtitle-1 pa-3 pb-2">
+                                  <v-card-title class="text-subtitle-1 pa-0 pt-0 mt-0">
                                     常見編號範例
                                   </v-card-title>
-                                  <v-card-text class="pa-3 pt-0">
+                                  <v-card-text class="pa-3 pt-0 mt-0">
                                     <div class="examples-list">
                                       <div
                                         v-for="example in caseNumberExamples"
@@ -493,6 +493,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { downloadsService } from '@/services/downloadsService'
 import type { DownloadRequest, DataCheckResponse } from '@/services/downloadsService'
+import { useUserStore } from '@/stores/users'
 
 // 定義檔案項目介面
 interface FileOption {
@@ -503,6 +504,8 @@ interface FileOption {
   formatColor: string
   apiEndpoint: string
 }
+
+const userStore = useUserStore()
 
 // 響應式資料
 const downloading = ref(false)
@@ -539,27 +542,63 @@ const yearOptions = computed(() => {
   return years
 })
 
-// 案件編號範例
-const caseNumberExamples = ref([
-  {
-    type: '新系統 - 全部',
-    start: '114010001',
-    end: '114999999',
-    description: '114年度所有單位'
-  },
-  {
-    type: '新系統 - 各管理處案件',
-    start: '114010001',
-    end: '114019999',
-    description: '114年度宜蘭管理處案件'
-  },
-  {
-    type: '舊系統 - 流水號表示方式',
-    start: '1',
-    end: '199999999',
-    description: '編號1到199999999'
+// 案件編號範例（依登入帳號角色動態產生）
+const caseNumberExamples = computed(() => {
+  const year = searchFilters.value.year || String(new Date().getFullYear() - 1911)
+  const isAdmin = userStore.currentUser?.role === 'admin'
+  const office = userStore.currentUser?.office
+
+  if (isAdmin) {
+    return [
+      {
+        type: '新系統（9位）全部單位',
+        start: `${year}010001`,
+        end: `${year}999999`,
+        description: `${year}年度所有管理處，無站區碼`
+      },
+      {
+        type: '新系統（11位）全部單位',
+        start: `${year}01010001`,
+        end: `${year}99999999`,
+        description: `${year}年度所有管理處，含站區碼`
+      },
+      {
+        type: '舊系統 流水號',
+        start: '1',
+        end: '99999999',
+        description: '舊系統案件（純數值區間）'
+      }
+    ]
   }
-])
+
+  if (office?.id) {
+    const officePrefix = String(office.id).padStart(2, '0')
+    return [
+      {
+        type: `新系統（9位）${office.name}`,
+        start: `${year}${officePrefix}0001`,
+        end: `${year}${officePrefix}9999`,
+        description: `${year}年度，無站區碼`
+      },
+      {
+        type: `新系統（11位）${office.name}`,
+        start: `${year}${officePrefix}010001`,
+        end: `${year}${officePrefix}999999`,
+        description: `${year}年度，含站區碼`
+      }
+    ]
+  }
+
+  // 帳號未設定單位時的後備範例
+  return [
+    {
+      type: '新系統（9位）',
+      start: `${year}010001`,
+      end: `${year}999999`,
+      description: `${year}年度`
+    }
+  ]
+})
 
 // 案件編號驗證規則
 const caseNumberRules = [
@@ -742,24 +781,32 @@ const getCaseNumberFormatHint = () => {
   if (!start && !end) return ''
 
   // 檢查格式一致性
-  if (start && end) {
-    const startIsNewFormat = /^\d{9}$/.test(start) // 9位數字格式
-    const endIsNewFormat = /^\d{9}$/.test(end)
+  const is9Digit = (s: string) => /^\d{9}$/.test(s)   // year(3)+office(2)+sn(4)
+  const is11Digit = (s: string) => /^\d{11}$/.test(s) // year(3)+office(2)+station(2)+sn(4)
+  const isNewFormat = (s: string) => is9Digit(s) || is11Digit(s)
 
-    if (startIsNewFormat && endIsNewFormat) {
-      const startYear = start.substring(0, 3)
-      const endYear = end.substring(0, 3)
-      if (startYear !== endYear) {
-        return '⚠️ 起始和結束編號的年度不一致'
+  if (start && end) {
+    if (is9Digit(start) && is9Digit(end)) {
+      if (start.substring(0, 3) !== end.substring(0, 3)) {
+        return '起始和結束編號的年度不一致'
       }
-      return '✓ 新系統格式，將依案件編號範圍查詢'
-    } else if (!startIsNewFormat && !endIsNewFormat) {
-      return '✓ 舊系統格式，將依案件流水編號範圍查詢'
-    } else {
-      return '⚠️ 起始和結束編號格式不一致，建議使用相同格式'
+      return '✓ 新系統格式（9 位，無站區碼），將依案件編號範圍查詢'
     }
+    if (is11Digit(start) && is11Digit(end)) {
+      if (start.substring(0, 3) !== end.substring(0, 3)) {
+        return '起始和結束編號的年度不一致'
+      }
+      return '✓ 新系統格式（11 位，含站區碼），將依案件編號範圍查詢'
+    }
+    if (!isNewFormat(start) && !isNewFormat(end)) {
+      return '✓ 舊系統格式，將依案件流水編號範圍查詢'
+    }
+    if (start.length !== end.length) {
+      return `起始（${start.length} 位）與結束（${end.length} 位）位數不同，將以純數值區間查詢（不限位數）`
+    }
+    return '起始和結束編號格式不一致，建議使用相同格式'
   } else if (start || end) {
-    return '💡 請設置完整的起始和結束範圍'
+    return '請設置完整的起始和結束範圍'
   }
 
   return ''
