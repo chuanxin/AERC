@@ -726,7 +726,6 @@ const checkDataAvailability = async () => {
       case_number_end: searchFilters.value.caseNumberEnd || null,
       tag: searchFilters.value.tag || null,
       file_type: selectedFileType.value,
-      office_id: currentOfficeId.value //added by Joya
     }
 
     console.log('檢查資料可用性 - 請求參數:', params)
@@ -861,7 +860,6 @@ const handleDownload = async () => {
       caseNumberEnd: searchFilters.value.caseNumberEnd || null,
       tag: searchFilters.value.tag || null,
       fileType: selectedFileType.value,
-      office_id: currentOfficeId.value //added by Joya
     }
 
     console.log(`下載 ${fileName}:`, apiEndpoint, downloadParams)
@@ -873,7 +871,6 @@ const handleDownload = async () => {
       tag: downloadParams.tag,
       file_type: downloadParams.fileType,
       enable_pagination: true, // 預設啟用分頁
-      office_id: downloadParams.office_id //added by Joya
     }
 
     // 第二階段：實際API調用
@@ -956,7 +953,6 @@ onMounted(() => {
   console.log('支援的檔案類型:', allFiles.value.length, '種')
   console.log('按類別分組:', fileCategories.value.length, '類')
   console.log('預設選中:', getSelectedFileName())
-  console.log('當前 Office ID:', currentOfficeId.value)
 })
 </script>
 
