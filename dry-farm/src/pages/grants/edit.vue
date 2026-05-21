@@ -848,106 +848,202 @@
       persistent
     >
       <v-card>
-        <v-card-title class="text-h6 d-flex align-center pa-4">
-          <v-icon
-            color="#3ea0a3"
-            class="mr-3"
-          >
-            mdi-content-copy
-          </v-icon>
-          <span>變更設計</span>
-          <v-spacer />
-          <v-btn
-            icon
-            variant="text"
-            @click="showDesignChangeDialog = false"
-          >
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
-        </v-card-title>
+        <!-- 成功狀態 -->
+        <template v-if="designChangeSuccessResult">
+          <!-- <v-card-title class="text-h6 d-flex align-center pa-4">
+            <v-icon
+              color="success"
+              class="mr-3"
+            >
+              mdi-check-circle
+            </v-icon>
+            <span>新版本已成功建立</span>
+          </v-card-title> -->
 
-        <v-divider />
+          <v-divider />
 
-        <v-card-text class="pa-4">
-          <div class="mb-4">
-            <p class="text-body-2 mb-3">
-              系統將複製當前版本的所有資料，建立一個新的版本記錄。
-            </p>
+          <v-card-text class="pa-4">
+            <v-alert
+              type="success"
+              variant="tonal"
+              class="mb-4"
+            >
+              <div class="text-subtitle-2 font-weight-medium mb-1">
+                版本 {{ designChangeSuccessResult.previous_version }} → 版本 {{ designChangeSuccessResult.new_version }}
+              </div>
+              <div class="text-body-2">
+                系統已將版本 {{ designChangeSuccessResult.previous_version }} 的所有資料完整複製到新版本 {{ designChangeSuccessResult.new_version }}。
+              </div>
+            </v-alert>
 
-            <!-- 當前版本資訊 -->
             <v-card
               variant="outlined"
-              color="#3ea0a3"
               class="mb-4"
             >
               <v-card-text class="pa-3">
-                <div class="d-flex align-center">
+                <div class="text-subtitle-2 font-weight-medium mb-2">
+                  接下來請確認：
+                </div>
+                <div class="d-flex align-start mb-2">
                   <v-icon
-                    color="#3ea0a3"
-                    class="mr-2"
+                    color="primary"
+                    size="18"
+                    class="mr-2 mt-0"
                   >
-                    mdi-tag
+                    mdi-numeric-1-circle
                   </v-icon>
-                  <div>
-                    <div class="text-subtitle-2 font-weight-medium">
-                      當前版本：版本 {{ grantsStore.currentGrant?.active_version?.version || 1 }}
-                    </div>
-                    <div class="text-caption text-medium-emphasis">
-                      案件編號：{{ formatCaseNumber(grantsStore.currentGrant?.case_number) }}
-                    </div>
+                  <div class="text-body-2">
+                    案件已回復到<strong>「初成立」</strong>狀態，所有步驟均已解除鎖定，可自由修改。
+                  </div>
+                </div>
+                <div class="d-flex align-start mb-2">
+                  <v-icon
+                    color="primary"
+                    size="18"
+                    class="mr-2 mt-0"
+                  >
+                    mdi-numeric-2-circle
+                  </v-icon>
+                  <div class="text-body-2">
+                    請從<strong>申請人資料</strong>開始逐步檢視並修改申請內容。
+                  </div>
+                </div>
+                <div class="d-flex align-start">
+                  <v-icon
+                    color="primary"
+                    size="18"
+                    class="mr-2 mt-0"
+                  >
+                    mdi-numeric-3-circle
+                  </v-icon>
+                  <div class="text-body-2">
+                    重新確認「現場勘查」結果，並完成所有變更後，至「文件列印及完成申報」，再次申報案件。
                   </div>
                 </div>
               </v-card-text>
             </v-card>
+          </v-card-text>
 
-            <!-- 版本說明輸入 -->
-            <v-textarea
-              v-model="designChangeComment"
-              label="版本說明（選填）"
-              placeholder="請輸入此次變更設計的說明..."
-              rows="3"
-              variant="outlined"
-              hide-details="auto"
-              counter="255"
-              maxlength="255"
-            />
-          </div>
+          <v-divider />
 
-          <!-- 未儲存變更警告 -->
-          <v-alert
-            v-if="grantsStore.hasUnsavedChanges"
-            type="warning"
-            variant="tonal"
-            class="mb-3"
-          >
-            <v-icon>mdi-alert</v-icon>
-            <span class="ml-2">系統偵測到未儲存的變更，將先自動儲存後再建立新版本。</span>
-          </v-alert>
-        </v-card-text>
+          <v-card-actions class="pa-4">
+            <v-spacer />
+            <v-btn
+              color="#3ea0a3"
+              variant="elevated"
+              @click="handleDesignChangeSuccessConfirm"
+            >
+              <v-icon start>
+                mdi-pencil
+              </v-icon>
+              我了解，開始修改
+            </v-btn>
+          </v-card-actions>
+        </template>
 
-        <v-divider />
-
-        <v-card-actions class="pa-4">
-          <v-spacer />
-          <v-btn
-            variant="text"
-            :disabled="designChangeLoading"
-            @click="showDesignChangeDialog = false"
-          >
-            取消
-          </v-btn>
-          <v-btn
-            :loading="designChangeLoading"
-            color="#3ea0a3"
-            variant="elevated"
-            @click="executeDesignChange(designChangeComment)"
-          >
-            <v-icon start>
+        <!-- 確認狀態 -->
+        <template v-else>
+          <v-card-title class="text-h6 d-flex align-center px-4">
+            <v-icon
+              color="#3ea0a3"
+              class="mr-3"
+            >
               mdi-content-copy
             </v-icon>
-            建立新版本
-          </v-btn>
-        </v-card-actions>
+            <span>變更設計</span>
+            <v-spacer />
+            <v-btn
+              icon
+              variant="text"
+              @click="showDesignChangeDialog = false"
+            >
+              <v-icon>mdi-close</v-icon>
+            </v-btn>
+          </v-card-title>
+
+          <v-divider />
+
+          <v-card-text class="pa-4">
+            <div class="mb-0">
+              <p class="text-body-2 mb-3">
+                系統將複製當前版本的所有資料，建立一個新的版本記錄。
+              </p>
+
+              <!-- 當前版本資訊 -->
+              <v-card
+                variant="outlined"
+                color="#3ea0a3"
+                class="mb-4"
+              >
+                <v-card-text class="pa-3">
+                  <div class="d-flex align-center">
+                    <v-icon
+                      color="#3ea0a3"
+                      class="mr-2"
+                    >
+                      mdi-tag
+                    </v-icon>
+                    <div>
+                      <div class="text-subtitle-2 font-weight-medium">
+                        當前版本：版本 {{ grantsStore.currentGrant?.active_version?.version || 1 }}
+                      </div>
+                      <div class="text-caption text-medium-emphasis">
+                        案件編號：{{ formatCaseNumber(grantsStore.currentGrant?.case_number) }}
+                      </div>
+                    </div>
+                  </div>
+                </v-card-text>
+              </v-card>
+
+              <!-- 版本說明輸入 -->
+              <v-textarea
+                v-model="designChangeComment"
+                label="版本說明（選填）"
+                placeholder="請輸入此次變更設計的說明..."
+                rows="3"
+                variant="outlined"
+                hide-details="auto"
+                counter="255"
+                maxlength="255"
+              />
+            </div>
+
+            <!-- 未儲存變更警告 -->
+            <v-alert
+              v-if="grantsStore.hasUnsavedChanges"
+              type="warning"
+              variant="tonal"
+              class="mb-3"
+            >
+              <v-icon>mdi-alert</v-icon>
+              <span class="ml-2">系統偵測到未儲存的變更，將先自動儲存後再建立新版本。</span>
+            </v-alert>
+          </v-card-text>
+
+          <v-divider />
+
+          <v-card-actions class="pa-4">
+            <v-spacer />
+            <v-btn
+              variant="text"
+              :disabled="designChangeLoading"
+              @click="showDesignChangeDialog = false"
+            >
+              取消
+            </v-btn>
+            <v-btn
+              :loading="designChangeLoading"
+              color="#3ea0a3"
+              variant="elevated"
+              @click="executeDesignChange(designChangeComment)"
+            >
+              <v-icon start>
+                mdi-content-copy
+              </v-icon>
+              建立新版本
+            </v-btn>
+          </v-card-actions>
+        </template>
       </v-card>
     </v-dialog>
 
@@ -1101,8 +1197,7 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useGrantsStore } from '@/stores/grants'
 import { GrantStorage } from '@/utils/grant-storage'
 import { debounce } from 'lodash-es'
-// 🆕 導入版本管理服務函數
-import { createGrantVersion, claimInactiveGrantOwnership, setGrantTag } from '@/services/grantsService'
+import { requestDesignChange, claimInactiveGrantOwnership, setGrantTag } from '@/services/grantsService'
 import { formatCaseNumber } from '@/utils/frontendFilters'
 
 // Import step components
@@ -1270,6 +1365,7 @@ const showDesignChangeDialog = ref(false)
 const showResetStepDialog = ref(false)
 const resetStepLoading = ref(false)
 const designChangeComment = ref('')
+const designChangeSuccessResult = ref<{ new_version: number; previous_version: number } | null>(null)
 
 // 認領 inactive 案件對話窗狀態
 const showClaimDialog = ref(false)
@@ -1705,108 +1801,52 @@ const handleClaimCancel = () => {
   router.push('/grants')
 }
 
-// 🆕 執行變更設計 - 重構錯誤處理
 const executeDesignChange = async (comment?: string) => {
   if (!grantsStore.currentGrant?.case_number) {
-    showNotificationMessage(
-      '變更設計失敗',
-      '無案件資料，無法建立新版本',
-      'error'
-    )
+    showNotificationMessage('變更設計失敗', '無案件資料，無法執行設計變更', 'error')
     return
   }
 
+  designChangeLoading.value = true
+
   try {
-    designChangeLoading.value = true
+    const result = await requestDesignChange(grantsStore.currentGrant.case_number, comment)
+    const caseNumber = grantsStore.currentGrant.case_number
+    const grantsIdParam = route.query.grants_id ? parseInt(route.query.grants_id as string, 10) : undefined
 
-    // 1. 先保存當前所有變更 - 分離儲存邏輯
-    if (grantsStore.hasUnsavedChanges) {
-      try {
-        await grantsStore.saveAllChanges()
-      } catch (saveError) {
-        const errorType = classifyError(saveError)
-        const errorMsg = getErrorMessage(errorType, saveError)
-        showNotificationMessage(errorMsg.title, errorMsg.message, 'error')
-        return
-      }
-    }
-
-    // 2. 收集所有步驟資料 - 修復資料結構污染問題
-    console.log('🔄 Implementing version inheritance for design change')
-
-    // 先取得前一版本的完整資料
-    const { getCurrentVersionData } = await import('../../services/grantsService')
-    const previousVersionData = await getCurrentVersionData(grantsStore.currentGrant.case_number)
-
-    // 🔥 Linus式修復：確保資料格式統一，避免前後端格式混合
-    // 提取前一版本中的 steps 格式資料（後端正確格式）
-    const previousStepsData = previousVersionData.steps || {}
-
-    // 將當前編輯的資料轉換為 steps 格式
-    const currentStepsData: Record<string, any> = {}
-    Object.entries(grantsStore.formData).forEach(([stepKey, stepData]) => {
-      if (stepKey !== '1' && stepData && Object.keys(stepData).length > 0) {
-        currentStepsData[stepKey] = stepData
-      }
-    })
-
-    // 合併資料：使用統一的 steps 格式
-    const allStepsData = {
-      steps: {
-        ...previousStepsData,   // 前一版本的步驟資料
-        ...currentStepsData     // 當前修改的步驟資料
-      }
-    }
-
-    console.log('📋 Previous version steps:', Object.keys(previousStepsData))
-    console.log('✏️ Current editing steps:', Object.keys(currentStepsData))
-    console.log('🔄 Final merged structure:', Object.keys(allStepsData))
-    console.log('🔄 Steps in final structure:', Object.keys(allStepsData.steps))
-
-    // 3. 調用版本創建 API - 分離 API 邏輯
-    const result = await createGrantVersion(
-      grantsStore.currentGrant.case_number,
-      allStepsData,
-      comment || `變更設計 - ${new Date().toLocaleString('zh-TW')}`
-    )
-
-    // 4. 更新當前案件的版本資訊
-    if (grantsStore.currentGrant.active_version) {
-      grantsStore.currentGrant.active_version.version = String(result.version)
-      grantsStore.currentGrant.active_version.created_at = result.created_at
-    }
-
-    // 5. 更新案件狀態為 draft（變更設計後需重新審核）
-    console.log('Updating grant status to draft after design change')
-    await grantsStore.updateGrantStatus(grantsStore.currentGrant.case_number, 'draft')
-    console.log('Grant status updated to draft')
-
-    // 6. 清除步驟鎖定狀態（draft 狀態下所有步驟都可編輯）
-    console.log('Clearing step locks for draft status')
+    // 清除所有鎖定狀態（hard lock、soft lock、disabled），讓後續 initializeEditPage 以 draft 重新套用
     lockedSteps.value.clear()
+    softLockedSteps.value.clear()
     disabledSteps.value.clear()
-    console.log('Step locks cleared')
 
-    // 7. 觸發版本比較資料的重新載入
-    await nextTick()
+    // forceRefresh=true 繞過 5 分鐘快取，取得後端最新狀態（status=draft, 新 active_version_id）
+    await grantsStore.loadGrant(caseNumber, grantsIdParam, true)
 
-    // 8. 統一成功回饋
-    showNotificationMessage(
-      '變更設計成功',
-      `新版本 v${result.version} 建立完成，案件狀態已更新`,
-      'success'
-    )
-
+    // 切換對話框至成功引導狀態（backdrop 維持，等使用者主動關閉）
+    designChangeSuccessResult.value = {
+      new_version: result.new_version,
+      previous_version: result.previous_version
+    }
   } catch (error) {
-    // 統一錯誤處理 - 不再有特殊情況
     const errorType = classifyError(error)
     const errorMsg = getErrorMessage(errorType, error)
     showNotificationMessage(errorMsg.title, errorMsg.message, 'error')
-  } finally {
-    // 清理狀態 - 無論成功失敗都執行
-    designChangeLoading.value = false
     showDesignChangeDialog.value = false
     designChangeComment.value = ''
+  } finally {
+    designChangeLoading.value = false
+  }
+}
+
+// 使用者在成功狀態點擊「我了解，開始確認申請」
+const handleDesignChangeSuccessConfirm = async () => {
+  const caseNumber = grantsStore.currentGrant?.case_number
+  showDesignChangeDialog.value = false
+  designChangeSuccessResult.value = null
+  designChangeComment.value = ''
+  if (caseNumber) {
+    await initializeEditPage(caseNumber, '1')
+    updateStepInURL(1)
   }
 }
 
