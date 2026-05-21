@@ -13,14 +13,16 @@ from src.schemas.grants import (
     GrantUpdateSchema, GrantCreateResponseSchema,
     GrantStepSchema, GrantLandInSchema, GrantSearchSchema,
     GrantCreateRequestSchema, ApplicantSubsidySummarySchema,
-    GrantTagSetSchema
+    GrantTagSetSchema, DesignChangeRequest, DesignChangeResponse
 )
 # import src.crud.offices as crud
 import src.crud.grants as crud
 import src.crud.domicile as domicile_crud
 from src.schemas.token import Status
 from src.crud.grants import get_grant_by_case_number, delete_grant  # Import the missing functions
-from src.database.models import Grants
+from src.database.models import Grants, GrantStatus
+from src.crud.grant_version_service import GrantVersionService
+from src.crud.grant_locations import sync_single_grant_metadata
 from src.services.completion_statement_pdf_generator import CompletionStatementPDFGenerator
 from src.services.declaration_pdf_generator import DeclarationPDFGenerator
 from src.services.authorization_pdf_generator import AuthorizationPDFGenerator
@@ -390,6 +392,53 @@ async def upload_document(
 
 
 @router.post(
+    "/case/{case_number}/design-change",
+    response_model=DesignChangeResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def design_change_api(
+    case_number: str = Path(..., description="案件編號"),
+    request: DesignChangeRequest = Body(...),
+    current_user: UserOutSchema = Depends(require_full_auth)
+):
+    """執行設計變更：後端複製當前版本建立新版本，案件狀態退回 draft"""
+    grant = await Grants.filter(case_number=case_number).first()
+    if not grant:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"案件 {case_number} 不存在"
+        )
+    if grant.status != GrantStatus.UNDER_REVIEW:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"案件 {case_number} 目前狀態為 {grant.status}，僅 under_review 狀態可執行設計變更"
+        )
+
+    result = await GrantVersionService.create_design_change_version(
+        grant_id=grant.id,
+        user_id=current_user.id,
+        comment=request.comment
+    )
+
+    await sync_single_grant_metadata(
+        grant_id=grant.id,
+        status=GrantStatus.DRAFT,
+        year=grant.year
+    )
+
+    return DesignChangeResponse(
+        grant_id=result["grant_id"],
+        new_version_id=result["new_version_id"],
+        new_version=result["new_version"],
+        previous_version=result["previous_version"],
+        comment=result["comment"],
+        action=result["action"],
+        case_number=case_number,
+        message=f"設計變更版本建立成功"
+    )
+
+
+@router.post(
     "/case/{case_number}/create-version",
     response_model=Dict[str, Any],
     status_code=status.HTTP_201_CREATED,
@@ -401,34 +450,11 @@ async def create_version_from_frontend_data_api(
     comment: Optional[str] = Body(None, description="版本說明"),
     current_user: UserOutSchema = Depends(require_full_auth)
 ):
-    """從前端提供的完整資料建立新版本（適用於變更設計功能）"""
-    try:
-        # 取得案件資訊
-        grant = await crud.get_grant_by_case_number(case_number)
-        
-        # 使用 grant_versions CRUD 建立版本
-        from src.schemas.grant_versions import GrantVersionCreateSchema
-        from src.crud.grant_versions import create_grant_version
-        
-        version_data = GrantVersionCreateSchema(
-            grant_id=grant["id"],
-            all_steps_data=all_steps_data,
-            comment=comment or f"從前端資料建立版本 - {case_number}"
-        )
-        
-        result = await create_grant_version(version_data, current_user)
-        
-        return {
-            **result,
-            "case_number": case_number,
-            "message": "從前端資料建立版本成功"
-        }
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"從前端資料建立版本失敗: {str(e)}",
-        )
+    """⚠️ 此端點已廢棄，請改用 POST /grants/case/{case_number}/design-change"""
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=f"此端點已廢棄，請改用 POST /grants/case/{case_number}/design-change"
+    )
 
 
 @router.get(

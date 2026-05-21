@@ -220,7 +220,7 @@ export const useGrantsStore = defineStore('grants', () => {
    * @param {string} caseNumber - The grant case number
    * @returns {Promise<GrantCreateResponse>} The loaded grant
    */
-  const loadGrant = async (caseNumber: string, grantsId?: number) => {
+  const loadGrant = async (caseNumber: string, grantsId?: number, forceRefresh: boolean = false) => {
     isLoading.value = true
     error.value = null
 
@@ -228,8 +228,8 @@ export const useGrantsStore = defineStore('grants', () => {
       // Cache key for this request (包含 grantsId 以避免緩存衝突)
       const cacheKey = `loadGrant_${caseNumber}_${grantsId || 'default'}`
 
-      // Return cached result if available and less than 5 minutes old
-      if (requestCache[cacheKey] &&
+      // Return cached result if available and less than 5 minutes old (forceRefresh bypasses cache)
+      if (!forceRefresh && requestCache[cacheKey] &&
           (Date.now() - requestCache[cacheKey].timestamp) < 300000) {
         currentGrant.value = requestCache[cacheKey].data
         return requestCache[cacheKey].data

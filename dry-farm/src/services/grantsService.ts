@@ -1121,7 +1121,36 @@ export interface GrantVersionDetail {
   }
 }
 
+/** 設計變更成功回應（對應 POST /grants/case/{case_number}/design-change） */
+export interface DesignChangeResponse {
+  grant_id: number
+  new_version_id: number
+  new_version: number
+  previous_version: number
+  comment: string | null
+  action: string
+  case_number: string
+  message: string
+}
+
 /**
+ * 執行設計變更：只傳 comment，後端複製當前版本建立新版本
+ * @param caseNumber 案件編號
+ * @param comment 版本說明（選填）
+ */
+export const requestDesignChange = async (
+  caseNumber: string,
+  comment?: string
+): Promise<DesignChangeResponse> => {
+  const response = await apiService.post<DesignChangeResponse>(
+    `/grants/case/${caseNumber}/design-change`,
+    { comment: comment ?? null }
+  )
+  return response
+}
+
+/**
+ * @deprecated 請改用 requestDesignChange()。此函數呼叫已廢棄的 /create-version 端點（410 Gone）。
  * 建立新的補助案件版本
  * @param caseNumber 案件編號
  * @param allStepsData 所有步驟的完整資料
@@ -1172,6 +1201,7 @@ export const createGrantVersion = async (
 }
 
 /**
+ * @deprecated executeDesignChange() 已不再呼叫此函數。後端直接複製版本，前端無需讀取版本資料。
  * 取得當前活躍版本的完整資料（用於變更設計繼承）
  * @param caseNumber 案件編號
  */

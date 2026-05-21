@@ -154,9 +154,12 @@ class GrantVersionService:
                     created_by_id=user_id
                 )
                 
-                # 更新 grant 的 active_version_id
-                await Grants.filter(id=grant_id).update(active_version_id=new_version.id)
-                
+                # 更新 active_version_id 並將案件狀態退回 draft（FR-005），同一 transaction 確保原子性
+                await Grants.filter(id=grant_id).update(
+                    active_version_id=new_version.id,
+                    status=GrantStatus.DRAFT
+                )
+
                 # 建立歷史記錄
                 await cls._create_history_record(
                     grant=grant,
@@ -180,6 +183,8 @@ class GrantVersionService:
                     'action': 'design_change_version_created'
                 }
                 
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"建立設計變更版本失敗: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"建立設計變更版本失敗: {str(e)}")

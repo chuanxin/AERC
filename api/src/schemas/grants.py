@@ -476,3 +476,20 @@ class ApplicantSubsidySummarySchema(BaseSchema):
     subsidy_limit: float = Field(default=500000, description="年度補助上限")
     grant_count: int = Field(..., description="案件數量")
     grants: List[ApplicantGrantSummaryItemSchema] = Field(..., description="案件列表")
+
+
+class DesignChangeRequest(BaseSchema):
+    """設計變更請求 — 前端只需傳 comment，版本資料由後端從現有版本複製"""
+    comment: Optional[str] = Field(None, max_length=255, description="版本說明（選填）")
+
+
+class DesignChangeResponse(BaseSchema):
+    """設計變更成功回應"""
+    grant_id: int = Field(..., description="案件 ID")
+    new_version_id: int = Field(..., description="新版本 ID")
+    new_version: int = Field(..., description="新版本號")
+    previous_version: int = Field(..., description="前一版本號")
+    comment: Optional[str] = Field(None, description="版本說明")
+    action: str = Field(..., description="操作類型")
+    case_number: str = Field(..., description="案件編號")
+    message: str = Field(..., description="操作結果訊息")

@@ -2134,46 +2134,128 @@ async def get_grant_version_summary(case_number: str) -> Dict[str, Any]:
 
 
 def compare_facilities_data(first_version_data: Dict[str, Any], latest_version_data: Dict[str, Any]) -> Dict[str, Any]:
-    """比較兩個版本的設施資料差異"""
-    
-    # 取得 step3 和 step4 的資料
+    """比較兩個版本的設施資料差異（v1 vs vN 累積比較）"""
+
     first_steps = first_version_data.get("steps", {})
     latest_steps = latest_version_data.get("steps", {})
-    
-    first_step3 = first_steps.get("3", {})
-    first_step4 = first_steps.get("4", {})
-    latest_step3 = latest_steps.get("3", {})
-    latest_step4 = latest_steps.get("4", {})
 
-    # 比較灌溉調控設施 (step3)
+    # 灌溉調控設施：UI step 4 → steps["4"]（Bug 1 修正：原為 steps["3"]）
+    first_step4_data = first_steps.get("4", {})
+    latest_step4_data = latest_steps.get("4", {})
+
+    # 田間管路設施：UI step 5 → steps["5"]（Bug 2a 修正：原為 steps["4"]）
+    first_step5_data = first_steps.get("5", {})
+    latest_step5_data = latest_steps.get("5", {})
+
+    # 比較灌溉調控設施
     irrigation_comparison = compare_facility_list(
-        first_step3.get("facilities", []),
-        latest_step3.get("facilities", []),
+        first_step4_data.get("facilities", []),
+        latest_step4_data.get("facilities", []),
         "irrigation"
     )
 
-    # 比較田間管路設施 (step4) 
-    pipeline_comparison = compare_facility_list(
-        [
-            *first_step4.get("mainPipes", []),
-            *first_step4.get("irrigationSystem", [])
-        ],
-        [
-            *latest_step4.get("mainPipes", []),
-            *latest_step4.get("irrigationSystem", [])
-        ],
-        "pipeline"
+    # 比較田間管路材料清單（Bug 2b/2c 修正：原為 mainPipes / irrigationSystem）
+    # 比較鍵為 matname + specification 複合鍵
+    pipeline_comparison = compare_pipeline_list(
+        first_step5_data.get("pipes", []),
+        latest_step5_data.get("pipes", [])
     )
+
+    # 田間管路配置層比較（irrigationTypeId 等 5 個欄位）
+    config_fields = ["irrigationTypeId", "mainPipeDiameterId", "mainPipeMaterialId", "dripperSubtypeId", "sprinklerSubtypeId"]
+    pipeline_config_changes = [
+        {
+            "field": field,
+            "before": first_step5_data.get(field),
+            "after": latest_step5_data.get(field),
+            "changed": first_step5_data.get(field) != latest_step5_data.get(field)
+        }
+        for field in config_fields
+    ]
+
+    # 金額匯總
+    irrigation_before = sum(float(item.get("totalPrice", 0) or 0) for item in first_step4_data.get("facilities", []))
+    irrigation_after = sum(float(item.get("totalPrice", 0) or 0) for item in latest_step4_data.get("facilities", []))
+    pipeline_before = sum(float(item.get("totalPrice", 0) or 0) for item in first_step5_data.get("pipes", []))
+    pipeline_after = sum(float(item.get("totalPrice", 0) or 0) for item in latest_step5_data.get("pipes", []))
 
     return {
         "irrigation_control_facilities": irrigation_comparison,
         "pipeline_facilities": pipeline_comparison,
+        "pipeline_config_changes": pipeline_config_changes,
         "summary": {
             "total_changes": len([item for item in irrigation_comparison + pipeline_comparison if item["change_type"] != "unchanged"]),
             "has_irrigation_changes": any(item["change_type"] != "unchanged" for item in irrigation_comparison),
-            "has_pipeline_changes": any(item["change_type"] != "unchanged" for item in pipeline_comparison)
+            "has_pipeline_changes": any(item["change_type"] != "unchanged" for item in pipeline_comparison),
+            "irrigation_amount_before": irrigation_before,
+            "irrigation_amount_after": irrigation_after,
+            "pipeline_amount_before": pipeline_before,
+            "pipeline_amount_after": pipeline_after,
+            "total_amount_change": (irrigation_after + pipeline_after) - (irrigation_before + pipeline_before)
         }
     }
+
+
+def compare_pipeline_list(before_list: List[Dict], after_list: List[Dict]) -> List[Dict[str, Any]]:
+    """比較田間管路材料清單，以 matname + specification 複合鍵識別項目"""
+    results = []
+    processed_keys: set = set()
+
+    def composite_key(item: Dict) -> str:
+        return f"{item.get('matname', '')} {item.get('specification', '')}"
+
+    for after_item in after_list:
+        key = composite_key(after_item)
+        processed_keys.add(key)
+        before_item = next((i for i in before_list if composite_key(i) == key), None)
+
+        if not before_item:
+            results.append({
+                "name": key,
+                "before_quantity": 0,
+                "after_quantity": float(after_item.get("matamount", 0) or 0),
+                "quantity_change": float(after_item.get("matamount", 0) or 0),
+                "before_price": "0",
+                "after_price": str(after_item.get("matprice", 0) or 0),
+                "before_total": 0,
+                "after_total": float(after_item.get("totalPrice", 0) or 0),
+                "unit": after_item.get("itemunit", ""),
+                "change_type": "added"
+            })
+        else:
+            before_qty = float(before_item.get("matamount", 0) or 0)
+            after_qty = float(after_item.get("matamount", 0) or 0)
+            qty_change = after_qty - before_qty
+            results.append({
+                "name": key,
+                "before_quantity": before_qty,
+                "after_quantity": after_qty,
+                "quantity_change": qty_change,
+                "before_price": str(before_item.get("matprice", 0) or 0),
+                "after_price": str(after_item.get("matprice", 0) or 0),
+                "before_total": float(before_item.get("totalPrice", 0) or 0),
+                "after_total": float(after_item.get("totalPrice", 0) or 0),
+                "unit": after_item.get("itemunit", "") or before_item.get("itemunit", ""),
+                "change_type": "unchanged" if qty_change == 0 and before_item.get("matprice") == after_item.get("matprice") else "modified"
+            })
+
+    for before_item in before_list:
+        key = composite_key(before_item)
+        if key not in processed_keys:
+            results.append({
+                "name": key,
+                "before_quantity": float(before_item.get("matamount", 0) or 0),
+                "after_quantity": 0,
+                "quantity_change": -float(before_item.get("matamount", 0) or 0),
+                "before_price": str(before_item.get("matprice", 0) or 0),
+                "after_price": "0",
+                "before_total": float(before_item.get("totalPrice", 0) or 0),
+                "after_total": 0,
+                "unit": before_item.get("itemunit", ""),
+                "change_type": "removed"
+            })
+
+    return sorted(results, key=lambda x: x["name"])
 
 
 def compare_facility_list(before_list: List[Dict], after_list: List[Dict], facility_type: str) -> List[Dict[str, Any]]:
