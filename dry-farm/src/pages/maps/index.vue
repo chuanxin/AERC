@@ -993,7 +993,6 @@ import ScaleLine from 'ol/control/ScaleLine.js';
 import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
-import Cluster from 'ol/source/Cluster';
 // import { Heatmap as HeatmapLayer } from 'ol/layer'; // 註解熱區圖
 import { Polygon, LineString, Point } from 'ol/geom';
 import Draw from 'ol/interaction/Draw';
@@ -3365,10 +3364,9 @@ const updateLayersWithFilteredData = () => {
     updateGridLayer(filteredFeatures.value);
   } else {
     // 更新點位圖層
-    const clusterSource = grantPointsLayer.value.getSource() as Cluster;
-    const baseSource = clusterSource?.getSource();
-    if (baseSource) {
-      baseSource.clear();
+    const pointSource = grantPointsLayer.value.getSource() as VectorSource;
+    if (pointSource) {
+      pointSource.clear();
 
       try {
         const geoJSONFormat = new GeoJSON();
@@ -3376,7 +3374,7 @@ const updateLayersWithFilteredData = () => {
           featureProjection: 'EPSG:3857'
         });
 
-        baseSource.addFeatures(features);
+        pointSource.addFeatures(features);
         console.log(`點位圖層已更新，載入 ${features.length} 個點位`);
       } catch (error) {
         console.error('GeoJSON 解析失敗:', error);
@@ -3393,7 +3391,7 @@ const updateLayersWithFilteredData = () => {
           return null;
         }).filter((f): f is Feature<Point> => f !== null);
 
-        baseSource.addFeatures(features);
+        pointSource.addFeatures(features);
         console.log(`點位圖層已更新（手動方式），載入 ${features.length} 個點位`);
       }
     }
@@ -4159,18 +4157,11 @@ async function initMap() {
       }
     });
 
-    // 建立 OpenLayers 聚合源
-    const clusterSource = new Cluster({
-      source: baseVectorSource,
-      distance: 50, // 聚合距離（像素）
-      minDistance: 20, // 最小聚合距離
-    });
-
     const grantPointsMapLayer = mapLayers.value.find(l => l.id === 'grant-points')!
     const grantLayer = new VectorLayer({
-      source: clusterSource,
+      source: baseVectorSource,
       style: (feature) => {
-        return createClusterStyle(feature)
+        return createPointStyle(feature)
       },
       visible: grantPointsMapLayer.visible,
       opacity: grantPointsMapLayer.opacity
@@ -4427,46 +4418,8 @@ async function initMap() {
           });
 
           if (feature) {
-            // 從 cluster feature 中取得原始 features
-            const clusterFeatures = feature.get('features') as Feature[];
-
-            if (clusterFeatures && clusterFeatures.length > 0) {
-              if (clusterFeatures.length === 1) {
-                // 單一點位：取得原始 feature 的 properties
-                const originalFeature = clusterFeatures[0];
-                const properties = originalFeature.getProperties();
-                showGrantPopup(event.coordinate, properties);
-              } else {
-                // 聚合點位：顯示聚合資訊
-                // 計算年度範圍
-                const years = clusterFeatures
-                  .map(f => f.get('apply_year'))
-                  .filter(year => year !== undefined && year !== null) as number[];
-                const minYear = years.length > 0 ? Math.min(...years) : null;
-                const maxYear = years.length > 0 ? Math.max(...years) : null;
-                const yearRange = minYear && maxYear
-                  ? (minYear === maxYear ? `${minYear}` : `${minYear}-${maxYear}`)
-                  : '未知';
-
-                // 取得當前縮放等級
-                const currentZoom = map?.getView().getZoom();
-                const zoomLevel = currentZoom !== undefined ? currentZoom.toFixed(1) : '未知';
-
-                const properties = {
-                  cluster: true,
-                  point_count: clusterFeatures.length,
-                  source_system: clusterFeatures[0].get('source_system'),
-                  year_range: yearRange,
-                  zoom_level: zoomLevel,
-                  features: clusterFeatures
-                };
-                showGrantPopup(event.coordinate, properties);
-              }
-            } else {
-              // 非 cluster feature（不應該發生，但作為備案）
-              const properties = feature.getProperties();
-              showGrantPopup(event.coordinate, properties);
-            }
+            const properties = feature.getProperties();
+            showGrantPopup(event.coordinate, properties);
           }
         } else if (displayMode.value === 'grid') {
           // 格網模式：處理格網統計
@@ -4533,11 +4486,10 @@ async function initMap() {
               gridSource.refresh();
             }
           } else if (displayMode.value === 'points' && grantPointsLayer.value) {
-            const clusterSource = grantPointsLayer.value.getSource() as Cluster;
-            const baseSource = clusterSource?.getSource();
-            if (baseSource) {
+            const pointSource = grantPointsLayer.value.getSource() as VectorSource;
+            if (pointSource) {
               console.log('[InitMap] 初始化完成，觸發點位圖層資料載入');
-              baseSource.refresh();
+              pointSource.refresh();
             }
           }
         }, 100);
@@ -4812,84 +4764,19 @@ const loadRawDataForLayer = async (
 }
 
 // 建立聚合點位樣式
-const createClusterStyle = (feature: Feature | import('ol/render/Feature').default) => {
-  // 取得聚合內的特徵數量
-  const features = feature.get('features') as Feature[]
-  const size = features ? features.length : 1
+const createPointStyle = (feature: Feature | import('ol/render/Feature').default) => {
+  const sourceSystem = feature.get('source_system')
+  const isNewSystem = sourceSystem === 'new_aerc'
+  const fillColor = isNewSystem ? '#3498db' : '#e74c3c'
+  const strokeColor = isNewSystem ? '#2980b9' : '#c0392b'
 
-  if (size === 1) {
-    // 單一點位樣式
-    const singleFeature = features[0]
-    const sourceSystem = singleFeature.get('source_system')
-
-    // 根據資料來源設定不同顏色
-    const isNewSystem = sourceSystem === 'new_aerc'
-    const fillColor = isNewSystem ? '#3498db' : '#e74c3c'
-    const strokeColor = isNewSystem ? '#2980b9' : '#c0392b'
-
-    return new Style({
-      image: new Circle({
-        radius: 8,
-        fill: new Fill({
-          color: fillColor
-        }),
-        stroke: new Stroke({
-          color: strokeColor,
-          width: 2
-        })
-      })
-    });
-  } else {
-    // 聚合點位樣式
-    // 根據聚合數量調整大小和顏色
-    let radius = 15;
-    let fillColor = '#ff9500';
-    let strokeColor = '#e67e00';
-
-    if (size >= 100) {
-      radius = 25;
-      fillColor = '#e74c3c';
-      strokeColor = '#c0392b';
-    } else if (size >= 50) {
-      radius = 22;
-      fillColor = '#f39c12';
-      strokeColor = '#d68910';
-    } else if (size >= 20) {
-      radius = 19;
-      fillColor = '#ff9500';
-      strokeColor = '#e67e00';
-    } else if (size >= 10) {
-      radius = 17;
-      fillColor = '#ffb74d';
-      strokeColor = '#ff9800';
-    }
-
-    return new Style({
-      image: new Circle({
-        radius: radius,
-        fill: new Fill({
-          color: fillColor
-        }),
-        stroke: new Stroke({
-          color: strokeColor,
-          width: 3
-        })
-      }),
-      text: new Text({
-        text: size.toString(),
-        fill: new Fill({
-          color: '#ffffff'
-        }),
-        stroke: new Stroke({
-          color: strokeColor,
-          width: 2
-        }),
-        font: 'bold 14px Arial',
-        textAlign: 'center',
-        textBaseline: 'middle'
-      })
+  return new Style({
+    image: new Circle({
+      radius: 8,
+      fill: new Fill({ color: fillColor }),
+      stroke: new Stroke({ color: strokeColor, width: 2 })
     })
-  }
+  })
 }
 
 // 刷新圖層資料（供手動觸發使用）
@@ -4906,8 +4793,8 @@ const refreshLayerData = () => {
 
   if (grantPointsLayer.value && displayMode.value === 'points') {
     console.log('[RefreshLayers] 刷新點位圖層')
-    const clusterSource = grantPointsLayer.value.getSource() as Cluster
-    clusterSource?.getSource()?.refresh() // Cluster source 需要兩層
+    const pointSource = grantPointsLayer.value.getSource() as VectorSource
+    pointSource?.refresh()
   }
 }
 </script>
