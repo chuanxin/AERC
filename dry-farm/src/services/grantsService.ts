@@ -604,8 +604,9 @@ export class HybridGrantService {
   /**
    * 從步驟資料中提取設施類型
    */
+  // 注意：此方法目前未接入主列表（主列表由 API grantsList 驅動）列入棄用清單
   private extractFacilityType(grantData: GrantData): string {
-    const step4Data = grantData.stepsData?.[4] || {}
+    const step5Data = grantData.stepsData?.[5] || {}
     const typeMap: Record<string, string> = {
       '穿孔管系統': '穿孔管',
       '噴頭式系統': '噴灌',
@@ -613,7 +614,7 @@ export class HybridGrantService {
       '滴灌系統': '滴灌',
       '其他': '其他'
     }
-    return typeMap[step4Data.irrigationType as string] || '未設定'
+    return typeMap[step5Data.irrigationType as string] || '未設定'
   }
 
   /**
