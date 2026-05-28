@@ -577,7 +577,7 @@ async def get_applicant_subsidy_summary(
     - 年度補助上限：50萬元
     - 計入狀態：submitted, under_review, approved, completed
     - 補助來源（雙軌制）：
-        * 新系統案件 (is_legacy=False): step4(灌溉調控設施) + step5(田間管路)
+        * 新系統案件 (is_legacy=False): sum(step4.facilities[].subsidyAmount) + step5.subsidyAmount（調控/調蓄/動力 + 田間管路）
         * 歷史案件 (is_legacy=True): pay_detail.amount - pay_detail.self_raised
     - 以 active_version 為準
     """

@@ -2340,7 +2340,8 @@ async def calculate_applicant_yearly_subsidy(
 
     補助金額計算邏輯：
         - 新系統案件 (is_legacy=False):
-            補助金額 = step4.subsidyAmount + step5.subsidyAmount
+            補助金額 = sum(step4.facilities[].subsidyAmount)  # 調控/調蓄/動力設施
+                     + step5.subsidyAmount                    # 田間管路
         - 歷史案件 (is_legacy=True):
             補助金額 = pay_detail.amount - pay_detail.self_raised
 
@@ -2411,11 +2412,17 @@ async def calculate_applicant_yearly_subsidy(
                     # 新系統案件：從 steps 取得補助金額
                     steps_data = grant.active_version.all_steps_data.get("steps", {})
 
-                    # Step4: 灌溉調控設施補助 (UI 顯示為 step3，但資料儲存在 step4)
+                    # Step4: 灌溉調控設施補助（含動力設備、調蓄設施、調節控制設施）
+                    # 資料結構為 facilities[]，無頂層 subsidyAmount
                     step4_data = steps_data.get("4", {})
-                    step4_subsidy = float(step4_data.get("subsidyAmount", 0) or 0)
+                    facilities = step4_data.get("facilities", [])
+                    step4_subsidy = sum(
+                        float(f.get("subsidyAmount", 0) or 0)
+                        for f in facilities
+                        if isinstance(f, dict)
+                    )
 
-                    # Step5: 田間管路補助 (UI 顯示為 step4，但資料儲存在 step5)
+                    # Step5: 田間管路補助（頂層 subsidyAmount 欄位）
                     step5_data = steps_data.get("5", {})
                     step5_subsidy = float(step5_data.get("subsidyAmount", 0) or 0)
 
@@ -2423,7 +2430,7 @@ async def calculate_applicant_yearly_subsidy(
 
                     logger.info(
                         f"[新系統案件] {grant.case_number}: "
-                        f"step4(調控設施)={step4_subsidy}, "
+                        f"step4(調控/調蓄/動力設施)={step4_subsidy}, "
                         f"step5(田間管路)={step5_subsidy}, "
                         f"總計={subsidy_amount}"
                     )

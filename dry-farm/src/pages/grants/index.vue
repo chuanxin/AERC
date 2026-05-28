@@ -876,7 +876,7 @@ const filteredItems = computed(() => {
   return result
 })
 
-// Load all data from localStorage and sample data
+// 注意：loadAllItems / allItems 目前未接入主列表（主列表由 displayGrantsList / API 驅動）列入棄用清單
 const loadAllItems = () => {
   loading.value = true
 
@@ -898,11 +898,11 @@ const loadAllItems = () => {
     const areaHa = parseFloat(step2Data.facilityAreaHa || step2Data.landAreaHa || '0')
     const areaM2 = Math.round(areaHa * 10000) // Convert hectares to square meters
 
-    // Extract irrigation type from step 4
-    const step4Data = grantData.stepsData?.[4] as Step4Data || {}
+    // Extract irrigation type from step 5 (田間管路，統一架構後資料存於 stepsData[5])
+    const step5Data = grantData.stepsData?.[5] as Step4Data || {}
     let irrigationType = '未設定'
 
-    if (step4Data.irrigationType) {
+    if (step5Data.irrigationType) {
       // Map from irrigation type to display name
       const typeMap: Record<string, string> = {
         '穿孔管系統': '穿孔管',
@@ -911,7 +911,7 @@ const loadAllItems = () => {
         '滴灌系統': '滴灌',
         '其它': '其它'
       }
-      irrigationType = typeMap[step4Data.irrigationType] || step4Data.irrigationType
+      irrigationType = typeMap[step5Data.irrigationType] || step5Data.irrigationType
     }
 
     // Extract office from store data or default
