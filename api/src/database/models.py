@@ -256,6 +256,7 @@ class GrantStatusGroup:
     # 已編列預算：審查中（業務定義的已編列範圍）0518_2026 更新
     BUDGETED: frozenset = frozenset({
         GrantStatus.DRAFT,
+        GrantStatus.APPROVED,
         GrantStatus.UNDER_REVIEW,
         GrantStatus.COMPLETED,
         GrantStatus.SUBMITTED,
