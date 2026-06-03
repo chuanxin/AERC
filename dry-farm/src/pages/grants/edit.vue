@@ -1187,6 +1187,82 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- 補助上限超限確認 dialog -->
+    <v-dialog v-model="showSubsidyLimitDialog" max-width="600" persistent>
+      <v-card v-if="subsidyLimitError">
+        <v-card-title class="text-h6">
+          補助金額超過個人年度上限
+        </v-card-title>
+        <v-card-text>
+          <p class="mb-2">
+            申請人本年度已使用補助：
+            <strong>{{ subsidyLimitError.other_cases_sum.toLocaleString() }} 元</strong>，
+            本案可用上限：
+            <strong>{{ subsidyLimitError.allowed_for_this_case.toLocaleString() }} 元</strong>。
+          </p>
+          <p class="mb-3">
+            超出 {{ (subsidyLimitError.original_total - subsidyLimitError.suggested_total).toLocaleString() }} 元，系統建議調整如下：
+          </p>
+          <v-table density="compact">
+            <thead>
+              <tr>
+                <th>
+                  項目
+                </th>
+                <th class="text-right">
+                  原申請補助（元）
+                </th>
+                <th class="text-right">
+                  系統試算補助（元）
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  田間管路
+                </td>
+                <td class="text-right">
+                  {{ subsidyLimitError.step5.original.toLocaleString() }}
+                </td>
+                <td class="text-right">
+                  {{ subsidyLimitError.step5.suggested.toLocaleString() }}
+                </td>
+              </tr>
+              <tr v-for="f in subsidyLimitError.step4_facilities" :key="f.index">
+                <td>
+                  {{ f.name || f.type }}
+                </td>
+                <td class="text-right">
+                  {{ f.original_subsidy.toLocaleString() }}
+                </td>
+                <td class="text-right">
+                  {{ f.suggested_subsidy.toLocaleString() }}
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            variant="text"
+            @click="showSubsidyLimitDialog = false"
+          >
+            取消，手動調整
+          </v-btn>
+          <v-btn
+            color="primary"
+            variant="elevated"
+            :loading="isApplyingSubsidySuggestion"
+            @click="applySubsidySuggestionAndResubmit"
+          >
+            套用試算金額並重新送出
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -1199,6 +1275,31 @@ import { GrantStorage } from '@/utils/grant-storage'
 import { debounce } from 'lodash-es'
 import { requestDesignChange, claimInactiveGrantOwnership, setGrantTag } from '@/services/grantsService'
 import { formatCaseNumber } from '@/utils/frontendFilters'
+
+// 補助上限超限回應型別
+interface FacilitySuggestion {
+  index: number
+  type: string
+  name: string
+  original_subsidy: number
+  suggested_subsidy: number
+  original_self_paid: number
+  suggested_self_paid: number
+}
+
+interface SubsidyLimitExceededDetail {
+  code: 'SUBSIDY_LIMIT_EXCEEDED'
+  applicant_id: string
+  year: number
+  subsidy_limit: number
+  other_cases_sum: number
+  allowed_for_this_case: number
+  original_total: number
+  suggested_total: number
+  step5: { original: number; suggested: number; total_cost: number }
+  step4_facilities: FacilitySuggestion[]
+  message: string
+}
 
 // Import step components
 import step1 from '@/pages/grants/steps/step1.vue'
@@ -1271,6 +1372,11 @@ const softLockedSteps = ref<Set<number>>(new Set())
 // 🆕 步驟 Disabled 狀態管理 - 記錄已 disabled 的 UI 步驟編號
 // 當案件被「不受理」後，將 current_step 之後的所有步驟加入此集合
 const disabledSteps = ref<Set<number>>(new Set())
+
+// 補助上限超限 dialog 狀態
+const subsidyLimitError = ref<SubsidyLimitExceededDetail | null>(null)
+const showSubsidyLimitDialog = ref(false)
+const isApplyingSubsidySuggestion = ref(false)
 
 // 🆕 判斷當前步驟是否為唯讀模式（硬鎖定）
 const isCurrentStepReadonly = computed(() => lockedSteps.value.has(currentStep.value))
@@ -1932,6 +2038,57 @@ const scrollToTopInstantly = () => {
 
 
 
+// 套用補助上限建議金額並重新送出
+const applySubsidySuggestionAndResubmit = async () => {
+  if (!subsidyLimitError.value || !grantsStore.currentGrant?.case_number) return
+  isApplyingSubsidySuggestion.value = true
+
+  try {
+    const err = subsidyLimitError.value
+    const caseNumber = grantsStore.currentGrant.case_number
+
+    // 確保 formData[5] 為當前案件資料（防 Pinia 污染）
+    await grantsStore.loadStepData(caseNumber, 5)
+    const currentStep5 = { ...grantsStore.formData[5] }
+    currentStep5.subsidyAmount = err.step5.suggested
+    currentStep5.selfPaidAmount = err.step5.total_cost - err.step5.suggested
+    await grantsStore.saveStepData(5, currentStep5)
+
+    // 確保 formData[4] 為當前案件資料（防 Pinia 污染）
+    await grantsStore.loadStepData(caseNumber, 4)
+    const currentStep4 = { ...grantsStore.formData[4] }
+    const updatedFacilities = [...((currentStep4.facilities as Record<string, unknown>[]) ?? [])]
+    for (const suggestion of err.step4_facilities) {
+      updatedFacilities[suggestion.index] = {
+        ...updatedFacilities[suggestion.index],
+        subsidyAmount: suggestion.suggested_subsidy,
+        selfPaidAmount: suggestion.suggested_self_paid,
+      }
+    }
+    currentStep4.facilities = updatedFacilities
+    await grantsStore.saveStepData(4, currentStep4)
+
+    showSubsidyLimitDialog.value = false
+    subsidyLimitError.value = null
+
+    // 重試狀態轉換（guard 再次驗證）
+    await grantsStore.updateGrantStatus(caseNumber, 'under_review')
+    lockSteps([1, 2, 3, 4, 5])
+  } catch (error) {
+    const err = error as { response?: { status: number; data?: { detail?: SubsidyLimitExceededDetail } } }
+    const detail = err?.response?.data?.detail
+    if (err?.response?.status === 409 && detail?.code === 'SUBSIDY_LIMIT_EXCEEDED') {
+      subsidyLimitError.value = detail
+      showSubsidyLimitDialog.value = true
+    } else {
+      console.error('[edit.vue] applySubsidySuggestion 失敗:', error)
+      showNotificationMessage('套用建議金額失敗', '請重試或聯繫系統管理員', 'error')
+    }
+  } finally {
+    isApplyingSubsidySuggestion.value = false
+  }
+}
+
 // 優化的步驟驗證處理 - 加入過渡效果
 const handleStepValidated = async ({ valid, step }: { valid: boolean; step: number }) => {
   if (valid && !isNavigating.value && !isStepTransitioning.value) {
@@ -1965,11 +2122,20 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
             lockSteps([1, 2, 3, 4, 5])
             console.log('[edit.vue] Status updated to under_review, locked steps 1-5')
           } catch (error) {
-            console.error('[edit.vue] Failed to update status:', error)
-            // 即使狀態更新失敗，仍允許繼續流程
+            const err = error as { response?: { status: number; data?: { detail?: SubsidyLimitExceededDetail } } }
+            const detail = err?.response?.data?.detail
+            if (err?.response?.status === 409 && detail?.code === 'SUBSIDY_LIMIT_EXCEEDED') {
+              subsidyLimitError.value = detail
+              showSubsidyLimitDialog.value = true
+            } else {
+              console.error('[edit.vue] Failed to update status:', error)
+              showNotificationMessage('送出申報失敗', '請重試或聯繫系統管理員', 'error')
+            }
+            return
           }
         } else {
           console.error('[edit.vue] No case_number available for step 6 status update')
+          return
         }
       }
 
@@ -2039,12 +2205,10 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
       }
     } catch (error) {
       console.error('Error saving step data:', error)
-      // 發生錯誤時重置狀態
-      isStepTransitioning.value = false
-      targetStep.value = null
     } finally {
       submitting.value = false
-      // Add a delay before allowing navigation again
+      isStepTransitioning.value = false
+      targetStep.value = null
       setTimeout(() => {
         isNavigating.value = false
       }, 500)

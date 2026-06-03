@@ -169,18 +169,19 @@ export const createGrant = async (data: GrantCreateRequest): Promise<GrantCreate
       // })
 
       if (status === 422) {
-        // Get validation errors from the response
-        const validationErrors = (error as {
-          response?: {
-            data?: {
-              detail?: Array<{ loc: string[], msg: string, type: string }>
-            }
-          }
-        })?.response?.data?.detail || []
+        const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
 
-        // Format validation errors into a readable message
+        // 若 detail 為帶有 code 欄位的 dict（業務邏輯錯誤），直接 rethrow
+        if (detail && typeof detail === 'object' && !Array.isArray(detail) && (detail as Record<string, unknown>).code) {
+          throw error
+        }
+
+        const validationErrors = Array.isArray(detail)
+          ? (detail as Array<{ loc: string[], msg: string, type: string }>)
+          : []
+
         const errorMessages = validationErrors.map(err => {
-          const field = err.loc.slice(1).join('.') // Remove 'body' prefix
+          const field = err.loc.slice(1).join('.')
           return `${field}: ${err.msg}`
         }).join('\n')
 
@@ -730,15 +731,17 @@ const handleApiError = (error: unknown, source: string): never => {
   if (error instanceof Error) {
     const status = (error as { response?: { status?: number } })?.response?.status || 500
 
+    if (status === 409) {
+      // 業務邏輯衝突錯誤（如 SUBSIDY_LIMIT_EXCEEDED），直接 rethrow 讓呼叫端處理
+      throw error
+    }
+
     if (status === 422) {
-      // Handle validation errors
-      const validationErrors = (error as {
-        response?: {
-          data?: {
-            detail?: Array<{ loc: string[], msg: string, type: string }>
-          }
-        }
-      })?.response?.data?.detail || []
+      // Pydantic 驗證錯誤（array 格式）
+      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+      const validationErrors = Array.isArray(detail)
+        ? (detail as Array<{ loc: string[], msg: string, type: string }>)
+        : []
 
       const errorMessages = validationErrors.map(err => {
         const field = err.loc.slice(1).join('.')
