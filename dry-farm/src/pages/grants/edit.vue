@@ -1192,7 +1192,7 @@
     <v-dialog v-model="showSubsidyLimitDialog" max-width="600" persistent>
       <v-card
         v-if="subsidyLimitError"
-        :title="`已超過個人年度補助 ${(subsidyLimitError.subsidy_limit / 10000).toLocaleString()} 萬限額，請調整申請金額`"
+        :title="`已超過個人年度補助 ${(subsidyLimitError.subsidy_limit / 10000).toLocaleString()} 萬限額，無法建立案件`"
       >
         <v-card-text>
           <p class="mb-2">
