@@ -1190,10 +1190,10 @@
 
     <!-- 補助上限超限確認 dialog -->
     <v-dialog v-model="showSubsidyLimitDialog" max-width="600" persistent>
-      <v-card v-if="subsidyLimitError">
-        <v-card-title class="text-h6">
-          補助金額超過個人年度上限
-        </v-card-title>
+      <v-card
+        v-if="subsidyLimitError"
+        :title="`已超過個人年度補助 ${(subsidyLimitError.subsidy_limit / 10000).toLocaleString()} 萬限額，請調整申請金額`"
+      >
         <v-card-text>
           <p class="mb-2">
             申請人本年度已使用補助：
