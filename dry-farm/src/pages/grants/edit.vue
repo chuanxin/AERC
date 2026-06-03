@@ -1190,10 +1190,10 @@
 
     <!-- 補助上限超限確認 dialog -->
     <v-dialog v-model="showSubsidyLimitDialog" max-width="600" persistent>
-      <v-card v-if="subsidyLimitError">
-        <v-card-title class="text-h6">
-          補助金額超過個人年度上限
-        </v-card-title>
+      <v-card
+        v-if="subsidyLimitError"
+        :title="`已超過個人年度補助 ${(subsidyLimitError.subsidy_limit / 10000).toLocaleString()} 萬限額，請調整申請金額`"
+      >
         <v-card-text>
           <p class="mb-2">
             申請人本年度已使用補助：
@@ -1889,7 +1889,8 @@ const handleClaimConfirm = async () => {
     // 重新載入案件以更新 created_by 和 status 資訊
     const caseNumber = claimCaseNumber.value
     const grantsIdParam = route.query.grants_id ? parseInt(route.query.grants_id as string, 10) : undefined
-    await grantsStore.loadGrant(caseNumber, grantsIdParam)
+    // forceRefresh=true 繞過快取，取得後端最新狀態（status=approved, created_by 已更新）
+    await grantsStore.loadGrant(caseNumber, grantsIdParam, true)
     // 認領成功後繼續初始化編輯頁面
     await initializeEditPage(caseNumber, route.query.step as string | undefined)
   } catch (error) {
