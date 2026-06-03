@@ -94,6 +94,8 @@ async def update_grant_status_api(
     """更新補助申請案件的狀態"""
     try:
         return await crud.update_grant_status(case_number, status_data["status"], current_user)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

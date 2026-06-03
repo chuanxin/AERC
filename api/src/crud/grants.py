@@ -1718,7 +1718,11 @@ async def update_grant_status(case_number: str, new_status: str, current_user):
             
             # 保存舊狀態
             old_status = grant.status
-            
+
+            # 驗證補助上限（approved → under_review 時觸發）
+            if old_status == GrantStatus.APPROVED and new_status == GrantStatus.UNDER_REVIEW:
+                await _check_subsidy_limit_guard(grant)
+
             # 更新狀態
             await Grants.filter(id=grant.id).update(status=new_status)
 
@@ -2316,6 +2320,164 @@ def compare_facility_list(before_list: List[Dict], after_list: List[Dict], facil
 # 年度補助額度限制功能
 # ============================================================================
 
+ANNUAL_SUBSIDY_LIMIT = 500000  # 個人年度政府補助款上限 50 萬（元），法規要求
+
+
+def _extract_grant_subsidy_amount(grant: Grants) -> int:
+    """
+    從單筆案件的 active_version 計算政府補助金額，回傳整數。
+    lenient 模式：資料缺失或格式錯誤時回傳 0，不拋出例外。
+    供 guard 的 other_grants 計算與 calculate_applicant_yearly_subsidy 共用（SSOT）。
+    """
+    if not grant.active_version or not grant.active_version.all_steps_data:
+        return 0
+    if grant.is_legacy:
+        pd = grant.active_version.all_steps_data.get("pay_detail", {})
+        return int(float(pd.get("amount", 0) or 0)) - int(float(pd.get("self_raised", 0) or 0))
+    steps = grant.active_version.all_steps_data.get("steps", {})
+    step4_subsidy = sum(
+        int(float(f.get("subsidyAmount", 0) or 0))
+        for f in steps.get("4", {}).get("facilities", [])
+        if isinstance(f, dict)
+    )
+    step5_subsidy = int(float(steps.get("5", {}).get("subsidyAmount", 0) or 0))
+    return step4_subsidy + step5_subsidy
+
+
+async def _check_subsidy_limit_guard(grant: Grants) -> None:
+    """
+    approved → under_review 補助上限驗證 guard。
+    超限時拋出 HTTP 409，附帶建議調整金額。
+    必須在已開啟的 DB transaction 內呼叫（使用 select_for_update）。
+    """
+    COUNTED_STATUSES = [
+        GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW,
+        GrantStatus.APPROVED, GrantStatus.COMPLETED,
+    ]
+
+    # 1. 確認 active_version 存在
+    await grant.fetch_related('active_version')
+    if not grant.active_version or not grant.active_version.all_steps_data:
+        raise HTTPException(status_code=500, detail="案件版本資料遺失，無法執行補助上限驗證")
+
+    steps_data = grant.active_version.all_steps_data.get("steps", {})
+
+    # 2. 讀取本案補助金額（整數驗證，guard 是安全邊界）
+    step4_data = steps_data.get("4", {})
+    facilities = step4_data.get("facilities", [])
+    if not isinstance(facilities, list):
+        raise HTTPException(status_code=500, detail="案件步驟 4 設施資料格式錯誤")
+
+    step4_subsidy = 0
+    for f in facilities:
+        if not isinstance(f, dict):
+            continue
+        raw = f.get("subsidyAmount", 0) or 0
+        if raw != int(raw):
+            raise HTTPException(status_code=500, detail=f"設施補助金額包含非整數值：{raw}")
+        step4_subsidy += int(raw)
+
+    step5_data = steps_data.get("5", {})
+    step5_raw = step5_data.get("subsidyAmount", 0) or 0
+    if step5_raw != int(step5_raw):
+        raise HTTPException(status_code=500, detail=f"田間管路補助金額包含非整數值：{step5_raw}")
+    step5_subsidy = int(step5_raw)
+
+    this_case_subsidy = step4_subsidy + step5_subsidy
+
+    # 3. 本案補助為 0，直接通過
+    if this_case_subsidy == 0:
+        return
+
+    # 4. SELECT FOR UPDATE 鎖定其他計入案件，防止並發
+    other_grants = await (
+        Grants.filter(
+            applicant_id=grant.applicant_id,
+            year=grant.year,
+            status__in=COUNTED_STATUSES,
+        )
+        .exclude(id=grant.id)
+        .select_for_update()
+        .prefetch_related('active_version')
+    )
+
+    # 5. 計算其他案件已用補助（呼叫共用 helper，SSOT）
+    other_subsidy = sum(_extract_grant_subsidy_amount(g) for g in other_grants)
+
+    # 6. 計算可用額度與超限量
+    allowed = max(0, ANNUAL_SUBSIDY_LIMIT - other_subsidy)
+    excess = this_case_subsidy - allowed
+
+    if excess <= 0:
+        return  # 通過
+
+    # 7a. 先壓縮 step5（田間管路）
+    suggested_step5 = max(0, step5_subsidy - excess)
+    remaining_excess = excess - (step5_subsidy - suggested_step5)
+    step5_total_cost = int(step5_data.get("totalCost", 0) or step5_data.get("totalAmount", 0) or 0)
+
+    # 7b. 再壓縮 step4 facilities（由大到小）
+    facilities_indexed = [
+        (i, f) for i, f in enumerate(facilities) if isinstance(f, dict)
+    ]
+    facilities_sorted = sorted(
+        facilities_indexed,
+        key=lambda x: int(x[1].get("subsidyAmount", 0) or 0),
+        reverse=True,
+    )
+
+    adjustments: dict = {}
+    for orig_idx, f in facilities_sorted:
+        orig_subsidy = int(f.get("subsidyAmount", 0) or 0)
+        total_price = int(f.get("totalPrice", 0) or 0)
+        if remaining_excess > 0:
+            new_subsidy = max(0, orig_subsidy - remaining_excess)
+            remaining_excess -= (orig_subsidy - new_subsidy)
+        else:
+            new_subsidy = orig_subsidy
+        adjustments[orig_idx] = {
+            "suggested_subsidy": new_subsidy,
+            "suggested_self_paid": total_price - new_subsidy,
+        }
+
+    # 8. 建構 422 payload
+    step4_facilities_payload = []
+    for i, f in enumerate(facilities):
+        if not isinstance(f, dict):
+            continue
+        adj = adjustments.get(i, {})
+        step4_facilities_payload.append({
+            "index": i,
+            "type": f.get("type", ""),
+            "name": f.get("name", ""),
+            "original_subsidy": int(f.get("subsidyAmount", 0) or 0),
+            "suggested_subsidy": adj.get("suggested_subsidy", int(f.get("subsidyAmount", 0) or 0)),
+            "original_self_paid": int(f.get("selfPaidAmount", 0) or 0),
+            "suggested_self_paid": adj.get("suggested_self_paid", int(f.get("selfPaidAmount", 0) or 0)),
+        })
+
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "code": "SUBSIDY_LIMIT_EXCEEDED",
+            "applicant_id": grant.applicant_id,
+            "year": grant.year,
+            "subsidy_limit": ANNUAL_SUBSIDY_LIMIT,
+            "other_cases_sum": other_subsidy,
+            "allowed_for_this_case": allowed,
+            "original_total": this_case_subsidy,
+            "suggested_total": allowed,
+            "step5": {
+                "original": step5_subsidy,
+                "suggested": suggested_step5,
+                "total_cost": step5_total_cost,
+            },
+            "step4_facilities": step4_facilities_payload,
+            "message": "補助金額超過個人年度上限，請確認建議金額後重新送出申報",
+        },
+    )
+
+
 async def calculate_applicant_yearly_subsidy(
     applicant_id: str,
     year: int,
@@ -2348,9 +2510,6 @@ async def calculate_applicant_yearly_subsidy(
         - grants: 案件列表
     """
     try:
-        # 年度補助上限：50萬元
-        SUBSIDY_LIMIT = 500000
-
         # 需要計入額度的申請狀態
         COUNTED_STATUSES = [
             GrantStatus.SUBMITTED,
@@ -2376,55 +2535,11 @@ async def calculate_applicant_yearly_subsidy(
 
         # 計算每個案件的補助金額
         grant_subsidies = []
-        total_subsidy = 0.0
+        total_subsidy = 0
         applicant_name = ""
 
         for grant in grants:
-            # 從 active_version 的 all_steps_data 取得補助金額
-            subsidy_amount = 0.0
-
-            if grant.active_version and grant.active_version.all_steps_data:
-                # 判斷是否為歷史案件
-                if grant.is_legacy:
-                    # 歷史案件：從 pay_detail 取得補助金額
-                    pay_detail = grant.active_version.all_steps_data.get("pay_detail", {})
-
-                    # 補助金額 = 總金額 - 自籌款
-                    amount = float(pay_detail.get("amount", 0) or 0)
-                    self_raised = float(pay_detail.get("self_raised", 0) or 0)
-                    subsidy_amount = amount - self_raised
-
-                    logger.info(
-                        f"[歷史案件] {grant.case_number}: "
-                        f"總金額={amount}, 自籌款={self_raised}, "
-                        f"補助金額={subsidy_amount}"
-                    )
-                else:
-                    # 新系統案件：從 steps 取得補助金額
-                    steps_data = grant.active_version.all_steps_data.get("steps", {})
-
-                    # Step4: 灌溉調控設施補助（含動力設備、調蓄設施、調節控制設施）
-                    # 資料結構為 facilities[]，無頂層 subsidyAmount
-                    step4_data = steps_data.get("4", {})
-                    facilities = step4_data.get("facilities", [])
-                    step4_subsidy = sum(
-                        float(f.get("subsidyAmount", 0) or 0)
-                        for f in facilities
-                        if isinstance(f, dict)
-                    )
-
-                    # Step5: 田間管路補助（頂層 subsidyAmount 欄位）
-                    step5_data = steps_data.get("5", {})
-                    step5_subsidy = float(step5_data.get("subsidyAmount", 0) or 0)
-
-                    subsidy_amount = step4_subsidy + step5_subsidy
-
-                    logger.info(
-                        f"[新系統案件] {grant.case_number}: "
-                        f"step4(調控/調蓄/動力設施)={step4_subsidy}, "
-                        f"step5(田間管路)={step5_subsidy}, "
-                        f"總計={subsidy_amount}"
-                    )
+            subsidy_amount = _extract_grant_subsidy_amount(grant)
 
             # 記錄申請人姓名 (取第一筆即可)
             if not applicant_name:
@@ -2441,7 +2556,7 @@ async def calculate_applicant_yearly_subsidy(
             total_subsidy += subsidy_amount
 
         # 計算剩餘額度
-        remaining_amount = max(0, SUBSIDY_LIMIT - total_subsidy)
+        remaining_amount = max(0, ANNUAL_SUBSIDY_LIMIT - total_subsidy)
 
         result = {
             "applicant_id": applicant_id,
@@ -2449,7 +2564,7 @@ async def calculate_applicant_yearly_subsidy(
             "year": year,
             "total_subsidy_amount": total_subsidy,
             "remaining_amount": remaining_amount,
-            "subsidy_limit": SUBSIDY_LIMIT,
+            "subsidy_limit": ANNUAL_SUBSIDY_LIMIT,
             "grant_count": len(grant_subsidies),
             "grants": grant_subsidies
         }
