@@ -168,6 +168,17 @@ export function setupInterceptors(
         authEvents.emit('forbidden', { source: 'api', error })
       }
 
+      // 正規化 422：確保 detail 為字串，防止 UI 渲染巢狀驗證陣列
+      if (error.response?.status === 422) {
+        const data = error.response.data as any
+        if (!data?.error_code || typeof data?.detail !== 'string') {
+          error.response.data = {
+            detail: '輸入資料格式不正確',
+            error_code: 'VALIDATION_ERROR',
+          }
+        }
+      }
+
       return Promise.reject(error)
     }
   );

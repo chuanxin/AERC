@@ -1,6 +1,10 @@
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 from tortoise import Tortoise
 
 from src.database.register import register_tortoise
@@ -22,6 +26,43 @@ https://stackoverflow.com/questions/65531387/tortoise-orm-for-python-no-returns-
 from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops, user_management, permissions, leisure_farms, nlsc, auth_keys
 
 app = FastAPI()
+
+logger = logging.getLogger("api.error_handlers")
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "輸入資料格式不正確", "error_code": "VALIDATION_ERROR"},
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    if exc.status_code >= 500:
+        logger.error(
+            "內部錯誤 %s %s (status=%d): %s",
+            request.method, request.url.path, exc.status_code, exc.detail,
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": "伺服器發生錯誤，請聯絡系統管理員", "error_code": "INTERNAL_ERROR"},
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("未捕捉異常 %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "伺服器發生錯誤，請聯絡系統管理員", "error_code": "INTERNAL_ERROR"},
+    )
+
 
 # CORS Middleware
 app.add_middleware(
