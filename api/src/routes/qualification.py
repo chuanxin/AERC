@@ -55,7 +55,7 @@ async def search_qualification(
         
     except ValueError as e:
         logger.error(f"Validation error in qualification search: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="查詢參數格式不正確")
     except Exception as e:
         logger.error(f"Error in qualification search: {e}")
         raise HTTPException(status_code=500, detail="查詢失敗，請稍後再試")

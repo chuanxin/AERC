@@ -1,3 +1,6 @@
+import logging
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from typing import List, Optional
@@ -5,7 +8,8 @@ from pydantic import BaseModel
 from src.database.models import GrantAttachments, Grants, Users
 from src.services.file_storage import FileStorageService
 from src.auth.guard import require_full_auth
-import os
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/attachments", tags=["Grant Attachments"])
 storage = FileStorageService()
@@ -55,7 +59,7 @@ async def upload_attachment(
                 if not isinstance(category_list, list) or len(category_list) == 0:
                     raise ValueError("categories 必須是非空的 JSON 陣列")
             except (json.JSONDecodeError, ValueError) as e:
-                raise HTTPException(status_code=400, detail=f"categories 格式錯誤: {str(e)}")
+                raise HTTPException(status_code=400, detail="附件分類參數格式不正確")
         elif category:
             category_list = [category]
         else:
@@ -142,7 +146,8 @@ async def upload_attachment(
             "categories_count": len(category_list)
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error("附件上傳驗證失敗 grant_id=%s step=%s: %s", grant_id, step, str(e))
+        raise HTTPException(status_code=400, detail="檔案格式或大小不符合規定")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"上傳失敗: {str(e)}")
 
