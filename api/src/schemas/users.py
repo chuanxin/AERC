@@ -234,9 +234,9 @@ class RegistrationOTPVerificationResponse(BaseModel):
 
 class LoginWithCaptchaRequest(BaseModel):
     """含驗證碼的登入請求"""
-    username: str = Field(..., min_length=1, description="使用者帳號")
-    password: str = Field(..., min_length=1, description="使用者密碼")
-    captcha_token: str = Field(..., min_length=1, description="HMAC 簽名的驗證碼 token")
+    username: str = Field(..., min_length=1, max_length=20, description="使用者帳號")
+    password: str = Field(..., min_length=1, max_length=128, description="使用者密碼")
+    captcha_token: str = Field(..., min_length=1, max_length=512, description="HMAC 簽名的驗證碼 token")
     captcha_code: str = Field(..., min_length=4, max_length=4, description="使用者輸入的驗證碼")
 
     @field_validator('captcha_code')
@@ -396,7 +396,7 @@ class AccountMigrationCompleteRequest(BaseModel):
     mobile: Optional[str] = Field(None, max_length=20, description="手機")
 
     # 新密碼（必填）
-    new_password: str = Field(..., min_length=8, description="新密碼（至少8字元）")
+    new_password: str = Field(..., min_length=8, max_length=128, description="新密碼（至少8字元）")
     confirm_password: str = Field(..., description="確認新密碼")
 
     @field_validator('confirm_password')
@@ -450,13 +450,13 @@ class EncryptedPasswordMixin(BaseModel):
     iv: str = Field(..., description="AES-GCM 初始化向量（12 bytes），base64url 編碼")
     kid: str = Field(..., description="伺服器公鑰識別碼")
     timestamp: int = Field(..., description="請求產生時間，Unix 毫秒時間戳")
-    nonce: str = Field(..., min_length=32, description="隨機唯一字串，每次請求不重複，用於防重放")
+    nonce: str = Field(..., min_length=32, max_length=128, description="隨機唯一字串，每次請求不重複，用於防重放")
 
 
 class EncryptedSecureLoginRequest(EncryptedPasswordMixin):
     """含驗證碼的安全登入請求（加密格式）"""
-    username: str = Field(..., min_length=1, description="使用者帳號")
-    captcha_token: str = Field(..., min_length=1, description="HMAC 簽名的驗證碼 token")
+    username: str = Field(..., min_length=1, max_length=20, description="使用者帳號")
+    captcha_token: str = Field(..., min_length=1, max_length=512, description="HMAC 簽名的驗證碼 token")
     captcha_code: str = Field(..., min_length=4, max_length=4, description="使用者輸入的驗證碼")
 
     @field_validator('captcha_code')

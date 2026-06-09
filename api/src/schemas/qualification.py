@@ -90,8 +90,8 @@ class QualificationSearchRequest(BaseModel):
 
 class AreaCheckRequest(BaseModel):
     """區域驗證請求"""
-    county: str = Field(..., min_length=1, description="縣市名稱")
-    town: str = Field(..., min_length=1, description="鄉鎮名稱")
+    county: str = Field(..., min_length=1, max_length=30, description="縣市名稱")
+    town: str = Field(..., min_length=1, max_length=30, description="鄉鎮名稱")
 
 
 # === 回應 Schemas ===

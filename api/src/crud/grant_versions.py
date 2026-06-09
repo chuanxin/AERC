@@ -102,11 +102,10 @@ async def create_grant_version(
                 "message": "版本建立成功"
             }
             
-        except IntegrityError as e:
-            logger.error(f"建立版本失敗 - 資料庫約束錯誤: {str(e)}")
+        except IntegrityError:
             raise HTTPException(
-                status_code=400, 
-                detail=f"建立版本失敗，版本號可能重複: {str(e)}"
+                status_code=409,
+                detail="版本號已存在，請重新操作",
             )
         except Exception as e:
             logger.error(f"建立版本發生錯誤: {str(e)}")

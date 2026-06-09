@@ -183,8 +183,8 @@ async def create_annual_price(price_in: PFAnnualPriceCreate) -> PFAnnualPrices:
     try:
         price_obj = await PFAnnualPrices.create(**price_in.dict(exclude_unset=True))
         return await get_annual_price(price_obj.id)
-    except IntegrityError as e:
-        raise HTTPException(status_code=409, detail=f"Failed to create price record: {e}")
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="相同管件、年度及管理處的價格記錄已存在")
 
 async def update_annual_price(price_id: int, price_in: PFAnnualPriceUpdate) -> Optional[PFAnnualPrices]:
     price_obj = await get_annual_price(price_id)
@@ -228,8 +228,8 @@ async def update_annual_price(price_id: int, price_in: PFAnnualPriceUpdate) -> O
     try:
         await price_obj.save()
         return await get_annual_price(price_obj.id)
-    except IntegrityError as e:
-        raise HTTPException(status_code=409, detail=f"Failed to update price record: {e}")
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="相同管件、年度及管理處的價格記錄已存在")
 
 async def delete_annual_price(price_id: int) -> bool:
     price_obj = await get_annual_price(price_id)
