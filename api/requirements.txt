@@ -7,7 +7,7 @@ fastapi-mail==1.5.8
 httpx==0.28.1
 passlib==1.7.4
 python-jose==3.4.0
-python-multipart==0.0.26
+python-multipart==0.0.29
 tomli_w==1.2.0
 tomlkit==0.13.2
 tortoise-orm==0.25.0
