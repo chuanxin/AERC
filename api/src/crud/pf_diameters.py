@@ -28,9 +28,8 @@ async def create_diameter(diameter_in: PFDiameterCreate) -> PFDiameters:
         
         diameter_obj = await PFDiameters.create(**diameter_in.dict())
         return diameter_obj
-    except IntegrityError as e: # 捕獲其他可能的 IntegrityError
-        # 這裡的錯誤信息可能需要更通用，因為 unique_together 已經在上面檢查了
-        raise HTTPException(status_code=409, detail=f"Could not create diameter due to an integrity constraint: {e}")
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="管件管徑名稱與規格組合已存在")
 
 
 async def update_diameter(diameter_id: int, diameter_in: PFDiameterUpdate) -> Optional[PFDiameters]:
@@ -55,8 +54,8 @@ async def update_diameter(diameter_id: int, diameter_in: PFDiameterUpdate) -> Op
     try:
         await diameter_obj.save()
         return diameter_obj
-    except IntegrityError as e:
-        raise HTTPException(status_code=409, detail=f"Update failed due to an integrity constraint: {e}")
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="管件管徑名稱與規格組合已存在")
 
 
 async def delete_diameter(diameter_id: int) -> bool:

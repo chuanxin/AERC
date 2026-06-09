@@ -24,7 +24,7 @@ async def create_module(module_in: PFModulesCreate) -> PFModules:
         module_obj = await PFModules.create(**module_in.dict())
         return module_obj
     except IntegrityError: # 通常是因為 name 字段的 unique 約束
-        raise HTTPException(status_code=409, detail=f"Module with name '{module_in.name}' already exists.")
+        raise HTTPException(status_code=409, detail="管件功能類型名稱已存在")
 
 async def update_module(module_id: int, module_in: PFModulesUpdate) -> Optional[PFModules]:
     module_obj = await get_module(module_id)
@@ -43,9 +43,9 @@ async def update_module(module_id: int, module_in: PFModulesUpdate) -> Optional[
         # 這裡的 detail 信息可能需要根據實際的 unique 字段調整
         updated_name = update_data.get("name")
         if updated_name:
-             raise HTTPException(status_code=409, detail=f"Module with name '{updated_name}' already exists.")
+             raise HTTPException(status_code=409, detail="管件功能類型名稱已存在")
         else:
-            raise HTTPException(status_code=409, detail="Update failed due to an integrity constraint.")
+            raise HTTPException(status_code=409, detail="管件功能類型名稱已存在")
 
 
 async def delete_module(module_id: int) -> bool:

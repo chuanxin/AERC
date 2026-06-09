@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from tortoise import Tortoise
+from tortoise.exceptions import ValidationError as TortoiseValidationError
 
 from src.database.register import register_tortoise
 from src.database.config import TORTOISE_ORM
@@ -32,6 +33,20 @@ logger = logging.getLogger("api.error_handlers")
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "輸入資料格式不正確", "error_code": "VALIDATION_ERROR"},
+    )
+
+
+@app.exception_handler(TortoiseValidationError)
+async def tortoise_validation_exception_handler(request: Request, exc: TortoiseValidationError):
+    # ORM 欄位驗證失敗，表示 Pydantic schema 的 max_length 未與 ORM CharField 對齊
+    # 正確修法：在對應 schema 欄位加上 max_length ≤ ORM 定義值
+    logger.warning(
+        "ORM 欄位驗證失敗（Schema Drift）%s %s: %s",
+        request.method, request.url.path, str(exc),
+    )
     return JSONResponse(
         status_code=422,
         content={"detail": "輸入資料格式不正確", "error_code": "VALIDATION_ERROR"},

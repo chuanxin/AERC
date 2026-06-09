@@ -55,33 +55,23 @@ async def create_office(data: Dict[str, Any]):
     """創建新的管理處/單位"""
     try:
         return await Offices.create(**data)
-    except IntegrityError as e:
-        if "unique" in str(e).lower():
-            raise HTTPException(
-                status_code=400, 
-                detail="Office with this name, short name, or code already exists"
-            )
-        raise HTTPException(status_code=400, detail=str(e))
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="單位名稱、縮寫或代碼已存在")
 
 
 async def update_office(office_id: int, data: Dict[str, Any]):
     """更新管理處/單位"""
     try:
         office = await get_office_by_id(office_id)
-        
+
         # 更新欄位
         for key, value in data.items():
             setattr(office, key, value)
-        
+
         await office.save()
         return office
-    except IntegrityError as e:
-        if "unique" in str(e).lower():
-            raise HTTPException(
-                status_code=400, 
-                detail="Office with this name, short name, or code already exists"
-            )
-        raise HTTPException(status_code=400, detail=str(e))
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="單位名稱、縮寫或代碼已存在")
 
 
 async def delete_office(office_id: int):

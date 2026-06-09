@@ -9,7 +9,7 @@ class GrantAttachmentCreateSchema(BaseModel):
     grant_id: int = Field(..., description="所屬補助申請案件ID")
     version_id: Optional[int] = Field(None, description="所屬案件版本ID")
     step: int = Field(..., description="申請步驟編號 (5:現場勘查, 6:補助申請, 7:結案申報, 8:測試合格)")
-    category: str = Field(..., description="附件分類 (如:施工前照片、施工後照片、收據等)")
+    category: str = Field(..., max_length=20, description="附件分類 (如:施工前照片、施工後照片、收據等)")
     description: Optional[str] = Field(None, description="附件說明或備註")
     related_attachment_id: Optional[int] = Field(None, description="關聯附件ID (用於前後對比)")
     
@@ -28,9 +28,9 @@ class GrantAttachmentCreateSchema(BaseModel):
 
 class GrantAttachmentUpdateSchema(BaseModel):
     """更新附件時使用的資料模型"""
-    category: Optional[str] = Field(None, description="附件分類")
+    category: Optional[str] = Field(None, max_length=20, description="附件分類")
     description: Optional[str] = Field(None, description="附件說明或備註")
-    status: Optional[str] = Field(None, description="附件狀態 (active:有效, deleted:已刪除)")
+    status: Optional[str] = Field(None, max_length=20, description="附件狀態 (active:有效, deleted:已刪除)")
     related_attachment_id: Optional[int] = Field(None, description="關聯附件ID")
     
     class Config:

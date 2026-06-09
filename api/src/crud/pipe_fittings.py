@@ -130,9 +130,8 @@ async def create_pipe_fitting(pipe_fitting_in: PipeFittingCreate) -> PipeFitting
         pipe_fitting_obj = await PipeFittings.create(**pipe_fitting_data)
         # To return the object with prefetched relations as in `get_pipe_fitting`
         return await get_pipe_fitting(pipe_fitting_obj.pomno)
-    except IntegrityError as e:
-        # This can happen due to the unique_together constraint
-        raise HTTPException(status_code=409, detail=f"Pipe fitting with these attributes already exists or other integrity error: {e}")
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="相同屬性的管件配件已存在")
 
 
 async def update_pipe_fitting(pomno: int, pipe_fitting_in: PipeFittingUpdate) -> Optional[PipeFittings]:
@@ -161,8 +160,8 @@ async def update_pipe_fitting(pomno: int, pipe_fitting_in: PipeFittingUpdate) ->
         await pipe_fitting_obj.save()
         # Return the updated object with prefetched relations
         return await get_pipe_fitting(pipe_fitting_obj.pomno)
-    except IntegrityError as e:
-        raise HTTPException(status_code=409, detail=f"Update failed due to integrity constraint: {e}")
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="相同屬性的管件配件已存在")
 
 
 async def delete_pipe_fitting(pomno: int) -> bool:

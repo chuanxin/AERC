@@ -14,7 +14,7 @@ class GrantCreateRequestSchema(BaseSchema):
     """前端申請表單資料模型 - 對應 frontend GrantCreateRequest interface"""
     name: str = Field(..., description="申請人姓名", min_length=1, max_length=50)
     id: str = Field(..., description="申請人身分證字號", min_length=10, max_length=10) 
-    phone: str = Field(..., description="申請人電話", min_length=9)
+    phone: str = Field(..., description="申請人電話", min_length=9, max_length=20)
     phone2: Optional[str] = Field(None, description="申請人備用電話", max_length=20)
     county: str = Field(..., description="縣市名稱", min_length=1, max_length=30)
     countyId: Optional[int] = Field(None, description="縣市ID")
@@ -329,11 +329,11 @@ class GrantSearchSchema(BaseSchema):
     """補助申請案件搜尋條件資料模型"""
     year: Optional[int] = Field(None, description="申請年度")
     office_id: Optional[int] = Field(None, description="管理處ID")
-    status: Optional[str] = Field(None, description="案件狀態")
+    status: Optional[str] = Field(None, max_length=20, description="案件狀態")
     keywords: Optional[str] = Field(None, description="關鍵字搜尋")
     county_id: Optional[int] = Field(None, description="縣市ID")
     town_id: Optional[int] = Field(None, description="鄉鎮市區ID")
-    applicant_id: Optional[str] = Field(None, description="申請人身分證字號")
+    applicant_id: Optional[str] = Field(None, max_length=10, description="申請人身分證字號")
     land_number: Optional[str] = Field(None, description="地號")
     is_aboriginal_area: Optional[bool] = Field(None, description="是否為原民區")
     date_from: Optional[date] = Field(None, description="建檔日期(起)")

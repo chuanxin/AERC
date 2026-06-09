@@ -24,7 +24,7 @@ async def create_material(material_in: PFMaterialsCreate) -> PFMaterials:
         material_obj = await PFMaterials.create(**material_in.dict())
         return material_obj
     except IntegrityError: # 通常是因為 name 字段的 unique 約束
-        raise HTTPException(status_code=409, detail=f"Material with name '{material_in.name}' already exists.")
+        raise HTTPException(status_code=409, detail="管件材質名稱已存在")
 
 async def update_material(material_id: int, material_in: PFMaterialsUpdate) -> Optional[PFMaterials]:
     material_obj = await get_material(material_id)
@@ -43,9 +43,9 @@ async def update_material(material_id: int, material_in: PFMaterialsUpdate) -> O
         # 這裡的 detail 信息可能需要根據實際的 unique 字段調整
         updated_name = update_data.get("name")
         if updated_name:
-             raise HTTPException(status_code=409, detail=f"Material with name '{updated_name}' already exists.")
+             raise HTTPException(status_code=409, detail="管件材質名稱已存在")
         else:
-            raise HTTPException(status_code=409, detail="Update failed due to an integrity constraint.")
+            raise HTTPException(status_code=409, detail="管件材質名稱已存在")
 
 
 async def delete_material(material_id: int) -> bool:

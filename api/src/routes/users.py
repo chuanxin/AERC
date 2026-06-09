@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, status, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from tortoise.exceptions import DoesNotExist
+from tortoise.exceptions import DoesNotExist, IntegrityError
 
 import src.crud.users as crud
 from src.auth.users import validate_user, get_password_hash
@@ -406,20 +406,26 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
             )
 
         # 建立使用者帳號（停用狀態，需管理員審核）
-        new_user = await Users.create(
-            username=payload.username,
-            email=payload.email,
-            full_name=payload.full_name,
-            office_id=payload.office_id,
-            department=payload.department,
-            job_title=payload.job_title,
-            phone=payload.phone,
-            phone_ext=payload.phone_ext,
-            mobile=payload.mobile,
-            password=get_password_hash(payload.password),
-            is_active=False,  # 預設停用，需管理員審核
-            role="user"
-        )
+        try:
+            new_user = await Users.create(
+                username=payload.username,
+                email=payload.email,
+                full_name=payload.full_name,
+                office_id=payload.office_id,
+                department=payload.department,
+                job_title=payload.job_title,
+                phone=payload.phone,
+                phone_ext=payload.phone_ext,
+                mobile=payload.mobile,
+                password=get_password_hash(payload.password),
+                is_active=False,
+                role="user"
+            )
+        except IntegrityError:
+            # 極罕見的並發競態：兩個請求同時通過前置唯一性檢查
+            if await Users.filter(username=payload.username).exists():
+                raise HTTPException(status_code=409, detail="此帳號已被使用")
+            raise HTTPException(status_code=409, detail="此電子郵件已被使用")
 
         # 建立申請記錄（儲存申請原因）
         await UserRegistration.create(
@@ -444,13 +450,13 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
 
 @router.post("/login")
 async def login(
-    username: str = Form(...),
+    username: str = Form(..., max_length=20),
     encrypted_password: str = Form(...),
     encrypted_key: str = Form(...),
     iv: str = Form(...),
     kid: str = Form(...),
     timestamp: int = Form(...),
-    nonce: str = Form(..., min_length=32),
+    nonce: str = Form(..., min_length=32, max_length=128),
 ):
     """標準登入（加密格式 form-data）。步驟順序：kid → nonce → 解密 → 帳號密碼驗證。"""
     from src.auth.users import (
@@ -1296,10 +1302,10 @@ async def complete_account_migration(payload: AccountMigrationCompleteRequest):
                     )
 
                 user.department = department_data
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"department 欄位包含無效的 JSON 格式: {str(e)}"
+                    detail="department 欄位包含無效的 JSON 格式"
                 )
             except Exception as e:
                 raise HTTPException(
