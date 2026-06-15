@@ -2967,10 +2967,10 @@ class ExcelGeneratorService:
         office_name: str,
     ) -> str:
         """
-        生成管路補助金額明細表 XLSX（3 個工作表）。
+        生成管路補助金額明細表 XLSX（4 個工作表）。
 
         Args:
-            grants_by_sheet: {'農水署明細表': [...], '瑠公明細表': [...], '七星明細表': [...]}
+            grants_by_sheet: {'農水署明細表': [...], '瑠公明細表': [...], '七星明細表': [...], '墊付預算明細表': [...]}
             year: 民國年字串（如 '114'）
             office_name: 使用者所屬單位名稱（顯示於 A1:F1）
 
@@ -2981,7 +2981,7 @@ class ExcelGeneratorService:
         wb = Workbook()
         wb.remove(wb.active)  # 移除預設空白工作表
 
-        for sheet_name in ['農水署明細表', '瑠公明細表', '七星明細表']:
+        for sheet_name in ['農水署明細表', '瑠公明細表', '七星明細表', '墊付預算明細表']:
             rows = grants_by_sheet.get(sheet_name, [])
             ws = wb.create_sheet(title=sheet_name)
 

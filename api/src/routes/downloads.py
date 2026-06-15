@@ -795,7 +795,8 @@ async def download_cover_page(
 
 # ── 管路補助金額明細表所需的灌溉型式正規化映射 ─────────────────────────────────
 _IRRIGATION_TYPE_MAP = {1: '穿孔管', 2: '噴頭', 3: '微噴', 4: '滴灌'}
-_FUNDING_SOURCE_SHEETS = {0: '農水署明細表', 16: '七星明細表', 17: '瑠公明細表'}
+_FUNDING_SOURCE_ADVANCE = -1  # 墊付預算 sentinel：負整數永不與 offices.id auto-increment 衝突
+_FUNDING_SOURCE_SHEETS = {0: '農水署明細表', 16: '七星明細表', 17: '瑠公明細表', _FUNDING_SOURCE_ADVANCE: '墊付預算明細表'}
 
 
 async def extract_subsidy_row_data(grant, version_data: dict) -> dict:
@@ -826,7 +827,11 @@ async def extract_subsidy_row_data(grant, version_data: dict) -> dict:
         legacy = (version_data or {}).get('legacy_data', {})
         fid = legacy.get('fundingSourceId')
         if not (isinstance(fid, int) and fid in _FUNDING_SOURCE_SHEETS):
-            fid = 0
+            raw_fid = step4_data.get('fundingSourceId')
+            raise ValueError(
+                f"案件 {getattr(grant, 'case_number', '?')} 的 fundingSourceId={raw_fid!r} "
+                "不在已知清單，請重新儲存步驟 4（灌溉調控設施）以更新補助來源"
+            )
 
     area_ha = float(base.get('facility_area_ha', 0) or 0)
     end_facility = int(budget.get('govt_subsidy_a', 0))          # 末端設施 = A 項政府補助（不含農戶自付）
@@ -894,8 +899,8 @@ async def download_subsidy_details_list(
         all_grants = await query.select_related("active_version").order_by('case_number').all()
         filtered = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
-        # 依 fundingSourceId 分配至三個工作表
-        grants_by_sheet: dict = {'農水署明細表': [], '瑠公明細表': [], '七星明細表': []}
+        # 依 fundingSourceId 分配至四個工作表
+        grants_by_sheet: dict = {'農水署明細表': [], '瑠公明細表': [], '七星明細表': [], '墊付預算明細表': []}
         skipped_cases = []
         for grant in filtered:
             try:

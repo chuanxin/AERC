@@ -19,6 +19,16 @@ from src.database.geo_models import OfficeBoundaries
 
 router = APIRouter()
 
+# 墊付預算：非真實 office 記錄，sentinel id=-1（負整數永不與 DB auto-increment 衝突）
+_ADVANCE_PAYMENT_OFFICE = {
+    "id": -1,
+    "name": "墊付預算",
+    "short_name": "墊付",
+    "code": "ADV",
+    "classification": 1,
+    "is_funding_source": True,
+}
+
 
 @router.get(
     "/offices",
@@ -27,7 +37,8 @@ router = APIRouter()
 )
 async def get_offices():
     """獲取所有管理處/單位資料"""
-    return await crud.get_all_offices()
+    offices = await crud.get_all_offices()
+    return list(offices) + [_ADVANCE_PAYMENT_OFFICE]
 
 @router.post(
     "/offices",
