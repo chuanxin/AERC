@@ -813,14 +813,14 @@ class BudgetStatementPDFGenerator:
     def _generate_budget_table_page(self, c: canvas.Canvas, data: Dict[str, Any]) -> None:
         """生成第 2 頁：預算書主表"""
         width, height = A4
-        current_y = height - 60
+        current_y = height - 50
 
         # === 標題 ===
         c.setFont(self.font_name, 22)
         title = "推廣管路灌溉設施計畫預算書"
         title_width = c.stringWidth(title, self.font_name, 22)
         c.drawString((width - title_width) / 2, current_y, title)
-        current_y -= 40
+        current_y -= 30
 
         # === 基本資料表格 ===
         table_font_size = 14
@@ -975,12 +975,12 @@ class BudgetStatementPDFGenerator:
         self._draw_justified_text(c, "補助標準", table_x + 4, table_y - 17, col1_width - 8, font_size=table_font_size)
         c.drawString(table_x + col1_width + 4, table_y - 17, data.get('subsidy_standard', ''))
 
-        current_y = table_y - 60
+        current_y = table_y - 50
 
         # === 預算明細表 ===
         table_x = 40
         current_y = self._draw_budget_detail_table(c, data, table_x, current_y)
-        current_y -= 20
+        current_y -= 10
 
         # === 簽核欄位 ===
         self._draw_signature_section(c, table_x, current_y)

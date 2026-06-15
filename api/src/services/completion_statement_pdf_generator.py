@@ -26,6 +26,7 @@ class CompletionStatementPDFGenerator:
         self.font_available = False
         self._setup_fonts()
         self.revision_date = self._get_file_revision_date()
+        self.page_width, self.page_height = A4
 
     def _setup_fonts(self) -> None:
         """設置中文字體"""
@@ -44,6 +45,19 @@ class CompletionStatementPDFGenerator:
         except Exception as e:
             print(f"字體設置失敗: {e}")
 
+    def _check_page_break(self, c: canvas.Canvas, y_pos: float, required_height: float, margin: float = 60) -> float:
+        """
+        分頁檢查機制：若空間不足則換頁並重置字體狀態
+        """
+        if y_pos - required_height < margin:
+            c.showPage()
+            # 換頁後必須重置字體與線條狀態，否則會變回預設值
+            c.setFont(self.font_name, 12)
+            c.setFillColorRGB(0, 0, 0)
+            c.setLineWidth(0.5)
+            return self.page_height - 80  # 返回新頁面的頂部坐標 (留白 80)
+        return y_pos
+    
     def _draw_checkbox(self, c: canvas.Canvas, x: float, y: float, checked: bool = False, size: float = 12):
         """繪製核取方塊"""
         if checked:
@@ -397,8 +411,10 @@ class CompletionStatementPDFGenerator:
         para_width = width - 120  # 左右各留 60 點邊距
         para_height = 150  # 預估最大高度
         para.wrapOn(c, para_width, para_height)
-
-        y_pos = height - 120
+        y_pos = height - 120   # 標題佔 80，留 40 間距
+        
+        # [新增] 繪製段落前檢查是否需要換頁
+        y_pos = self._check_page_break(c, y_pos, para.height + 20)
         para.drawOn(c, 60, y_pos - para.height)
 
         # 更新 y_pos 為段落後的位置
@@ -418,6 +434,8 @@ class CompletionStatementPDFGenerator:
 
         # 表格標題行
         row_height = 30
+        # [新增] 繪製標題與第一行前，檢查剩餘高度 (預留標題 30 + 第一行 68 = 98 點)
+        y_pos = self._check_page_break(c, y_pos, 100)
         c.setFont(self.font_name, 12)
 
         # 第一欄：申請項目（置中）
@@ -481,6 +499,8 @@ class CompletionStatementPDFGenerator:
         self._draw_checkbox(c, review_x + 65, review_y - 3)
         c.drawString(review_x + 78, review_y, "不符")
 
+        # [新增] 第 2 行檢查
+        y_pos = self._check_page_break(c, y_pos, row_height)
         # 第2行：動力設施
         y_pos -= row_height
         c.rect(table_x, y_pos, table_width * 0.2, row_height)
@@ -529,6 +549,8 @@ class CompletionStatementPDFGenerator:
             padding=8,
             c=c
         )
+        # [新增] 第 3 行動態高度檢查
+        y_pos = self._check_page_break(c, y_pos, row_height_3)
 
         y_pos -= row_height_3
         c.rect(table_x, y_pos, table_width * 0.2, row_height_3)
@@ -573,7 +595,8 @@ class CompletionStatementPDFGenerator:
             padding=8,
             c=c
         )
-
+        # [新增] 第 4 行動態高度檢查
+        y_pos = self._check_page_break(c, y_pos, row_height_4)
         y_pos -= row_height_4
         c.rect(table_x, y_pos, table_width * 0.2, row_height_4)
         review_y = y_pos + row_height_4 / 2
@@ -606,6 +629,8 @@ class CompletionStatementPDFGenerator:
         self._draw_checkbox(c, review_x + 65, review_y - 3)
         c.drawString(review_x + 78, review_y, "不符")
 
+        # [新增] 繪製頁尾前預留總高度（約需 280 點空間供所有簽名行使用）
+        y_pos = self._check_page_break(c, y_pos, 280)
         # === 此致 ===
         y_pos -= 30
         c.setFont(self.font_name, 16)

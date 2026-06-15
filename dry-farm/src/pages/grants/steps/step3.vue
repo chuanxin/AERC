@@ -1186,7 +1186,12 @@ const fundingSourceOptions = computed(() => {
       name: office.name
     }))
 
-  return filtered
+     // 補上不在 offices 的獨立預算來源
+  const extraSources = [
+    { id: 23, name: '墊付預算' }
+  ]
+
+  return [...filtered, ...extraSources]
 });
 
 // 驗證條件

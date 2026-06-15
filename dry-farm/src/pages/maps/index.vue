@@ -3658,29 +3658,42 @@ const formatCaseStatus = (status: unknown): string => {
   return '未結案'
 }
 
-// 顯示案件詳細資訊彈出視窗（簡化版）
-const showGrantPopup = (coordinate: number[], properties: Record<string, unknown>) => {
+// 顯示案件詳細資訊彈出視窗
+const showGrantPopup = (coordinate: number[], propertiesList: Record<string, unknown>[]) => {
   let info: string
 
-  if (properties.cluster) {
-    // 聚合點位資訊
-    const systemType = properties.source_system === 'new_aerc' ? '新系統案件' : '歷史案件'
-    info = `📍 聚合點位 (${systemType})
+  if (propertiesList.length === 1) {
+    const properties = propertiesList[0]
+    if (properties.cluster) {
+      const systemType = properties.source_system === 'new_aerc' ? '新系統案件' : '歷史案件'
+      info = `📍 聚合點位 (${systemType})
 📊 包含案件數: ${properties.point_count}
 📅 年度範圍: 民國${properties.year_range}年
 🔍 縮放等級: ${properties.zoom_level}
 
 💡 放大地圖可查看詳細的個別點位`
-  } else {
-    // 個別點位資訊
-    const systemType = properties.source_system === 'new_aerc' ? '新系統案件' : '歷史案件'
-    info = `📍 ${systemType}
+    } else {
+      const systemType = properties.source_system === 'new_aerc' ? '新系統案件' : '歷史案件'
+      info = `📍 ${systemType}
 📋 案件編號: ${properties.case_number || '未提供'}
 👤 申請人: ${properties.applicant_name || '未提供'}
 📍 地段: ${properties.land_section || '未提供'}
 📍 地號: ${properties.land_number || '未提供'}
 📅 申請年度: 民國${properties.apply_year}年
 📊 案件狀態: ${formatCaseStatus(properties.case_status)}`
+    }
+  } else {
+    // 多筆重疊點位
+    const lines = propertiesList.map((properties, index) => {
+      const systemType = properties.source_system === 'new_aerc' ? '新系統' : '歷史'
+      return `【第 ${index + 1} 筆】(${systemType})
+  案件編號: ${properties.case_number || '未提供'}
+  申請人: ${properties.applicant_name || '未提供'}
+  地段/地號: ${properties.land_section || ''}  ${properties.land_number || ''}
+  申請年度: 民國${properties.apply_year}年
+  狀態: ${formatCaseStatus(properties.case_status)}`
+    })
+    info = `📍 此座標共有 ${propertiesList.length} 筆重疊案件\n\n` + lines.join('\n\n')
   }
 
   alert(info)
@@ -4525,16 +4538,15 @@ async function initMap() {
       if (features.length > 0) {
         if (displayMode.value === 'points') {
           // 點位模式：處理聚合點位
-          const feature = features.find((f: any) => {
-            const layer = f.get('layer');
-            const isCadastral = f.get('cadastral'); // 排除地籍圖層
-            return !isCadastral && (layer === grantLayer || !layer); // 補助案件特徵
-          });
-
-          if (feature) {
-            const properties = feature.getProperties();
-            showGrantPopup(event.coordinate, properties);
-          }
+          const pointFeatures = features.filter((f: any) => {
+          const layer = f.get('layer');
+          const isCadastral = f.get('cadastral');
+          return !isCadastral && (layer === grantLayer || !layer);
+        });
+        if (pointFeatures.length > 0) {
+          const allProperties = pointFeatures.map((f: any) => f.getProperties());
+          showGrantPopup(event.coordinate, allProperties);
+        }
         } else if (displayMode.value === 'grid') {
           // 格網模式：處理格網統計
           const gridFeature = features.find((f: any) => f.get('gridKey'));

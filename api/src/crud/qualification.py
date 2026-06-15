@@ -70,7 +70,8 @@ class QualificationCRUD:
                 representative_location, 
                 include_office_boundaries=(request.options and request.options.include_office_boundaries)
             )
-            case_items.append(case_item)
+            if case_item is not None:
+                case_items.append(case_item)
         
         # 5. 計算面積統計
         statistics = None
@@ -200,8 +201,13 @@ class QualificationCRUD:
             # 新系統：直接使用 source_id
             grant_id = str(location.source_id)
             grant_version = await GrantVersions.filter(grant_id=grant_id).prefetch_related('grant').first()
-            print("新案件 find grant_id is : ",grant_id)
+            print("新案件 find grant_id is : ", grant_id)
             print(f" [Full Data Object]: {grant_version}")
+
+            if grant_version is None:
+                print(f"警告：grant_id={grant_id} 找不到對應的 GrantVersions 記錄，跳過此筆")
+                return None
+
             version_data = grant_version.all_steps_data
             #print(f" [Full Data]:\n{json.dumps(version_data, ensure_ascii=False, indent=2)}")
             
@@ -242,8 +248,14 @@ class QualificationCRUD:
             # 歷史資料：通過 source_id 查找 grant_versions，取得 grant_id
             print("歷史資料")
             grant_version = await GrantVersions.filter(version=location.source_id).prefetch_related('grant').first()
+
+            if grant_version is None:
+                print(f"警告：source_id={location.source_id} 找不到對應的 GrantVersions 記錄，跳過此筆")
+                return None
+
             version_data = grant_version.all_steps_data
-            if version_data.get("metadata").get("original_complete_status") == False :
+            metadata = version_data.get("metadata") if version_data else {}
+            if metadata.get("original_complete_status") == False:
                 office = str(grant_version.grant.office)
                 location.apply_year = version_data.get("steps", {}).get("7").get("applicationYear")
                 location.case_number = version_data.get("steps", {}).get("7").get("caseNumber")    
@@ -461,22 +473,24 @@ class QualificationCRUD:
             )
         
         # 統計各類面積
-        total_used_area = sum(item.approved_area for item in case_items)
+        valid_items = [item for item in case_items if item is not None]
+
+        total_used_area = sum(item.approved_area for item in valid_items)
         
         # 按案件類型分類統計
         micro_irrigation_area = sum(
-            item.approved_area for item in case_items 
+            item.approved_area for item in valid_items 
             if item.case_type in ["田間管路", "微灌設施"]
         )
         
         sprinkler_area = sum(
-            item.approved_area for item in case_items
+            item.approved_area for item in valid_items
             if item.case_type in ["調控設施", "噴水設施"]
         )
         
         # 假設土地總面積 (實際應該從地籍資料獲取)
         # 這裡使用最大單筆面積的3倍作為估算
-        max_area = max((item.approved_area for item in case_items), default=Decimal('0'))
+        max_area = max((item.approved_area for item in valid_items), default=Decimal('0'))
         estimated_total_area = max_area * Decimal('3')
         
         return AreaStatistics(
