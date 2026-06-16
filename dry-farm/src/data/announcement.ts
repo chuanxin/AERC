@@ -11,7 +11,7 @@ export interface Announcement {
 // 這是唯一的資料來源 (Single Source of Truth)
 export const announcementsData: Announcement[] = [
    {
-    id: 7,
+    id: 8,
   date: '115.06.12',
   type: '系統公告',
   content: '系統更新公告：115/6/12 上線功能說明 🆕',
