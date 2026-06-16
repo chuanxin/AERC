@@ -829,7 +829,7 @@ async def extract_subsidy_row_data(grant, version_data: dict) -> dict:
         if not (isinstance(fid, int) and fid in _FUNDING_SOURCE_SHEETS):
             raw_fid = step4_data.get('fundingSourceId')
             raise ValueError(
-                f"案件 {getattr(grant, 'case_number', '?')} 的 fundingSourceId={raw_fid!r} "
+                f"案件 {getattr(grant, 'case_number', '?')!r}: fundingSourceId={raw_fid!r} "
                 "不在已知清單，請重新儲存步驟 4（灌溉調控設施）以更新補助來源"
             )
 
@@ -910,7 +910,7 @@ async def download_subsidy_details_list(
                 grants_by_sheet[sheet_name].append(row_data)
             except Exception as row_err:
                 skipped_cases.append(grant.case_number or str(grant.id))
-                logger.warning("subsidy-details-list: skipped grant %s due to error: %s", grant.case_number, row_err)
+                logger.warning("subsidy-details-list: skipped grant %r due to error: %s", grant.case_number, row_err)
                 continue
 
         # 取得使用者所屬單位名稱（get_current_user 已載入 office）

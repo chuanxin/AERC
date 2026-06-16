@@ -1907,60 +1907,52 @@ const updateFormData = () => {
 
 // 跳過灌溉調控設施步驟功能
 const skipStep = async () => {
-  console.log('⏭️ [step3] Skipping step (灌溉調控設施) - using unified clearStepData');
-
+  // fundingSourceId 為必填，由 button :disabled 保證進入此函數時必定已選
   try {
-    // 🔥 使用統一的原子性清除方法（與 step2 觸發的清除邏輯一致）
-    // 這會清除：API + Store (formData/previousFormData/changedFields) + localStorage
-    const success = await grantsStore.clearStepData(props.currentStep);
-
-    if (!success) {
-      console.error('❌ [step3] clearStepData failed');
-      alert('清除資料失敗，請稍後再試');
-      return;
-    }
-
-    console.log('✅ [step3] clearStepData succeeded (API + Store + localStorage cleared)');
-
-    // 🔥 清除本地 UI 狀態（確保即時響應）
-    Object.assign(localFormData, {
-      fundingSourceId: 0,
-
-      // 動力設備
+    // 儲存僅含 fundingSourceId 的 step 資料（無設施）
+    // 讓後端寫入 steps["4"] = { fundingSourceId: X }，而非刪除整個 key
+    const saved = await grantsStore.saveStepData(props.currentStep, {
+      fundingSourceId: localFormData.fundingSourceId,
+      facilities: [],
       powerEquipment: '',
-
-      // 調蓄設施
       storageType: '',
       storageTonnage: '',
       storageSource: '',
       storageRemark: '',
-
-      // 調節控制設施
       controlType: '',
       controlName: '',
       controlQuantity: 1,
       controlUnitPrice: '',
-      // controlSource: '',
-
-      // 設施列表
-      facilities: [],
-
-      valid: true
+      valid: true,
     });
 
-    // 關閉編輯模式
-    isEditingFundingSource.value = false;
+    if (!saved) {
+      alert('儲存失敗，請稍後再試');
+      return;
+    }
 
-    // 設置為有效狀態，允許跳過
+    // 清除本地 UI 的設施欄位，保留 fundingSourceId
+    Object.assign(localFormData, {
+      powerEquipment: '',
+      storageType: '',
+      storageTonnage: '',
+      storageSource: '',
+      storageRemark: '',
+      controlType: '',
+      controlName: '',
+      controlQuantity: 1,
+      controlUnitPrice: '',
+      facilities: [],
+      valid: true,
+    });
+
+    isEditingFundingSource.value = false;
     localValid.value = true;
 
-    // 觸發 validated 事件，進入下一步
     emit('validated', {
       valid: true,
       step: props.currentStep
     });
-
-    console.log('✅ [step3] Step skipped successfully');
   } catch (error) {
     console.error('❌ [step3] Skip step failed:', error);
     alert('操作失敗，請稍後再試');
