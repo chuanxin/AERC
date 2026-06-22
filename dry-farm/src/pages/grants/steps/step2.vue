@@ -5239,14 +5239,6 @@ const performSpatialQueries = async (feature: Feature<Geometry>) => {
 // Function to use selected feature data
 const useSelectedFeature = async () => {
   if (selectedFeatureInfo.value) {
-    // 林業用地（ES）阻擋：使用者按「使用此地號」時檢查，不寫入任何地號資料
-    if (selectedFeatureInfo.value.LANDDETATIS === 'ES') {
-      landParcelNotFoundAlert.value = true;
-      landParcelNotFoundTitle.value = '林業用地限制';
-      landParcelNotFoundMessage.value = '此地號為「林業用地」(ES)，不得納入補助申請案件之土地清單';
-      return;
-    }
-
     // 步驟 1: 先更新設施地段（縣市、鄉鎮市區、地段）- 必須在設置地號資料之前執行
     // 這樣級聯清除就不會影響到地號資料
     if (selectedFeatureInfo.value.CITY || selectedFeatureInfo.value.TOWN || selectedFeatureInfo.value.SECT) {
@@ -5834,6 +5826,17 @@ const processFeatureAreaData = async (features: any[]) => {
   // 暫存使用地類別代碼至 localFormData（供 createLandFromCurrentForm 讀取）
   localFormData.landDetatisCode = landdetatisCode;
 
+  // 林業用地（ES）輔助提示：立即顯示；點選其他地號時自動清除
+  if (landdetatisCode === 'ES') {
+    landParcelNotFoundAlert.value = true;
+    landParcelNotFoundTitle.value = '林業用地限制';
+    landParcelNotFoundMessage.value = '系統查詢顯示此地號使用地類別為「林業用地」(ES)。線上資料可能未反映最新地籍登記狀況，請以土地登記謄本為準，自行確認是否符合補助申請條件。';
+  } else if (landParcelNotFoundTitle.value === '林業用地限制') {
+    landParcelNotFoundAlert.value = false;
+    landParcelNotFoundTitle.value = '查無此地號';
+    landParcelNotFoundMessage.value = '';
+  }
+
   // 存儲當前的 cadastral feature（用於「使用此地號」功能）
   currentCadastralFeature.value = feature;
 
@@ -6160,9 +6163,15 @@ if (import.meta.env.DEV) {
       LANDDETATIS_NAME: landdetatisCode ? convertLandDetatisCodeToName(landdetatisCode) : undefined,
     };
     featureInfoVisible.value = true;
-    landParcelNotFoundAlert.value = false;
-    landParcelNotFoundTitle.value = '查無此地號';
-    landParcelNotFoundMessage.value = '';
+    if (landdetatisCode === 'ES') {
+      landParcelNotFoundAlert.value = true;
+      landParcelNotFoundTitle.value = '林業用地限制';
+      landParcelNotFoundMessage.value = '系統查詢顯示此地號使用地類別為「林業用地」(ES)。線上資料可能未反映最新地籍登記狀況，請以土地登記謄本為準，自行確認是否符合補助申請條件。';
+    } else if (landParcelNotFoundTitle.value === '林業用地限制') {
+      landParcelNotFoundAlert.value = false;
+      landParcelNotFoundTitle.value = '查無此地號';
+      landParcelNotFoundMessage.value = '';
+    }
     console.log('[step2.vue][DEV] simulateNLSCLandInfo:', selectedFeatureInfo.value);
   };
 
