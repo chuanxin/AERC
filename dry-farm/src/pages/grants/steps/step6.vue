@@ -133,7 +133,24 @@
               </tr>
               <tr>
                 <td class="font-weight-medium">
-                  灌溉調控設施費
+                  規劃設計費（B）
+                </td>
+                <td>
+                  <template v-if="designFee > 0">
+                    A*2.0%
+                  </template>
+                </td>
+                <td class="text-center" />
+                <td class="text-center" />
+                <td class="text-center" />
+                <td class="text-center font-weight-medium">
+                  {{ designFee }}
+                </td>
+                <td />
+              </tr>
+              <tr>
+                <td class="font-weight-medium">
+                  灌溉調控設施(C+D+E)
                 </td>
                 <td>
                   <template v-if="controlFacilities.length > 0">
@@ -172,23 +189,7 @@
                 </td>
                 <td>{{ item.remark }}</td>
               </tr>
-              <tr>
-                <td class="font-weight-medium">
-                  規劃設計費（B）
-                </td>
-                <td>
-                  <template v-if="designFee > 0">
-                    A*2.0%
-                  </template>
-                </td>
-                <td class="text-center" />
-                <td class="text-center" />
-                <td class="text-center" />
-                <td class="text-center font-weight-medium">
-                  {{ designFee }}
-                </td>
-                <td />
-              </tr>
+              
               <tr class="bg-grey-lighten-4">
                 <td
                   colspan="5"
@@ -549,8 +550,9 @@ const getStepDataSafely = (step: number) => {
 };
 
 // Computed properties for facility data - 直接從 grantsStore 讀取資料，不維護本地副本
+// ✅ 修正後
 const mainPipes = computed(() => {
-  const step4Data = getStepDataSafely(5);  // step4.vue → formData[5]
+  const step4Data = getStepDataSafely(5);
   if (!step4Data?.pipes || !Array.isArray(step4Data.pipes)) return [];
 
   return step4Data.pipes
@@ -561,13 +563,27 @@ const mainPipes = computed(() => {
         console.warn(`[step6] ${label} totalPrice 缺失，資料可能損壞`);
       if (p.matamount == null) console.warn(`[step6] ${label} matamount 缺失`);
       if (p.matprice == null) console.warn(`[step6] ${label} matprice 缺失`);
+
+      // ✅ 根據 index 分別取 L1 或 L2 的對應欄位
+      const pipeLength         = index === 0 ? step4Data['mainPipeLength']         : step4Data['mainPipe2Length'];
+      const pipeStandardLength = index === 0 ? step4Data['mainPipeStandardLength'] : step4Data['mainPipe2StandardLength'];
+
+      // 組合備註：管路長度 + 每支管材標準長度
+      let remark = '-';
+      if (p.matname) {
+        const parts: string[] = [];
+        if (pipeLength != null)         parts.push(`管路長度: ${pipeLength} 公尺`);
+        if (pipeStandardLength != null) parts.push(`每支長度: ${pipeStandardLength} 公尺`);
+        remark = parts.length > 0 ? parts.join('，') : '-';
+      }
+
       return {
         name: label,
         quantity: p.matamount ?? '⚠️缺失',
         unitPrice: p.matprice != null ? Number(p.matprice).toLocaleString() : '⚠️缺失',
         totalPrice: p.totalPrice != null ? Number(p.totalPrice).toLocaleString() : '⚠️缺失',
         unit: '支',
-        remark: p.matname ? `管材長度: ${step4Data['mainPipeLength'] ?? '-'} 公尺` : '-'
+        remark  // ✅ L1/L2 各自顯示正確的長度資訊
       };
     });
 });

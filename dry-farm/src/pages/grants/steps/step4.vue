@@ -4011,26 +4011,41 @@ const fetchPipeFittings = async () => {
   }
 };
 
-const getStandardPipeLength = async (materialId: number | null, diameterId: number | null, moduleId: number = 1): Promise<number> => {
-  if (!materialId || !diameterId) return 4; // 預設長度
-  // 從 pipeFittingsStore 中尋找比對的管件
-  const matchingPipe = pipeFittingsStore.pipeFittings.find(pipe =>
-      pipe.material_id === materialId &&
-      pipe.diameter1_id === diameterId &&
-      pipe.module_id === moduleId
-  );
+// 先用 pomno 精確比對
+const getStandardPipeLength = async (
+  materialId: number | null,
+  diameterId: number | null,
+  moduleId: number,
+  pomno?: string | number
+): Promise<number> => {
 
-  // 如果找到比對的管件且有 length 屬性，返回該長度值
-  if (matchingPipe && matchingPipe.length) {
-      // console.log(`Found matching pipe with length: ${matchingPipe.length} for materialId=${materialId}, diameterId=${diameterId}, moduleId=${moduleId}`);
-      return matchingPipe.length;
+  // Step 1: 如果有傳入 pomno，比對取 length
+  if (pomno) {
+    const exactPipe = pipeFittingsStore.pipeFittings.find(
+      pipe => pipe.pomno === pomno
+    );
+    if (exactPipe && exactPipe.length) {
+      console.log(`✅ [getStandardPipeLength] pomno 精確比對: pomno=${pomno}, length=${exactPipe.length}`);
+      return exactPipe.length;
+    }
   }
 
-  // 未找到比對的管件，返回預設長度
+  // Step 2: 沒有 pomno 或比對失敗，才用模糊比對
+  if (!materialId || !diameterId) return 4;
+
+  const mainPipeFittings = filteredPipeFittingsByModule.value.mainPipe || [];
+  const matchingPipe = mainPipeFittings.find(pipe =>
+    pipe.material_id === materialId &&
+    pipe.diameter1_id === diameterId
+  );
+
+  if (matchingPipe && matchingPipe.length) {
+    return matchingPipe.length;
+  }
+
   console.warn(`No matching pipe found for materialId=${materialId}, diameterId=${diameterId}, moduleId=${moduleId}, using default length: 4`);
   return 4;
 };
-
 // 計算主管數量（根據長度） - 管材使用無條件進位
 const calculateMainPipeQuantity = async () => {
   const length = localFormData.mainPipeLength || 0;
@@ -5041,6 +5056,8 @@ const skipStep = async () => {
       mainPipeUnitPrice: null,
       mainPipeQuantity: null,
       mainPipeStandardLength: 4,
+      mainPipePomno: null as number | null,        
+      mainPipeMaterialName: '' as string,          
 
       // 主管2相關
       mainPipe2Enabled: false,
@@ -5050,6 +5067,10 @@ const skipStep = async () => {
       mainPipe2UnitPrice: null,
       mainPipe2Quantity: null,
       mainPipe2StandardLength: 4,
+      mainPipe2Pomno: null as number | null,        
+      mainPipe2MaterialName: '' as string,          
+
+      _needsSchemaVersionUpdate: false as boolean,  
 
       // 支管相關
       branchPipeSpacing_SL: null,
@@ -5827,32 +5848,44 @@ const generateMaterialsByFormula = (formulaNumber: number, data: MaterialData): 
   return materialGroups.filter((group): group is MaterialGroup => !!(group && group.List && group.List.length > 0));
 };
 
-// 添加主管材料的專用函數，使用自定義單價
+// 
 const addMainPipeMaterial = (
   materials: MaterialItem[],
   materialConfig: Omit<MaterialItem, 'pomno' | 'matprice'>,
   customPrice: number
 ) => {
-  // 嘗試比對材料
-  const match = matchMaterialFromStore(
-    materialConfig.module_id,
-    materialConfig.spec1,
-    materialConfig.spec2 || '',
-    materialConfig.spec3 || '',
-    materialConfig.mattype,
-    ''
-  );
+  // 如果是主管 1，檢查 mainPipePomno；主管 2，檢查 mainPipe2Pomno
+  const uiSelectedPomno = materialConfig.description.includes('L1')
+    ? localFormData.mainPipePomno
+    : localFormData.mainPipe2Pomno;
+
+  let match;
+  if (uiSelectedPomno) {
+    // 如果 UI 有選，直接用 POMNO 抓取 Store 裡的名稱
+    match = matchMaterialByPomno(uiSelectedPomno);
+  } else {
+    // 否則才執行原本的模糊比對
+    match = matchMaterialFromStore(
+      materialConfig.module_id,
+      materialConfig.spec1,
+      materialConfig.spec2 || '',
+      materialConfig.spec3 || '',
+      materialConfig.mattype,
+      ''
+    );
+  }
 
   // 使用自定義單價，但保留比對到的 pomno 和名稱
   materials.push({
     ...materialConfig,
     pomno: match.pomno,
-    matprice: customPrice, // 使用田間主管配置的自定義單價
+    matprice: customPrice,
     matname: match.matchedData?.name || materialConfig.matname,
     mattype: match.matchedData?.material?.name || materialConfig.mattype,
+    itemunit: match.matchedData?.unit || materialConfig.itemunit, // 從 Store 讀取單位
     // debugMatchData: match.matchedData,
-    isMainPipeMaterial: true, // 標記為主管材料
-    customPrice: customPrice // 保存自定義價格
+    isMainPipeMaterial: true,
+    customPrice: customPrice
   });
 
   console.log(`[addMainPipeMaterial] 使用自定義單價: ${materialConfig.matname} -> ${customPrice}元`);
@@ -5860,10 +5893,25 @@ const addMainPipeMaterial = (
 };
 
 // 生成主管1材料 (L1MainPipeLine)
+// 修正後
 const generateL1MainPipeLine = (data: any) => {
   const materials: MaterialItem[] = [];
+
+  // 如果數量為 0，直接回傳，不帶入空材料
+  const l1Amount = Math.ceil(data.L1MatAmt || 0);
+  if (l1Amount <= 0) {
+    return {
+      GroupNo: 1,
+      GroupName: '主管組',
+      List: []
+    };
+  }
+
   const L1MaterialName = pipeMaterialOptions.value.find(m => m.id === data.L1Material)?.name || '';
   const L1SpecName = pipeDiameterOptions.value.find(d => d.id === data.L1Spec)?.name || '';
+
+  // 如果 UI 有選具體名稱，則傳入 pomno，否則傳入 moduleId (1)
+  // const identifier = localFormData.mainPipePomno || 1; // (供未來擴充用)
 
   // 主管材料 - 使用田間主管配置的單價
   addMainPipeMaterial(materials, {
@@ -5875,27 +5923,14 @@ const generateL1MainPipeLine = (data: any) => {
     spec2: '',
     spec3: '',
     itemunit: '支',
-    matamount: Math.ceil(data.L1MatAmt || new Big(data.L1Len).div(4).round(0, Big.roundUp).toNumber()),
+    matamount: l1Amount, // 使用精確計算的數量，不用 div(4) fallback
     description: '主管管材(L1)',
     order: 1,
     group: 1
   }, data.L1Price || 0);
 
-  // 彎頭 (2025/06/06 更新：不需要顯示彎頭管材的計算結果)
-  // addMaterial(materials, 2, L1SpecName, '', '彎頭', {
-  //   module: '主管配件',
-  //   matname: '彎頭',
-  //   module_id: 2,
-  //   mattype: L1MaterialName,
-  //   spec1: L1SpecName,
-  //   spec2: '',
-  //   spec3: '',
-  //   itemunit: '個',
-  //   matamount: Math.floor(data.L1Bend || 3),
-  //   description: '90度彎頭',
-  //   order: 2,
-  //   group: 1
-  // });
+  // 彎頭（已停用）
+  // ...
 
   // 塞口
   addMaterial(materials, 2, L1SpecName, '', '塞口', {
@@ -5976,7 +6011,7 @@ const generateL2MainPipeLine = (data: any) => {
     spec2: '',
     spec3: '',
     itemunit: '支',
-    matamount: Math.ceil(data.L2MatAmt || new Big(data.L2Len).div(4).round(0, Big.roundUp).toNumber()),
+    matamount: Math.ceil(data.L2MatAmt || 0), // ✅ 不用 div(4) fallback，數量應由 calculateMainPipe2Quantity 負責計算
     description: '主管管材(L2)',
     order: 3,
     group: 1

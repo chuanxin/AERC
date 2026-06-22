@@ -989,7 +989,7 @@
                             >
                               mdi-currency-usd
                             </v-icon>
-                            減列（可編輯）
+                            減列
                           </span>
                         </template>
                       </v-text-field>
@@ -3119,7 +3119,7 @@ watch(() => localFormData.isReinspection ? localFormData.reinspectionResult : lo
 
     // 設置預設減列金額（正數，不帶負號）
     if (!localFormData.increasedDecreasedAmount) {
-      localFormData.increasedDecreasedAmount = '1,000';
+      localFormData.increasedDecreasedAmount = ''; //初始為空，讓用戶輸入
     }
 
     // 實際發放金額會通過減列計算（原金額 - 減列金額）
@@ -3280,7 +3280,7 @@ watch([() => localFormData.originalPayment, () => localFormData.increasedDecreas
       const original = parseFloat(localFormData.originalPayment.replace(/,/g, ''));
       const deduction = parseFloat(localFormData.increasedDecreasedAmount.replace(/,/g, ''));
 
-      if (!isNaN(original) && !isNaN(deduction) && deduction > 0) {
+      if (!isNaN(original) && !isNaN(deduction) && deduction >= 0) {
         // 減列：原金額 - 減列金額（直接相減）
         const actual = original - deduction;
         const newActualPayment = actual.toLocaleString();
