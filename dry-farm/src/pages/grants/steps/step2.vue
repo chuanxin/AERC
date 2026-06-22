@@ -180,7 +180,7 @@
           >
             <div class="d-flex align-center">
               <div>
-                <div class="font-weight-medium">
+                <div class="font-weight-bold" :class="{ 'text-error': landParcelNotFoundTitle === '林業用地限制' }">
                   {{ landParcelNotFoundTitle }}
                 </div>
                 <div class="text-body-2">
