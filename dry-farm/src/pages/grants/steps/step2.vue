@@ -132,6 +132,18 @@
                       來源: {{ selectedFeatureInfo.areaSource || '地籍登記面積 (NLSC)' }}
                     </div>
                   </div>
+                  <div v-if="selectedFeatureInfo.LANDUSE_NAME">
+                    <strong>土地使用分區:</strong> {{ selectedFeatureInfo.LANDUSE_NAME }}
+                    <span v-if="selectedFeatureInfo.LANDUSE" class="text-caption text-grey-darken-1">
+                      ({{ selectedFeatureInfo.LANDUSE }})
+                    </span>
+                  </div>
+                  <div v-if="selectedFeatureInfo.LANDDETATIS_NAME">
+                    <strong>使用地類別:</strong> {{ selectedFeatureInfo.LANDDETATIS_NAME }}
+                    <span v-if="selectedFeatureInfo.LANDDETATIS" class="text-caption text-grey-darken-1">
+                      ({{ selectedFeatureInfo.LANDDETATIS }})
+                    </span>
+                  </div>
                   <div class="mt-2">
                     <v-btn
                       density="compact"
@@ -169,7 +181,7 @@
             <div class="d-flex align-center">
               <div>
                 <div class="font-weight-medium">
-                  查無此地號
+                  {{ landParcelNotFoundTitle }}
                 </div>
                 <div class="text-body-2">
                   {{ landParcelNotFoundMessage }}
@@ -2064,6 +2076,12 @@ interface SelectedFeatureInfo {
   AREA?: number;          // GML 面積（平方公尺）
   Sec_cns?: string;       // 地段中文名稱（用於顯示）
 
+  // 土地使用分區（從 CSV 對照表解析）
+  LANDUSE?: string;           // 土地使用分區代碼（例：AA、AF）
+  LANDDETATIS?: string;       // 使用地類別代碼（例：EA、ES）
+  LANDUSE_NAME?: string;      // 土地使用分區中文名稱
+  LANDDETATIS_NAME?: string;  // 使用地類別中文名稱
+
   [key: string]: unknown;
 }
 
@@ -2124,6 +2142,9 @@ interface LandData {
     share: string;
     area: string;
   }>;
+
+  // 使用地類別代碼（來自 NLSC LANDDETATIS，供後續步驟使用）
+  landDetatisCode?: string;
 }
 
 // 土地管理狀態
@@ -2255,7 +2276,7 @@ const createProtectedFunctionFactory = (
       if (!guard.isInitializing && guard.isInitialized) {
         eventEmitter.emitDataChanged()
       } else {
-        console.log(`⏸️ step2.vue: Skipping event emission during initialization (${fn.name})`)
+        console.log(`[step2.vue] Skipping event emission during initialization (${fn.name})`)
       }
       return result
     }) as T
@@ -2265,7 +2286,7 @@ const createProtectedFunctionFactory = (
   createProtectedWatch: <T extends (...args: unknown[]) => unknown>(fn: T): T => {
     return ((...args: unknown[]) => {
       if (guard.isInitializing) {
-        console.log(`⏸️ step2.vue: Skipping watch execution during initialization (${fn.name})`)
+        console.log(`[step2.vue] Skipping watch execution during initialization (${fn.name})`)
         return
       }
       return fn(...args)
@@ -2348,7 +2369,7 @@ const createEventEmitter = (
     },
 
     emitGoBackRequested: () => {
-      console.log(`🔙 step${stepNumber}.vue: Emitting go-back-requested event`)
+      console.log(`[step${stepNumber}.vue] Emitting go-back-requested event`)
       emit('go-back-requested', { step: stepNumber })
     }
   }
@@ -2554,7 +2575,8 @@ const createInitialLandData = (id?: string): LandData => ({
     address: string;
     share: string;
     area: string;
-  }>
+  }>,
+  landDetatisCode: ''
 })
 
 // 事件驅動架構：創建初始表單資料函數
@@ -2617,6 +2639,9 @@ const createInitialFormData = () => ({
     area: string
   }>,
 
+  // 使用地類別代碼（暫存，用於 createLandFromCurrentForm 讀取）
+  landDetatisCode: '',
+
   // Always valid for seamless navigation
   valid: true
 })
@@ -2672,12 +2697,12 @@ const landUtils = {
     ownerShare1: localFormData.ownerShare1,
     ownerShare2: localFormData.ownerShare2,
     ownerArea: localFormData.ownerArea,
-    owners: [...localFormData.owners]
+    owners: [...localFormData.owners],
+    landDetatisCode: localFormData.landDetatisCode || ''
   }),
 
-  // 🔥 修復：防止載入時觸發級聯重置的土地資料載入
   loadLandToCurrentForm: (land: LandData, skipProtection = false): void => {
-    console.log('🔧 loadLandToCurrentForm - Starting land data load...', skipProtection ? '(外層保護)' : '')
+    console.log('[step2.vue] loadLandToCurrentForm - Starting land data load...', skipProtection ? '(外層保護)' : '')
 
     // 暫時標記為載入模式，防止級聯重置（除非外層已經開啟保護）
     const needProtection = !skipProtection && !initGuard.isInitializing
@@ -2731,7 +2756,7 @@ const landUtils = {
       previousLandNumberMain.value = land.landNumberMain || '';
       previousLandNumberSub.value = land.landNumberSub || '';
 
-      // console.log('🔧 loadLandToCurrentForm - Data loaded:')
+      // console.log('[step2.vue] loadLandToCurrentForm - Data loaded:')
       // console.log('  landCounty:', localFormData.landCounty, typeof localFormData.landCounty)
       // console.log('  landTown:', localFormData.landTown, typeof localFormData.landTown)
       // console.log('  landSec:', localFormData.landSec, typeof localFormData.landSec)
@@ -2807,6 +2832,7 @@ const noSectionDataOverlay = ref(false);
 
 // 查無地號提示 alert 狀態
 const landParcelNotFoundAlert = ref(false);
+const landParcelNotFoundTitle = ref('查無此地號');
 const landParcelNotFoundMessage = ref('');
 
 // Variables to track interactions with proper types
@@ -3014,7 +3040,7 @@ const currentSelectedSection = computed(() => {
     }
   });
 
-  console.log('🎯 匹配結果:', found ? { code: found.code, name: found.name } : '未找到');
+  console.log('[step2.vue] 匹配結果:', found ? { code: found.code, name: found.name } : '未找到');
   return found || null;
 });
 
@@ -3139,6 +3165,39 @@ const offlineTrainingSectionCodes = (import.meta.env.VITE_STEP2_OFFLINE_SECTIONS
 const offlineTrainingFeatures = ref<Feature<Geometry>[]>([]);
 const offlineTrainingSections = ref<LandSection[]>([]);
 let offlineTrainingLoadPromise: Promise<void> | null = null;
+// 土地使用分區對照表（CSV 靜態資源，onMounted 時載入一次）
+const landUseCodeMap = ref<Record<string, string>>({});
+const landDetatisCodeMap = ref<Record<string, string>>({});
+const landUseClassLoaded = ref(false);
+
+const loadLandUseClassification = async () => {
+  if (landUseClassLoaded.value) return;
+  try {
+    const response = await fetch('/land_use_classification.csv');
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const text = await response.text();
+    const lines = text.trim().split('\n').slice(1); // skip header
+    for (const line of lines) {
+      const cols = line.split(',').map(c => c.replace(/"/g, '').trim());
+      const [landuse, landdetatis, name] = cols;
+      if (landuse && !landUseCodeMap.value[landuse]) {
+        landUseCodeMap.value[landuse] = name;
+      } else if (landdetatis && !landDetatisCodeMap.value[landdetatis]) {
+        landDetatisCodeMap.value[landdetatis] = name;
+      }
+    }
+    landUseClassLoaded.value = true;
+  } catch (error) {
+    console.error('[step2.vue] 載入土地分類對照表失敗:', error);
+  }
+};
+
+const convertLandUseCodeToName = (code: string): string =>
+  landUseCodeMap.value[code] || code;
+
+const convertLandDetatisCodeToName = (code: string): string =>
+  landDetatisCodeMap.value[code] || code;
+
 // 地段搜尋文字
 const sectionSearchText = ref('');
 
@@ -3471,10 +3530,10 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
         )
 
         const hasData = actualDataKeys.length > 0
-        console.log(`📊 [Step2] Step ${step} API 檢查: ${hasData ? '有資料' : '無資料'} (${actualDataKeys.length} 個業務欄位)`)
+        console.log(`[Step2] Step ${step} API 檢查: ${hasData ? '有資料' : '無資料'} (${actualDataKeys.length} 個業務欄位)`)
         return hasData
       } catch (error) {
-        console.error(`❌ [Step2] 檢查 Step ${step} 失敗:`, error)
+        console.error(`[Step2] 檢查 Step ${step} 失敗:`, error)
         return false  // API 失敗時保守判斷（不清除）
       }
     }
@@ -3499,7 +3558,7 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
         const clearFailures: number[] = []
 
         if (hasStep4Data) {
-          console.log('🗑️ [Step2] 清除 Step4 資料（面積變更）')
+          console.log('[Step2] 清除 Step4 資料（面積變更）')
           const success = await grantsStore.clearStepData(4)
           if (!success) {
             clearFailures.push(4)
@@ -3507,7 +3566,7 @@ watch([totalFacilityArea, totalFacilityAreaHa], async ([area, areaHa], [oldArea]
         }
 
         if (hasStep5Data) {
-          console.log('🗑️ [Step2] 清除 Step5 資料（面積變更）')
+          console.log('[Step2] 清除 Step5 資料（面積變更）')
           const success = await grantsStore.clearStepData(5)
           if (!success) {
             clearFailures.push(5)
@@ -4248,7 +4307,7 @@ const validateForm = stepManager.validateForm;
 
 // 事件驅動架構:處理下一步請求
 const handleProceedToNext = async () => {
-  console.log('🎯 step2.vue: handleProceedToNext called');
+  console.log('[step2.vue] handleProceedToNext called');
 
   const isValid = await validateForm();
   if (isValid) {
@@ -4643,6 +4702,11 @@ const initializeStep2WithCascadeData = async () => {
     }
   }
 }
+
+// 土地分類對照表載入（與主要初始化流程獨立，失敗不中斷功能）
+onMounted(async () => {
+  await loadLandUseClassification();
+});
 
 // 生命週期管理 - 使用修復後的邏輯
 onMounted(async () => {
@@ -5175,6 +5239,14 @@ const performSpatialQueries = async (feature: Feature<Geometry>) => {
 // Function to use selected feature data
 const useSelectedFeature = async () => {
   if (selectedFeatureInfo.value) {
+    // 林業用地（ES）阻擋：使用者按「使用此地號」時檢查，不寫入任何地號資料
+    if (selectedFeatureInfo.value.LANDDETATIS === 'ES') {
+      landParcelNotFoundAlert.value = true;
+      landParcelNotFoundTitle.value = '林業用地限制';
+      landParcelNotFoundMessage.value = '此地號為「林業用地」(ES)，不得納入補助申請案件之土地清單';
+      return;
+    }
+
     // 步驟 1: 先更新設施地段（縣市、鄉鎮市區、地段）- 必須在設置地號資料之前執行
     // 這樣級聯清除就不會影響到地號資料
     if (selectedFeatureInfo.value.CITY || selectedFeatureInfo.value.TOWN || selectedFeatureInfo.value.SECT) {
@@ -5731,6 +5803,12 @@ const processFeatureAreaData = async (features: any[]) => {
     }
   }
 
+  // 土地使用分區：代碼 → 中文名稱轉換
+  const landuseCode = properties.LANDUSE?.toString() || '';
+  const landdetatisCode = properties.LANDDETATIS?.toString() || '';
+  const landuseName = landuseCode ? convertLandUseCodeToName(landuseCode) : '';
+  const landdetatisName = landdetatisCode ? convertLandDetatisCodeToName(landdetatisCode) : '';
+
   // 更新 selectedFeatureInfo 以顯示在地號資訊面板
   selectedFeatureInfo.value = {
     Land_no: formattedLandNo,           // 格式化地號（####-####）
@@ -5744,8 +5822,17 @@ const processFeatureAreaData = async (features: any[]) => {
     TOWN: properties.TOWN,               // 鄉鎮市區
     OFFICE: properties.OFFICE,           // 地政事務所代碼
     AREA: properties.AREA,               // GML 面積
-    Sec_cns: sectionName                 // 地段中文名稱
+    Sec_cns: sectionName,                // 地段中文名稱
+
+    // 土地使用分區（代碼 + 中文名稱）
+    LANDUSE: landuseCode || undefined,
+    LANDDETATIS: landdetatisCode || undefined,
+    LANDUSE_NAME: landuseName || undefined,
+    LANDDETATIS_NAME: landdetatisName || undefined,
   };
+
+  // 暫存使用地類別代碼至 localFormData（供 createLandFromCurrentForm 讀取）
+  localFormData.landDetatisCode = landdetatisCode;
 
   // 存儲當前的 cadastral feature（用於「使用此地號」功能）
   currentCadastralFeature.value = feature;
@@ -5880,6 +5967,10 @@ watch(landInfoDialog, async (isOpen, wasOpen) => {
   } else {
     // Clean up map when dialog closes
     cleanupMap();
+    // 重置地號警告狀態（包含林業用地阻擋訊息）
+    landParcelNotFoundAlert.value = false;
+    landParcelNotFoundTitle.value = '查無此地號';
+    landParcelNotFoundMessage.value = '';
   }
 });
 
@@ -6014,6 +6105,69 @@ const showEligibilityDialog = openQualificationQuery
 onUnmounted(() => {
   cleanupMap();
 });
+
+// DEV-only: 模擬 NLSC 地號查詢結果（用於 DevTools 測試土地使用分區顯示與 ES 阻擋）
+interface GMLProperties {
+  CITY?: string;
+  TOWN?: string;
+  OFFICE?: string;
+  SECT?: string;
+  LANDNO?: string;
+  AREA?: number;
+  LANDUSE?: string;
+  LANDDETATIS?: string;
+  VALUESSESSED?: number;
+  VALUEANNOUNCE?: number;
+}
+
+declare global {
+  interface Window {
+    testStep2LandInfo: (props: GMLProperties) => void;
+  }
+}
+
+if (import.meta.env.DEV) {
+  const simulateNLSCLandInfo = (props: GMLProperties) => {
+    const landuseCode = props.LANDUSE?.toString() || '';
+    const landdetatisCode = props.LANDDETATIS?.toString() || '';
+
+    const landNo8 = (props.LANDNO || '').toString().padStart(8, '0');
+    const formattedLandNo = landNo8.length >= 8
+      ? `${landNo8.substring(0, 4)}-${landNo8.substring(4, 8)}`
+      : landNo8;
+
+    const sectionCodeToFind = props.SECT || '';
+    const selectedSection = sections.value.find(s =>
+      s.code === sectionCodeToFind || s.value === sectionCodeToFind
+    );
+    const sectionName = selectedSection?.displayName || selectedSection?.name || '';
+
+    selectedFeatureInfo.value = {
+      Land_no: formattedLandNo,
+      section: sectionName,
+      area: props.AREA,
+      areaSource: '地籍登記面積 (NLSC)',
+      LANDNO: props.LANDNO,
+      SECT: props.SECT,
+      CITY: props.CITY,
+      TOWN: props.TOWN,
+      OFFICE: props.OFFICE,
+      AREA: props.AREA,
+      Sec_cns: sectionName,
+      LANDUSE: landuseCode || undefined,
+      LANDDETATIS: landdetatisCode || undefined,
+      LANDUSE_NAME: landuseCode ? convertLandUseCodeToName(landuseCode) : undefined,
+      LANDDETATIS_NAME: landdetatisCode ? convertLandDetatisCodeToName(landdetatisCode) : undefined,
+    };
+    featureInfoVisible.value = true;
+    landParcelNotFoundAlert.value = false;
+    landParcelNotFoundTitle.value = '查無此地號';
+    landParcelNotFoundMessage.value = '';
+    console.log('[step2.vue][DEV] simulateNLSCLandInfo:', selectedFeatureInfo.value);
+  };
+
+  window.testStep2LandInfo = simulateNLSCLandInfo;
+}
 </script>
 
 <style scoped>
