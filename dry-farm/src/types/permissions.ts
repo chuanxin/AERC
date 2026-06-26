@@ -176,13 +176,13 @@ export const MODE_NAMES: Record<PermissionMode, string> = {
 }
 
 /**
- * 預設角色列表
+ * 預設角色列表（030-account-approval-flow: 英文鍵名，對應後端 permission_service.py）
  */
 export const DEFAULT_ROLES = [
-  '系統管理員',
-  '管理處主管',
-  '業務承辦人',
-  '一般使用者'
+  { title: '系統管理員', value: 'admin' },
+  { title: '管理處主管', value: 'manager' },
+  { title: '業務承辦人', value: 'staff' },
+  { title: '一般使用者', value: 'user' }
 ] as const
 
-export type DefaultRole = typeof DEFAULT_ROLES[number]
+export type DefaultRole = typeof DEFAULT_ROLES[number]['value']

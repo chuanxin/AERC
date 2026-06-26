@@ -7,11 +7,14 @@ Two-Layer Architecture (Simple Service):
 - Token 生成和管理邏輯
 """
 
+import logging
 import os
 import uuid
 import random
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from jinja2 import Template
@@ -455,6 +458,65 @@ class EmailService:
             subject="帳號轉移通知",
             body_html=body_html
         )
+
+    async def send_approval_notification(
+        self,
+        email: str,
+        username: str,
+        login_url: str
+    ) -> bool:
+        """
+        發送帳號審核通過通知信
+
+        Returns:
+            bool: 是否發送成功（失敗只寫 log，不拋例外）
+        """
+        try:
+            import html as _html
+            body_html = (
+                f"<p>您好，</p>"
+                f"<p>您的帳號申請（帳號：<strong>{_html.escape(username)}</strong>）已審核通過，即可登入系統。</p>"
+                f"<p><a href=\"{_html.escape(login_url)}\">點此前往登入頁面</a></p>"
+                f"<p>AERC 系統</p>"
+            )
+            return await self.send_email(
+                recipients=[email],
+                subject="帳號申請審核通過通知",
+                body_html=body_html
+            )
+        except Exception as e:
+            logger.error("send_approval_notification failed: %s", e)
+            return False
+
+    async def send_rejection_notification(
+        self,
+        email: str,
+        username: str,
+        reason: str
+    ) -> bool:
+        """
+        發送帳號申請駁回通知信
+
+        Returns:
+            bool: 是否發送成功（失敗只寫 log，不拋例外）
+        """
+        try:
+            import html as _html
+            body_html = (
+                f"<p>您好，</p>"
+                f"<p>您的帳號申請（帳號：<strong>{_html.escape(username)}</strong>）已被駁回。</p>"
+                f"<p>駁回原因：{_html.escape(reason)}</p>"
+                f"<p>如有疑問，請聯繫系統管理員。</p>"
+                f"<p>AERC 系統</p>"
+            )
+            return await self.send_email(
+                recipients=[email],
+                subject="帳號申請駁回通知",
+                body_html=body_html
+            )
+        except Exception as e:
+            logger.error("send_rejection_notification failed: %s", e)
+            return False
 
 
 # ============================================

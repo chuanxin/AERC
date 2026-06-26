@@ -527,3 +527,8 @@ class PasswordPolicyResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class RejectUserRequest(BaseModel):
+    """駁回帳號申請請求（POST /{user_id}/reject 使用）"""
+    reason: str = Field(..., min_length=1, max_length=500, description="駁回原因")
