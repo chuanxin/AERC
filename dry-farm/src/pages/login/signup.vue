@@ -36,12 +36,44 @@
       max-width="600"
       persistent
     >
-      <v-card class="signup-card">
+      <v-card
+        v-if="showSuccessPage"
+        class="signup-card"
+      >
+        <v-card-text class="text-center pa-10">
+          <v-icon
+            color="success"
+            size="64"
+            class="mb-6"
+          >
+            mdi-check-circle-outline
+          </v-icon>
+          <div class="text-h6 mb-3">
+            申請已送出
+          </div>
+          <div class="text-body-1 text-medium-emphasis mb-8">
+            您的帳號申請已成功送出，請等待管理員審核。<br>
+            審核結果將寄送至您的電子郵件。
+          </div>
+          <v-btn
+            color="primary"
+            variant="flat"
+            @click="router.push('/login')"
+          >
+            返回登入頁
+          </v-btn>
+        </v-card-text>
+      </v-card>
+
+      <v-card
+        v-else
+        class="signup-card"
+      >
         <v-card-title class="signup-title text-center pt-6">
           帳號申請
         </v-card-title>
 
-        <v-card-text class="px-6">
+        <v-card-text class="px-6 py-0">
           <v-stepper
             v-model="currentStep"
             :items="stepperItems"
@@ -49,155 +81,243 @@
             hide-actions
           >
             <!-- Step 1: All Info (except password) -->
-            <template #item.1>
-              <v-text-field
-                v-model="signupForm.username"
-                label="擬申請帳號 *"
-                placeholder="請輸入帳號（至少 3 個字元）"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :error-messages="formErrors.username"
-                :loading="usernameChecking"
-                @input="handleUsernameInput"
+            <template #[`item.1`]>
+              <!-- Row 1: Username + Email -->
+              <v-row
+                no-gutters
+                class="mb-2"
               >
-                <template #append-inner>
-                  <v-icon
-                    v-if="usernameAvailable === true"
-                    color="success"
-                    icon="mdi-check-circle"
-                  />
-                  <v-icon
-                    v-else-if="usernameAvailable === false"
-                    color="error"
-                    icon="mdi-close-circle"
-                  />
-                </template>
-              </v-text-field>
-
-              <v-text-field
-                v-model="signupForm.email"
-                label="E-Mail *"
-                placeholder="請輸入電子郵件"
-                type="email"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :error-messages="formErrors.email"
-                :loading="emailChecking"
-                @input="handleEmailInput"
-              >
-                <template #append-inner>
-                  <v-icon
-                    v-if="emailAvailable === true"
-                    color="success"
-                    icon="mdi-check-circle"
-                  />
-                  <v-icon
-                    v-else-if="emailAvailable === false"
-                    color="error"
-                    icon="mdi-close-circle"
-                  />
-                </template>
-              </v-text-field>
-
-              <v-text-field
-                v-model="signupForm.full_name"
-                label="姓名 *"
-                placeholder="請輸入您的姓名"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :error-messages="formErrors.full_name"
-                @input="clearError('full_name')"
-              />
-
-              <v-select
-                v-model="signupForm.office_id"
-                label="所屬單位（管理處）*"
-                :items="offices"
-                item-title="name"
-                item-value="id"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :loading="isOfficesLoading"
-                :error-messages="formErrors.office_id"
-                @update:model-value="clearError('office_id')"
-              />
-
-              <v-text-field
-                v-model="signupForm.department"
-                label="所屬部門（工作站）*"
-                placeholder="請輸入所屬部門或工作站"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :error-messages="formErrors.department"
-                @input="clearError('department')"
-              />
-
-              <v-text-field
-                v-model="signupForm.job_title"
-                label="職稱"
-                placeholder="請輸入您的職稱（選填）"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-              />
-
-              <v-row no-gutters>
                 <v-col
-                  cols="8"
-                  class="pr-2"
+                  cols="12"
+                  md="6"
+                  class="pr-md-2"
+                >
+                  <v-text-field
+                    v-model="signupForm.username"
+                    label="擬申請帳號 *"
+                    placeholder="至少 3 個字元"
+                    variant="outlined"
+                    density="compact"
+                    :error-messages="formErrors.username"
+                    :loading="usernameChecking"
+                    @input="handleUsernameInput"
+                  >
+                    <template #append-inner>
+                      <v-icon
+                        v-if="usernameAvailable === true"
+                        color="success"
+                        icon="mdi-check-circle"
+                      />
+                      <v-icon
+                        v-else-if="usernameAvailable === false"
+                        color="error"
+                        icon="mdi-close-circle"
+                      />
+                    </template>
+                  </v-text-field>
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="6"
+                  class="pl-md-2"
+                >
+                  <v-text-field
+                    v-model="signupForm.email"
+                    label="E-Mail *"
+                    placeholder="請輸入電子郵件"
+                    type="email"
+                    variant="outlined"
+                    density="compact"
+                    :error-messages="formErrors.email"
+                    :loading="emailChecking"
+                    @input="handleEmailInput"
+                  >
+                    <template #append-inner>
+                      <v-icon
+                        v-if="emailAvailable === true"
+                        color="success"
+                        icon="mdi-check-circle"
+                      />
+                      <v-icon
+                        v-else-if="emailAvailable === false"
+                        color="error"
+                        icon="mdi-close-circle"
+                      />
+                    </template>
+                  </v-text-field>
+                </v-col>
+              </v-row>
+
+              <!-- Row 2: 姓名 + 職稱 -->
+              <v-row
+                no-gutters
+                class="mb-2"
+              >
+                <v-col
+                  cols="12"
+                  md="6"
+                  class="pr-md-2"
+                >
+                  <v-text-field
+                    v-model="signupForm.full_name"
+                    label="姓名 *"
+                    placeholder="請輸入您的姓名"
+                    variant="outlined"
+                    density="compact"
+                    :error-messages="formErrors.full_name"
+                    @input="clearError('full_name')"
+                  />
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="6"
+                  class="pl-md-2"
+                >
+                  <v-text-field
+                    v-model="signupForm.job_title"
+                    label="職稱"
+                    placeholder="選填"
+                    variant="outlined"
+                    density="compact"
+                  />
+                </v-col>
+              </v-row>
+
+              <!-- Row 3: 管理處 + 分處（v-if） + 工作站（v-if） — 同一 row，動態欄寬 -->
+              <v-row
+                no-gutters
+                class="mb-2"
+              >
+                <v-col
+                  cols="12"
+                  :md="unitCols"
+                  :class="{ 'pe-md-1': hasBranches || hasStations }"
+                >
+                  <v-select
+                    v-model="signupForm.office_id"
+                    label="所屬單位（管理處）*"
+                    :items="offices"
+                    item-title="title"
+                    item-value="value"
+                    variant="outlined"
+                    density="compact"
+                    :loading="isOfficesLoading"
+                    :error-messages="formErrors.office_id"
+                    @update:model-value="clearError('office_id')"
+                  />
+                </v-col>
+                <v-col
+                  v-if="hasBranches"
+                  cols="12"
+                  :md="unitCols"
+                  :class="hasStations ? 'px-md-1' : 'ps-md-1'"
+                >
+                  <v-select
+                    v-model="selectedBranchOffice"
+                    :items="branchOffices"
+                    label="分處"
+                    item-title="title"
+                    item-value="value"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                    hide-details
+                    @update:model-value="clearError('department')"
+                  />
+                </v-col>
+                <v-col
+                  v-if="hasStations"
+                  cols="12"
+                  :md="unitCols"
+                  class="ps-md-1"
+                >
+                  <v-select
+                    v-model="selectedWorkStation"
+                    :items="workStations"
+                    label="工作站"
+                    item-title="title"
+                    item-value="value"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                    :disabled="hasBranches && !selectedBranchOffice"
+                    :error-messages="formErrors.department"
+                    @update:model-value="clearError('department')"
+                  />
+                  <div
+                    v-if="!hasStations && formErrors.department"
+                    class="text-error text-caption mt-1"
+                  >
+                    {{ formErrors.department }}
+                  </div>
+                </v-col>
+              </v-row>
+
+              <!-- Row 4: Phone + Extension + Mobile -->
+              <v-row
+                no-gutters
+                class="mb-2"
+              >
+                <v-col
+                  cols="12"
+                  md="5"
+                  class="pr-md-2"
                 >
                   <v-text-field
                     v-model="signupForm.phone"
                     label="聯絡電話 *"
                     placeholder="例：02-12345678"
                     variant="outlined"
-                    density="comfortable"
-                    class="mb-3"
+                    density="compact"
                     :error-messages="formErrors.phone"
                     @input="clearError('phone')"
                   />
                 </v-col>
-                <v-col cols="4">
+                <v-col
+                  cols="4"
+                  md="2"
+                  class="px-md-1"
+                >
                   <v-text-field
                     v-model="signupForm.phone_ext"
                     label="分機"
                     placeholder="選填"
                     variant="outlined"
-                    density="comfortable"
-                    class="mb-3"
+                    density="compact"
+                  />
+                </v-col>
+                <v-col
+                  cols="8"
+                  md="5"
+                  class="pl-md-2"
+                >
+                  <v-text-field
+                    v-model="signupForm.mobile"
+                    label="手機"
+                    placeholder="例：0912345678"
+                    variant="outlined"
+                    density="compact"
                   />
                 </v-col>
               </v-row>
 
-              <v-text-field
-                v-model="signupForm.mobile"
-                label="手機"
-                placeholder="例：0912345678（選填）"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-              />
-
+              <!-- Row 5: Application Reason -->
               <v-textarea
                 v-model="signupForm.application_reason"
                 label="申請原因說明 *"
                 placeholder="請說明申請帳號的原因與用途"
                 variant="outlined"
-                density="comfortable"
-                rows="3"
-                class="mb-3"
+                density="compact"
+                rows="2"
+                auto-grow
+                class="mb-2"
                 :error-messages="formErrors.application_reason"
                 @input="clearError('application_reason')"
               />
             </template>
 
             <!-- Step 2: Email OTP Verification -->
-            <template #item.2>
+            <template #[`item.2`]>
               <v-alert
                 v-if="!otpSent"
                 type="info"
@@ -224,7 +344,6 @@
                 variant="tonal"
                 class="mb-4"
               >
-                <v-icon icon="mdi-check-circle" />
                 電子郵件驗證成功！
               </v-alert>
 
@@ -280,135 +399,179 @@
             </template>
 
             <!-- Step 3: Password Setup -->
-            <template #item.3>
-              <v-text-field
-                v-model="signupForm.password"
-                label="密碼 *"
-                placeholder="請輸入密碼"
-                :type="showPassword ? 'text' : 'password'"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :error-messages="formErrors.password"
-                @input="clearError('password')"
+            <template #[`item.3`]>
+              <v-row
+                no-gutters
+                class="mb-2"
               >
-                <template #append-inner>
-                  <v-icon
-                    :icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                    @click="showPassword = !showPassword"
-                  />
-                </template>
-              </v-text-field>
+                <v-col
+                  cols="12"
+                  md="6"
+                  class="pr-md-2"
+                >
+                  <v-text-field
+                    v-model="signupForm.password"
+                    label="密碼 *"
+                    placeholder="請輸入密碼"
+                    :type="showPassword ? 'text' : 'password'"
+                    variant="outlined"
+                    density="compact"
+                    :disabled="policyLoading || policyLoadError"
+                    :error-messages="formErrors.password"
+                    @input="clearError('password')"
+                  >
+                    <template #append-inner>
+                      <v-icon
+                        :icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                        @click="showPassword = !showPassword"
+                      />
+                    </template>
+                  </v-text-field>
+                </v-col>
+                <v-col
+                  cols="12"
+                  md="6"
+                  class="pl-md-2"
+                >
+                  <v-text-field
+                    v-model="signupForm.confirmPassword"
+                    label="確認密碼 *"
+                    placeholder="請再次輸入密碼"
+                    :type="showConfirmPassword ? 'text' : 'password'"
+                    variant="outlined"
+                    density="compact"
+                    :error-messages="formErrors.confirmPassword"
+                    @input="clearError('confirmPassword')"
+                  >
+                    <template #append-inner>
+                      <v-icon
+                        :icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
+                        @click="showConfirmPassword = !showConfirmPassword"
+                      />
+                    </template>
+                  </v-text-field>
+                </v-col>
+              </v-row>
 
-              <!-- Password Requirements -->
-              <div class="password-requirements mb-3">
-                <div
-                  class="requirement"
-                  :class="{ met: passwordRequirements.minLength }"
-                >
-                  <v-icon
-                    :icon="passwordRequirements.minLength ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                    size="small"
-                  />
-                  至少 8 個字元
-                </div>
-                <div class="requirement-header mt-2 mb-1">
-                  以下 4 項至少符合 3 項：
-                </div>
-                <div
-                  class="requirement"
-                  :class="{ met: passwordRequirements.hasDigit }"
-                >
-                  <v-icon
-                    :icon="passwordRequirements.hasDigit ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                    size="small"
-                  />
-                  包含數字
-                </div>
-                <div
-                  class="requirement"
-                  :class="{ met: passwordRequirements.hasUpper }"
-                >
-                  <v-icon
-                    :icon="passwordRequirements.hasUpper ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                    size="small"
-                  />
-                  包含英文大寫
-                </div>
-                <div
-                  class="requirement"
-                  :class="{ met: passwordRequirements.hasLower }"
-                >
-                  <v-icon
-                    :icon="passwordRequirements.hasLower ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                    size="small"
-                  />
-                  包含英文小寫
-                </div>
-                <div
-                  class="requirement"
-                  :class="{ met: passwordRequirements.hasSpecial }"
-                >
-                  <v-icon
-                    :icon="passwordRequirements.hasSpecial ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                    size="small"
-                  />
-                  包含特殊符號
-                </div>
-                <div
-                  class="requirement mt-2"
-                  :class="{ met: passwordRequirements.characterTypesValid }"
-                >
-                  <v-icon
-                    :icon="passwordRequirements.characterTypesValid ? 'mdi-check-circle' : 'mdi-circle-outline'"
-                    size="small"
-                  />
-                  <strong>符合 {{ passwordRequirements.typesCount }}/4 項（至少 3 項）</strong>
-                </div>
+              <!-- Password Requirements - Compact Grid Layout -->
+              <div class="password-requirements mb-2">
+                <template v-if="policyLoading">
+                  <div class="d-flex align-center text-grey text-caption py-1">
+                    <v-progress-circular size="14" width="2" indeterminate class="mr-2" />
+                    密碼規則載入中...
+                  </div>
+                </template>
+                <template v-else-if="policyLoadError">
+                  <div class="d-flex align-center text-error text-caption py-1">
+                    <v-icon size="small" icon="mdi-alert-circle" class="mr-1" />
+                    無法取得密碼規則，請重新整理頁面
+                  </div>
+                </template>
+                <template v-else>
+                  <div
+                    class="requirement requirement-primary"
+                    :class="{ met: passwordRequirements!.minLength }"
+                  >
+                    <v-icon
+                      :icon="passwordRequirements!.minLength ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                      size="small"
+                    />
+                    {{ passwordRequirements!.labels.min_length }}
+                  </div>
+                  <div class="requirement-divider" />
+                  <v-row
+                    no-gutters
+                    dense
+                    class="mt-1"
+                  >
+                    <v-col
+                      cols="6"
+                      class="pr-1"
+                    >
+                      <div
+                        class="requirement requirement-compact"
+                        :class="{ met: passwordRequirements!.hasDigit }"
+                      >
+                        <v-icon
+                          :icon="passwordRequirements!.hasDigit ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                          size="x-small"
+                        />
+                        {{ passwordRequirements!.labels.has_digit }}
+                      </div>
+                    </v-col>
+                    <v-col
+                      cols="6"
+                      class="pl-1"
+                    >
+                      <div
+                        class="requirement requirement-compact"
+                        :class="{ met: passwordRequirements!.hasUpper }"
+                      >
+                        <v-icon
+                          :icon="passwordRequirements!.hasUpper ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                          size="x-small"
+                        />
+                        {{ passwordRequirements!.labels.has_upper }}
+                      </div>
+                    </v-col>
+                    <v-col
+                      cols="6"
+                      class="pr-1"
+                    >
+                      <div
+                        class="requirement requirement-compact"
+                        :class="{ met: passwordRequirements!.hasLower }"
+                      >
+                        <v-icon
+                          :icon="passwordRequirements!.hasLower ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                          size="x-small"
+                        />
+                        {{ passwordRequirements!.labels.has_lower }}
+                      </div>
+                    </v-col>
+                    <v-col
+                      cols="6"
+                      class="pl-1"
+                    >
+                      <div
+                        class="requirement requirement-compact"
+                        :class="{ met: passwordRequirements!.hasSpecial }"
+                      >
+                        <v-icon
+                          :icon="passwordRequirements!.hasSpecial ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                          size="x-small"
+                        />
+                        {{ passwordRequirements!.labels.has_special }}
+                      </div>
+                    </v-col>
+                  </v-row>
+                  <div class="requirement-divider" />
+                  <div
+                    class="requirement requirement-summary"
+                    :class="{ met: passwordRequirements!.characterTypesValid }"
+                  >
+                    <v-icon
+                      :icon="passwordRequirements!.characterTypesValid ? 'mdi-check-circle' : 'mdi-circle-outline'"
+                      size="small"
+                    />
+                    <strong>符合 {{ passwordRequirements!.typesCount }}/{{ passwordRequirements!.totalTypesCount }} 項（至少 {{ passwordPolicy!.required_types_count }} 項）</strong>
+                  </div>
+                </template>
               </div>
-
-              <v-text-field
-                v-model="signupForm.confirmPassword"
-                label="確認密碼 *"
-                placeholder="請再次輸入密碼"
-                :type="showConfirmPassword ? 'text' : 'password'"
-                variant="outlined"
-                density="comfortable"
-                class="mb-3"
-                :error-messages="formErrors.confirmPassword"
-                @input="clearError('confirmPassword')"
-              >
-                <template #append-inner>
-                  <v-icon
-                    :icon="showConfirmPassword ? 'mdi-eye-off' : 'mdi-eye'"
-                    @click="showConfirmPassword = !showConfirmPassword"
-                  />
-                </template>
-              </v-text-field>
             </template>
           </v-stepper>
 
           <!-- Error Alert -->
           <v-alert
-              v-if="submitError"
-              type="error"
-              variant="tonal"
-              density="compact"
-              class="mb-3"
-            >
-              {{ submitError }}
-            </v-alert>
+            v-if="submitError"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mb-2"
+          >
+            {{ submitError }}
+          </v-alert>
 
-            <!-- Success Message -->
-            <v-alert
-              v-if="successMessage"
-              type="success"
-              variant="tonal"
-              density="compact"
-              class="mb-3"
-            >
-              {{ successMessage }}
-            </v-alert>
         </v-card-text>
 
         <v-card-actions class="px-6 pb-6">
@@ -457,7 +620,8 @@
 <script lang="ts" setup>
   import { useOfficesStore } from '@/stores/offices'
   import { apiService } from '@/services/api/http'
-  import { USERS, AUTH } from '@/services/api/endpoints'
+  import { USERS, OFFICES } from '@/services/api/endpoints'
+  import { passwordPolicy, policyLoading, policyLoadError } from '@/services/passwordPolicyService'
 
   const router = useRouter()
   const officesStore = useOfficesStore()
@@ -469,8 +633,7 @@
   const isSubmitting = ref(false)
   const isOfficesLoading = ref(false)
   const submitError = ref('')
-  const successMessage = ref('')
-  const formRef = ref()
+  const showSuccessPage = ref(false)
 
   // Username real-time check
   const usernameChecking = ref(false)
@@ -521,7 +684,73 @@
     otp: ''
   })
 
-  const offices = computed(() => officesStore.items)
+  // 排除 sentinel 虛擬項目（如「墊付預算」id=-1），僅顯示真實 DB 單位
+  const offices = computed(() => officesStore.items.filter(o => o.value !== -1))
+
+  // 分處 + 工作站二級聯動（依賴 office_id）
+  interface SelectOption { title: string; value: string }
+  const selectedBranchOffice = ref<string | null>(null)
+  const selectedWorkStation = ref<string | null>(null)
+  const branchOffices = ref<SelectOption[]>([])
+  const workStations = ref<SelectOption[]>([])
+  const hasBranches = computed(() => branchOffices.value.length > 0)
+  const hasStations = computed(() => workStations.value.length > 0)
+  // 動態欄寬：管理處+分處+工作站三者平均分配同一 row
+  const unitCols = computed(() => {
+    const count = 1 + (hasBranches.value ? 1 : 0) + (hasStations.value ? 1 : 0)
+    return 12 / count  // 12 / 6 / 4
+  })
+
+  const _loadBranches = async (officeId: number) => {
+    try {
+      const list = await apiService.get<Array<{code: string; name: string}>>(OFFICES.BRANCHES(officeId))
+      branchOffices.value = list.map(b => ({ title: b.name, value: b.code }))
+    } catch {
+      branchOffices.value = []
+    }
+  }
+
+  const _loadStations = async (officeId: number, branchCode?: string) => {
+    try {
+      const url = branchCode
+        ? OFFICES.STATIONS_BY_BRANCH(officeId, branchCode)
+        : OFFICES.STATIONS(officeId)
+      const list = await apiService.get<Array<{code: string; name: string}>>(url)
+      workStations.value = list.map(s => ({ title: s.name, value: s.code }))
+    } catch {
+      workStations.value = []
+    }
+  }
+
+  watch(() => signupForm.value.office_id, async (officeId) => {
+    selectedBranchOffice.value = null
+    selectedWorkStation.value = null
+    branchOffices.value = []
+    workStations.value = []
+    if (!officeId) return
+    await _loadBranches(officeId)
+    if (!hasBranches.value) await _loadStations(officeId)
+  })
+
+  watch(selectedBranchOffice, async (branchCode) => {
+    selectedWorkStation.value = null
+    workStations.value = []
+    if (!branchCode || !signupForm.value.office_id) return
+    await _loadStations(signupForm.value.office_id, branchCode)
+  })
+
+  const buildDepartmentPayload = (): string | null => {
+    const data: Record<string, {code: string; name: string}> = {}
+    if (selectedBranchOffice.value) {
+      const b = branchOffices.value.find(x => x.value === selectedBranchOffice.value)
+      if (b) data.branch = { code: b.value, name: b.title }
+    }
+    if (selectedWorkStation.value) {
+      const s = workStations.value.find(x => x.value === selectedWorkStation.value)
+      if (s) data.station = { code: s.value, name: s.title }
+    }
+    return Object.keys(data).length > 0 ? JSON.stringify(data) : null
+  }
 
   // Stepper items configuration
   const stepperItems = [
@@ -544,21 +773,28 @@
 
   // Password requirements validation
   const passwordRequirements = computed(() => {
+    const policy = passwordPolicy.value
+    if (!policy) return null
+
     const password = signupForm.value.password
-    const hasDigit = /\d/.test(password)
-    const hasUpper = /[A-Z]/.test(password)
-    const hasLower = /[a-z]/.test(password)
-    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    const p = policy.char_type_patterns
+
+    const hasDigit   = new RegExp(p.digit).test(password)
+    const hasUpper   = new RegExp(p.upper).test(password)
+    const hasLower   = new RegExp(p.lower).test(password)
+    const hasSpecial = new RegExp(p.special).test(password)
     const typesCount = [hasDigit, hasUpper, hasLower, hasSpecial].filter(Boolean).length
 
     return {
-      minLength: password.length >= 8,
+      minLength: password.length >= policy.min_length,
       hasDigit,
       hasUpper,
       hasLower,
       hasSpecial,
       typesCount,
-      characterTypesValid: typesCount >= 3
+      totalTypesCount: policy.total_types_count,
+      characterTypesValid: typesCount >= policy.required_types_count,
+      labels: policy.labels,
     }
   })
 
@@ -590,7 +826,6 @@
           formErrors.value.username = response.message
         }
       } catch (error) {
-        console.error('Username check failed:', error)
       } finally {
         usernameChecking.value = false
       }
@@ -622,7 +857,6 @@
           formErrors.value.email = response.message
         }
       } catch (error) {
-        console.error('Email check failed:', error)
       } finally {
         emailChecking.value = false
       }
@@ -654,7 +888,6 @@
         }
       }, 1000)
     } catch (error: any) {
-      console.error('Send OTP failed:', error)
       if (error?.response?.status === 409) {
         submitError.value = error.response?.data?.detail || '此電子郵件已被使用'
       } else {
@@ -692,7 +925,6 @@
         if (countdownInterval) clearInterval(countdownInterval)
       }
     } catch (error: any) {
-      console.error('Verify OTP failed:', error)
       formErrors.value.otp = error.response?.data?.detail || '驗證碼錯誤'
     } finally {
       verifyingOtp.value = false
@@ -734,8 +966,8 @@
       isValid = false
     }
 
-    if (!signupForm.value.department) {
-      formErrors.value.department = '請輸入所屬部門/工作站'
+    if ((hasBranches.value || hasStations.value) && !selectedBranchOffice.value && !selectedWorkStation.value) {
+      formErrors.value.department = '請選擇分處或工作站'
       isValid = false
     }
 
@@ -755,14 +987,25 @@
   const validateStep3 = (): boolean => {
     let isValid = true
 
+    if (!passwordPolicy.value) {
+      formErrors.value.password = '密碼規則尚未載入，請重新整理頁面'
+      return false
+    }
     if (!signupForm.value.password) {
       formErrors.value.password = '請輸入密碼'
       isValid = false
-    } else if (!passwordRequirements.value.minLength) {
-      formErrors.value.password = '密碼長度至少需要 8 個字元'
+    } else if (!passwordRequirements.value!.minLength) {
+      formErrors.value.password = passwordRequirements.value!.labels.min_length
       isValid = false
-    } else if (!passwordRequirements.value.characterTypesValid) {
-      formErrors.value.password = '密碼需符合以下 4 項中的至少 3 項：包含數字、包含英文大寫、包含英文小寫、包含特殊符號'
+    } else if (!passwordRequirements.value!.characterTypesValid) {
+      const policy = passwordPolicy.value
+      const typeList = [
+        policy.labels.has_digit,
+        policy.labels.has_upper,
+        policy.labels.has_lower,
+        policy.labels.has_special,
+      ].join('、')
+      formErrors.value.password = `密碼需符合以下 ${policy.required_types_count} 項中的至少一項：${typeList}`
       isValid = false
     }
 
@@ -816,7 +1059,7 @@
         email: signupForm.value.email,
         full_name: signupForm.value.full_name,
         office_id: signupForm.value.office_id,
-        department: signupForm.value.department,
+        department: buildDepartmentPayload(),
         job_title: signupForm.value.job_title || null,
         phone: signupForm.value.phone,
         phone_ext: signupForm.value.phone_ext || null,
@@ -828,14 +1071,9 @@
 
       await apiService.post(USERS.BASE + '/register', payload)
 
-      successMessage.value = '帳號申請已送出，請等待管理員審核。審核通過後將會寄送通知至您的電子郵件。'
-
-      // Wait 3 seconds then redirect to login
-      setTimeout(() => {
-        router.push('/login')
-      }, 3000)
+      showSuccessPage.value = true
     } catch (error: any) {
-      console.error('Registration error:', error)
+      showSuccessPage.value = false
 
       if (error?.response?.status === 400) {
         submitError.value = error.response?.data?.detail || '申請資料有誤，請檢查後重新送出'
@@ -869,7 +1107,7 @@
       try {
         await officesStore.fetchOffices()
       } catch (error) {
-        console.error('Failed to load offices:', error)
+        // ignore — offices will be empty, user sees no dropdown options
       } finally {
         isOfficesLoading.value = false
       }
@@ -978,6 +1216,17 @@
 
   :deep(.v-stepper-header) {
     box-shadow: none !important;
+    margin-bottom: 16px;
+  }
+
+  /* Fix overflow issue to prevent label clipping */
+  :deep(.v-stepper-window) {
+    overflow: visible !important;
+    margin: 10 !important;
+  }
+
+  :deep(.v-stepper-window-item) {
+    padding: 0 !important;
   }
 
   :deep(.v-stepper-item__avatar.v-avatar) {
@@ -1001,26 +1250,42 @@
   /* Password Requirements */
   .password-requirements {
     background-color: #f5f5f5;
-    padding: 12px;
+    padding: 10px 12px;
     border-radius: 8px;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
   }
 
   .requirement {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     color: #666666;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
 
   .requirement.met {
     color: #4caf50;
   }
 
-  .requirement-header {
+  .requirement-primary {
     font-weight: 500;
-    color: #333333;
+    margin-bottom: 6px;
+  }
+
+  .requirement-compact {
+    font-size: 0.75rem;
+    gap: 4px;
+  }
+
+  .requirement-summary {
+    font-weight: 500;
+    margin-top: 6px;
+  }
+
+  .requirement-divider {
+    height: 1px;
+    background-color: #e0e0e0;
+    margin: 6px 0;
   }
 </style>
 
