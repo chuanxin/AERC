@@ -10,6 +10,7 @@ from tortoise.exceptions import ValidationError as TortoiseValidationError
 
 from src.database.register import register_tortoise
 from src.database.config import TORTOISE_ORM
+from src.exceptions import AppError
 
 import os
 import pytz
@@ -50,6 +51,24 @@ async def tortoise_validation_exception_handler(request: Request, exc: TortoiseV
     return JSONResponse(
         status_code=422,
         content={"detail": "輸入資料格式不正確", "error_code": "VALIDATION_ERROR"},
+    )
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError):
+    if exc.status_code >= 500:
+        diagnostic = exc.diagnostic or exc.detail
+        logger.error(
+            "AppError 5xx %s %s (status=%d): %s",
+            request.method, request.url.path, exc.status_code, diagnostic,
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail, "error_code": "INTERNAL_ERROR"},
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
     )
 
 
