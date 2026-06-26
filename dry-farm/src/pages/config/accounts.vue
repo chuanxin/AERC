@@ -167,8 +167,8 @@
                     <v-select
                       v-model="filters.office_id"
                       :items="officeOptions"
-                      item-title="short_name"
-                      item-value="id"
+                      item-title="title"
+                      item-value="value"
                       label="單位"
                       density="comfortable"
                       variant="outlined"
@@ -261,7 +261,7 @@
 
                 <!-- 管理處欄位 -->
                 <template #item.office="{ item }">
-                  {{ item.office?.short_name || '-' }}
+                  {{ item.office?.name || '-' }}
                 </template>
 
                 <!-- 狀態欄位 -->
@@ -629,7 +629,7 @@ const hasActiveFilters = computed(() =>
 const roleOptions = computed(() => [...DEFAULT_ROLES])
 
 // 單位選項
-const officeOptions = computed(() => officesStore.managementOffices || [])
+const officeOptions = computed(() => (officesStore.managementOffices || []).filter(o => o.value > 0))
 
 // 狀態選項
 const statusOptions = [
