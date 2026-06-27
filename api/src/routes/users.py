@@ -46,7 +46,6 @@ from src.schemas.users import (
     AccountMigrationOTPVerifyResponse,
     AccountMigrationCompleteRequest,
     AccountMigrationCompleteResponse,
-    ChangePasswordRequest,
     EncryptedSecureLoginRequest,
     EncryptedChangePasswordRequest,
 )

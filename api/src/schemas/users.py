@@ -399,16 +399,6 @@ class AccountMigrationCompleteRequest(EncryptedPasswordMixin):
         }
 
 
-class ChangePasswordRequest(BaseModel):
-    """密碼過期強制更換請求（JWT 已驗證身份，無需再提供舊密碼）"""
-    new_password: str = Field(..., description="新密碼（明文，須通過強度驗證）")
-
-    @field_validator('new_password')
-    @classmethod
-    def validate_new_password(cls, v: str) -> str:
-        return validate_password_strength(v)
-
-
 class EncryptedSecureLoginRequest(EncryptedPasswordMixin):
     """含驗證碼的安全登入請求（加密格式）"""
     username: str = Field(..., min_length=1, max_length=20, description="使用者帳號")
