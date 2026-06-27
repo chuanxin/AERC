@@ -29,7 +29,8 @@ from src.schemas.users import (
     UserRegistrationResponse,
     PasswordPolicyResponse,
 )
-from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus
+from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus, UserRegistration, RegistrationStatus
+from src.exceptions import AppError
 from src.services.email_service import EmailService
 from src.services.captcha_service import CaptchaService
 from src.services.password_policy import PasswordPolicyService, get_policy_config
@@ -159,12 +160,9 @@ async def send_registration_otp(payload: EmailVerificationRequest):
     from datetime import datetime, timezone, timedelta
 
     try:
-        print(f"[send_registration_otp] 開始處理: email={payload.email}")
-
         # 檢查 Email 是否已存在
         existing_email = await Users.filter(email=payload.email).first()
         if existing_email:
-            print(f"[send_registration_otp] Email 已存在: {payload.email}")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="此電子郵件已被使用"
@@ -172,19 +170,15 @@ async def send_registration_otp(payload: EmailVerificationRequest):
 
         # 生成 6 位數 OTP
         otp = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
-        print(f"[send_registration_otp] OTP 已生成: {otp}")
 
         # 發送 OTP Email（使用 EmailService 的標準模板）
         email_service = EmailService()
-        print(f"[send_registration_otp] 開始發送郵件")
         success = await email_service.send_registration_otp_email(
             email=payload.email,
             otp=otp
         )
-        print(f"[send_registration_otp] 郵件發送結果: success={success}, type={type(success)}")
 
         if not success:
-            print(f"[send_registration_otp] 郵件發送失敗")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="驗證碼郵件發送失敗"
@@ -197,8 +191,6 @@ async def send_registration_otp(payload: EmailVerificationRequest):
         import base64
         import time
 
-        print(f"[send_registration_otp] 開始生成 token")
-
         # 建立包含 email, otp, timestamp 的 token
         timestamp = int(time.time())
         expires_at = timestamp + (15 * 60)  # 15 分鐘後過期
@@ -209,28 +201,17 @@ async def send_registration_otp(payload: EmailVerificationRequest):
         signature = hmac.new(secret_key, data.encode(), hashlib.sha256).hexdigest()
         token = base64.urlsafe_b64encode(f"{data}:{signature}".encode()).decode()
 
-        print(f"[send_registration_otp] Token 已生成")
-
         response_data = {
             "message": "驗證碼已發送至您的電子郵件",
             "token": token,
             "expires_in": 900  # 15 分鐘
         }
-        print(f"[send_registration_otp] 準備返回響應: {response_data}")
-        print(f"[send_registration_otp] 響應類型檢查 - message: {type(response_data['message'])}, token: {type(response_data['token'])}, expires_in: {type(response_data['expires_in'])}")
-
         return response_data
 
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[send_registration_otp] 發生異常: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"發送驗證碼失敗：{str(e)}"
-        )
+        raise AppError(500, "發送驗證碼失敗，請稍後再試", diagnostic=str(e))
 
 
 @router.post("/verify-registration-otp", response_model=RegistrationOTPVerificationResponse)
@@ -410,6 +391,7 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
             new_user = await Users.create(
                 username=payload.username,
                 email=payload.email,
+                email_verified=True,
                 full_name=payload.full_name,
                 office_id=payload.office_id,
                 department=payload.department,
@@ -442,10 +424,7 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"系統錯誤：{str(e)}"
-        )
+        raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))
 
 
 @router.post("/login")
@@ -493,6 +472,18 @@ async def login(
         )
 
     if not user.is_active:
+        # 密碼驗證優先於 pending 狀態查詢，防止帳號枚舉攻擊（R-003）
+        if not verify_password(plaintext_password, user.password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="使用者名稱或密碼不正確",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        pending = await UserRegistration.filter(
+            user_id=user.id, status=RegistrationStatus.PENDING
+        ).first()
+        if pending:
+            raise AppError(403, "帳號審核中，請等待管理員審核")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="使用者名稱或密碼不正確",
@@ -586,6 +577,18 @@ async def login_with_captcha(payload: EncryptedSecureLoginRequest):
         )
 
     if not user.is_active:
+        # 密碼驗證優先於 pending 狀態查詢，防止帳號枚舉攻擊（R-003）
+        if not verify_password(plaintext_password, user.password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="使用者名稱或密碼不正確",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        pending = await UserRegistration.filter(
+            user_id=user.id, status=RegistrationStatus.PENDING
+        ).first()
+        if pending:
+            raise AppError(403, "帳號審核中，請等待管理員審核")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="使用者名稱或密碼不正確",
@@ -836,10 +839,7 @@ async def send_verification_email(
                 detail=f"系統發生錯誤，請聯絡系統管理員並提供錯誤代碼：{error_code}"
             )
 
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"系統錯誤：{str(e)}"
-        )
+        raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))
 
 
 @router.post(
@@ -885,10 +885,7 @@ async def verify_email(payload: EmailVerificationConfirm):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"系統錯誤：{str(e)}"
-        )
+        raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))
 
 
 # ============================================
@@ -983,10 +980,7 @@ async def request_password_reset(
                 detail=f"系統發生錯誤，請聯絡系統管理員並提供錯誤代碼：{error_code}"
             )
 
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"系統錯誤：{str(e)}"
-        )
+        raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))
 
 
 @router.post(
@@ -1045,10 +1039,7 @@ async def verify_otp(payload: OTPVerificationRequest):
             detail="重設連結無效或已過期，請重新申請密碼重設"
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"系統錯誤：{str(e)}"
-        )
+        raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))
 
 
 @router.post(
@@ -1121,8 +1112,8 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
                 user_agent=request.headers.get("user-agent")
             )
         except Exception as email_error:
-            # 記錄但不阻止密碼重設成功
-            print(f"Warning: Failed to send password change notification email: {email_error}")
+            import logging as _log
+            _log.getLogger(__name__).warning("Failed to send password change notification email: %s", email_error)
 
         return PasswordResetResponse(
             message="密碼重設成功，請使用新密碼登入",
@@ -1137,10 +1128,7 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
             detail="重設連結無效或已過期，請重新申請密碼重設"
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"系統錯誤：{str(e)}"
-        )
+        raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))
     
 # ============================================
 # 帳號轉移相關端點（舊系統使用者啟用）
@@ -1221,10 +1209,7 @@ async def verify_migration_otp(payload: AccountMigrationOTPVerifyRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"系統錯誤：{str(e)}"
-        )
+        raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))
 
 
 @router.post(
@@ -1308,10 +1293,7 @@ async def complete_account_migration(payload: AccountMigrationCompleteRequest):
                     detail="department 欄位包含無效的 JSON 格式"
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"處理 department 欄位時發生錯誤: {str(e)}"
-                )
+                raise AppError(500, "更新資料失敗，請稍後再試", diagnostic=str(e))
         if payload.phone:
             user.phone = payload.phone
         if payload.phone_ext:
@@ -1346,7 +1328,4 @@ async def complete_account_migration(payload: AccountMigrationCompleteRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"系統錯誤：{str(e)}"
-        )
+        raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))

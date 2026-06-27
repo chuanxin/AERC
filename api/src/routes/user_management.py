@@ -5,25 +5,32 @@
 - 使用者列表查詢（支援篩選、分頁、搜尋）
 - 使用者詳細資訊
 - 批次啟用/停用帳號
-- 帳號審核功能
+- 帳號審核功能（030-account-approval-flow）
 
 Created: 2025-12-08
+Updated: 2026-06-26 (030-account-approval-flow: role check, approval logic, audit)
 """
 
+from datetime import datetime, timezone
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, status
 from tortoise.exceptions import DoesNotExist
+from tortoise.transactions import in_transaction
 
 from src.auth.guard import require_full_auth
-from src.database.models import Users
-from src.schemas.users import UserInfoSchema
+from src.database.audit_models import AuditAction, AuditEventType, AuditResult
+from src.database.models import UserRegistration, RegistrationStatus, Users
+from src.exceptions import AppError
 from src.schemas.permissions import (
     UpdateUserPermissionsRequest,
     UserPermissionsResponse,
     UserPermissionsSchema
 )
+from src.schemas.users import RejectUserRequest, UserInfoSchema
+from src.services.audit_service import audit_service
+from src.services.email_service import EmailConfig, EmailService
 from src.services.permission_service import permission_service
-from datetime import datetime, timezone
 
 
 router = APIRouter()
@@ -48,40 +55,18 @@ async def list_users(
     search: Optional[str] = Query(None, description="搜尋關鍵字（帳號、姓名、Email）"),
     current_user: Users = Depends(require_full_auth)
 ):
-    """
-    取得使用者列表（分頁）
+    """取得使用者列表（分頁）"""
+    if current_user.role not in ["admin", "manager"]:
+        raise AppError(403, "無帳號管理權限")
 
-    Args:
-        page: 頁碼（從 1 開始）
-        page_size: 每頁筆數
-        is_active: 帳號狀態篩選
-        role: 角色篩選
-        office_id: 管理處篩選
-        search: 搜尋關鍵字
-
-    Returns:
-        {
-            "total": 總筆數,
-            "page": 當前頁碼,
-            "page_size": 每頁筆數,
-            "total_pages": 總頁數,
-            "users": [使用者列表]
-        }
-    """
-    # 建立查詢
     query = Users.all().prefetch_related('office')
 
-    # 篩選條件
     if is_active is not None:
         query = query.filter(is_active=is_active)
-
     if role:
         query = query.filter(role=role)
-
     if office_id:
         query = query.filter(office_id=office_id)
-
-    # 搜尋關鍵字
     if search:
         from tortoise.expressions import Q
         query = query.filter(
@@ -90,14 +75,10 @@ async def list_users(
             Q(email__icontains=search)
         )
 
-    # 計算總數
     total = await query.count()
-
-    # 分頁
     offset = (page - 1) * page_size
     users = await query.offset(offset).limit(page_size).all()
 
-    # 轉換為 Schema
     users_data = [
         {
             "id": user.id,
@@ -122,20 +103,68 @@ async def list_users(
         for user in users
     ]
 
-    total_pages = (total + page_size - 1) // page_size
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+        "users": users_data
+    }
+
+
+# 注意：/pending-approval 必須在 /{user_id} 之前定義，否則 FastAPI 會將靜態段當成 user_id 做 int 轉換 → 422
+@router.get(
+    "/pending-approval",
+    summary="取得待審核帳號列表",
+    description="列出所有待審核的帳號申請（admin 全部，manager 限同辦公室）"
+)
+async def get_pending_approval_users(
+    page: int = Query(1, ge=1, description="頁碼"),
+    page_size: int = Query(20, ge=1, le=100, description="每頁筆數"),
+    current_user: Users = Depends(require_full_auth)
+):
+    """取得待審核帳號清單"""
+    if current_user.role not in ["admin", "manager"]:
+        raise AppError(403, "無審核帳號權限")
+
+    query = UserRegistration.filter(
+        status=RegistrationStatus.PENDING
+    ).prefetch_related("user", "user__office")
+
+    if current_user.role == "manager":
+        if current_user.office is None:
+            raise AppError(403, "帳號尚未指派管理處，請聯繫系統管理員完成設定")
+        query = query.filter(user__office_id=current_user.office.id)
+
+    total = await query.count()
+    offset = (page - 1) * page_size
+    registrations = await query.offset(offset).limit(page_size).order_by("-created_at")
+
+    users_data = [
+        {
+            "user_id": reg.user.id,
+            "registration_id": reg.id,
+            "username": reg.user.username,
+            "full_name": reg.user.full_name,
+            "email": reg.user.email,
+            "office_name": reg.user.office.name if reg.user.office else None,
+            "application_reason": reg.application_reason,
+            "applied_at": reg.created_at.isoformat() if reg.created_at else None,
+        }
+        for reg in registrations
+    ]
 
     return {
         "total": total,
         "page": page,
         "page_size": page_size,
-        "total_pages": total_pages,
+        "total_pages": (total + page_size - 1) // page_size,
         "users": users_data
     }
 
 
 @router.get(
     "/{user_id}",
-    response_model=UserInfoSchema,
     summary="取得單一使用者詳細資訊",
     description="根據使用者 ID 取得詳細資訊"
 )
@@ -144,14 +173,14 @@ async def get_user(
     current_user: Users = Depends(require_full_auth)
 ):
     """取得單一使用者詳細資訊"""
+    if current_user.role not in ["admin", "manager"]:
+        raise AppError(403, "無帳號管理權限")
+
     try:
         user = await Users.get(id=user_id).prefetch_related('office')
         return UserInfoSchema.model_validate(user)
     except DoesNotExist:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"使用者 ID {user_id} 不存在"
-        )
+        raise AppError(404, f"使用者 ID {user_id} 不存在")
 
 
 # ============================================================================
@@ -162,26 +191,17 @@ async def get_user(
     "/{user_id}/permissions",
     response_model=UserPermissionsResponse,
     summary="更新使用者權限",
-    description="更新指定使用者的權限設定"
+    description="更新指定使用者的權限設定（需 admin 角色）"
 )
 async def update_user_permissions(
     user_id: int,
     request: UpdateUserPermissionsRequest,
     current_user: Users = Depends(require_full_auth)
 ):
-    """
-    更新使用者權限
+    """更新使用者權限（admin 限定）"""
+    if current_user.role != "admin":
+        raise AppError(403, "僅系統管理員可修改使用者權限")
 
-    需要系統管理員權限
-    """
-    # TODO: 檢查當前使用者是否有權限管理其他使用者權限
-    # if current_user.role != "系統管理員":
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="僅系統管理員可修改使用者權限"
-    #     )
-
-    # 驗證權限結構
     valid, error_msg = permission_service.validate_permissions_structure(request.permissions)
     if not valid:
         raise HTTPException(
@@ -191,20 +211,8 @@ async def update_user_permissions(
 
     try:
         user = await Users.get(id=user_id)
-
-        # 更新權限
         user.permissions = request.permissions.model_dump(exclude_none=True)
         await user.save()
-
-        # TODO: 記錄審計日誌
-        # await AuditLog.create(
-        #     user_id=current_user.id,
-        #     action="update_permissions",
-        #     target_user_id=user_id,
-        #     reason=request.reason,
-        #     old_value=...,
-        #     new_value=user.permissions
-        # )
 
         return UserPermissionsResponse(
             user_id=user.id,
@@ -215,10 +223,7 @@ async def update_user_permissions(
             updated_at=datetime.now(timezone.utc).isoformat()
         )
     except DoesNotExist:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"使用者 ID {user_id} 不存在"
-        )
+        raise AppError(404, f"使用者 ID {user_id} 不存在")
 
 
 # ============================================================================
@@ -228,31 +233,15 @@ async def update_user_permissions(
 @router.post(
     "/batch-activate",
     summary="批次啟用帳號",
-    description="批次啟用多個使用者帳號"
+    description="批次啟用多個使用者帳號（需 admin 角色）"
 )
 async def batch_activate_users(
     user_ids: List[int],
     current_user: Users = Depends(require_full_auth)
 ):
-    """
-    批次啟用帳號
-
-    Args:
-        user_ids: 使用者 ID 列表
-
-    Returns:
-        {
-            "success": 成功數量,
-            "failed": 失敗數量,
-            "details": [詳細結果]
-        }
-    """
-    # TODO: 檢查權限
-    # if current_user.role != "系統管理員":
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="僅系統管理員可批次啟用帳號"
-    #     )
+    """批次啟用帳號（admin 限定）"""
+    if current_user.role != "admin":
+        raise AppError(403, "僅系統管理員可批次啟用帳號")
 
     results = []
     success_count = 0
@@ -263,64 +252,30 @@ async def batch_activate_users(
             user = await Users.get(id=user_id)
             user.is_active = True
             await user.save()
-
-            results.append({
-                "user_id": user_id,
-                "username": user.username,
-                "success": True,
-                "message": "啟用成功"
-            })
+            results.append({"user_id": user_id, "username": user.username, "success": True, "message": "啟用成功"})
             success_count += 1
         except DoesNotExist:
-            results.append({
-                "user_id": user_id,
-                "success": False,
-                "message": "使用者不存在"
-            })
+            results.append({"user_id": user_id, "success": False, "message": "使用者不存在"})
             failed_count += 1
-        except Exception as e:
-            results.append({
-                "user_id": user_id,
-                "success": False,
-                "message": str(e)
-            })
+        except Exception:
+            results.append({"user_id": user_id, "success": False, "message": "系統錯誤，請稍後再試"})
             failed_count += 1
 
-    return {
-        "success": success_count,
-        "failed": failed_count,
-        "details": results
-    }
+    return {"success": success_count, "failed": failed_count, "details": results}
 
 
 @router.post(
     "/batch-deactivate",
     summary="批次停用帳號",
-    description="批次停用多個使用者帳號"
+    description="批次停用多個使用者帳號（需 admin 角色）"
 )
 async def batch_deactivate_users(
     user_ids: List[int],
     current_user: Users = Depends(require_full_auth)
 ):
-    """
-    批次停用帳號
-
-    Args:
-        user_ids: 使用者 ID 列表
-
-    Returns:
-        {
-            "success": 成功數量,
-            "failed": 失敗數量,
-            "details": [詳細結果]
-        }
-    """
-    # TODO: 檢查權限
-    # if current_user.role != "系統管理員":
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="僅系統管理員可批次停用帳號"
-    #     )
+    """批次停用帳號（admin 限定）"""
+    if current_user.role != "admin":
+        raise AppError(403, "僅系統管理員可批次停用帳號")
 
     results = []
     success_count = 0
@@ -329,240 +284,165 @@ async def batch_deactivate_users(
     for user_id in user_ids:
         try:
             user = await Users.get(id=user_id)
-
-            # 不能停用自己的帳號
             if user.id == current_user.id:
-                results.append({
-                    "user_id": user_id,
-                    "username": user.username,
-                    "success": False,
-                    "message": "不能停用自己的帳號"
-                })
+                results.append({"user_id": user_id, "username": user.username, "success": False, "message": "不能停用自己的帳號"})
                 failed_count += 1
                 continue
-
             user.is_active = False
             await user.save()
-
-            results.append({
-                "user_id": user_id,
-                "username": user.username,
-                "success": True,
-                "message": "停用成功"
-            })
+            results.append({"user_id": user_id, "username": user.username, "success": True, "message": "停用成功"})
             success_count += 1
         except DoesNotExist:
-            results.append({
-                "user_id": user_id,
-                "success": False,
-                "message": "使用者不存在"
-            })
+            results.append({"user_id": user_id, "success": False, "message": "使用者不存在"})
             failed_count += 1
-        except Exception as e:
-            results.append({
-                "user_id": user_id,
-                "success": False,
-                "message": str(e)
-            })
+        except Exception:
+            results.append({"user_id": user_id, "success": False, "message": "系統錯誤，請稍後再試"})
             failed_count += 1
 
-    return {
-        "success": success_count,
-        "failed": failed_count,
-        "details": results
-    }
+    return {"success": success_count, "failed": failed_count, "details": results}
 
 
 # ============================================================================
-# 帳號審核
+# 帳號審核 — 私有輔助函數
 # ============================================================================
 
-@router.get(
-    "/pending-approval",
-    summary="取得待審核帳號列表",
-    description="列出所有待審核的帳號申請（is_active=False + email_verified=True）"
-)
-async def get_pending_approval_users(
-    page: int = Query(1, ge=1, description="頁碼"),
-    page_size: int = Query(20, ge=1, le=100, description="每頁筆數"),
-    current_user: Users = Depends(require_full_auth)
-):
-    """
-    取得待審核帳號列表
+async def _check_manager_office_restriction(actor: UserInfoSchema, target_user_id: int) -> None:
+    """若 actor 是 manager，強制驗證 target_user 與 actor 同辦公室"""
+    if actor.role != "manager":
+        return
+    target_user = await Users.get(id=target_user_id)
+    actor_office_id = actor.office.id if actor.office else None
+    if target_user.office_id != actor_office_id:
+        raise AppError(403, "無法審核其他管理處的帳號申請")
 
-    篩選條件：
-    - is_active = False（尚未啟用）
-    - email_verified = True（Email 已驗證）
-    """
-    # TODO: 檢查權限
-    # if current_user.role not in ["系統管理員", "管理處主管"]:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="無審核帳號權限"
-    #     )
 
-    query = Users.filter(
-        is_active=False,
-        email_verified=True
-    ).prefetch_related('office')
+async def _execute_approval(user_id: int, actor: UserInfoSchema) -> UserRegistration:
+    """在 transaction 內核准帳號申請（select_for_update 防 race condition）"""
+    async with in_transaction():
+        registration = await UserRegistration.select_for_update().filter(
+            user_id=user_id, status=RegistrationStatus.PENDING
+        ).get_or_none()
+        if not registration:
+            raise AppError(409, "申請不存在或已審核")
+        await _check_manager_office_restriction(actor, user_id)
+        registration.status = RegistrationStatus.APPROVED
+        registration.reviewed_by_id = actor.id
+        registration.reviewed_at = datetime.now(timezone.utc)
+        await registration.save()
+        await Users.filter(id=user_id).update(is_active=True)
+    return registration
 
-    # 計算總數
-    total = await query.count()
 
-    # 分頁
-    offset = (page - 1) * page_size
-    users = await query.offset(offset).limit(page_size).all()
+async def _execute_rejection(user_id: int, actor: UserInfoSchema, reason: str) -> UserRegistration:
+    """在 transaction 內駁回帳號申請（select_for_update 防 race condition）"""
+    async with in_transaction():
+        registration = await UserRegistration.select_for_update().filter(
+            user_id=user_id, status=RegistrationStatus.PENDING
+        ).get_or_none()
+        if not registration:
+            raise AppError(409, "申請不存在或已審核")
+        await _check_manager_office_restriction(actor, user_id)
+        registration.status = RegistrationStatus.REJECTED
+        registration.reviewed_by_id = actor.id
+        registration.reviewed_at = datetime.now(timezone.utc)
+        registration.review_comment = reason
+        await registration.save()
+    return registration
 
-    # 轉換為資料
-    users_data = [
-        {
-            "id": user.id,
-            "username": user.username,
-            "full_name": user.full_name,
-            "email": user.email,
-            "job_title": user.job_title,
-            "phone": user.phone,
-            "phone_ext": user.phone_ext,
-            "mobile": user.mobile,
-            "role": user.role,
-            "office": {
-                "id": user.office.id,
-                "name": user.office.name,
-                "short_name": user.office.short_name,
-            } if user.office else None,
-            "department": user.department,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-        }
-        for user in users
-    ]
 
-    total_pages = (total + page_size - 1) // page_size
-
-    return {
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "total_pages": total_pages,
-        "users": users_data
-    }
-
+# ============================================================================
+# 帳號審核 — 路由端點
+# ============================================================================
 
 @router.post(
     "/{user_id}/approve",
     summary="審核通過帳號",
-    description="審核通過帳號申請並啟用帳號"
+    description="核准帳號申請並啟用帳號（admin 全部，manager 限同辦公室）"
 )
 async def approve_user(
     user_id: int,
+    request: Request,
     current_user: Users = Depends(require_full_auth)
 ):
-    """
-    審核通過帳號
-
-    將 is_active 設為 True
-    """
-    # TODO: 檢查權限
-    # if current_user.role not in ["系統管理員", "管理處主管"]:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="無審核帳號權限"
-    #     )
+    """核准帳號申請"""
+    if current_user.role not in ["admin", "manager"]:
+        raise AppError(403, "無審核帳號權限")
 
     try:
         user = await Users.get(id=user_id)
-
-        if user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="該帳號已啟用"
-            )
-
-        # 啟用帳號
-        user.is_active = True
-        await user.save()
-
-        # TODO: 發送審核通過通知信
-        # email_service = EmailService()
-        # await email_service.send_approval_notification(user)
-
-        # TODO: 記錄審計日誌
-        # await AuditLog.create(
-        #     user_id=current_user.id,
-        #     action="approve_user",
-        #     target_user_id=user_id
-        # )
-
-        return {
-            "success": True,
-            "message": f"帳號 {user.username} 審核通過",
-            "user_id": user.id,
-            "username": user.username
-        }
     except DoesNotExist:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"使用者 ID {user_id} 不存在"
-        )
+        raise AppError(404, "使用者不存在")
+
+    registration = await _execute_approval(user_id, current_user)
+
+    login_url = f"{EmailConfig.FRONTEND_URL}/login"
+    email_svc = EmailService()
+    await email_svc.send_approval_notification(user.email, user.username, login_url)
+
+    await audit_service.log(
+        event_type=AuditEventType.REGISTRATION,
+        action=AuditAction.APPROVE,
+        result=AuditResult.SUCCESS,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+        actor_role=current_user.role,
+        ip_address=request.headers.get("X-Real-IP", ""),
+        endpoint=str(request.url.path),
+        resource_type="user_registration",
+        resource_id=str(registration.id),
+        changed_fields={"status": {"before": "pending", "after": "approved"}}
+    )
+
+    return {
+        "success": True,
+        "message": f"帳號 {user.username} 已核准",
+        "user_id": user.id,
+        "username": user.username
+    }
 
 
 @router.post(
     "/{user_id}/reject",
-    summary="拒絕帳號申請",
-    description="拒絕帳號申請並刪除該筆申請記錄"
+    summary="駁回帳號申請",
+    description="駁回帳號申請（admin 全部，manager 限同辦公室），需提供駁回原因"
 )
 async def reject_user(
     user_id: int,
-    reason: Optional[str] = None,
+    request: Request,
+    body: RejectUserRequest,
     current_user: Users = Depends(require_full_auth)
 ):
-    """
-    拒絕帳號申請
-
-    刪除該筆申請記錄
-    """
-    # TODO: 檢查權限
-    # if current_user.role not in ["系統管理員", "管理處主管"]:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="無審核帳號權限"
-    #     )
+    """駁回帳號申請"""
+    if current_user.role not in ["admin", "manager"]:
+        raise AppError(403, "無審核帳號權限")
 
     try:
         user = await Users.get(id=user_id)
-
-        if user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="無法拒絕已啟用的帳號"
-            )
-
-        username = user.username
-        email = user.email
-
-        # TODO: 發送拒絕通知信
-        # email_service = EmailService()
-        # await email_service.send_rejection_notification(user, reason)
-
-        # TODO: 記錄審計日誌（在刪除前）
-        # await AuditLog.create(
-        #     user_id=current_user.id,
-        #     action="reject_user",
-        #     target_user_id=user_id,
-        #     reason=reason
-        # )
-
-        # 刪除帳號
-        await user.delete()
-
-        return {
-            "success": True,
-            "message": f"帳號申請 {username} 已拒絕",
-            "username": username,
-            "email": email,
-            "reason": reason
-        }
     except DoesNotExist:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"使用者 ID {user_id} 不存在"
-        )
+        raise AppError(404, "使用者不存在")
+
+    registration = await _execute_rejection(user_id, current_user, body.reason)
+
+    email_svc = EmailService()
+    await email_svc.send_rejection_notification(user.email, user.username, body.reason)
+
+    await audit_service.log(
+        event_type=AuditEventType.REGISTRATION,
+        action=AuditAction.REJECT,
+        result=AuditResult.SUCCESS,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+        actor_role=current_user.role,
+        ip_address=request.headers.get("X-Real-IP", ""),
+        endpoint=str(request.url.path),
+        resource_type="user_registration",
+        resource_id=str(registration.id),
+        changed_fields={"status": {"before": "pending", "after": "rejected"}}
+    )
+
+    return {
+        "success": True,
+        "message": f"帳號 {user.username} 申請已駁回",
+        "user_id": user.id,
+        "username": user.username
+    }
