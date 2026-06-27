@@ -24,7 +24,6 @@ from src.schemas.users import (
     CaptchaResponse,
     RegistrationOTPResponse,
     RegistrationOTPVerificationResponse,
-    LoginWithCaptchaRequest,
     UserRegistrationRequest,
     UserRegistrationResponse,
     PasswordPolicyResponse,
@@ -33,7 +32,7 @@ from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus
 from src.exceptions import AppError
 from src.services.email_service import EmailService
 from src.services.captcha_service import CaptchaService
-from src.services.password_policy import PasswordPolicyService, get_policy_config
+from src.services.password_policy import PasswordPolicyService, get_policy_config, validate_password_strength
 from datetime import datetime, timezone
 
 from src.auth.jwthandler import (
@@ -47,7 +46,6 @@ from src.schemas.users import (
     AccountMigrationOTPVerifyResponse,
     AccountMigrationCompleteRequest,
     AccountMigrationCompleteResponse,
-    ChangePasswordRequest,
     EncryptedSecureLoginRequest,
     EncryptedChangePasswordRequest,
 )
@@ -362,6 +360,19 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
                 detail="Email 驗證無效，請重新驗證"
             )
 
+        # 防重放驗證 + 解密密碼
+        await validate_and_store_nonce(payload.nonce, payload.timestamp)
+        plaintext_password = decrypt_password(
+            payload.encrypted_password,
+            payload.encrypted_key,
+            payload.iv,
+            payload.kid,
+        )
+        try:
+            validate_password_strength(plaintext_password)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
         # 檢查帳號是否已存在
         existing_user = await Users.filter(username=payload.username).first()
         if existing_user:
@@ -399,7 +410,7 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
                 phone=payload.phone,
                 phone_ext=payload.phone_ext,
                 mobile=payload.mobile,
-                password=get_password_hash(payload.password),
+                password=get_password_hash(plaintext_password),
                 is_active=False,
                 role="user"
             )
@@ -1082,11 +1093,24 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
                 detail="請先完成驗證碼驗證"
             )
 
+        # 防重放驗證 + 解密新密碼
+        await validate_and_store_nonce(payload.nonce, payload.timestamp)
+        plaintext_password = decrypt_password(
+            payload.encrypted_password,
+            payload.encrypted_key,
+            payload.iv,
+            payload.kid,
+        )
+        try:
+            validate_password_strength(plaintext_password)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
         # 更新密碼（包含三代不重複檢查）
         user = auth_token.user
         success, error_msg = await PasswordPolicyService.change_password(
             user_id=user.id,
-            new_password=payload.new_password,
+            new_password=plaintext_password,
             change_method="password_reset",
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent")
@@ -1266,6 +1290,19 @@ async def complete_account_migration(payload: AccountMigrationCompleteRequest):
         # 獲取使用者
         user = auth_token.user
 
+        # 防重放驗證 + 解密新密碼
+        await validate_and_store_nonce(payload.nonce, payload.timestamp)
+        plaintext_password = decrypt_password(
+            payload.encrypted_password,
+            payload.encrypted_key,
+            payload.iv,
+            payload.kid,
+        )
+        try:
+            validate_password_strength(plaintext_password)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
         # 更新使用者資訊（僅更新有提供的欄位）
         if payload.full_name:
             user.full_name = payload.full_name
@@ -1302,9 +1339,7 @@ async def complete_account_migration(payload: AccountMigrationCompleteRequest):
             user.mobile = payload.mobile
 
         # 設定新密碼
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        user.password = pwd_context.hash(payload.new_password)
+        user.password = get_password_hash(plaintext_password)
 
         # 啟用帳號
         user.email_verified = True

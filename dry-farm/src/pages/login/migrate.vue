@@ -270,6 +270,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { apiService } from '@/services/api/http'
 import { USERS, OFFICES } from '@/services/api/endpoints'
 import { useOfficesStore } from '@/stores/offices'
+import { encryptPassword, generateNonce } from '@/utils/passwordEncryption'
+import { getServerPublicKey } from '@/services/authKeyService'
 
 // 類型定義
 interface UserInfo {
@@ -622,12 +624,22 @@ const completeMigration = async () => {
 
   loading.value = true
   try {
+    const keyInfo = await getServerPublicKey()
+    const { encrypted_password, encrypted_key, iv } = await encryptPassword(
+      newPassword.value,
+      keyInfo.publicKey,
+    )
+
     // 準備請求資料
     const payload: Record<string, string | number> = {
       token: token.value,
       otp: otp.value,
-      new_password: newPassword.value,
-      confirm_password: confirmPassword.value
+      encrypted_password,
+      encrypted_key,
+      iv,
+      kid: keyInfo.kid,
+      timestamp: Date.now(),
+      nonce: generateNonce(),
     }
 
     // 只添加有值的欄位

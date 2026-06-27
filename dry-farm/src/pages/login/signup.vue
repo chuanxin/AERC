@@ -622,6 +622,8 @@
   import { apiService } from '@/services/api/http'
   import { USERS, OFFICES } from '@/services/api/endpoints'
   import { passwordPolicy, policyLoading, policyLoadError } from '@/services/passwordPolicyService'
+  import { encryptPassword, generateNonce } from '@/utils/passwordEncryption'
+  import { getServerPublicKey } from '@/services/authKeyService'
 
   const router = useRouter()
   const officesStore = useOfficesStore()
@@ -1054,6 +1056,12 @@
     submitError.value = ''
 
     try {
+      const keyInfo = await getServerPublicKey()
+      const { encrypted_password, encrypted_key, iv } = await encryptPassword(
+        signupForm.value.password,
+        keyInfo.publicKey,
+      )
+
       const payload = {
         username: signupForm.value.username,
         email: signupForm.value.email,
@@ -1065,8 +1073,13 @@
         phone_ext: signupForm.value.phone_ext || null,
         mobile: signupForm.value.mobile || null,
         application_reason: signupForm.value.application_reason,
-        password: signupForm.value.password,
-        verified_token: verifiedToken.value
+        verified_token: verifiedToken.value,
+        encrypted_password,
+        encrypted_key,
+        iv,
+        kid: keyInfo.kid,
+        timestamp: Date.now(),
+        nonce: generateNonce(),
       }
 
       await apiService.post(USERS.BASE + '/register', payload)

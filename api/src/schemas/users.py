@@ -99,6 +99,20 @@ class EmailVerificationResponse(BaseModel):
 
 
 # ============================================
+# 加密密碼請求 Schemas（Hybrid Encryption）
+# ============================================
+
+class EncryptedPasswordMixin(BaseModel):
+    """加密密碼欄位組（AES-GCM + RSA-OAEP Hybrid Encryption）"""
+    encrypted_password: str = Field(..., description="AES-GCM 加密後的密碼密文 + auth tag，base64url 編碼")
+    encrypted_key: str = Field(..., description="RSA-OAEP-SHA256 加密後的 AES-256 金鑰，base64url 編碼")
+    iv: str = Field(..., description="AES-GCM 初始化向量（12 bytes），base64url 編碼")
+    kid: str = Field(..., description="伺服器公鑰識別碼")
+    timestamp: int = Field(..., description="請求產生時間，Unix 毫秒時間戳")
+    nonce: str = Field(..., min_length=32, max_length=128, description="隨機唯一字串，每次請求不重複，用於防重放")
+
+
+# ============================================
 # 密碼重設相關 Schemas
 # ============================================
 
@@ -114,22 +128,20 @@ class PasswordResetRequest(BaseModel):
         }
 
 
-class PasswordResetConfirm(BaseModel):
-    """確認密碼重設"""
+class PasswordResetConfirm(EncryptedPasswordMixin):
+    """確認密碼重設（密碼以 AES-GCM + RSA-OAEP hybrid encryption 傳輸）"""
     token: str = Field(..., min_length=36, max_length=36, description="重設 Token (UUID)")
-    new_password: str = Field(..., min_length=8, max_length=128, description="新密碼")
-
-    @field_validator('new_password')
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        """使用統一的密碼強度驗證"""
-        return validate_password_strength(v)
 
     class Config:
         json_schema_extra = {
             "example": {
                 "token": "550e8400-e29b-41d4-a716-446655440000",
-                "new_password": "NewPassword123"
+                "encrypted_password": "<base64url ciphertext>",
+                "encrypted_key": "<base64url wrapped AES key>",
+                "iv": "<base64url 12-byte IV>",
+                "kid": "<public key id>",
+                "timestamp": 1700000000000,
+                "nonce": "<32-char random string>"
             }
         }
 
@@ -232,44 +244,18 @@ class RegistrationOTPVerificationResponse(BaseModel):
         }
 
 
-class LoginWithCaptchaRequest(BaseModel):
-    """含驗證碼的登入請求"""
-    username: str = Field(..., min_length=1, max_length=20, description="使用者帳號")
-    password: str = Field(..., min_length=1, max_length=128, description="使用者密碼")
-    captcha_token: str = Field(..., min_length=1, max_length=512, description="HMAC 簽名的驗證碼 token")
-    captcha_code: str = Field(..., min_length=4, max_length=4, description="使用者輸入的驗證碼")
-
-    @field_validator('captcha_code')
-    @classmethod
-    def validate_captcha_code(cls, v: str) -> str:
-        """驗證驗證碼格式"""
-        if not v.isdigit():
-            raise ValueError('驗證碼必須是 4 位數字')
-        return v
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "username": "user123",
-                "password": "password123",
-                "captcha_id": "550e8400-e29b-41d4-a716-446655440000",
-                "captcha_code": "1234"
-            }
-        }
-
 
 # ============================================
 # 帳號註冊相關 Schemas
 # ============================================
 
-class UserRegistrationRequest(BaseModel):
-    """帳號註冊請求"""
+class UserRegistrationRequest(EncryptedPasswordMixin):
+    """帳號註冊請求（密碼以 AES-GCM + RSA-OAEP hybrid encryption 傳輸）"""
     username: str = Field(..., min_length=3, max_length=20, description="使用者帳號")
     email: EmailStr = Field(..., description="電子郵件地址")
     full_name: str = Field(..., min_length=1, max_length=50, description="使用者姓名")
     office_id: int = Field(..., description="所屬單位/管理處 ID")
     department: str = Field(..., min_length=1, max_length=100, description="所屬部門/工作站")
-    password: str = Field(..., min_length=8, max_length=128, description="密碼")
 
     # 聯絡資訊
     job_title: Optional[str] = Field(None, max_length=50, description="職稱")
@@ -282,12 +268,6 @@ class UserRegistrationRequest(BaseModel):
 
     # Email 驗證 Token（由 verify-registration-otp 返回）
     verified_token: str = Field(..., description="Email 驗證成功後的 Token")
-
-    @field_validator('password')
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        """使用統一的密碼強度驗證"""
-        return validate_password_strength(v)
 
     @field_validator('username')
     @classmethod
@@ -306,13 +286,18 @@ class UserRegistrationRequest(BaseModel):
                 "full_name": "王小明",
                 "office_id": 1,
                 "department": "北區工作站",
-                "password": "SecurePass123!",
                 "job_title": "技術員",
                 "phone": "02-12345678",
                 "phone_ext": "123",
                 "mobile": "0912345678",
                 "application_reason": "因業務需要，申請系統帳號以便查詢補助案件資料。",
-                "verified_token": "dXNlckBleGFtcGxlLmNvbTp2ZXJpZmllZDoxNzMxODU2MDAwOmFiY2RlZjEyMzQ1Ng=="
+                "verified_token": "dXNlckBleGFtcGxlLmNvbTp2ZXJpZmllZDoxNzMxODU2MDAwOmFiY2RlZjEyMzQ1Ng==",
+                "encrypted_password": "<base64url-encoded AES-GCM ciphertext>",
+                "encrypted_key": "<base64url-encoded RSA-OAEP wrapped AES key>",
+                "iv": "<base64url-encoded 12-byte IV>",
+                "kid": "<public key id>",
+                "timestamp": 1700000000000,
+                "nonce": "<32-char random string>"
             }
         }
 
@@ -381,8 +366,8 @@ class AccountMigrationOTPVerifyResponse(BaseModel):
         }
 
 
-class AccountMigrationCompleteRequest(BaseModel):
-    """完成帳號轉移請求"""
+class AccountMigrationCompleteRequest(EncryptedPasswordMixin):
+    """完成帳號轉移請求（密碼以 AES-GCM + RSA-OAEP hybrid encryption 傳輸）"""
     token: str = Field(..., description="帳號轉移 Token")
     otp: str = Field(..., min_length=6, max_length=6, description="6位數字驗證碼")
 
@@ -395,25 +380,6 @@ class AccountMigrationCompleteRequest(BaseModel):
     phone_ext: Optional[str] = Field(None, max_length=10, description="分機")
     mobile: Optional[str] = Field(None, max_length=20, description="手機")
 
-    # 新密碼（必填）
-    new_password: str = Field(..., min_length=8, max_length=128, description="新密碼（至少8字元）")
-    confirm_password: str = Field(..., description="確認新密碼")
-
-    @field_validator('confirm_password')
-    @classmethod
-    def passwords_match(cls, v, info):
-        if 'new_password' in info.data and v != info.data['new_password']:
-            raise ValueError('密碼與確認密碼不符')
-        return v
-
-    @field_validator('new_password')
-    @classmethod
-    def validate_password(cls, v):
-        """驗證密碼強度"""
-        # validate_password_strength 會在驗證失敗時拋出 ValueError
-        validate_password_strength(v)
-        return v
-
     class Config:
         json_schema_extra = {
             "example": {
@@ -423,34 +389,14 @@ class AccountMigrationCompleteRequest(BaseModel):
                 "phone": "02-12345678",
                 "phone_ext": "123",
                 "mobile": "0912345678",
-                "new_password": "SecurePass123!",
-                "confirm_password": "SecurePass123!"
+                "encrypted_password": "<base64url ciphertext>",
+                "encrypted_key": "<base64url wrapped AES key>",
+                "iv": "<base64url 12-byte IV>",
+                "kid": "<public key id>",
+                "timestamp": 1700000000000,
+                "nonce": "<32-char random string>"
             }
         }
-
-
-class ChangePasswordRequest(BaseModel):
-    """密碼過期強制更換請求（JWT 已驗證身份，無需再提供舊密碼）"""
-    new_password: str = Field(..., description="新密碼（明文，須通過強度驗證）")
-
-    @field_validator('new_password')
-    @classmethod
-    def validate_new_password(cls, v: str) -> str:
-        return validate_password_strength(v)
-
-
-# ============================================
-# 加密密碼請求 Schemas（Hybrid Encryption）
-# ============================================
-
-class EncryptedPasswordMixin(BaseModel):
-    """加密密碼欄位組（AES-GCM + RSA-OAEP Hybrid Encryption）"""
-    encrypted_password: str = Field(..., description="AES-GCM 加密後的密碼密文 + auth tag，base64url 編碼")
-    encrypted_key: str = Field(..., description="RSA-OAEP-SHA256 加密後的 AES-256 金鑰，base64url 編碼")
-    iv: str = Field(..., description="AES-GCM 初始化向量（12 bytes），base64url 編碼")
-    kid: str = Field(..., description="伺服器公鑰識別碼")
-    timestamp: int = Field(..., description="請求產生時間，Unix 毫秒時間戳")
-    nonce: str = Field(..., min_length=32, max_length=128, description="隨機唯一字串，每次請求不重複，用於防重放")
 
 
 class EncryptedSecureLoginRequest(EncryptedPasswordMixin):
