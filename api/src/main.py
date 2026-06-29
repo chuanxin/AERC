@@ -11,6 +11,7 @@ from tortoise.exceptions import ValidationError as TortoiseValidationError
 from src.database.register import register_tortoise
 from src.database.config import TORTOISE_ORM
 from src.exceptions import AppError
+from src.services.data_encryption import data_encryption_service  # noqa: F401 — triggers key validation at startup
 
 import os
 import pytz

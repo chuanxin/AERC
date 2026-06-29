@@ -3,12 +3,17 @@ from datetime import datetime, date
 
 from fastapi import HTTPException
 from tortoise.exceptions import DoesNotExist, IntegrityError
+from src.exceptions import AppError
 from tortoise.transactions import in_transaction
 from tortoise.expressions import Q
 
 from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus, GrantActionType, GrantVersions, GrantPapers)
 from src.config.field_mappings import FieldMappingConfig, validate_step_fields
 from src.schemas.users import UserOutSchema
+from src.services.data_encryption import data_encryption_service
+
+# Grant 表中的 PII 欄位（讀取時必須解密）
+_GRANT_PII_DB_FIELDS = frozenset({'applicant_name', 'applicant_id', 'applicant_phone', 'applicant_phone2', 'address'})
 from src.schemas.grants import (
     GrantInSchema, GrantUpdateSchema, GrantStepSchema, 
     GrantSearchSchema, GrantLandInSchema, GrantCreateRequestSchema, GrantCreateResponseSchema
@@ -181,12 +186,9 @@ async def get_grants(
                 (Q(is_legacy=True) & Q(status=status)) | Q(is_legacy=False)
             )
         if search:
-            # 使用 Q 物件進行多欄位搜尋
-            query = query.filter(
-                Q(case_number__icontains=search) |
-                Q(applicant_name__icontains=search) |
-                Q(applicant_id__icontains=search)
-            )
+            # applicant_name/applicant_id 已加密，不能用 DB __icontains，只對 case_number 做 DB 篩選
+            # Python 層補充 applicant_name/applicant_id 的解密篩選（見下方）
+            query = query.filter(Q(case_number__icontains=search))
         if tag:
             query = query.filter(tag__icontains=tag)
         
@@ -202,6 +204,16 @@ async def get_grants(
 
         grants = await query.order_by('-created_at')
 
+        # Python 層補充 applicant_name/applicant_id 解密後的 search 篩選
+        if search:
+            search_lower = search.lower()
+            grants = [
+                g for g in grants
+                if search_lower in (g.case_number or "").lower()
+                or search_lower in (data_encryption_service.decrypt(g.applicant_name) or "").lower()
+                or search_lower in (data_encryption_service.decrypt(g.applicant_id) or "").lower()
+            ]
+
         # 統計查詢結果
         legacy_count = sum(1 for g in grants if g.is_legacy)
         non_legacy_count = len(grants) - legacy_count
@@ -210,13 +222,13 @@ async def get_grants(
         # 格式化結果
         results = []
         for grant in grants:
-            # 基本案件資訊
+            # 基本案件資訊（PII 欄位解密後回傳）
             grant_data = {
                 "id": grant.id,
                 "case_number": grant.case_number,
                 "year": grant.year,
-                "applicant_name": grant.applicant_name,
-                "applicant_id": grant.applicant_id,
+                "applicant_name": data_encryption_service.decrypt(grant.applicant_name),
+                "applicant_id": data_encryption_service.decrypt(grant.applicant_id),
                 "county": grant.county,
                 "town": grant.town,
                 "village": grant.village,
@@ -548,13 +560,13 @@ async def create_grant(data, current_user):
             # 建立 Grant 物件但不儲存，讓我們可以生成 case_number
             grant = Grants(
                 year=current_year,
-                applicant_name=data.applicant_name,
-                applicant_id=data.applicant_id,
-                applicant_phone=data.applicant_phone if hasattr(data, 'applicant_phone') else '',
+                applicant_name=data_encryption_service.encrypt(data.applicant_name),
+                applicant_id=data_encryption_service.encrypt(data.applicant_id),
+                applicant_phone=data_encryption_service.encrypt(data.applicant_phone if hasattr(data, 'applicant_phone') else ''),
                 county=data.county,
                 town=data.town,
                 village=data.village if hasattr(data, 'village') and data.village else None,
-                address=data.address,
+                address=data_encryption_service.encrypt(data.address),
                 office=data.office,
                 office_id=data.office_id if hasattr(data, 'office_id') else None,
                 undertracker=data.undertracker,
@@ -624,7 +636,7 @@ async def create_grant(data, current_user):
                 "id": grant.id,
                 "case_number": grant.case_number,
                 "year": grant.year,
-                "applicant_name": grant.applicant_name,
+                "applicant_name": data.applicant_name,  # 使用原始明文，不需從 grant 物件解密
                 "status": grant.status,
                 "received_date": grant.received_date,
                 "received_time": grant.received_time.strftime("%H:%M"),
@@ -643,13 +655,12 @@ async def create_grant(data, current_user):
         
         except ValueError as e:
             logger.error(f"資料映射錯誤: {str(e)}")
-            raise HTTPException(status_code=400, detail=f"資料格式錯誤: {str(e)}")
+            raise HTTPException(status_code=400, detail="資料格式錯誤")
         except IntegrityError as e:
-            logger.error(f"建立補助申請案件失敗: {str(e)}")
-            raise HTTPException(status_code=400, detail=f"建立補助申請案件失敗: {str(e)}")
+            logger.error(f"建立補助申請案件失敗（唯一約束衝突）: {str(e)}")
+            raise HTTPException(status_code=409, detail="建立補助申請案件失敗")
         except Exception as e:
-            logger.error(f"建立補助申請案件發生錯誤: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"建立補助申請案件發生錯誤: {str(e)}")
+            raise AppError(500, "建立補助申請案件失敗，請稍後再試", diagnostic=str(e))
 
 
 async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = None) -> Dict[str, Any]:
@@ -679,18 +690,18 @@ async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = 
                 'created_by', 'attachments', 'comments__user', 'history__changed_by', 'active_version'
             )
         
-        # Format the grant data
+        # Format the grant data（PII 欄位解密後回傳）
         result = {
             "id": grant.id,
             "case_number": grant.case_number,
             "year": grant.year,
-            "applicant_name": grant.applicant_name,
-            "applicant_id": grant.applicant_id,
-            "applicant_phone": grant.applicant_phone,
+            "applicant_name": data_encryption_service.decrypt(grant.applicant_name),
+            "applicant_id": data_encryption_service.decrypt(grant.applicant_id),
+            "applicant_phone": data_encryption_service.decrypt(grant.applicant_phone),
             "county": grant.county,
             "town": grant.town,
             "village": grant.village,
-            "address": grant.address,
+            "address": data_encryption_service.decrypt(grant.address),
             "office": grant.office,
             "office_id": grant.office_id,
             "undertracker": grant.undertracker,
@@ -705,7 +716,7 @@ async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = 
             "created_by": {
                 "id": grant.created_by.id,
                 "username": grant.created_by.username,
-                "full_name": grant.created_by.full_name
+                "full_name": data_encryption_service.decrypt(grant.created_by.full_name)
             } if not grant.is_legacy and hasattr(grant, "created_by") and grant.created_by else None,
             
             # Add active version information
@@ -726,7 +737,7 @@ async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = 
                     "user": {
                         "id": comment.user.id,
                         "username": comment.user.username,
-                        "full_name": comment.user.full_name
+                        "full_name": data_encryption_service.decrypt(comment.user.full_name)
                     } if comment.user else None
                 }
                 for comment in grant.comments
@@ -741,7 +752,7 @@ async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = 
                     "changed_by": {
                         "id": history.changed_by.id,
                         "username": history.changed_by.username,
-                        "full_name": history.changed_by.full_name
+                        "full_name": data_encryption_service.decrypt(history.changed_by.full_name)
                     } if history.changed_by else None
                 }
                 for history in grant.history
@@ -841,23 +852,22 @@ async def get_grant_step_data(case_number: str, step: int) -> Dict[str, Any]:
 
 
 def build_step_response_data(grant: Grants, step: int) -> Dict[str, Any]:
-    """根據字段映射配置構建步驟響應數據"""
+    """根據字段映射配置構建步驟響應數據；PII 欄位解密後回傳。"""
     db_to_api_mapping = FieldMappingConfig.get_db_to_api_mapping(step)
     step_data = {}
-    
+
     for db_field, api_field in db_to_api_mapping.items():
         try:
-            # 獲取數據庫字段值
             db_value = getattr(grant, db_field, None)
-            
-            # 特殊處理某些字段格式
+            if db_field in _GRANT_PII_DB_FIELDS:
+                db_value = data_encryption_service.decrypt(db_value)
             if api_field == "receivedDate" and db_value:
                 step_data[api_field] = format_tw_date(db_value)
             elif api_field == "receivedTime" and db_value:
                 step_data[api_field] = db_value.strftime("%H:%M") if hasattr(db_value, 'strftime') else str(db_value)
             else:
                 step_data[api_field] = db_value
-                
+
         except AttributeError:
             logger.warning(f"字段 {db_field} 在 Grant 模型中不存在")
             step_data[api_field] = None
@@ -897,15 +907,24 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
             
             # Update step-specific data
             if step == 1:  # Basic applicant information step
-                # Update the applicant information
                 update_data = {}
-                
+
                 if "name" in actual_data:
-                    update_data["applicant_name"] = actual_data["name"]
+                    update_data["applicant_name"] = data_encryption_service.encrypt(actual_data["name"])
+                if "applicant_name" in actual_data:
+                    update_data.setdefault("applicant_name", data_encryption_service.encrypt(actual_data["applicant_name"]))
                 if "id" in actual_data:
-                    update_data["applicant_id"] = actual_data["id"]
+                    update_data["applicant_id"] = data_encryption_service.encrypt(actual_data["id"])
+                if "applicant_id" in actual_data:
+                    update_data.setdefault("applicant_id", data_encryption_service.encrypt(actual_data["applicant_id"]))
                 if "phone" in actual_data:
-                    update_data["applicant_phone"] = actual_data["phone"]
+                    update_data["applicant_phone"] = data_encryption_service.encrypt(actual_data["phone"])
+                if "applicant_phone" in actual_data:
+                    update_data.setdefault("applicant_phone", data_encryption_service.encrypt(actual_data["applicant_phone"]))
+                if "phone2" in actual_data:
+                    update_data["applicant_phone2"] = data_encryption_service.encrypt(actual_data["phone2"])
+                if "applicant_phone2" in actual_data:
+                    update_data.setdefault("applicant_phone2", data_encryption_service.encrypt(actual_data["applicant_phone2"]))
                 if "county" in actual_data:
                     update_data["county"] = actual_data["county"]
                 if "town" in actual_data:
@@ -913,23 +932,26 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                 if "village" in actual_data:
                     update_data["village"] = actual_data["village"]
                 if "address" in actual_data:
-                    update_data["address"] = actual_data["address"]
+                    update_data["address"] = data_encryption_service.encrypt(actual_data["address"])
                 if "undertracker" in actual_data:
                     update_data["undertracker"] = actual_data["undertracker"]
                 if "isDisasterCase" in actual_data:
                     update_data["is_disaster_case"] = actual_data["isDisasterCase"]
                 if "disasterCaseDescription" in actual_data:
                     update_data["disaster_case_description"] = actual_data["disasterCaseDescription"]
-                
-                # Apply updates
+
                 await Grants.filter(id=grant.id).update(**update_data)
-                
-                # Update the current step if needed
+
                 if grant.current_step < step:
                     await Grants.filter(id=grant.id).update(current_step=step)
-                
-                # Create enhanced history record
+
                 if update_data or tracking_info.get('changed_fields'):
+                    _PII_KEYS = {"name", "applicant_name", "id", "applicant_id",
+                                 "phone", "applicant_phone", "phone2", "applicant_phone2", "address"}
+                    history_new_value = {
+                        k: ("***" if k in _PII_KEYS else v)
+                        for k, v in actual_data.items()
+                    }
                     await GrantHistory.create(
                         grant=grant,
                         action_type=tracking_info.get('action_type', GrantActionType.DATA_UPDATE.value),
@@ -937,7 +959,7 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                         step_number=step,
                         changed_fields=tracking_info.get('changed_fields'),
                         old_value=tracking_info.get('old_value'),
-                        new_value=actual_data,
+                        new_value=history_new_value,
                         session_id=tracking_info.get('session_id'),
                         changed_by_id=current_user.id,
                         notes=tracking_info.get('notes')

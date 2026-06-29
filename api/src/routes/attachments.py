@@ -1,11 +1,14 @@
 import logging
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from typing import List, Optional
 from pydantic import BaseModel
+from src.database.audit_models import AuditEventType, AuditAction, AuditResult
 from src.database.models import GrantAttachments, Grants, Users
+from src.services.audit_service import audit_service
+from src.services.data_encryption import data_encryption_service
 from src.services.file_storage import FileStorageService
 from src.auth.guard import require_full_auth
 
@@ -153,11 +156,13 @@ async def upload_attachment(
 
 @router.get("/list/{grant_id}/{step}")
 async def list_attachments(
+    request: Request,
     grant_id: int,
     step: int,
     category: Optional[str] = None,
     limit: int = 20,
-    offset: int = 0
+    offset: int = 0,
+    current_user: Users = Depends(require_full_auth)
 ):
     """取得指定案件和步驟的附件列表"""
     try:
@@ -179,9 +184,23 @@ async def list_attachments(
                 "category": att.category,
                 "description": att.description,
                 "uploaded_at": att.uploaded_at,
-                "uploaded_by": att.uploaded_by.full_name or att.uploaded_by.username
+                "uploaded_by": data_encryption_service.decrypt(att.uploaded_by.full_name) or att.uploaded_by.username
             })
-        
+
+        await audit_service.log(
+            event_type=AuditEventType.DATA_ACCESS,
+            action=AuditAction.VIEW,
+            result=AuditResult.SUCCESS,
+            actor_id=current_user.id,
+            actor_username=current_user.username,
+            actor_role=current_user.role,
+            resource_type="attachment_list",
+            resource_id=str(grant_id),
+            ip_address=request.headers.get("X-Real-IP", ""),
+            user_agent=request.headers.get("user-agent", ""),
+            endpoint=str(request.url.path),
+        )
+
         return {
             "attachments": attachment_list,
             "total_count": total_count,
@@ -232,7 +251,7 @@ async def get_attachment_info(attachment_id: int, current_user: Users = Depends(
             "category": attachment.category,
             "description": attachment.description,
             "uploaded_at": attachment.uploaded_at,
-            "uploaded_by": attachment.uploaded_by.full_name or attachment.uploaded_by.username,
+            "uploaded_by": data_encryption_service.decrypt(attachment.uploaded_by.full_name) or attachment.uploaded_by.username,
             "is_active": attachment.status == "active"
         }
     except HTTPException:

@@ -26,6 +26,8 @@ services:
       - PASSWORD_RESET_EXPIRE_HOURS=${PASSWORD_RESET_EXPIRE_HOURS}
       - AUTH_PRIVATE_KEY_PEM=${AUTH_PRIVATE_KEY_PEM}
       - AUTH_PUBLIC_KEY_KID=${AUTH_PUBLIC_KEY_KID}
+      # PII 靜態加密金鑰（32 bytes AES-256，hex 或 base64 格式）
+      - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY}
     volumes:
       - ./api:/app
       - ./data:/app/data

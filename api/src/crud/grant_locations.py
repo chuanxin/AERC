@@ -5,6 +5,7 @@ from tortoise import connections
 
 from src.database.models import Grants
 from src.database.geo_models import GrantLocations
+from src.services.data_encryption import data_encryption_service
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
 
     # 取得案件資訊（在迴圈外取得，避免重複查詢）
     grant = await Grants.get(id=grant_id)
-    applicant_name = grant.applicant_name
+    applicant_name = data_encryption_service.decrypt(grant.applicant_name)
     apply_year = grant.year
     case_status = grant.status
     case_number = grant.case_number
@@ -48,6 +49,9 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
         for parcel in land_parcels:
             try:
                 # 🔧 修復：使用正確的欄位名稱 (camelCase -> snake_case 轉換)
+                # landSec 格式依前端來源路徑不同：
+                # - 正式模式：NLSC sectcode 純 4 位數，例如 "0532"
+                # - OFFLINE TRAINING 模式 (VITE_STEP2_OFFLINE_TRAINING=true)：town_land_code+sectcode 複合格式，例如 "BG5409"
                 land_section = parcel.get('landSec')          # 前端: landSec
                 land_number = parcel.get('landNumber')        # 前端: landNumber
                 longitude = parcel.get('longitude')           # 前端: longitude (根層級)

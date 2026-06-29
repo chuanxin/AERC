@@ -22,6 +22,7 @@ from src.auth.guard import require_full_auth
 from src.database.audit_models import AuditAction, AuditEventType, AuditResult
 from src.database.models import UserRegistration, RegistrationStatus, Users
 from src.exceptions import AppError
+from src.services.data_encryption import data_encryption_service
 from src.schemas.permissions import (
     UpdateUserPermissionsRequest,
     UserPermissionsResponse,
@@ -47,6 +48,7 @@ router = APIRouter()
     description="支援篩選、分頁、搜尋功能"
 )
 async def list_users(
+    request: Request,
     page: int = Query(1, ge=1, description="頁碼"),
     page_size: int = Query(20, ge=1, le=100, description="每頁筆數"),
     is_active: Optional[bool] = Query(None, description="帳號狀態篩選"),
@@ -68,22 +70,29 @@ async def list_users(
     if office_id:
         query = query.filter(office_id=office_id)
     if search:
-        from tortoise.expressions import Q
-        query = query.filter(
-            Q(username__icontains=search) |
-            Q(full_name__icontains=search) |
-            Q(email__icontains=search)
-        )
-
-    total = await query.count()
-    offset = (page - 1) * page_size
-    users = await query.offset(offset).limit(page_size).all()
+        # full_name 已加密，無法用 DB __icontains；改為讀取所有後 Python 層篩選
+        # 先以非 PII 條件縮小結果集，再 Python 篩選 username/email/full_name
+        all_users = await query.all()
+        search_lower = search.lower()
+        users = [
+            u for u in all_users
+            if search_lower in (u.username or "").lower()
+            or search_lower in (u.email or "").lower()
+            or search_lower in (data_encryption_service.decrypt(u.full_name) or "").lower()
+        ]
+        total = len(users)
+        offset = (page - 1) * page_size
+        users = users[offset: offset + page_size]
+    else:
+        total = await query.count()
+        offset = (page - 1) * page_size
+        users = await query.offset(offset).limit(page_size).all()
 
     users_data = [
         {
             "id": user.id,
             "username": user.username,
-            "full_name": user.full_name,
+            "full_name": data_encryption_service.decrypt(user.full_name),
             "email": user.email,
             "job_title": user.job_title,
             "is_active": user.is_active,
@@ -103,6 +112,20 @@ async def list_users(
         for user in users
     ]
 
+    await audit_service.log(
+        event_type=AuditEventType.DATA_ACCESS,
+        action=AuditAction.VIEW,
+        result=AuditResult.SUCCESS,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+        actor_role=current_user.role,
+        resource_type="user",
+        resource_id="list",
+        ip_address=request.headers.get("X-Real-IP", ""),
+        user_agent=request.headers.get("user-agent", ""),
+        endpoint=str(request.url.path),
+    )
+
     return {
         "total": total,
         "page": page,
@@ -119,6 +142,7 @@ async def list_users(
     description="列出所有待審核的帳號申請（admin 全部，manager 限同辦公室）"
 )
 async def get_pending_approval_users(
+    request: Request,
     page: int = Query(1, ge=1, description="頁碼"),
     page_size: int = Query(20, ge=1, le=100, description="每頁筆數"),
     current_user: Users = Depends(require_full_auth)
@@ -145,14 +169,28 @@ async def get_pending_approval_users(
             "user_id": reg.user.id,
             "registration_id": reg.id,
             "username": reg.user.username,
-            "full_name": reg.user.full_name,
+            "full_name": data_encryption_service.decrypt(reg.user.full_name),
             "email": reg.user.email,
             "office_name": reg.user.office.name if reg.user.office else None,
-            "application_reason": reg.application_reason,
+            "application_reason": data_encryption_service.decrypt(reg.application_reason),
             "applied_at": reg.created_at.isoformat() if reg.created_at else None,
         }
         for reg in registrations
     ]
+
+    await audit_service.log(
+        event_type=AuditEventType.DATA_ACCESS,
+        action=AuditAction.VIEW,
+        result=AuditResult.SUCCESS,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+        actor_role=current_user.role,
+        resource_type="registration",
+        resource_id="pending-list",
+        ip_address=request.headers.get("X-Real-IP", ""),
+        user_agent=request.headers.get("user-agent", ""),
+        endpoint=str(request.url.path),
+    )
 
     return {
         "total": total,
@@ -169,6 +207,7 @@ async def get_pending_approval_users(
     description="根據使用者 ID 取得詳細資訊"
 )
 async def get_user(
+    request: Request,
     user_id: int,
     current_user: Users = Depends(require_full_auth)
 ):
@@ -178,6 +217,20 @@ async def get_user(
 
     try:
         user = await Users.get(id=user_id).prefetch_related('office')
+        user.full_name = data_encryption_service.decrypt(user.full_name)
+        await audit_service.log(
+            event_type=AuditEventType.DATA_ACCESS,
+            action=AuditAction.VIEW,
+            result=AuditResult.SUCCESS,
+            actor_id=current_user.id,
+            actor_username=current_user.username,
+            actor_role=current_user.role,
+            resource_type="user",
+            resource_id=str(user_id),
+            ip_address=request.headers.get("X-Real-IP", ""),
+            user_agent=request.headers.get("user-agent", ""),
+            endpoint=str(request.url.path),
+        )
         return UserInfoSchema.model_validate(user)
     except DoesNotExist:
         raise AppError(404, f"使用者 ID {user_id} 不存在")
@@ -217,7 +270,7 @@ async def update_user_permissions(
         return UserPermissionsResponse(
             user_id=user.id,
             username=user.username,
-            full_name=user.full_name,
+            full_name=data_encryption_service.decrypt(user.full_name),
             role=user.role,
             permissions=UserPermissionsSchema(**user.permissions) if user.permissions else None,
             updated_at=datetime.now(timezone.utc).isoformat()

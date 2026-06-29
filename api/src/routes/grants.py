@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Path, UploadFile, File, Form, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, UploadFile, File, Form, Body, Request
 from fastapi.responses import JSONResponse, FileResponse
 
 from starlette import status
@@ -20,7 +20,11 @@ import src.crud.grants as crud
 import src.crud.domicile as domicile_crud
 from src.schemas.token import Status
 from src.crud.grants import get_grant_by_case_number, delete_grant  # Import the missing functions
+from src.exceptions import AppError
 from src.database.models import Grants, GrantStatus
+from src.services.data_encryption import data_encryption_service
+from src.services.audit_service import audit_service
+from src.database.audit_models import AuditEventType, AuditAction, AuditResult
 from src.crud.grant_version_service import GrantVersionService
 from src.crud.grant_locations import sync_single_grant_metadata
 from src.services.completion_statement_pdf_generator import CompletionStatementPDFGenerator
@@ -44,20 +48,35 @@ router = APIRouter(prefix="/grants", tags=["grants"])
     dependencies=[Depends(require_full_auth)],
 )
 async def read_grant_step(
+    request: Request,
     case_number: str = Path(..., description="案件編號"),
-    step: int = Path(..., description="步驟編號", ge=1, le=8)
+    step: int = Path(..., description="步驟編號", ge=1, le=8),
+    current_user: UserOutSchema = Depends(require_full_auth),
 ):
     """取得特定補助申請案件的特定步驟資料"""
     logger.info(f"📡 [read_grant_step] API 被調用: case_number={case_number}, step={step}")
     try:
         result = await crud.get_grant_step_data(case_number, step)
         logger.info(f"📡 [read_grant_step] 成功返回資料，欄位數量: {len(result) if result else 0}")
+        if step == 1:
+            await audit_service.log(
+                event_type=AuditEventType.DATA_ACCESS,
+                action=AuditAction.VIEW,
+                result=AuditResult.SUCCESS,
+                actor_id=current_user.id,
+                actor_username=current_user.username,
+                actor_role=current_user.role,
+                ip_address=request.headers.get("X-Real-IP", ""),
+                endpoint=str(request.url.path),
+                resource_type="Grant",
+                resource_id=case_number,
+            )
         return result
     except Exception as e:
         logger.error(f"📡 [read_grant_step] 錯誤: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"取得步驟資料失敗: {str(e)}",
+            detail="取得步驟資料失敗",
         )
 
 
@@ -67,18 +86,37 @@ async def read_grant_step(
     dependencies=[Depends(require_full_auth)],
 )
 async def update_grant_step_api(
+    request: Request,
     case_number: str = Path(..., description="案件編號"),
     step: int = Path(..., description="步驟編號", ge=1, le=8),
     step_data: Dict[str, Any] = Body(..., description="步驟資料"),
-    current_user: UserOutSchema = Depends(require_full_auth)
+    current_user: UserOutSchema = Depends(require_full_auth),
 ):
     """更新特定補助申請案件的特定步驟資料"""
     try:
-        return await crud.update_grant_step_data(case_number, step, step_data, current_user)
+        result = await crud.update_grant_step_data(case_number, step, step_data, current_user)
+        if step == 1:
+            await audit_service.log(
+                event_type=AuditEventType.DATA_ACCESS,
+                action=AuditAction.UPDATE,
+                result=AuditResult.SUCCESS,
+                actor_id=current_user.id,
+                actor_username=current_user.username,
+                actor_role=current_user.role,
+                ip_address=request.headers.get("X-Real-IP", ""),
+                endpoint=str(request.url.path),
+                resource_type="Grant",
+                resource_id=case_number,
+                changed_fields={k: "***" for k in step_data if k in {
+                    "name", "applicant_name", "id", "applicant_id",
+                    "phone", "applicant_phone", "phone2", "applicant_phone2", "address",
+                }},
+            )
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"更新步驟資料失敗: {str(e)}",
+            detail="更新步驟資料失敗",
         )
 
 @router.patch(
@@ -99,7 +137,7 @@ async def update_grant_status_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"更新案件狀態失敗: {str(e)}",
+            detail="更新案件狀態失敗",
         )
 
 
@@ -119,7 +157,7 @@ async def update_current_step_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"更新當前步驟失敗: {str(e)}",
+            detail="更新當前步驟失敗",
         )
     
 @router.get(
@@ -128,6 +166,7 @@ async def update_current_step_api(
     dependencies=[Depends(require_full_auth)],
 )
 async def read_grants(
+    request: Request,
     status: Optional[str] = Query(None, description="案件狀態過濾"),
     year: Optional[int] = Query(None, description="申請年度過濾"),
     office_id: Optional[int] = Query(None, description="管理處過濾"),
@@ -135,10 +174,22 @@ async def read_grants(
     skip: int = Query(0, description="分頁用 - 跳過筆數"),
     limit: Optional[int] = Query(None, description="筆數上限（不設定則查詢全部）"),
     tag: Optional[str] = Query(None, description="標籤完全比對篩選"),
-    current_user: UserOutSchema = Depends(require_full_auth)
+    current_user: UserOutSchema = Depends(require_full_auth),
 ):
     """取得補助申請案件列表，可依條件過濾"""
-    return await crud.get_grants(year, office_id, search, status, skip, limit, current_user, tag)
+    result = await crud.get_grants(year, office_id, search, status, skip, limit, current_user, tag)
+    await audit_service.log(
+        event_type=AuditEventType.DATA_ACCESS,
+        action=AuditAction.VIEW,
+        result=AuditResult.SUCCESS,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+        actor_role=current_user.role,
+        ip_address=request.headers.get("X-Real-IP", ""),
+        endpoint="/grants",
+        resource_type="Grant",
+    )
+    return result
 
 
 @router.patch(
@@ -175,7 +226,7 @@ async def read_grant(grant_id: int = Path(..., description="補助案件ID")):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"案件不存在: {str(e)}",
+            detail="案件不存在",
         )
 
 
@@ -198,7 +249,7 @@ async def read_grant_by_case_number(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"案件不存在: {str(e)}",
+            detail="案件不存在",
         )
 
 
@@ -209,19 +260,33 @@ async def read_grant_by_case_number(
     dependencies=[Depends(require_full_auth)],
 )
 async def create_grant_api(
+    request: Request,
     grant_data: GrantCreateRequestSchema,
-    current_user: UserOutSchema = Depends(require_full_auth)
+    current_user: UserOutSchema = Depends(require_full_auth),
 ):
     """建立新的補助申請案件 (Step 0 - 申請人資料)
-    
+
     接受前端 GrantCreateRequest 格式的資料，自動映射到後端格式
     """
     try:
-        return await crud.create_grant(grant_data, current_user)
+        result = await crud.create_grant(grant_data, current_user)
+        await audit_service.log(
+            event_type=AuditEventType.DATA_ACCESS,
+            action=AuditAction.CREATE,
+            result=AuditResult.SUCCESS,
+            actor_id=current_user.id,
+            actor_username=current_user.username,
+            actor_role=current_user.role,
+            ip_address=request.headers.get("X-Real-IP", ""),
+            endpoint=str(request.url.path),
+            resource_type="Grant",
+            resource_id=str(result.get("case_number", "")),
+        )
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"建立案件失敗[CRUD]: {str(e)}",
+            detail="建立案件失敗[CRUD]",
         )
 
 
@@ -241,7 +306,7 @@ async def update_grant_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"更新案件失敗: {str(e)}",
+            detail="更新案件失敗",
         )
 
 
@@ -262,7 +327,7 @@ async def update_grant_step_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"更新案件步驟失敗: {str(e)}",
+            detail="更新案件步驟失敗",
         )
 
 
@@ -288,7 +353,7 @@ async def claim_inactive_grant_ownership(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"認領案件所有權失敗: {str(e)}",
+            detail="認領案件所有權失敗",
         )
 
 
@@ -307,7 +372,7 @@ async def delete_grant_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"刪除案件失敗: {str(e)}",
+            detail="刪除案件失敗",
         )
 
 
@@ -325,7 +390,7 @@ async def get_land_details(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"取得土地資料失敗: {str(e)}",
+            detail="取得土地資料失敗",
         )
 
 
@@ -345,7 +410,7 @@ async def create_land_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"更新土地資料失敗: {str(e)}",
+            detail="更新土地資料失敗",
         )
 
 
@@ -365,7 +430,7 @@ async def search_grants_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"搜尋案件失敗: {str(e)}",
+            detail="搜尋案件失敗",
         )
 
 
@@ -389,7 +454,7 @@ async def upload_document(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"上傳檔案失敗: {str(e)}",
+            detail="上傳檔案失敗",
         )
 
 
@@ -479,7 +544,7 @@ async def get_grant_papers_by_case_number(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"取得文件資料失敗: {str(e)}",
+            detail="取得文件資料失敗",
         )
 
 
@@ -498,7 +563,7 @@ async def compare_grant_versions_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"版本比較失敗: {str(e)}",
+            detail="版本比較失敗",
         )
 
 
@@ -517,7 +582,7 @@ async def get_grant_version_summary_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"取得版本摘要失敗: {str(e)}",
+            detail="取得版本摘要失敗",
         )
 
 
@@ -555,10 +620,11 @@ async def batch_cross_year_grants_api(
         
     except Exception as e:
         logger.error(f"❌ 批次跨年度處理失敗: {str(e)}")
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"批次跨年度處理失敗: {str(e)}",
-        )
+            detail="批次跨年度處理失敗",
+            diagnostic=str(e),
+            )
 
 
 @router.get(
@@ -600,10 +666,11 @@ async def get_applicant_subsidy_summary(
 
     except Exception as e:
         logger.error(f"❌ 查詢年度補助額度失敗: {str(e)}")
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查詢年度補助額度失敗: {str(e)}",
-        )
+            detail="查詢年度補助額度失敗",
+            diagnostic=str(e),
+            )
 
 
 # === PDF 生成共用工具函數 ===
@@ -723,10 +790,17 @@ async def extract_completion_statement_data(grant, version_data: dict) -> tuple:
     Returns:
         (grant_data, land_data, step4_data, step5_data)
     """
+    # 解密 grant 直接欄位的 PII（函數內部，呼叫端不做預解密）
+    grant.applicant_name = data_encryption_service.decrypt(grant.applicant_name)
+    grant.applicant_id = data_encryption_service.decrypt(grant.applicant_id)
+    grant.applicant_phone = data_encryption_service.decrypt(grant.applicant_phone)
+    grant.address = data_encryption_service.decrypt(grant.address)
+
     # 提取各步驟資料（統一架構：UI step N → formData[N]）
     steps_data = version_data.get('steps', {}) if version_data else {}
 
-    # Step 1: 申請人基本資料
+    # Step 1: 申請人基本資料（JSONB 可能含加密值，解密後取用）
+    steps_data = data_encryption_service.decrypt_jsonb_pii(steps_data)
     step1_data = steps_data.get('1', {})
 
     # Step 2: 土地資料
@@ -832,9 +906,10 @@ async def download_completion_statement(
         logger.error(f"❌ [download_completion_statement] 生成結案申報書失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"生成結案申報書失敗: {str(e)}"
+            detail="生成結案申報書失敗",
+            diagnostic=str(e),
         )
 
 
@@ -847,8 +922,15 @@ async def extract_declaration_data(grant, version_data: dict) -> dict:
     Returns:
         grant_data: 包含所有切結書欄位的字典
     """
+    # 解密 grant 直接欄位的 PII（函數內部，呼叫端不做預解密）
+    grant.applicant_name = data_encryption_service.decrypt(grant.applicant_name)
+    grant.applicant_id = data_encryption_service.decrypt(grant.applicant_id)
+    grant.applicant_phone = data_encryption_service.decrypt(grant.applicant_phone)
+    grant.address = data_encryption_service.decrypt(grant.address)
+
     # 提取各步驟資料（統一架構：UI step N → formData[N]）
     steps_data = version_data.get('steps', {}) if version_data else {}
+    steps_data = data_encryption_service.decrypt_jsonb_pii(steps_data)
 
     # Step 1: 申請人基本資料
     step1_data = steps_data.get('1', {})
@@ -955,9 +1037,10 @@ async def download_declaration(
         logger.error(f"❌ [download_declaration] 生成切結書失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"生成切結書失敗: {str(e)}"
+            detail="生成切結書失敗",
+            diagnostic=str(e),
         )
 
 
@@ -968,8 +1051,15 @@ async def extract_authorization_data(grant, version_data) -> dict:
     Returns:
         grant_data: 包含所有規劃委託書欄位的字典
     """
+    # 解密 grant 直接欄位的 PII（函數內部，呼叫端不做預解密）
+    grant.applicant_name = data_encryption_service.decrypt(grant.applicant_name)
+    grant.applicant_id = data_encryption_service.decrypt(grant.applicant_id)
+    grant.applicant_phone = data_encryption_service.decrypt(grant.applicant_phone)
+    grant.address = data_encryption_service.decrypt(grant.address)
+
     # 提取各步驟資料（統一架構：UI step N → formData[N]）
     steps_data = version_data.get('steps', {}) if version_data else {}
+    steps_data = data_encryption_service.decrypt_jsonb_pii(steps_data)
 
     # Step 1: 申請人基本資料
     step1_data = steps_data.get('1', {})
@@ -1035,9 +1125,10 @@ async def download_authorization(
         logger.error(f"❌ [download_authorization] 生成規劃委託書失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"生成規劃委託書失敗: {str(e)}"
+            detail="生成規劃委託書失敗",
+            diagnostic=str(e),
         )
 
 
@@ -1048,8 +1139,15 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     Returns:
         grant_data: 包含所有工程預算書欄位的字典
     """
+    # 解密 grant 直接欄位的 PII（函數內部，呼叫端不做預解密）
+    grant.applicant_name = data_encryption_service.decrypt(grant.applicant_name)
+    grant.applicant_id = data_encryption_service.decrypt(grant.applicant_id)
+    grant.applicant_phone = data_encryption_service.decrypt(grant.applicant_phone)
+    grant.address = data_encryption_service.decrypt(grant.address)
+
     # 提取各步驟資料
     steps_data = version_data.get('steps', {}) if version_data else {}
+    steps_data = data_encryption_service.decrypt_jsonb_pii(steps_data)
 
     # Step 1: 申請人基本資料
     step1_data = steps_data.get('1', {})
@@ -1676,9 +1774,10 @@ async def download_budget_statement(
         logger.error(f"❌ [download_budget_statement] 生成工程預算書失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"生成工程預算書失敗: {str(e)}"
+            detail="生成工程預算書失敗",
+            diagnostic=str(e),
         )
 
 
@@ -1722,9 +1821,10 @@ async def get_execution_progress_statistics(
         logger.error(f"❌ [get_execution_progress_statistics] 查詢失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查詢執行進度統計失敗: {str(e)}"
+            detail="查詢執行進度統計失敗",
+            diagnostic=str(e),
         )
 
 
@@ -1766,9 +1866,10 @@ async def get_budget_analysis_statistics(
         logger.error(f"❌ [get_budget_analysis_statistics] 查詢失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"查詢經費分析統計失敗: {str(e)}"
+            detail="查詢經費分析統計失敗",
+            diagnostic=str(e),
         )
 
 
@@ -1830,9 +1931,10 @@ async def download_execution_progress_excel(
         logger.error(f"❌ [download_execution_progress_excel] 生成報表失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"生成 A01 報表失敗: {str(e)}"
+            detail="生成 A01 報表失敗",
+            diagnostic=str(e),
         )
 
 
@@ -1924,9 +2026,10 @@ async def download_budget_analysis_excel(
         logger.error(f"❌ [download_budget_analysis_excel] 生成報表失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"生成 A03 報表失敗: {str(e)}"
+            detail="生成 A03 報表失敗",
+            diagnostic=str(e),
         )
 
 
@@ -1960,7 +2063,7 @@ async def download_county_town_excel(
         logger.error(f"❌ [A02-1] 生成報表失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"生成 A02-1 報表失敗: {str(e)}")
+        raise AppError(500, "生成 A02-1 報表失敗", diagnostic=str(e))
 
 
 @router.get(
@@ -1990,7 +2093,7 @@ async def download_office_summary_excel(
         logger.error(f"❌ [A02-2] 生成報表失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"生成 A02-2 報表失敗: {str(e)}")
+        raise AppError(500, "生成 A02-2 報表失敗", diagnostic=str(e))
 
 
 @router.get(
@@ -2027,7 +2130,7 @@ async def download_county_town_yearly_excel(
         logger.error(f"❌ [A02-3] 生成報表失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"生成 A02-3 報表失敗: {str(e)}")
+        raise AppError(500, "生成 A02-3 報表失敗", diagnostic=str(e))
 
 
 @router.get(
@@ -2064,7 +2167,7 @@ async def download_office_summary_yearly_excel(
         logger.error(f"❌ [A02-4] 生成報表失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"生成 A02-4 報表失敗: {str(e)}")
+        raise AppError(500, "生成 A02-4 報表失敗", diagnostic=str(e))
 
 
 # ==================== A04 原民區域統計報表 ====================
@@ -2131,7 +2234,7 @@ async def download_aboriginal_statistics_excel(
         logger.error(f"❌ [A04] 生成報表失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"生成 A04 報表失敗: {str(e)}")
+        raise AppError(500, "生成 A04 報表失敗", diagnostic=str(e))
 
 
 # ==================== A08 歷年原民區域統計報表 ====================
@@ -2175,7 +2278,7 @@ async def download_aboriginal_yearly_excel(
         logger.error(f"❌ [A08] 生成報表失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"生成 A08 報表失敗: {str(e)}")
+        raise AppError(500, "生成 A08 報表失敗", diagnostic=str(e))
 
 
 # ==================== A09/A10 事業區域內外推動成果統計報表 ====================
@@ -2213,7 +2316,7 @@ async def download_a09_county_irrigation_area_excel(
         logger.error(f"❌ [A09] 生成報表失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"生成 A09 報表失敗: {str(e)}")
+        raise AppError(500, "生成 A09 報表失敗", diagnostic=str(e))
 
 
 @router.get(
@@ -2248,7 +2351,7 @@ async def download_a10_office_irrigation_area_excel(
         logger.error(f"❌ [A10] 生成報表失敗: {str(e)}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"生成 A10 報表失敗: {str(e)}")
+        raise AppError(500, "生成 A10 報表失敗", diagnostic=str(e))
 
 
 # ==================== B01 系列推動成果統計報表（管理區內外分組） ====================

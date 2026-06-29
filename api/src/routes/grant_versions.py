@@ -34,7 +34,7 @@ async def create_grant_version_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"建立版本失敗: {str(e)}",
+            detail="建立版本失敗",
         )
 
 
@@ -54,7 +54,7 @@ async def get_grant_versions_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"取得版本列表失敗: {str(e)}",
+            detail="取得版本列表失敗",
         )
 
 
@@ -72,7 +72,7 @@ async def get_grant_version_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"取得版本詳細資料失敗: {str(e)}",
+            detail="取得版本詳細資料失敗",
         )
 
 
@@ -92,7 +92,7 @@ async def update_grant_version_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"更新版本失敗: {str(e)}",
+            detail="更新版本失敗",
         )
 
 
@@ -112,7 +112,7 @@ async def delete_grant_version_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"刪除版本失敗: {str(e)}",
+            detail="刪除版本失敗",
         )
 
 
@@ -133,7 +133,7 @@ async def compare_grant_versions_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"比較版本失敗: {str(e)}",
+            detail="比較版本失敗",
         )
 
 
@@ -153,7 +153,7 @@ async def set_active_version_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"設定現行版本失敗: {str(e)}",
+            detail="設定現行版本失敗",
         )
 
 
@@ -171,7 +171,7 @@ async def get_active_version_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"取得現行版本失敗: {str(e)}",
+            detail="取得現行版本失敗",
         )
 
 
@@ -191,7 +191,7 @@ async def update_schema_version_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"更新資料結構版本失敗: {str(e)}",
+            detail="更新資料結構版本失敗",
         )
 
 
@@ -207,21 +207,10 @@ async def create_version_from_current_data_api(
     current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """從目前的申請資料建立新版本（用於結案前保存完整資料）"""
-    try:
-        # 這裡需要從現有的申請資料中收集所有步驟的資料
-        # 這個功能需要與現有的資料結構整合
-        
-        # 目前先返回錯誤，提示需要實作完整的資料收集邏輯
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="此功能需要與現有資料結構整合後才能實作"
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"從目前資料建立版本失敗: {str(e)}",
-        )
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+        detail="此功能需要與現有資料結構整合後才能實作"
+    )
 
 
 @router.get(
@@ -261,5 +250,5 @@ async def get_grant_versions_summary_api(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"取得版本摘要失敗: {str(e)}",
+            detail="取得版本摘要失敗",
         )
