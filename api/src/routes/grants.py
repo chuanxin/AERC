@@ -1787,7 +1787,7 @@ async def download_budget_statement(
     "/statistics/execution-progress",
     response_model=ExecutionProgressResponse,
     summary="取得即時執行進度統計",
-    description="取得指定年度的即時執行進度統計，包含各辦公室的核定預算、已結案案件數、總補助面積和金額等資訊"
+    description="取得指定年度的即時執行進度統計，包含各管理處的核定預算、已結案案件數、總補助面積和金額等資訊"
 )
 async def get_execution_progress_statistics(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -1797,13 +1797,13 @@ async def get_execution_progress_statistics(
     取得即時執行進度統計
 
     權限控制：
-    - admin: 查看所有辦公室的統計
-    - 其他角色: 只能查看自己辦公室的統計
+    - admin: 查看所有管理處的統計
+    - 其他角色: 只能查看自己管理處的統計
     """
     try:
         logger.info(f"📊 [get_execution_progress_statistics] 查詢執行進度統計: year={year}, user={current_user.username}, role={current_user.role}")
 
-        # 權限控制：admin 查看全部，其他角色只查看自己辦公室
+        # 權限控制：admin 查看全部，其他角色只查看自己管理處
         if current_user.role == "admin":
             query_office_id = None
         else:
@@ -1814,7 +1814,7 @@ async def get_execution_progress_statistics(
             office_id=query_office_id,
         )
 
-        logger.info(f"✅ [get_execution_progress_statistics] 成功取得統計資料: {len(result.offices)} 個辦公室")
+        logger.info(f"✅ [get_execution_progress_statistics] 成功取得統計資料: {len(result.offices)} 個管理處")
         return result
 
     except Exception as e:
@@ -1842,13 +1842,13 @@ async def get_budget_analysis_statistics(
     取得即時經費統計分析
 
     權限控制：
-    - admin: 查看所有辦公室的統計
-    - 其他角色: 只能查看自己辦公室的統計
+    - admin: 查看所有管理處的統計
+    - 其他角色: 只能查看自己管理處的統計
     """
     try:
         logger.info(f"📊 [get_budget_analysis_statistics] 查詢經費分析統計: year={year}, user={current_user.username}, role={current_user.role}")
 
-        # 權限控制：admin 查看全部，其他角色只查看自己辦公室
+        # 權限控制：admin 查看全部，其他角色只查看自己管理處
         if current_user.role == "admin":
             query_office_id = None
         else:
@@ -1859,7 +1859,7 @@ async def get_budget_analysis_statistics(
             office_id=query_office_id,
         )
 
-        logger.info(f"✅ [get_budget_analysis_statistics] 成功取得統計資料: {len(result.offices)} 個辦公室")
+        logger.info(f"✅ [get_budget_analysis_statistics] 成功取得統計資料: {len(result.offices)} 個管理處")
         return result
 
     except Exception as e:
@@ -1975,7 +1975,7 @@ async def download_budget_analysis_excel(
     try:
         logger.info(f"📊 [download_budget_analysis_excel] 生成 A03 報表: year={year}, office_id={office_id}, user={current_user.username}")
 
-        # 權限控制：非 admin 使用者只能查詢自己的辦公室
+        # 權限控制：非 admin 使用者只能查詢自己的管理處
         if current_user.role != "admin":
             if office_id is not None and office_id != current_user.office.id:
                 logger.warning(f"⚠️ [download_budget_analysis_excel] 權限不足: user={current_user.username} 嘗試查詢 office_id={office_id}")
@@ -1983,7 +1983,7 @@ async def download_budget_analysis_excel(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="您沒有權限查詢此管理處資料"
                 )
-            # 強制設定為使用者自己的辦公室
+            # 強制設定為使用者自己的管理處
             office_id = current_user.office.id if current_user.office else None
 
         # 查詢經費統計資料（複用現有 CRUD 方法）
@@ -2002,7 +2002,7 @@ async def download_budget_analysis_excel(
             year=year
         )
 
-        # 生成下載檔名（根據是否篩選辦公室調整檔名）
+        # 生成下載檔名（根據是否篩選管理處調整檔名）
         if office_id is None:
             filename = f"A03_各管理處經費統計_{year}年度.xlsx"
         else:

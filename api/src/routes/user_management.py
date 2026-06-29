@@ -139,7 +139,7 @@ async def list_users(
 @router.get(
     "/pending-approval",
     summary="取得待審核帳號列表",
-    description="列出所有待審核的帳號申請（admin 全部，manager 限同辦公室）"
+    description="列出所有待審核的帳號申請（admin 全部，manager 限同管理處）"
 )
 async def get_pending_approval_users(
     request: Request,
@@ -360,7 +360,7 @@ async def batch_deactivate_users(
 # ============================================================================
 
 async def _check_manager_office_restriction(actor: UserInfoSchema, target_user_id: int) -> None:
-    """若 actor 是 manager，強制驗證 target_user 與 actor 同辦公室"""
+    """若 actor 是 manager，強制驗證 target_user 與 actor 同管理處"""
     if actor.role != "manager":
         return
     target_user = await Users.get(id=target_user_id)
@@ -410,7 +410,7 @@ async def _execute_rejection(user_id: int, actor: UserInfoSchema, reason: str) -
 @router.post(
     "/{user_id}/approve",
     summary="審核通過帳號",
-    description="核准帳號申請並啟用帳號（admin 全部，manager 限同辦公室）"
+    description="核准帳號申請並啟用帳號（admin 全部，manager 限同管理處）"
 )
 async def approve_user(
     user_id: int,
@@ -457,7 +457,7 @@ async def approve_user(
 @router.post(
     "/{user_id}/reject",
     summary="駁回帳號申請",
-    description="駁回帳號申請（admin 全部，manager 限同辦公室），需提供駁回原因"
+    description="駁回帳號申請（admin 全部，manager 限同管理處），需提供駁回原因"
 )
 async def reject_user(
     user_id: int,

@@ -53,7 +53,7 @@ async def update_last_login(user_id: UserId) -> None:
 async def build_user_out_schema(user: Users) -> UserOutSchema:
     """安全地從 Users 模型構建 UserOutSchema"""
     
-    # 查詢辦公室資料
+    # 查詢管理處資料
     office_data = None
     if hasattr(user, 'office_id') and user.office_id:
         try:

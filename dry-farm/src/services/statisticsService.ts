@@ -2,7 +2,7 @@ import { apiService } from './api/http'
 import { STATISTICS } from './api/endpoints'
 
 /**
- * 辦公室執行進度統計
+ * 管理處執行進度統計
  */
 export interface OfficeExecutionStats {
   office_id: number
@@ -28,7 +28,7 @@ export interface ExecutionProgressResponse {
 }
 
 /**
- * 辦公室經費統計分析
+ * 管理處經費統計分析
  */
 export interface OfficeBudgetStats {
   office_id: number
