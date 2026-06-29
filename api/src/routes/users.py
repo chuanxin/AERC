@@ -30,6 +30,9 @@ from src.schemas.users import (
 )
 from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus, UserRegistration, RegistrationStatus
 from src.exceptions import AppError
+from src.services.data_encryption import data_encryption_service
+from src.services.audit_service import audit_service
+from src.database.audit_models import AuditEventType, AuditAction, AuditResult
 from src.services.email_service import EmailService
 from src.services.captcha_service import CaptchaService
 from src.services.password_policy import PasswordPolicyService, get_policy_config, validate_password_strength
@@ -403,13 +406,13 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
                 username=payload.username,
                 email=payload.email,
                 email_verified=True,
-                full_name=payload.full_name,
+                full_name=data_encryption_service.encrypt(payload.full_name),
                 office_id=payload.office_id,
                 department=payload.department,
                 job_title=payload.job_title,
-                phone=payload.phone,
-                phone_ext=payload.phone_ext,
-                mobile=payload.mobile,
+                phone=data_encryption_service.encrypt(payload.phone),
+                phone_ext=data_encryption_service.encrypt(payload.phone_ext),
+                mobile=data_encryption_service.encrypt(payload.mobile),
                 password=get_password_hash(plaintext_password),
                 is_active=False,
                 role="user"
@@ -420,10 +423,10 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
                 raise HTTPException(status_code=409, detail="此帳號已被使用")
             raise HTTPException(status_code=409, detail="此電子郵件已被使用")
 
-        # 建立申請記錄（儲存申請原因）
+        # 建立申請記錄（儲存申請原因，加密 PII）
         await UserRegistration.create(
             user_id=new_user.id,
-            application_reason=payload.application_reason
+            application_reason=data_encryption_service.encrypt(payload.application_reason)
         )
 
         return UserRegistrationResponse(
@@ -675,11 +678,24 @@ async def refresh_token(current_user: UserInfoSchema = Depends(get_current_user)
 @router.get(
     "/users/whoami", dependencies=[Depends(get_current_user)]
 )
-async def read_users_me(current_user: UserInfoSchema = Depends(get_current_user)):
+async def read_users_me(request: Request, current_user: UserInfoSchema = Depends(get_current_user)):
     from src.auth.users import check_password_expired
     user = await Users.get(username=current_user.username)
     result = current_user.model_dump()
     result['password_expired'] = check_password_expired(user)
+    await audit_service.log(
+        event_type=AuditEventType.DATA_ACCESS,
+        action=AuditAction.VIEW,
+        result=AuditResult.SUCCESS,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+        actor_role=current_user.role,
+        resource_type="user",
+        resource_id=str(current_user.id),
+        ip_address=request.headers.get("X-Real-IP", ""),
+        user_agent=request.headers.get("user-agent", ""),
+        endpoint=str(request.url.path),
+    )
     return result
 
 
@@ -1209,20 +1225,33 @@ async def verify_migration_otp(payload: AccountMigrationOTPVerifyRequest):
         auth_token.otp_verified = True
         await auth_token.save()
 
-        # 準備使用者資訊
+        # 準備使用者資訊（PII 欄位解密後回傳）
         user = auth_token.user
         user_info = {
             "username": user.username,
-            "full_name": user.full_name,
+            "full_name": data_encryption_service.decrypt(user.full_name),
             "email": user.email,
             "office_id": user.office_id,
             "office_name": user.office.short_name if user.office else None,
             "department": user.department,
             "job_title": user.job_title,
-            "phone": user.phone,
-            "phone_ext": user.phone_ext,
-            "mobile": user.mobile
+            "phone": data_encryption_service.decrypt(user.phone),
+            "phone_ext": data_encryption_service.decrypt(user.phone_ext),
+            "mobile": data_encryption_service.decrypt(user.mobile),
         }
+
+        await audit_service.log(
+            event_type=AuditEventType.DATA_ACCESS,
+            action=AuditAction.VIEW,
+            result=AuditResult.SUCCESS,
+            actor_id=user.id,
+            actor_username=user.username,
+            actor_role=user.role,
+            resource_type="user",
+            resource_id=str(user.id),
+            ip_address="",
+            endpoint="/login/migrate/verify-otp",
+        )
 
         return AccountMigrationOTPVerifyResponse(
             message="驗證成功，請設定您的帳號資訊",
@@ -1303,9 +1332,9 @@ async def complete_account_migration(payload: AccountMigrationCompleteRequest):
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
-        # 更新使用者資訊（僅更新有提供的欄位）
+        # 更新使用者資訊（僅更新有提供的欄位，PII 欄位加密後寫入）
         if payload.full_name:
-            user.full_name = payload.full_name
+            user.full_name = data_encryption_service.encrypt(payload.full_name)
         if payload.job_title:
             user.job_title = payload.job_title
         if payload.office_id is not None:
@@ -1332,11 +1361,11 @@ async def complete_account_migration(payload: AccountMigrationCompleteRequest):
             except Exception as e:
                 raise AppError(500, "更新資料失敗，請稍後再試", diagnostic=str(e))
         if payload.phone:
-            user.phone = payload.phone
+            user.phone = data_encryption_service.encrypt(payload.phone)
         if payload.phone_ext:
-            user.phone_ext = payload.phone_ext
+            user.phone_ext = data_encryption_service.encrypt(payload.phone_ext)
         if payload.mobile:
-            user.mobile = payload.mobile
+            user.mobile = data_encryption_service.encrypt(payload.mobile)
 
         # 設定新密碼
         user.password = get_password_hash(plaintext_password)

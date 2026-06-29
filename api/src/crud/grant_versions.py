@@ -5,8 +5,10 @@ import json
 from datetime import datetime
 
 from fastapi import HTTPException
+from src.exceptions import AppError
 from tortoise.exceptions import DoesNotExist, IntegrityError
 from tortoise.transactions import in_transaction
+from src.services.data_encryption import data_encryption_service
 from tortoise.expressions import Q
 
 from src.database.models import Grants, GrantVersions, Users
@@ -108,11 +110,7 @@ async def create_grant_version(
                 detail="版本號已存在，請重新操作",
             )
         except Exception as e:
-            logger.error(f"建立版本發生錯誤: {str(e)}")
-            raise HTTPException(
-                status_code=500, 
-                detail=f"建立版本發生錯誤: {str(e)}"
-            )
+            raise AppError(500, "建立版本發生錯誤，請稍後再試", diagnostic=str(e))
 
 
 async def get_grant_versions(
@@ -155,11 +153,7 @@ async def get_grant_versions(
         return results
         
     except Exception as e:
-        logger.error(f"取得版本列表發生錯誤: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"取得版本列表發生錯誤: {str(e)}"
-        )
+        raise AppError(500, "取得版本列表失敗，請稍後再試", diagnostic=str(e))
 
 
 async def get_grant_version(version_id: int) -> Dict[str, Any]:
@@ -197,11 +191,7 @@ async def get_grant_version(version_id: int) -> Dict[str, Any]:
             detail=f"版本ID {version_id} 不存在"
         )
     except Exception as e:
-        logger.error(f"取得版本詳細資料發生錯誤: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"取得版本詳細資料發生錯誤: {str(e)}"
-        )
+        raise AppError(500, "取得版本資料失敗，請稍後再試", diagnostic=str(e))
 
 
 async def update_grant_version(
@@ -243,11 +233,7 @@ async def update_grant_version(
             return await get_grant_version(version_id)
             
         except Exception as e:
-            logger.error(f"更新版本發生錯誤: {str(e)}")
-            raise HTTPException(
-                status_code=500, 
-                detail=f"更新版本發生錯誤: {str(e)}"
-            )
+            raise AppError(500, "更新版本失敗，請稍後再試", diagnostic=str(e))
 
 
 async def delete_grant_version(
@@ -281,11 +267,7 @@ async def delete_grant_version(
             return {"message": f"版本ID {version_id} 已刪除"}
             
         except Exception as e:
-            logger.error(f"刪除版本發生錯誤: {str(e)}")
-            raise HTTPException(
-                status_code=500, 
-                detail=f"刪除版本發生錯誤: {str(e)}"
-            )
+            raise AppError(500, "刪除版本失敗，請稍後再試", diagnostic=str(e))
 
 
 async def compare_grant_versions(
@@ -305,10 +287,17 @@ async def compare_grant_versions(
                 detail="只能比較同一個補助申請案件的不同版本"
             )
         
-        # 比較資料差異
+        # 比較前先解密 step 1 JSONB PII（確保比較的是明文內容）
+        def _decrypt_steps(all_steps_data: dict) -> dict:
+            if not all_steps_data:
+                return all_steps_data or {}
+            steps = all_steps_data.get('steps', {})
+            decrypted = data_encryption_service.decrypt_jsonb_pii(steps)
+            return {**all_steps_data, 'steps': decrypted}
+
         differences = _compare_data(
-            version_a["all_steps_data"], 
-            version_b["all_steps_data"]
+            _decrypt_steps(version_a["all_steps_data"]),
+            _decrypt_steps(version_b["all_steps_data"])
         )
         
         return {
@@ -318,11 +307,7 @@ async def compare_grant_versions(
         }
         
     except Exception as e:
-        logger.error(f"比較版本發生錯誤: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"比較版本發生錯誤: {str(e)}"
-        )
+        raise AppError(500, "比較版本失敗，請稍後再試", diagnostic=str(e))
 
 
 def _compare_data(data_a: Dict[str, Any], data_b: Dict[str, Any]) -> Dict[str, Any]:
@@ -392,11 +377,7 @@ async def set_active_version(
             }
             
         except Exception as e:
-            logger.error(f"設定現行版本發生錯誤: {str(e)}")
-            raise HTTPException(
-                status_code=500, 
-                detail=f"設定現行版本發生錯誤: {str(e)}"
-            )
+            raise AppError(500, "設定現行版本失敗，請稍後再試", diagnostic=str(e))
 
 
 async def get_active_version(grant_id: int) -> Optional[Dict[str, Any]]:
@@ -416,12 +397,10 @@ async def get_active_version(grant_id: int) -> Optional[Dict[str, Any]]:
         
         return await get_grant_version(grant.active_version_id)
         
+    except (HTTPException, AppError):
+        raise
     except Exception as e:
-        logger.error(f"取得現行版本發生錯誤: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"取得現行版本發生錯誤: {str(e)}"
-        )
+        raise AppError(500, "取得現行版本失敗，請稍後再試", diagnostic=str(e))
 
 
 async def update_schema_version(
@@ -462,11 +441,7 @@ async def update_schema_version(
             "message": "資料結構版本更新成功"
         }
         
-    except HTTPException:
+    except (HTTPException, AppError):
         raise
     except Exception as e:
-        logger.error(f"更新資料結構版本發生錯誤: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"更新資料結構版本發生錯誤: {str(e)}"
-        )
+        raise AppError(500, "更新資料結構版本失敗，請稍後再試", diagnostic=str(e))
