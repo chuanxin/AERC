@@ -36,6 +36,7 @@ from src.database.audit_models import AuditEventType, AuditAction, AuditResult
 from src.services.email_service import EmailService
 from src.services.captcha_service import CaptchaService
 from src.services.password_policy import PasswordPolicyService, get_policy_config, validate_password_strength
+from src.services.permission_service import permission_service
 from datetime import datetime, timezone
 
 from src.auth.jwthandler import (
@@ -683,6 +684,9 @@ async def read_users_me(request: Request, current_user: UserInfoSchema = Depends
     user = await Users.get(username=current_user.username)
     result = current_user.model_dump()
     result['password_expired'] = check_password_expired(user)
+    result['permissions_summary'] = permission_service.get_user_permissions_summary(
+        current_user.role, current_user.permissions
+    )
     await audit_service.log(
         event_type=AuditEventType.DATA_ACCESS,
         action=AuditAction.VIEW,

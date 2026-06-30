@@ -154,6 +154,7 @@
                       @update:model-value="updateFilters"
                     />
                     <v-select
+                      v-if="canFilterByOffice"
                       v-model="filters.office_id"
                       :items="officeOptions"
                       label="管理處"
@@ -162,9 +163,10 @@
                       hide-details
                       class="filter-select mr-2"
                       style="min-width: 150px"
-                      disabled
+                      clearable
                       bg-color="white"
                       rounded="lg"
+                      :disabled="listLoading"
                       @update:model-value="updateFilters"
                     />
                     <v-text-field
@@ -477,6 +479,9 @@ const router = useRouter()
 const grantsStore = useGrantsStore()
 const userStore = useUserStore()
 
+// grants.view_all 為 admin 獨有 → 後端 CRUD 層以全域範圍回傳，管理處篩選才有意義
+const canFilterByOffice = computed(() => userStore.can('grants', 'view_all'))
+
 // 取得當前使用者資訊和設定預設篩選條件
 const getCurrentYear = () => new Date().getFullYear() - 1911 // 民國年
 const getUserOfficeId = () => {
@@ -550,8 +555,18 @@ const {
 
 // 🔥 Framework-Native Integration: 適配資料結構以支援原生搜尋
 // 添加可搜尋的土地資料欄位（包含位置和未格式化的面積數字）
+// user 角色：無搜尋字串時保護性只顯示自己建立的案件；搜尋時顯示全管理處
 const displayGrantsList = computed(() => {
-  return filteredGrantsList.value.map(item => ({
+  const currentUserId = userStore.currentUser?.id
+  const isUserRole = userStore.currentUser?.role === 'user'
+  const isSearching = !!search.value
+
+  let items = filteredGrantsList.value
+  if (isUserRole && !isSearching && currentUserId !== undefined) {
+    items = items.filter(item => item.created_by?.id === currentUserId)
+  }
+
+  return items.map(item => ({
     ...item,
     // 組合土地位置和未格式化面積，用於 Vuetify 原生搜尋
     land_data_search: `${item.land_locations || ''} ${item.facility_area_m2 || ''}`.trim()

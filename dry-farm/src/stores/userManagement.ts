@@ -129,6 +129,17 @@ export const useUserManagementStore = defineStore('userManagement', () => {
   }, asyncOptions)
 
   /**
+   * 變更使用者群組（角色）
+   */
+  const updateUserRole = wrapAsync(async (userId: number, role: string) => {
+    const response = await apiService.patch<{ user_id: number; username: string; role: string }>(
+      USER_MANAGEMENT.UPDATE_ROLE(userId),
+      { role }
+    )
+    return response
+  }, asyncOptions)
+
+  /**
    * 檢查權限
    */
   const checkPermission = wrapAsync(async (request: PermissionCheckRequest) => {
@@ -322,6 +333,7 @@ export const useUserManagementStore = defineStore('userManagement', () => {
 
     // Permission Methods
     updateUserPermissions,
+    updateUserRole,
     checkPermission,
     fetchPermissionsSummary,
 

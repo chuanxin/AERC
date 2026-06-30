@@ -19,16 +19,19 @@ from tortoise.exceptions import DoesNotExist
 from tortoise.transactions import in_transaction
 
 from src.auth.guard import require_full_auth
+from src.auth.route_guards import require_permission
 from src.database.audit_models import AuditAction, AuditEventType, AuditResult
 from src.database.models import UserRegistration, RegistrationStatus, Users
 from src.exceptions import AppError
 from src.services.data_encryption import data_encryption_service
 from src.schemas.permissions import (
+    ModuleName,
+    PermissionAction,
     UpdateUserPermissionsRequest,
     UserPermissionsResponse,
     UserPermissionsSchema
 )
-from src.schemas.users import RejectUserRequest, UserInfoSchema
+from src.schemas.users import RejectUserRequest, UserInfoSchema, UserRoleUpdateRequest
 from src.services.audit_service import audit_service
 from src.services.email_service import EmailConfig, EmailService
 from src.services.permission_service import permission_service
@@ -58,8 +61,18 @@ async def list_users(
     current_user: Users = Depends(require_full_auth)
 ):
     """取得使用者列表（分頁）"""
-    if current_user.role not in ["admin", "manager"]:
-        raise AppError(403, "無帳號管理權限")
+    can_view_all, _ = permission_service.check_permission(
+        user_role=current_user.role,
+        user_permissions=current_user.permissions,
+        module=ModuleName.USERS,
+        action=PermissionAction.VIEW_ALL,
+    )
+    if not can_view_all:
+        actor_office = current_user.office
+        if not actor_office:
+            raise AppError(403, "帳號尚未指派管理處，請聯繫系統管理員完成設定")
+        # manager 只能查看同管理處帳號，忽略 office_id query param
+        office_id = actor_office.id
 
     query = Users.all().prefetch_related('office')
 
@@ -244,16 +257,14 @@ async def get_user(
     "/{user_id}/permissions",
     response_model=UserPermissionsResponse,
     summary="更新使用者權限",
-    description="更新指定使用者的權限設定（需 admin 角色）"
+    description="更新指定使用者的權限設定（需 admin 角色）",
+    dependencies=[Depends(require_permission(ModuleName.USERS, PermissionAction.EDIT))],
 )
 async def update_user_permissions(
     user_id: int,
     request: UpdateUserPermissionsRequest,
-    current_user: Users = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
-    """更新使用者權限（admin 限定）"""
-    if current_user.role != "admin":
-        raise AppError(403, "僅系統管理員可修改使用者權限")
 
     valid, error_msg = permission_service.validate_permissions_structure(request.permissions)
     if not valid:
@@ -279,6 +290,49 @@ async def update_user_permissions(
         raise AppError(404, f"使用者 ID {user_id} 不存在")
 
 
+@router.patch(
+    "/{user_id}/role",
+    summary="變更使用者群組",
+    description="變更指定使用者的角色群組（需 admin 且具 users.edit 權限）",
+    dependencies=[Depends(require_permission(ModuleName.USERS, PermissionAction.EDIT))],
+)
+async def update_user_role(
+    user_id: int,
+    request: UserRoleUpdateRequest,
+    current_user: UserInfoSchema = Depends(require_full_auth)
+):
+    try:
+        user = await Users.get(id=user_id)
+    except DoesNotExist:
+        raise AppError(404, f"使用者 ID {user_id} 不存在")
+
+    old_role = user.role
+    if old_role == request.role:
+        raise AppError(400, "新角色與目前角色相同")
+
+    if current_user.role == "manager":
+        if old_role == "admin":
+            raise AppError(403, "無法變更管理員帳號的群組")
+        if request.role == "admin":
+            raise AppError(403, "無法將帳號提升為管理員群組")
+
+    user.role = request.role
+    await user.save()
+
+    await audit_service.log(
+        event_type=AuditEventType.ACCOUNT,
+        action=AuditAction.EDIT,
+        result=AuditResult.SUCCESS,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+        actor_role=current_user.role,
+        endpoint=f"/user-management/{user_id}/role",
+        changed_fields={"role": {"before": old_role, "after": request.role}},
+    )
+
+    return {"user_id": user.id, "username": user.username, "role": user.role}
+
+
 # ============================================================================
 # 批次操作
 # ============================================================================
@@ -286,15 +340,13 @@ async def update_user_permissions(
 @router.post(
     "/batch-activate",
     summary="批次啟用帳號",
-    description="批次啟用多個使用者帳號（需 admin 角色）"
+    description="批次啟用多個使用者帳號（需 admin 角色）",
+    dependencies=[Depends(require_permission(ModuleName.USERS, PermissionAction.EDIT))],
 )
 async def batch_activate_users(
     user_ids: List[int],
-    current_user: Users = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
-    """批次啟用帳號（admin 限定）"""
-    if current_user.role != "admin":
-        raise AppError(403, "僅系統管理員可批次啟用帳號")
 
     results = []
     success_count = 0
@@ -303,6 +355,10 @@ async def batch_activate_users(
     for user_id in user_ids:
         try:
             user = await Users.get(id=user_id)
+            if current_user.role == "manager" and user.role == "admin":
+                results.append({"user_id": user_id, "username": user.username, "success": False, "message": "無法操作管理員帳號"})
+                failed_count += 1
+                continue
             user.is_active = True
             await user.save()
             results.append({"user_id": user_id, "username": user.username, "success": True, "message": "啟用成功"})
@@ -320,15 +376,13 @@ async def batch_activate_users(
 @router.post(
     "/batch-deactivate",
     summary="批次停用帳號",
-    description="批次停用多個使用者帳號（需 admin 角色）"
+    description="批次停用多個使用者帳號（需 admin 角色）",
+    dependencies=[Depends(require_permission(ModuleName.USERS, PermissionAction.EDIT))],
 )
 async def batch_deactivate_users(
     user_ids: List[int],
-    current_user: Users = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
-    """批次停用帳號（admin 限定）"""
-    if current_user.role != "admin":
-        raise AppError(403, "僅系統管理員可批次停用帳號")
 
     results = []
     success_count = 0
@@ -339,6 +393,10 @@ async def batch_deactivate_users(
             user = await Users.get(id=user_id)
             if user.id == current_user.id:
                 results.append({"user_id": user_id, "username": user.username, "success": False, "message": "不能停用自己的帳號"})
+                failed_count += 1
+                continue
+            if current_user.role == "manager" and user.role == "admin":
+                results.append({"user_id": user_id, "username": user.username, "success": False, "message": "無法操作管理員帳號"})
                 failed_count += 1
                 continue
             user.is_active = False
@@ -410,16 +468,14 @@ async def _execute_rejection(user_id: int, actor: UserInfoSchema, reason: str) -
 @router.post(
     "/{user_id}/approve",
     summary="審核通過帳號",
-    description="核准帳號申請並啟用帳號（admin 全部，manager 限同管理處）"
+    description="核准帳號申請並啟用帳號（admin 全部，manager 限同管理處）",
+    dependencies=[Depends(require_permission(ModuleName.USERS, PermissionAction.APPROVE))],
 )
 async def approve_user(
     user_id: int,
     request: Request,
-    current_user: Users = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
-    """核准帳號申請"""
-    if current_user.role not in ["admin", "manager"]:
-        raise AppError(403, "無審核帳號權限")
 
     try:
         user = await Users.get(id=user_id)
@@ -457,17 +513,15 @@ async def approve_user(
 @router.post(
     "/{user_id}/reject",
     summary="駁回帳號申請",
-    description="駁回帳號申請（admin 全部，manager 限同管理處），需提供駁回原因"
+    description="駁回帳號申請（admin 全部，manager 限同管理處），需提供駁回原因",
+    dependencies=[Depends(require_permission(ModuleName.USERS, PermissionAction.APPROVE))],
 )
 async def reject_user(
     user_id: int,
     request: Request,
     body: RejectUserRequest,
-    current_user: Users = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
-    """駁回帳號申請"""
-    if current_user.role not in ["admin", "manager"]:
-        raise AppError(403, "無審核帳號權限")
 
     try:
         user = await Users.get(id=user_id)

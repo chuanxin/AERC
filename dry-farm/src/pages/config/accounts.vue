@@ -72,7 +72,7 @@
           >
             <v-card-item class="custom-title">
               <v-card-title class="text-h5 font-weight-black">
-                使用者帳號管理
+                使用者帳號列表
               </v-card-title>
             </v-card-item>
 
@@ -110,274 +110,247 @@
 
               <v-window v-model="activeTab">
                 <v-window-item value="existing">
-
-              <!-- 篩選卡片 -->
-              <v-card
-                class="table-card mb-4"
-                rounded="lg"
-                elevation="0"
-              >
-                <div
-                  class="d-flex flex-wrap align-center gap-3 pa-4"
-                  style="background-color: #e3f4f4;"
-                >
-                  <v-icon
-                    icon="mdi-filter-variant"
-                    color="#3ea0a3"
-                    class="me-2"
-                  />
-                  <span class="text-subtitle-1 font-weight-medium">篩選條件</span>
-                  <v-spacer />
-
-                  <!-- 篩選區域 -->
-                  <div class="d-flex flex-wrap">
-                    <!-- 搜尋框 -->
-                    <v-text-field
-                      v-model="filters.search"
-                      label="搜尋（帳號/姓名/Email）"
-                      prepend-inner-icon="mdi-magnify"
-                      density="comfortable"
-                      variant="outlined"
-                      hide-details
-                      clearable
-                      class="mr-2"
-                      style="min-width: 250px;"
-                      rounded="lg"
-                      @update:model-value="handleSearchChange"
-                    />
-
-                    <!-- 角色篩選 -->
-                    <v-select
-                      v-model="filters.role"
-                      :items="roleOptions"
-                      item-title="title"
-                      item-value="value"
-                      label="角色"
-                      density="comfortable"
-                      variant="outlined"
-                      hide-details
-                      clearable
-                      class="mr-2"
-                      style="min-width: 150px;"
-                      rounded="lg"
-                      @update:model-value="handleFilterChange"
-                    />
-
-                    <!-- 單位篩選 -->
-                    <v-select
-                      v-model="filters.office_id"
-                      :items="officeOptions"
-                      item-title="title"
-                      item-value="value"
-                      label="單位"
-                      density="comfortable"
-                      variant="outlined"
-                      hide-details
-                      clearable
-                      class="mr-2"
-                      style="min-width: 150px;"
-                      rounded="lg"
-                      @update:model-value="handleFilterChange"
-                    />
-
-                    <!-- 狀態篩選 -->
-                    <v-select
-                      v-model="filters.is_active"
-                      :items="statusOptions"
-                      item-title="label"
-                      item-value="value"
-                      label="狀態"
-                      density="comfortable"
-                      variant="outlined"
-                      hide-details
-                      clearable
-                      style="min-width: 120px;"
-                      rounded="lg"
-                      @update:model-value="handleFilterChange"
-                    />
-
-                    <!-- 清除篩選按鈕 -->
-                    <v-btn
-                      v-if="hasActiveFilters"
-                      color="error"
-                      variant="text"
-                      size="small"
-                      @click="clearFilters"
-                    >
-                      清除篩選
-                    </v-btn>
-                  </div>
-                </div>
-              </v-card>
-
-              <!-- 資料表格 -->
-              <v-data-table-server
-                v-model="selectedUsers"
-                :headers="headers"
-                :items="users"
-                :items-length="totalUsers"
-                :loading="store.isLoading"
-                :items-per-page="itemsPerPage"
-                :page="currentPage"
-                class="elevation-0"
-                item-value="id"
-                show-select
-                @update:items-per-page="handleItemsPerPageChange"
-                @update:page="handlePageChange"
-              >
-                <!-- 帳號欄位 -->
-                <template #item.username="{ item }">
-                  <div class="d-flex align-center">
-                    <v-icon
-                      :icon="item.is_active ? 'mdi-account' : 'mdi-account-off'"
-                      :color="item.is_active ? 'success' : 'grey'"
-                      size="small"
-                      class="mr-2"
-                    />
-                    <span class="font-weight-medium">{{ item.username }}</span>
-                  </div>
-                </template>
-
-                <!-- 姓名欄位 -->
-                <template #item.full_name="{ item }">
-                  {{ item.full_name || '-' }}
-                </template>
-
-                <!-- Email 欄位 -->
-                <template #item.email="{ item }">
-                  {{ item.email || '-' }}
-                </template>
-
-                <!-- 角色欄位 -->
-                <template #item.role="{ item }">
-                  <v-chip
-                    :color="getRoleColor(item.role)"
-                    size="small"
-                    variant="flat"
+                  <!-- 篩選卡片 -->
+                  <v-card
+                    class="table-card mb-4"
+                    rounded="lg"
+                    elevation="0"
                   >
-                    {{ item.role || '一般使用者' }}
-                  </v-chip>
-                </template>
+                    <div
+                      class="d-flex flex-wrap align-center gap-3 pa-4"
+                      style="background-color: #e3f4f4;"
+                    >
+                      <v-icon
+                        icon="mdi-filter-variant"
+                        color="#3ea0a3"
+                        class="me-2"
+                      />
+                      <span class="text-subtitle-1 font-weight-medium">篩選條件</span>
+                      <v-spacer />
 
-                <!-- 管理處欄位 -->
-                <template #item.office="{ item }">
-                  {{ item.office?.name || '-' }}
-                </template>
+                      <!-- 篩選區域 -->
+                      <div class="d-flex flex-wrap">
+                        <!-- 搜尋框 -->
+                        <v-text-field
+                          v-model="filters.search"
+                          label="搜尋（帳號/姓名/Email）"
+                          prepend-inner-icon="mdi-magnify"
+                          density="comfortable"
+                          variant="outlined"
+                          hide-details
+                          clearable
+                          class="mr-2"
+                          style="min-width: 250px;"
+                          rounded="lg"
+                          @update:model-value="handleSearchChange"
+                        />
 
-                <!-- 狀態欄位 -->
-                <template #item.is_active="{ item }">
-                  <v-chip
-                    :color="item.is_active ? 'success' : 'error'"
-                    size="small"
-                    variant="flat"
+                        <!-- 角色篩選 -->
+                        <v-select
+                          v-model="filters.role"
+                          :items="roleOptions"
+                          item-title="title"
+                          item-value="value"
+                          label="角色"
+                          density="comfortable"
+                          variant="outlined"
+                          hide-details
+                          clearable
+                          class="mr-2"
+                          style="min-width: 150px;"
+                          rounded="lg"
+                          @update:model-value="handleFilterChange"
+                        />
+
+                        <!-- 單位篩選（僅 admin 可跨管理處查詢） -->
+                        <v-select
+                          v-if="!isManager"
+                          v-model="filters.office_id"
+                          :items="officeOptions"
+                          item-title="title"
+                          item-value="value"
+                          label="單位"
+                          density="comfortable"
+                          variant="outlined"
+                          hide-details
+                          clearable
+                          class="mr-2"
+                          style="min-width: 150px;"
+                          rounded="lg"
+                          @update:model-value="handleFilterChange"
+                        />
+
+                        <!-- 狀態篩選 -->
+                        <v-select
+                          v-model="filters.is_active"
+                          :items="statusOptions"
+                          item-title="label"
+                          item-value="value"
+                          label="狀態"
+                          density="comfortable"
+                          variant="outlined"
+                          hide-details
+                          clearable
+                          style="min-width: 120px;"
+                          rounded="lg"
+                          @update:model-value="handleFilterChange"
+                        />
+
+                        <!-- 清除篩選按鈕 -->
+                        <v-btn
+                          v-if="hasActiveFilters"
+                          color="error"
+                          variant="text"
+                          size="small"
+                          @click="clearFilters"
+                        >
+                          清除篩選
+                        </v-btn>
+                      </div>
+                    </div>
+                  </v-card>
+
+                  <!-- 資料表格 -->
+                  <v-data-table-server
+                    v-model="selectedUsers"
+                    :headers="headers"
+                    :items="users"
+                    :items-length="totalUsers"
+                    :loading="store.isLoading"
+                    :items-per-page="itemsPerPage"
+                    :page="currentPage"
+                    class="elevation-0"
+                    item-value="id"
+                    show-select
+                    @update:items-per-page="handleItemsPerPageChange"
+                    @update:page="handlePageChange"
                   >
-                    {{ item.is_active ? '啟用' : '停用' }}
-                  </v-chip>
-                </template>
+                    <!-- 帳號欄位 -->
+                    <template #item.username="{ item }">
+                      <div class="d-flex align-center">
+                        <v-icon
+                          :icon="item.is_active ? 'mdi-account' : 'mdi-account-off'"
+                          :color="item.is_active ? 'success' : 'grey'"
+                          size="small"
+                          class="mr-2"
+                        />
+                        <span class="font-weight-medium">{{ item.username }}</span>
+                      </div>
+                    </template>
 
-                <!-- 權限模式欄位 -->
-                <template #item.permissions="{ item }">
-                  <v-chip
-                    v-if="item.permissions?.mode"
-                    size="small"
-                    variant="outlined"
-                  >
-                    {{ getPermissionModeLabel(item.permissions.mode) }}
-                  </v-chip>
-                  <span v-else class="text-caption text-grey">未設定</span>
-                </template>
+                    <!-- 姓名欄位 -->
+                    <template #item.full_name="{ item }">
+                      {{ item.full_name || '-' }}
+                    </template>
 
-                <!-- 最後登入欄位 -->
-                <template #item.last_login="{ item }">
-                  <span class="text-caption">
-                    {{ formatDate(item.last_login) }}
-                  </span>
-                </template>
+                    <!-- Email 欄位 -->
+                    <template #item.email="{ item }">
+                      {{ item.email || '-' }}
+                    </template>
 
-                <!-- 操作欄位 -->
-                <template #item.actions="{ item }">
-                  <div class="d-flex gap-1">
-                    <v-btn
-                      icon="mdi-pencil"
-                      size="x-small"
-                      variant="text"
-                      color="primary"
-                      @click="handleEdit(item)"
-                    >
-                      <v-icon size="small">mdi-pencil</v-icon>
-                      <v-tooltip
-                        activator="parent"
-                        location="top"
+                    <!-- 角色欄位 -->
+                    <template #item.role="{ item }">
+                      <v-chip
+                        :color="getRoleColor(item.role)"
+                        size="small"
+                        variant="flat"
                       >
-                        編輯
-                      </v-tooltip>
-                    </v-btn>
+                        {{ item.role || '一般使用者' }}
+                      </v-chip>
+                    </template>
 
-                    <v-btn
-                      icon="mdi-shield-account"
-                      size="x-small"
-                      variant="text"
-                      color="orange"
-                      @click="handleEditPermissions(item)"
-                    >
-                      <v-icon size="small">mdi-shield-account</v-icon>
-                      <v-tooltip
-                        activator="parent"
-                        location="top"
-                      >
-                        權限設定
-                      </v-tooltip>
-                    </v-btn>
+                    <!-- 管理處欄位 -->
+                    <template #item.office="{ item }">
+                      {{ item.office?.name || '-' }}
+                    </template>
 
-                    <v-btn
-                      :icon="item.is_active ? 'mdi-account-off' : 'mdi-account-check'"
-                      size="x-small"
-                      variant="text"
-                      :color="item.is_active ? 'warning' : 'success'"
-                      @click="handleToggleActive(item)"
-                    >
-                      <v-icon size="small">
-                        {{ item.is_active ? 'mdi-account-off' : 'mdi-account-check' }}
-                      </v-icon>
-                      <v-tooltip
-                        activator="parent"
-                        location="top"
+                    <!-- 狀態欄位 -->
+                    <template #item.is_active="{ item }">
+                      <v-chip
+                        :color="item.is_active ? 'success' : 'error'"
+                        size="small"
+                        variant="flat"
                       >
-                        {{ item.is_active ? '停用' : '啟用' }}
-                      </v-tooltip>
-                    </v-btn>
+                        {{ item.is_active ? '啟用' : '停用' }}
+                      </v-chip>
+                    </template>
+
+                    <!-- 最後登入欄位 -->
+                    <template #item.last_login="{ item }">
+                      <span class="text-caption">
+                        {{ formatDate(item.last_login) }}
+                      </span>
+                    </template>
+
+                    <!-- 操作欄位 -->
+                    <template #item.actions="{ item }">
+                      <div class="d-flex gap-1">
+                        <v-btn
+                          v-if="canEditUsers && !(isManager && item.role === 'admin')"
+                          icon="mdi-account-group"
+                          size="x-small"
+                          variant="text"
+                          color="teal"
+                          @click="handleEditGroup(item)"
+                        >
+                          <v-icon size="small">mdi-account-group</v-icon>
+                          <v-tooltip
+                            activator="parent"
+                            location="top"
+                          >
+                            群組設定
+                          </v-tooltip>
+                        </v-btn>
+
+                        <v-btn
+                          v-if="canEditUsers && !(isManager && item.role === 'admin')"
+                          :icon="item.is_active ? 'mdi-account-off' : 'mdi-account-check'"
+                          size="x-small"
+                          variant="text"
+                          :color="item.is_active ? 'warning' : 'success'"
+                          @click="handleToggleActive(item)"
+                        >
+                          <v-icon size="small">
+                            {{ item.is_active ? 'mdi-account-off' : 'mdi-account-check' }}
+                          </v-icon>
+                          <v-tooltip
+                            activator="parent"
+                            location="top"
+                          >
+                            {{ item.is_active ? '停用' : '啟用' }}
+                          </v-tooltip>
+                        </v-btn>
+                      </div>
+                    </template>
+
+                    <!-- 空狀態 -->
+                    <template #no-data>
+                      <div class="text-center pa-6">
+                        <v-icon
+                          icon="mdi-account-off-outline"
+                          size="64"
+                          color="grey-lighten-1"
+                          class="mb-4"
+                        />
+                        <p class="text-h6 text-grey-darken-1">
+                          無符合條件的使用者
+                        </p>
+                        <p class="text-caption text-grey">
+                          請調整篩選條件或建立新使用者
+                        </p>
+                      </div>
+                    </template>
+                  </v-data-table-server>
+
+                  <!-- 統計資訊 -->
+                  <div class="d-flex justify-space-between align-center mt-4 text-caption text-grey">
+                    <div>
+                      已選取 {{ selectedUsers.length }} 位使用者
+                    </div>
+                    <div>
+                      共 {{ totalUsers }} 位使用者
+                    </div>
                   </div>
-                </template>
-
-                <!-- 空狀態 -->
-                <template #no-data>
-                  <div class="text-center pa-6">
-                    <v-icon
-                      icon="mdi-account-off-outline"
-                      size="64"
-                      color="grey-lighten-1"
-                      class="mb-4"
-                    />
-                    <p class="text-h6 text-grey-darken-1">
-                      無符合條件的使用者
-                    </p>
-                    <p class="text-caption text-grey">
-                      請調整篩選條件或建立新使用者
-                    </p>
-                  </div>
-                </template>
-              </v-data-table-server>
-
-              <!-- 統計資訊 -->
-              <div class="d-flex justify-space-between align-center mt-4 text-caption text-grey">
-                <div>
-                  已選取 {{ selectedUsers.length }} 位使用者
-                </div>
-                <div>
-                  共 {{ totalUsers }} 位使用者
-                </div>
-              </div>
-
                 </v-window-item>
 
                 <!-- 待審核帳號分頁 -->
@@ -430,7 +403,6 @@
                   </v-data-table>
                 </v-window-item>
               </v-window>
-
             </v-card-text>
           </v-card>
         </div>
@@ -535,6 +507,53 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <!-- 群組設定 Dialog -->
+    <v-dialog
+      v-model="showGroupDialog"
+      max-width="420"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h6 pt-5 px-6">
+          群組設定
+        </v-card-title>
+        <v-card-text class="px-6">
+          <p class="mb-4 text-body-2">
+            帳號：<strong>{{ selectedUserForGroup?.username }}</strong>（{{ selectedUserForGroup?.full_name }}）
+          </p>
+          <v-select
+            v-model="newRole"
+            :items="roleOptions"
+            item-title="title"
+            item-value="value"
+            label="群組（角色）"
+            variant="outlined"
+            density="comfortable"
+            hide-details
+            rounded="lg"
+          />
+        </v-card-text>
+        <v-card-actions class="px-6 pb-5">
+          <v-spacer />
+          <v-btn
+            variant="text"
+            :disabled="isUpdatingRole"
+            @click="showGroupDialog = false"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            color="#3ea0a3"
+            variant="flat"
+            :loading="isUpdatingRole"
+            :disabled="newRole === selectedUserForGroup?.role"
+            @click="confirmRoleChange"
+          >
+            確認變更
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -542,6 +561,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useUserManagementStore } from '@/stores/userManagement'
 import { useOfficesStore } from '@/stores/offices'
+import { useUserStore } from '@/stores/users'
 import type { UserListItem } from '@/types/userManagement'
 import { DEFAULT_ROLES } from '@/types/permissions'
 
@@ -562,6 +582,7 @@ interface PendingUser {
 
 const store = useUserManagementStore()
 const officesStore = useOfficesStore()
+const userStore = useUserStore()
 
 // ============================================================================
 // State
@@ -592,6 +613,12 @@ let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
 // 待審核分頁
 const activeTab = ref<'existing' | 'pending'>('existing')
+
+// 群組設定對話框
+const showGroupDialog = ref(false)
+const selectedUserForGroup = ref<UserListItem | null>(null)
+const newRole = ref('')
+const isUpdatingRole = ref(false)
 
 // 核准對話框
 const showApproveDialog = ref(false)
@@ -625,8 +652,12 @@ const hasActiveFilters = computed(() =>
   !!(filters.value.search || filters.value.role || filters.value.office_id || filters.value.is_active !== null)
 )
 
-// 角色選項
-const roleOptions = computed(() => [...DEFAULT_ROLES])
+// 角色選項（manager 不可將帳號提升為 admin）
+const isManager = computed(() => userStore.currentUser?.role === 'manager')
+const canEditUsers = computed(() => userStore.can('users', 'edit'))
+const roleOptions = computed(() =>
+  isManager.value ? DEFAULT_ROLES.filter(r => r.value !== 'admin') : [...DEFAULT_ROLES]
+)
 
 // 單位選項
 const officeOptions = computed(() => (officesStore.managementOffices || []).filter(o => o.value > 0))
@@ -648,7 +679,6 @@ const headers = [
   { title: '角色', key: 'role', sortable: false },
   { title: '管理處', key: 'office', sortable: false },
   { title: '狀態', key: 'is_active', sortable: false },
-  { title: '權限模式', key: 'permissions', sortable: false },
   { title: '最後登入', key: 'last_login', sortable: false },
   { title: '操作', key: 'actions', sortable: false, align: 'center' as const }
 ]
@@ -785,21 +815,31 @@ async function handleBatchDeactivate() {
 }
 
 /**
- * 編輯使用者
+ * 開啟群組設定對話框
  */
-function handleEdit(user: UserListItem) {
-  // TODO: 開啟編輯對話框
-  console.log('編輯使用者:', user)
-  showSnackbar('編輯功能開發中', 'info')
+function handleEditGroup(user: UserListItem) {
+  selectedUserForGroup.value = user
+  newRole.value = user.role || 'user'
+  showGroupDialog.value = true
 }
 
 /**
- * 編輯權限
+ * 確認變更群組
  */
-function handleEditPermissions(user: UserListItem) {
-  // TODO: 開啟權限編輯對話框
-  console.log('編輯權限:', user)
-  showSnackbar('權限編輯功能開發中', 'info')
+async function confirmRoleChange() {
+  if (!selectedUserForGroup.value || !newRole.value) return
+  isUpdatingRole.value = true
+  try {
+    await store.updateUserRole(selectedUserForGroup.value.id, newRole.value)
+    const roleLabel = roleOptions.value.find(r => r.value === newRole.value)?.title ?? newRole.value
+    showSnackbar(`已將 ${selectedUserForGroup.value.username} 的群組更改為「${roleLabel}」`, 'success')
+    showGroupDialog.value = false
+    await loadUsers()
+  } catch {
+    showSnackbar('群組設定失敗，請稍後再試', 'error')
+  } finally {
+    isUpdatingRole.value = false
+  }
 }
 
 /**
@@ -901,18 +941,6 @@ function getRoleColor(role?: string): string {
     '一般使用者': 'grey'
   }
   return colorMap[role || ''] || 'grey'
-}
-
-/**
- * 取得權限模式標籤
- */
-function getPermissionModeLabel(mode: string): string {
-  const labelMap: Record<string, string> = {
-    'default': '預設',
-    'scoped': '範圍限制',
-    'custom': '自訂'
-  }
-  return labelMap[mode] || mode
 }
 
 /**

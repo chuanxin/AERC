@@ -84,6 +84,7 @@
       '/bug-report': '回報問題',
       '/budget': '預算執行即時資訊',
       '/downloads': '文件下載',
+      '/profile': '帳號資訊',
     }
 
     // Split the current path into segments and build breadcrumbs
