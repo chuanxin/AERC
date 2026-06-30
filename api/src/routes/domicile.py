@@ -1,13 +1,13 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from src.schemas.domicile import (
     CountySchema, TownSchema, VillageSchema,
     CountyCreateSchema, TownCreateSchema, VillageCreateSchema
 )
 import src.crud.domicile as crud
-from src.auth.guard import require_full_auth
-from src.schemas.users import UserOutSchema
+from src.auth.route_guards import require_permission
+from src.schemas.permissions import ModuleName, PermissionAction
 
 # router = APIRouter(prefix="/domicile", tags=["domicile"])
 router = APIRouter()
@@ -23,35 +23,30 @@ async def get_county(county_id: int):
     """Get a county by ID"""
     return await crud.get_county(county_id)
 
-@router.post("/counties", response_model=CountySchema)
-async def create_county(
-    county: CountyCreateSchema,
-    current_user: UserOutSchema = Depends(require_full_auth)
-):
+@router.post(
+    "/counties",
+    response_model=CountySchema,
+    dependencies=[Depends(require_permission(ModuleName.SETTINGS, PermissionAction.EDIT))],
+)
+async def create_county(county: CountyCreateSchema):
     """Create a new county (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
     return await crud.create_county(county.dict())
 
-@router.put("/counties/{county_id}", response_model=CountySchema)
-async def update_county(
-    county_id: int,
-    county: CountyCreateSchema,
-    current_user: UserOutSchema = Depends(require_full_auth)
-):
+@router.put(
+    "/counties/{county_id}",
+    response_model=CountySchema,
+    dependencies=[Depends(require_permission(ModuleName.SETTINGS, PermissionAction.EDIT))],
+)
+async def update_county(county_id: int, county: CountyCreateSchema):
     """Update a county (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
     return await crud.update_county(county_id, county.dict())
 
-@router.delete("/counties/{county_id}")
-async def delete_county(
-    county_id: int,
-    current_user: UserOutSchema = Depends(require_full_auth)
-):
+@router.delete(
+    "/counties/{county_id}",
+    dependencies=[Depends(require_permission(ModuleName.SETTINGS, PermissionAction.EDIT))],
+)
+async def delete_county(county_id: int):
     """Delete a county (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
     await crud.delete_county(county_id)
     return {"message": "County deleted successfully"}
 
@@ -66,35 +61,30 @@ async def get_town(town_id: int):
     """Get a town by ID"""
     return await crud.get_town(town_id)
 
-@router.post("/towns", response_model=TownSchema)
-async def create_town(
-    town: TownCreateSchema,
-    current_user: UserOutSchema = Depends(require_full_auth)
-):
+@router.post(
+    "/towns",
+    response_model=TownSchema,
+    dependencies=[Depends(require_permission(ModuleName.SETTINGS, PermissionAction.EDIT))],
+)
+async def create_town(town: TownCreateSchema):
     """Create a new town (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
     return await crud.create_town(town.dict())
 
-@router.put("/towns/{town_id}", response_model=TownSchema)
-async def update_town(
-    town_id: int,
-    town: TownCreateSchema,
-    current_user: UserOutSchema = Depends(require_full_auth)
-):
+@router.put(
+    "/towns/{town_id}",
+    response_model=TownSchema,
+    dependencies=[Depends(require_permission(ModuleName.SETTINGS, PermissionAction.EDIT))],
+)
+async def update_town(town_id: int, town: TownCreateSchema):
     """Update a town (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
     return await crud.update_town(town_id, town.dict())
 
-@router.delete("/towns/{town_id}")
-async def delete_town(
-    town_id: int,
-    current_user: UserOutSchema = Depends(require_full_auth)
-):
+@router.delete(
+    "/towns/{town_id}",
+    dependencies=[Depends(require_permission(ModuleName.SETTINGS, PermissionAction.EDIT))],
+)
+async def delete_town(town_id: int):
     """Delete a town (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
     await crud.delete_town(town_id)
     return {"message": "Town deleted successfully"}
 
@@ -109,34 +99,29 @@ async def get_village(village_id: int):
     """Get a village by ID"""
     return await crud.get_village(village_id)
 
-@router.post("/villages", response_model=VillageSchema)
-async def create_village(
-    village: VillageCreateSchema,
-    current_user: UserOutSchema = Depends(require_full_auth)
-):
+@router.post(
+    "/villages",
+    response_model=VillageSchema,
+    dependencies=[Depends(require_permission(ModuleName.SETTINGS, PermissionAction.EDIT))],
+)
+async def create_village(village: VillageCreateSchema):
     """Create a new village (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
     return await crud.create_village(village.dict())
 
-@router.put("/villages/{village_id}", response_model=VillageSchema)
-async def update_village(
-    village_id: int,
-    village: VillageCreateSchema,
-    current_user: UserOutSchema = Depends(require_full_auth)
-):
+@router.put(
+    "/villages/{village_id}",
+    response_model=VillageSchema,
+    dependencies=[Depends(require_permission(ModuleName.SETTINGS, PermissionAction.EDIT))],
+)
+async def update_village(village_id: int, village: VillageCreateSchema):
     """Update a village (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
     return await crud.update_village(village_id, village.dict())
 
-@router.delete("/villages/{village_id}")
-async def delete_village(
-    village_id: int,
-    current_user: UserOutSchema = Depends(require_full_auth)
-):
+@router.delete(
+    "/villages/{village_id}",
+    dependencies=[Depends(require_permission(ModuleName.SETTINGS, PermissionAction.EDIT))],
+)
+async def delete_village(village_id: int):
     """Delete a village (admin only)"""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
     await crud.delete_village(village_id)
     return {"message": "Village deleted successfully"}

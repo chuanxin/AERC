@@ -23,7 +23,7 @@ COMMENT ON COLUMN "subsidy_annual_budgets"."created_at" IS '建立時間';
 COMMENT ON COLUMN "subsidy_annual_budgets"."modified_at" IS '修改時間';
 COMMENT ON COLUMN "subsidy_annual_budgets"."created_by_id" IS '建立人帳號';
 COMMENT ON COLUMN "subsidy_annual_budgets"."modified_by_id" IS '修改人帳號';
-COMMENT ON COLUMN "subsidy_annual_budgets"."office_id" IS '所屬辦公室';
+COMMENT ON COLUMN "subsidy_annual_budgets"."office_id" IS '所屬管理處';
 COMMENT ON TABLE "subsidy_annual_budgets" IS '補助年度預算計畫表';"""
 
 

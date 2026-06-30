@@ -210,7 +210,7 @@ class GrantStatisticsCRUD:
 
         Args:
             year: 統計年度（民國年）
-            office_id: 辦公室 ID（None=查詢所有辦公室，有值=查詢指定辦公室）
+            office_id: 管理處 ID（None=查詢所有管理處，有值=查詢指定管理處）
 
         Returns:
             ExecutionProgressResponse: 執行進度統計資料
@@ -219,14 +219,14 @@ class GrantStatisticsCRUD:
         if office_id is not None:
             offices = await Offices.filter(id=office_id).all()
         else:
-            # 當 office_id 為 None 時，查詢 ALLOWED_OFFICE_IDS 中的所有辦公室
-            # 注意：這裡包含 ID 為 1-19 和 23 的辦公室
+            # 當 office_id 為 None 時，查詢 ALLOWED_OFFICE_IDS 中的所有管理處
+            # 注意：這裡包含 ID 為 1-19 和 23 的管理處
             offices = await Offices.filter(id__in=ALLOWED_OFFICE_IDS).order_by('id').all()
 
         # 3. 建立縣市鄉鎮查詢表（一次查詢，傳入所有子方法）
         county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
 
-        # 4. 為每個辦公室計算統計資料
+        # 4. 為每個管理處計算統計資料
         office_stats_list = []
         total_approved_budget = Decimal('0')
         total_completed_cases = 0
@@ -273,17 +273,17 @@ class GrantStatisticsCRUD:
         town_lookup: dict,
     ) -> OfficeExecutionStats:
         """
-        計算單一辦公室的執行進度統計
+        計算單一管理處的執行進度統計
 
         Args:
             year: 統計年度
-            office_id: 辦公室 ID
-            office_name: 辦公室名稱
+            office_id: 管理處 ID
+            office_name: 管理處名稱
             county_lookup: 縣市名稱查詢表（由父方法傳入）
             town_lookup: 鄉鎮區名稱查詢表（由父方法傳入）
 
         Returns:
-            OfficeExecutionStats: 辦公室統計資料
+            OfficeExecutionStats: 管理處統計資料
         """
         # 1. 從 SubsidyAnnualBudget 取得核定預算
         annual_budget = await SubsidyAnnualBudget.filter(
@@ -354,7 +354,7 @@ class GrantStatisticsCRUD:
 
         Args:
             year: 統計年度（民國年）
-            office_id: 辦公室 ID（None=查詢所有辦公室，有值=查詢指定辦公室）
+            office_id: 管理處 ID（None=查詢所有管理處，有值=查詢指定管理處）
 
         Returns:
             BudgetAnalysisResponse: 經費統計分析資料
@@ -363,13 +363,13 @@ class GrantStatisticsCRUD:
         if office_id is not None:
             offices = await Offices.filter(id=office_id).all()
         else:
-            # 當 office_id 為 None 時，查詢 ALLOWED_OFFICE_IDS 中的所有辦公室
+            # 當 office_id 為 None 時，查詢 ALLOWED_OFFICE_IDS 中的所有管理處
             offices = await Offices.filter(id__in=ALLOWED_OFFICE_IDS).order_by('id').all()
 
         # 3. 建立縣市鄉鎮查詢表（一次查詢，傳入所有子方法）
         county_lookup, town_lookup = await GrantStatisticsCRUD._build_county_town_lookup()
 
-        # 4. 為每個辦公室計算統計資料
+        # 4. 為每個管理處計算統計資料
         office_stats_list = []
         total_planned_area = Decimal('0')
         total_planned_budget = Decimal('0')
@@ -429,17 +429,17 @@ class GrantStatisticsCRUD:
         town_lookup: dict,
     ) -> OfficeBudgetStats:
         """
-        計算單一辦公室的經費統計分析
+        計算單一管理處的經費統計分析
 
         Args:
             year: 統計年度
-            office_id: 辦公室 ID
-            office_name: 辦公室名稱
+            office_id: 管理處 ID
+            office_name: 管理處名稱
             county_lookup: 縣市名稱查詢表（由父方法傳入）
             town_lookup: 鄉鎮區名稱查詢表（由父方法傳入）
 
         Returns:
-            OfficeBudgetStats: 辦公室經費統計資料
+            OfficeBudgetStats: 管理處經費統計資料
         """
         # 1. 從 SubsidyAnnualBudget 取得預定執行面積和預算
         # 容錯處理：如果表不存在，使用預設值（適用於尚未執行遷移的生產環境）

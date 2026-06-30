@@ -167,11 +167,25 @@ async def get_grants(
         
         # 建立基本查詢：過濾掉已刪除的案件
         query = Grants.all().filter(status__not=GrantStatus.SOFT_DELETE)
-        
-        # 權限控制：如果使用者不是管理員，只能看到自己管理處的案件
-        if current_user and hasattr(current_user, 'office_id') and current_user.office_id:
-            if not hasattr(current_user, 'role') or current_user.role != 'admin':
-                query = query.filter(office_id=current_user.office_id)
+
+        # 角色範圍過濾：依角色決定可見範圍，消除原有的多層 hasattr/condition 巢狀
+        role = getattr(current_user, 'role', None) if current_user else None
+        if role == 'admin':
+            pass  # 無範圍限制，可見全部
+        elif role in ('manager', 'staff'):
+            user_office = getattr(current_user, 'office', None)
+            if not user_office:
+                from src.exceptions import AppError
+                raise AppError(403, "帳號尚未指派管理處，請聯繫系統管理員完成設定")
+            query = query.filter(office_id=user_office.id)
+        elif role == 'user':
+            user_office = getattr(current_user, 'office', None)
+            if not user_office:
+                from src.exceptions import AppError
+                raise AppError(403, "帳號尚未指派管理處，請聯繫系統管理員完成設定")
+            query = query.filter(office_id=user_office.id)
+        else:
+            return []  # 未知角色，拒絕存取
         
         # 應用過濾條件
         if year:

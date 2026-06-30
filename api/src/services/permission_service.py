@@ -21,23 +21,32 @@ from src.schemas.permissions import (
 class PermissionService:
     """權限檢查服務"""
 
-    # 預設角色權限矩陣（用於 default mode）
+    # 角色權限矩陣為代碼層 SSOT（非資料庫），變更需部署；個別使用者覆蓋儲存於 users.permissions (JSONB)
     DEFAULT_ROLE_PERMISSIONS = {
         "admin": {
-            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE, PermissionAction.APPROVE, PermissionAction.EXPORT},
-            ModuleName.USERS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE},
-            ModuleName.REPORTS: {PermissionAction.VIEW, PermissionAction.EXPORT},
+            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE, PermissionAction.APPROVE, PermissionAction.EXPORT, PermissionAction.VIEW_ALL},
+            ModuleName.USERS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE, PermissionAction.APPROVE, PermissionAction.VIEW_ALL},
+            ModuleName.REPORTS: {PermissionAction.VIEW, PermissionAction.EXPORT, PermissionAction.VIEW_ALL},
             ModuleName.GIS: {PermissionAction.VIEW, PermissionAction.EDIT},
             ModuleName.OFFICES: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE},
             ModuleName.SETTINGS: {PermissionAction.VIEW, PermissionAction.EDIT},
+            ModuleName.BATCH_PRINT: {PermissionAction.VIEW},
+            ModuleName.DUPLICATE_CHECK: {PermissionAction.VIEW},
+            ModuleName.MATERIALS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE},
+            ModuleName.DOWNLOADS: {PermissionAction.VIEW},
         },
         "manager": {
-            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.APPROVE, PermissionAction.EXPORT},
-            ModuleName.USERS: {PermissionAction.VIEW},
+            # manager.GRANTS: VIEW + APPROVE + EXPORT（無 CREATE/EDIT，033 修正）
+            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.APPROVE, PermissionAction.EXPORT},
+            ModuleName.USERS: {PermissionAction.VIEW, PermissionAction.APPROVE, PermissionAction.EDIT},
             ModuleName.REPORTS: {PermissionAction.VIEW, PermissionAction.EXPORT},
             ModuleName.GIS: {PermissionAction.VIEW, PermissionAction.EDIT},
             ModuleName.OFFICES: {PermissionAction.VIEW},
             ModuleName.SETTINGS: {PermissionAction.VIEW},
+            ModuleName.BATCH_PRINT: {PermissionAction.VIEW},
+            ModuleName.DUPLICATE_CHECK: {PermissionAction.VIEW},
+            ModuleName.MATERIALS: {PermissionAction.VIEW},
+            ModuleName.DOWNLOADS: {PermissionAction.VIEW},
         },
         "staff": {
             ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.EXPORT},
@@ -46,14 +55,24 @@ class PermissionService:
             ModuleName.GIS: {PermissionAction.VIEW, PermissionAction.EDIT},
             ModuleName.OFFICES: {PermissionAction.VIEW},
             ModuleName.SETTINGS: set(),
+            ModuleName.BATCH_PRINT: {PermissionAction.VIEW},
+            ModuleName.DUPLICATE_CHECK: {PermissionAction.VIEW},
+            ModuleName.MATERIALS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE},
+            ModuleName.DOWNLOADS: {PermissionAction.VIEW},
         },
         "user": {
-            ModuleName.GRANTS: {PermissionAction.VIEW},
+            # user.GRANTS: VIEW + CREATE + EDIT（033 補足，申請人提交補助申請所需）
+            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT},
             ModuleName.USERS: set(),
-            ModuleName.REPORTS: {PermissionAction.VIEW},
+            # user.REPORTS: 空集合（033 需求：user 無統計報表存取權）
+            ModuleName.REPORTS: set(),
             ModuleName.GIS: {PermissionAction.VIEW},
             ModuleName.OFFICES: {PermissionAction.VIEW},
             ModuleName.SETTINGS: set(),
+            ModuleName.BATCH_PRINT: set(),
+            ModuleName.DUPLICATE_CHECK: {PermissionAction.VIEW},
+            ModuleName.MATERIALS: {PermissionAction.VIEW},
+            ModuleName.DOWNLOADS: {PermissionAction.VIEW},
         },
     }
 
@@ -179,7 +198,9 @@ class PermissionService:
         module: ModuleName,
         action: PermissionAction
     ) -> tuple[bool, Optional[str]]:
-        """檢查自訂權限"""
+        """檢查自訂權限
+        # TD-013: 新增 ModuleName 時此函數需同步新增 elif 分支
+        """
         if custom is None:
             return False, "自訂權限未設定"
 
@@ -197,6 +218,14 @@ class PermissionService:
             module_permissions = custom.offices
         elif module == ModuleName.SETTINGS:
             module_permissions = custom.settings
+        elif module == ModuleName.BATCH_PRINT:
+            module_permissions = custom.batch_print
+        elif module == ModuleName.DUPLICATE_CHECK:
+            module_permissions = custom.duplicate_check
+        elif module == ModuleName.MATERIALS:
+            module_permissions = custom.materials
+        elif module == ModuleName.DOWNLOADS:
+            module_permissions = custom.downloads
 
         if module_permissions is None:
             return False, f"模組 '{module.value}' 無自訂權限"
@@ -241,6 +270,7 @@ class PermissionService:
             if user_permissions.custom is None:
                 modules = {}
             else:
+                # TD-013: 新增 ModuleName 時此 dict 需同步新增鍵
                 modules = {
                     "grants": [a.value for a in user_permissions.custom.grants] if user_permissions.custom.grants else [],
                     "users": [a.value for a in user_permissions.custom.users] if user_permissions.custom.users else [],
@@ -248,6 +278,10 @@ class PermissionService:
                     "gis": [a.value for a in user_permissions.custom.gis] if user_permissions.custom.gis else [],
                     "offices": [a.value for a in user_permissions.custom.offices] if user_permissions.custom.offices else [],
                     "settings": [a.value for a in user_permissions.custom.settings] if user_permissions.custom.settings else [],
+                    "batch_print": [a.value for a in user_permissions.custom.batch_print] if user_permissions.custom.batch_print else [],
+                    "duplicate_check": [a.value for a in user_permissions.custom.duplicate_check] if user_permissions.custom.duplicate_check else [],
+                    "materials": [a.value for a in user_permissions.custom.materials] if user_permissions.custom.materials else [],
+                    "downloads": [a.value for a in user_permissions.custom.downloads] if user_permissions.custom.downloads else [],
                 }
         else:
             modules = {}

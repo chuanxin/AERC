@@ -5,7 +5,13 @@ from fastapi.responses import JSONResponse
 from starlette import status
 
 from src.auth.guard import require_full_auth
-from src.schemas.users import UserOutSchema
+from src.auth.route_guards import (
+    require_permission,
+    require_grant_scope_by_id,
+    require_grant_scope_by_case_number,
+)
+from src.schemas.permissions import ModuleName, PermissionAction
+from src.schemas.users import UserOutSchema, UserInfoSchema
 from src.schemas.grant_versions import (
     GrantVersionCreateSchema, GrantVersionUpdateSchema,
     GrantVersionListSchema, GrantVersionDetailSchema,
@@ -22,11 +28,11 @@ router = APIRouter(prefix="/grant-versions", tags=["grant-versions"])
     "",
     response_model=GrantVersionResponseSchema,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT))],
 )
 async def create_grant_version_api(
     version_data: GrantVersionCreateSchema,
-    current_user: UserOutSchema = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
     """建立新的補助申請案件版本"""
     try:
@@ -79,12 +85,12 @@ async def get_grant_version_api(
 @router.put(
     "/{version_id}",
     response_model=GrantVersionDetailSchema,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT))],
 )
 async def update_grant_version_api(
     version_id: int = Path(..., description="版本ID"),
     version_data: GrantVersionUpdateSchema = Body(..., description="版本更新資料"),
-    current_user: UserOutSchema = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
     """更新版本資料（僅允許更新註解）"""
     try:
@@ -99,11 +105,11 @@ async def update_grant_version_api(
 @router.delete(
     "/{version_id}",
     response_model=Status,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[Depends(require_permission(ModuleName.GRANTS, PermissionAction.DELETE))],
 )
 async def delete_grant_version_api(
     version_id: int = Path(..., description="版本ID"),
-    current_user: UserOutSchema = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
     """刪除版本（僅允許刪除非現行版本）"""
     try:
@@ -119,7 +125,7 @@ async def delete_grant_version_api(
 @router.post(
     "/compare",
     response_model=GrantVersionCompareResultSchema,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW))],
 )
 async def compare_grant_versions_api(
     compare_data: GrantVersionCompareSchema = Body(..., description="版本比較資料")
@@ -140,12 +146,15 @@ async def compare_grant_versions_api(
 @router.put(
     "/grant/{grant_id}/active-version/{version_id}",
     response_model=Dict[str, Any],
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_id),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.APPROVE)),
+    ],
 )
 async def set_active_version_api(
     grant_id: int = Path(..., description="補助申請案件ID"),
     version_id: int = Path(..., description="版本ID"),
-    current_user: UserOutSchema = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
     """設定現行版本"""
     try:
@@ -178,12 +187,12 @@ async def get_active_version_api(
 @router.put(
     "/{version_id}/schema-version",
     response_model=Dict[str, Any],
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT))],
 )
 async def update_schema_version_api(
     version_id: int = Path(..., description="版本ID"),
     schema_version: str = Body(..., embed=True, description="新的資料結構版本 (v1.0, legacy)"),
-    current_user: UserOutSchema = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
     """更新版本的資料結構版本標記"""
     try:
@@ -199,12 +208,15 @@ async def update_schema_version_api(
     "/from-current/{case_number}",
     response_model=GrantVersionResponseSchema,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT)),
+    ],
 )
 async def create_version_from_current_data_api(
     case_number: str = Path(..., description="案件編號"),
     comment: Optional[str] = Body(None, description="版本說明"),
-    current_user: UserOutSchema = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
     """從目前的申請資料建立新版本（用於結案前保存完整資料）"""
     raise HTTPException(

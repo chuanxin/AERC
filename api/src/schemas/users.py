@@ -478,3 +478,16 @@ class PasswordPolicyResponse(BaseModel):
 class RejectUserRequest(BaseModel):
     """駁回帳號申請請求（POST /{user_id}/reject 使用）"""
     reason: str = Field(..., min_length=1, max_length=500, description="駁回原因")
+
+
+class UserRoleUpdateRequest(BaseModel):
+    """變更使用者群組（角色）請求（PATCH /{user_id}/role 使用）"""
+    role: str = Field(..., max_length=50, description="新角色：admin | manager | staff | user")
+
+    @field_validator('role')
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        valid_roles = {'admin', 'manager', 'staff', 'user'}
+        if v not in valid_roles:
+            raise ValueError(f"角色必須是 {valid_roles} 之一")
+        return v

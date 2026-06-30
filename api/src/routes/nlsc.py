@@ -28,6 +28,8 @@ from ..schemas.nlsc import (
 )
 from ..services.nlsc_service import NLSCService
 from ..auth.guard import require_full_auth
+from ..auth.route_guards import require_permission
+from ..schemas.permissions import ModuleName, PermissionAction
 
 logger = logging.getLogger(__name__)
 
@@ -153,8 +155,8 @@ async def query_cadastral_map(
 # 舊端點（向後相容，已標記 deprecated）- 地號/座標分開端點
 # ============================================================================
 
-@router.post("/cadastral/land", response_model=CadastralQueryResponse, deprecated=True)
-@router.get("/cadastral/land", response_model=CadastralQueryResponse, deprecated=True)
+@router.post("/cadastral/land", response_model=CadastralQueryResponse, deprecated=True, dependencies=[Depends(require_permission(ModuleName.GIS, PermissionAction.VIEW))])
+@router.get("/cadastral/land", response_model=CadastralQueryResponse, deprecated=True, dependencies=[Depends(require_permission(ModuleName.GIS, PermissionAction.VIEW))])
 async def query_cadastral_land(
     county_code: str = Query(..., description="縣市代碼（例如：'B' for 台中市）", min_length=1, max_length=2),
     section_code: str = Query(..., description="地段代碼（例如：'0532'）", min_length=4, max_length=4),
@@ -190,8 +192,8 @@ async def query_cadastral_land(
     )
 
 
-@router.post("/cadastral/point", response_model=CadastralQueryResponse, deprecated=True)
-@router.get("/cadastral/point", response_model=CadastralQueryResponse, deprecated=True)
+@router.post("/cadastral/point", response_model=CadastralQueryResponse, deprecated=True, dependencies=[Depends(require_permission(ModuleName.GIS, PermissionAction.VIEW))])
+@router.get("/cadastral/point", response_model=CadastralQueryResponse, deprecated=True, dependencies=[Depends(require_permission(ModuleName.GIS, PermissionAction.VIEW))])
 async def query_cadastral_point(
     longitude: Decimal = Query(..., description="經度（WGS84 或 TWD97）", ge=-180, le=180),
     latitude: Decimal = Query(..., description="緯度（WGS84 或 TWD97）", ge=-90, le=90),
@@ -368,7 +370,7 @@ async def check_nlsc_api_health(
 # 舊端點（向後相容，已標記 deprecated）
 # ============================================================================
 
-@router.post("/cadastral/query-by-land-number", response_model=CadastralQueryResponse, deprecated=True)
+@router.post("/cadastral/query-by-land-number", response_model=CadastralQueryResponse, deprecated=True, dependencies=[Depends(require_permission(ModuleName.GIS, PermissionAction.VIEW))])
 async def query_cadastral_by_land_number_deprecated(
     request: CadastralQueryByLandNumberRequest,
     current_user=Depends(require_full_auth)
@@ -396,7 +398,7 @@ async def query_cadastral_by_land_number_deprecated(
     )
 
 
-@router.post("/cadastral/query-by-point", response_model=CadastralQueryResponse, deprecated=True)
+@router.post("/cadastral/query-by-point", response_model=CadastralQueryResponse, deprecated=True, dependencies=[Depends(require_permission(ModuleName.GIS, PermissionAction.VIEW))])
 async def query_cadastral_by_point_deprecated(
     request: CadastralQueryByPointRequest,
     current_user=Depends(require_full_auth)

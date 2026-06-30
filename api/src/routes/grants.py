@@ -7,6 +7,11 @@ from fastapi.responses import JSONResponse, FileResponse
 from starlette import status
 
 from src.auth.guard import require_full_auth
+from src.auth.route_guards import (
+    require_permission,
+    require_grant_scope_by_case_number,
+    require_grant_scope_by_id,
+)
 from src.schemas.users import UserOutSchema
 from src.schemas.grants import (
     GrantInSchema, GrantOutSchema, GrantListSchema,
@@ -34,8 +39,11 @@ from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenera
 from src.services.excel_generator import ExcelGeneratorService
 from src.crud.grant_statistics import GrantStatisticsCRUD
 from src.schemas.statistics import ExecutionProgressResponse, BudgetAnalysisResponse, B03StatsResponse
+from src.services.permission_service import permission_service
+from src.schemas.permissions import ModuleName, PermissionAction
 
 import logging
+import os
 import tempfile
 from urllib.parse import quote
 
@@ -45,7 +53,10 @@ router = APIRouter(prefix="/grants", tags=["grants"])
 @router.get(
     "/case/{case_number}/step/{step}",
     response_model=Dict[str, Any],
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW)),
+    ],
 )
 async def read_grant_step(
     request: Request,
@@ -83,7 +94,10 @@ async def read_grant_step(
 @router.put(
     "/case/{case_number}/step/{step}",
     response_model=Dict[str, Any],
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT)),
+    ],
 )
 async def update_grant_step_api(
     request: Request,
@@ -122,7 +136,10 @@ async def update_grant_step_api(
 @router.patch(
     "/case/{case_number}/status",
     response_model=Dict[str, Any],
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.APPROVE)),
+    ],
 )
 async def update_grant_status_api(
     case_number: str = Path(..., description="案件編號"),
@@ -144,7 +161,10 @@ async def update_grant_status_api(
 @router.put(
     "/case/{case_number}/current-step",
     response_model=Dict[str, Any],
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT)),
+    ],
 )
 async def update_current_step_api(
     case_number: str = Path(..., description="案件編號"),
@@ -177,7 +197,9 @@ async def read_grants(
     current_user: UserOutSchema = Depends(require_full_auth),
 ):
     """取得補助申請案件列表，可依條件過濾"""
-    result = await crud.get_grants(year, office_id, search, status, skip, limit, current_user, tag)
+    # 非 admin 角色不得透過 office_id query param 繞過範圍限制（CRUD 層依 role 強制過濾）
+    effective_office_id = office_id if getattr(current_user, 'role', None) == 'admin' else None
+    result = await crud.get_grants(year, effective_office_id, search, status, skip, limit, current_user, tag)
     await audit_service.log(
         event_type=AuditEventType.DATA_ACCESS,
         action=AuditAction.VIEW,
@@ -195,7 +217,10 @@ async def read_grants(
 @router.patch(
     "/{grant_id}/tag",
     response_model=Dict[str, Any],
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_id),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT)),
+    ],
 )
 async def set_grant_tag(
     grant_id: int = Path(..., description="補助案件ID"),
@@ -217,7 +242,10 @@ async def set_grant_tag(
 @router.get(
     "/{grant_id}",
     response_model=GrantOutSchema,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_id),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW)),
+    ],
 )
 async def read_grant(grant_id: int = Path(..., description="補助案件ID")):
     """依ID取得單一補助申請案件詳細資料"""
@@ -234,30 +262,36 @@ async def read_grant(grant_id: int = Path(..., description="補助案件ID")):
     "/case/{case_number}",
     # response_model=GrantOutSchema,
     response_model=Dict[str, Any],  # Change this from GrantOutSchema to Dict[str, Any]
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW)),
+    ],
 )
 async def read_grant_by_case_number(
     case_number: str = Path(..., description="案件編號"),
-    grants_id: Optional[int] = Query(None, description="案件ID（用於區分重複案號）")
+    grants_id: Optional[int] = Query(None, description="案件ID（用於區分重複案號）"),
+    current_user: UserOutSchema = Depends(require_full_auth),
 ):
     """依案件編號取得單一補助申請案件詳細資料
 
     🔥 支援 grants_id 參數以區分重複的 case_number（歷史案件轉新系統時可能發生）
     """
     try:
-        return await get_grant_by_case_number(case_number, grants_id)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="案件不存在",
-        )
+        grant = await get_grant_by_case_number(case_number, grants_id)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="案件不存在")
+    return grant
 
 
 @router.post(
     "",
     response_model=GrantCreateResponseSchema,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.CREATE)),
+    ],
 )
 async def create_grant_api(
     request: Request,
@@ -293,7 +327,10 @@ async def create_grant_api(
 @router.put(
     "/{grant_id}",
     response_model=GrantOutSchema,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_id),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT)),
+    ],
 )
 async def update_grant_api(
     grant_id: int,
@@ -313,7 +350,10 @@ async def update_grant_api(
 @router.patch(
     "/{grant_id}/step/{step}",
     response_model=GrantOutSchema,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_id),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT)),
+    ],
 )
 async def update_grant_step_api(
     grant_id: int,
@@ -360,7 +400,10 @@ async def claim_inactive_grant_ownership(
 @router.delete(
     "/{grant_id}",
     response_model=Status,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_id),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.DELETE)),
+    ],
 )
 async def delete_grant_api(
     grant_id: int,
@@ -379,7 +422,10 @@ async def delete_grant_api(
 @router.get(
     "/{grant_id}/land",
     response_model=dict,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_id),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW)),
+    ],
 )
 async def get_land_details(
     grant_id: int,
@@ -397,7 +443,10 @@ async def get_land_details(
 @router.post(
     "/{grant_id}/land",
     response_model=dict,
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_id),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT)),
+    ],
 )
 async def create_land_api(
     grant_id: int,
@@ -437,7 +486,10 @@ async def search_grants_api(
 @router.post(
     "/{grant_id}/documents",
     response_model=dict,
-    dependencies=[Depends(require_full_auth)]
+    dependencies=[
+        Depends(require_grant_scope_by_id),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT)),
+    ],
 )
 async def upload_document(
     grant_id: int,
@@ -462,6 +514,10 @@ async def upload_document(
     "/case/{case_number}/design-change",
     response_model=DesignChangeResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.APPROVE)),
+    ],
 )
 async def design_change_api(
     case_number: str = Path(..., description="案件編號"),
@@ -470,11 +526,6 @@ async def design_change_api(
 ):
     """執行設計變更：後端複製當前版本建立新版本，案件狀態退回 draft"""
     grant = await Grants.filter(case_number=case_number).first()
-    if not grant:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"案件 {case_number} 不存在"
-        )
     if grant.status != GrantStatus.UNDER_REVIEW:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -527,15 +578,19 @@ async def create_version_from_frontend_data_api(
 @router.get(
     "/case/{case_number}/papers",
     response_model=Dict[str, Any],
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW)),
+    ],
 )
 async def get_grant_papers_by_case_number(
     case_number: str = Path(..., description="案件編號"),
     document_type: Optional[str] = Query("budget_statement", description="文件類型"),
-    grants_id: Optional[int] = Query(None, description="案件ID（用於區分重複案件編號）")
+    grants_id: Optional[int] = Query(None, description="案件ID（用於區分重複案件編號）"),
+    current_user: UserOutSchema = Depends(require_full_auth),
 ):
     """依案件編號取得 grant_papers 文件資料（根據 active_version_id 匹配）
-    
+
     對於歷史案件可能有重複案件編號的情況，可使用 grants_id 參數明確指定案件
     """
     try:
@@ -551,10 +606,14 @@ async def get_grant_papers_by_case_number(
 @router.get(
     "/case/{case_number}/versions/compare",
     response_model=Dict[str, Any],
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW)),
+    ],
 )
 async def compare_grant_versions_api(
-    case_number: str = Path(..., description="案件編號")
+    case_number: str = Path(..., description="案件編號"),
+    current_user: UserOutSchema = Depends(require_full_auth),
 ):
     """比較案件的第一版本與最新版本設施差異"""
     try:
@@ -570,10 +629,14 @@ async def compare_grant_versions_api(
 @router.get(
     "/case/{case_number}/versions/summary",
     response_model=Dict[str, Any],
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW)),
+    ],
 )
 async def get_grant_version_summary_api(
-    case_number: str = Path(..., description="案件編號")
+    case_number: str = Path(..., description="案件編號"),
+    current_user: UserOutSchema = Depends(require_full_auth),
 ):
     """取得案件版本摘要資訊"""
     try:
@@ -856,7 +919,13 @@ async def extract_completion_statement_data(grant, version_data: dict) -> tuple:
     return grant_data, land_data, step4_data, step5_data
 
 
-@router.post("/case/{case_number}/completion-statement")
+@router.post(
+    "/case/{case_number}/completion-statement",
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW)),
+    ],
+)
 async def download_completion_statement(
     case_number: str = Path(..., description="案件編號"),
     current_user: UserOutSchema = Depends(require_full_auth)
@@ -989,7 +1058,13 @@ async def extract_declaration_data(grant, version_data: dict) -> dict:
     return grant_data
 
 
-@router.post("/case/{case_number}/declaration")
+@router.post(
+    "/case/{case_number}/declaration",
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW)),
+    ],
+)
 async def download_declaration(
     case_number: str = Path(..., description="案件編號"),
     current_user: UserOutSchema = Depends(require_full_auth)
@@ -1080,7 +1155,13 @@ async def extract_authorization_data(grant, version_data) -> dict:
     return grant_data
 
 
-@router.post("/case/{case_number}/authorization")
+@router.post(
+    "/case/{case_number}/authorization",
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW)),
+    ],
+)
 async def download_authorization(
     case_number: str = Path(..., description="案件編號"),
     current_user: UserOutSchema = Depends(require_full_auth)
@@ -1713,7 +1794,13 @@ async def extract_budget_statement_data(grant, version_data) -> dict:
     return grant_data
 
 
-@router.post("/case/{case_number}/budget-statement")
+@router.post(
+    "/case/{case_number}/budget-statement",
+    dependencies=[
+        Depends(require_grant_scope_by_case_number),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW)),
+    ],
+)
 async def download_budget_statement(
     case_number: str = Path(..., description="案件編號"),
     grants_id: Optional[int] = Query(None, description="案件ID（用於區分重複案件編號）"),
@@ -1787,7 +1874,8 @@ async def download_budget_statement(
     "/statistics/execution-progress",
     response_model=ExecutionProgressResponse,
     summary="取得即時執行進度統計",
-    description="取得指定年度的即時執行進度統計，包含各辦公室的核定預算、已結案案件數、總補助面積和金額等資訊"
+    description="取得指定年度的即時執行進度統計，包含各管理處的核定預算、已結案案件數、總補助面積和金額等資訊",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def get_execution_progress_statistics(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -1797,24 +1885,27 @@ async def get_execution_progress_statistics(
     取得即時執行進度統計
 
     權限控制：
-    - admin: 查看所有辦公室的統計
-    - 其他角色: 只能查看自己辦公室的統計
+    - admin: 查看所有管理處的統計
+    - 其他角色: 只能查看自己管理處的統計
     """
     try:
         logger.info(f"📊 [get_execution_progress_statistics] 查詢執行進度統計: year={year}, user={current_user.username}, role={current_user.role}")
 
-        # 權限控制：admin 查看全部，其他角色只查看自己辦公室
-        if current_user.role == "admin":
-            query_office_id = None
-        else:
-            query_office_id = current_user.office.id if current_user.office else None
+        # 權限控制：有 reports.view_all 者查看全部，否則只查看自己管理處
+        can_view_all, _ = permission_service.check_permission(
+            user_role=current_user.role,
+            user_permissions=current_user.permissions,
+            module=ModuleName.REPORTS,
+            action=PermissionAction.VIEW_ALL,
+        )
+        query_office_id = None if can_view_all else (current_user.office.id if current_user.office else None)
 
         result = await GrantStatisticsCRUD.get_execution_progress(
             year=year,
             office_id=query_office_id,
         )
 
-        logger.info(f"✅ [get_execution_progress_statistics] 成功取得統計資料: {len(result.offices)} 個辦公室")
+        logger.info(f"✅ [get_execution_progress_statistics] 成功取得統計資料: {len(result.offices)} 個管理處")
         return result
 
     except Exception as e:
@@ -1832,7 +1923,8 @@ async def get_execution_progress_statistics(
     "/statistics/budget-analysis",
     response_model=BudgetAnalysisResponse,
     summary="取得即時經費統計分析",
-    description="取得指定年度的即時經費統計分析，包含預定執行、已編預算、已驗收等資訊"
+    description="取得指定年度的即時經費統計分析，包含預定執行、已編預算、已驗收等資訊",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def get_budget_analysis_statistics(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -1842,24 +1934,27 @@ async def get_budget_analysis_statistics(
     取得即時經費統計分析
 
     權限控制：
-    - admin: 查看所有辦公室的統計
-    - 其他角色: 只能查看自己辦公室的統計
+    - admin: 查看所有管理處的統計
+    - 其他角色: 只能查看自己管理處的統計
     """
     try:
         logger.info(f"📊 [get_budget_analysis_statistics] 查詢經費分析統計: year={year}, user={current_user.username}, role={current_user.role}")
 
-        # 權限控制：admin 查看全部，其他角色只查看自己辦公室
-        if current_user.role == "admin":
-            query_office_id = None
-        else:
-            query_office_id = current_user.office.id if current_user.office else None
+        # 權限控制：有 reports.view_all 者查看全部，否則只查看自己管理處
+        can_view_all, _ = permission_service.check_permission(
+            user_role=current_user.role,
+            user_permissions=current_user.permissions,
+            module=ModuleName.REPORTS,
+            action=PermissionAction.VIEW_ALL,
+        )
+        query_office_id = None if can_view_all else (current_user.office.id if current_user.office else None)
 
         result = await GrantStatisticsCRUD.get_budget_analysis(
             year=year,
             office_id=query_office_id,
         )
 
-        logger.info(f"✅ [get_budget_analysis_statistics] 成功取得統計資料: {len(result.offices)} 個辦公室")
+        logger.info(f"✅ [get_budget_analysis_statistics] 成功取得統計資料: {len(result.offices)} 個管理處")
         return result
 
     except Exception as e:
@@ -1876,7 +1971,8 @@ async def get_budget_analysis_statistics(
 @router.get(
     "/statistics/execution-progress/excel",
     summary="下載 A01 各管理處執行進度報表 Excel",
-    description="生成並下載指定年度的 A01 各管理處執行進度報表（Excel 格式）"
+    description="生成並下載指定年度的 A01 各管理處執行進度報表（Excel 格式）",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_execution_progress_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -1944,7 +2040,8 @@ async def download_execution_progress_excel(
 @router.get(
     "/statistics/budget-analysis/excel",
     summary="下載 A03 各管理處經費統計報表 Excel",
-    description="生成並下載指定年度的 A03 各管理處經費統計報表（Excel 格式），包含預定執行、已編列、已驗收、執行率等 12 個欄位"
+    description="生成並下載指定年度的 A03 各管理處經費統計報表（Excel 格式），包含預定執行、已編列、已驗收、執行率等 12 個欄位",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_budget_analysis_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -1975,7 +2072,7 @@ async def download_budget_analysis_excel(
     try:
         logger.info(f"📊 [download_budget_analysis_excel] 生成 A03 報表: year={year}, office_id={office_id}, user={current_user.username}")
 
-        # 權限控制：非 admin 使用者只能查詢自己的辦公室
+        # 權限控制：非 admin 使用者只能查詢自己的管理處
         if current_user.role != "admin":
             if office_id is not None and office_id != current_user.office.id:
                 logger.warning(f"⚠️ [download_budget_analysis_excel] 權限不足: user={current_user.username} 嘗試查詢 office_id={office_id}")
@@ -1983,7 +2080,7 @@ async def download_budget_analysis_excel(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="您沒有權限查詢此管理處資料"
                 )
-            # 強制設定為使用者自己的辦公室
+            # 強制設定為使用者自己的管理處
             office_id = current_user.office.id if current_user.office else None
 
         # 查詢經費統計資料（複用現有 CRUD 方法）
@@ -2002,7 +2099,7 @@ async def download_budget_analysis_excel(
             year=year
         )
 
-        # 生成下載檔名（根據是否篩選辦公室調整檔名）
+        # 生成下載檔名（根據是否篩選管理處調整檔名）
         if office_id is None:
             filename = f"A03_各管理處經費統計_{year}年度.xlsx"
         else:
@@ -2039,6 +2136,7 @@ async def download_budget_analysis_excel(
 @router.get(
     "/statistics/county-town/excel",
     summary="下載 A02-1 各縣市鄉鎮區統計報表 Excel",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_county_town_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -2069,6 +2167,7 @@ async def download_county_town_excel(
 @router.get(
     "/statistics/office-summary/excel",
     summary="下載 A02-2 各管理處統計報表 Excel",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_office_summary_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -2099,6 +2198,7 @@ async def download_office_summary_excel(
 @router.get(
     "/statistics/county-town-yearly/excel",
     summary="下載 A02-3 歷年各縣市鄉鎮區統計報表 Excel",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_county_town_yearly_excel(
     start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
@@ -2136,6 +2236,7 @@ async def download_county_town_yearly_excel(
 @router.get(
     "/statistics/office-summary-yearly/excel",
     summary="下載 A02-4 歷年各管理處統計報表 Excel",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_office_summary_yearly_excel(
     start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
@@ -2176,7 +2277,8 @@ async def download_office_summary_yearly_excel(
 @router.get(
     "/statistics/aboriginal/excel",
     summary="下載 A04 原民區域統計報表 Excel",
-    description="生成並下載指定年度的 A04 原民區域統計報表（Excel 格式），統計 isAboriginalArea = true 的補助案件"
+    description="生成並下載指定年度的 A04 原民區域統計報表（Excel 格式），統計 isAboriginalArea = true 的補助案件",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_aboriginal_statistics_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -2243,7 +2345,8 @@ async def download_aboriginal_statistics_excel(
 @router.get(
     "/statistics/aboriginal-yearly/excel",
     summary="下載 A08 歷年原民區域統計報表 Excel",
-    description="生成並下載指定年度區間的 A08 歷年原民區域推動成果統計表（Excel 格式），橫向展開各年度，僅統計 isAboriginalArea = true 的補助案件"
+    description="生成並下載指定年度區間的 A08 歷年原民區域推動成果統計表（Excel 格式），橫向展開各年度，僅統計 isAboriginalArea = true 的補助案件",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_aboriginal_yearly_excel(
     start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
@@ -2287,7 +2390,8 @@ async def download_aboriginal_yearly_excel(
 @router.get(
     "/statistics/a09/excel",
     summary="下載 A09 各縣市事業區域內外統計報表 Excel",
-    description="生成並下載指定年度的 A09 各縣市推動成果統計表（Excel 格式），按事業區域內/外分組統計（任一土地規則）"
+    description="生成並下載指定年度的 A09 各縣市推動成果統計表（Excel 格式），按事業區域內/外分組統計（任一土地規則）",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_a09_county_irrigation_area_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -2322,7 +2426,8 @@ async def download_a09_county_irrigation_area_excel(
 @router.get(
     "/statistics/a10/excel",
     summary="下載 A10 各管理處事業區域內外統計報表 Excel",
-    description="生成並下載指定年度的 A10 各管理處推動成果統計表（Excel 格式），按事業區域內/外分組統計（任一土地規則）"
+    description="生成並下載指定年度的 A10 各管理處推動成果統計表（Excel 格式），按事業區域內/外分組統計（任一土地規則）",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_a10_office_irrigation_area_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -2360,7 +2465,8 @@ async def download_a10_office_irrigation_area_excel(
 @router.get(
     "/statistics/b01-1/excel",
     summary="下載 B01-1 各縣市管理區內外統計報表 Excel（單年度）",
-    description="生成並下載指定年度的 B01-1 各縣市推動成果統計表（Excel 格式），按管理區內/外分組統計"
+    description="生成並下載指定年度的 B01-1 各縣市推動成果統計表（Excel 格式），按管理區內/外分組統計",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_b01_1_county_management_area_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -2395,7 +2501,8 @@ async def download_b01_1_county_management_area_excel(
 @router.get(
     "/statistics/b01-2/excel",
     summary="下載 B01-2 各管理處管理區內外統計報表 Excel（單年度）",
-    description="生成並下載指定年度的 B01-2 各管理處推動成果統計表（Excel 格式），按管理區內/外分組統計"
+    description="生成並下載指定年度的 B01-2 各管理處推動成果統計表（Excel 格式），按管理區內/外分組統計",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_b01_2_office_management_area_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),
@@ -2430,7 +2537,8 @@ async def download_b01_2_office_management_area_excel(
 @router.get(
     "/statistics/b01-3/excel",
     summary="下載 B01-3 歷年各縣市管理區內外統計報表 Excel",
-    description="生成並下載歷年累計的 B01-3 各縣市推動成果統計表（Excel 格式），按管理區內/外分組統計"
+    description="生成並下載歷年累計的 B01-3 各縣市推動成果統計表（Excel 格式），按管理區內/外分組統計",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_b01_3_county_management_area_yearly_excel(
     start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
@@ -2472,7 +2580,8 @@ async def download_b01_3_county_management_area_yearly_excel(
 @router.get(
     "/statistics/b01-4/excel",
     summary="下載 B01-4 歷年各管理處管理區內外統計報表 Excel",
-    description="生成並下載歷年累計的 B01-4 各管理處推動成果統計表（Excel 格式），按管理區內/外分組統計"
+    description="生成並下載歷年累計的 B01-4 各管理處推動成果統計表（Excel 格式），按管理區內/外分組統計",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_b01_4_office_management_area_yearly_excel(
     start_year: int = Query(..., description="起始年度（民國年）", ge=97, le=200),
@@ -2517,7 +2626,8 @@ async def download_b01_4_office_management_area_yearly_excel(
 @router.get(
     "/statistics/b03/excel",
     summary="下載 B03 各縣市鄉鎮區各類補助項目統計表 Excel",
-    description="生成並下載指定年度的 B03 各縣市鄉鎮區各類補助項目統計表（Excel 格式）"
+    description="生成並下載指定年度的 B03 各縣市鄉鎮區各類補助項目統計表（Excel 格式）",
+    dependencies=[Depends(require_permission(ModuleName.REPORTS, PermissionAction.VIEW))],
 )
 async def download_b03_county_town_subsidy_excel(
     year: int = Query(..., description="統計年度（民國年）", ge=100, le=200),

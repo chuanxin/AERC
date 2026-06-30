@@ -640,7 +640,7 @@ class SubsidyAnnualBudget(models.Model):
     id = fields.IntField(pk=True)
     year = fields.IntField(description="年度（民國年）")
     office = fields.ForeignKeyField(
-        "models.Offices", related_name="annual_budgets", description="所屬辦公室"
+        "models.Offices", related_name="annual_budgets", description="所屬管理處"
     )
     approved_budget = fields.DecimalField(
         max_digits=15, decimal_places=2, default=0, description="核定執行預算金額"

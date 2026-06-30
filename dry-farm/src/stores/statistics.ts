@@ -22,7 +22,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
   const hasExecutionData = computed(() => executionProgress.value !== null)
   const hasBudgetData = computed(() => budgetAnalysis.value !== null)
 
-  // 總辦公室數
+  // 總管理處數
   const totalOffices = computed(() => {
     return executionProgress.value?.offices.length || 0
   })

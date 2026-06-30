@@ -13,6 +13,11 @@ export interface UserRegisterData extends UserCredentials {
   office_id?: number
 }
 
+export interface PermissionsSummary {
+  mode: 'default' | 'scoped' | 'custom'
+  modules: Record<string, string[]>
+}
+
 export interface User {
   id: number
   username: string
@@ -20,6 +25,7 @@ export interface User {
   role?: string
   created_at?: string
   password_expired?: boolean
+  permissions_summary?: PermissionsSummary
   office?: {
     id: number
     name: string

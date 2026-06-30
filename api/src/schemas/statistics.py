@@ -11,9 +11,9 @@ from decimal import Decimal
 # ==================== Dashboard 即時執行進度統計 ====================
 
 class OfficeExecutionStats(BaseModel):
-    """單一辦公室的即時執行進度統計"""
-    office_id: int = Field(..., description="辦公室 ID")
-    office_name: str = Field(..., description="辦公室名稱")
+    """單一管理處的即時執行進度統計"""
+    office_id: int = Field(..., description="管理處 ID")
+    office_name: str = Field(..., description="管理處名稱")
     approved_budget: Decimal = Field(default=Decimal('0'), description="年度核定預算總額")
     completed_cases: int = Field(default=0, description="已結案案件總數")
     total_area: Decimal = Field(default=Decimal('0'), description="總補助案件面積（公頃）")
@@ -29,7 +29,7 @@ class OfficeExecutionStats(BaseModel):
 class ExecutionProgressResponse(BaseModel):
     """即時執行進度統計回應"""
     year: int = Field(..., description="統計年度（民國年）")
-    offices: List[OfficeExecutionStats] = Field(default_factory=list, description="各辦公室統計資料")
+    offices: List[OfficeExecutionStats] = Field(default_factory=list, description="各管理處統計資料")
     total_approved_budget: Decimal = Field(default=Decimal('0'), description="總核定預算")
     total_completed_cases: int = Field(default=0, description="總已結案案件數")
     total_area: Decimal = Field(default=Decimal('0'), description="總補助面積（公頃）")
@@ -45,9 +45,9 @@ class ExecutionProgressResponse(BaseModel):
 # ==================== Statistics 功能頁經費分析統計 ====================
 
 class OfficeBudgetStats(BaseModel):
-    """單一辦公室的經費統計分析"""
-    office_id: int = Field(..., description="辦公室 ID")
-    office_name: str = Field(..., description="辦公室名稱")
+    """單一管理處的經費統計分析"""
+    office_id: int = Field(..., description="管理處 ID")
+    office_name: str = Field(..., description="管理處名稱")
 
     # 預定執行
     planned_area: Decimal = Field(default=Decimal('0'), description="預定執行面積（公頃）")
@@ -77,7 +77,7 @@ class OfficeBudgetStats(BaseModel):
 class BudgetAnalysisResponse(BaseModel):
     """即時經費統計分析回應"""
     year: int = Field(..., description="統計年度（民國年）")
-    offices: List[OfficeBudgetStats] = Field(default_factory=list, description="各辦公室經費統計")
+    offices: List[OfficeBudgetStats] = Field(default_factory=list, description="各管理處經費統計")
 
     # 總計
     total_planned_area: Decimal = Field(default=Decimal('0'), description="總預定執行面積（公頃）")

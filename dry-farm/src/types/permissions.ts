@@ -181,7 +181,7 @@ export const MODE_NAMES: Record<PermissionMode, string> = {
 export const DEFAULT_ROLES = [
   { title: '系統管理員', value: 'admin' },
   { title: '管理處主管', value: 'manager' },
-  { title: '業務承辦人', value: 'staff' },
+  // { title: '業務承辦人', value: 'staff' },  // 暫時封印（DB 無帳號使用，恢復時取消注解）
   { title: '一般使用者', value: 'user' }
 ] as const
 
