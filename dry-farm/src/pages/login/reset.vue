@@ -658,6 +658,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { apiService } from '@/services/api/http'
 import { AUTH } from '@/services/api/endpoints'
 import { getPasswordPolicy, policyLoading, policyLoadError } from '@/services/passwordPolicyService'
+import { encryptPassword, generateNonce } from '@/utils/passwordEncryption'
+import { getServerPublicKey } from '@/services/authKeyService'
 
 const route = useRoute()
 const router = useRouter()
@@ -854,9 +856,19 @@ const handleResetPassword = async () => {
   isSubmitting.value = true
 
   try {
+    const keyInfo = await getServerPublicKey()
+    const { encrypted_password, encrypted_key, iv } = await encryptPassword(
+      newPassword.value,
+      keyInfo.publicKey,
+    )
     const response: any = await apiService.post(AUTH.RESET_PASSWORD, {
       token: token.value,
-      new_password: newPassword.value,
+      encrypted_password,
+      encrypted_key,
+      iv,
+      kid: keyInfo.kid,
+      timestamp: Date.now(),
+      nonce: generateNonce(),
     })
 
     if (response.success) {

@@ -23,7 +23,7 @@ class PermissionService:
 
     # 預設角色權限矩陣（用於 default mode）
     DEFAULT_ROLE_PERMISSIONS = {
-        "系統管理員": {
+        "admin": {
             ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE, PermissionAction.APPROVE, PermissionAction.EXPORT},
             ModuleName.USERS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE},
             ModuleName.REPORTS: {PermissionAction.VIEW, PermissionAction.EXPORT},
@@ -31,7 +31,7 @@ class PermissionService:
             ModuleName.OFFICES: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE},
             ModuleName.SETTINGS: {PermissionAction.VIEW, PermissionAction.EDIT},
         },
-        "管理處主管": {
+        "manager": {
             ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.APPROVE, PermissionAction.EXPORT},
             ModuleName.USERS: {PermissionAction.VIEW},
             ModuleName.REPORTS: {PermissionAction.VIEW, PermissionAction.EXPORT},
@@ -39,7 +39,7 @@ class PermissionService:
             ModuleName.OFFICES: {PermissionAction.VIEW},
             ModuleName.SETTINGS: {PermissionAction.VIEW},
         },
-        "業務承辦人": {
+        "staff": {
             ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.EXPORT},
             ModuleName.USERS: set(),
             ModuleName.REPORTS: {PermissionAction.VIEW, PermissionAction.EXPORT},
@@ -47,7 +47,7 @@ class PermissionService:
             ModuleName.OFFICES: {PermissionAction.VIEW},
             ModuleName.SETTINGS: set(),
         },
-        "一般使用者": {
+        "user": {
             ModuleName.GRANTS: {PermissionAction.VIEW},
             ModuleName.USERS: set(),
             ModuleName.REPORTS: {PermissionAction.VIEW},
