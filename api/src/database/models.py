@@ -7,7 +7,7 @@ class Users(models.Model):
 
     id = fields.IntField(pk=True)
     username = fields.CharField(max_length=20, unique=True, description="使用者帳號")
-    full_name = fields.CharField(max_length=50, null=True, description="使用者姓名")
+    full_name = fields.TextField(null=True, description="使用者姓名")
     email = fields.CharField(max_length=255, null=True, description="電子郵件")
     email_verified = fields.BooleanField(
         default=False, description="電子郵件是否已驗證"
@@ -22,9 +22,9 @@ class Users(models.Model):
         description="部門詳細資訊 JSON: {'branch': {'code': '1', 'name': '北港分處'}, 'station': {'code': '01', 'name': '鹿寮站'}} 或 {'legacy_text': '自由輸入文字'}",
     )
     job_title = fields.CharField(max_length=50, null=True, description="職稱")
-    phone = fields.CharField(max_length=20, null=True, description="聯絡電話")
-    phone_ext = fields.CharField(max_length=10, null=True, description="分機")
-    mobile = fields.CharField(max_length=20, null=True, description="手機")
+    phone = fields.TextField(null=True, description="聯絡電話")
+    phone_ext = fields.TextField(null=True, description="分機")
+    mobile = fields.TextField(null=True, description="手機")
 
     is_active = fields.BooleanField(default=True, description="是否啟用")
     role = fields.CharField(
@@ -298,16 +298,16 @@ class Grants(models.Model):
     )
 
     # 申請人資訊
-    applicant_name = fields.CharField(max_length=50, description="申請人姓名")
-    applicant_id = fields.CharField(max_length=10, description="申請人身分證字號")
-    applicant_phone = fields.CharField(max_length=20, description="申請人電話")
-    applicant_phone2 = fields.CharField(max_length=20, null=True, description="申請人備用電話")
+    applicant_name = fields.TextField(description="申請人姓名")
+    applicant_id = fields.TextField(description="申請人身分證字號")
+    applicant_phone = fields.TextField(description="申請人電話")
+    applicant_phone2 = fields.TextField(null=True, description="申請人備用電話")
 
     # 申請人地址
     county = fields.CharField(max_length=30, description="縣市")
     town = fields.CharField(max_length=30, description="鄉鎮市區")
     village = fields.CharField(max_length=30, null=True, description="村里")
-    address = fields.CharField(max_length=255, description="詳細地址")
+    address = fields.TextField(description="詳細地址")
 
     # 管理處與承辦人
     # office = fields.ForeignKeyField("models.Offices", related_name="grant", null=True, description="管理處")
@@ -640,7 +640,7 @@ class SubsidyAnnualBudget(models.Model):
     id = fields.IntField(pk=True)
     year = fields.IntField(description="年度（民國年）")
     office = fields.ForeignKeyField(
-        "models.Offices", related_name="annual_budgets", description="所屬辦公室"
+        "models.Offices", related_name="annual_budgets", description="所屬管理處"
     )
     approved_budget = fields.DecimalField(
         max_digits=15, decimal_places=2, default=0, description="核定執行預算金額"

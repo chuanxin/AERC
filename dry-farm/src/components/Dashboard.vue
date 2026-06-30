@@ -2,6 +2,7 @@
   <v-container
     fluid
     class="px-6 py-4 pb-0 dashboard-container"
+    :class="{ 'dashboard-container--full-height': canViewReports }"
     style="background-color: white"
   >
     <!-- 最新消息區塊 -->
@@ -118,7 +119,10 @@
     </v-row>
 
     <!-- 預算執行區塊 -->
-    <v-row justify="center">
+    <v-row
+      v-if="canViewReports"
+      justify="center"
+    >
       <v-col
         cols="10"
         lg="10"
@@ -173,70 +177,70 @@
                       max-height="400"
                       fixed-header
                     >
-                    <!-- 自訂欄位格式 - 直接顯示後端已計算的值，不進行前端計算 -->
-                    <template #item.approved_budget="{ value }">
-                      {{ formatCurrency(value) }}
-                    </template>
-                    <template #item.completed_cases="{ value }">
-                      {{ formatCount(value) }}
-                    </template>
-                    <template #item.total_area="{ value }">
-                      {{ formatArea(value) }}
-                    </template>
-                    <!-- total_subsidy: ✓ 後端已驗證包含三組件（A項田間管路+B項調控設施+設計費） -->
-                    <template #item.total_subsidy="{ value }">
-                      {{ formatCurrency(value) }}
-                    </template>
-                    <template #item.execution_rate="{ value }">
-                      <v-chip
-                        v-if="value > 0"
-                        :color="value >= 80 ? 'success' : value >= 50 ? 'warning' : 'error'"
-                        size="small"
-                        label
-                      >
-                        {{ formatPercentage(value) }}
-                      </v-chip>
-                      <span v-else>-</span>
-                    </template>
+                      <!-- 自訂欄位格式 - 直接顯示後端已計算的值，不進行前端計算 -->
+                      <template #item.approved_budget="{ value }">
+                        {{ formatCurrency(value) }}
+                      </template>
+                      <template #item.completed_cases="{ value }">
+                        {{ formatCount(value) }}
+                      </template>
+                      <template #item.total_area="{ value }">
+                        {{ formatArea(value) }}
+                      </template>
+                      <!-- total_subsidy: ✓ 後端已驗證包含三組件（A項田間管路+B項調控設施+設計費） -->
+                      <template #item.total_subsidy="{ value }">
+                        {{ formatCurrency(value) }}
+                      </template>
+                      <template #item.execution_rate="{ value }">
+                        <v-chip
+                          v-if="value > 0"
+                          :color="value >= 80 ? 'success' : value >= 50 ? 'warning' : 'error'"
+                          size="small"
+                          label
+                        >
+                          {{ formatPercentage(value) }}
+                        </v-chip>
+                        <span v-else>-</span>
+                      </template>
 
-                    <!-- 總計列 -->
-                    <template #bottom>
-                      <div v-if="(statisticsStore.executionProgress?.offices || []).length > 1">
-                        <v-divider />
-                        <div class="d-flex align-center pa-4 bg-grey-lighten-4">
-                          <div class="text-subtitle-1 font-weight-bold" style="min-width: 120px;">
-                            總計
-                          </div>
-                          <v-spacer />
-                          <div class="d-flex flex-wrap ga-6">
-                            <div class="text-caption">
-                              <span class="text-medium-emphasis">總核定預算：</span>
-                              <span class="font-weight-bold">{{ formatCurrency(statisticsStore.executionProgress?.total_approved_budget || 0) }}{{ statisticsStore.executionProgress?.total_approved_budget ? ' 元' : '' }}</span>
+                      <!-- 總計列 -->
+                      <template #bottom>
+                        <div v-if="(statisticsStore.executionProgress?.offices || []).length > 1">
+                          <v-divider />
+                          <div class="d-flex align-center pa-4 bg-grey-lighten-4">
+                            <div class="text-subtitle-1 font-weight-bold" style="min-width: 120px;">
+                              總計
                             </div>
-                          <div class="text-caption">
-                            <span class="text-medium-emphasis">總已結案案件：</span>
-                            <span class="font-weight-bold">{{ formatCount(statisticsStore.executionProgress?.total_completed_cases || 0) }}{{ statisticsStore.executionProgress?.total_completed_cases ? ' 件' : '' }}</span>
-                          </div>
-                          <div class="text-caption">
-                            <span class="text-medium-emphasis">總補助面積：</span>
-                            <span class="font-weight-bold">{{ formatArea(statisticsStore.executionProgress?.total_area || 0) }}{{ statisticsStore.executionProgress?.total_area ? ' 公頃' : '' }}</span>
-                          </div>
-                          <div class="text-caption">
-                            <span class="text-medium-emphasis">整體執行率：</span>
-                            <v-chip
-                              v-if="(statisticsStore.executionProgress?.overall_execution_rate || 0) > 0"
-                              :color="(statisticsStore.executionProgress?.overall_execution_rate || 0) >= 80 ? 'success' : 'warning'"
-                              size="x-small"
-                              label
-                            >
-                              {{ formatPercentage(statisticsStore.executionProgress?.overall_execution_rate || 0) }}
-                            </v-chip>
-                            <span v-else>-</span>
+                            <v-spacer />
+                            <div class="d-flex flex-wrap ga-6">
+                              <div class="text-caption">
+                                <span class="text-medium-emphasis">總核定預算：</span>
+                                <span class="font-weight-bold">{{ formatCurrency(statisticsStore.executionProgress?.total_approved_budget || 0) }}{{ statisticsStore.executionProgress?.total_approved_budget ? ' 元' : '' }}</span>
+                              </div>
+                              <div class="text-caption">
+                                <span class="text-medium-emphasis">總已結案案件：</span>
+                                <span class="font-weight-bold">{{ formatCount(statisticsStore.executionProgress?.total_completed_cases || 0) }}{{ statisticsStore.executionProgress?.total_completed_cases ? ' 件' : '' }}</span>
+                              </div>
+                              <div class="text-caption">
+                                <span class="text-medium-emphasis">總補助面積：</span>
+                                <span class="font-weight-bold">{{ formatArea(statisticsStore.executionProgress?.total_area || 0) }}{{ statisticsStore.executionProgress?.total_area ? ' 公頃' : '' }}</span>
+                              </div>
+                              <div class="text-caption">
+                                <span class="text-medium-emphasis">整體執行率：</span>
+                                <v-chip
+                                  v-if="(statisticsStore.executionProgress?.overall_execution_rate || 0) > 0"
+                                  :color="(statisticsStore.executionProgress?.overall_execution_rate || 0) >= 80 ? 'success' : 'warning'"
+                                  size="x-small"
+                                  label
+                                >
+                                  {{ formatPercentage(statisticsStore.executionProgress?.overall_execution_rate || 0) }}
+                                </v-chip>
+                                <span v-else>-</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        </div>
-                      </div>
-                    </template>
+                      </template>
                     </v-data-table>
                   </v-sheet>
                 </div>
@@ -272,106 +276,106 @@
                       max-height="450"
                       fixed-header
                     >
-                    <!-- 自訂欄位格式 - 直接顯示後端已計算的值，不進行前端計算 -->
-                    <template #item.planned_area="{ value }">
-                      {{ value === 0 ? '-' : Math.round(value) }}
-                    </template>
-                    <template #item.planned_budget="{ value }">
-                      {{ formatCurrency(value) }}
-                    </template>
-                    <template #item.budgeted_cases="{ value }">
-                      {{ formatCount(value) }}
-                    </template>
-                    <template #item.budgeted_area="{ value }">
-                      {{ formatArea(value) }}
-                    </template>
-                    <!-- budgeted_subsidy: ✓ 後端已驗證包含三組件（A項+B項+設計費，排除 rejected/withdrawn/deleted） -->
-                    <template #item.budgeted_subsidy="{ value }">
-                      {{ formatCurrency(value) }}
-                    </template>
-                    <!-- unbudgeted_subsidy: 後端已計算（planned_budget - budgeted_subsidy，允許負值顯示超支） -->
-                    <template #item.unbudgeted_subsidy="{ value }">
-                      {{ formatCurrency(value) }}
-                    </template>
-                    <template #item.verified_cases="{ value }">
-                      {{ formatCount(value) }}
-                    </template>
-                    <template #item.verified_area="{ value }">
-                      {{ formatArea(value) }}
-                    </template>
-                    <!-- verified_amount: ✓ 後端已驗證包含三組件（A項+B項+設計費，completed + submitted 狀態） -->
-                    <template #item.verified_amount="{ value }">
-                      {{ formatCurrency(value) }}
-                    </template>
-                    <template #item.area_execution_rate="{ value }">
-                      <v-chip
-                        v-if="value > 0"
-                        :color="value >= 80 ? 'success' : value >= 50 ? 'warning' : 'error'"
-                        size="small"
-                        label
-                      >
-                        {{ formatPercentage(value) }}
-                      </v-chip>
-                      <span v-else>-</span>
-                    </template>
-                    <template #item.budget_execution_rate="{ value }">
-                      <v-chip
-                        v-if="value > 0"
-                        :color="value >= 80 ? 'success' : value >= 50 ? 'warning' : 'error'"
-                        size="small"
-                        label
-                      >
-                        {{ formatPercentage(value) }}
-                      </v-chip>
-                      <span v-else>-</span>
-                    </template>
+                      <!-- 自訂欄位格式 - 直接顯示後端已計算的值，不進行前端計算 -->
+                      <template #item.planned_area="{ value }">
+                        {{ value === 0 ? '-' : Math.round(value) }}
+                      </template>
+                      <template #item.planned_budget="{ value }">
+                        {{ formatCurrency(value) }}
+                      </template>
+                      <template #item.budgeted_cases="{ value }">
+                        {{ formatCount(value) }}
+                      </template>
+                      <template #item.budgeted_area="{ value }">
+                        {{ formatArea(value) }}
+                      </template>
+                      <!-- budgeted_subsidy: ✓ 後端已驗證包含三組件（A項+B項+設計費，排除 rejected/withdrawn/deleted） -->
+                      <template #item.budgeted_subsidy="{ value }">
+                        {{ formatCurrency(value) }}
+                      </template>
+                      <!-- unbudgeted_subsidy: 後端已計算（planned_budget - budgeted_subsidy，允許負值顯示超支） -->
+                      <template #item.unbudgeted_subsidy="{ value }">
+                        {{ formatCurrency(value) }}
+                      </template>
+                      <template #item.verified_cases="{ value }">
+                        {{ formatCount(value) }}
+                      </template>
+                      <template #item.verified_area="{ value }">
+                        {{ formatArea(value) }}
+                      </template>
+                      <!-- verified_amount: ✓ 後端已驗證包含三組件（A項+B項+設計費，completed + submitted 狀態） -->
+                      <template #item.verified_amount="{ value }">
+                        {{ formatCurrency(value) }}
+                      </template>
+                      <template #item.area_execution_rate="{ value }">
+                        <v-chip
+                          v-if="value > 0"
+                          :color="value >= 80 ? 'success' : value >= 50 ? 'warning' : 'error'"
+                          size="small"
+                          label
+                        >
+                          {{ formatPercentage(value) }}
+                        </v-chip>
+                        <span v-else>-</span>
+                      </template>
+                      <template #item.budget_execution_rate="{ value }">
+                        <v-chip
+                          v-if="value > 0"
+                          :color="value >= 80 ? 'success' : value >= 50 ? 'warning' : 'error'"
+                          size="small"
+                          label
+                        >
+                          {{ formatPercentage(value) }}
+                        </v-chip>
+                        <span v-else>-</span>
+                      </template>
 
-                    <!-- 總計列 -->
-                    <template #bottom>
-                      <div v-if="(statisticsStore.budgetAnalysis?.offices || []).length > 1">
-                        <v-divider />
-                        <div class="d-flex align-center pa-4 bg-grey-lighten-4">
-                          <div class="text-subtitle-1 font-weight-bold" style="min-width: 120px;">
-                            總計
-                          </div>
-                          <v-spacer />
-                          <div class="d-flex flex-wrap ga-6">
-                            <div class="text-caption">
-                              <span class="text-medium-emphasis">總預定執行預算：</span>
-                              <span class="font-weight-bold">{{ formatCurrency(statisticsStore.budgetAnalysis?.total_planned_budget || 0) }}{{ statisticsStore.budgetAnalysis?.total_planned_budget ? ' 元' : '' }}</span>
+                      <!-- 總計列 -->
+                      <template #bottom>
+                        <div v-if="(statisticsStore.budgetAnalysis?.offices || []).length > 1">
+                          <v-divider />
+                          <div class="d-flex align-center pa-4 bg-grey-lighten-4">
+                            <div class="text-subtitle-1 font-weight-bold" style="min-width: 120px;">
+                              總計
                             </div>
-                          <div class="text-caption">
-                            <span class="text-medium-emphasis">總已編列補助款：</span>
-                            <span class="font-weight-bold">{{ formatCurrency(statisticsStore.budgetAnalysis?.total_budgeted_subsidy || 0) }}{{ statisticsStore.budgetAnalysis?.total_budgeted_subsidy ? ' 元' : '' }}</span>
-                          </div>
-                          <div class="text-caption">
-                            <span class="text-medium-emphasis">整體面積執行率：</span>
-                            <v-chip
-                              v-if="(statisticsStore.budgetAnalysis?.overall_area_execution_rate || 0) > 0"
-                              :color="(statisticsStore.budgetAnalysis?.overall_area_execution_rate || 0) >= 80 ? 'success' : 'warning'"
-                              size="x-small"
-                              label
-                            >
-                              {{ formatPercentage(statisticsStore.budgetAnalysis?.overall_area_execution_rate || 0) }}
-                            </v-chip>
-                            <span v-else>-</span>
-                          </div>
-                          <div class="text-caption">
-                            <span class="text-medium-emphasis">整體計畫執行率：</span>
-                            <v-chip
-                              v-if="(statisticsStore.budgetAnalysis?.overall_budget_execution_rate || 0) > 0"
-                              :color="(statisticsStore.budgetAnalysis?.overall_budget_execution_rate || 0) >= 80 ? 'success' : 'warning'"
-                              size="x-small"
-                              label
-                            >
-                              {{ formatPercentage(statisticsStore.budgetAnalysis?.overall_budget_execution_rate || 0) }}
-                            </v-chip>
-                            <span v-else>-</span>
+                            <v-spacer />
+                            <div class="d-flex flex-wrap ga-6">
+                              <div class="text-caption">
+                                <span class="text-medium-emphasis">總預定執行預算：</span>
+                                <span class="font-weight-bold">{{ formatCurrency(statisticsStore.budgetAnalysis?.total_planned_budget || 0) }}{{ statisticsStore.budgetAnalysis?.total_planned_budget ? ' 元' : '' }}</span>
+                              </div>
+                              <div class="text-caption">
+                                <span class="text-medium-emphasis">總已編列補助款：</span>
+                                <span class="font-weight-bold">{{ formatCurrency(statisticsStore.budgetAnalysis?.total_budgeted_subsidy || 0) }}{{ statisticsStore.budgetAnalysis?.total_budgeted_subsidy ? ' 元' : '' }}</span>
+                              </div>
+                              <div class="text-caption">
+                                <span class="text-medium-emphasis">整體面積執行率：</span>
+                                <v-chip
+                                  v-if="(statisticsStore.budgetAnalysis?.overall_area_execution_rate || 0) > 0"
+                                  :color="(statisticsStore.budgetAnalysis?.overall_area_execution_rate || 0) >= 80 ? 'success' : 'warning'"
+                                  size="x-small"
+                                  label
+                                >
+                                  {{ formatPercentage(statisticsStore.budgetAnalysis?.overall_area_execution_rate || 0) }}
+                                </v-chip>
+                                <span v-else>-</span>
+                              </div>
+                              <div class="text-caption">
+                                <span class="text-medium-emphasis">整體計畫執行率：</span>
+                                <v-chip
+                                  v-if="(statisticsStore.budgetAnalysis?.overall_budget_execution_rate || 0) > 0"
+                                  :color="(statisticsStore.budgetAnalysis?.overall_budget_execution_rate || 0) >= 80 ? 'success' : 'warning'"
+                                  size="x-small"
+                                  label
+                                >
+                                  {{ formatPercentage(statisticsStore.budgetAnalysis?.overall_budget_execution_rate || 0) }}
+                                </v-chip>
+                                <span v-else>-</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        </div>
-                      </div>
-                    </template>
+                      </template>
                     </v-data-table>
                   </v-sheet>
                 </div>
@@ -386,12 +390,17 @@
 
 <script setup lang="ts">
 import { useStatisticsStore } from '@/stores/statistics'
+import { useUserStore } from '@/stores/users'
 
 // Joya added
 import { announcementsData } from '@/data/announcement'
 const router = useRouter()
 const statisticsStore = useStatisticsStore()
 const announcements = ref(announcementsData);
+const userStore = useUserStore()
+
+const canViewReports = computed(() => userStore.can('reports', 'view'))
+
 // 當前年度（民國年）
 const currentYear = new Date().getFullYear() - 1911
 
@@ -526,6 +535,9 @@ onMounted(async () => {
   background-position: center bottom;
   background-repeat: no-repeat;
   background-attachment: fixed;
+}
+
+.dashboard-container--full-height {
   min-height: 100vh;
 }
 

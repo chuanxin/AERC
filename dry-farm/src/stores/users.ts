@@ -95,6 +95,19 @@ export const useUserStore = defineStore('user', () => {
   const userFullName = computed(() => currentUser.value?.full_name || currentUser.value?.username || '')
   const officeName = computed(() => currentUser.value?.office?.name || '') // 這裡的 office 是從用戶資料中獲取的
 
+  // 權限查詢 helper — 從 permissions_summary（/users/whoami 回傳）讀取
+  // module 對應後端 ModuleName enum value（snake_case）
+  // action 對應後端 PermissionAction enum value：view | create | edit | delete | approve | export
+  function can(module: string, action: string): boolean {
+    const modules = currentUser.value?.permissions_summary?.modules ?? {}
+    return (modules[module] ?? []).includes(action)
+  }
+
+  function canAny(module: string, actions: string[]): boolean {
+    const allowed = currentUser.value?.permissions_summary?.modules?.[module] ?? []
+    return actions.some(a => allowed.includes(a))
+  }
+
   // 共享的異步選項對象
   const asyncOptions = {
     loadingRef: isLoading,
@@ -479,6 +492,8 @@ export const useUserStore = defineStore('user', () => {
     isAuthenticated,
     userFullName,
     officeName,
+    can,
+    canAny,
 
     // 方法
     login,

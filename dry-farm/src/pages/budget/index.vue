@@ -22,7 +22,16 @@
       <v-divider />
 
       <!-- Budget Data Table -->
+      <v-alert
+        v-if="!canViewReports"
+        type="info"
+        variant="tonal"
+        class="ma-4"
+      >
+        無資料存取權限
+      </v-alert>
       <div
+        v-if="canViewReports"
         ref="tableContainer"
         class="table-container"
       >
@@ -90,6 +99,11 @@
 </template>
 
 <script lang="ts" setup>
+import { useUserStore } from '@/stores/users'
+
+const userStore = useUserStore()
+const canViewReports = computed(() => userStore.can('reports', 'view'))
+
 const isFluid = ref(false)
 
 // 切換 fluid 狀態的方法

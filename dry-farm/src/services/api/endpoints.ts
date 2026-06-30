@@ -40,6 +40,7 @@ export const USER_MANAGEMENT = {
   LIST: `${BASE}/user-management`,
   DETAIL: (id: number) => `${BASE}/user-management/${id}`,
   UPDATE_PERMISSIONS: (id: number) => `${BASE}/user-management/${id}/permissions`,
+  UPDATE_ROLE: (id: number) => `${BASE}/user-management/${id}/role`,
   BATCH_ACTIVATE: `${BASE}/user-management/batch-activate`,
   BATCH_DEACTIVATE: `${BASE}/user-management/batch-deactivate`,
   PENDING_APPROVAL: `${BASE}/user-management/pending-approval`,

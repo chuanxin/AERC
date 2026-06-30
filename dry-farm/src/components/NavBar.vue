@@ -327,7 +327,10 @@ onUnmounted(() => {
     router.push(to.path)
   }
   // Navigation items configuration
-  const navigationItems = [
+  type NavChild = { title: string; value: string; to: { path: string }; icon: string; permission?: { module: string; action: string } }
+  type NavItem = { title: string; value: string; to?: { path: string }; icon: string; permission?: { module: string; action: string }; hideWhen?: { module: string; action: string }; children?: NavChild[] }
+
+  const _allNavItems: NavItem[] = [
     {
       title: '首頁',
       value: 'index',
@@ -350,7 +353,8 @@ onUnmounted(() => {
           title: '申請案件查詢與列印',
           value: 'grants-query',
           to: { path: '/grants/query' },
-          icon: 'mdi-magnify'
+          icon: 'mdi-magnify',
+          permission: { module: 'batch_print', action: 'view' }
         }
       ]
     },
@@ -365,8 +369,7 @@ onUnmounted(() => {
       value: 'statistics',
       to: { path: '/statistics' },
       icon: 'mdi-chart-bar',
-      //disabled: true  // 先disable功能,
-    
+      permission: { module: 'reports', action: 'view' }
     },
     {
       title: '材料管理',
@@ -393,32 +396,43 @@ onUnmounted(() => {
       disabled: true,  // 先disable功能
       children: [
         {
-          title: '帳號管理',
+          title: '使用者管理',
           value: 'config-accounts',
           to: { path: '/config/accounts' },
-          icon: 'mdi-account-cog'
+          icon: 'mdi-account-cog',
+          permission: { module: 'users', action: 'view' }
         },
         {
-          title: '群組權限管理',
-          value: 'config-permissions',
-          to: { path: '/config/permissions' },
-          icon: 'mdi-shield-account'
+          title: '帳號資訊',
+          value: 'account-profile',
+          to: { path: '/profile' },
+          icon: 'mdi-account-circle',
         },
-        {
-          title: '圖資管理',
-          value: 'config-layers',
-          to: { path: '/config/layers' },
-          icon: 'mdi-map-legend'
-        },
-        {
-          title: '公告管理',
-          value: 'config-announcements',
-          to: { path: '/config/announcements' },
-          icon: 'mdi-home-edit'
-        }
-      ]
+      ],
     }
   ]
+
+  const navigationItems = computed(() =>
+    _allNavItems
+      .map(item => {
+        if (!item.children) return item
+        const visibleChildren = item.children.filter(
+          c => !c.permission || userStore.can(c.permission.module, c.permission.action)
+        )
+        if (visibleChildren.length === 0) return null
+        // 單一子項時攤平為普通連結，繼承子項的 title/icon/value 避免顯示父群組名稱
+        if (visibleChildren.length === 1) {
+          const child = visibleChildren[0]
+          return { ...item, ...child, children: undefined }
+        }
+        return { ...item, children: visibleChildren }
+      })
+      .filter((item): item is NavItem =>
+        item !== null &&
+        (!item.permission || userStore.can(item.permission.module, item.permission.action)) &&
+        (!item.hideWhen || !userStore.can(item.hideWhen.module, item.hideWhen.action))
+      )
+  )
 
   // Responsive display setup
   const { name } = useDisplay()

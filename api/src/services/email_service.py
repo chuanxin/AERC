@@ -20,6 +20,7 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from jinja2 import Template
 
 from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus
+from src.services.audit_service import mask_name
 
 
 class EmailConfig:
@@ -67,32 +68,6 @@ class EmailService:
     def __init__(self):
         self.config = EmailConfig.get_connection_config()
         self.fast_mail = FastMail(self.config)
-
-    @staticmethod
-    def mask_name(name: str) -> str:
-        """
-        遮罩姓名，保留頭尾各一個字元，中間用 * 替代
-
-        Args:
-            name: 原始姓名
-
-        Returns:
-            str: 遮罩後的姓名
-
-        Examples:
-            "張三" -> "張*"
-            "王小明" -> "王*明"
-            "李大華" -> "李*華"
-            "陳明德華" -> "陳**華"
-        """
-        if not name or len(name) <= 1:
-            return name
-        elif len(name) == 2:
-            return f"{name[0]}*"
-        else:
-            # 3個字以上：首字 + n個* + 尾字
-            masked_middle = "*" * (len(name) - 2)
-            return f"{name[0]}{masked_middle}{name[-1]}"
 
     async def send_email(
         self,
@@ -265,7 +240,7 @@ class EmailService:
 
         # 遮罩姓名（隱私保護）
         display_name = user.full_name or user.username
-        masked_name = self.mask_name(display_name)
+        masked_name = mask_name(display_name)
 
         # 渲染 HTML 模板
         html_template = Template(EMAIL_VERIFICATION_HTML_TEMPLATE)
@@ -315,7 +290,7 @@ class EmailService:
 
         # 遮罩姓名（隱私保護）
         display_name = user.full_name or user.username
-        masked_name = self.mask_name(display_name)
+        masked_name = mask_name(display_name)
 
         # 渲染 HTML 模板
         html_template = Template(PASSWORD_RESET_HTML_TEMPLATE)
@@ -357,7 +332,7 @@ class EmailService:
 
         # 遮罩姓名（隱私保護）
         display_name = user.full_name or user.username
-        masked_name = self.mask_name(display_name)
+        masked_name = mask_name(display_name)
 
         # 格式化變更時間（UTC+8 台灣時區）
         utc_now = datetime.now(timezone.utc)
@@ -443,7 +418,7 @@ class EmailService:
 
         # 遮罩姓名（隱私保護）
         display_name = user.full_name or user.username
-        masked_name = self.mask_name(display_name)
+        masked_name = mask_name(display_name)
 
         # 渲染 HTML 模板
         html_template = Template(ACCOUNT_MIGRATION_HTML_TEMPLATE)

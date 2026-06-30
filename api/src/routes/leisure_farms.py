@@ -18,6 +18,8 @@ from ..schemas.leisure_farms import (
 )
 from ..crud.leisure_farms import LeisureFarmsCRUD
 from ..auth.guard import require_full_auth
+from ..auth.route_guards import require_permission
+from ..schemas.permissions import ModuleName, PermissionAction
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +27,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/leisure-farms", tags=["休閒農場"])
 
 
-@router.post("/nearby", response_model=LeisureFarmNearbyResponse)
+@router.post(
+    "/nearby",
+    response_model=LeisureFarmNearbyResponse,
+    dependencies=[Depends(require_permission(ModuleName.GIS, PermissionAction.VIEW))],
+)
 async def search_nearby_farms(
     request: NearbySearchRequest,
     current_user=Depends(require_full_auth)

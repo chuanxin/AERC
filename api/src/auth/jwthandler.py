@@ -12,6 +12,7 @@ from tortoise.exceptions import DoesNotExist
 from src.schemas.token import TokenData
 from src.schemas.users import UserInfoSchema, SimpleOfficeSchema
 from src.database.models import Users, Offices
+from src.services.data_encryption import data_encryption_service
 
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
@@ -165,7 +166,7 @@ async def get_current_user(token: str = Depends(security)):
         return UserInfoSchema(
             id=user.id,
             username=user.username,
-            full_name=user.full_name,
+            full_name=data_encryption_service.decrypt(user.full_name),
             email=user.email,
             job_title=user.job_title,
             is_active=user.is_active,

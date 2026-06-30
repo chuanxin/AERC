@@ -12,9 +12,13 @@ from tortoise.exceptions import DoesNotExist
 from fastapi import HTTPException
 
 from src.database.models import (
-    Grants, GrantVersions, GrantHistory, 
+    Grants, GrantVersions, GrantHistory,
     GrantActionType, GrantStatus
 )
+from src.services.data_encryption import data_encryption_service
+
+# PII 欄位：寫入 Grants 前必須加密，JSONB step 1 中的 PII 子欄位清單與此一致
+GRANT_PII_FIELDS = frozenset({'applicant_name', 'applicant_id', 'applicant_phone', 'applicant_phone2', 'address'})
 
 logger = logging.getLogger(__name__)
 
@@ -59,36 +63,52 @@ class GrantVersionService:
                     current_version.all_steps_data['steps'] = {}
                 
                 # 根據步驟類型決定更新策略
-                if step in cls.BASIC_DATA_STEPS:
-                    # 基本資料同時更新 Grants model 和版本資料
+                if step == 1:
+                    # Step 1 含 PII：必須先計算明文 hash，再加密
+                    # ① 從前端輸入構建明文 step1_dict（後端 snake_case 鍵名）
+                    step1_dict = cls._build_step1_dict_for_version(step_data, grant)
+                    current_version.all_steps_data['steps']['1'] = step1_dict
+                elif step in cls.BASIC_DATA_STEPS:
+                    # Step 0：無 PII，沿用 grant model round-trip
                     await cls._update_basic_data_in_grants(grant, step_data, step)
-                    # 同步更新版本中的基本資料
                     current_version.all_steps_data['steps'][str(step)] = cls._build_basic_data_for_version(grant)
                 else:
                     # 業務流程資料僅更新版本資料
                     current_version.all_steps_data['steps'][str(step)] = step_data
-                
+
                 # 更新元資料
                 current_version.all_steps_data['metadata'] = {
                     **current_version.all_steps_data.get('metadata', {}),
                     'last_updated': datetime.now().isoformat(),
-                    # 'current_step': max(grant.current_step, step),
-                    # 'status': grant.status
                 }
-                
-                # 重新計算雜湊值
+
+                # ② 計算雜湊（此時 JSONB 仍為明文，確保 hash 基於明文）
                 current_version.all_steps_data_hash = cls._calculate_hash(current_version.all_steps_data)
-                
-                # 儲存版本變更
+
+                if step == 1:
+                    # ③ 加密 JSONB step 1 PII（覆蓋為密文）
+                    current_version.all_steps_data['steps'] = data_encryption_service.encrypt_jsonb_pii(
+                        current_version.all_steps_data['steps']
+                    )
+                    # ④ 加密 Grants 直接欄位並寫入 DB
+                    await cls._update_basic_data_in_grants(grant, step_data, step)
+
+                # ⑤ 儲存版本（含加密 JSONB 和明文 hash）
                 await current_version.save()
                 
-                # 建立詳細的歷史記錄
+                # step 1 PII 遮罩後寫入歷史（避免明文 PII 落入 grant_history.new_value）
+                _STEP1_PII = {"applicant_name", "applicant_id", "applicant_phone",
+                              "applicant_phone2", "address", "name", "id", "phone", "phone2"}
+                history_new_value = (
+                    {k: ("***" if k in _STEP1_PII else v) for k, v in step_data.items()}
+                    if step == 1 else step_data
+                )
                 await cls._create_history_record(
                     grant=grant,
                     action_type=action_type,
                     step_number=step,
                     old_value=old_step_data,
-                    new_value=step_data,
+                    new_value=history_new_value,
                     user_id=user_id,
                     notes=notes or f"更新步驟 {step} 資料",
                     session_id=session_id,
@@ -364,11 +384,10 @@ class GrantVersionService:
         }
     
     @classmethod
-    async def _update_basic_data_in_grants(cls, grant: Grants, step_data: Dict[str, Any], step: int):
-        """更新 Grants model 中的基本資料"""
-        update_data = {}
-        
-        # 定義欄位映射
+    def _build_step1_dict_for_version(cls, step_data: Dict[str, Any], grant: Grants) -> Dict[str, Any]:
+        """從前端 step_data 構建明文 step 1 JSONB dict（後端 snake_case 鍵名）。
+        調用方負責後續對 PII 欄位加密。
+        """
         field_mapping = {
             'name': 'applicant_name',
             'applicant_name': 'applicant_name',
@@ -376,6 +395,8 @@ class GrantVersionService:
             'applicant_id': 'applicant_id',
             'phone': 'applicant_phone',
             'applicant_phone': 'applicant_phone',
+            'phone2': 'applicant_phone2',
+            'applicant_phone2': 'applicant_phone2',
             'county': 'county',
             'town': 'town',
             'village': 'village',
@@ -386,19 +407,58 @@ class GrantVersionService:
             'isDisasterCase': 'is_disaster_case',
             'is_disaster_case': 'is_disaster_case',
             'disasterCaseDescription': 'disaster_case_description',
-            'disaster_case_description': 'disaster_case_description'
+            'disaster_case_description': 'disaster_case_description',
         }
-        
-        # 應用欄位映射
+        result: Dict[str, Any] = {}
+        for frontend_key, backend_key in field_mapping.items():
+            if frontend_key in step_data and backend_key not in result:
+                result[backend_key] = step_data[frontend_key]
+        # 補充 JSONB 需要但 step_data 未涵蓋的 grant-level 欄位
+        result.setdefault('case_number', grant.case_number)
+        if grant.received_date and 'received_date' not in result:
+            result['received_date'] = grant.received_date.isoformat()
+        if grant.received_time and 'received_time' not in result:
+            result['received_time'] = grant.received_time.strftime("%H:%M")
+        return result
+
+    @classmethod
+    async def _update_basic_data_in_grants(cls, grant: Grants, step_data: Dict[str, Any], step: int):
+        """更新 Grants model 中的基本資料；PII 欄位加密後寫入。"""
+        update_data = {}
+
+        # 欄位映射：前端鍵名 → 後端 grant 欄位名
+        field_mapping = {
+            'name': 'applicant_name',
+            'applicant_name': 'applicant_name',
+            'id': 'applicant_id',
+            'applicant_id': 'applicant_id',
+            'phone': 'applicant_phone',
+            'applicant_phone': 'applicant_phone',
+            'phone2': 'applicant_phone2',
+            'applicant_phone2': 'applicant_phone2',
+            'county': 'county',
+            'town': 'town',
+            'village': 'village',
+            'address': 'address',
+            'office': 'office',
+            'office_id': 'office_id',
+            'undertracker': 'undertracker',
+            'isDisasterCase': 'is_disaster_case',
+            'is_disaster_case': 'is_disaster_case',
+            'disasterCaseDescription': 'disaster_case_description',
+            'disaster_case_description': 'disaster_case_description',
+        }
+
         for step_field, grant_field in field_mapping.items():
-            if step_field in step_data:
-                update_data[grant_field] = step_data[step_field]
-        
-        # 更新資料庫
+            if step_field in step_data and grant_field not in update_data:
+                value = step_data[step_field]
+                if grant_field in GRANT_PII_FIELDS:
+                    update_data[grant_field] = data_encryption_service.encrypt(value)
+                else:
+                    update_data[grant_field] = value
+
         if update_data:
             await Grants.filter(id=grant.id).update(**update_data)
-            
-            # 重新載入 grant 物件以反映變更
             await grant.refresh_from_db()
     
     @classmethod

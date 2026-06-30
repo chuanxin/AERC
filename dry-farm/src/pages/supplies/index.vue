@@ -13,10 +13,11 @@
         class="pt-0"
       >
         <!-- 功能按鈕區 -->
-        <div class="d-flex flex-wrap align-center pr-2">
+        <div class="d-flex flex-wrap align-center pr-2" style="min-height: 52px">
           <v-spacer />
           <div class="d-flex gap-2"  v-if="isDev">
             <v-btn
+              v-if="canEdit"
               class="action-btn"
               color="#3ea0a3"
               prepend-icon="mdi-plus"
@@ -287,6 +288,7 @@
                   <template #[`item.actions`]="{ item }">
                     <div class="ma-0 pa-0 d-flex gap-2 justify-end">
                       <v-btn
+                        v-if="canEdit"
                         title="刪除材料"
                         icon="mdi-delete"
                         size="small"
@@ -826,6 +828,7 @@
 </template>
 
 <script lang="ts" setup>
+import { computed } from 'vue'
 import { useDisplay } from 'vuetify'
 import { usePipeFittingsStore } from '@/stores/pipeFittingsStore'
 import { usePFModulesStore } from '@/stores/pfModulesStore'
@@ -844,6 +847,8 @@ const userStore = useUserStore()
 const annualPricesStore = usePFAnnualPricesStore()
 const pfMaterialsStore = usePFMaterialsStore()
 const pfDiametersStore = usePFDiametersStore()
+
+const canEdit = computed(() => userStore.canAny('materials', ['create', 'edit', 'delete']))
 
 const tableRef = ref<any>(null)
 let scrollableElement: HTMLElement | null = null

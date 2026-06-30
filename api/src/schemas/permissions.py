@@ -23,22 +23,32 @@ class PermissionMode(str, Enum):
 
 class PermissionAction(str, Enum):
     """權限操作類型"""
-    VIEW = "view"        # 檢視
-    CREATE = "create"    # 新增
-    EDIT = "edit"        # 編輯
-    DELETE = "delete"    # 刪除
-    APPROVE = "approve"  # 審核
-    EXPORT = "export"    # 匯出
+    VIEW = "view"           # 檢視
+    CREATE = "create"       # 新增
+    EDIT = "edit"           # 編輯
+    DELETE = "delete"       # 刪除
+    APPROVE = "approve"     # 審核
+    EXPORT = "export"       # 匯出
+    VIEW_ALL = "view_all"   # 跨管理處全域檢視（admin 獨有）
 
 
 class ModuleName(str, Enum):
-    """系統模組名稱"""
-    GRANTS = "grants"      # 補助申請
-    USERS = "users"        # 使用者管理
-    REPORTS = "reports"    # 報表系統
-    GIS = "gis"           # GIS 圖台
-    OFFICES = "offices"    # 單位管理
-    SETTINGS = "settings"  # 系統設定
+    """系統模組名稱
+    # TD-013: 新增 ModuleName 值時必須同步修改 4 處：
+    # (1)此 enum (2)CustomModulePermissionsSchema 欄位
+    # (3)_check_custom_permission() elif (4)get_user_permissions_summary() modules dict
+    """
+    GRANTS = "grants"              # 補助申請
+    USERS = "users"                # 使用者管理
+    REPORTS = "reports"            # 報表系統
+    GIS = "gis"                   # GIS 圖台
+    OFFICES = "offices"            # 單位管理
+    SETTINGS = "settings"          # 系統設定
+    # 033 新增
+    BATCH_PRINT = "batch_print"        # 批次列印
+    DUPLICATE_CHECK = "duplicate_check"  # 重複查核
+    MATERIALS = "materials"            # 材料管理
+    DOWNLOADS = "downloads"            # 下載管理
 
 
 class DepartmentFilterSchema(BaseModel):
@@ -82,6 +92,11 @@ class CustomModulePermissionsSchema(BaseModel):
     gis: Optional[List[PermissionAction]] = Field(None, description="GIS 圖台權限")
     offices: Optional[List[PermissionAction]] = Field(None, description="單位管理權限")
     settings: Optional[List[PermissionAction]] = Field(None, description="系統設定權限")
+    # 033 新增（TD-013: 同步新增 ModuleName enum 值時，此處需同步新增欄位）
+    batch_print: Optional[List[PermissionAction]] = Field(None, description="批次列印權限")
+    duplicate_check: Optional[List[PermissionAction]] = Field(None, description="重複查核權限")
+    materials: Optional[List[PermissionAction]] = Field(None, description="材料管理權限")
+    downloads: Optional[List[PermissionAction]] = Field(None, description="下載管理權限")
 
     @field_validator('*', mode='before')
     @classmethod

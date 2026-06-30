@@ -55,6 +55,7 @@ export const BACKEND_PATHS = {
     LIST: '/user-management',
     DETAIL: (id: number) => `/user-management/${id}`,
     UPDATE_PERMISSIONS: (id: number) => `/user-management/${id}/permissions`,
+    UPDATE_ROLE: (id: number) => `/user-management/${id}/role`,
     BATCH_ACTIVATE: '/user-management/batch-activate',
     BATCH_DEACTIVATE: '/user-management/batch-deactivate',
     PENDING_APPROVAL: '/user-management/pending-approval',
@@ -433,6 +434,11 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配用戶審核拒絕路徑 {API_PREFIX}/user-management/{id}/reject
     pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)/reject$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.REJECT(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配變更使用者群組路徑 {API_PREFIX}/user-management/{id}/role
+    pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)/role$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.UPDATE_ROLE(parseInt(matches[1], 10))
   },
   {
     // 匹配管理處分處列表路徑 {API_PREFIX}/offices/branches/{officeId}

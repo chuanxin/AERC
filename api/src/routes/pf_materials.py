@@ -1,15 +1,12 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-# from sqlalchemy.ext.asyncio import AsyncSession # 如果您使用 SQLAlchemy
-# from src.database.session import get_db # 假設這是您的 DB session 依賴
 
-# 由於您使用 Tortoise ORM，不需要直接的 AsyncSession 依賴給 CRUD，
-# Tortoise ORM 的模型方法是異步的。
-# 如果您的項目有統一的 DB session 管理（例如用於事務），則可能需要。
-# 為了與 pipe_fittings.py 的 CRUD 結構保持一致，這裡不直接注入 db session 到 CRUD。
-
-from src.crud import pf_materials as crud_pf_materials # 更改路徑以匹配您的項目結構
-from src.schemas import pf_materials as pf_materials_schemas # 更改路徑
+from src.crud import pf_materials as crud_pf_materials
+from src.schemas import pf_materials as pf_materials_schemas
+from src.auth.guard import require_full_auth
+from src.services.permission_service import permission_service
+from src.schemas.permissions import ModuleName, PermissionAction
+from src.exceptions import AppError
 
 router = APIRouter(
     prefix="/pf_materials",
@@ -19,10 +16,14 @@ router = APIRouter(
 @router.post("/", response_model=pf_materials_schemas.PFMaterialsResponse, status_code=status.HTTP_201_CREATED)
 async def create_pf_material(
     material_in: pf_materials_schemas.PFMaterialsCreate,
+    current_user=Depends(require_full_auth),
 ):
-    """
-    Create a new PFMaterial.
-    """
+    """Create a new PFMaterial."""
+    allowed, _ = permission_service.check_permission(
+        current_user.role, current_user.permissions, ModuleName.MATERIALS, PermissionAction.CREATE
+    )
+    if not allowed:
+        raise AppError(403, "無此操作權限")
     return await crud_pf_materials.create_material(material_in=material_in)
 
 @router.get("/", response_model=pf_materials_schemas.PFMaterialsListResponse)
@@ -59,23 +60,32 @@ async def read_pf_material(
 async def update_pf_material(
     material_id: int,
     material_in: pf_materials_schemas.PFMaterialsUpdate,
+    current_user=Depends(require_full_auth),
 ):
-    """
-    Update an existing PFMaterials.
-    """
+    """Update an existing PFMaterials."""
+    allowed, _ = permission_service.check_permission(
+        current_user.role, current_user.permissions, ModuleName.MATERIALS, PermissionAction.EDIT
+    )
+    if not allowed:
+        raise AppError(403, "無此操作權限")
     updated_material = await crud_pf_materials.update_material(material_id=material_id, material_in=material_in)
     if updated_material is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PFMaterials not found")
     return updated_material
 
+
 @router.delete("/{material_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_pf_material(
     material_id: int,
+    current_user=Depends(require_full_auth),
 ):
-    """
-    Delete a PFMaterials.
-    """
+    """Delete a PFMaterials."""
+    allowed, _ = permission_service.check_permission(
+        current_user.role, current_user.permissions, ModuleName.MATERIALS, PermissionAction.DELETE
+    )
+    if not allowed:
+        raise AppError(403, "無此操作權限")
     deleted = await crud_pf_materials.delete_material(material_id=material_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PFMaterials not found")
-    return None # For 204 No Content
+    return None

@@ -1,13 +1,19 @@
 import logging
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from typing import List, Optional
 from pydantic import BaseModel
+from src.database.audit_models import AuditEventType, AuditAction, AuditResult
 from src.database.models import GrantAttachments, Grants, Users
+from src.services.audit_service import audit_service
+from src.services.data_encryption import data_encryption_service
 from src.services.file_storage import FileStorageService
 from src.auth.guard import require_full_auth
+from src.auth.route_guards import require_permission, require_grant_scope_by_id
+from src.schemas.permissions import ModuleName, PermissionAction
+from src.schemas.users import UserInfoSchema
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +25,13 @@ class BatchOperationRequest(BaseModel):
     attachment_ids: List[int]
     parameters: Optional[dict] = None
 
-@router.post("/upload/{grant_id}/{step}")
+@router.post(
+    "/upload/{grant_id}/{step}",
+    dependencies=[
+        Depends(require_grant_scope_by_id),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT)),
+    ],
+)
 async def upload_attachment(
     grant_id: int,
     step: int,
@@ -27,7 +39,7 @@ async def upload_attachment(
     category: Optional[str] = Form(None),
     categories: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
-    current_user: Users = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth)
 ):
     """
     上傳補助申請案件附件
@@ -153,11 +165,13 @@ async def upload_attachment(
 
 @router.get("/list/{grant_id}/{step}")
 async def list_attachments(
+    request: Request,
     grant_id: int,
     step: int,
     category: Optional[str] = None,
     limit: int = 20,
-    offset: int = 0
+    offset: int = 0,
+    current_user: Users = Depends(require_full_auth)
 ):
     """取得指定案件和步驟的附件列表"""
     try:
@@ -179,9 +193,23 @@ async def list_attachments(
                 "category": att.category,
                 "description": att.description,
                 "uploaded_at": att.uploaded_at,
-                "uploaded_by": att.uploaded_by.full_name or att.uploaded_by.username
+                "uploaded_by": data_encryption_service.decrypt(att.uploaded_by.full_name) or att.uploaded_by.username
             })
-        
+
+        await audit_service.log(
+            event_type=AuditEventType.DATA_ACCESS,
+            action=AuditAction.VIEW,
+            result=AuditResult.SUCCESS,
+            actor_id=current_user.id,
+            actor_username=current_user.username,
+            actor_role=current_user.role,
+            resource_type="attachment_list",
+            resource_id=str(grant_id),
+            ip_address=request.headers.get("X-Real-IP", ""),
+            user_agent=request.headers.get("user-agent", ""),
+            endpoint=str(request.url.path),
+        )
+
         return {
             "attachments": attachment_list,
             "total_count": total_count,
@@ -232,7 +260,7 @@ async def get_attachment_info(attachment_id: int, current_user: Users = Depends(
             "category": attachment.category,
             "description": attachment.description,
             "uploaded_at": attachment.uploaded_at,
-            "uploaded_by": attachment.uploaded_by.full_name or attachment.uploaded_by.username,
+            "uploaded_by": data_encryption_service.decrypt(attachment.uploaded_by.full_name) or attachment.uploaded_by.username,
             "is_active": attachment.status == "active"
         }
     except HTTPException:
@@ -240,8 +268,14 @@ async def get_attachment_info(attachment_id: int, current_user: Users = Depends(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查詢失敗: {str(e)}")
 
-@router.delete("/{attachment_id}")
-async def delete_attachment(attachment_id: int, current_user: Users = Depends(require_full_auth)):
+@router.delete(
+    "/{attachment_id}",
+    dependencies=[Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT))],
+)
+async def delete_attachment(
+    attachment_id: int,
+    current_user: UserInfoSchema = Depends(require_full_auth),
+):
     """刪除附件"""
     try:
         attachment = await GrantAttachments.get_or_none(id=attachment_id, status="active")
@@ -264,10 +298,13 @@ async def delete_attachment(attachment_id: int, current_user: Users = Depends(re
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"刪除失敗: {str(e)}")
 
-@router.post("/batch-operation")
+@router.post(
+    "/batch-operation",
+    dependencies=[Depends(require_permission(ModuleName.GRANTS, PermissionAction.EDIT))],
+)
 async def batch_operation(
     request: BatchOperationRequest,
-    current_user: Users = Depends(require_full_auth)
+    current_user: UserInfoSchema = Depends(require_full_auth),
 ):
     """批量操作附件"""
     try:

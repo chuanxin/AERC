@@ -14,6 +14,8 @@ from ..schemas.qualification import (
 )
 from ..crud.qualification import QualificationCRUD
 from ..auth.guard import require_full_auth
+from ..auth.route_guards import require_permission
+from ..schemas.permissions import ModuleName, PermissionAction
 
 
 # 設置日誌
@@ -23,7 +25,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/qualification", tags=["重複案件查詢"])
 
 
-@router.post("/search", response_model=QualificationResponse)
+@router.post(
+    "/search",
+    response_model=QualificationResponse,
+    dependencies=[Depends(require_permission(ModuleName.DUPLICATE_CHECK, PermissionAction.VIEW))],
+)
 async def search_qualification(
     request: QualificationSearchRequest,
     current_user = Depends(require_full_auth)
@@ -61,7 +67,11 @@ async def search_qualification(
         raise HTTPException(status_code=500, detail="查詢失敗，請稍後再試")
 
 
-@router.post("/indigenous-check", response_model=AreaCheckResponse)
+@router.post(
+    "/indigenous-check",
+    response_model=AreaCheckResponse,
+    dependencies=[Depends(require_permission(ModuleName.DUPLICATE_CHECK, PermissionAction.VIEW))],
+)
 async def check_indigenous_area(
     request: AreaCheckRequest,
     current_user = Depends(require_full_auth)
@@ -83,7 +93,11 @@ async def check_indigenous_area(
         raise HTTPException(status_code=500, detail="區域驗證失敗")
 
 
-@router.post("/slope-area-check", response_model=AreaCheckResponse)
+@router.post(
+    "/slope-area-check",
+    response_model=AreaCheckResponse,
+    dependencies=[Depends(require_permission(ModuleName.DUPLICATE_CHECK, PermissionAction.VIEW))],
+)
 async def check_slope_area(
     request: AreaCheckRequest,
     current_user = Depends(require_full_auth)
@@ -129,7 +143,10 @@ async def get_recent_searches(
         raise HTTPException(status_code=500, detail="獲取查詢歷史失敗")
 
 
-@router.delete("/clear-history")
+@router.delete(
+    "/clear-history",
+    dependencies=[Depends(require_permission(ModuleName.DUPLICATE_CHECK, PermissionAction.VIEW))],
+)
 async def clear_search_history(
     current_user = Depends(require_full_auth)
 ) -> dict:
@@ -206,9 +223,12 @@ async def health_check() -> dict:
 
 # === 管理員專用端點 ===
 
-@router.post("/admin/rebuild-cache")
+@router.post(
+    "/admin/rebuild-cache",
+    dependencies=[Depends(require_permission(ModuleName.SETTINGS, PermissionAction.EDIT))],
+)
 async def rebuild_cache(
-    current_user = Depends(require_full_auth)  # 這裡應該檢查管理員權限
+    current_user = Depends(require_full_auth)
 ) -> dict:
     """
     重建查詢快取
