@@ -393,7 +393,6 @@ onUnmounted(() => {
       title: '系統管理',
       value: 'config',
       icon: 'mdi-cog',
-      disabled: true,  // 先disable功能
       children: [
         {
           title: '使用者管理',

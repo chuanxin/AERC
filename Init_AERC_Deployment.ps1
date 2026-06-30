@@ -210,7 +210,7 @@ FRONTEND_URL=$frontendUrl
 EMAIL_VERIFICATION_EXPIRE_HOURS=24
 PASSWORD_RESET_EXPIRE_HOURS=1
 "@
-    Set-Content -Path $envFilePath -Value $envContent -Encoding UTF8
+    [System.IO.File]::WriteAllText($envFilePath, $envContent, [System.Text.UTF8Encoding]::new($false))
     Write-Host "Created .env file at: $envFilePath" -ForegroundColor Green
     } else {
         Write-Host "`n.env file already exists, skipping configuration." -ForegroundColor Yellow
@@ -377,7 +377,7 @@ try {
     Write-Host "Error: PostgreSQL tools verification failed: $($_.Exception.Message)" -ForegroundColor Red
 }
 '@
-Set-Content -Path (Join-Path $scriptsPath "Bootstrap_DB.ps1") -Value $bootstrapContent -Encoding UTF8
+[System.IO.File]::WriteAllText((Join-Path $scriptsPath "Bootstrap_DB.ps1"), $bootstrapContent, [System.Text.UTF8Encoding]::new($false))
 Write-Host "Generated: Bootstrap_DB.ps1" -ForegroundColor Green
 
 # Generate Install_Backend_Service.ps1
@@ -526,25 +526,87 @@ if ($serviceChoice -eq 'y' -or $serviceChoice -eq 'Y') {
     # Use NSSM (Non-Sucking Service Manager) if available, otherwise use sc.exe
     $nssmPath = Get-Command nssm -ErrorAction SilentlyContinue
     if ($nssmPath) {
+        # Ensure log directory exists
+        $logDir = "$projectRoot\runtime\logs"
+        if (-not (Test-Path $logDir)) {
+            New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+        }
+
+        # Generate uvicorn log config with file-based handlers (avoids NSSM pipe
+        # rotation causing "ValueError: underlying buffer has been detached")
+        $logConfigPath = "$projectRoot\runtime\log_config.json"
+        $logConfigContent = @"
+{
+    "version": 1,
+    "disable_existing_loggers": false,
+    "formatters": {
+        "default": {
+            "()": "uvicorn.logging.DefaultFormatter",
+            "fmt": "%(asctime)s %(levelprefix)s %(message)s",
+            "use_colors": false
+        },
+        "access": {
+            "()": "uvicorn.logging.AccessFormatter",
+            "fmt": "%(asctime)s %(levelprefix)s %(client_addr)s - \"%(request_line)s\" %(status_code)s",
+            "use_colors": false
+        }
+    },
+    "handlers": {
+        "default": {
+            "formatter": "default",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": "$($logDir.Replace('\','/'))/aerc-api.log",
+            "maxBytes": 10485760,
+            "backupCount": 5,
+            "encoding": "utf-8"
+        },
+        "access": {
+            "formatter": "access",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": "$($logDir.Replace('\','/'))/aerc-api-access.log",
+            "maxBytes": 10485760,
+            "backupCount": 5,
+            "encoding": "utf-8"
+        }
+    },
+    "loggers": {
+        "uvicorn": {
+            "handlers": ["default"],
+            "level": "INFO",
+            "propagate": false
+        },
+        "uvicorn.error": {
+            "handlers": ["default"],
+            "level": "INFO",
+            "propagate": false
+        },
+        "uvicorn.access": {
+            "handlers": ["access"],
+            "level": "INFO",
+            "propagate": false
+        }
+    }
+}
+"@
+        # $logConfigContent | Set-Content -Path $logConfigPath -Encoding UTF8
+        [System.IO.File]::WriteAllText($logConfigPath, $logConfigContent, [System.Text.UTF8Encoding]::new($false))
+        Write-Host "Generated uvicorn log config: $logConfigPath" -ForegroundColor Green
+
         # Install service using NSSM
         & nssm install $serviceName $uvicornModule
-        & nssm set $serviceName AppParameters "src.main:app --host 0.0.0.0 --port 5000"
+        & nssm set $serviceName AppParameters "src.main:app --host 0.0.0.0 --port 5000 --log-config `"$logConfigPath`""
         & nssm set $serviceName AppDirectory $workingDir
         & nssm set $serviceName DisplayName $serviceDisplayName
         & nssm set $serviceName Description $serviceDescription
         & nssm set $serviceName Start SERVICE_AUTO_START
         
-        # Set stdout and stderr logging
-        $logDir = "$projectRoot\runtime\logs"
-        if (-not (Test-Path $logDir)) {
-            New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-        }
+        # Redirect stderr/stdout only for capturing unhandled Python tracebacks
+        # (uvicorn access/error logs are handled by RotatingFileHandler in log_config.json)
         & nssm set $serviceName AppStdout "$logDir\aerc-api-stdout.log"
         & nssm set $serviceName AppStderr "$logDir\aerc-api-stderr.log"
-        & nssm set $serviceName AppRotateFiles 1
-        & nssm set $serviceName AppRotateOnline 1
-        & nssm set $serviceName AppRotateSeconds 86400
-        & nssm set $serviceName AppRotateBytes 1048576
+        # Disable NSSM log rotation — rotating the stderr pipe causes
+        # "ValueError: underlying buffer has been detached" in Python's logging
+        & nssm set $serviceName AppRotateFiles 0
         
         # Set environment variables for the service
         $envString = "PATH=$env:PATH"
@@ -573,7 +635,11 @@ if ($serviceChoice -eq 'y' -or $serviceChoice -eq 'Y') {
             "VALIDATE_CERTS",
             "FRONTEND_URL",
             "EMAIL_VERIFICATION_EXPIRE_HOURS",
-            "PASSWORD_RESET_EXPIRE_HOURS"
+            "PASSWORD_RESET_EXPIRE_HOURS",
+            "AUTH_PRIVATE_KEY_PATH",
+            "AUTH_PRIVATE_KEY_PEM",
+            "AUTH_PUBLIC_KEY_KID",
+            "DATA_ENCRYPTION_KEY"
         )) {
             $envValue = [Environment]::GetEnvironmentVariable($envVar, [EnvironmentVariableTarget]::Process)
             if ($envValue) {
@@ -617,7 +683,7 @@ if ($serviceChoice -eq 'y' -or $serviceChoice -eq 'Y') {
     uvicorn src.main:app --reload --host 0.0.0.0 --port 5000
 }
 '@
-Set-Content -Path (Join-Path $scriptsPath "Install_Backend_Service.ps1") -Value $startApiContent -Encoding UTF8
+[System.IO.File]::WriteAllText((Join-Path $scriptsPath "Install_Backend_Service.ps1"), $startApiContent, [System.Text.UTF8Encoding]::new($false))
 Write-Host "Generated: Install_Backend_Service.ps1" -ForegroundColor Green
 
 # Generate Install_Frontend_Service.ps1
@@ -801,7 +867,7 @@ if ($serviceChoice -eq 'y' -or $serviceChoice -eq 'Y') {
     }
 }
 '@
-Set-Content -Path (Join-Path $scriptsPath "Install_Frontend_Service.ps1") -Value $startViteContent -Encoding UTF8
+[System.IO.File]::WriteAllText((Join-Path $scriptsPath "Install_Frontend_Service.ps1"), $startViteContent, [System.Text.UTF8Encoding]::new($false))
 Write-Host "Generated: Install_Frontend_Service.ps1" -ForegroundColor Green
 
 # Generate Manage_Services.ps1
@@ -1405,7 +1471,7 @@ Write-Host "  - Service operations (start/stop/restart/remove/deploy) require Ad
 Write-Host "  - Please run PowerShell as Administrator for service management operations" -ForegroundColor Gray
 Write-Host "  - Status, logs, checkout, and sync can run without elevation" -ForegroundColor Gray
 '@
-Set-Content -Path (Join-Path $scriptsPath "Manage_Services.ps1") -Value $manageServicesContent -Encoding UTF8
+[System.IO.File]::WriteAllText((Join-Path $scriptsPath "Manage_Services.ps1"), $manageServicesContent, [System.Text.UTF8Encoding]::new($false))
 Write-Host "Generated: Manage_Services.ps1" -ForegroundColor Green
 
 Write-Host "`nAll deployment scripts generated successfully!" -ForegroundColor Green
