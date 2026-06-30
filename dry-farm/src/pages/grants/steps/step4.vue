@@ -55,7 +55,8 @@
         >
           <!-- STEP 1: 設計人姓名 -->
           <v-card
-            v-if="!props.readonly"
+            
+            :disabled="props.readonly"
             flat
             class="mb-4 pa-4"
             color="#e3f4f4"
@@ -1692,6 +1693,7 @@
                       <th
                         class="text-center px-2"
                         style="width: 100px; min-width: 100px;"
+                        
                       >
                         數量
                       </th>
@@ -1799,6 +1801,7 @@
                             hide-details="auto"
                             class="material-input"
                             style="min-width: 80px;"
+                            :disabled="props.readonly"
                             :rules="[
                               v => v >= 0 || '數量不能為負數'
                             ]"

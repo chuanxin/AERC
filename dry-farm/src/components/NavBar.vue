@@ -315,6 +315,7 @@ onUnmounted(() => {
   const handleLogout = async () => {
     try {
       userStore.logout()
+      sessionStorage.removeItem('indexSearchState')   // joya added to clear session storage on logout
       console.log('User logged out')
       await router.push('/login')
     } catch (error) {
@@ -364,7 +365,8 @@ onUnmounted(() => {
       value: 'statistics',
       to: { path: '/statistics' },
       icon: 'mdi-chart-bar',
-      disabled: true  // 先disable功能,
+      //disabled: true  // 先disable功能,
+    
     },
     {
       title: '材料管理',

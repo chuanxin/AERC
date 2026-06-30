@@ -1092,6 +1092,15 @@
                                           {{ (caseItem.approved_area > 0) ? Number(caseItem.approved_area).toLocaleString() : '--' }}
                                         </span>
                                         <span class="text-caption ms-1">㎡</span>
+
+                                        <span class="text-caption text-grey-darken-1 me-2 ms-4">剩餘面積：</span>
+                                        <span class="text-body-1 font-weight-bold text-red">
+                                          {{ (caseItem.land_registered_area > 0 || caseItem.approved_area > 0) 
+                                            ? Number((caseItem.land_registered_area || 0) - (caseItem.approved_area || 0)).toLocaleString() 
+                                            : '--' }}
+                                        </span>
+                                        <span class="text-caption ms-1">㎡</span>
+
                                       </div>
                                     </div>
                                   </div>

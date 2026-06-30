@@ -234,16 +234,17 @@
             <colgroup>
               <col style="width: 20%;">
               <col style="width: 20%;">
-              <col style="width: 60%;">
+              <col style="width: 25%;">
+              <col style="width: 35%;">
             </colgroup>
             <tbody>
               <!-- 農戶配合款 -->
               <tr>
-                <td
-                  colspan="2"
-                  class="font-weight-medium text-center"
-                >
+                <td colspan="2" class="font-weight-medium text-center">
                   農戶配合款
+                </td>
+                <td class="text-center">
+                 
                 </td>
                 <td class="text-center">
                   {{ displayFarmerContribution }}
@@ -252,30 +253,33 @@
 
               <!-- 政府補助款 -->
               <tr>
-                <td
-                  rowspan="3"
-                  class="font-weight-medium text-center align-center"
-                >
+                <td rowspan="3" class="font-weight-medium text-center align-center">
                   政府<br>補助款
                 </td>
-                <td
-                  rowspan="2"
-                  class="font-weight-medium text-center align-center"
-                >
+                <td rowspan="2" class="font-weight-medium text-center align-center">
                   農戶<br>請領款
                 </td>
                 <td class="text-center">
-                  田間管路設施補助費：{{ pipeLineSubsidy }}
+                  田間管路補助費：{{ pipeLineSubsidy }}
+                </td>
+                <td rowspan="2" class="text-center align-center">
+                  {{ farmerClaimTotal }}
                 </td>
               </tr>
+
               <tr>
-                <td class="text-center">
-                  灌溉調控設施補助費：{{ facilitySubsidy }}
+                <td class="text-center"
+                    style="border-right: thin solid rgba(var(--v-border-color), var(--v-border-opacity));">
+                  灌溉調控補助費：{{ facilitySubsidy }}
                 </td>
               </tr>
+
               <tr>
                 <td class="font-weight-medium text-center">
                   規劃設計費
+                </td>
+                <td class="text-center">
+                  
                 </td>
                 <td class="text-center">
                   {{ actualSubsidizedDesignFee }}
@@ -284,15 +288,13 @@
 
               <!-- 總計 -->
               <tr class="bg-amber-lighten-4">
-                <td
-                  colspan="2"
-                  class="font-weight-medium text-center"
-                >
+                <td colspan="2" class="font-weight-medium text-center">
                   本設施預算總計
                 </td>
                 <td class="text-center font-weight-medium">
-                  {{ totalBudget }}
+                  
                 </td>
+                <td class="text-center font-weight-medium">{{ totalBudget }}</td>
               </tr>
             </tbody>
           </v-table>
@@ -762,6 +764,13 @@ const facilitySubsidy = computed(() => {
   }, 0);
 
   return total.toLocaleString();
+});
+
+// 農戶請領款合計 = 田間管路設施補助費 + 灌溉調控設施補助費
+const farmerClaimTotal = computed(() => {
+  const a = parseInt(pipeLineSubsidy.value.replace(/,/g, '')) || 0;
+  const b = parseInt(facilitySubsidy.value.replace(/,/g, '')) || 0;
+  return (a + b).toLocaleString();
 });
 
 // 規劃設計費：直接從 step4 讀取（用於本案設施表顯示真實設計費）

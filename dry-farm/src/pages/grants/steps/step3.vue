@@ -478,6 +478,7 @@
                   style="width: 80px"
                   type="number"
                   min="1"
+                  
                   :rules="[
                     v => !!v || '請輸入數量',
                     v => v > 0 || '數量必須大於0'
@@ -699,6 +700,7 @@
                     hide-details="auto"
                     class="ma-1"
                     autocomplete="off"
+                    :disabled="props.readonly"
                     :rules="[
                       v => !!v || '請輸入數量',
                       v => v > 0 || '數量必須大於0'
@@ -719,7 +721,8 @@
                     class="ma-1"
                     style="width: 130px"
                     autocomplete="off"
-                    :readonly="facility.type === 'power' || facility.type === 'storage'"
+                    :disabled="props.readonly"
+                    
                     @focus="saveFacilitySnapshot(index)"
                     @update:model-value="updateFacilityTotal(index)"
                   />
@@ -1186,12 +1189,7 @@ const fundingSourceOptions = computed(() => {
       name: office.name
     }))
 
-     // 補上不在 offices 的獨立預算來源
-  const extraSources = [
-    { id: 23, name: '墊付預算' }
-  ]
-
-  return [...filtered, ...extraSources]
+  return filtered
 });
 
 // 驗證條件

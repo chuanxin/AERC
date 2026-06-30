@@ -217,11 +217,9 @@
               >
                 <v-data-table-virtual
                   :key="tableKey"
-                  v-model:selected="selectedGrants"
-                  show-select
                   fixed-header
                   :headers="headers"
-                  :items="displayGrantsList"
+                  :items="filteredDisplayList"
                   :loading="listLoading"
                   :height="500"
                   :search="search"
@@ -229,16 +227,13 @@
                   item-value="id"
                   class="grants-table rounded-lg"
                 >
-                  <!-- 自定義表頭：選取欄 -->
-                  <template #[`header.data-table-select`]>
-                    <div class="d-flex align-center">
-                      <span class="ml-2 text-subtitle-2 font-weight-medium">選取</span>
-                    </div>
+
+                  <!-- 序號欄位 -->
+                  <template #[`item.index`]="{ item }">
+                    {{ item._seq }}
                   </template>
-                  <!-- 案號欄位：移除後綴顯示 -->
-                  <template #[`item.case_number`]="{ item }">
-                    {{ formatCaseNumber(item.case_number) }}
-                  </template>
+
+                  <!-- 案件狀態欄位 -->
 
                   <!-- 案件狀態欄位 -->
                   <template #[`item.status`]="{ item }">
@@ -364,7 +359,7 @@
                   <template #bottom>
                     <div class="d-flex align-center pa-3">
                       <span class="text-body-2 text-medium-emphasis">
-                        共 {{ displayGrantsList.length }} 筆資料
+                        共 {{ filteredDisplayList.length }} 筆資料
                         <span
                           v-if="!isUsingApi"
                           class="text-warning"
@@ -535,12 +530,29 @@ const batchProcessing = ref(false) // 批次處理狀態
 const showBatchCrossYearDialog = ref(false) // 批次跨年度確認對話框
 
 // 篩選條件 - 設置預設值
+// 讀取之前儲存的狀態
+const savedSearch = JSON.parse(sessionStorage.getItem('grants_search_state') || 'null')
+
 const filters = reactive({
-  year: getCurrentYear(), // 預設為當年度
-  office_id: getUserOfficeId() // 預設為使用者所屬管理處
+  year: savedSearch?.year ?? getCurrentYear(),
+  office_id: savedSearch?.office_id ?? getUserOfficeId(),
+  status: '',
+  limit: undefined,
+  skip: 0,
 })
 
+const search = ref(savedSearch?.search ?? '')
+const tagFilter = ref(savedSearch?.tagFilter ?? '')
 
+// 儲存搜尋狀態到 sessionStorage
+const saveSearchState = () => {
+  sessionStorage.setItem('grants_search_state', JSON.stringify({
+    year: filters.year,
+    office_id: filters.office_id,
+    search: search.value,
+    tagFilter: tagFilter.value,
+  }))
+}
 // 從 store 取得狀態
 const {
   grantsList,
@@ -564,15 +576,29 @@ const displayGrantsList = computed(() => {
     land_data_search: `${item.land_locations || ''} ${item.facility_area_m2 || ''}`.trim()
   }))
   // 2. 進行排序：依照 case_number 升冪 
-  return mappedList.sort((a, b) => {
-    // 確保 case_number 存在，若無則排在最後
-    const caseA = a.case_number || ''
-    const caseB = b.case_number || ''
-    
-    // 使用 localeCompare 進行字串自然排序 (適合 "112-001", "112-002" 這種格式)
-    return caseA.localeCompare(caseB, 'zh-TW', { numeric: true })
-  })
+  return mappedList
+    .sort((a, b) => {
+      const caseA = a.case_number || ''
+      const caseB = b.case_number || ''
+      return caseA.localeCompare(caseB, 'zh-TW', { numeric: true })
+    })
+    .map((item, i) => ({ ...item, _seq: i + 1 }))
 
+})
+
+const filteredDisplayList = computed(() => {
+  if (!search.value) return displayGrantsList.value
+
+  const term = search.value.toLowerCase()
+  return displayGrantsList.value
+    .filter(item =>
+      (item.case_number && item.case_number.toLowerCase().includes(term)) ||
+      (item.applicant_name && item.applicant_name.toLowerCase().includes(term)) ||
+      (item.land_data_search && item.land_data_search.toLowerCase().includes(term)) ||
+      (item.office && item.office.toLowerCase().includes(term)) ||
+      (item.facility_type && item.facility_type.toLowerCase().includes(term))
+    )
+    .map((item, i) => ({ ...item, _seq: i + 1 }))  // 重新編序號
 })
 
 // 計算選取案件數量，確保響應式更新
@@ -581,17 +607,24 @@ const isBatchButtonDisabled = computed(() => selectedCount.value === 0)
 
 // 監聽選取變化，用於調試
 watch(selectedGrants, (newVal) => {
+
   console.log('🔍 [selectedGrants] 變化:', newVal)
   console.log('🔍 [selectedCount] 數量:', selectedCount.value)
 }, { deep: true })
 
+// watch 2：新增的搜尋狀態儲存（獨立出來）
+watch(
+  () => [search.value, tagFilter.value, filters.year, filters.office_id],
+  () => saveSearchState(),
+  { deep: true }
+)
+
 const allItems = ref<GrantItem[]>([])
 const loading = ref(true)
-const search = ref('')
+
 const selected = ref<string[]>([])
 
-// 標籤篩選
-const tagFilter = ref('')
+
 
 const updateTagFilter = async () => {
   grantsStore.clearSelectedGrants()
@@ -658,6 +691,7 @@ const allOfficeOptions = [
 
 // 表格標題
 const headers = ref([
+  { title: '序號', key: 'index', align: 'center' as const, width: '60px', sortable: false },
   { title: '管理處', key: 'office', align: 'start' as const, width: '120px' },
   { title: '年度', key: 'year', align: 'start' as const, width: '60px' },
   { title: '', key: 'tag', align: 'end' as const, width: '0px', sortable: false },
@@ -1165,18 +1199,16 @@ onMounted(async () => {
   }
 
   // 重新取得預設篩選條件（使用者資料載入後）
+  if (!savedSearch) {
   filters.year = getCurrentYear()
-  // 根據權限設定預設 Office
   if (userRole.value === 'user') {
-    // 一般使用者：強制鎖定在自己的 Office
     filters.office_id = currentUserOfficeId.value
-  } else if(userRole.value === 'superAdmin') {
-    filters.office_id = 22  
-  }else {
-    // Admin ：預設可以看全部 (null) 不含22的資料
-    // 設為 null = 「不篩選」列表
-    filters.office_id = null 
+  } else if (userRole.value === 'superAdmin') {
+    filters.office_id = 22
+  } else {
+    filters.office_id = null
   }
+}
 
   console.log('📊 [grants/index] 設定預設篩選條件:', {
     year: filters.year,

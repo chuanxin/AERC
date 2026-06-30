@@ -53,7 +53,7 @@ class FolderMappingsConfig:
     
     def _setup_file_settings(self):
         """檔案上傳設定"""
-        self.max_file_size = int(os.getenv("MAX_FILE_SIZE", "10485760"))
+        self.max_file_size = int(os.getenv("MAX_FILE_SIZE", "15782880"))  # 預設15MB
         self.max_files_per_upload = int(os.getenv("MAX_FILES_PER_UPLOAD", "5"))
         self.allowed_extensions = {'.jpg', '.jpeg', '.png', '.pdf', '.doc', '.docx'}
     
