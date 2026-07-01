@@ -9,6 +9,7 @@ Two-Layer Architecture (Simple Service):
 
 import logging
 import os
+import traceback
 import uuid
 import random
 from datetime import datetime, timedelta, timezone
@@ -91,11 +92,15 @@ class EmailService:
         try:
             # 檢查必要配置
             if not EmailConfig.MAIL_USERNAME or not EmailConfig.MAIL_PASSWORD:
-                print(f"Email 發送失敗: SMTP 認證資訊未設定 (MAIL_USERNAME={EmailConfig.MAIL_USERNAME!r}, MAIL_PASSWORD={'***' if EmailConfig.MAIL_PASSWORD else 'empty'})")
+                logger.error(
+                    "Email 發送失敗: SMTP 認證資訊未設定 (MAIL_USERNAME=%r, MAIL_PASSWORD=%s)",
+                    EmailConfig.MAIL_USERNAME,
+                    '***' if EmailConfig.MAIL_PASSWORD else 'empty',
+                )
                 return False
 
             if not EmailConfig.MAIL_SERVER:
-                print(f"Email 發送失敗: SMTP 伺服器未設定 (MAIL_SERVER={EmailConfig.MAIL_SERVER!r})")
+                logger.error("Email 發送失敗: SMTP 伺服器未設定 (MAIL_SERVER=%r)", EmailConfig.MAIL_SERVER)
                 return False
 
             message = MessageSchema(
@@ -105,19 +110,18 @@ class EmailService:
                 subtype=MessageType.html
             )
 
-            print(f"正在發送郵件至 {recipients} via {EmailConfig.MAIL_SERVER}:{EmailConfig.MAIL_PORT}")
+            logger.info("正在發送郵件至 %s via %s:%s", recipients, EmailConfig.MAIL_SERVER, EmailConfig.MAIL_PORT)
             await self.fast_mail.send_message(message)
-            print(f"郵件發送成功: {subject}")
+            logger.info("郵件發送成功: %s", subject)
             return True
         except Exception as e:
-            # 詳細記錄錯誤資訊
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"Email 發送失敗: {type(e).__name__}: {e}")
-            print(f"錯誤詳情:\n{error_details}")
-            print(f"SMTP 配置: SERVER={EmailConfig.MAIL_SERVER}, PORT={EmailConfig.MAIL_PORT}, "
-                  f"USERNAME={EmailConfig.MAIL_USERNAME!r}, STARTTLS={EmailConfig.MAIL_STARTTLS}, "
-                  f"SSL_TLS={EmailConfig.MAIL_SSL_TLS}")
+            logger.error("Email 發送失敗: %s: %s", type(e).__name__, e)
+            logger.debug("錯誤詳情:\n%s", traceback.format_exc())
+            logger.error(
+                "SMTP 配置: SERVER=%s, PORT=%s, USERNAME=%r, STARTTLS=%s, SSL_TLS=%s",
+                EmailConfig.MAIL_SERVER, EmailConfig.MAIL_PORT,
+                EmailConfig.MAIL_USERNAME, EmailConfig.MAIL_STARTTLS, EmailConfig.MAIL_SSL_TLS,
+            )
             return False
 
     async def create_auth_token(
