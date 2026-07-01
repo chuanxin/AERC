@@ -791,7 +791,7 @@ async def get_grant_by_case_number(case_number: str, grants_id: Optional[int] = 
     except DoesNotExist:
         raise HTTPException(status_code=404, detail=f"補助案件編號 {case_number} 不存在")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"案件不存在: {str(e)}")
+        raise AppError(500, "取得案件資料失敗", diagnostic=str(e))
 
 
 @validate_step_fields(step=1)
@@ -1091,7 +1091,7 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                     
                 except Exception as step2_error:
                     logger.error(f"Step 2 資料更新失敗，案件: {case_number}, 錯誤: {str(step2_error)}")
-                    raise HTTPException(status_code=500, detail=f"Step 2 資料更新失敗: {str(step2_error)}")
+                    raise AppError(500, "Step 2 資料更新失敗", diagnostic=str(step2_error))
                     
             elif step >= 3 and step <= 8:  # Steps 3-8 也儲存到 grant_versions
                 try:
@@ -1192,7 +1192,7 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
                     
                 except Exception as step_error:
                     logger.error(f"Step {step} 資料更新失敗，案件: {case_number}, 錯誤: {str(step_error)}")
-                    raise HTTPException(status_code=500, detail=f"Step {step} 資料更新失敗: {str(step_error)}")
+                    raise AppError(500, "資料更新失敗", diagnostic=f"Step {step}: {str(step_error)}")
             # Add cases for other steps as needed
             
             # Fetch and return the updated grant data
@@ -1202,7 +1202,7 @@ async def update_grant_step_data(case_number: str, step: int, data, current_user
             raise HTTPException(status_code=404, detail=f"補助案件編號 {case_number} 不存在")
         except Exception as e:
             logger.error(f"更新步驟 {step} 資料發生錯誤: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"更新步驟 {step} 資料發生錯誤: {str(e)}")
+            raise AppError(500, "資料更新失敗", diagnostic=f"步驟 {step}: {str(e)}")
 
 # async def update_grant(grant_id: int, grant_data: GrantUpdateSchema, current_user: UserOutSchema) -> Dict[str, Any]:
 #     """更新補助申請案件基本資料"""
@@ -1394,7 +1394,7 @@ async def delete_grant(grant_id: int, current_user: UserOutSchema) -> Dict[str, 
             
         except Exception as e:
             logger.error(f"刪除補助申請案件發生錯誤: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"刪除補助申請案件發生錯誤: {str(e)}")
+            raise AppError(500, "刪除補助申請案件發生錯誤", diagnostic=str(e))
 
 
 # async def get_grant_land_details(grant_id: int) -> Dict[str, Any]:
@@ -2407,13 +2407,13 @@ async def _check_subsidy_limit_guard(grant: Grants) -> None:
             continue
         raw = f.get("subsidyAmount", 0) or 0
         if raw != int(raw):
-            raise HTTPException(status_code=500, detail=f"設施補助金額包含非整數值：{raw}")
+            raise AppError(500, "補助金額格式錯誤", diagnostic=f"設施補助金額包含非整數值：{raw}")
         step4_subsidy += int(raw)
 
     step5_data = steps_data.get("5", {})
     step5_raw = step5_data.get("subsidyAmount", 0) or 0
     if step5_raw != int(step5_raw):
-        raise HTTPException(status_code=500, detail=f"田間管路補助金額包含非整數值：{step5_raw}")
+        raise AppError(500, "補助金額格式錯誤", diagnostic=f"田間管路補助金額包含非整數值：{step5_raw}")
     step5_subsidy = int(step5_raw)
 
     this_case_subsidy = step4_subsidy + step5_subsidy

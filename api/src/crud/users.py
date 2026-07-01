@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from src.exceptions import AppError
 from tortoise.exceptions import DoesNotExist, IntegrityError
 from src.auth.users import get_password_hash
 from src.database.models import Users, Offices
@@ -98,11 +99,11 @@ async def get_user_by_id(user_id: UserId) -> UserOutSchema:
             raise HTTPException(status_code=404, detail=f"User {user_id} not found")
         
         return await build_user_out_schema(user)
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise AppError(500, "操作失敗", diagnostic=str(e))
 
 async def get_user_by_username(username: str) -> UserOutSchema:
     """安全地根據用戶名獲取用戶"""
@@ -116,8 +117,8 @@ async def get_user_by_username(username: str) -> UserOutSchema:
             raise HTTPException(status_code=404, detail=f"User {username} not found")
         
         return await build_user_out_schema(user)
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise AppError(500, "操作失敗", diagnostic=str(e))

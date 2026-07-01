@@ -10,6 +10,7 @@ import logging
 from tortoise.transactions import in_transaction
 from tortoise.exceptions import DoesNotExist
 from fastapi import HTTPException
+from src.exceptions import AppError
 
 from src.database.models import (
     Grants, GrantVersions, GrantHistory,
@@ -123,7 +124,7 @@ class GrantVersionService:
                 
             except Exception as e:
                 logger.error(f"更新版本資料失敗: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"更新資料失敗: {str(e)}")
+                raise AppError(500, "更新資料失敗", diagnostic=str(e))
     
     @classmethod
     async def create_design_change_version(
@@ -202,7 +203,7 @@ class GrantVersionService:
                 raise
             except Exception as e:
                 logger.error(f"建立設計變更版本失敗: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"建立設計變更版本失敗: {str(e)}")
+                raise AppError(500, "建立設計變更版本失敗", diagnostic=str(e))
     
     @classmethod
     async def get_complete_case_data(
@@ -253,7 +254,7 @@ class GrantVersionService:
             raise HTTPException(status_code=404, detail=f"找不到案件 ID {grant_id}")
         except Exception as e:
             logger.error(f"取得完整案件資料失敗: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"取得案件資料失敗: {str(e)}")
+            raise AppError(500, "取得案件資料失敗", diagnostic=str(e))
     
     @classmethod
     async def get_version_history(cls, grant_id: int) -> List[Dict[str, Any]]:
@@ -280,7 +281,7 @@ class GrantVersionService:
             
         except Exception as e:
             logger.error(f"取得版本歷史失敗: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"取得版本歷史失敗: {str(e)}")
+            raise AppError(500, "取得版本歷史失敗", diagnostic=str(e))
     
     @classmethod
     async def get_change_history(cls, grant_id: int, limit: int = 50) -> List[Dict[str, Any]]:
@@ -313,7 +314,7 @@ class GrantVersionService:
             
         except Exception as e:
             logger.error(f"取得變更歷史失敗: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"取得變更歷史失敗: {str(e)}")
+            raise AppError(500, "取得變更歷史失敗", diagnostic=str(e))
     
     # 私有方法
     @classmethod

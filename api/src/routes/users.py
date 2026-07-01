@@ -294,7 +294,7 @@ async def verify_registration_otp(token: str, otp: str):
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="驗證失敗"
@@ -375,7 +375,7 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
         try:
             validate_password_strength(plaintext_password)
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise AppError(422, str(e))
 
         # 檢查帳號是否已存在
         existing_user = await Users.filter(username=payload.username).first()
@@ -1124,7 +1124,7 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
         try:
             validate_password_strength(plaintext_password)
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise AppError(422, str(e))
 
         # 更新密碼（包含三代不重複檢查）
         user = auth_token.user
@@ -1334,7 +1334,7 @@ async def complete_account_migration(payload: AccountMigrationCompleteRequest):
         try:
             validate_password_strength(plaintext_password)
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise AppError(422, str(e))
 
         # 更新使用者資訊（僅更新有提供的欄位，PII 欄位加密後寫入）
         if payload.full_name:
