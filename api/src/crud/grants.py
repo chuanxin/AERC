@@ -10,10 +10,7 @@ from tortoise.expressions import Q
 from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus, GrantActionType, GrantVersions, GrantPapers)
 from src.config.field_mappings import FieldMappingConfig, validate_step_fields
 from src.schemas.users import UserOutSchema
-from src.services.data_encryption import data_encryption_service
-
-# Grant 表中的 PII 欄位（讀取時必須解密）
-_GRANT_PII_DB_FIELDS = frozenset({'applicant_name', 'applicant_id', 'applicant_phone', 'applicant_phone2', 'address'})
+from src.services.data_encryption import data_encryption_service, GRANT_PII_FIELDS
 from src.schemas.grants import (
     GrantInSchema, GrantUpdateSchema, GrantStepSchema, 
     GrantSearchSchema, GrantLandInSchema, GrantCreateRequestSchema, GrantCreateResponseSchema
@@ -873,7 +870,7 @@ def build_step_response_data(grant: Grants, step: int) -> Dict[str, Any]:
     for db_field, api_field in db_to_api_mapping.items():
         try:
             db_value = getattr(grant, db_field, None)
-            if db_field in _GRANT_PII_DB_FIELDS:
+            if db_field in GRANT_PII_FIELDS:
                 db_value = data_encryption_service.decrypt(db_value)
             if api_field == "receivedDate" and db_value:
                 step_data[api_field] = format_tw_date(db_value)

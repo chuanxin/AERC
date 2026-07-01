@@ -15,10 +15,7 @@ from src.database.models import (
     Grants, GrantVersions, GrantHistory,
     GrantActionType, GrantStatus
 )
-from src.services.data_encryption import data_encryption_service
-
-# PII 欄位：寫入 Grants 前必須加密，JSONB step 1 中的 PII 子欄位清單與此一致
-GRANT_PII_FIELDS = frozenset({'applicant_name', 'applicant_id', 'applicant_phone', 'applicant_phone2', 'address'})
+from src.services.data_encryption import data_encryption_service, GRANT_PII_FIELDS, GRANT_PII_HISTORY_FIELDS
 
 logger = logging.getLogger(__name__)
 
@@ -97,10 +94,8 @@ class GrantVersionService:
                 await current_version.save()
                 
                 # step 1 PII 遮罩後寫入歷史（避免明文 PII 落入 grant_history.new_value）
-                _STEP1_PII = {"applicant_name", "applicant_id", "applicant_phone",
-                              "applicant_phone2", "address", "name", "id", "phone", "phone2"}
                 history_new_value = (
-                    {k: ("***" if k in _STEP1_PII else v) for k, v in step_data.items()}
+                    {k: ("***" if k in GRANT_PII_HISTORY_FIELDS else v) for k, v in step_data.items()}
                     if step == 1 else step_data
                 )
                 await cls._create_history_record(
