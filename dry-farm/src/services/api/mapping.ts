@@ -44,6 +44,7 @@ export const BACKEND_PATHS = {
     DETAIL: (id: number | string) => `/user/${id}`,
     DELETE: (id: number | string) => `/user/${id}`,
     CHECK_USERNAME: (username: string) => `/check-username/${username}`,
+    CHECK_EMAIL: (email: string) => `/check-email/${email}`,
     SEND_REGISTRATION_OTP: '/send-registration-otp',
     VERIFY_REGISTRATION_OTP: '/verify-registration-otp',
     REGISTER: '/register',
@@ -398,6 +399,11 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配帳號檢查路徑 {API_PREFIX}/users/check-username/{username}
     pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/check-username/([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USERS.CHECK_USERNAME(matches[1])
+  },
+  {
+    // 匹配 Email 檢查路徑 {API_PREFIX}/users/check-email/{email}
+    pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/check-email/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USERS.CHECK_EMAIL(matches[1])
   },
   {
     // 匹配發送註冊 OTP 路徑 {API_PREFIX}/users/send-registration-otp

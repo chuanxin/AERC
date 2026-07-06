@@ -418,11 +418,14 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
                 is_active=False,
                 role="user"
             )
-        except IntegrityError:
+        except IntegrityError as e:
             # 極罕見的並發競態：兩個請求同時通過前置唯一性檢查
             if await Users.filter(username=payload.username).exists():
                 raise HTTPException(status_code=409, detail="此帳號已被使用")
-            raise HTTPException(status_code=409, detail="此電子郵件已被使用")
+            if await Users.filter(email=payload.email).exists():
+                raise HTTPException(status_code=409, detail="此電子郵件已被使用")
+            # 非 username/email 唯一性衝突（例如 PK 序列不同步），不可歸咎於使用者輸入
+            raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))
 
         # 建立申請記錄（儲存申請原因，加密 PII）
         await UserRegistration.create(
