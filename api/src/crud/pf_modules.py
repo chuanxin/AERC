@@ -1,9 +1,12 @@
+import logging
 from typing import List, Optional
 from tortoise.exceptions import DoesNotExist, IntegrityError
 from fastapi import HTTPException
 
 from src.database.models import PFModules # 假設您的模型在這裡
 from src.schemas.pf_modules import PFModulesCreate, PFModulesUpdate
+
+logger = logging.getLogger(__name__)
 
 async def get_module(module_id: int) -> Optional[PFModules]:
     try:
@@ -23,7 +26,9 @@ async def create_module(module_in: PFModulesCreate) -> PFModules:
     try:
         module_obj = await PFModules.create(**module_in.dict())
         return module_obj
-    except IntegrityError: # 通常是因為 name 字段的 unique 約束
+    except IntegrityError as e:
+        # PFModules 僅 name 欄位為 unique；若非此欄位衝突（如 PK 序列問題），log 保留診斷
+        logger.warning("[create_module] IntegrityError（name=%s）：%s", module_in.name, str(e))
         raise HTTPException(status_code=409, detail="管件功能類型名稱已存在")
 
 async def update_module(module_id: int, module_in: PFModulesUpdate) -> Optional[PFModules]:
@@ -38,14 +43,9 @@ async def update_module(module_id: int, module_in: PFModulesUpdate) -> Optional[
     try:
         await module_obj.save()
         return module_obj
-    except IntegrityError:
-        # 確保如果 name 是 unique 的，這裡能正確處理
-        # 這裡的 detail 信息可能需要根據實際的 unique 字段調整
-        updated_name = update_data.get("name")
-        if updated_name:
-             raise HTTPException(status_code=409, detail="管件功能類型名稱已存在")
-        else:
-            raise HTTPException(status_code=409, detail="管件功能類型名稱已存在")
+    except IntegrityError as e:
+        logger.warning("[update_module] IntegrityError（id=%s）：%s", module_id, str(e))
+        raise HTTPException(status_code=409, detail="管件功能類型名稱已存在")
 
 
 async def delete_module(module_id: int) -> bool:

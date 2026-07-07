@@ -28,7 +28,13 @@ https://stackoverflow.com/questions/65531387/tortoise-orm-for-python-no-returns-
 """
 from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops, user_management, permissions, leisure_farms, nlsc, auth_keys
 
-app = FastAPI()
+# OpenAPI 端點預設關閉
+IS_PRODUCTION = os.getenv("AERC_ENV") == "production"
+app = FastAPI(
+    docs_url="/docs" if not IS_PRODUCTION else None,
+    redoc_url="/redoc" if not IS_PRODUCTION else None,
+    openapi_url="/openapi.json" if not IS_PRODUCTION else None,
+)
 
 logger = logging.getLogger("api.error_handlers")
 

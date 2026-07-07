@@ -1,9 +1,12 @@
+import logging
 from typing import Dict, Any
 from fastapi import HTTPException
 from tortoise.exceptions import DoesNotExist, IntegrityError
 from src.schemas.offices import OfficeOutSchema
 
 from src.database.models import Offices
+
+logger = logging.getLogger(__name__)
 
 
 async def paginate_queryset(queryset, page: int = 1, size: int = 10):
@@ -55,7 +58,10 @@ async def create_office(data: Dict[str, Any]):
     """創建新的管理處/單位"""
     try:
         return await Offices.create(**data)
-    except IntegrityError:
+    except IntegrityError as e:
+        # name/short_name/code 三個候選欄位皆可能觸發，訊息刻意不指控單一欄位；
+        # 保留診斷以便排查非這三者造成的衝突（如 PK 序列問題）
+        logger.warning("[create_office] IntegrityError（data=%s）：%s", data, str(e))
         raise HTTPException(status_code=409, detail="單位名稱、縮寫或代碼已存在")
 
 
@@ -70,7 +76,8 @@ async def update_office(office_id: int, data: Dict[str, Any]):
 
         await office.save()
         return office
-    except IntegrityError:
+    except IntegrityError as e:
+        logger.warning("[update_office] IntegrityError（office_id=%s）：%s", office_id, str(e))
         raise HTTPException(status_code=409, detail="單位名稱、縮寫或代碼已存在")
 
 

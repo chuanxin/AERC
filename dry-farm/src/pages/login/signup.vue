@@ -828,6 +828,7 @@
           formErrors.value.username = response.message
         }
       } catch (error) {
+        console.error('[handleUsernameInput] 帳號可用性檢查失敗:', error)
       } finally {
         usernameChecking.value = false
       }
@@ -859,6 +860,7 @@
           formErrors.value.email = response.message
         }
       } catch (error) {
+        console.error('[handleEmailInput] Email 可用性檢查失敗:', error)
       } finally {
         emailChecking.value = false
       }

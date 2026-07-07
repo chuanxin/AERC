@@ -66,28 +66,22 @@ security = OAuth2PasswordBearerCookie(token_url="/login")
 async def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
 
-    # 查詢 pwd_iat（必須在裸 except 的 try 區塊之外，避免靜默缺失導致所有 token 立即失效）
+    # 單一查詢取得 pwd_iat 與角色/權限資訊；失敗一律明確回報 500
     try:
-        _u = await Users.get(username=data.get("sub"))
-        pwd_iat = int(_u.password_changed_at.timestamp()) if _u.password_changed_at else 0
+        user = await Users.get(username=data.get("sub"))
     except DoesNotExist:
         raise HTTPException(
             status_code=500,
             detail={"error_code": "TOKEN_CREATION_FAILED", "message": "無法建立憑證，使用者不存在"},
         )
-    to_encode["pwd_iat"] = pwd_iat
 
-    # 取得使用者資料以獲取角色和部門資訊
-    try:
-        user = await Users.get(username=data.get("sub"))
-        to_encode.update({
-            "is_active": user.is_active,
-            "role": user.role,
-            "department": user.department,
-            "permissions": user.permissions
-        })
-    except:
-        pass
+    to_encode["pwd_iat"] = int(user.password_changed_at.timestamp()) if user.password_changed_at else 0
+    to_encode.update({
+        "is_active": user.is_active,
+        "role": user.role,
+        "department": user.department,
+        "permissions": user.permissions,
+    })
     
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
