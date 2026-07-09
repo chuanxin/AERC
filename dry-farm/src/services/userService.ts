@@ -35,9 +35,11 @@ export interface User {
 }
 
 export interface LoginResponse {
-  message: string
+  message?: string
   access_token?: string
   password_expired?: boolean
+  mfa_required?: boolean
+  mfa_token?: string
 }
 
 export interface UpdateUserData {

@@ -338,6 +338,13 @@
           permission: { module: 'users', action: 'view' }
         },
         {
+          title: 'IP 白名單管理',
+          value: 'config-security',
+          to: { path: '/config/security' },
+          icon: 'mdi-shield-lock-outline',
+          permission: { module: 'security', action: 'view' }
+        },
+        {
           title: '帳號資訊',
           value: 'account-profile',
           to: { path: '/profile' },

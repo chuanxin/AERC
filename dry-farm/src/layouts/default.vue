@@ -1,6 +1,6 @@
 <template>
   <NavBar />
-  <v-main class="default-layout">
+  <v-main class="default-layout" style="background-color: #ffffff">
     <!-- <v-card
       v-if="route.path !== '/'"
       flat
@@ -81,6 +81,11 @@
       '/supplies': '材料管理',
       '/maps': 'GIS圖台',
       '/config': '系統管理',
+      '/config/accounts': '使用者管理',
+      '/config/permissions': '權限管理',
+      '/config/announcements': '公告管理',
+      '/config/layers': '圖層管理',
+      '/config/security': 'IP 白名單管理',
       '/bug-report': '回報問題',
       '/budget': '預算執行即時資訊',
       '/downloads': '文件下載',
@@ -89,19 +94,49 @@
 
     // Split the current path into segments and build breadcrumbs
     const pathSegments = route.path.split('/').filter(Boolean) // Remove empty segments
+
+    // Sub-routes that should NOT show the parent "補助案件申請"
+    // since /grants itself is not a functional page.
+    const suppressedParentForSubRoute: Set<string> = new Set([
+      '/grants/query',
+      '/grants/new',
+      '/grants/edit',
+      '/grants/statements',
+      '/config/accounts',
+      '/config/security',
+    ])
+
     let currentPath = ''
 
-    pathSegments.forEach(segment => {
-      currentPath += `/${segment}`
+    for (let i = 0; i < pathSegments.length; i++) {
+      currentPath += `/${pathSegments[i]}`
+
+      // If currentPath is the final path and is a suppressed sub-route, add it directly
+      if (suppressedParentForSubRoute.has(currentPath) && currentPath === route.path) {
+        items.push({
+          title: pathTitles[currentPath],
+          disabled: true,
+          href: '',
+        })
+        break
+      }
+
+      // If currentPath + next segment would form a suppressed sub-route, skip this parent
+      if (i < pathSegments.length - 1) {
+        const nextPath = currentPath + `/${pathSegments[i + 1]}`
+        if (suppressedParentForSubRoute.has(nextPath)) {
+          continue
+        }
+      }
 
       if (pathTitles[currentPath]) {
         items.push({
           title: pathTitles[currentPath],
           disabled: currentPath === route.path,
-          href: currentPath === route.path ? '' : currentPath
+          href: currentPath === route.path ? '' : currentPath,
         })
       }
-    })
+    }
 
     return items
   })

@@ -49,6 +49,8 @@ class ModuleName(str, Enum):
     DUPLICATE_CHECK = "duplicate_check"  # 重複查核
     MATERIALS = "materials"            # 材料管理
     DOWNLOADS = "downloads"            # 下載管理
+    # 032 新增
+    SECURITY = "security"              # IP 白名單管理、MFA 待驗證 OTP 查詢
 
 
 class DepartmentFilterSchema(BaseModel):
@@ -97,6 +99,8 @@ class CustomModulePermissionsSchema(BaseModel):
     duplicate_check: Optional[List[PermissionAction]] = Field(None, description="重複查核權限")
     materials: Optional[List[PermissionAction]] = Field(None, description="材料管理權限")
     downloads: Optional[List[PermissionAction]] = Field(None, description="下載管理權限")
+    # 032 新增（TD-013: 同步新增 ModuleName enum 值時，此處需同步新增欄位）
+    security: Optional[List[PermissionAction]] = Field(None, description="IP 白名單管理、MFA 待驗證 OTP 查詢權限")
 
     @field_validator('*', mode='before')
     @classmethod

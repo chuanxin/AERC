@@ -23,6 +23,20 @@ export const AUTH = {
   PUBLIC_KEY: `${BASE}/auth/public-key`,
 }
 
+// MFA (第二因子驗證) related endpoints
+export const MFA = {
+  SEND: `${BASE}/mfa/send`,
+  VERIFY: `${BASE}/mfa/verify`,
+}
+
+// Security (IP 白名單管理、MFA 待驗證 OTP 查詢) related endpoints
+export const SECURITY = {
+  IP_WHITELIST_LIST: `${BASE}/security/ip-whitelist`,
+  IP_WHITELIST_CREATE: `${BASE}/security/ip-whitelist`,
+  IP_WHITELIST_UPDATE: (id: number) => `${BASE}/security/ip-whitelist/${id}`,
+  MFA_PENDING_OTP: (userId: number) => `${BASE}/security/mfa/pending-otp/${userId}`,
+}
+
 // user management related endpoints
 export const USERS = {
   BASE: `${BASE}/users`,

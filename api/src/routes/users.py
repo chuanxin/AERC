@@ -42,8 +42,10 @@ from datetime import datetime, timezone
 from src.auth.jwthandler import (
     create_access_token,
     get_current_user,
+    build_login_response,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
+from src.auth.client_ip import get_client_ip, is_ip_whitelisted
 
 from src.schemas.users import (
     AccountMigrationOTPVerifyRequest,
@@ -447,6 +449,7 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
 
 @router.post("/login")
 async def login(
+    request: Request,
     username: str = Form(..., max_length=20),
     encrypted_password: str = Form(...),
     encrypted_key: str = Form(...),
@@ -523,30 +526,52 @@ async def login(
 
     password_expired = check_password_expired(user)
 
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = await create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    token = jsonable_encoder(access_token)
-    content = {
-        "message": "You've successfully logged in. Welcome back!",
-        "access_token": token,
-        "password_expired": password_expired,
-    }
-    response = JSONResponse(content=content)
-    response.set_cookie(
-        "Authorization",
-        value=f"Bearer {token}",
-        httponly=True,
-        samesite="Lax",
-        secure=True,
-    )
+    # IP 白名單 / MFA 分流（FR-001：僅在密碼驗證成功之後執行）
+    client_ip = get_client_ip(request)
+    is_whitelisted = await is_ip_whitelisted(client_ip)
+    user_agent = request.headers.get("user-agent", "")
 
-    return response
+    if not is_whitelisted:
+        email_service = EmailService()
+        mfa_auth_token = await email_service.create_auth_token(
+            user=user,
+            token_type=AuthTokenType.MFA_VERIFICATION,
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+        await audit_service.log(
+            event_type=AuditEventType.AUTH,
+            action=AuditAction.LOGIN,
+            result=AuditResult.SUCCESS,
+            actor_id=user.id,
+            actor_username=user.username,
+            actor_role=user.role,
+            resource_type="login",
+            ip_address=client_ip,
+            user_agent=user_agent,
+            endpoint=str(request.url.path),
+            changed_fields={"ip_whitelisted": False, "mfa_required": True},
+        )
+        return {"mfa_required": True, "mfa_token": mfa_auth_token.token}
+
+    await audit_service.log(
+        event_type=AuditEventType.AUTH,
+        action=AuditAction.LOGIN,
+        result=AuditResult.SUCCESS,
+        actor_id=user.id,
+        actor_username=user.username,
+        actor_role=user.role,
+        resource_type="login",
+        ip_address=client_ip,
+        user_agent=user_agent,
+        endpoint=str(request.url.path),
+        changed_fields={"ip_whitelisted": True},
+    )
+    return await build_login_response(user, password_expired)
 
 
 @router.post("/login-secure")
-async def login_with_captcha(payload: EncryptedSecureLoginRequest):
+async def login_with_captcha(request: Request, payload: EncryptedSecureLoginRequest):
     """
     帶驗證碼的安全登入（加密格式）
 
@@ -631,27 +656,48 @@ async def login_with_captcha(payload: EncryptedSecureLoginRequest):
     # 7. 檢查密碼是否過期
     password_expired = check_password_expired(user)
 
-    # 8. 生成 JWT Token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = await create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    token = jsonable_encoder(access_token)
-    content = {
-        "message": "You've successfully logged in. Welcome back!",
-        "access_token": token,
-        "password_expired": password_expired,
-    }
-    response = JSONResponse(content=content)
-    response.set_cookie(
-        "Authorization",
-        value=f"Bearer {token}",
-        httponly=True,
-        samesite="Lax",
-        secure=True,
-    )
+    # 8. IP 白名單 / MFA 分流（FR-001：僅在密碼驗證成功之後執行）
+    client_ip = get_client_ip(request)
+    is_whitelisted = await is_ip_whitelisted(client_ip)
+    user_agent = request.headers.get("user-agent", "")
 
-    return response
+    if not is_whitelisted:
+        email_service = EmailService()
+        mfa_auth_token = await email_service.create_auth_token(
+            user=user,
+            token_type=AuthTokenType.MFA_VERIFICATION,
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+        await audit_service.log(
+            event_type=AuditEventType.AUTH,
+            action=AuditAction.LOGIN,
+            result=AuditResult.SUCCESS,
+            actor_id=user.id,
+            actor_username=user.username,
+            actor_role=user.role,
+            resource_type="login",
+            ip_address=client_ip,
+            user_agent=user_agent,
+            endpoint=str(request.url.path),
+            changed_fields={"ip_whitelisted": False, "mfa_required": True},
+        )
+        return {"mfa_required": True, "mfa_token": mfa_auth_token.token}
+
+    await audit_service.log(
+        event_type=AuditEventType.AUTH,
+        action=AuditAction.LOGIN,
+        result=AuditResult.SUCCESS,
+        actor_id=user.id,
+        actor_username=user.username,
+        actor_role=user.role,
+        resource_type="login",
+        ip_address=client_ip,
+        user_agent=user_agent,
+        endpoint=str(request.url.path),
+        changed_fields={"ip_whitelisted": True},
+    )
+    return await build_login_response(user, password_expired)
 
 
 @router.post("/refresh")
