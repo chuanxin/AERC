@@ -34,10 +34,12 @@ class PermissionService:
             ModuleName.DUPLICATE_CHECK: {PermissionAction.VIEW},
             ModuleName.MATERIALS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE},
             ModuleName.DOWNLOADS: {PermissionAction.VIEW},
+            # 032 新增：僅 admin 可管理 IP 白名單與查詢待驗證 OTP
+            ModuleName.SECURITY: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT},
         },
         "manager": {
-            # manager.GRANTS: VIEW + APPROVE + EXPORT（無 CREATE/EDIT，033 修正）
-            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.APPROVE, PermissionAction.EXPORT},
+            # manager.GRANTS: VIEW + CREATE + EDIT + APPROVE + EXPORT（本辦管理者可建立及編輯本辦案件）
+            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.APPROVE, PermissionAction.EXPORT},
             ModuleName.USERS: {PermissionAction.VIEW, PermissionAction.APPROVE, PermissionAction.EDIT},
             ModuleName.REPORTS: {PermissionAction.VIEW, PermissionAction.EXPORT},
             ModuleName.GIS: {PermissionAction.VIEW, PermissionAction.EDIT},
@@ -47,6 +49,7 @@ class PermissionService:
             ModuleName.DUPLICATE_CHECK: {PermissionAction.VIEW},
             ModuleName.MATERIALS: {PermissionAction.VIEW},
             ModuleName.DOWNLOADS: {PermissionAction.VIEW},
+            ModuleName.SECURITY: set(),
         },
         "staff": {
             ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.EXPORT},
@@ -59,6 +62,7 @@ class PermissionService:
             ModuleName.DUPLICATE_CHECK: {PermissionAction.VIEW},
             ModuleName.MATERIALS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE},
             ModuleName.DOWNLOADS: {PermissionAction.VIEW},
+            ModuleName.SECURITY: set(),
         },
         "user": {
             # user.GRANTS: VIEW + CREATE + EDIT（033 補足，申請人提交補助申請所需）
@@ -73,6 +77,7 @@ class PermissionService:
             ModuleName.DUPLICATE_CHECK: {PermissionAction.VIEW},
             ModuleName.MATERIALS: {PermissionAction.VIEW},
             ModuleName.DOWNLOADS: {PermissionAction.VIEW},
+            ModuleName.SECURITY: set(),
         },
     }
 
@@ -226,6 +231,8 @@ class PermissionService:
             module_permissions = custom.materials
         elif module == ModuleName.DOWNLOADS:
             module_permissions = custom.downloads
+        elif module == ModuleName.SECURITY:
+            module_permissions = custom.security
 
         if module_permissions is None:
             return False, f"模組 '{module.value}' 無自訂權限"
@@ -282,6 +289,7 @@ class PermissionService:
                     "duplicate_check": [a.value for a in user_permissions.custom.duplicate_check] if user_permissions.custom.duplicate_check else [],
                     "materials": [a.value for a in user_permissions.custom.materials] if user_permissions.custom.materials else [],
                     "downloads": [a.value for a in user_permissions.custom.downloads] if user_permissions.custom.downloads else [],
+                    "security": [a.value for a in user_permissions.custom.security] if user_permissions.custom.security else [],
                 }
         else:
             modules = {}
