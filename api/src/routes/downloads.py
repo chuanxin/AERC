@@ -245,7 +245,7 @@ async def download_photograph_carry_form(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成檔案失敗: {str(e)}")
+        raise AppError(500, "生成檔案失敗", diagnostic=str(e))
 
 @router.post("/check-data")
 async def check_data_availability(
@@ -284,7 +284,7 @@ async def check_data_availability(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"檢查資料失敗: {str(e)}")
+        raise AppError(500, "檢查資料失敗", diagnostic=str(e))
 
 @router.post("/budget-book")
 async def download_budget_book(
@@ -396,7 +396,7 @@ async def download_budget_book(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成工程預算書失敗: {str(e)}")
+        raise AppError(500, "生成工程預算書失敗", diagnostic=str(e))
 
 @router.post("/construction-photos")
 async def download_construction_photos(
@@ -491,7 +491,7 @@ async def download_construction_photos(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成施工前後照片ZIP失敗: {str(e)}")
+        raise AppError(500, "生成施工前後照片ZIP失敗", diagnostic=str(e))
 
 
 @router.post("/address-labels")
@@ -602,7 +602,7 @@ async def download_closing_docs(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成結案文件失敗: {str(e)}")
+        raise AppError(500, "生成結案文件失敗", diagnostic=str(e))
 
 
 @router.post("/receipts")
@@ -663,7 +663,7 @@ async def download_receipts(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成收據 PDF 失敗: {str(e)}")
+        raise AppError(500, "生成收據 PDF 失敗", diagnostic=str(e))
 
 
 @router.post("/test-reports")
@@ -724,7 +724,7 @@ async def download_test_reports(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成功能測試報告書 PDF 失敗: {str(e)}")
+        raise AppError(500, "生成功能測試報告書 PDF 失敗", diagnostic=str(e))
 
 
 @router.post("/review-form")
@@ -785,7 +785,7 @@ async def download_review_form(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成書面審查表 PDF 失敗: {str(e)}")
+        raise AppError(500, "生成書面審查表 PDF 失敗", diagnostic=str(e))
 
 
 @router.post("/cover-page")
@@ -846,7 +846,7 @@ async def download_cover_page(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成封面 PDF 失敗: {str(e)}")
+        raise AppError(500, "生成封面 PDF 失敗", diagnostic=str(e))
 
 
 # ── 管路補助金額明細表所需的灌溉型式正規化映射 ─────────────────────────────────
@@ -999,7 +999,7 @@ async def download_subsidy_details_list(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"生成明細表失敗：{str(e)}")
+        raise AppError(500, "生成明細表失敗", diagnostic=str(e))
 
 
 @router.get("/test")
@@ -1178,7 +1178,7 @@ async def list_static_files(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"掃描檔案失敗: {str(e)}")
+        raise AppError(500, "掃描檔案失敗", diagnostic=str(e))
 
 def _validate_file_security(file_path: Path) -> bool:
     """檔案安全性驗證"""

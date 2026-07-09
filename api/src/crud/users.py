@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from src.exceptions import AppError
 from tortoise.exceptions import DoesNotExist, IntegrityError
 from src.auth.users import get_password_hash
 from src.database.models import Users, Offices
@@ -6,16 +7,23 @@ from src.schemas.token import Status
 from src.schemas.users import UserOutSchema, UserInSchema, SimpleOfficeSchema, UserId
 from datetime import datetime, timezone
 
-async def create_user(user_in: UserInSchema) -> UserOutSchema: # type: ignore[UserInSchema, UserOutSchema]
-    # user_in.password = pwd_context.encrypt(user_in.password)
-    user_in.password = get_password_hash(user_in.password)
 
-    try:
-        user_obj = await Users.create(**user_in.dict(exclude_unset=True))
-    except IntegrityError:
-        raise HTTPException(status_code=401, detail=f"Sorry, that username already exists.")
-
-    return await build_user_out_schema(user_obj)
+# 實際帳號申請流程直接寫在 routes/users.py 的 /register，不經過此函數。
+# 保留作為參考修復範例（AERC-0417 同款 IntegrityError 刪除法猜測問題），暫不啟用。
+#
+# async def create_user(user_in: UserInSchema) -> UserOutSchema: # type: ignore[UserInSchema, UserOutSchema]
+#     # user_in.password = pwd_context.encrypt(user_in.password)
+#     user_in.password = get_password_hash(user_in.password)
+#
+#     try:
+#         user_obj = await Users.create(**user_in.dict(exclude_unset=True))
+#     except IntegrityError as e:
+#         if await Users.filter(username=user_in.username).exists():
+#             raise HTTPException(status_code=409, detail="此帳號已被使用")
+#         # Users.email 並非 unique 欄位，不可比照猜測；查不到已知候選原因就誠實回報
+#         raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))
+#
+#     return await build_user_out_schema(user_obj)
 
 
 async def delete_user(user_id: UserId, current_user: UserOutSchema) -> Status: # type: ignore[UserOutSchema]
@@ -98,11 +106,11 @@ async def get_user_by_id(user_id: UserId) -> UserOutSchema:
             raise HTTPException(status_code=404, detail=f"User {user_id} not found")
         
         return await build_user_out_schema(user)
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise AppError(500, "操作失敗", diagnostic=str(e))
 
 async def get_user_by_username(username: str) -> UserOutSchema:
     """安全地根據用戶名獲取用戶"""
@@ -116,8 +124,8 @@ async def get_user_by_username(username: str) -> UserOutSchema:
             raise HTTPException(status_code=404, detail=f"User {username} not found")
         
         return await build_user_out_schema(user)
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise AppError(500, "操作失敗", diagnostic=str(e))

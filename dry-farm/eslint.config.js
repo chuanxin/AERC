@@ -31,6 +31,10 @@ export default [
         },
       ],
       'vue/multi-word-component-names': 'off',
+      'vue/max-attributes-per-line': ['error', {
+        singleline: 5,  // 改為 5 個
+        multiline: 1
+      }],
     }
   }
 ]

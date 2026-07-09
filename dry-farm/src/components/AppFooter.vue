@@ -75,8 +75,9 @@
 
 .transparent-footer
   background-image: url('@/assets/bg_footer.svg');
-  background-size: cover;
+  background-size: contain;
   background-repeat: no-repeat;
+  background-position: bottom center;
   width: 100%;
   min-height: 300px
   background-color: transparent

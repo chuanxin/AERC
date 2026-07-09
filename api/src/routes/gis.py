@@ -23,6 +23,7 @@ if hasattr(locale, 'setlocale'):
             pass
 
 from fastapi import APIRouter, Query, HTTPException
+from src.exceptions import AppError
 from typing import List, Optional, Dict, Any
 import json
 from tortoise import connections
@@ -221,7 +222,7 @@ async def get_spatial_points(
         }
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        raise AppError(500, "Database error", diagnostic=str(e))
 
 @router.get("/stats")
 async def get_spatial_stats() -> Dict[str, Any]:
@@ -265,7 +266,7 @@ async def get_spatial_stats() -> Dict[str, Any]:
         }
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        raise AppError(500, "Database error", diagnostic=str(e))
 
 @router.get("/search")
 async def search_by_criteria(
@@ -366,4 +367,4 @@ async def search_by_criteria(
         }
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        raise AppError(500, "Database error", diagnostic=str(e))

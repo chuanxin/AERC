@@ -42,8 +42,10 @@ from datetime import datetime, timezone
 from src.auth.jwthandler import (
     create_access_token,
     get_current_user,
+    build_login_response,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
+from src.auth.client_ip import get_client_ip, is_ip_whitelisted
 
 from src.schemas.users import (
     AccountMigrationOTPVerifyRequest,
@@ -294,7 +296,7 @@ async def verify_registration_otp(token: str, otp: str):
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="驗證失敗"
@@ -375,7 +377,7 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
         try:
             validate_password_strength(plaintext_password)
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise AppError(422, str(e))
 
         # 檢查帳號是否已存在
         existing_user = await Users.filter(username=payload.username).first()
@@ -418,11 +420,14 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
                 is_active=False,
                 role="user"
             )
-        except IntegrityError:
+        except IntegrityError as e:
             # 極罕見的並發競態：兩個請求同時通過前置唯一性檢查
             if await Users.filter(username=payload.username).exists():
                 raise HTTPException(status_code=409, detail="此帳號已被使用")
-            raise HTTPException(status_code=409, detail="此電子郵件已被使用")
+            if await Users.filter(email=payload.email).exists():
+                raise HTTPException(status_code=409, detail="此電子郵件已被使用")
+            # 非 username/email 唯一性衝突（例如 PK 序列不同步），不可歸咎於使用者輸入
+            raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))
 
         # 建立申請記錄（儲存申請原因，加密 PII）
         await UserRegistration.create(
@@ -444,6 +449,7 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
 
 @router.post("/login")
 async def login(
+    request: Request,
     username: str = Form(..., max_length=20),
     encrypted_password: str = Form(...),
     encrypted_key: str = Form(...),
@@ -520,30 +526,52 @@ async def login(
 
     password_expired = check_password_expired(user)
 
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = await create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    token = jsonable_encoder(access_token)
-    content = {
-        "message": "You've successfully logged in. Welcome back!",
-        "access_token": token,
-        "password_expired": password_expired,
-    }
-    response = JSONResponse(content=content)
-    response.set_cookie(
-        "Authorization",
-        value=f"Bearer {token}",
-        httponly=True,
-        samesite="Lax",
-        secure=True,
-    )
+    # IP 白名單 / MFA 分流（FR-001：僅在密碼驗證成功之後執行）
+    client_ip = get_client_ip(request)
+    is_whitelisted = await is_ip_whitelisted(client_ip)
+    user_agent = request.headers.get("user-agent", "")
 
-    return response
+    if not is_whitelisted:
+        email_service = EmailService()
+        mfa_auth_token = await email_service.create_auth_token(
+            user=user,
+            token_type=AuthTokenType.MFA_VERIFICATION,
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+        await audit_service.log(
+            event_type=AuditEventType.AUTH,
+            action=AuditAction.LOGIN,
+            result=AuditResult.SUCCESS,
+            actor_id=user.id,
+            actor_username=user.username,
+            actor_role=user.role,
+            resource_type="login",
+            ip_address=client_ip,
+            user_agent=user_agent,
+            endpoint=str(request.url.path),
+            changed_fields={"ip_whitelisted": False, "mfa_required": True},
+        )
+        return {"mfa_required": True, "mfa_token": mfa_auth_token.token}
+
+    await audit_service.log(
+        event_type=AuditEventType.AUTH,
+        action=AuditAction.LOGIN,
+        result=AuditResult.SUCCESS,
+        actor_id=user.id,
+        actor_username=user.username,
+        actor_role=user.role,
+        resource_type="login",
+        ip_address=client_ip,
+        user_agent=user_agent,
+        endpoint=str(request.url.path),
+        changed_fields={"ip_whitelisted": True},
+    )
+    return await build_login_response(user, password_expired)
 
 
 @router.post("/login-secure")
-async def login_with_captcha(payload: EncryptedSecureLoginRequest):
+async def login_with_captcha(request: Request, payload: EncryptedSecureLoginRequest):
     """
     帶驗證碼的安全登入（加密格式）
 
@@ -628,27 +656,48 @@ async def login_with_captcha(payload: EncryptedSecureLoginRequest):
     # 7. 檢查密碼是否過期
     password_expired = check_password_expired(user)
 
-    # 8. 生成 JWT Token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = await create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    token = jsonable_encoder(access_token)
-    content = {
-        "message": "You've successfully logged in. Welcome back!",
-        "access_token": token,
-        "password_expired": password_expired,
-    }
-    response = JSONResponse(content=content)
-    response.set_cookie(
-        "Authorization",
-        value=f"Bearer {token}",
-        httponly=True,
-        samesite="Lax",
-        secure=True,
-    )
+    # 8. IP 白名單 / MFA 分流（FR-001：僅在密碼驗證成功之後執行）
+    client_ip = get_client_ip(request)
+    is_whitelisted = await is_ip_whitelisted(client_ip)
+    user_agent = request.headers.get("user-agent", "")
 
-    return response
+    if not is_whitelisted:
+        email_service = EmailService()
+        mfa_auth_token = await email_service.create_auth_token(
+            user=user,
+            token_type=AuthTokenType.MFA_VERIFICATION,
+            ip_address=client_ip,
+            user_agent=user_agent,
+        )
+        await audit_service.log(
+            event_type=AuditEventType.AUTH,
+            action=AuditAction.LOGIN,
+            result=AuditResult.SUCCESS,
+            actor_id=user.id,
+            actor_username=user.username,
+            actor_role=user.role,
+            resource_type="login",
+            ip_address=client_ip,
+            user_agent=user_agent,
+            endpoint=str(request.url.path),
+            changed_fields={"ip_whitelisted": False, "mfa_required": True},
+        )
+        return {"mfa_required": True, "mfa_token": mfa_auth_token.token}
+
+    await audit_service.log(
+        event_type=AuditEventType.AUTH,
+        action=AuditAction.LOGIN,
+        result=AuditResult.SUCCESS,
+        actor_id=user.id,
+        actor_username=user.username,
+        actor_role=user.role,
+        resource_type="login",
+        ip_address=client_ip,
+        user_agent=user_agent,
+        endpoint=str(request.url.path),
+        changed_fields={"ip_whitelisted": True},
+    )
+    return await build_login_response(user, password_expired)
 
 
 @router.post("/refresh")
@@ -1124,7 +1173,7 @@ async def reset_password(payload: PasswordResetConfirm, request: Request):
         try:
             validate_password_strength(plaintext_password)
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise AppError(422, str(e))
 
         # 更新密碼（包含三代不重複檢查）
         user = auth_token.user
@@ -1334,7 +1383,7 @@ async def complete_account_migration(payload: AccountMigrationCompleteRequest):
         try:
             validate_password_strength(plaintext_password)
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise AppError(422, str(e))
 
         # 更新使用者資訊（僅更新有提供的欄位，PII 欄位加密後寫入）
         if payload.full_name:

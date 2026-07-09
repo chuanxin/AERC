@@ -60,6 +60,7 @@ class AuthTokenType(str, Enum):
     EMAIL_VERIFICATION = "email_verification"  # Email 驗證
     PASSWORD_RESET = "password_reset"  # 密碼重設
     ACCOUNT_MIGRATION = "account_migration"  # 帳號轉移（舊系統使用者啟用）
+    MFA_VERIFICATION = "mfa_verification"  # 登入第二因子驗證（IP 白名單外來源）
 
 
 class AuthTokenStatus(str, Enum):
@@ -91,6 +92,12 @@ class AuthToken(models.Model):
         max_length=6, null=True, description="6位數字 OTP（僅密碼重設使用）"
     )
     otp_verified = fields.BooleanField(default=False, description="OTP 是否已驗證")
+    otp_attempt_count = fields.IntField(
+        default=0, description="累計 OTP 核對失敗次數（MFA_VERIFICATION 用，達 5 次即撤銷）"
+    )
+    otp_sent_at = fields.DatetimeField(
+        null=True, description="最近一次發送 OTP 的時間（MFA_VERIFICATION 60 秒冷卻基準）"
+    )
 
     # 時效性
     created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
@@ -114,6 +121,32 @@ class AuthToken(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.token_type.value} - {self.status.value}"
+
+
+class IPWhitelistEntry(models.Model):
+    """IP 白名單網段資料表 - 命中網段的登入來源可跳過 MFA"""
+
+    id = fields.IntField(pk=True)
+    cidr = fields.CharField(max_length=50, description="IPv4 CIDR 網段，如 192.168.1.0/24")
+    name = fields.CharField(max_length=100, description="說明名稱")
+    is_active = fields.BooleanField(default=True, description="是否啟用（停用不刪除）")
+    is_archived = fields.BooleanField(
+        default=False, description="是否已封存（僅從清單隱藏，不刪除紀錄；只有已停用的網段才能封存）"
+    )
+    created_by = fields.ForeignKeyField(
+        "models.Users", related_name="ip_whitelist_entries", description="建立者"
+    )
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+
+    class Meta:
+        table = "security_ip_whitelist"
+        table_description = "IP 白名單網段資料表"
+        indexes = [
+            ("is_active",),
+        ]
+
+    def __str__(self):
+        return f"{self.cidr} ({self.name})"
 
 
 class AuthNonce(models.Model):

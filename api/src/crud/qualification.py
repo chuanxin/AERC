@@ -6,6 +6,7 @@ import json
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 import hashlib
+import logging
 from datetime import datetime
 
 from tortoise.exceptions import DoesNotExist
@@ -19,6 +20,8 @@ from ..schemas.qualification import (
     QueryInfo, ResponseMetadata, QualificationResponse,
     AreaCheckRequest, AreaCheckResponse
 )
+
+logger = logging.getLogger(__name__)
 
 
 class QualificationCRUD:
@@ -281,9 +284,13 @@ class QualificationCRUD:
                                 if step5_data:
                                     irrigation_type = step5_data.get("irrigationType")
                 else:
-                        grant_id = str(location.source_id)
-            except Exception:
-                # 如果找不到對應的 grant_version，使用 source_id 作為後備
+                    grant_id = str(location.source_id)
+            except Exception as e:
+                # 查詢 grant_version 發生非預期例外，記錄診斷後降級使用 source_id 作為後備
+                logger.warning(
+                    "[_convert_to_case_item] 查詢 grant_version 失敗（source_id=%s）：%s",
+                    location.source_id, str(e),
+                )
                 grant_id = str(location.source_id)
 
         # 查詢 office_boundaries (如果需要)
@@ -383,12 +390,13 @@ class QualificationCRUD:
                 if facility_types:
                     return ", ".join(facility_types)
                 
-        except DoesNotExist:
-            pass
-        except Exception:
-            # 任何其他異常都回傳預設值
-            pass
-        
+        except Exception as e:
+            # 非預期例外，記錄診斷後降級回傳預設值（"歷史案件"）
+            logger.warning(
+                "[_infer_legacy_case_type] 推斷案件類型失敗（source_id=%s）：%s",
+                source_id, str(e),
+            )
+
         # 如果無法判斷或發生錯誤，回傳歷史案件作為預設值
         return "歷史案件"
     @staticmethod

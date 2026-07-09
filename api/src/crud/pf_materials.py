@@ -1,9 +1,12 @@
+import logging
 from typing import List, Optional
 from tortoise.exceptions import DoesNotExist, IntegrityError
 from fastapi import HTTPException
 
 from src.database.models import PFMaterials # 假設您的模型在這裡
 from src.schemas.pf_materials import PFMaterialsCreate, PFMaterialsUpdate
+
+logger = logging.getLogger(__name__)
 
 async def get_material(material_id: int) -> Optional[PFMaterials]:
     try:
@@ -23,7 +26,9 @@ async def create_material(material_in: PFMaterialsCreate) -> PFMaterials:
     try:
         material_obj = await PFMaterials.create(**material_in.dict())
         return material_obj
-    except IntegrityError: # 通常是因為 name 字段的 unique 約束
+    except IntegrityError as e:
+        # PFMaterials 僅 name 欄位為 unique；若非此欄位衝突（如 PK 序列問題），log 保留診斷
+        logger.warning("[create_material] IntegrityError（name=%s）：%s", material_in.name, str(e))
         raise HTTPException(status_code=409, detail="管件材質名稱已存在")
 
 async def update_material(material_id: int, material_in: PFMaterialsUpdate) -> Optional[PFMaterials]:
@@ -38,14 +43,9 @@ async def update_material(material_id: int, material_in: PFMaterialsUpdate) -> O
     try:
         await material_obj.save()
         return material_obj
-    except IntegrityError:
-        # 確保如果 name 是 unique 的，這裡能正確處理
-        # 這裡的 detail 信息可能需要根據實際的 unique 字段調整
-        updated_name = update_data.get("name")
-        if updated_name:
-             raise HTTPException(status_code=409, detail="管件材質名稱已存在")
-        else:
-            raise HTTPException(status_code=409, detail="管件材質名稱已存在")
+    except IntegrityError as e:
+        logger.warning("[update_material] IntegrityError（id=%s）：%s", material_id, str(e))
+        raise HTTPException(status_code=409, detail="管件材質名稱已存在")
 
 
 async def delete_material(material_id: int) -> bool:

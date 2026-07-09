@@ -154,6 +154,7 @@ const ROLE_RESTRICTED_ROUTES: Record<string, RouteRule> = {
     requiredPermission: { module: 'users', action: 'view' },
     redirectTo: (from) => (from.name != null ? from.path : '/'),
   },
+  '/config/security': { requiredPermission: { module: 'security', action: 'view' }, redirectTo: '/403' },
   '/budget': { requiredPermission: { module: 'reports', action: 'view' }, redirectTo: '/403' },
 }
 

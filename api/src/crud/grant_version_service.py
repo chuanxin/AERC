@@ -10,15 +10,13 @@ import logging
 from tortoise.transactions import in_transaction
 from tortoise.exceptions import DoesNotExist
 from fastapi import HTTPException
+from src.exceptions import AppError
 
 from src.database.models import (
     Grants, GrantVersions, GrantHistory,
     GrantActionType, GrantStatus
 )
-from src.services.data_encryption import data_encryption_service
-
-# PII 欄位：寫入 Grants 前必須加密，JSONB step 1 中的 PII 子欄位清單與此一致
-GRANT_PII_FIELDS = frozenset({'applicant_name', 'applicant_id', 'applicant_phone', 'applicant_phone2', 'address'})
+from src.services.data_encryption import data_encryption_service, GRANT_PII_FIELDS, GRANT_PII_HISTORY_FIELDS
 
 logger = logging.getLogger(__name__)
 
@@ -97,10 +95,8 @@ class GrantVersionService:
                 await current_version.save()
                 
                 # step 1 PII 遮罩後寫入歷史（避免明文 PII 落入 grant_history.new_value）
-                _STEP1_PII = {"applicant_name", "applicant_id", "applicant_phone",
-                              "applicant_phone2", "address", "name", "id", "phone", "phone2"}
                 history_new_value = (
-                    {k: ("***" if k in _STEP1_PII else v) for k, v in step_data.items()}
+                    {k: ("***" if k in GRANT_PII_HISTORY_FIELDS else v) for k, v in step_data.items()}
                     if step == 1 else step_data
                 )
                 await cls._create_history_record(
@@ -128,7 +124,7 @@ class GrantVersionService:
                 
             except Exception as e:
                 logger.error(f"更新版本資料失敗: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"更新資料失敗: {str(e)}")
+                raise AppError(500, "更新資料失敗", diagnostic=str(e))
     
     @classmethod
     async def create_design_change_version(
@@ -207,7 +203,7 @@ class GrantVersionService:
                 raise
             except Exception as e:
                 logger.error(f"建立設計變更版本失敗: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"建立設計變更版本失敗: {str(e)}")
+                raise AppError(500, "建立設計變更版本失敗", diagnostic=str(e))
     
     @classmethod
     async def get_complete_case_data(
@@ -258,7 +254,7 @@ class GrantVersionService:
             raise HTTPException(status_code=404, detail=f"找不到案件 ID {grant_id}")
         except Exception as e:
             logger.error(f"取得完整案件資料失敗: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"取得案件資料失敗: {str(e)}")
+            raise AppError(500, "取得案件資料失敗", diagnostic=str(e))
     
     @classmethod
     async def get_version_history(cls, grant_id: int) -> List[Dict[str, Any]]:
@@ -285,7 +281,7 @@ class GrantVersionService:
             
         except Exception as e:
             logger.error(f"取得版本歷史失敗: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"取得版本歷史失敗: {str(e)}")
+            raise AppError(500, "取得版本歷史失敗", diagnostic=str(e))
     
     @classmethod
     async def get_change_history(cls, grant_id: int, limit: int = 50) -> List[Dict[str, Any]]:
@@ -318,7 +314,7 @@ class GrantVersionService:
             
         except Exception as e:
             logger.error(f"取得變更歷史失敗: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"取得變更歷史失敗: {str(e)}")
+            raise AppError(500, "取得變更歷史失敗", diagnostic=str(e))
     
     # 私有方法
     @classmethod

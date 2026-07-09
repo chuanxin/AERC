@@ -23,6 +23,7 @@ if hasattr(locale, 'setlocale'):
             pass
 
 from fastapi import APIRouter, HTTPException
+from src.exceptions import AppError
 from typing import Dict, Any, List
 import json
 import httpx
@@ -103,7 +104,7 @@ async def query_office_boundaries(geometry_data: Dict[str, Any]) -> Dict[str, An
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Office boundaries spatial query error: {str(e)}")
+        raise AppError(500, "Office boundaries spatial query error", diagnostic=str(e))
 
 
 @router.post("/county") 
@@ -164,7 +165,7 @@ async def query_county_boundaries(geometry_data: Dict[str, Any]) -> Dict[str, An
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"County boundaries spatial query error: {str(e)}")
+        raise AppError(500, "County boundaries spatial query error", diagnostic=str(e))
 
 
 @router.get("/land-sections/{county_land_code}/{town_land_code}", deprecated=True)

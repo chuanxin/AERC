@@ -51,6 +51,7 @@
             </h2>
 
             <v-form
+              v-if="!mfaRequired"
               id="loginForm"
               @submit.prevent="handleLogin"
             >
@@ -140,11 +141,76 @@
                   href="/login/reset"
                   class="footer-link"
                 >忘記密碼?</a>
-                <!-- <span class="footer-separator">|</span>
+                <span class="footer-separator">|</span>
                  <a
                   href="/login/signup"
                   class="footer-link"
-                >帳號申請</a> -->
+                >帳號申請</a>
+              </div>
+            </v-form>
+
+            <!-- MFA 驗證碼輸入步驟（白名單外來源登入，見 User Story 1） -->
+            <v-form
+              v-else
+              id="mfaForm"
+              @submit.prevent="verifyMfaOtp"
+            >
+              <p class="mfa-hint mb-3">
+                請點擊右側「發送驗證碼」後，輸入寄送至信箱{{ maskedEmail ? `（${maskedEmail}）` : '' }}的 6 碼驗證碼，完成二因子驗證
+              </p>
+
+              <v-text-field
+                v-model="otpCode"
+                placeholder="6 碼驗證碼"
+                variant="outlined"
+                density="comfortable"
+                class="login-input otp-input mb-2"
+                maxlength="6"
+                inputmode="numeric"
+                hide-details
+              >
+                <template #append-inner>
+                  <v-btn
+                    variant="text"
+                    size="small"
+                    color="primary"
+                    class="otp-send-btn"
+                    :loading="otpSending"
+                    @click.stop="sendMfaOtp"
+                  >
+                    {{ otpCountdown > 0 ? `(${otpCountdown}s)` : (maskedEmail ? '重新發送' : '發送驗證碼') }}
+                  </v-btn>
+                </template>
+              </v-text-field>
+
+              <v-alert
+                v-if="otpError"
+                type="error"
+                variant="tonal"
+                density="compact"
+                class="mb-3"
+              >
+                {{ otpError }}<template v-if="otpAttemptsRemaining !== null">（剩餘 {{ otpAttemptsRemaining }} 次）</template>
+              </v-alert>
+
+              <v-btn
+                type="submit"
+                color="primary"
+                size="x-large"
+                class="login-button mb-2"
+                block
+                :loading="otpVerifying"
+                :disabled="otpVerifying || otpCode.length !== 6"
+              >
+                驗證並登入
+              </v-btn>
+
+              <div class="login-footer-links">
+                <a
+                  href="#"
+                  class="footer-link"
+                  @click.prevent="clearMfaSession"
+                >返回登入</a>
               </div>
             </v-form>
           </div>
@@ -175,6 +241,7 @@
               </h2>
 
               <v-form
+                v-if="!mfaRequired"
                 id="loginFormMobile"
                 @submit.prevent="handleLogin"
               >
@@ -263,11 +330,76 @@
                     href="/login/reset"
                     class="footer-link"
                   >忘記密碼?</a>
-                  <!--<span class="footer-separator">|</span>
+                  <span class="footer-separator">|</span>
                    <a
                     href="#"
                     class="footer-link"
-                  >帳號申請</a> -->
+                  >帳號申請</a>
+                </div>
+              </v-form>
+
+              <!-- MFA 驗證碼輸入步驟（白名單外來源登入，見 User Story 1） -->
+              <v-form
+                v-else
+                id="mfaFormMobile"
+                @submit.prevent="verifyMfaOtp"
+              >
+                <p class="mfa-hint mb-3">
+                  請點擊右側「發送驗證碼」後，輸入寄送至信箱{{ maskedEmail ? `（${maskedEmail}）` : '' }}的 6 碼驗證碼，完成二因子驗證
+                </p>
+
+                <v-text-field
+                  v-model="otpCode"
+                  placeholder="6 碼驗證碼"
+                  variant="outlined"
+                  density="comfortable"
+                  class="login-input otp-input mb-2"
+                  maxlength="6"
+                  inputmode="numeric"
+                  hide-details
+                >
+                  <template #append-inner>
+                    <v-btn
+                      variant="text"
+                      size="small"
+                      color="primary"
+                      class="otp-send-btn"
+                      :loading="otpSending"
+                      @click.stop="sendMfaOtp"
+                    >
+                      {{ otpCountdown > 0 ? `(${otpCountdown}s)` : (maskedEmail ? '重新發送' : '發送驗證碼') }}
+                    </v-btn>
+                  </template>
+                </v-text-field>
+
+                <v-alert
+                  v-if="otpError"
+                  type="error"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3"
+                >
+                  {{ otpError }}<template v-if="otpAttemptsRemaining !== null">（剩餘 {{ otpAttemptsRemaining }} 次）</template>
+                </v-alert>
+
+                <v-btn
+                  type="submit"
+                  color="primary"
+                  :size="$vuetify.display.xs ? 'large' : 'x-large'"
+                  class="login-button mb-2"
+                  block
+                  :loading="otpVerifying"
+                  :disabled="otpVerifying || otpCode.length !== 6"
+                >
+                  驗證並登入
+                </v-btn>
+
+                <div class="login-footer-links">
+                  <a
+                    href="#"
+                    class="footer-link"
+                    @click.prevent="clearMfaSession"
+                  >返回登入</a>
                 </div>
               </v-form>
             </div>
@@ -305,9 +437,10 @@
   import { useUserStore } from '@/stores/users'
   import { useOfficesStore } from '@/stores/offices'
   import { apiService } from '@/services/api/http'
-  import { AUTH } from '@/services/api/endpoints'
+  import { AUTH, MFA } from '@/services/api/endpoints'
   import { getServerPublicKey } from '@/services/authKeyService'
   import { encryptPassword, generateNonce } from '@/utils/passwordEncryption'
+  import { userService } from '@/services/userService'
   import packageInfo from '../../../package.json'
 // import { de } from 'vuetify/locale'
 
@@ -336,6 +469,133 @@
   const successMessage = ref(route.query.message === 'password_changed' ? '密碼已成功更換，請以新密碼重新登入' : '');
 
   const currentYear = new Date().getFullYear();
+
+  // MFA（第二因子驗證）狀態，見 contracts/frontend-mfa-flow-contract.md
+  const MFA_SESSION_KEY = 'mfa_session'
+  const mfaRequired = ref(false)
+  const mfaToken = ref('')
+  const otpCode = ref('')
+  const otpSentAt = ref<number | null>(null)
+  const otpError = ref('')
+  const otpAttemptsRemaining = ref<number | null>(null)
+  const maskedEmail = ref('')
+  const otpSending = ref(false)
+  const otpVerifying = ref(false)
+  const otpCountdown = ref(0)
+  let countdownTimer: ReturnType<typeof setInterval> | null = null
+
+  function stopCountdown() {
+    if (countdownTimer) {
+      clearInterval(countdownTimer)
+      countdownTimer = null
+    }
+  }
+
+  // 倒數僅供 UX 參考顯示，不作為「重新發送」按鈕是否可點擊的判斷依據（見 frontend-mfa-flow-contract.md 強制規則）
+  function startCountdown(seconds: number) {
+    stopCountdown()
+    otpCountdown.value = seconds
+    countdownTimer = setInterval(() => {
+      if (otpCountdown.value > 0) {
+        otpCountdown.value -= 1
+      } else {
+        stopCountdown()
+      }
+    }, 1000)
+  }
+
+  function saveMfaSession() {
+    sessionStorage.setItem(MFA_SESSION_KEY, JSON.stringify({
+      mfaToken: mfaToken.value,
+      otpSentAt: otpSentAt.value,
+    }))
+  }
+
+  function enterMfaStep(token: string) {
+    mfaToken.value = token
+    otpSentAt.value = null
+    otpCode.value = ''
+    otpError.value = ''
+    otpAttemptsRemaining.value = null
+    maskedEmail.value = ''
+    mfaRequired.value = true
+    saveMfaSession()
+  }
+
+  function clearMfaSession() {
+    sessionStorage.removeItem(MFA_SESSION_KEY)
+    mfaRequired.value = false
+    mfaToken.value = ''
+    otpCode.value = ''
+    otpSentAt.value = null
+    otpError.value = ''
+    otpAttemptsRemaining.value = null
+    maskedEmail.value = ''
+    stopCountdown()
+  }
+
+  async function sendMfaOtp() {
+    otpSending.value = true
+    otpError.value = ''
+    try {
+      const response: any = await apiService.post(MFA.SEND, { mfa_token: mfaToken.value })
+      maskedEmail.value = response?.masked_email ?? ''
+      otpSentAt.value = Date.now()
+      saveMfaSession()
+      startCountdown(response?.retry_after_seconds ?? 60)
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail
+      const detailMessage = typeof detail === 'string' ? detail : detail?.message
+      if (error?.response?.status === 429 && detail?.retry_after_seconds) {
+        startCountdown(detail.retry_after_seconds)
+      }
+      otpError.value = detailMessage || '發送失敗，請稍後再試'
+    } finally {
+      otpSending.value = false
+    }
+  }
+
+  async function verifyMfaOtp() {
+    otpVerifying.value = true
+    otpError.value = ''
+    try {
+      const response: any = await apiService.post(MFA.VERIFY, {
+        mfa_token: mfaToken.value,
+        otp: otpCode.value,
+      })
+      const accessToken = response?.access_token
+      if (accessToken) {
+        localStorage.setItem('auth_token', accessToken)
+        userStore.setToken(accessToken)
+        userStore.passwordExpired = response?.password_expired ?? false
+        await userStore.fetchCurrentUser()
+        clearMfaSession()
+        if (response?.password_expired) {
+          await router.push('/login/change-password')
+        } else {
+          await router.push(redirectPath.value)
+        }
+      } else {
+        otpError.value = '驗證失敗，未收到有效 token'
+      }
+    } catch (error: any) {
+      const status = error?.response?.status
+      const detail = error?.response?.data?.detail
+      const detailMessage = typeof detail === 'string' ? detail : detail?.message
+      if (status === 401) {
+        // 達失敗次數上限，mfa_token 已失效，須重新登入
+        clearMfaSession()
+        errorMessage.value = detailMessage || '驗證失敗次數過多，請重新登入'
+      } else if (status === 422) {
+        otpAttemptsRemaining.value = detail?.attempts_remaining ?? null
+        otpError.value = detailMessage || '驗證碼錯誤'
+      } else {
+        otpError.value = detailMessage || '驗證失敗，請稍後再試'
+      }
+    } finally {
+      otpVerifying.value = false
+    }
+  }
 
   const generateCaptcha = async () => {
     captchaLoading.value = true
@@ -371,6 +631,29 @@
 
   // Generate initial CAPTCHA on component mount
   onMounted(async () => {
+    // MFA 頁面重整復原（User Story 3）：純靠 sessionStorage 自行還原，不呼叫任何後端狀態查詢端點
+    const savedMfaSession = sessionStorage.getItem(MFA_SESSION_KEY)
+    if (savedMfaSession) {
+      try {
+        const parsed = JSON.parse(savedMfaSession) as { mfaToken: string; otpSentAt: number | null }
+        if (parsed?.mfaToken) {
+          mfaToken.value = parsed.mfaToken
+          otpSentAt.value = parsed.otpSentAt
+          mfaRequired.value = true
+          if (parsed.otpSentAt) {
+            // 60 秒為冷卻常數的參考值，僅供 UX 顯示；實際是否可重新發送一律由伺服器回應決定
+            const elapsedSeconds = Math.floor((Date.now() - parsed.otpSentAt) / 1000)
+            const remainingSeconds = 60 - elapsedSeconds
+            if (remainingSeconds > 0) {
+              startCountdown(remainingSeconds)
+            }
+          }
+        }
+      } catch {
+        sessionStorage.removeItem(MFA_SESSION_KEY)
+      }
+    }
+
     await generateCaptcha()
 
     // Load offices if not already loaded
@@ -432,6 +715,12 @@
 
         console.log('Login response:', response)
 
+        // IP 白名單外來源：進入 MFA 驗證步驟（FR-001）
+        if (response?.mfa_required && response?.mfa_token) {
+          enterMfaStep(response.mfa_token)
+          return
+        }
+
         // 處理 token
         const accessToken = response?.access_token
         if (accessToken) {
@@ -474,20 +763,29 @@
 
         console.log('Attempting login with client-side captcha')
 
-        const result = await userStore.login(loginData)
+        const response = await userService.login(loginData)
 
-        if (result) {
+        // IP 白名單外來源：進入 MFA 驗證步驟（FR-001，/login 為現行備援路徑，須與 /login-secure 同步保護）
+        if (response?.mfa_required && response?.mfa_token) {
+          enterMfaStep(response.mfa_token)
+          return
+        }
+
+        if (response?.access_token) {
+          userStore.setToken(response.access_token)
+          userStore.passwordExpired = response.password_expired ?? false
+          await userStore.fetchCurrentUser()
+
           if (rememberMe.value) {
             localStorage.setItem('remember_login', 'true')
           }
-          // 密碼過期則強制跳轉更換頁（fallback 路徑，passwordExpired 已由 userStore.login 設定）
-          if (userStore.passwordExpired) {
+          if (response.password_expired) {
             await router.push('/login/change-password')
           } else {
             await router.push(redirectPath.value)
           }
         } else {
-          alert(userStore.error || '登入失敗，請檢查帳號和密碼')
+          alert('登入失敗，請檢查帳號和密碼')
           await generateCaptcha()
         }
       }
@@ -823,6 +1121,14 @@
     font-size: 25pt !important;
   }
 
+  /* MFA 驗證碼步驟提示文字 */
+  .mfa-hint {
+    font-family: 'HunInn', sans-serif !important;
+    color: #333333 !important;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+
   /* ============================================== */
   /* Input 組件樣式覆寫 */
   /* ============================================== */
@@ -959,6 +1265,22 @@
 
   .password-toggle-icon:hover {
     color: #3ea0a3 !important;
+  }
+
+  /* ============================================== */
+  /* MFA 驗證碼發送按鈕（整併於輸入欄位內） */
+  /* ============================================== */
+  .otp-send-btn {
+    font-family: 'HunInn', sans-serif !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    min-width: 0 !important;
+    padding: 0 8px !important;
+    font-size: 11pt !important;
+  }
+
+  :deep(.otp-input input) {
+    padding-right: 4px !important;
   }
 </style>
 

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from typing import List, Optional
 from pydantic import BaseModel
+from src.exceptions import AppError
 from src.database.audit_models import AuditEventType, AuditAction, AuditResult
 from src.database.models import GrantAttachments, Grants, Users
 from src.services.audit_service import audit_service
@@ -161,7 +162,7 @@ async def upload_attachment(
         logger.error("附件上傳驗證失敗 grant_id=%s step=%s: %s", grant_id, step, str(e))
         raise HTTPException(status_code=400, detail="檔案格式或大小不符合規定")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"上傳失敗: {str(e)}")
+        raise AppError(500, "上傳失敗", diagnostic=str(e))
 
 @router.get("/list/{grant_id}/{step}")
 async def list_attachments(
@@ -216,7 +217,7 @@ async def list_attachments(
             "has_more": offset + limit < total_count
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"查詢失敗: {str(e)}")
+        raise AppError(500, "查詢失敗", diagnostic=str(e))
 
 @router.get("/download/{attachment_id}")
 async def download_attachment(attachment_id: int, current_user: Users = Depends(require_full_auth)):
@@ -239,7 +240,7 @@ async def download_attachment(attachment_id: int, current_user: Users = Depends(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"下載失敗: {str(e)}")
+        raise AppError(500, "下載失敗", diagnostic=str(e))
 
 @router.get("/info/{attachment_id}")
 async def get_attachment_info(attachment_id: int, current_user: Users = Depends(require_full_auth)):
@@ -266,7 +267,7 @@ async def get_attachment_info(attachment_id: int, current_user: Users = Depends(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"查詢失敗: {str(e)}")
+        raise AppError(500, "查詢失敗", diagnostic=str(e))
 
 @router.delete(
     "/{attachment_id}",
@@ -296,7 +297,7 @@ async def delete_attachment(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"刪除失敗: {str(e)}")
+        raise AppError(500, "刪除失敗", diagnostic=str(e))
 
 @router.post(
     "/batch-operation",
@@ -329,4 +330,4 @@ async def batch_operation(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"批量操作失敗: {str(e)}")
+        raise AppError(500, "批量操作失敗", diagnostic=str(e))

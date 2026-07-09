@@ -1,4 +1,4 @@
-import { AUTH, DOMICILE, OFFICES, USERS, USER_MANAGEMENT, PERMISSIONS, GRANTS, STATISTICS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, CROPS, GIS, QUALIFICATION, SPATIAL, DOWNLOADS, ATTACHMENTS, LEISURE_FARMS, NLSC } from './endpoints';
+import { AUTH, MFA, SECURITY, DOMICILE, OFFICES, USERS, USER_MANAGEMENT, PERMISSIONS, GRANTS, STATISTICS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, CROPS, GIS, QUALIFICATION, SPATIAL, DOWNLOADS, ATTACHMENTS, LEISURE_FARMS, NLSC } from './endpoints';
 
 // 取得當前的 API 版本前綴
 const API_BASE_URL = import.meta.env.FAST_API_BASE_URL || '';
@@ -38,12 +38,24 @@ export const BACKEND_PATHS = {
     PASSWORD_POLICY: '/password-policy',
     PUBLIC_KEY: '/auth/public-key',
   },
+  // MFA（第二因子驗證）相關
+  MFA: {
+    SEND: '/mfa/send',
+    VERIFY: '/mfa/verify',
+  },
+  // Security（IP 白名單管理、MFA 待驗證 OTP 查詢）相關
+  SECURITY: {
+    IP_WHITELIST_LIST: '/security/ip-whitelist',
+    IP_WHITELIST_UPDATE: (id: number) => `/security/ip-whitelist/${id}`,
+    MFA_PENDING_OTP: (userId: number) => `/security/mfa/pending-otp/${userId}`,
+  },
   // 用戶管理相關
   USERS: {
     LIST: '/users',
     DETAIL: (id: number | string) => `/user/${id}`,
     DELETE: (id: number | string) => `/user/${id}`,
     CHECK_USERNAME: (username: string) => `/check-username/${username}`,
+    CHECK_EMAIL: (email: string) => `/check-email/${email}`,
     SEND_REGISTRATION_OTP: '/send-registration-otp',
     VERIFY_REGISTRATION_OTP: '/verify-registration-otp',
     REGISTER: '/register',
@@ -241,6 +253,10 @@ export const API_MAPPING: Record<string, string> = {
   [AUTH.CHANGE_PASSWORD]:BACKEND_PATHS.AUTH.CHANGE_PASSWORD,
   [AUTH.PASSWORD_POLICY]:BACKEND_PATHS.AUTH.PASSWORD_POLICY,
   [AUTH.PUBLIC_KEY]: BACKEND_PATHS.AUTH.PUBLIC_KEY,
+  [MFA.SEND]: BACKEND_PATHS.MFA.SEND,
+  [MFA.VERIFY]: BACKEND_PATHS.MFA.VERIFY,
+  [SECURITY.IP_WHITELIST_LIST]: BACKEND_PATHS.SECURITY.IP_WHITELIST_LIST,
+  [SECURITY.IP_WHITELIST_CREATE]: BACKEND_PATHS.SECURITY.IP_WHITELIST_LIST,
   [USERS.LIST]: BACKEND_PATHS.USERS.LIST,
   [USERS.MIGRATE_VERIFY_OTP]: BACKEND_PATHS.USERS.MIGRATE_VERIFY_OTP,
   [USERS.MIGRATE]: BACKEND_PATHS.USERS.MIGRATE,
@@ -332,6 +348,17 @@ export const API_MAPPING: Record<string, string> = {
 
 // 動態參數路徑匹配規則
 export const DYNAMIC_PATH_PATTERNS = [
+  // ========== Security 相關路徑 ==========
+  {
+    // 匹配 IP 白名單更新路徑 /security/ip-whitelist/{id}
+    pattern: /^\/security\/ip-whitelist\/(\d+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.SECURITY.IP_WHITELIST_UPDATE(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配 MFA 待驗證 OTP 查詢路徑 /security/mfa/pending-otp/{user_id}
+    pattern: /^\/security\/mfa\/pending-otp\/(\d+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.SECURITY.MFA_PENDING_OTP(parseInt(matches[1], 10))
+  },
   // ========== Grants 相關路徑（優先匹配，順序很重要）==========
   {
     // 🔥 匹配申請人補助額度摘要路徑 /grants/applicant-subsidy-summary/{applicantId}/{year}
@@ -398,6 +425,11 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配帳號檢查路徑 {API_PREFIX}/users/check-username/{username}
     pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/check-username/([^/]+)$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USERS.CHECK_USERNAME(matches[1])
+  },
+  {
+    // 匹配 Email 檢查路徑 {API_PREFIX}/users/check-email/{email}
+    pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/check-email/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USERS.CHECK_EMAIL(matches[1])
   },
   {
     // 匹配發送註冊 OTP 路徑 {API_PREFIX}/users/send-registration-otp

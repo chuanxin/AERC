@@ -5,7 +5,9 @@ import secrets
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-STEP1_PII_KEYS = {"applicant_name", "applicant_id", "applicant_phone", "applicant_phone2", "address"}
+GRANT_PII_FIELDS = frozenset({"applicant_name", "applicant_id", "applicant_phone", "applicant_phone2", "address"})
+# 含前端原始鍵名（name/id/phone/phone2），供 grant_history 遮罩使用
+GRANT_PII_HISTORY_FIELDS = GRANT_PII_FIELDS | {"name", "id", "phone", "phone2"}
 
 
 class DataEncryptionService:
@@ -66,7 +68,7 @@ class DataEncryptionService:
         step1 = result.get("1")
         if not isinstance(step1, dict):
             return result
-        for key in STEP1_PII_KEYS:
+        for key in GRANT_PII_FIELDS:
             if key in step1 and step1[key] is not None:
                 step1[key] = self.encrypt(step1[key])
         return result
@@ -79,7 +81,7 @@ class DataEncryptionService:
         step1 = result.get("1")
         if not isinstance(step1, dict):
             return result
-        for key in STEP1_PII_KEYS:
+        for key in GRANT_PII_FIELDS:
             if key in step1 and step1[key] is not None:
                 try:
                     step1[key] = self.decrypt(step1[key])
