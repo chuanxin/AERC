@@ -13,6 +13,14 @@
 
 此 migration 為資料回填，無法還原（回填前的原始 NULL 狀態已不可逆推，且無法區分哪些 NULL
 是本次回填遺漏、哪些是回填前就存在的既有狀態），downgrade() 為 no-op。
+
+效能備註（2026-07-16 上線前於 UAT 驗證機發現並修正）：
+legacy_farmdata 區塊的 16,391 筆 UPDATE 逐筆比對 meta_data->>'section_id'，
+grant_locations 對這個 JSONB 表達式完全沒有索引，實測單筆需時約 135ms（Seq Scan
+全表 ~9.8 萬列），16,391 筆合計會超過 30 分鐘。因此在 legacy_farmdata 區塊執行前，
+先建立一個限定 source_system = 'legacy_farmdata' 的 partial expression index，
+把這批 UPDATE 從全表掃描降為索引查找。這個索引只是為了加速這支一次性 migration，
+回填完成後即可保留或捨棄（保留也無害，未來若有相同查詢型態一併受惠）。
 """
 from pathlib import Path
 import csv
@@ -60,6 +68,17 @@ WHERE gl.source_system = 'new_aerc'
 
     # 隨附資料檔目錄（與本檔案同層）
     data_dir = Path(__file__).parent / "74_20260715000000_backfill_land_section_name_data"
+
+    # 效能優化：legacy_farmdata 的 16,391 筆 UPDATE 逐筆查 meta_data->>'section_id'，
+    # 沒有這個索引會是全表 Seq Scan（實測單筆 ~135ms，合計超過 30 分鐘）。
+    # IF NOT EXISTS 避免與先前手動測試建立的同名索引衝突；ANALYZE 讓 query planner
+    # 立即取得新索引的統計資訊，不必等下一次 autovacuum。
+    await db.execute_query(
+        "CREATE INDEX IF NOT EXISTS idx_grant_locations_legacy_section_id "
+        "ON grant_locations ((meta_data->>'section_id')) "
+        "WHERE source_system = 'legacy_farmdata'"
+    )
+    await db.execute_query("ANALYZE grant_locations")
 
     # 區塊二：legacy_farmdata（section_id 唯一鍵比對）
     legacy_values = []
