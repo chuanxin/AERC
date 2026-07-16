@@ -5926,7 +5926,6 @@ const openQualificationQuery = () => {
   // 從當前表單資料獲取地段和地號資訊
   const county = localFormData.landCounty
   const town = localFormData.landTown
-  const section = localFormData.landSec
   const parentLandNumber = localFormData.landNumberMain
   const childLandNumber = localFormData.landNumberSub
 
@@ -5953,20 +5952,8 @@ const openQualificationQuery = () => {
     }
   }
 
-  if (section) {
-    let sectionName = ''
-
-    if (specialCities[countyName as string]) {
-      // 特殊縣市：section 是代碼值，直接使用
-      sectionName = section.toString()
-    } else {
-      // 一般縣市：section 是數字 ID，從 domicile store 查找
-      sectionName = typeof section === 'number'
-        ? domicileStore.getLandSectionsForTownId(typeof town === 'number' ? town : parseInt(town?.toString() || '0')).find(s => s.value === section)?.title || ''
-        : section.toString()
-    }
-
-    if (sectionName) params.set('section', sectionName)
+  if (localFormData.landSecName) {
+    params.set('section', localFormData.landSecName.toString())
   }
 
   if (parentLandNumber) {

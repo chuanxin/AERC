@@ -55,6 +55,7 @@ class GrantLocations(Model):
     apply_year = fields.IntField(null=True, description="申請年度 (民國年)")
     applicant_name = fields.CharField(max_length=255, null=True, description="申請人姓名")
     land_section = fields.CharField(max_length=255, null=True, description="地段")
+    land_section_name = fields.CharField(max_length=255, null=True, description="地段中文名稱")
     land_number = fields.CharField(max_length=255, null=True, description="地號")
     land_type = fields.CharField(max_length=50, null=True, description="地目代碼: 1:田, 2:旱, 3:林, 4:原, 5:雜, 6:其他, 7:未登記, 8:空白")
     case_number = fields.CharField(max_length=100, null=True, description="案件編號")

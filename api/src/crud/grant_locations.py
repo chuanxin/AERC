@@ -18,19 +18,19 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
         grant_id: 補助案件ID
         step2_data: Step2的土地資料，期待包含 'lands' 陣列
     """
-    logger.info(f"🔍 [DEBUG] sync_grant_locations收到: grant_id={grant_id}")
-    logger.info(f"🔍 [DEBUG] step2_data內容: {json.dumps(step2_data, ensure_ascii=False, indent=2)}")
-    
+    logger.info("🔍 [DEBUG] sync_grant_locations收到: grant_id=%r", grant_id)
+    logger.info("🔍 [DEBUG] step2_data內容: %s", json.dumps(step2_data, ensure_ascii=False, indent=2))
+
     # 提取土地資料陣列
     land_parcels = step2_data.get('lands', [])
-    logger.info(f"🔍 [DEBUG] 解析出的land_parcels: {land_parcels}")
+    logger.info("🔍 [DEBUG] 解析出的land_parcels: %r", land_parcels)
 
     if not isinstance(land_parcels, list):
-        logger.warning(f"Step 2 data for grant {grant_id} does not contain a valid list of lands.")
+        logger.warning("Step 2 data for grant %r does not contain a valid list of lands.", grant_id)
         return
 
     if not land_parcels:
-        logger.info(f"No land parcels to sync for grant {grant_id}")
+        logger.info("No land parcels to sync for grant %r", grant_id)
         return
 
     current_location_keys = set()
@@ -53,6 +53,7 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                 # - 正式模式：NLSC sectcode 純 4 位數，例如 "0532"
                 # - OFFLINE TRAINING 模式 (VITE_STEP2_OFFLINE_TRAINING=true)：town_land_code+sectcode 複合格式，例如 "BG5409"
                 land_section = parcel.get('landSec')          # 前端: landSec
+                land_section_name = parcel.get('landSecName') # 前端: landSecName
                 land_number = parcel.get('landNumber')        # 前端: landNumber
                 longitude = parcel.get('longitude')           # 前端: longitude (根層級)
                 latitude = parcel.get('latitude')             # 前端: latitude (根層級)
@@ -70,7 +71,7 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                     missing_fields.append('latitude')
                 
                 if missing_fields:
-                    logger.warning(f"Skipping parcel due to missing fields: {missing_fields}. Parcel data: {parcel}")
+                    logger.warning("Skipping parcel due to missing fields: %r. Parcel data: %r", missing_fields, parcel)
                     continue
 
                 # 建立唯一識別key
@@ -83,7 +84,7 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                     lat_float = float(latitude)
                     geom_wkt = f"POINT({lng_float} {lat_float})"
                 except (ValueError, TypeError) as e:
-                    logger.error(f"Invalid coordinates for grant {grant_id}: lng={longitude}, lat={latitude}, error={e}")
+                    logger.error("Invalid coordinates for grant %r: lng=%r, lat=%r, error=%s", grant_id, longitude, latitude, e)
                     continue
                 
                 # 🔧 修復：建立更詳細的註釋
@@ -110,12 +111,13 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                 # 🔧 修復：使用正確的 Tortoise ORM 查詢方式
                 upsert_sql = """
                 INSERT INTO grant_locations (
-                    source_system, source_id, land_section, land_number, geom, 
-                    applicant_name, apply_year, case_status, comment, meta_data, 
+                    source_system, source_id, land_section, land_section_name, land_number, geom,
+                    applicant_name, apply_year, case_status, comment, meta_data,
                     created_at, updated_at, case_number
                 )
-                VALUES ($1, $2, $3, $4, ST_GeomFromText($5, 4326), $6, $7, $8, $9, $10, NOW(), NOW(), $11)
+                VALUES ($1, $2, $3, $4, $5, ST_GeomFromText($6, 4326), $7, $8, $9, $10, $11, NOW(), NOW(), $12)
                 ON CONFLICT (source_system, source_id, land_section, land_number) DO UPDATE SET
+                    land_section_name = EXCLUDED.land_section_name,
                     geom = EXCLUDED.geom,
                     applicant_name = EXCLUDED.applicant_name,
                     apply_year = EXCLUDED.apply_year,
@@ -124,29 +126,30 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                     meta_data = EXCLUDED.meta_data,
                     updated_at = NOW()
                 """
-                
+
                 # 🔧 修復：正確的參數傳遞方式
                 params = [
                     'new_aerc',           # $1: source_system
-                    str(grant_id),        # $2: source_id  
+                    str(grant_id),        # $2: source_id
                     str(land_section),    # $3: land_section
-                    str(land_number),     # $4: land_number
-                    geom_wkt,             # $5: geom (WKT format)
-                    applicant_name,       # $6: applicant_name
-                    apply_year,           # $7: apply_year
-                    case_status,          # $8: case_status
-                    comment,              # $9: comment
-                    json.dumps(meta_data, ensure_ascii=False),  # $10: meta_data (JSON)
-                    case_number           #11: case_number
+                    land_section_name,    # $4: land_section_name
+                    str(land_number),     # $5: land_number
+                    geom_wkt,             # $6: geom (WKT format)
+                    applicant_name,       # $7: applicant_name
+                    apply_year,           # $8: apply_year
+                    case_status,          # $9: case_status
+                    comment,              # $10: comment
+                    json.dumps(meta_data, ensure_ascii=False),  # $11: meta_data (JSON)
+                    case_number           # $12: case_number
                 ]
                 
                 # 🔧 修復：使用正確的 execute_query_dict 方法
                 await conn.execute_query_dict(upsert_sql, params)
                 
-                logger.info(f"✅ Synced location for grant {grant_id}, land {land_section}-{land_number} at ({lng_float}, {lat_float})")
+                logger.info("✅ Synced location for grant %r, land %r-%r at (%s, %s)", grant_id, land_section, land_number, lng_float, lat_float)
 
             except Exception as e:
-                logger.error(f"❌ Error processing parcel for grant {grant_id}: {parcel}. Error: {e}")
+                logger.error("❌ Error processing parcel for grant %r: %r. Error: %s", grant_id, parcel, e)
                 # 繼續處理下一筆，不要讓單筆錯誤影響整體同步
 
         # 清理不再存在的土地資料 (Pruning)
@@ -164,12 +167,12 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
 
             if locations_to_delete:
                 await GrantLocations.filter(id__in=locations_to_delete).delete()
-                logger.info(f"🗑️ Pruned {len(locations_to_delete)} old locations for grant {grant_id}")
+                logger.info("🗑️ Pruned %d old locations for grant %r", len(locations_to_delete), grant_id)
 
-        logger.info(f"🎯 Synchronization complete for grant {grant_id}. Processed {len(current_location_keys)} locations.")
+        logger.info("🎯 Synchronization complete for grant %r. Processed %d locations.", grant_id, len(current_location_keys))
 
     except Exception as e:
-        logger.error(f"❌ Fatal error during sync_grant_locations for grant {grant_id}: {e}")
+        logger.error("❌ Fatal error during sync_grant_locations for grant %r: %s", grant_id, e)
         raise  # 重新拋出錯誤，讓上層處理
 
 
@@ -186,6 +189,6 @@ async def sync_single_grant_metadata(grant_id: int, status: str, year: int) -> N
         case_status=status,
         apply_year=year,
     )
-    logger.info(f"✅ sync_single_grant_metadata: grant_id={grant_id}, status={status}, year={year}")
+    logger.info("✅ sync_single_grant_metadata: grant_id=%r, status=%r, year=%r", grant_id, status, year)
 
 

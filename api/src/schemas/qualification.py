@@ -36,8 +36,8 @@ class LocationParams(BaseModel):
     """地區查詢參數"""
     county: Optional[str] = Field(None, description="縣市名稱(可選)")
     town: Optional[str] = Field(None, description="鄉鎮名稱(可選)")
-    section: Optional[str] = Field(None, description="地段名稱(可選)")
-    land_number: Optional[str] = Field(None, description="地號")
+    section: Optional[str] = Field(None, max_length=255, description="地段（代碼或中文名稱皆可，模糊比對）")
+    land_number: Optional[str] = Field(None, max_length=255, description="地號")
 
     @validator('land_number')
     def validate_land_number_for_general(cls, v, values):
