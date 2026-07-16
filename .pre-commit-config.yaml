@@ -10,9 +10,9 @@ repos:
         additional_dependencies: []
 
       - id: schema-max-length-alignment
-        name: "[安全] Pydantic str 欄位 min_length 有設但缺 max_length（Schema Drift 風險）"
+        name: "[安全] Pydantic str 欄位缺少 max_length（Schema Drift 風險）"
         language: python
         entry: python api/scripts/check_schema_max_length.py
-        files: ^api/src/schemas/.*\.py$
+        files: ^api/src/(schemas|routes|crud)/.*\.py$
         pass_filenames: true
         additional_dependencies: []

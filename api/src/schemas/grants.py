@@ -28,7 +28,7 @@ class GrantCreateRequestSchema(BaseSchema):
     officeId: Optional[int] = Field(None, description="管理處ID")
     valid: Optional[bool] = Field(default=False, description="前端驗證狀態")
     isDisasterCase: bool = Field(default=False, description="是否為災害案件")
-    disasterCaseDescription: str = Field(default="", description="災害案件說明")
+    disasterCaseDescription: str = Field(default="", max_length=500, description="災害案件說明")
     
     @field_validator('valid')
     def validate_valid_field(cls, v):
@@ -97,20 +97,20 @@ class GrantCreateRequestSchema(BaseSchema):
 # 補助申請案件模型
 class GrantInSchema(BaseSchema):
     """建立補助申請案件時使用的資料模型"""
-    applicant_name: str = Field(..., description="申請人姓名")
-    applicant_id: str = Field(..., description="申請人身分證字號")
-    applicant_phone: str = Field(..., description="申請人電話")
-    applicant_phone2: Optional[str] = Field(None, description="申請人備用電話")
+    applicant_name: str = Field(..., max_length=50, description="申請人姓名")
+    applicant_id: str = Field(..., max_length=10, description="申請人身分證字號")
+    applicant_phone: str = Field(..., max_length=20, description="申請人電話")
+    applicant_phone2: Optional[str] = Field(None, max_length=20, description="申請人備用電話")
 
-    county: str = Field(..., description="縣市")
-    town: str = Field(..., description="鄉鎮市區")
-    village: Optional[str] = Field(None, description="村里")
-    address: str = Field(..., description="詳細地址")
-    
-    office: str = Field(..., description="管理處ID")
+    county: str = Field(..., max_length=30, description="縣市")
+    town: str = Field(..., max_length=30, description="鄉鎮市區")
+    village: Optional[str] = Field(None, max_length=30, description="村里")
+    address: str = Field(..., max_length=255, description="詳細地址")
+
+    office: str = Field(..., max_length=50, description="管理處ID")
     office_id: int = Field(..., description="管理處ID")
-    undertracker: str = Field(..., description="承辦人姓名")
-    
+    undertracker: str = Field(..., max_length=50, description="承辦人姓名")
+
     @field_validator('applicant_id')
     def validate_id_number(cls, v):
         """驗證身分證字號格式"""
@@ -144,21 +144,21 @@ GrantOutSchema = pydantic_model_creator(
 
 class GrantUpdateSchema(BaseSchema):
     """更新補助申請案件時使用的資料模型"""
-    applicant_name: Optional[str] = Field(None, description="申請人姓名")
-    applicant_id: Optional[str] = Field(None, description="申請人身分證字號")
-    applicant_phone: Optional[str] = Field(None, description="申請人電話")
-    applicant_phone2: Optional[str] = Field(None, description="申請人備用電話")
+    applicant_name: Optional[str] = Field(None, max_length=50, description="申請人姓名")
+    applicant_id: Optional[str] = Field(None, max_length=10, description="申請人身分證字號")
+    applicant_phone: Optional[str] = Field(None, max_length=20, description="申請人電話")
+    applicant_phone2: Optional[str] = Field(None, max_length=20, description="申請人備用電話")
 
     county_id: Optional[int] = Field(None, description="縣市ID")
     town_id: Optional[int] = Field(None, description="鄉鎮市區ID")
     village_id: Optional[int] = Field(None, description="村里ID")
-    address: Optional[str] = Field(None, description="詳細地址")
-    
+    address: Optional[str] = Field(None, max_length=255, description="詳細地址")
+
     office_id: Optional[int] = Field(None, description="管理處ID")
-    undertracker: Optional[str] = Field(None, description="承辦人姓名")
-    
-    status: Optional[str] = Field(None, description="案件狀態")
-    status_detail: Optional[str] = Field(None, description="狀態詳情")
+    undertracker: Optional[str] = Field(None, max_length=50, description="承辦人姓名")
+
+    status: Optional[str] = Field(None, max_length=20, description="案件狀態")
+    status_detail: Optional[str] = Field(None, max_length=50, description="狀態詳情")
     current_step: Optional[int] = Field(None, description="目前步驟")
     
     @field_validator('applicant_id')
@@ -218,6 +218,7 @@ class GrantListSchema(BaseSchema):
     created_at: datetime = Field(..., description="建立時間")
 
 
+# schema-max-length: skip（唯讀參照資料，回應用，非使用者輸入路徑）
 class CountySchema(BaseSchema):
     """縣市資料模型"""
     id: int = Field(..., description="縣市ID")
@@ -225,6 +226,7 @@ class CountySchema(BaseSchema):
     code: str = Field(..., description="縣市代碼")
 
 
+# schema-max-length: skip（唯讀參照資料，回應用，非使用者輸入路徑）
 class TownSchema(BaseSchema):
     """鄉鎮市區資料模型"""
     id: int = Field(..., description="鄉鎮市區ID")
@@ -234,6 +236,7 @@ class TownSchema(BaseSchema):
     indigenous_type: Optional[str] = Field(None, description="原民區類型(山地鄉/平地鄉)")
 
 
+# schema-max-length: skip（唯讀參照資料，回應用，非使用者輸入路徑）
 class VillageSchema(BaseSchema):
     """村里資料模型"""
     id: int = Field(..., description="村里ID")
@@ -241,6 +244,7 @@ class VillageSchema(BaseSchema):
     code: str = Field(..., description="村里代碼")
 
 
+# schema-max-length: skip（唯讀參照資料，回應用，非使用者輸入路徑）
 class SectionSchema(BaseSchema):
     """地段資料模型"""
     id: int = Field(..., description="地段ID")
@@ -248,6 +252,7 @@ class SectionSchema(BaseSchema):
     code: str = Field(..., description="地段代碼")
 
 
+# schema-max-length: skip（唯讀參照資料，回應用，非使用者輸入路徑）
 class OfficeSchema(BaseSchema):
     """管理處資料模型"""
     id: int = Field(..., description="管理處ID")
@@ -330,11 +335,11 @@ class GrantSearchSchema(BaseSchema):
     year: Optional[int] = Field(None, description="申請年度")
     office_id: Optional[int] = Field(None, description="管理處ID")
     status: Optional[str] = Field(None, max_length=20, description="案件狀態")
-    keywords: Optional[str] = Field(None, description="關鍵字搜尋")
+    keywords: Optional[str] = Field(None, max_length=100, description="關鍵字搜尋")
     county_id: Optional[int] = Field(None, description="縣市ID")
     town_id: Optional[int] = Field(None, description="鄉鎮市區ID")
     applicant_id: Optional[str] = Field(None, max_length=10, description="申請人身分證字號")
-    land_number: Optional[str] = Field(None, description="地號")
+    land_number: Optional[str] = Field(None, max_length=50, description="地號")
     is_aboriginal_area: Optional[bool] = Field(None, description="是否為原民區")
     date_from: Optional[date] = Field(None, description="建檔日期(起)")
     date_to: Optional[date] = Field(None, description="建檔日期(迄)")
@@ -349,13 +354,13 @@ class CropDataSchema(BaseSchema):
 
 class LandOwnerDataSchema(BaseSchema):
     """土地所有權人資料模型"""
-    name: str = Field(..., description="所有權人姓名")
-    id_number: str = Field(..., description="所有權人身分證字號")
-    
+    name: str = Field(..., max_length=50, description="所有權人姓名")
+    id_number: str = Field(..., max_length=10, description="所有權人身分證字號")
+
     county_id: int = Field(..., description="縣市ID")
     town_id: int = Field(..., description="鄉鎮市區ID")
     village_id: Optional[int] = Field(None, description="村里ID")
-    address: Optional[str] = Field(None, description="詳細地址")
+    address: Optional[str] = Field(None, max_length=255, description="詳細地址")
     
     share_numerator: int = Field(..., description="持分分子")
     share_denominator: int = Field(..., description="持分分母")
@@ -371,7 +376,7 @@ class GrantLandInSchema(BaseSchema):
     section_id: Optional[int] = Field(None, description="地段ID")
     
     # 地號資訊
-    land_number: str = Field(..., description="地號")
+    land_number: str = Field(..., max_length=50, description="地號")
     is_aboriginal_area: bool = Field(False, description="是否為原民區")
     is_irrigation_area: bool = Field(False, description="是否位於灌區內")
     is_reapplied: bool = Field(False, description="是否再次申請")
@@ -396,7 +401,7 @@ class GrantLandInSchema(BaseSchema):
 # 年度補助額度相關模型
 class GrantTagSetSchema(BaseModel):
     """設定或清除案件標籤的請求模型"""
-    tag: Optional[str] = Field(None, description="標籤文字（None 表示清除標籤）")
+    tag: Optional[str] = Field(None, max_length=50, description="標籤文字（None 表示清除標籤）")
 
     @field_validator("tag", mode="before")
     @classmethod
@@ -411,6 +416,7 @@ class GrantTagSetSchema(BaseModel):
         return v
 
 
+# schema-max-length: skip（伺服器端聚合的摘要回應，非使用者輸入路徑）
 class ApplicantGrantSummaryItemSchema(BaseSchema):
     """申請人單筆補助案件摘要"""
     case_number: str = Field(..., description="案件編號")
@@ -419,6 +425,7 @@ class ApplicantGrantSummaryItemSchema(BaseSchema):
     created_at: datetime = Field(..., description="建立時間")
 
 
+# schema-max-length: skip（伺服器端聚合的摘要回應，非使用者輸入路徑）
 class ApplicantSubsidySummarySchema(BaseSchema):
     """申請人年度補助額度摘要"""
     applicant_id: str = Field(..., description="申請人身分證字號")

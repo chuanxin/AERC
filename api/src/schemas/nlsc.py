@@ -55,6 +55,7 @@ class CadastralQueryByPointRequest(BaseModel):
 
 # === 回應 Schemas ===
 
+# schema-max-length: skip（外部 NLSC API GeoJSON 回應解析用，非使用者輸入路徑）
 class CadastralFeatureProperties(BaseModel):
     """地籍圖 Feature 屬性
 
@@ -89,12 +90,14 @@ class CadastralFeatureProperties(BaseModel):
     # Sec_cns: Optional[str] = Field(None, description="地段中文名稱")
 
 
+# schema-max-length: skip（外部 NLSC API GeoJSON 回應解析用，非使用者輸入路徑）
 class CadastralFeatureGeometry(BaseModel):
     """地籍圖 Feature 幾何資料（GeoJSON 格式）"""
     type: str = Field(..., description="幾何類型（例如：Polygon, MultiPolygon）")
     coordinates: List = Field(..., description="座標陣列（GeoJSON 格式）")
 
 
+# schema-max-length: skip（外部 NLSC API GeoJSON 回應解析用，非使用者輸入路徑）
 class CadastralFeature(BaseModel):
     """地籍圖 Feature（GeoJSON Feature 格式）"""
     type: Literal["Feature"] = Field(default="Feature", description="Feature 類型")

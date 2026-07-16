@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 from datetime import datetime
 
+# schema-max-length: skip（伺服器掃描檔案系統後組裝的回應資料，非使用者輸入路徑）
 class StaticFileInfo(BaseModel):
     """靜態檔案資訊"""
     id: str = Field(description="檔案唯一識別碼")
@@ -15,6 +16,7 @@ class StaticFileInfo(BaseModel):
     description: Optional[str] = Field(default=None, description="檔案說明")
     download_url: str = Field(description="下載連結")
 
+# schema-max-length: skip（伺服器組裝的檔案群組回應資料，非使用者輸入路徑）
 class FileGroup(BaseModel):
     """相同檔名的多格式檔案群組"""
     base_name: str = Field(description="基本檔名")
@@ -34,12 +36,12 @@ class StaticDownloadsListResponse(BaseModel):
 
 class StaticDownloadsFilterRequest(BaseModel):
     """靜態下載檔案篩選請求"""
-    category: Optional[str] = Field(default=None, description="檔案類型篩選")
-    format: Optional[str] = Field(default=None, description="檔案格式篩選")
-    search_keyword: Optional[str] = Field(default=None, description="搜尋關鍵字")
-    date_range: Optional[str] = Field(default=None, description="時間範圍篩選")
+    category: Optional[str] = Field(default=None, max_length=50, description="檔案類型篩選")
+    format: Optional[str] = Field(default=None, max_length=20, description="檔案格式篩選")
+    search_keyword: Optional[str] = Field(default=None, max_length=200, description="搜尋關鍵字")
+    date_range: Optional[str] = Field(default=None, max_length=50, description="時間範圍篩選")
 
 class BatchDownloadRequest(BaseModel):
     """批量下載請求"""
     file_ids: List[str] = Field(description="檔案ID清單")
-    download_name: Optional[str] = Field(default=None, description="下載檔案名稱")
+    download_name: Optional[str] = Field(default=None, max_length=255, description="下載檔案名稱")

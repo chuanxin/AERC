@@ -10,6 +10,7 @@ from decimal import Decimal
 
 # ==================== Dashboard 即時執行進度統計 ====================
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class OfficeExecutionStats(BaseModel):
     """單一管理處的即時執行進度統計"""
     office_id: int = Field(..., description="管理處 ID")
@@ -44,6 +45,7 @@ class ExecutionProgressResponse(BaseModel):
 
 # ==================== Statistics 功能頁經費分析統計 ====================
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class OfficeBudgetStats(BaseModel):
     """單一管理處的經費統計分析"""
     office_id: int = Field(..., description="管理處 ID")
@@ -98,6 +100,7 @@ class BudgetAnalysisResponse(BaseModel):
 
 # ==================== A02 系列統計報表 ====================
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class CountyTownStats(BaseModel):
     """單一縣市鄉鎮區的統計資料"""
     county_id: int = Field(..., description="縣市 ID")
@@ -112,6 +115,7 @@ class CountyTownStats(BaseModel):
         json_encoders = {Decimal: lambda v: float(v)}
 
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class OfficeSummaryStats(BaseModel):
     """單一管理處的 A02 統計資料（案件數 + 面積 + 金額）"""
     office_id: int = Field(..., description="管理處 ID")
@@ -165,6 +169,7 @@ class YearMetrics(BaseModel):
         json_encoders = {Decimal: lambda v: float(v)}
 
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class CountyTownYearlyRow(BaseModel):
     """A02-3 一列 = 一個縣市/鄉鎮區，含所有年度指標"""
     county_id: int = Field(..., description="縣市 ID（排序用）")
@@ -182,6 +187,7 @@ class CountyTownYearlyStatsResponse(BaseModel):
     rows: List[CountyTownYearlyRow] = Field(default_factory=list, description="各縣市/鄉鎮區列，按 county_id→town_id 排序")
 
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class OfficeSummaryYearlyRow(BaseModel):
     """A02-4 一列 = 一個管理處，含所有年度指標"""
     office_id: int = Field(..., description="管理處 ID（ALLOWED_OFFICE_IDS 順序）")
@@ -199,6 +205,7 @@ class OfficeSummaryYearlyStatsResponse(BaseModel):
 
 # ==================== B01 系列推動成果統計報表（管理區內外分組） ====================
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class CountyManagementAreaStats(BaseModel):
     """單一縣市的管理區內外統計資料（已編列/已結案分組）"""
     county_id: int = Field(..., description="縣市 ID")
@@ -228,6 +235,7 @@ class CountyManagementAreaStats(BaseModel):
         json_encoders = {Decimal: lambda v: float(v)}
 
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class OfficeManagementAreaStats(BaseModel):
     """單一管理處的管理區內外統計資料"""
     office_id: int = Field(..., description="管理處 ID")
@@ -282,6 +290,7 @@ class OfficeManagementAreaStatsResponse(BaseModel):
 
 # ==================== A09/A10 事業區域內外推動成果統計報表 ====================
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class CountyIrrigationBudgetCompletedStats(BaseModel):
     """單一縣市的事業區域內外統計資料（已編列/已結案分組）"""
     county_id: int = Field(..., description="縣市 ID")
@@ -311,6 +320,7 @@ class CountyIrrigationBudgetCompletedStats(BaseModel):
         json_encoders = {Decimal: lambda v: float(v)}
 
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class OfficeIrrigationBudgetCompletedStats(BaseModel):
     """單一管理處的事業區域內外統計資料（已編列/已結案分組）"""
     office_id: int = Field(..., description="管理處 ID")
@@ -362,6 +372,7 @@ class A10StatsResponse(BaseModel):
 
 # ==================== A04 原民區域統計報表 ====================
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class AboriginalAreaStats(BaseModel):
     """原民區域統計記錄（按縣市鄉鎮區彙總）"""
     county: str = Field(..., description="縣市名稱")
@@ -376,6 +387,7 @@ class AboriginalAreaStats(BaseModel):
 
 # ==================== B03 各縣市鄉鎮區各類補助項目統計報表 ====================
 
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class B03CountyTownSubsidyRow(BaseModel):
     """B03 每一行統計資料（以縣市/鄉鎮區/灌溉型式為分組鍵）"""
     county_id: int

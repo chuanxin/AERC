@@ -1,6 +1,7 @@
 from typing import List, Optional
 from pydantic import BaseModel
 
+# schema-max-length: skip（IrrigationTypeCreate/Update 目前未接任何路由，crud/irrigation_types.py 對應函數整段被註解掉，非現行使用者輸入路徑）
 class IrrigationTypeBase(BaseModel):
     name: str
     code: str
@@ -11,6 +12,7 @@ class IrrigationTypeBase(BaseModel):
 class IrrigationTypeCreate(IrrigationTypeBase): # Though only read-only for now, define for consistency
     pass
 
+# schema-max-length: skip（同上，目前未接任何路由，非現行使用者輸入路徑）
 class IrrigationTypeUpdate(BaseModel): # Define for consistency, even if not used for read-only
     name: Optional[str] = None
     code: Optional[str] = None

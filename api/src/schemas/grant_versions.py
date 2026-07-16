@@ -30,6 +30,7 @@ class GrantVersionListSchema(BaseSchema):
     created_at: datetime = Field(..., description="建立時間")
     created_by_name: Optional[str] = Field(None, description="建立人姓名")
 
+# schema-max-length: skip（唯讀版本詳情回應，非使用者輸入路徑）
 class GrantVersionDetailSchema(BaseSchema):
     """補助申請案件版本詳細資料模型"""
     id: int = Field(..., description="版本ID")
