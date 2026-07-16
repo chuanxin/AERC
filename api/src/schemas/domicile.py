@@ -11,6 +11,7 @@ CountySchema = pydantic_model_creator(
     exclude=("town",)
 )
 
+# schema-max-length: skip（唯讀參照資料，回應用，非使用者輸入路徑）
 class TownSchema(BaseModel):
     id: int
     name: str
@@ -26,6 +27,7 @@ class TownSchema(BaseModel):
     class Config:
         from_attributes = True
 
+# schema-max-length: skip（唯讀參照資料，回應用，非使用者輸入路徑）
 class VillageSchema(BaseModel):
     id: int
     name: str
@@ -52,6 +54,7 @@ VillageCreateSchema = pydantic_model_creator(
 )
 
 # For nested responses (simplified for frontend use)
+# schema-max-length: skip（唯讀參照資料，回應用，非使用者輸入路徑）
 class TownNestedSchema(BaseModel):
     id: int
     name: str
@@ -60,6 +63,7 @@ class TownNestedSchema(BaseModel):
     class Config:
         from_attributes = True
 
+# schema-max-length: skip（唯讀參照資料，回應用，非使用者輸入路徑）
 class VillageNestedSchema(BaseModel):
     id: int
     name: str

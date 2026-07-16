@@ -148,14 +148,24 @@ class QualificationCRUD:
                 conditions &= Q(land_number__iexact=request.params.land_number)
 
             if request.params.section:
-                conditions &= Q(land_section__icontains=request.params.section)
+                section_normalized = request.params.section.replace('台', '臺')
+                conditions &= (
+                    Q(land_section__icontains=request.params.section) |
+                    Q(land_section_name__icontains=section_normalized) |
+                    Q(land_section_name__icontains=section_normalized.replace('臺', '台'))
+                )
 
         elif request.query_type in [QualificationQueryType.INDIGENOUS, QualificationQueryType.SLOPE]:
             # 原民鄉/山坡地查詢: 地段名稱模糊搜尋
             if request.params.land_number:
                 conditions &= Q(land_number__iexact=request.params.land_number)
             if request.params.section:
-                conditions &= Q(land_section__icontains=request.params.section)
+                section_normalized = request.params.section.replace('台', '臺')
+                conditions &= (
+                    Q(land_section__icontains=request.params.section) |
+                    Q(land_section_name__icontains=section_normalized) |
+                    Q(land_section_name__icontains=section_normalized.replace('臺', '台'))
+                )
 
         # 排除無效案件（EXCLUDED：rejected/withdrawn/deleted） - 所有查詢共通邏輯
         conditions &= ~Q(case_status__in=list(GrantStatusGroup.EXCLUDED))

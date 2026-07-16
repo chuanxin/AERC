@@ -34,10 +34,10 @@ class CaseType(str, Enum):
 
 class LocationParams(BaseModel):
     """地區查詢參數"""
-    county: Optional[str] = Field(None, description="縣市名稱(可選)")
-    town: Optional[str] = Field(None, description="鄉鎮名稱(可選)")
-    section: Optional[str] = Field(None, description="地段名稱(可選)")
-    land_number: Optional[str] = Field(None, description="地號")
+    county: Optional[str] = Field(None, max_length=30, description="縣市名稱(可選)")
+    town: Optional[str] = Field(None, max_length=30, description="鄉鎮名稱(可選)")
+    section: Optional[str] = Field(None, max_length=255, description="地段（代碼或中文名稱皆可，模糊比對）")
+    land_number: Optional[str] = Field(None, max_length=255, description="地號")
 
     @validator('land_number')
     def validate_land_number_for_general(cls, v, values):
@@ -116,6 +116,7 @@ class AreaStatistics(BaseModel):
         }
 
 
+# schema-max-length: skip（查詢結果項目，伺服器端組裝的回應資料，非使用者輸入路徑）
 class GrantCaseItem(BaseModel):
     """補助案件項目"""
     id: int = Field(..., description="GrantLocations.id")
@@ -154,6 +155,7 @@ class GrantCaseItem(BaseModel):
         }
 
 
+# schema-max-length: skip（回應中的查詢摘要，伺服器端組裝，非使用者輸入路徑）
 class QueryInfo(BaseModel):
     """查詢資訊摘要"""
     query_type: QualificationQueryType = Field(..., description="查詢類型")
@@ -187,6 +189,7 @@ class AreaCheckResponse(BaseModel):
 
 # === 查詢歷史相關 Schemas ===
 
+# schema-max-length: skip（伺服器端組裝的查詢歷史回應，非使用者輸入路徑）
 class RecentSearch(BaseModel):
     """最近查詢記錄"""
     id: str = Field(..., description="查詢記錄ID")
@@ -212,6 +215,7 @@ class LegacyMetaData(BaseModel):
     finalarea: Optional[float] = Field(None, description="最終核准面積")
 
 
+# schema-max-length: skip（解析既有 grant_locations.meta_data 的內部輔助型別，非使用者輸入路徑）
 class NewAercMetaData(BaseModel):
     """新系統 meta_data 格式"""
     land_area: Optional[str] = Field(None, description="土地面積")

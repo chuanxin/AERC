@@ -4,7 +4,7 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from src.exceptions import AppError
 from src.database.audit_models import AuditEventType, AuditAction, AuditResult
 from src.database.models import GrantAttachments, Grants, Users
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/attachments", tags=["Grant Attachments"])
 storage = FileStorageService()
 
 class BatchOperationRequest(BaseModel):
-    operation: str
+    operation: str = Field(..., max_length=20, description="批次操作類型（如 delete）")
     attachment_ids: List[int]
     parameters: Optional[dict] = None
 

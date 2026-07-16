@@ -17,6 +17,7 @@ class BaseSchema(BaseModel):
         from_attributes = True
         arbitrary_types_allowed = True
 
+# schema-max-length: skip（唯讀回應資料，from_attributes 由 ORM 填入，非使用者輸入路徑）
 class SimpleOfficeSchema(BaseSchema):
     id: int
     name: str
@@ -25,6 +26,7 @@ class SimpleOfficeSchema(BaseSchema):
     classification: int
     is_funding_source: bool
 
+# schema-max-length: skip（伺服器內部使用的使用者資料表示，非使用者輸入路徑）
 class UserDatabaseSchema(BaseSchema):
     id: int
     username: str
@@ -35,6 +37,7 @@ class UserDatabaseSchema(BaseSchema):
     last_login: Optional[datetime] = None
     password_expired: bool = False  # 密碼是否已過期
 
+# schema-max-length: skip（require_full_auth 回傳的唯讀使用者資訊，非使用者輸入路徑）
 class UserInfoSchema(BaseSchema):
     id: int
     username: str
@@ -104,10 +107,10 @@ class EmailVerificationResponse(BaseModel):
 
 class EncryptedPasswordMixin(BaseModel):
     """加密密碼欄位組（AES-GCM + RSA-OAEP Hybrid Encryption）"""
-    encrypted_password: str = Field(..., description="AES-GCM 加密後的密碼密文 + auth tag，base64url 編碼")
-    encrypted_key: str = Field(..., description="RSA-OAEP-SHA256 加密後的 AES-256 金鑰，base64url 編碼")
-    iv: str = Field(..., description="AES-GCM 初始化向量（12 bytes），base64url 編碼")
-    kid: str = Field(..., description="伺服器公鑰識別碼")
+    encrypted_password: str = Field(..., max_length=2048, description="AES-GCM 加密後的密碼密文 + auth tag，base64url 編碼")
+    encrypted_key: str = Field(..., max_length=2048, description="RSA-OAEP-SHA256 加密後的 AES-256 金鑰，base64url 編碼")
+    iv: str = Field(..., max_length=64, description="AES-GCM 初始化向量（12 bytes），base64url 編碼")
+    kid: str = Field(..., max_length=128, description="伺服器公鑰識別碼")
     timestamp: int = Field(..., description="請求產生時間，Unix 毫秒時間戳")
     nonce: str = Field(..., min_length=32, max_length=128, description="隨機唯一字串，每次請求不重複，用於防重放")
 
@@ -267,7 +270,7 @@ class UserRegistrationRequest(EncryptedPasswordMixin):
     application_reason: str = Field(..., min_length=1, max_length=1000, description="申請原因說明")
 
     # Email 驗證 Token（由 verify-registration-otp 返回）
-    verified_token: str = Field(..., description="Email 驗證成功後的 Token")
+    verified_token: str = Field(..., max_length=1024, description="Email 驗證成功後的 Token")
 
     @field_validator('username')
     @classmethod
@@ -324,7 +327,7 @@ class UserRegistrationResponse(BaseModel):
 
 class AccountMigrationOTPVerifyRequest(BaseModel):
     """帳號轉移 OTP 驗證請求"""
-    token: str = Field(..., description="帳號轉移 Token (從 Email 連結取得)")
+    token: str = Field(..., max_length=1024, description="帳號轉移 Token (從 Email 連結取得)")
     otp: str = Field(..., min_length=6, max_length=6, description="6位數字驗證碼")
 
     class Config:
@@ -368,14 +371,14 @@ class AccountMigrationOTPVerifyResponse(BaseModel):
 
 class AccountMigrationCompleteRequest(EncryptedPasswordMixin):
     """完成帳號轉移請求（密碼以 AES-GCM + RSA-OAEP hybrid encryption 傳輸）"""
-    token: str = Field(..., description="帳號轉移 Token")
+    token: str = Field(..., max_length=1024, description="帳號轉移 Token")
     otp: str = Field(..., min_length=6, max_length=6, description="6位數字驗證碼")
 
     # 使用者資訊（可選更新）
     full_name: Optional[str] = Field(None, min_length=2, max_length=50, description="姓名")
     job_title: Optional[str] = Field(None, max_length=50, description="職稱")
     office_id: Optional[int] = Field(None, description="所屬單位 ID")
-    department: Optional[str] = Field(None, description="部門詳細資訊 JSON 字串")
+    department: Optional[str] = Field(None, max_length=5000, description="部門詳細資訊 JSON 字串")
     phone: Optional[str] = Field(None, max_length=20, description="聯絡電話")
     phone_ext: Optional[str] = Field(None, max_length=10, description="分機")
     mobile: Optional[str] = Field(None, max_length=20, description="手機")
@@ -438,6 +441,7 @@ class AccountMigrationCompleteResponse(BaseModel):
 # 密碼規則 API 相關 Schemas
 # ============================================
 
+# schema-max-length: skip（伺服器產生的固定 UI 說明文字，非使用者輸入路徑）
 class PasswordPolicyLabels(BaseModel):
     """密碼格式規則的中文說明"""
     min_length: str
@@ -451,6 +455,7 @@ class PasswordPolicyLabels(BaseModel):
         from_attributes = True
 
 
+# schema-max-length: skip（伺服器產生的固定 regex 常數，非使用者輸入路徑）
 class CharTypePatterns(BaseModel):
     """各字元類型的 regex pattern（前端本地驗證使用）"""
     digit: str

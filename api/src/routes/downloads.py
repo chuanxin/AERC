@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from src.database.models import Grants, GrantVersions, GrantAttachments, GrantStatusGroup
 from src.auth.guard import require_full_auth
 from src.auth.route_guards import require_permission
@@ -40,20 +40,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/download", tags=["File Downloads"])
 
 class DownloadRequest(BaseModel):
-    year: str
-    case_number_start: Optional[str] = None
-    case_number_end: Optional[str] = None
-    file_type: str
+    year: str = Field(..., max_length=3, description="申請年度（民國年）")
+    case_number_start: Optional[str] = Field(None, max_length=20, description="案件編號起（部分比對）")
+    case_number_end: Optional[str] = Field(None, max_length=20, description="案件編號迄（部分比對）")
+    file_type: str = Field(..., max_length=50, description="檔案類型")
     enable_pagination: Optional[bool] = True  # 分頁模式控制，預設開啟
-    tag: Optional[str] = None  # 自定義分類標籤篩選（部分比對）
+    tag: Optional[str] = Field(None, max_length=50, description="自定義分類標籤篩選（部分比對）")
     office_id: Optional[int] = None  # added by Joya
 
 
 class SubsidyDetailsListRequest(BaseModel):
-    year: str
-    case_number_start: Optional[str] = None
-    case_number_end: Optional[str] = None
-    tag: Optional[str] = None
+    year: str = Field(..., max_length=3, description="申請年度（民國年）")
+    case_number_start: Optional[str] = Field(None, max_length=20, description="案件編號起（部分比對）")
+    case_number_end: Optional[str] = Field(None, max_length=20, description="案件編號迄（部分比對）")
+    tag: Optional[str] = Field(None, max_length=50, description="自定義分類標籤篩選（部分比對）")
 
 
 # ── 下載端點共用工具函數 ───────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ from typing import Optional, List
 from datetime import date
 
 
+# schema-max-length: skip（PostGIS 空間查詢的唯讀回應資料，非使用者輸入路徑）
 class OfficeBoundaryInfo(BaseModel):
     """單一水利工作站界限資訊"""
     gid: int = Field(..., description="記錄ID")

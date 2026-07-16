@@ -220,16 +220,16 @@
                           />
                         </div>
 
-                        <!-- 地段與API狀態 - 第二排 -->
-                        <div class="d-flex align-center">
+                        <!-- 地段候選清單挑選器 - 第二排：只能選、不能打字，選定後自動帶入下方查詢欄位 -->
+                        <div class="d-flex align-center mb-3">
                           <v-autocomplete
                             :key="sectionSelectKey"
-                            v-model="searchParams.section"
-                            v-model:search="sectionSearchText"
+                            v-model="selectedSectionCandidate"
                             :items="sections"
-                            :item-title="item => item.title"
-                            item-value="code"
-                            label="地段"
+                            :item-title="item => item.displayName || item.name"
+                            item-value="displayName"
+                            :return-object="false"
+                            label="從清單選擇地段"
                             variant="outlined"
                             density="compact"
                             hide-details
@@ -237,26 +237,15 @@
                             bg-color="white"
                             clearable
                             autocomplete="off"
-                            :placeholder="sections.length > 0 ? '搜尋地段名稱或段號...' : '請先選擇鄉鎮市區'"
+                            :placeholder="sections.length > 0 ? '從清單挑選...' : '請先選擇鄉鎮市區'"
                             :disabled="!searchParams.town && !['新竹市', '嘉義市'].includes(searchParams.county)"
                             :loading="loadingSections"
                             :no-data-text="'沒有找到相符的地段'"
                             :menu-props="{ closeOnContentClick: true }"
                             :auto-select-first="false"
-                            aria-label="選擇地段"
-                            @update:search="onSectionSearchUpdate"
-                            @blur="onSectionBlur"
+                            aria-label="從清單選擇地段"
+                            @update:model-value="onSectionCandidateSelected"
                           >
-                            <!-- 自定義選中項的顯示方式 - 只顯示地段名稱 -->
-                            <template #selection="{ item }">
-                              <template v-if="item.raw">
-                                {{ item.raw.displayName || item.raw.name }}
-                              </template>
-                              <template v-else>
-                                {{ item }}
-                              </template>
-                            </template>
-
                             <template #item="{ props, item }">
                               <v-list-item v-bind="props">
                                 <template #title>
@@ -291,6 +280,23 @@
                               {{ apiStatus.isOnline ? '線上' : '離線' }}
                             </v-chip>
                           </div>
+                        </div>
+
+                        <!-- 查詢用地段名稱 - 第三排：可自行編輯，執行查詢時一律以此欄內容為準 -->
+                        <div class="d-flex align-center">
+                          <v-text-field
+                            v-model="searchParams.section"
+                            label="查詢用地段名稱"
+                            variant="outlined"
+                            density="compact"
+                            hide-details
+                            class="flex-grow-1"
+                            bg-color="white"
+                            clearable
+                            autocomplete="off"
+                            placeholder="或直接輸入地段名稱查詢"
+                            aria-label="查詢用地段名稱"
+                          />
                         </div>
 
                         <!-- 特殊城市提示 -->
@@ -1179,6 +1185,16 @@ const loadingSections = ref(false);
 // 用於強制重新渲染地段選單的 key
 const sectionSelectKey = ref(0);
 
+// 地段候選清單挑選器目前的選取值（僅供快速帶入，不直接作為查詢值）
+const selectedSectionCandidate = ref<string | null>(null);
+
+// 從候選清單挑選地段後，帶入查詢用的文字輸入框；查詢送出時一律以文字輸入框內容為準
+const onSectionCandidateSelected = (value: string | null) => {
+  if (value) {
+    searchParams.section = value;
+  }
+};
+
 // 地段查詢參數
 const searchParams = reactive<QualificationSearchParams>({
   county: '',
@@ -1187,6 +1203,14 @@ const searchParams = reactive<QualificationSearchParams>({
   landNumber: '',
   parentLandNumber: '',
   childLandNumber: ''
+});
+
+// 查詢用地段名稱只要不再與上方清單挑選的值一致（清空或手動改成別的內容），
+// 上方的清單挑選狀態就一併清空，避免畫面顯示「已選取」卻與實際查詢值不同步
+watch(() => searchParams.section, (newValue) => {
+  if (newValue !== selectedSectionCandidate.value) {
+    selectedSectionCandidate.value = null;
+  }
 });
 
 // 原民區域查詢參數
@@ -1366,8 +1390,6 @@ const towns = computed(() => {
 const sections = computed(() => {
   const result = nlscSections.value
     .map(section => ({
-      // title 包含地段名稱和代碼，供 v-autocomplete 預設搜尋使用
-      title: `${section.name} ${section.code || ''}`,
       displayName: section.name,  // 純地段名稱，供顯示使用
       value: section.code,        // 實際存儲的值，使用 API 原始格式
       code: section.code,         // 保持 API 原始格式（如 "0446"）
@@ -1390,20 +1412,6 @@ const sections = computed(() => {
 
   return result;
 });
-
-// 地段搜尋狀態管理
-const sectionSearchText = ref('');
-
-// 地段搜尋事件處理函數
-const onSectionSearchUpdate = (searchValue: string) => {
-  sectionSearchText.value = searchValue;
-};
-
-// 地段選單失焦事件處理函數
-const onSectionBlur = () => {
-  // 當失焦時清空搜尋文字，避免影響下次搜尋
-  sectionSearchText.value = '';
-};
 
 // 動態獲取原民區查詢的鄉鎮選項
 const indigenousTowns = computed(() => {
@@ -1462,6 +1470,7 @@ const formatDate = (date: Date): string => {
 const onCountyChange = async (newCounty: string) => {
   // 重置地段選擇和資料
   searchParams.section = null;
+  selectedSectionCandidate.value = null;
   nlscSections.value = [];
 
   // 強制重新渲染地段選單
@@ -1529,6 +1538,7 @@ const getLandCodeForNlsc = (countyName: string, townLandCode: string | null | un
 const onTownChange = async (newTown: string) => {
   // 重置地段選擇和資料
   searchParams.section = null;
+  selectedSectionCandidate.value = null;
   nlscSections.value = [];
 
   // 強制重新渲染地段選單
@@ -2310,14 +2320,9 @@ onMounted(async () => {
       }
     }
 
-    // 預填地段 - 使用 NLSC API 載入地段資料
+    // 預填地段 - 觸發候選清單載入（供 v-combobox 下拉使用），並直接以名稱賦值
     if (urlParams.section && (searchParams.town || specialCities[searchParams.county])) {
-      const sectionCode = urlParams.section as string;
-      // console.log('🎯 準備預填地段:', sectionCode);
-
-      // 需要先載入地段資料才能進行預填
       try {
-        // 對於特殊縣市，直接觸發縣市變更來載入地段資料；對於一般縣市，觸發鄉鎮變更
         if (specialCities[searchParams.county] && searchParams.town === 'SPECIAL_CITY_AUTO') {
           // 特殊縣市：觸發縣市變更來載入地段資料
           await onCountyChange(searchParams.county);
@@ -2326,20 +2331,7 @@ onMounted(async () => {
           await onTownChange(searchParams.town);
         }
 
-        // 載入完成後，嘗試從 NLSC 資料中找到對應的地段
-        const matchedSection = sections.value.find(s =>
-          s.code === sectionCode ||
-          s.value === sectionCode ||
-          s.displayName === sectionCode ||
-          s.name === sectionCode
-        );
-
-        if (matchedSection) {
-          searchParams.section = matchedSection.code;
-          // console.log('✅ 地段預填成功:', { code: matchedSection.code, name: matchedSection.displayName || matchedSection.name });
-        } else {
-          console.warn('⚠️ 未找到匹配的地段:', sectionCode);
-        }
+        searchParams.section = urlParams.section as string;
       } catch (error) {
         console.error('❌ 載入地段資料失敗:', error);
       }

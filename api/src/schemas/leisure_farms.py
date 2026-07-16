@@ -11,6 +11,7 @@ from decimal import Decimal
 
 # === 回應 Schemas ===
 
+# schema-max-length: skip（伺服器同步後的唯讀回應資料，非使用者輸入路徑）
 class LeisureFarmItem(BaseModel):
     """休閒農場單筆資料"""
     id: int = Field(..., description="主鍵 ID")
@@ -80,12 +81,13 @@ class NearbySearchRequest(BaseModel):
 
 class LocationSearchRequest(BaseModel):
     """依地區查詢請求"""
-    county: Optional[str] = Field(None, description="縣市名稱")
-    township: Optional[str] = Field(None, description="鄉鎮市區名稱")
+    county: Optional[str] = Field(None, max_length=30, description="縣市名稱")
+    township: Optional[str] = Field(None, max_length=30, description="鄉鎮市區名稱")
 
 
 # === 同步相關 Schemas ===
 
+# schema-max-length: skip（外部 MOA API 回應解析用，非使用者輸入路徑）
 class MOALeisureFarmData(BaseModel):
     """MOA API 回傳的休閒農場資料格式"""
     FarmNm_CH: str = Field(..., description="農場名稱")
