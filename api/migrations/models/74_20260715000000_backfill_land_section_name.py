@@ -5,7 +5,7 @@
 - new_aerc：實測約 38/42 筆（直接對 grant_versions.all_steps_data 的 JSONB 陣列展開比對，
   不需要隨附資料檔；未命中的 4 筆分別是孤兒紀錄與版本資料不同步，屬已歸因的既有資料品質問題）
 - legacy_farmdata：實測約 92,106/92,124 筆（讀取隨附 CSV，依 section_id 唯一鍵對照）
-- ardswc_114：實測約 6,540/6,544 筆（讀取隨附 CSV，依段代碼/地號/縣市三鍵對照，
+- ardswc_114：實測約 6,540/6,544 筆（讀取隨附 CSV，依段代碼/地號/縣市/鄉鎮四鍵對照，
   CSV 產生階段已去重並排除無法歸因的衝突資料）
 
 三個區塊的 UPDATE 皆含 land_section_name IS NULL 冪等防護，重複執行 aerich upgrade
@@ -30,6 +30,13 @@ aerich upgrade 執行內收斂到完整覆蓋率、不需要人工介入或後�
 與 ardswc_114 兩個 execute_many 區塊之後都加了一段「查詢仍為 NULL 但比對鍵有對應資料的
 紀錄，針對這些再補一次」的自我修復重試。正常情況下這個檢查應回傳空集合，幾乎零成本；
 只有在異常情況下才會補救對應的少量紀錄，不會重跑全部筆數。
+
+ardswc_114 比對鍵加入鄉鎮（2026-07-17 修正）：原本段代碼/地號/縣市三鍵比對存在結構性風險——
+段代碼（NLSC sectcode）只保證同一鄉鎮內唯一，不保證同縣市跨鄉鎮也唯一，理論上可能發生同縣市
+不同鄉鎮剛好段代碼與地號都相同、比對到錯誤資料的情況（與資格預查 _filter_by_county_town 已知
+會重現的跨鄉鎮誤帶案件是同一種根因）。已用 dev 環境 temp_rwb_grants 實測驗證目前資料無此情況
+（三鍵與四鍵比對覆蓋率同為 6,540/6,544），改為四鍵純粹是為資料量更大的正式環境預先補上結構性
+防護，不影響既有結果；ardswc_reference.csv 已同步改為五欄（新增 town）。
 """
 from pathlib import Path
 import csv
@@ -130,12 +137,17 @@ WHERE gl.source_system = 'new_aerc'
     total, filled = stats[0]["total"], stats[0]["filled"]
     logger.info("[034 backfill] legacy_farmdata: total=%s filled=%s missing=%s", total, filled, total - filled)
 
-    # 區塊三：ardswc_114（段代碼 + 地號 + 正規化縣市三鍵比對）
+    # 區塊三：ardswc_114（段代碼 + 地號 + 正規化縣市 + 鄉鎮四鍵比對）
+    # 鄉鎮納入比對鍵的理由：段代碼（NLSC sectcode）只保證同一鄉鎮內唯一，不保證同縣市跨鄉鎮
+    # 也唯一，三鍵比對存在理論上的跨鄉鎮撞鍵風險（與資格預查 _filter_by_county_town 那個已知
+    # bug 同一種根因）。已用 dev 資料實測驗證：加入鄉鎮後覆蓋率與三鍵版本完全一致（6,540/6,544
+    # 不變），純粹是為資料量更大的正式環境加一層結構性防護，不影響既有結果。
     ardswc_values = []
     with open(data_dir / "ardswc_reference.csv", "r", encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f):
             ardswc_values.append(
-                (row["land_section_name"], row["section_code"], row["land_number"], row["county_norm"])
+                (row["land_section_name"], row["section_code"], row["land_number"],
+                 row["county_norm"], row["town"])
             )
     if ardswc_values:
         await db.execute_many(
@@ -143,22 +155,24 @@ WHERE gl.source_system = 'new_aerc'
             "WHERE source_system = 'ardswc_114' AND land_section = $2 "
             "AND meta_data->>'original_land_number' = $3 "
             "AND translate(meta_data->>'county','台','臺') = translate($4,'台','臺') "
+            "AND meta_data->>'town' = $5 "
             "AND land_section_name IS NULL",
             ardswc_values,
         )
 
-    # 覆蓋率自我修復：比對鍵是三欄組合（段代碼、地號、正規化縣市），邏輯同 legacy_farmdata
+    # 覆蓋率自我修復：比對鍵是四欄組合（段代碼、地號、正規化縣市、鄉鎮），邏輯同 legacy_farmdata
     _, ardswc_still_null = await db.execute_query(
         "SELECT DISTINCT land_section, meta_data->>'original_land_number' AS land_number, "
-        "translate(meta_data->>'county', '台', '臺') AS county_norm "
+        "translate(meta_data->>'county', '台', '臺') AS county_norm, meta_data->>'town' AS town "
         "FROM grant_locations WHERE source_system = 'ardswc_114' AND land_section_name IS NULL "
-        "AND land_section IS NOT NULL AND meta_data->>'original_land_number' IS NOT NULL"
+        "AND land_section IS NOT NULL AND meta_data->>'original_land_number' IS NOT NULL "
+        "AND meta_data->>'town' IS NOT NULL"
     )
     ardswc_still_null_keys = {
-        (row["land_section"], row["land_number"], row["county_norm"]) for row in ardswc_still_null
+        (row["land_section"], row["land_number"], row["county_norm"], row["town"]) for row in ardswc_still_null
     }
     if ardswc_still_null_keys:
-        ardswc_retry_values = [v for v in ardswc_values if (v[1], v[2], v[3]) in ardswc_still_null_keys]
+        ardswc_retry_values = [v for v in ardswc_values if (v[1], v[2], v[3], v[4]) in ardswc_still_null_keys]
         if ardswc_retry_values:
             logger.warning(
                 "[034 backfill] ardswc_114: 偵測到 %s 個比對鍵於首輪執行後仍為 NULL，執行補救重試",
@@ -169,6 +183,7 @@ WHERE gl.source_system = 'new_aerc'
                 "WHERE source_system = 'ardswc_114' AND land_section = $2 "
                 "AND meta_data->>'original_land_number' = $3 "
                 "AND translate(meta_data->>'county','台','臺') = translate($4,'台','臺') "
+                "AND meta_data->>'town' = $5 "
                 "AND land_section_name IS NULL",
                 ardswc_retry_values,
             )
