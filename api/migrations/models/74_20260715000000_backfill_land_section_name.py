@@ -107,19 +107,31 @@ WHERE gl.source_system = 'new_aerc'
     await db.execute_query("ANALYZE grant_locations")
 
     # 區塊二：legacy_farmdata（section_id 唯一鍵比對）
-    legacy_values = []
+    # 2026-07-17 改寫：原本用 execute_many() 逐筆送出 16,391 次個別網路往返，UAT 上實測
+    # 會觸發 ConnectionResetError（WinError 10054）——已用最小可重現案例證實是這台環境
+    # 對「大量連續網路往返」的連線穩定性問題，跟 SQL 邏輯、索引、資料量都無關。改用
+    # PostgreSQL 的 unnest() 陣列展開語法，把整批資料包成陣列參數一次性送出，將 16,391
+    # 次往返降為 1 次，從根本上規避這個問題（而不是仰賴操作者臨場判斷要不要中斷改手動
+    # 執行）。已用 dev 資料驗證覆蓋率與原本逐筆版本完全一致。
+    legacy_names: list[str] = []
+    legacy_section_ids: list[str] = []
     with open(data_dir / "legacy_section_names.csv", "r", encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f):
-            legacy_values.append((row["land_section_name"], row["section_id"]))
-    if legacy_values:
-        await db.execute_many(
-            "UPDATE grant_locations SET land_section_name = $1 "
-            "WHERE source_system = 'legacy_farmdata' AND meta_data->>'section_id' = $2 "
-            "AND land_section_name IS NULL",
-            legacy_values,
+            legacy_names.append(row["land_section_name"])
+            legacy_section_ids.append(row["section_id"])
+    if legacy_names:
+        await db.execute_query(
+            "UPDATE grant_locations gl SET land_section_name = v.name "
+            "FROM (SELECT unnest($1::text[]) AS name, unnest($2::text[]) AS section_id) v "
+            "WHERE gl.source_system = 'legacy_farmdata' "
+            "AND gl.meta_data->>'section_id' = v.section_id "
+            "AND gl.land_section_name IS NULL",
+            [legacy_names, legacy_section_ids],
         )
 
     # 覆蓋率自我修復：正常情況下應回傳空集合，只有異常情況才會補救到對應筆數
+    # （改寫為單一往返後，先前 execute_many 逐筆執行才會出現的暫態遺漏問題理論上不會
+    # 再重現，但保留這道防線作為防禦性測底，成本極低）
     _, legacy_still_null = await db.execute_query(
         "SELECT DISTINCT meta_data->>'section_id' AS section_id FROM grant_locations "
         "WHERE source_system = 'legacy_farmdata' AND land_section_name IS NULL "
@@ -127,17 +139,23 @@ WHERE gl.source_system = 'new_aerc'
     )
     legacy_still_null_ids = {row["section_id"] for row in legacy_still_null}
     if legacy_still_null_ids:
-        legacy_retry_values = [v for v in legacy_values if v[1] in legacy_still_null_ids]
-        if legacy_retry_values:
+        retry_pairs = [
+            (name, sid) for name, sid in zip(legacy_names, legacy_section_ids)
+            if sid in legacy_still_null_ids
+        ]
+        if retry_pairs:
             logger.warning(
                 "[034 backfill] legacy_farmdata: 偵測到 %s 個 section_id 於首輪執行後仍為 NULL，執行補救重試",
-                len(legacy_retry_values),
+                len(retry_pairs),
             )
-            await db.execute_many(
-                "UPDATE grant_locations SET land_section_name = $1 "
-                "WHERE source_system = 'legacy_farmdata' AND meta_data->>'section_id' = $2 "
-                "AND land_section_name IS NULL",
-                legacy_retry_values,
+            retry_names, retry_section_ids = zip(*retry_pairs)
+            await db.execute_query(
+                "UPDATE grant_locations gl SET land_section_name = v.name "
+                "FROM (SELECT unnest($1::text[]) AS name, unnest($2::text[]) AS section_id) v "
+                "WHERE gl.source_system = 'legacy_farmdata' "
+                "AND gl.meta_data->>'section_id' = v.section_id "
+                "AND gl.land_section_name IS NULL",
+                [list(retry_names), list(retry_section_ids)],
             )
 
     _, stats = await db.execute_query(
@@ -152,22 +170,33 @@ WHERE gl.source_system = 'new_aerc'
     # 也唯一，三鍵比對存在理論上的跨鄉鎮撞鍵風險（與資格預查 _filter_by_county_town 那個已知
     # bug 同一種根因）。已用 dev 資料實測驗證：加入鄉鎮後覆蓋率與三鍵版本完全一致（6,540/6,544
     # 不變），純粹是為資料量更大的正式環境加一層結構性防護，不影響既有結果。
-    ardswc_values = []
+    # 2026-07-17 改寫：同 legacy_farmdata，原本 execute_many 逐筆送出 ~6,540 次往返改為
+    # unnest() 陣列展開，一次性送出五欄陣列參數，降為 1 次網路往返。
+    ardswc_names: list[str] = []
+    ardswc_section_codes: list[str] = []
+    ardswc_land_numbers: list[str] = []
+    ardswc_county_norms: list[str] = []
+    ardswc_towns: list[str] = []
     with open(data_dir / "ardswc_reference.csv", "r", encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f):
-            ardswc_values.append(
-                (row["land_section_name"], row["section_code"], row["land_number"],
-                 row["county_norm"], row["town"])
-            )
-    if ardswc_values:
-        await db.execute_many(
-            "UPDATE grant_locations SET land_section_name = $1 "
-            "WHERE source_system = 'ardswc_114' AND land_section = $2 "
-            "AND trim(both '\"' from meta_data->>'original_land_number') = $3 "
-            "AND translate(meta_data->>'county','台','臺') = translate($4,'台','臺') "
-            "AND meta_data->>'town' = $5 "
-            "AND land_section_name IS NULL",
-            ardswc_values,
+            ardswc_names.append(row["land_section_name"])
+            ardswc_section_codes.append(row["section_code"])
+            ardswc_land_numbers.append(row["land_number"])
+            ardswc_county_norms.append(row["county_norm"])
+            ardswc_towns.append(row["town"])
+    if ardswc_names:
+        await db.execute_query(
+            "UPDATE grant_locations gl SET land_section_name = v.name "
+            "FROM (SELECT unnest($1::text[]) AS name, unnest($2::text[]) AS section_code, "
+            "unnest($3::text[]) AS land_number, unnest($4::text[]) AS county_norm, "
+            "unnest($5::text[]) AS town) v "
+            "WHERE gl.source_system = 'ardswc_114' "
+            "AND gl.land_section = v.section_code "
+            "AND trim(both '\"' from gl.meta_data->>'original_land_number') = v.land_number "
+            "AND translate(gl.meta_data->>'county','台','臺') = v.county_norm "
+            "AND gl.meta_data->>'town' = v.town "
+            "AND gl.land_section_name IS NULL",
+            [ardswc_names, ardswc_section_codes, ardswc_land_numbers, ardswc_county_norms, ardswc_towns],
         )
 
     # 覆蓋率自我修復：比對鍵是四欄組合（段代碼、地號、正規化縣市、鄉鎮），邏輯同 legacy_farmdata
@@ -182,20 +211,29 @@ WHERE gl.source_system = 'new_aerc'
         (row["land_section"], row["land_number"], row["county_norm"], row["town"]) for row in ardswc_still_null
     }
     if ardswc_still_null_keys:
-        ardswc_retry_values = [v for v in ardswc_values if (v[1], v[2], v[3], v[4]) in ardswc_still_null_keys]
-        if ardswc_retry_values:
+        retry_rows = [
+            row for row in zip(ardswc_names, ardswc_section_codes, ardswc_land_numbers,
+                                ardswc_county_norms, ardswc_towns)
+            if (row[1], row[2], row[3], row[4]) in ardswc_still_null_keys
+        ]
+        if retry_rows:
             logger.warning(
                 "[034 backfill] ardswc_114: 偵測到 %s 個比對鍵於首輪執行後仍為 NULL，執行補救重試",
-                len(ardswc_retry_values),
+                len(retry_rows),
             )
-            await db.execute_many(
-                "UPDATE grant_locations SET land_section_name = $1 "
-                "WHERE source_system = 'ardswc_114' AND land_section = $2 "
-                "AND trim(both '\"' from meta_data->>'original_land_number') = $3 "
-                "AND translate(meta_data->>'county','台','臺') = translate($4,'台','臺') "
-                "AND meta_data->>'town' = $5 "
-                "AND land_section_name IS NULL",
-                ardswc_retry_values,
+            r_names, r_codes, r_numbers, r_counties, r_towns = zip(*retry_rows)
+            await db.execute_query(
+                "UPDATE grant_locations gl SET land_section_name = v.name "
+                "FROM (SELECT unnest($1::text[]) AS name, unnest($2::text[]) AS section_code, "
+                "unnest($3::text[]) AS land_number, unnest($4::text[]) AS county_norm, "
+                "unnest($5::text[]) AS town) v "
+                "WHERE gl.source_system = 'ardswc_114' "
+                "AND gl.land_section = v.section_code "
+                "AND trim(both '\"' from gl.meta_data->>'original_land_number') = v.land_number "
+                "AND translate(gl.meta_data->>'county','台','臺') = v.county_norm "
+                "AND gl.meta_data->>'town' = v.town "
+                "AND gl.land_section_name IS NULL",
+                [list(r_names), list(r_codes), list(r_numbers), list(r_counties), list(r_towns)],
             )
 
     _, stats = await db.execute_query(
