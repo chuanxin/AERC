@@ -21,6 +21,15 @@ grant_locations 對這個 JSONB 表達式完全沒有索引，實測單筆需時
 先建立一個限定 source_system = 'legacy_farmdata' 的 partial expression index，
 把這批 UPDATE 從全表掃描降為索引查找。這個索引只是為了加速這支一次性 migration，
 回填完成後即可保留或捨棄（保留也無害，未來若有相同查詢型態一併受惠）。
+
+覆蓋率自我修復（2026-07-17 UAT 演練發現並修正）：UAT 驗證時因第一次執行耗時過久被手動
+中斷、加入索引優化後重跑，事後覆蓋率檢查發現 legacy_farmdata 有 102 筆仍是 NULL，其中
+84 筆的比對鍵在隨附資料檔中其實有對應資料——推測與第一次中斷殘留的暫態影響有關，但無法
+在事後完整鑑識證實根因。為了讓正式環境即使遇到任何未預見的類似暫態問題，也能在單次
+aerich upgrade 執行內收斂到完整覆蓋率、不需要人工介入或後續補丁 migration，legacy_farmdata
+與 ardswc_114 兩個 execute_many 區塊之後都加了一段「查詢仍為 NULL 但比對鍵有對應資料的
+紀錄，針對這些再補一次」的自我修復重試。正常情況下這個檢查應回傳空集合，幾乎零成本；
+只有在異常情況下才會補救對應的少量紀錄，不會重跑全部筆數。
 """
 from pathlib import Path
 import csv
@@ -92,6 +101,28 @@ WHERE gl.source_system = 'new_aerc'
             "AND land_section_name IS NULL",
             legacy_values,
         )
+
+    # 覆蓋率自我修復：正常情況下應回傳空集合，只有異常情況才會補救到對應筆數
+    _, legacy_still_null = await db.execute_query(
+        "SELECT DISTINCT meta_data->>'section_id' AS section_id FROM grant_locations "
+        "WHERE source_system = 'legacy_farmdata' AND land_section_name IS NULL "
+        "AND meta_data->>'section_id' IS NOT NULL"
+    )
+    legacy_still_null_ids = {row["section_id"] for row in legacy_still_null}
+    if legacy_still_null_ids:
+        legacy_retry_values = [v for v in legacy_values if v[1] in legacy_still_null_ids]
+        if legacy_retry_values:
+            logger.warning(
+                "[034 backfill] legacy_farmdata: 偵測到 %s 個 section_id 於首輪執行後仍為 NULL，執行補救重試",
+                len(legacy_retry_values),
+            )
+            await db.execute_many(
+                "UPDATE grant_locations SET land_section_name = $1 "
+                "WHERE source_system = 'legacy_farmdata' AND meta_data->>'section_id' = $2 "
+                "AND land_section_name IS NULL",
+                legacy_retry_values,
+            )
+
     _, stats = await db.execute_query(
         "SELECT COUNT(*) AS total, COUNT(land_section_name) AS filled "
         "FROM grant_locations WHERE source_system = 'legacy_farmdata'"
@@ -115,6 +146,33 @@ WHERE gl.source_system = 'new_aerc'
             "AND land_section_name IS NULL",
             ardswc_values,
         )
+
+    # 覆蓋率自我修復：比對鍵是三欄組合（段代碼、地號、正規化縣市），邏輯同 legacy_farmdata
+    _, ardswc_still_null = await db.execute_query(
+        "SELECT DISTINCT land_section, meta_data->>'original_land_number' AS land_number, "
+        "translate(meta_data->>'county', '台', '臺') AS county_norm "
+        "FROM grant_locations WHERE source_system = 'ardswc_114' AND land_section_name IS NULL "
+        "AND land_section IS NOT NULL AND meta_data->>'original_land_number' IS NOT NULL"
+    )
+    ardswc_still_null_keys = {
+        (row["land_section"], row["land_number"], row["county_norm"]) for row in ardswc_still_null
+    }
+    if ardswc_still_null_keys:
+        ardswc_retry_values = [v for v in ardswc_values if (v[1], v[2], v[3]) in ardswc_still_null_keys]
+        if ardswc_retry_values:
+            logger.warning(
+                "[034 backfill] ardswc_114: 偵測到 %s 個比對鍵於首輪執行後仍為 NULL，執行補救重試",
+                len(ardswc_retry_values),
+            )
+            await db.execute_many(
+                "UPDATE grant_locations SET land_section_name = $1 "
+                "WHERE source_system = 'ardswc_114' AND land_section = $2 "
+                "AND meta_data->>'original_land_number' = $3 "
+                "AND translate(meta_data->>'county','台','臺') = translate($4,'台','臺') "
+                "AND land_section_name IS NULL",
+                ardswc_retry_values,
+            )
+
     _, stats = await db.execute_query(
         "SELECT COUNT(*) AS total, COUNT(land_section_name) AS filled "
         "FROM grant_locations WHERE source_system = 'ardswc_114'"
