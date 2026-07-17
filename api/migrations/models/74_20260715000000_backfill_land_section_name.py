@@ -37,6 +37,16 @@ ardswc_114 比對鍵加入鄉鎮（2026-07-17 修正）：原本段代碼/地號
 會重現的跨鄉鎮誤帶案件是同一種根因）。已用 dev 環境 temp_rwb_grants 實測驗證目前資料無此情況
 （三鍵與四鍵比對覆蓋率同為 6,540/6,544），改為四鍵純粹是為資料量更大的正式環境預先補上結構性
 防護，不影響既有結果；ardswc_reference.csv 已同步改為五欄（新增 town）。
+
+地號雙引號雜訊清理（2026-07-17 補充修正）：UAT 同步水保署資料後實測發現，dev 環境
+temp_rwb_grants 有 1 筆（段代碼0244/地號0037-0282/南投縣/國姓鄉）地號欄位帶著開頭
+多餘的雙引號字元（很可能是 temp_rwb_grants 當初匯入時的殘留瑕疵），這個瑕疵同時存在於
+dev 自己的 grant_locations 與 CSV 產生結果，兩邊剛好都髒，dev 環境測試時「意外」比對
+成功；但 UAT 的 grant_locations 這筆是乾淨值，導致 CSV 的髒值配不上乾淨值而漏配。
+比照現有「台/臺」正規化的做法，在比對時（不是只清理 CSV 內容本身）用
+trim(both '"' from meta_data->>'original_land_number') 兩側都容忍這種雜訊，
+不論目標環境的資料是否帶有這個瑕疵都能正確比對，已用 dev 資料重跑驗證覆蓋率不變
+（6,540/6,544，且原本因此瑕疵漏比對的那 1 筆這次正確填入）。
 """
 from pathlib import Path
 import csv
@@ -153,7 +163,7 @@ WHERE gl.source_system = 'new_aerc'
         await db.execute_many(
             "UPDATE grant_locations SET land_section_name = $1 "
             "WHERE source_system = 'ardswc_114' AND land_section = $2 "
-            "AND meta_data->>'original_land_number' = $3 "
+            "AND trim(both '\"' from meta_data->>'original_land_number') = $3 "
             "AND translate(meta_data->>'county','台','臺') = translate($4,'台','臺') "
             "AND meta_data->>'town' = $5 "
             "AND land_section_name IS NULL",
@@ -162,7 +172,7 @@ WHERE gl.source_system = 'new_aerc'
 
     # 覆蓋率自我修復：比對鍵是四欄組合（段代碼、地號、正規化縣市、鄉鎮），邏輯同 legacy_farmdata
     _, ardswc_still_null = await db.execute_query(
-        "SELECT DISTINCT land_section, meta_data->>'original_land_number' AS land_number, "
+        "SELECT DISTINCT land_section, trim(both '\"' from meta_data->>'original_land_number') AS land_number, "
         "translate(meta_data->>'county', '台', '臺') AS county_norm, meta_data->>'town' AS town "
         "FROM grant_locations WHERE source_system = 'ardswc_114' AND land_section_name IS NULL "
         "AND land_section IS NOT NULL AND meta_data->>'original_land_number' IS NOT NULL "
@@ -181,7 +191,7 @@ WHERE gl.source_system = 'new_aerc'
             await db.execute_many(
                 "UPDATE grant_locations SET land_section_name = $1 "
                 "WHERE source_system = 'ardswc_114' AND land_section = $2 "
-                "AND meta_data->>'original_land_number' = $3 "
+                "AND trim(both '\"' from meta_data->>'original_land_number') = $3 "
                 "AND translate(meta_data->>'county','台','臺') = translate($4,'台','臺') "
                 "AND meta_data->>'town' = $5 "
                 "AND land_section_name IS NULL",
