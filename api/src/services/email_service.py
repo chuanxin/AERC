@@ -22,6 +22,7 @@ from jinja2 import Template
 
 from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus
 from src.services.audit_service import mask_name
+from src.services.data_encryption import data_encryption_service
 
 
 def mask_email(email: str) -> str:
@@ -266,7 +267,7 @@ class EmailService:
         verification_url = f"{EmailConfig.FRONTEND_URL}/verify-email?token={auth_token.token}"
 
         # 遮罩姓名（隱私保護）
-        display_name = user.full_name or user.username
+        display_name = data_encryption_service.decrypt(user.full_name) or user.username
         masked_name = mask_name(display_name)
 
         # 渲染 HTML 模板
@@ -315,7 +316,7 @@ class EmailService:
         reset_url = f"{EmailConfig.FRONTEND_URL}/login/reset?token={auth_token.token}"
 
         # 遮罩姓名（隱私保護）
-        display_name = user.full_name or user.username
+        display_name = data_encryption_service.decrypt(user.full_name) or user.username
         masked_name = mask_name(display_name)
 
         # 渲染 HTML 模板
@@ -356,7 +357,7 @@ class EmailService:
         from datetime import datetime, timezone, timedelta
 
         # 遮罩姓名（隱私保護）
-        display_name = user.full_name or user.username
+        display_name = data_encryption_service.decrypt(user.full_name) or user.username
         masked_name = mask_name(display_name)
 
         # 格式化變更時間（UTC+8 台灣時區）
@@ -468,7 +469,7 @@ class EmailService:
         migration_url = f"{EmailConfig.FRONTEND_URL}/login/migrate?token={auth_token.token}"
 
         # 遮罩姓名（隱私保護）
-        display_name = user.full_name or user.username
+        display_name = data_encryption_service.decrypt(user.full_name) or user.username
         masked_name = mask_name(display_name)
 
         # 渲染 HTML 模板

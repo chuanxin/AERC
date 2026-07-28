@@ -146,7 +146,7 @@ async def get_grant_versions(
             }
             
             if version.created_by:
-                result["created_by_name"] = version.created_by.full_name or version.created_by.username
+                result["created_by_name"] = data_encryption_service.decrypt(version.created_by.full_name) or version.created_by.username
             
             results.append(result)
         
@@ -180,7 +180,7 @@ async def get_grant_version(version_id: int) -> Dict[str, Any]:
             result["created_by"] = {
                 "id": version.created_by.id,
                 "username": version.created_by.username,
-                "full_name": version.created_by.full_name
+                "full_name": data_encryption_service.decrypt(version.created_by.full_name)
             }
         
         return result
