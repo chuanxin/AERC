@@ -148,7 +148,8 @@ class GrantCaseItem(BaseModel):
     crops: Optional[List[Dict[str, str]]] = Field(None, description="作物資訊")
     is_aboriginal_area: Optional[bool] = Field(None, description="是否原民區域")
     office_boundaries: Optional[List[Dict[str, Any]]] = Field(None, description="水利工作站界限交集資訊")
-    
+    data_format_warning: Optional[str] = Field(None, description="逐案件資料格式錯誤警告；缺縣市／鄉鎮名稱時為固定訊息，正常為 None")
+
     class Config:
         json_encoders = {
             Decimal: lambda v: float(v)
@@ -217,7 +218,12 @@ class LegacyMetaData(BaseModel):
 
 # schema-max-length: skip（解析既有 grant_locations.meta_data 的內部輔助型別，非使用者輸入路徑）
 class NewAercMetaData(BaseModel):
-    """新系統 meta_data 格式"""
+    """新系統 meta_data 格式（描述性輔助型別）。
+
+    ⚠️ 此型別目前未被任何路徑使用（dead code），且未必列出所有 meta_data 鍵
+    （現況已缺 facility_area_ha/land_area_ha/is_reapplied；並新增 county/town 名稱）。
+    請勿以此 schema 直接 validate grant_locations.meta_data，會遺漏鍵。
+    """
     land_area: Optional[str] = Field(None, description="土地面積")
     facility_area: Optional[str] = Field(None, description="設施面積")
     land_county: Optional[int] = Field(None, description="縣市代碼")

@@ -272,7 +272,7 @@ class GrantVersionService:
                     'created_by': {
                         'id': version.created_by.id,
                         'username': version.created_by.username,
-                        'full_name': version.created_by.full_name
+                        'full_name': data_encryption_service.decrypt(version.created_by.full_name)
                     } if version.created_by else None,
                     'data_hash': version.all_steps_data_hash
                 })
@@ -304,7 +304,7 @@ class GrantVersionService:
                     'changed_by': {
                         'id': record.changed_by.id,
                         'username': record.changed_by.username,
-                        'full_name': record.changed_by.full_name
+                        'full_name': data_encryption_service.decrypt(record.changed_by.full_name)
                     } if record.changed_by else None,
                     'session_id': record.session_id,
                     'ip_address': record.ip_address

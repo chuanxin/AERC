@@ -260,7 +260,7 @@ async def get_grants(
                 grant_data["created_by"] = {
                     "id": grant.created_by.id,
                     "username": grant.created_by.username,
-                    "full_name": grant.created_by.full_name
+                    "full_name": data_encryption_service.decrypt(grant.created_by.full_name)
                 }
             
             # 從 active_version 取得額外資訊

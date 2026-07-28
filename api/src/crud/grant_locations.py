@@ -1,13 +1,26 @@
 import logging
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+
 from tortoise import connections
 
-from src.database.models import Grants
+from src.database.models import Grants, Counties, Towns
 from src.database.geo_models import GrantLocations
 from src.services.data_encryption import data_encryption_service
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_name(raw_id: Any, name_by_id: Dict[int, str]) -> Optional[str]:
+    """將縣市/鄉鎮數字 ID 解析為中文名稱；解析失敗（None/非數字/查表未命中）回傳 None。
+
+    landCounty/landTown 不在 sync_grant_locations 的 missing_fields 檢查內，故可能為 None，
+    int(None) 會拋 TypeError，必須以防禦性轉換包覆（審查 #3）。
+    """
+    try:
+        return name_by_id.get(int(raw_id))
+    except (TypeError, ValueError):
+        return None
 
 async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
     """
@@ -44,6 +57,11 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
 
     # 🔧 修復：使用正確的 Tortoise 連接方式（僅用於 PostGIS upsert）
     conn = connections.get("default")
+
+    # 建立一次 county/town 批次查表（供本次所有 parcel 共用，避免逐筆 N+1）
+    # 就地建立，不 import GrantStatisticsCRUD（避免熱路徑耦合統計模組）
+    county_name_by_id = {c.id: c.name for c in await Counties.all()}
+    town_name_by_id = {t.id: t.name for t in await Towns.all()}
 
     try:
         for parcel in land_parcels:
@@ -88,16 +106,28 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                     continue
                 
                 # 🔧 修復：建立更詳細的註釋
-                county_name = parcel.get('landCounty', '')
-                town_name = parcel.get('landTown', '')
-                comment = f"Land: County-{county_name}, Town-{town_name}, Number-{land_number}"
+                # 註：landCounty/landTown 實際為數字 ID（非名稱），命名為 *_id_raw 以免與下方解析後的名稱混淆
+                county_id_raw = parcel.get('landCounty', '')
+                town_id_raw = parcel.get('landTown', '')
+                comment = f"Land: County-{county_id_raw}, Town-{town_id_raw}, Number-{land_number}"
                 # comment = f"Facility Address: {address_data.get('county', '')} {address_data.get('town', '')} {address_data.get('address', '')}"
 
-                
+                # 將 landCounty/landTown 數字 ID 解析為中文名稱，使 new_aerc 的 meta_data
+                # 與 ardswc_114/legacy_farmdata 一致（皆具 county/town 字串鍵），供資格預查縣市/鄉鎮過濾使用
+                resolved_county_name = _resolve_name(parcel.get('landCounty'), county_name_by_id)
+                resolved_town_name = _resolve_name(parcel.get('landTown'), town_name_by_id)
+                if resolved_county_name is None or resolved_town_name is None:
+                    logger.warning(
+                        "grant %r 土地 %r-%r 縣市/鄉鎮名稱解析未完整：landCounty=%r->%r, landTown=%r->%r（不寫入該筆名稱鍵）",
+                        grant_id, land_section, land_number,
+                        parcel.get('landCounty'), resolved_county_name,
+                        parcel.get('landTown'), resolved_town_name,
+                    )
+
                 # 🔧 修復：完整的元資料
                 meta_data = {
                     "land_area": parcel.get('landArea'),
-                    "land_area_ha": parcel.get('landAreaHa'), 
+                    "land_area_ha": parcel.get('landAreaHa'),
                     "facility_area": parcel.get('facilityArea'),
                     "facility_area_ha": parcel.get('facilityAreaHa'),
                     "crops": parcel.get('crops', []),
@@ -107,6 +137,11 @@ async def sync_grant_locations(grant_id: int, step2_data: Dict[str, Any]):
                     "is_irrigation_area": parcel.get('isIrrigationArea', False),
                     "is_reapplied": parcel.get('isReapplied', False)
                 }
+                # 僅在成功解析出名稱時才寫入（缺失時不寫入該鍵，交由查詢層逐案件警告呈現）
+                if resolved_county_name is not None:
+                    meta_data["county"] = resolved_county_name
+                if resolved_town_name is not None:
+                    meta_data["town"] = resolved_town_name
 
                 # 🔧 修復：使用正確的 Tortoise ORM 查詢方式
                 upsert_sql = """
