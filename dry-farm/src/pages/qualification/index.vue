@@ -1125,6 +1125,7 @@
 
                                       </div>
                                     </div>
+                                  </div>
                                   </v-expand-transition>
                                   </v-card>
                               </div>
