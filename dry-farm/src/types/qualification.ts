@@ -46,6 +46,7 @@ export interface GrantCaseItem {
   }>
   is_aboriginal_area?: boolean
   office_boundaries?: OfficeBoundaryInfo[]
+  data_format_warning?: string | null // 逐案件資料格式錯誤警告；缺縣市/鄉鎮名稱時為固定訊息，正常為 null
 }
 
 export interface AreaStatistics {

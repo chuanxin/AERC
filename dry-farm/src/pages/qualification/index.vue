@@ -968,49 +968,65 @@
                                 :key="yearGroup.year"
                                 :value="yearGroup.year"
                               >
-                                <!-- 設施列表 - 緊湊布局 -->
-                                <div class="facility-list">
+                                <!-- 逐案件卡片列表（每筆案件一列，035：取代原設施聚合列） -->
+                                <div class="case-list">
                                   <div
-                                    v-for="facilityGroup in yearGroup.facilities"
-                                    :key="facilityGroup.type"
+                                    v-for="(caseItem, index) in yearGroup.cases"
+                                    :key="caseItem.id || index"
                                     class="facility-item d-flex align-center py-3 px-3 mb-2 rounded"
-                                    :class="`border-s-4 border-${getFacilityIcon(facilityGroup.type).color}`"
-                                    style="background-color: #fafafa;"
+                                    :class="`border-s-4 border-${getFacilityIcon(caseItem.case_type).color}`"
+                                    :style="{ backgroundColor: caseItem.data_format_warning ? 'rgba(255, 152, 0, 0.10)' : '#fafafa' }"
                                   >
-                                    <!-- 左側：設施圖示和名稱 -->
+                                    <!-- 左側：設施圖示 + 案件資訊 -->
                                     <div class="d-flex align-center flex-grow-1">
                                       <div
                                         class="facility-icon d-flex align-center justify-center me-3"
-                                        :style="`background-color: ${getFacilityColorHex(facilityGroup.type)}; width: 36px; height: 36px; border-radius: 8px;`"
+                                        :style="`background-color: ${getFacilityColorHex(caseItem.case_type)}; width: 36px; height: 36px; border-radius: 8px;`"
                                       >
                                         <v-icon
-                                          :icon="getFacilityIcon(facilityGroup.type).icon"
+                                          :icon="getFacilityIcon(caseItem.case_type).icon"
                                           color="white"
                                           size="20"
                                         />
                                       </div>
                                       <div>
-                                        <div class="text-body-1 font-weight-medium mb-1">
-                                          {{ facilityGroup.type }}
+                                        <div class="text-body-1 font-weight-medium mb-1 d-flex align-center">
+                                          {{ caseItem.case_type }}
+                                          <!-- 資料格式錯誤警告（逐案件；缺縣市/鄉鎮名稱時顯示，不阻擋其餘呈現） -->
+                                          <v-tooltip
+                                            v-if="caseItem.data_format_warning"
+                                            location="top"
+                                          >
+                                            <template #activator="{ props }">
+                                              <v-icon
+                                                v-bind="props"
+                                                icon="mdi-alert-circle"
+                                                color="warning"
+                                                size="18"
+                                                class="ms-2"
+                                              />
+                                            </template>
+                                            <span>{{ caseItem.data_format_warning }}</span>
+                                          </v-tooltip>
                                         </div>
                                         <div class="text-caption text-grey-darken-1">
-                                          案件 {{ facilityGroup.cases.length }} | {{ formatApplicantsInGroup(facilityGroup.cases) }}
+                                          案號 {{ caseItem.case_number || '—' }} ｜ {{ caseItem.applicant || '未填寫' }} ｜ {{ caseItem.land_section }} {{ caseItem.land_number }}
                                         </div>
                                       </div>
                                     </div>
 
-                                    <!-- 右側：面積和狀態 -->
+                                    <!-- 右側：核准面積 + 案件狀態 -->
                                     <div class="text-end">
                                       <div class="text-h6 font-weight-bold text-primary mb-1">
-                                        {{ (facilityGroup.appliedArea || 0).toLocaleString() }}
+                                        {{ Number(caseItem.approved_area || 0).toLocaleString() }}
                                         <span class="text-caption">㎡</span>
                                       </div>
                                       <v-chip
-                                        :color="getStatusColor(facilityGroup.appliedArea || 0, facilityGroup.landRegisteredArea || 0)"
+                                        :color="getCaseStatusColor(caseItem.status)"
                                         size="small"
                                         variant="flat"
                                       >
-                                        {{ facilityGroup.statusText }}
+                                        {{ getCaseStatusLabel(caseItem.status) }}
                                       </v-chip>
                                     </div>
                                   </div>
@@ -1893,9 +1909,6 @@ const groupedByYear = computed(() => {
   if (filteredLegacyResults.value.length === 0) return [];
 
   const groups = new Map();
-  // 固定的四個設施類型
-  const fixedFacilityTypes = ['田間管路', '調蓄設施', '調控設施', '動力設備'];
-
   filteredLegacyResults.value.forEach(item => {
     const year = item.application_year;
     if (!groups.has(year)) {
@@ -1903,7 +1916,6 @@ const groupedByYear = computed(() => {
         year,
         cases: [],
         totalArea: 0,
-        facilities: new Map(),
         landRegisteredArea: Number(item.land_registered_area || item.approved_area || 0) // 地籍登記面積
       });
     }
@@ -1917,59 +1929,11 @@ const groupedByYear = computed(() => {
     if (currentLandArea > yearGroup.landRegisteredArea) {
       yearGroup.landRegisteredArea = currentLandArea;
     }
-
-    // 處理該記錄已申請的設施類型
-    const appliedFacilityTypes = item.case_type ? item.case_type.split(', ').map(type => type.trim()) : [];
-
-    appliedFacilityTypes.forEach(facilityType => {
-      if (fixedFacilityTypes.includes(facilityType)) {
-        if (!yearGroup.facilities.has(facilityType)) {
-          yearGroup.facilities.set(facilityType, {
-            type: facilityType,
-            cases: [],
-            appliedArea: 0,
-            landRegisteredArea: yearGroup.landRegisteredArea,
-            status: 'applied'
-          });
-        }
-
-        const facilityGroup = yearGroup.facilities.get(facilityType);
-        facilityGroup.cases.push(item);
-        facilityGroup.appliedArea += Number(item.approved_area);
-        facilityGroup.landRegisteredArea = yearGroup.landRegisteredArea;
-      }
-    });
   });
 
-  // 為每個年度補充未申請的設施類型
-  groups.forEach(yearGroup => {
-    fixedFacilityTypes.forEach(facilityType => {
-      if (!yearGroup.facilities.has(facilityType)) {
-        yearGroup.facilities.set(facilityType, {
-          type: facilityType,
-          cases: [],
-          appliedArea: 0,
-          landRegisteredArea: yearGroup.landRegisteredArea,
-          status: 'not_applied'
-        });
-      }
-    });
-  });
-
-  // 轉換為陣列並排序
+  // 轉換為陣列並排序（依年度新到舊）；035 起結果以逐案件卡片呈現，不再聚合設施
   return Array.from(groups.values())
-    .sort((a, b) => (b as { year: number }).year - (a as { year: number }).year)
-    .map(yearGroup => ({
-      ...yearGroup,
-      facilities: fixedFacilityTypes.map(facilityType => {
-        const facility = (yearGroup as { facilities: Map<string, { type: string; cases: unknown[]; appliedArea: number; landRegisteredArea: number; status: string }> }).facilities.get(facilityType);
-        return {
-          ...facility,
-          statusText: getFacilityStatusText(facility!.appliedArea || 0, facility!.landRegisteredArea || 0),
-          remainingArea: Math.max(0, (facility!.landRegisteredArea || 0) - (facility!.appliedArea || 0))
-        };
-      })
-    }));
+    .sort((a, b) => (b as { year: number }).year - (a as { year: number }).year);
 });
 
 // 年度標籤顏色
@@ -1992,34 +1956,40 @@ const getFacilityIcon = (facilityType: string) => {
     // '歷史案件': { icon: 'mdi-history', color: 'brown' }
   };
 
-  return iconMap[facilityType] || iconMap['一般設施'];
+  // 預設值：case_type 可能為「一般設施」或多設施逗號串（非單一固定類型），需回傳有效物件避免 undefined.color
+  return iconMap[facilityType] || { icon: 'mdi-tools', color: 'grey' };
 };
 
-// 狀態顏色 - 基於狀態文字而非面積
-const getStatusColor = (appliedArea: number, landRegisteredArea: number) => {
-  const statusText = getFacilityStatusText(appliedArea, landRegisteredArea);
-
-  if (statusText === '尚未申請') return 'info';
-  if (statusText === '已全部申請') return 'grey';
-  return 'teal'; // 尚有面積的情況 - 使用青色避免與調蓄設施橘色衝突
+// 案件狀態中文標籤（對應後端 GrantStatus enum；035 逐案件卡片使用）
+const CASE_STATUS_LABELS: Record<string, string> = {
+  draft: '草稿',
+  submitted: '已結案',
+  under_review: '審查中',
+  approved: '核准',
+  rejected: '駁回',
+  withdrawn: '撤回',
+  cross_year: '跨年度',
+  completed: '線上結案',
+  deleted: '已刪除',
+  inactive: '歷史案件',
 };
+const getCaseStatusLabel = (status: string): string => CASE_STATUS_LABELS[status] || status || '—';
 
-// 移除未使用的面積狀態格式化函數
-// 此函數已被 getFacilityStatusText 和狀態文字邏輯取代
-
-// 設施狀態文字計算
-const getFacilityStatusText = (appliedArea: number, landRegisteredArea: number) => {
-  const applied = appliedArea || 0;
-  const registered = landRegisteredArea || 0;
-
-  if (applied === 0) {
-    return '尚未申請';
-  } else if (applied >= registered) {
-    return '已全部申請';
-  } else {
-    const remainingArea = registered - applied;
-    return `尚有${remainingArea.toLocaleString()}㎡`;
-  }
+// 案件狀態顏色（Vuetify color）
+const getCaseStatusColor = (status: string): string => {
+  const colorMap: Record<string, string> = {
+    approved: 'success',
+    under_review: 'info',
+    submitted: 'teal',
+    completed: 'teal',
+    cross_year: 'purple',
+    draft: 'grey',
+    inactive: 'grey',
+    rejected: 'error',
+    withdrawn: 'grey',
+    deleted: 'grey',
+  };
+  return colorMap[status] || 'grey';
 };
 
 // 設施顏色十六進制值
@@ -2032,20 +2002,6 @@ const getFacilityColorHex = (facilityType: string) => {
   };
 
   return colorMap[facilityType] || '#757575'; // 預設為灰色
-};
-
-// 格式化分組中的申請人
-const formatApplicantsInGroup = (cases: Array<{ applicant: string }>) => {
-  // 過濾掉空的或undefined的申請人
-  const validApplicants = [...new Set(cases.map(c => c.applicant).filter(applicant => applicant && applicant.trim()))];
-
-  if (validApplicants.length === 0) {
-    return '無申請紀錄';
-  } else if (validApplicants.length === 1) {
-    return validApplicants[0];
-  } else {
-    return `${validApplicants[0]} 等 ${validApplicants.length} 人`;
-  }
 };
 
 // 計算過濾後結果對應的 office_boundaries
