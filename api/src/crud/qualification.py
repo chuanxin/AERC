@@ -23,9 +23,25 @@ from ..schemas.qualification import (
 
 logger = logging.getLogger(__name__)
 
+# 逐案件「資料格式錯誤」警告的固定訊息（最終值，非範例）——缺縣市/鄉鎮名稱時使用
+DATA_FORMAT_WARNING_MSG = "此案件缺少縣市／鄉鎮資料，資料格式可能有誤"
+
 
 class QualificationCRUD:
     """重複案件查詢的 CRUD 操作類 - 遵循 Linus 簡潔原則"""
+
+    @staticmethod
+    def _has_incomplete_county_town(location: GrantLocations) -> bool:
+        """判定案件的 meta_data 是否缺少縣市/鄉鎮名稱（source-agnostic，對三來源一律適用）。
+
+        缺名稱代表資料結構可能受損或非正規進入系統，屬應讓操作者可見的異常。
+        此述詞為單一 SSOT，同時驅動逐案件警告旗標與後端診斷 log。
+        """
+        return (
+            not location.meta_data
+            or not location.meta_data.get('county')
+            or not location.meta_data.get('town')
+        )
 
     @staticmethod
     def generate_query_hash(request: QualificationSearchRequest) -> str:
@@ -231,6 +247,15 @@ class QualificationCRUD:
         if include_office_boundaries:
             office_boundaries_data = await QualificationCRUD._query_office_boundaries_for_location(location)
 
+        # 缺縣市/鄉鎮名稱時：設逐案件警告旗標 + 留後端診斷 log（不靜默放行）
+        data_format_warning = None
+        if QualificationCRUD._has_incomplete_county_town(location):
+            data_format_warning = DATA_FORMAT_WARNING_MSG
+            logger.warning(
+                "[_convert_to_case_item] 案件缺縣市/鄉鎮名稱，標記資料格式警告：id=%s, source_system=%s",
+                location.id, location.source_system,
+            )
+
         return GrantCaseItem(
             id=location.id,
             source_system=location.source_system,
@@ -247,7 +272,8 @@ class QualificationCRUD:
             land_registered_area=land_registered_area,
             crops=crops,
             is_aboriginal_area=is_aboriginal_area,
-            office_boundaries=office_boundaries_data
+            office_boundaries=office_boundaries_data,
+            data_format_warning=data_format_warning,
         )
 
     @staticmethod
@@ -630,7 +656,9 @@ class QualificationCRUD:
 
         for location in locations:
             if not location.meta_data:
-                # 如果沒有 meta_data，保留此記錄（向後相容）
+                # 沒有 meta_data，容錯保留此記錄（向後相容）。
+                # 缺名稱的診斷 log 與逐案件警告旗標由 _convert_to_case_item 統一評估（見 _has_incomplete_county_town），
+                # 本函式僅負責過濾時的容錯保留，兩處判斷獨立但一致、互不干擾。
                 filtered_locations.append(location)
                 continue
 
@@ -648,7 +676,7 @@ class QualificationCRUD:
                     county_match = (county_normalized in meta_county_normalized or
                                   meta_county_normalized in county_normalized)
                 else:
-                    # meta_data 中沒有縣市資訊，保守處理：保留此記錄
+                    # meta_data 無縣市名稱，容錯保留此記錄（診斷與警告旗標於 _convert_to_case_item 統一處理）
                     county_match = True
 
             # 鄉鎮比對
@@ -661,7 +689,7 @@ class QualificationCRUD:
                     town_match = (town_normalized in meta_town_normalized or
                                 meta_town_normalized in town_normalized)
                 else:
-                    # meta_data 中沒有鄉鎮資訊，保守處理：保留此記錄
+                    # meta_data 無鄉鎮名稱，容錯保留此記錄（診斷與警告旗標於 _convert_to_case_item 統一處理）
                     town_match = True
 
             # 同時滿足縣市和鄉鎮條件才保留
