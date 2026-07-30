@@ -1048,7 +1048,7 @@
                                         <div class="d-flex align-center">
                                           <v-icon size="small" color="brown" class="me-1">mdi-map-marker</v-icon>
                                           <span class="text-body-2 text-grey-darken-3">
-                                            土地 : {{ caseItem.land_section }} {{ caseItem.land_number }}
+                                            土地 : {{ getLandSectionDisplay(caseItem) }} {{ caseItem.land_number }}
                                           </span>
                                         </div>
                                       </v-col>
@@ -1180,7 +1180,7 @@ import { useRoute } from 'vue-router';
 import { useQualificationStore } from '@/stores/qualification';
 import { useDomicileStore } from '@/stores/domicile';
 import { checkNlscApiHealth, type LandSection } from '@/services/landSectionNlscService';
-import type { QualificationSearchParams, IndigenousSearchParams, RecentSearch } from '@/types/qualification';
+import type { QualificationSearchParams, IndigenousSearchParams, RecentSearch, GrantCaseItem } from '@/types/qualification';
 
 const qualificationStore = useQualificationStore();
 const domicileStore = useDomicileStore();
@@ -1819,11 +1819,12 @@ const landLocationDescription = computed(() => {
     if (selectedSection) {
       parts.push(selectedSection.name || selectedSection.title);
     } else {
-      // 如果找不到，可能是舊資料或直接輸入的段號，嘗試從結果中取得
+      // 如果找不到，可能是舊資料或直接輸入的段號，嘗試從結果中取得地段名稱
+      // 缺名稱時省略地段一段，不退回顯示代碼——否則會出現「標題顯示代碼、卡片顯示名稱」的矛盾畫面
       if (filteredLegacyResults.value.length > 0) {
         const first = filteredLegacyResults.value[0];
-        if (first.land_section) {
-          parts.push(first.land_section);
+        if (first.land_section_name) {
+          parts.push(first.land_section_name);
         }
       }
     }
@@ -1905,15 +1906,23 @@ const selectedYearOfficeBoundaries = computed(() => {
     return [];
   }
 
-  // 取得該年度案件的 land_section 和 land_number
-  const targetLandSection = selectedYearRecords[0].land_section;
+  // 取得該年度案件的地段名稱和 land_number
+  const targetLandSectionName = selectedYearRecords[0].land_section_name;
   const targetLandNumber = selectedYearRecords[0].land_number;
+
+  // 缺地段名稱的土地不參與比對：名稱為空時兩端相等判斷會成立（null === null），
+  // 導致不相干的地段被判定為同一個。實測地號 0878-0000 有 2 筆缺名稱紀錄分屬
+  // 南投縣集集鎮與高雄市燕巢區，無此守衛會合併出橫跨兩縣市的錯誤區域清單。
+  // 該案件的資料異常已由卡片的 data_format_warning 說明，此處回空即為正確結果。
+  if (!targetLandSectionName) {
+    return [];
+  }
 
   const boundaries = [];
 
   // 遍歷所有查詢結果，找到匹配的地段+地號組合且為選中年度的記錄
   for (const result of searchResults.value) {
-    if (result.land_section === targetLandSection &&
+    if (result.land_section_name === targetLandSectionName &&
         result.land_number === targetLandNumber &&
         result.application_year === selectedYearTab.value &&
         result.office_boundaries &&
@@ -2148,6 +2157,11 @@ const CASE_STATUS_LABELS: Record<string, string> = {
 };
 const getCaseStatusLabel = (status: string): string => CASE_STATUS_LABELS[status] || status || '—';
 
+// 地段顯示值：一律用中文名稱，缺名稱時顯示佔位符號
+// 刻意不退回顯示 land_section（代碼）——缺名稱屬錯誤資料，顯示代碼會讓錯誤資料看起來正常；
+// 該案件會由後端的 data_format_warning 亮起警告說明原因
+const getLandSectionDisplay = (caseItem: GrantCaseItem): string => caseItem.land_section_name || '—';
+
 // 案件狀態顏色（Vuetify color）
 const getCaseStatusColor = (status: string): string => {
   const colorMap: Record<string, string> = {
@@ -2180,18 +2194,23 @@ const getFacilityColorHex = (facilityType: string) => {
 
 // 計算過濾後結果對應的 office_boundaries
 const allOfficeBoundaries = computed(() => {
-  // 只取與過濾後結果相同 land_section + land_number 組合的 office_boundaries
+  // 只取與過濾後結果相同 地段名稱 + land_number 組合的 office_boundaries
   if (filteredLegacyResults.value.length === 0) return [];
 
-  // 取得過濾後結果的 land_section (所有記錄應該有相同的 land_section)
-  const targetLandSection = filteredLegacyResults.value[0].land_section;
+  // 取得過濾後結果的地段名稱 (所有記錄應該有相同的地段)
+  const targetLandSectionName = filteredLegacyResults.value[0].land_section_name;
   const targetLandNumber = filteredLegacyResults.value[0].land_number;
+
+  // 缺地段名稱的土地不參與比對，理由同 selectedYearOfficeBoundaries（空值兩端相等會誤配）
+  if (!targetLandSectionName) {
+    return [];
+  }
 
   const boundaries = [];
 
   // 遍歷所有查詢結果，找到匹配的地段+地號組合
   for (const result of searchResults.value) {
-    if (result.land_section === targetLandSection &&
+    if (result.land_section_name === targetLandSectionName &&
         result.land_number === targetLandNumber &&
         result.office_boundaries &&
         result.office_boundaries.length > 0) {

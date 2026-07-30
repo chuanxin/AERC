@@ -131,7 +131,8 @@ class GrantCaseItem(BaseModel):
     office: str = Field(..., description="管理處名稱 (來自 grants.office)")
 
     # 地籍資訊
-    land_section: str = Field(..., description="地段")
+    land_section: str = Field(..., description="地段代碼（NLSC sectcode）；前端不再讀取，保留供未來需求異動")
+    land_section_name: Optional[str] = Field(None, description="地段中文名稱；資料未登錄時為 None（該案件同時帶 data_format_warning）")
     land_number: str = Field(..., description="地號")
     
     # 申請資訊
@@ -148,7 +149,7 @@ class GrantCaseItem(BaseModel):
     crops: Optional[List[Dict[str, str]]] = Field(None, description="作物資訊")
     is_aboriginal_area: Optional[bool] = Field(None, description="是否原民區域")
     office_boundaries: Optional[List[Dict[str, Any]]] = Field(None, description="水利工作站界限交集資訊")
-    data_format_warning: Optional[str] = Field(None, description="逐案件資料格式錯誤警告；缺縣市／鄉鎮名稱時為固定訊息，正常為 None")
+    data_format_warning: Optional[str] = Field(None, description="逐案件資料格式錯誤警告；缺縣市／鄉鎮／地段名稱時為動態訊息（列出實際缺漏欄位），正常為 None")
 
     class Config:
         json_encoders = {

@@ -23,25 +23,50 @@ from ..schemas.qualification import (
 
 logger = logging.getLogger(__name__)
 
-# 逐案件「資料格式錯誤」警告的固定訊息（最終值，非範例）——缺縣市/鄉鎮名稱時使用
-DATA_FORMAT_WARNING_MSG = "此案件缺少縣市／鄉鎮資料，資料格式可能有誤"
-
 
 class QualificationCRUD:
     """重複案件查詢的 CRUD 操作類 - 遵循 Linus 簡潔原則"""
 
     @staticmethod
-    def _has_incomplete_county_town(location: GrantLocations) -> bool:
-        """判定案件的 meta_data 是否缺少縣市/鄉鎮名稱（source-agnostic，對三來源一律適用）。
+    def _collect_missing_data_labels(
+        location: GrantLocations,
+        resolved_section_name: Optional[str],
+    ) -> List[str]:
+        """收集該案件缺漏的關鍵欄位標籤（source-agnostic，對三來源一律適用）。
 
-        缺名稱代表資料結構可能受損或非正規進入系統，屬應讓操作者可見的異常。
-        此述詞為單一 SSOT，同時驅動逐案件警告旗標與後端診斷 log。
+        缺這些欄位代表資料結構可能受損或非正規進入系統，屬應讓操作者可見的異常。
+        此函數為單一 SSOT，同時驅動逐案件警告旗標與後端診斷 log。
+
+        地段名稱一律使用「解析後」的值（見 _resolve_section_name）——若改用代表紀錄
+        自身的 land_section_name，同組補救成功的案件會被誤標為錯誤資料。
+
+        回傳標籤清單而非布林值，讓警告訊息能精確指出缺哪幾項。不可退回單一固定訊息
+        涵蓋全部欄位：實測沒有任何一筆同時缺三項，那樣做會讓每一筆被標記的案件都收到
+        含未經查證成分的歸因，把操作者導向錯誤的排查方向。
         """
-        return (
-            not location.meta_data
-            or not location.meta_data.get('county')
-            or not location.meta_data.get('town')
-        )
+        meta_data = location.meta_data
+        labels: List[str] = []
+        if not meta_data or not meta_data.get('county'):
+            labels.append('縣市')
+        if not meta_data or not meta_data.get('town'):
+            labels.append('鄉鎮')
+        if not resolved_section_name:
+            labels.append('地段名稱')
+        return labels
+
+    @staticmethod
+    def _build_data_format_warning(missing_labels: List[str]) -> Optional[str]:
+        """由缺漏欄位標籤組出單一警告訊息；無缺漏時回傳 None。
+
+        以 join 產生訊息而非為每種組合寫獨立字串——三個檢查項有 7 種非空組合，
+        逐一列舉即組合爆炸。同時缺多項時只產生一個警告（不是每欄位各亮一個）。
+
+        既有僅缺縣市與鄉鎮的案件，標籤為 ['縣市', '鄉鎮']，join 後與擴充前的固定訊息
+        逐字相同，因此無需為向後相容寫任何特例。
+        """
+        if not missing_labels:
+            return None
+        return f"此案件缺少{'／'.join(missing_labels)}資料，資料格式可能有誤"
 
     @staticmethod
     def generate_query_hash(request: QualificationSearchRequest) -> str:
@@ -86,8 +111,11 @@ class QualificationCRUD:
             # 選擇代表記錄（取最新的或者有最多資料的）
             representative_location = QualificationCRUD._select_representative_location(locations_group)
             case_item = await QualificationCRUD._convert_to_case_item(
-                representative_location, 
-                include_office_boundaries=(request.options and request.options.include_office_boundaries)
+                representative_location,
+                include_office_boundaries=(request.options and request.options.include_office_boundaries),
+                # 傳入整組紀錄供地段名稱補救使用：代表紀錄無名稱時，從同組其他紀錄取
+                # （漏傳不會報錯，只是補救靜默失效 → 同組明明有名稱卻被誤標為錯誤資料）
+                locations_group=locations_group,
             )
             if case_item is not None:
                 case_items.append(case_item)
@@ -189,7 +217,45 @@ class QualificationCRUD:
         return conditions
 
     @staticmethod
-    async def _convert_to_case_item(location: GrantLocations, include_office_boundaries: bool = False) -> GrantCaseItem:
+    def _resolve_section_name(
+        location: GrantLocations,
+        locations_group: Optional[List[GrantLocations]] = None,
+    ) -> Optional[str]:
+        """解析該筆土地應顯示的地段中文名稱，無可用名稱時回傳 None。
+
+        代表紀錄自身有名稱即採用；沒有時從同組其他紀錄補救（同組＝同 source_id +
+        land_section + land_number，見 search_qualification_cases 的分組鍵）。
+
+        補救結果必須可重現（FR-009）：同組候選依 updated_at 遞減、id 遞增排序取第一筆。
+        不可依賴資料庫回傳順序——查詢未加 ORDER BY，同一查詢重跑可能得到不同名稱。
+        updated_at 已確認資料庫層 NOT NULL，可直接取 timestamp() 排序。
+
+        回傳 Optional[str] 而非 str：呼叫端只做「指派給 Optional 欄位」與「真假值判斷」
+        兩件事，以空字串表示「無名稱」不但買不到便利性，還會讓 API 回傳 "" 而非契約
+        明訂的 null（前端 || 鏈仍顯示「—」，畫面看不出異常）。單一表示法消除此失效模式。
+
+        本函數只決定名稱，不影響 _select_representative_location 的挑選結果——卡片上
+        案號、申請人、案件狀態、面積等欄位的來源完全不變（FR-010）。
+        """
+        if location.land_section_name:
+            return location.land_section_name
+
+        candidates = [
+            candidate for candidate in (locations_group or [])
+            if candidate.land_section_name
+        ]
+        if not candidates:
+            return None
+
+        candidates.sort(key=lambda candidate: (-candidate.updated_at.timestamp(), candidate.id))
+        return candidates[0].land_section_name
+
+    @staticmethod
+    async def _convert_to_case_item(
+        location: GrantLocations,
+        include_office_boundaries: bool = False,
+        locations_group: Optional[List[GrantLocations]] = None,
+    ) -> GrantCaseItem:
         """將 GrantLocations 轉換為統一的 GrantCaseItem 格式"""
         # 解析 meta_data 獲取面積資訊
         approved_area = Decimal('0.00')
@@ -324,13 +390,18 @@ class QualificationCRUD:
         if include_office_boundaries:
             office_boundaries_data = await QualificationCRUD._query_office_boundaries_for_location(location)
 
-        # 缺縣市/鄉鎮名稱時：設逐案件警告旗標 + 留後端診斷 log（不靜默放行）
-        data_format_warning = None
-        if QualificationCRUD._has_incomplete_county_town(location):
-            data_format_warning = DATA_FORMAT_WARNING_MSG
+        # 地段中文名稱：代表紀錄無名稱時從同組其他紀錄補救（FR-008）
+        # 必須解析一次並保存，供下方錯誤判定共用——錯誤判定要用「解析後」的結果，
+        # 若改用代表紀錄自身的名稱，同組補救成功的案件會被誤標為錯誤資料
+        land_section_name = QualificationCRUD._resolve_section_name(location, locations_group)
+
+        # 缺縣市/鄉鎮/地段名稱時：設逐案件警告旗標 + 留後端診斷 log（不靜默放行）
+        missing_labels = QualificationCRUD._collect_missing_data_labels(location, land_section_name)
+        data_format_warning = QualificationCRUD._build_data_format_warning(missing_labels)
+        if missing_labels:
             logger.warning(
-                "[_convert_to_case_item] 案件缺縣市/鄉鎮名稱，標記資料格式警告：id=%s, source_system=%s",
-                location.id, location.source_system,
+                "[_convert_to_case_item] 案件缺關鍵欄位，標記資料格式警告：id=%s, source_system=%s, missing=%s",
+                location.id, location.source_system, "／".join(missing_labels),
             )
 
         return GrantCaseItem(
@@ -342,6 +413,7 @@ class QualificationCRUD:
             irrigation_type=irrigation_type,
             status=location.case_status,
             land_section=location.land_section or "",
+            land_section_name=land_section_name,
             land_number=location.land_number or "",
             application_year=location.apply_year or 0,
             applicant=location.applicant_name or "",
@@ -785,7 +857,7 @@ class QualificationCRUD:
         for location in locations:
             if not location.meta_data:
                 # 沒有 meta_data，容錯保留此記錄（向後相容）。
-                # 缺名稱的診斷 log 與逐案件警告旗標由 _convert_to_case_item 統一評估（見 _has_incomplete_county_town），
+                # 缺名稱的診斷 log 與逐案件警告旗標由 _convert_to_case_item 統一評估（見 _collect_missing_data_labels），
                 # 本函式僅負責過濾時的容錯保留，兩處判斷獨立但一致、互不干擾。
                 filtered_locations.append(location)
                 continue
