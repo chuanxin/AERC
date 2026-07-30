@@ -32,7 +32,8 @@ export interface GrantCaseItem {
   case_number?: string
   case_type: string
   status: string
-  land_section: string
+  land_section: string // 地段代碼；前端不再讀取，保留供未來需求異動（後端仍回傳）
+  land_section_name?: string | null // 地段中文名稱；資料未登錄時為 null（該案件同時帶 data_format_warning）
   land_number: string
   application_year: number
   applicant: string
@@ -46,7 +47,7 @@ export interface GrantCaseItem {
   }>
   is_aboriginal_area?: boolean
   office_boundaries?: OfficeBoundaryInfo[]
-  data_format_warning?: string | null // 逐案件資料格式錯誤警告；缺縣市/鄉鎮名稱時為固定訊息，正常為 null
+  data_format_warning?: string | null // 逐案件資料格式錯誤警告；缺縣市/鄉鎮/地段名稱時為動態訊息（列出實際缺漏欄位），正常為 null
 }
 
 export interface AreaStatistics {
