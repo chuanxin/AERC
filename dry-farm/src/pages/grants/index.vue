@@ -291,7 +291,7 @@
                     </v-chip>
                   </template> -->
                   <!-- 土地資料/施作面積欄位 -->
-                  <!-- 🔥 Framework-Native: 使用 land_data_search key，前端組合顯示 -->
+                  <!-- Framework-Native: 使用 land_data_search key，前端組合顯示 -->
                   <template #[`item.land_data_search`]="{ item }">
                     <div
                       v-if="item.land_locations || item.facility_area_m2"
@@ -493,9 +493,9 @@ const getCurrentYear = () => new Date().getFullYear() - 1911 // 民國年
 const getUserOfficeId = () => {
   // 優先從 userStore 取得當前使用者的管理處ID
   const officeId = userStore.currentUser?.office?.id || null
-  console.log('🏢 [getUserOfficeId] 從 userStore 取得管理處ID:', officeId)
-  console.log('👤 [getUserOfficeId] 當前使用者:', userStore.currentUser?.username)
-  console.log('🏢 [getUserOfficeId] 管理處名稱:', userStore.currentUser?.office?.name)
+  console.log('[getUserOfficeId] 從 userStore 取得管理處ID:', officeId)
+  console.log('[getUserOfficeId] 當前使用者:', userStore.currentUser?.username)
+  console.log('[getUserOfficeId] 管理處名稱:', userStore.currentUser?.office?.name)
 
   return officeId
 }
@@ -559,7 +559,7 @@ const {
   isUsingApi
 } = storeToRefs(grantsStore)
 
-// 🔥 Framework-Native Integration: 適配資料結構以支援原生搜尋
+// Framework-Native Integration: 適配資料結構以支援原生搜尋
 // 添加可搜尋的土地資料欄位（包含位置和未格式化的面積數字）
 // user 角色：無搜尋字串時保護性只顯示自己建立的案件；搜尋時顯示全管理處
 const displayGrantsList = computed(() => {
@@ -592,8 +592,8 @@ const isBatchButtonDisabled = computed(() => selectedCount.value === 0)
 
 // 監聽選取變化，用於調試
 watch(selectedGrants, (newVal) => {
-  console.log('🔍 [selectedGrants] 變化:', newVal)
-  console.log('🔍 [selectedCount] 數量:', selectedCount.value)
+  console.log('[selectedGrants] 變化:', newVal)
+  console.log('[selectedCount] 數量:', selectedCount.value)
 }, { deep: true })
 
 const allItems = ref<GrantItem[]>([])
@@ -622,7 +622,7 @@ const clearTagFilter = async () => {
   await updateTagFilter()
 }
 
-// 🔥 用於強制 v-data-table 重新渲染的 key（清除選取狀態時使用）
+// 用於強制 v-data-table 重新渲染的 key（清除選取狀態時使用）
 const tableKey = ref(0)
 
 // 篩選選項
@@ -804,7 +804,7 @@ const updateFilters = async () => {
     skip: 0
   }
 
-  console.log('🔍 [index.vue] Updating filters with params:', filterParams)
+  console.log('[index.vue] Updating filters with params:', filterParams)
   await grantsStore.updateFilters(filterParams)
 
   // 篩選條件變更時重新載入案件清單，確保不限制數量
@@ -821,14 +821,14 @@ const refreshList = async () => {
     skip: 0
   }
 
-  console.log('🔄 [refreshList] Refreshing with current filters:', filterParams)
+  console.log('[refreshList] Refreshing with current filters:', filterParams)
 
   // 清除快取
   grantCacheService.clear('grants-list')
 
   // 清除選取狀態並強制 table 重新渲染
   grantsStore.clearSelectedGrants()
-  tableKey.value += 1  // 🔥 強制 v-data-table 重新渲染，確保選取狀態被清除
+  tableKey.value += 1  // 強制 v-data-table 重新渲染，確保選取狀態被清除
 
   // 使用當前篩選條件重新載入
   await grantsStore.loadGrantsList(filterParams)
@@ -839,10 +839,10 @@ const tryReconnect = async () => {
   try {
     const success = await grantsStore.tryReconnectApi()
     if (success) {
-      console.log('📡 API 重新連接成功')
+      console.log('API 重新連接成功')
     }
   } catch (error) {
-    console.error('📡 API 重新連接失敗:', error)
+    console.error('API 重新連接失敗:', error)
   } finally {
     reconnecting.value = false
   }
@@ -1006,7 +1006,7 @@ const editItem = (item: GrantListItem) => {
 //   }
 // }
 const deleteItem = async (item: GrantListItem) => {
-  // 🔥 Linus式修復：提供清晰的確認對話框，說明邏輯刪除的含義
+  // Linus式修復：提供清晰的確認對話框，說明邏輯刪除的含義
   const displayCaseNumber = formatCaseNumber(item.case_number)
   const confirmMessage = [
     `確定要刪除以下申請案件嗎？`,
@@ -1021,15 +1021,15 @@ const deleteItem = async (item: GrantListItem) => {
 
   if (confirm(confirmMessage)) {
     try {
-      console.log(`📋 [deleteItem] 開始刪除案件: ${item.case_number} (ID: ${item.id})`)
+      console.log(`[deleteItem] 開始刪除案件: ${item.case_number} (ID: ${item.id})`)
 
       await grantsStore.deleteGrantFromList(item)
 
-      console.log(`📋 [deleteItem] 案件 ${item.case_number} 已成功刪除`)
+      console.log(`[deleteItem] 案件 ${item.case_number} 已成功刪除`)
       alert(`案件 ${displayCaseNumber} 已成功刪除`)
 
     } catch (error) {
-      console.error(`📋 [deleteItem] 刪除案件 ${item.case_number} 失敗:`, error)
+      console.error(`[deleteItem] 刪除案件 ${item.case_number} 失敗:`, error)
 
       // 提供更詳細的錯誤信息
       let errorMessage = '刪除案件失敗'
@@ -1058,10 +1058,10 @@ const generateHistoryPdf = async (item: GrantListItem) => {
   }
 
   try {
-    console.log('🖨️ 開始生成工程預算書，案件:', item.case_number, 'grants_id:', item.id)
+    console.log('開始生成工程預算書，案件:', item.case_number, 'grants_id:', item.id)
     pdfGenerating.value = item.case_number
 
-    // 🔥 Linus式修復：傳遞 grants_id 以區分重複案號（歷史案件可能有同一年度重複案號）
+    // Linus式修復：傳遞 grants_id 以區分重複案號（歷史案件可能有同一年度重複案號）
     // 調用工程預算書生成服務（與 step6.vue 相同），傳遞 item.id 作為 grantsId
     const pdfBlob = await generateBudgetStatement(item.case_number, item.id)
 
@@ -1074,10 +1074,10 @@ const generateHistoryPdf = async (item: GrantListItem) => {
     // 下載PDF
     downloadPdfBlob(pdfBlob, filename)
 
-    console.log('🖨️ 工程預算書生成並下載完成')
+    console.log('工程預算書生成並下載完成')
 
   } catch (error) {
-    console.error('🖨️ 工程預算書生成失敗:', error)
+    console.error('工程預算書生成失敗:', error)
     alert('工程預算書生成失敗，請稍後再試')
   } finally {
     pdfGenerating.value = null
@@ -1090,19 +1090,19 @@ const confirmBatchCrossYear = async () => {
   batchProcessing.value = true
 
   try {
-    console.log('🔄 開始批次跨年度處理，選取案件 ID:', selectedGrants.value)
+    console.log('開始批次跨年度處理，選取案件 ID:', selectedGrants.value)
 
     // 獲取選取案件的詳細資料（使用 id 查找）
     const selectedItems = selectedGrants.value.map(id =>
       grantsList.value.find(grant => grant.id === id)
     ).filter(Boolean) as GrantListItem[]
 
-    console.log('🔄 選取的案件詳情:', selectedItems.map(item => ({ id: item.id, case_number: item.case_number })))
+    console.log('選取的案件詳情:', selectedItems.map(item => ({ id: item.id, case_number: item.case_number })))
 
     // 調用批次跨年度服務
     const results = await batchCrossYearGrants(selectedItems)
 
-    console.log('✅ 批次跨年度處理完成:', results)
+    console.log('批次跨年度處理完成:', results)
 
     // 使用 grantsStore 的方法清除選取狀態
     grantsStore.clearSelectedGrants()
@@ -1122,7 +1122,7 @@ const confirmBatchCrossYear = async () => {
     alert(message)
 
   } catch (error) {
-    console.error('🔄 批次跨年度處理失敗:', error)
+    console.error('批次跨年度處理失敗:', error)
     alert('批次跨年度處理失敗，請稍後再試')
   } finally {
     batchProcessing.value = false
@@ -1131,11 +1131,11 @@ const confirmBatchCrossYear = async () => {
 
 // Load data when component is mounted
 onMounted(async () => {
-  console.log('🚀 [grants/index] 頁面載入開始')
+  console.log('[grants/index] 頁面載入開始')
 
   // 確保使用者資料已載入
   if (!userStore.currentUser && userStore.token) {
-    console.log('👤 [grants/index] 等待使用者資料載入...')
+    console.log('[grants/index] 等待使用者資料載入...')
     await userStore.fetchCurrentUser()
   }
 
@@ -1143,7 +1143,7 @@ onMounted(async () => {
   filters.year = getCurrentYear()
   filters.office_id = getUserOfficeId()
 
-  console.log('📊 [grants/index] 設定預設篩選條件:', {
+  console.log('[grants/index] 設定預設篩選條件:', {
     year: filters.year,
     office_id: filters.office_id,
     user: userStore.currentUser?.username,
@@ -1159,12 +1159,12 @@ onMounted(async () => {
     skip: 0
   }
 
-  console.log('🔍 [grants/index] 使用篩選參數載入案件列表:', filterParams)
+  console.log('[grants/index] 使用篩選參數載入案件列表:', filterParams)
 
   // 直接載入案件清單（含預設篩選條件），避免重複調用updateFilters
   await grantsStore.loadGrantsList(filterParams)
 
-  console.log('✅ [grants/index] 頁面載入完成，共載入', displayGrantsList.value.length, '筆案件')
+  console.log('[grants/index] 頁面載入完成，共載入', displayGrantsList.value.length, '筆案件')
 })
 
 // Watch for changes in grantsStore currentStep to update status
@@ -1264,7 +1264,7 @@ watch(() => grantsStore.currentStep, (newStep) => {
   padding: 4px 8px !important; /* 減少儲存格內距 */
 }
 
-/* 🔥 修正 v-data-table-virtual 的空白行問題 */
+/* 修正 v-data-table-virtual 的空白行問題 */
 .grants-table :deep(tbody tr[style*="height: 0px"]) {
   display: none !important;
 }

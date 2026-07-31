@@ -593,8 +593,10 @@
                     :key="index"
                     @click="loadRecentSearch(item)"
                   >
+                    <!-- 年度納入去重比對，同地號不同年度是兩筆紀錄，
+                         故清單也需顯示年度才能區分；未指定年度時整段省略 -->
                     <v-list-item-title>
-                      {{ item.county }}{{ item.town }} {{ item.landNumber || item.section }}
+                      {{ item.county }}{{ item.town }} {{ item.landNumber || item.section }}{{ formatSearchedYears(item.years) }}
                     </v-list-item-title>
                     <v-list-item-subtitle class="text-caption">
                       {{ formatDate(item.searchTime) }}
@@ -804,17 +806,13 @@
                         <v-card-text class="pa-0">
                           <!-- 查詢結果標題 -->
                           <div class="mb-4">
+                            <!-- 有無結果的標題文字完全相同，故不依 filteredLegacyResults 分支；
+                                 年度段僅在查詢有指定年度時出現（未指定＝查全部，比照其他未指定條件省略） -->
                             <div
-                              v-if="filteredLegacyResults.length > 0 && Object.keys(lastSearchParams).length > 0"
+                              v-if="Object.keys(lastSearchParams).length > 0"
                               class="text-h6 font-weight-bold mb-2"
                             >
-                              歸檔記錄查詢結果：{{ landLocationDescription }} {{ completeLandNumber }}
-                            </div>
-                            <div
-                              v-else-if="filteredLegacyResults.length === 0 && Object.keys(lastSearchParams).length > 0"
-                              class="text-h6 font-weight-bold mb-2"
-                            >
-                              歸檔記錄查詢結果：{{ landLocationDescription }} {{ completeLandNumber }}
+                              歸檔記錄查詢結果：{{ landLocationDescription }} {{ completeLandNumber }}{{ searchedYearsDescription }}
                             </div>
                             <div
                               v-else
@@ -1152,12 +1150,16 @@ const selectedYears = ref<string[]>([]);
 const selectedYearTab = ref<number>();
 
 // 保存實際執行查詢時的條件
+// years 為執行當下的年度快照；空陣列代表未指定年度（查全部年度），標題比照
+// 縣市/鄉鎮/地段的規則省略該段——標題只回答「你查了什麼」，未指定的條件不出現。
+// 一律讀此快照而非即時的 selectedYears，否則查詢後改勾選會讓標題與結果不同步。
 const lastSearchParams = ref<{
   county?: string;
   town?: string | null;
   section?: string | null;
   parentLandNumber?: string;
   childLandNumber?: string;
+  years?: string[];
 }>({});
 
 // 可選年度範圍 (97年至114年)
@@ -1514,7 +1516,8 @@ const searchLand = async () => {
       town: searchParams.town,
       section: searchParams.section,
       parentLandNumber: searchParams.parentLandNumber,
-      childLandNumber: searchParams.childLandNumber
+      childLandNumber: searchParams.childLandNumber,
+      years: [...selectedYears.value]
     };
 
     // 格式化地號
@@ -1586,37 +1589,59 @@ const searchHillside = async () => {
   }
 };
 
+// 取出父/子地號：新紀錄直接有欄位；舊紀錄只有合併的 landNumber，拆回兩段。
+// UI 的地號輸入框綁定的是父/子欄位，只設 landNumber 不會讓畫面顯示出地號。
+const splitLandNumber = (search: RecentSearch): { parent: string; child: string } => {
+  if (search.parentLandNumber !== undefined || search.childLandNumber !== undefined) {
+    return { parent: search.parentLandNumber || '', child: search.childLandNumber || '' };
+  }
+  const [parent = '', child = ''] = (search.landNumber || '').split('-');
+  return { parent, child };
+};
+
+// 還原一組查詢條件到目標參數物件。
+// ⚠️ 必須指派「全部」欄位，紀錄裡沒有的一律回填空值——只指派有值的欄位會讓表單留下
+// 前一次查詢的殘值，還原出「紀錄 + 殘留」的混合條件：不報錯，但查的不是使用者以為的條件。
+// emptyValue 沿用各參數物件自身的空值慣例（searchParams 用 null、hillsideParams 用 ''）。
+const applyRecentSearchToParams = (
+  target: QualificationSearchParams,
+  search: RecentSearch,
+  emptyValue: '' | null
+) => {
+  const { parent, child } = splitLandNumber(search);
+  target.county = search.county;
+  target.town = search.town ?? emptyValue;
+  target.section = search.section ?? emptyValue;
+  target.landNumber = search.landNumber ?? '';
+  target.parentLandNumber = parent;
+  target.childLandNumber = child;
+};
+
+// 還原年度勾選；舊紀錄無 years 欄位時視為未指定年度（查全部），清空勾選
+const restoreSelectedYears = (search: RecentSearch) => {
+  selectedYears.value = search.years ? [...search.years] : [];
+};
+
 // 載入最近查詢記錄 - 整合 store 方法
 const loadRecentSearch = (item: RecentSearch) => {
   const search = qualificationStore.loadFromHistory(item);
 
-  if (search.section) {
-    // 一般區域查詢
-    queryType.value = 'general';
-    searchParams.county = search.county;
-    searchParams.town = search.town;
-    searchParams.section = search.section || null;
-    searchParams.landNumber = search.landNumber || '';
-  } else if (search.landNumber) {
-    // 判斷是否為山坡地查詢（這裡可以根據實際業務邏輯調整）
-    if (search.queryType === 'slope') {
-      queryType.value = 'hillside';
-      hillsideParams.county = search.county;
-      hillsideParams.town = search.town;
-      hillsideParams.section = search.section || '';
-      hillsideParams.landNumber = search.landNumber;
-    } else {
-      // 一般區域查詢，但沒有地段
-      queryType.value = 'general';
-      searchParams.county = search.county;
-      searchParams.town = search.town;
-      searchParams.landNumber = search.landNumber;
-    }
-  } else {
-    // 原民區域查詢
+  // 依紀錄自身的 queryType 分派（值域恰為 general / indigenous / slope）。
+  // 不可改用「哪些欄位有值」來推斷查詢類型——山坡地查詢同樣可以有地段，
+  // 會被誤判成一般區域查詢而切到錯誤的查詢面板。
+  if (search.queryType === 'slope') {
+    queryType.value = 'hillside';
+    applyRecentSearchToParams(hillsideParams, search, '');
+    restoreSelectedYears(search);
+  } else if (search.queryType === 'indigenous') {
+    // 原民區域查詢只有縣市與鄉鎮兩個條件，無地段、地號與年度
     queryType.value = 'indigenous';
     indigenousParams.county = search.county;
-    indigenousParams.town = search.town;
+    indigenousParams.town = search.town ?? '';
+  } else {
+    queryType.value = 'general';
+    applyRecentSearchToParams(searchParams, search, null);
+    restoreSelectedYears(search);
   }
 };
 
@@ -1645,10 +1670,16 @@ const landLocationDescription = computed(() => {
 
   // 地段名稱（需要從段號轉換為地段名稱）
   if (lastSearchParams.value.section) {
-    // 從 sections 中找到對應的地段名稱
-    const selectedSection = sections.value.find(section => section.code === lastSearchParams.value.section);
-    if (selectedSection) {
-      parts.push(selectedSection.name || selectedSection.title);
+    // 查詢值可能是名稱（從候選清單挑選，item-value 為 displayName）或代碼（手動輸入），
+    // 兩種都要認——只比對 code 會讓清單挑選的情況永遠找不到而落入退路
+    const selectedSection = sections.value.find(
+      section => section.code === lastSearchParams.value.section
+        || section.name === lastSearchParams.value.section
+    );
+    // sections 項目沒有 title 屬性，原本的 `name || title` 在 name 為空字串時會 push
+    // undefined，讓標題直接印出「undefined」；名稱為空一律視同未登錄，落到下方退路
+    if (selectedSection?.name) {
+      parts.push(selectedSection.name);
     } else {
       // 如果找不到，可能是舊資料或直接輸入的段號，嘗試從結果中取得地段名稱
       // 缺名稱時省略地段一段，不退回顯示代碼——否則會出現「標題顯示代碼、卡片顯示名稱」的矛盾畫面
@@ -1663,6 +1694,25 @@ const landLocationDescription = computed(() => {
 
   return parts.join(' ') || '查詢條件';
 });
+
+// 年度快照的顯示字串 - 標題與「最近查詢」清單共用，確保兩處格式一致
+// 未指定年度（查全部）時回傳空字串，該段整段省略，與縣市/鄉鎮/地段的處理一致。
+// 回傳含括號的完整字串（如「（113年、114年）」），讓呼叫端直接內插，
+// 避免在 template 用 <template v-if> 包裹造成的空白控制問題。
+const formatSearchedYears = (years?: string[]): string => {
+  if (!years || years.length === 0) return '';
+  // 由新到舊排序，避免顯示順序隨勾選順序浮動
+  const formatted = [...years]
+    .sort((a, b) => Number(b) - Number(a))
+    .map(year => `${year}年`)
+    .join('、');
+  return `（${formatted}）`;
+};
+
+// 查詢年度描述 - 使用實際執行查詢時的年度快照
+// 年度 tab 是依「有結果的年度」分組，查了卻無資料的年度不會出現在 tab；
+// 此處顯示的是「查詢範圍」，兩者用途不同。
+const searchedYearsDescription = computed(() => formatSearchedYears(lastSearchParams.value.years));
 
 // 完整地號格式 - 使用實際執行查詢時的條件
 const completeLandNumber = computed(() => {
