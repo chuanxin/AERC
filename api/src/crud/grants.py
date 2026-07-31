@@ -9,6 +9,7 @@ from tortoise.expressions import Q
 
 from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus, GrantActionType, GrantVersions, GrantPapers)
 from src.config.field_mappings import FieldMappingConfig, validate_step_fields
+from src.config.funding_sources import FUNDING_SOURCE_NAMES
 from src.schemas.users import UserOutSchema
 from src.services.data_encryption import data_encryption_service, GRANT_PII_FIELDS
 from src.schemas.grants import (
@@ -269,6 +270,7 @@ async def get_grants(
             facility_area_m2 = None
             facility_type = None
             land_locations = None
+            funding_source = None
 
             if hasattr(grant, 'active_version') and grant.active_version:
                 try:
@@ -286,6 +288,13 @@ async def get_grants(
                             lands = step2_data.get("lands", [])
                             if lands and isinstance(lands, list):
                                 land_locations = await generate_land_locations(lands)
+
+                        # 從 step 4（UI 步驟 4 / step3.vue）取得補助來源
+                        # 不在已知清單（含 None）一律留 None，前端顯示 '-'
+                        step4_data = steps.get("4", {}) or steps.get(4, {})
+                        funding_source_id = step4_data.get("fundingSourceId")
+                        if isinstance(funding_source_id, int) and not isinstance(funding_source_id, bool):
+                            funding_source = FUNDING_SOURCE_NAMES.get(funding_source_id)
 
                         # 從 step 5 取得設施類型/灌溉類型
                         # 歷史案件：優先從 legacy_data 獲取，因為沒有 step5
@@ -307,7 +316,9 @@ async def get_grants(
                 # 關注點分離：返回未格式化的數字，讓前端處理格式化和搜尋
                 "facility_area_m2": int(float(facility_area_m2)) if facility_area_m2 else None,
                 # 土地位置摘要（僅包含縣市鄉鎮地段，不含面積）
-                "land_locations": land_locations
+                "land_locations": land_locations,
+                # 補助來源（從 step4.fundingSourceId 映射為中文名稱）
+                "funding_source": funding_source,
             })
             
             results.append(grant_data)

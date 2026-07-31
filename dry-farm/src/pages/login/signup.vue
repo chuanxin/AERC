@@ -686,7 +686,7 @@
     otp: ''
   })
 
-  // 排除 sentinel 虛擬項目（如「墊付預算」id=-1），僅顯示真實 DB 單位
+  // 排除 sentinel 虛擬項目（如「作業基金」id=-1），僅顯示真實 DB 單位
   const offices = computed(() => officesStore.items.filter(o => o.value !== -1))
 
   // 分處 + 工作站二級聯動（依賴 office_id）

@@ -177,12 +177,22 @@ export const MODE_NAMES: Record<PermissionMode, string> = {
 
 /**
  * 預設角色列表（030-account-approval-flow: 英文鍵名，對應後端 permission_service.py）
+ * color 為 UI 角色 chip 顏色，單一資料來源，accounts.vue / profile.vue 皆由此取用
  */
 export const DEFAULT_ROLES = [
-  { title: '系統管理員', value: 'admin' },
-  { title: '管理處主管', value: 'manager' },
-  // { title: '業務承辦人', value: 'staff' },  // 暫時封印（DB 無帳號使用，恢復時取消注解）
-  { title: '一般使用者', value: 'user' }
+  { title: '系統管理員', value: 'admin', color: 'purple' },
+  { title: '管理處承辦', value: 'manager', color: 'blue' },
+  { title: '管理處協辦', value: 'staff', color: 'green' },
+  { title: '一般使用者', value: 'user', color: 'grey' }
 ] as const
 
 export type DefaultRole = typeof DEFAULT_ROLES[number]['value']
+
+/**
+ * 根據角色 key 或中文名稱取得顏色（accounts.vue / profile.vue 共用）
+ */
+export function getRoleColor(role?: string | null): string {
+  if (!role) return 'grey'
+  const found = DEFAULT_ROLES.find(r => r.value === role || r.title === role)
+  return found?.color ?? 'grey'
+}

@@ -22,6 +22,7 @@ from src.schemas.static_downloads import (
     BatchDownloadRequest
 )
 from src.config.folder_mappings import settings
+from src.config.funding_sources import FUNDING_SOURCE_NAMES
 import logging
 import os
 import tempfile
@@ -850,8 +851,9 @@ async def download_cover_page(
 
 # ── 管路補助金額明細表所需的灌溉型式正規化映射 ─────────────────────────────────
 _IRRIGATION_TYPE_MAP = {1: '穿孔管', 2: '噴頭', 3: '微噴', 4: '滴灌'}
-_FUNDING_SOURCE_ADVANCE = -1  # 墊付預算 sentinel：負整數永不與 offices.id auto-increment 衝突
-_FUNDING_SOURCE_SHEETS = {0: '農水署明細表', 16: '七星明細表', 17: '瑠公明細表', _FUNDING_SOURCE_ADVANCE: '墊付預算明細表'}
+# 工作表名稱由 config/funding_sources.py 的顯示短名派生（僅供查表，順序不具意義；
+# 實際頁籤順序由 excel_generator.generate_subsidy_details_list() 的固定清單決定）
+_FUNDING_SOURCE_SHEETS = {fid: f'{name}明細表' for fid, name in FUNDING_SOURCE_NAMES.items()}
 
 
 async def extract_subsidy_row_data(grant, version_data: dict) -> dict:
@@ -960,7 +962,7 @@ async def download_subsidy_details_list(
         filtered = _filter_grants(all_grants, request.case_number_start, request.case_number_end)
 
         # 依 fundingSourceId 分配至四個工作表
-        grants_by_sheet: dict = {'農水署明細表': [], '瑠公明細表': [], '七星明細表': [], '墊付預算明細表': []}
+        grants_by_sheet: dict = {'農水署明細表': [], '瑠公明細表': [], '七星明細表': [], '作業基金明細表': []}
         skipped_cases = []
         for grant in filtered:
             try:

@@ -26,7 +26,7 @@ import 'from src.routes import users, notes' must be after 'Tortoise.init_models
 why?
 https://stackoverflow.com/questions/65531387/tortoise-orm-for-python-no-returns-relations-of-entities-pyndantic-fastapi
 """
-from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops, user_management, permissions, leisure_farms, nlsc, auth_keys, mfa, security
+from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops, user_management, permissions, leisure_farms, nlsc, auth_keys, mfa, security, health
 
 # OpenAPI 端點預設關閉
 IS_PRODUCTION = os.getenv("AERC_ENV") == "production"
@@ -147,6 +147,16 @@ app.include_router(nlsc.router)
 app.include_router(auth_keys.router)
 app.include_router(mfa.router)
 app.include_router(security.router)
+app.include_router(health.router)
 
 
 register_tortoise(app, config=TORTOISE_ORM, generate_schemas=False)
+
+
+# 補助來源對照表與 DB offices.is_funding_source 的一致性檢查。
+# 註冊在 register_tortoise 之後 → startup handler 依註冊順序執行 → ORM 已就緒。
+# 不一致只記錄日誌不中斷啟動（見 config/funding_sources.py 的說明）。
+@app.on_event("startup")
+async def verify_funding_sources():
+    from src.config.funding_sources import verify_against_db
+    await verify_against_db()

@@ -91,6 +91,7 @@ export interface GrantListItem {
   facility_area?: number;
   facility_area_m2?: number;
   land_locations?: string; // 土地位置摘要（僅縣市鄉鎮地段，不含面積）
+  funding_source?: string | null; // 補助來源（農水署/七星/瑠公/作業基金）
   status: string;
   current_step: number;
   is_disaster_case?: boolean;

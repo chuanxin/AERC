@@ -221,7 +221,7 @@
 
 <script lang="ts" setup>
 import { useUserStore } from '@/stores/users'
-import { DEFAULT_ROLES } from '@/types/permissions'
+import { DEFAULT_ROLES, getRoleColor } from '@/types/permissions'
 import {
   getPasswordPolicy,
   policyLoading,
@@ -236,14 +236,7 @@ const roleLabel = computed(() => {
   return DEFAULT_ROLES.find(r => r.value === role)?.title ?? role ?? '—'
 })
 
-const roleColor = computed(() => {
-  switch (userStore.currentUser?.role) {
-    case 'admin':   return 'purple'
-    case 'manager': return 'blue'
-    case 'staff':   return 'teal'
-    default:        return 'grey'
-  }
-})
+const roleColor = computed(() => getRoleColor(userStore.currentUser?.role))
 
 const passwordFormRef = ref()
 const newPassword = ref('')
