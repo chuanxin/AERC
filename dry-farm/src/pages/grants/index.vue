@@ -256,7 +256,7 @@
                     {{ item.created_by?.full_name || '-' }}
                   </template>
 
-                  <!-- 末端形式欄位 -->
+                  <!-- 灌溉形式欄位 -->
                   <template #[`item.facility_type`]="{ item }">
                     {{ item.facility_type_display || '-' }}
                   </template>
@@ -595,7 +595,7 @@ const displayGrantsList = computed(() => {
     ...item,
     // 組合土地位置和未格式化面積，用於 Vuetify 原生搜尋
     land_data_search: `${item.land_locations || ''} ${item.facility_area_m2 || ''}`.trim(),
-    // 案件狀態／末端形式：畫面顯示的是衍生文字，原始欄位（英文 status、空值）
+    // 案件狀態／灌溉形式：畫面顯示的是衍生文字，原始欄位（英文 status、空值）
     // 無法用來搜尋。這裡預先算出顯示值，headers 以 value 指向它，
     // 讓搜尋與排序都跟著使用者看到的文字走
     status_text: getStatusText(item.current_step, item.is_legacy, item.status),
@@ -729,7 +729,7 @@ const headers = ref([
   { title: '土地資料', key: 'land_data_search', align: 'start' as const, width: '280px'},
   { title: '補助來源', key: 'funding_source', align: 'start' as const, width: '100px' },
   // value 指向 displayGrantsList 算好的顯示文字，讓搜尋／排序比對畫面上看到的內容
-  { title: '末端形式', key: 'facility_type', value: 'facility_type_display', align: 'start' as const, width: '130px' },
+  { title: '灌溉形式', key: 'facility_type', value: 'facility_type_display', align: 'start' as const, width: '130px' },
   { title: '案件狀態', key: 'status', value: 'status_text', align: 'start' as const, width: '150px' },
   { title: '填報人姓名', key: 'created_by.full_name', align: 'start' as const, width: '130px' },
   // { title: '公告狀態（農民卡）', key: 'card', align: 'end' as const },
