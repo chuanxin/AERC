@@ -1837,28 +1837,15 @@ const landLocationDescription = computed(() => {
     parts.push(lastSearchParams.value.town);
   }
 
-  // 地段名稱（需要從段號轉換為地段名稱）
+  // 地段
+  // 使用者送出的查詢條件即為此處顯示的 SSOT，原樣呈現，不做任何反查或替換。
+  // 前端一律以地段「名稱」查詢、不送段號：候選清單的 item-value 是 displayName、
+  // 文字框由使用者自行輸入、URL 參數直接以名稱賦值、最近查詢還原的也是當初送出的值。
+  // 因此不需要查表把代碼換成名稱；更不可回頭借用查詢結果的地段名稱——那會讓標題
+  // 隨「有無結果」改變，也會讓顯示內容取決於候選清單是否已載入（清單僅在選定鄉鎮後載入）。
+  // 若使用者自行輸入段號代碼查詢，標題就顯示該代碼：這是忠實反映其查詢條件。
   if (lastSearchParams.value.section) {
-    // 查詢值可能是名稱（從候選清單挑選，item-value 為 displayName）或代碼（手動輸入），
-    // 兩種都要認——只比對 code 會讓清單挑選的情況永遠找不到而落入退路
-    const selectedSection = sections.value.find(
-      section => section.code === lastSearchParams.value.section
-        || section.name === lastSearchParams.value.section
-    );
-    // sections 項目沒有 title 屬性，原本的 `name || title` 在 name 為空字串時會 push
-    // undefined，讓標題直接印出「undefined」；名稱為空一律視同未登錄，落到下方退路
-    if (selectedSection?.name) {
-      parts.push(selectedSection.name);
-    } else {
-      // 如果找不到，可能是舊資料或直接輸入的段號，嘗試從結果中取得地段名稱
-      // 缺名稱時省略地段一段，不退回顯示代碼——否則會出現「標題顯示代碼、卡片顯示名稱」的矛盾畫面
-      if (filteredLegacyResults.value.length > 0) {
-        const first = filteredLegacyResults.value[0];
-        if (first.land_section_name) {
-          parts.push(first.land_section_name);
-        }
-      }
-    }
+    parts.push(lastSearchParams.value.section);
   }
 
   return parts.join(' ') || '查詢條件';
