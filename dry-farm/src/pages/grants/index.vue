@@ -221,7 +221,7 @@
                   :key="tableKey"
                   fixed-header
                   :headers="headers"
-                  :items="filteredDisplayList"
+                  :items="displayGrantsList"
                   :loading="listLoading"
                   :height="500"
                   :search="search"
@@ -367,7 +367,7 @@
                   <template #bottom>
                     <div class="d-flex align-center pa-3">
                       <span class="text-body-2 text-medium-emphasis">
-                        共 {{ filteredDisplayList.length }} 筆資料
+                        共 {{ displayGrantsList.length }} 筆資料
                         <span
                           v-if="!isUsingApi"
                           class="text-warning"
@@ -612,21 +612,6 @@ const displayGrantsList = computed(() => {
     })
     .map((item, i) => ({ ...item, _seq: i + 1 }))
 
-})
-
-const filteredDisplayList = computed(() => {
-  if (!search.value) return displayGrantsList.value
-
-  const term = search.value.toLowerCase()
-  return displayGrantsList.value
-    .filter(item =>
-      (item.case_number && item.case_number.toLowerCase().includes(term)) ||
-      (item.applicant_name && item.applicant_name.toLowerCase().includes(term)) ||
-      (item.land_data_search && item.land_data_search.toLowerCase().includes(term)) ||
-      (item.office && item.office.toLowerCase().includes(term)) ||
-      (item.facility_type && item.facility_type.toLowerCase().includes(term))
-    )
-    .map((item, i) => ({ ...item, _seq: i + 1 }))  // 重新編序號
 })
 
 // 計算選取案件數量，確保響應式更新
