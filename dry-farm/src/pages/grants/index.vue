@@ -225,6 +225,7 @@
                   :loading="listLoading"
                   :height="500"
                   :search="search"
+                  :filter-keys="searchKeys"
                   density="compact"
                   item-value="id"
                   class="grants-table rounded-lg"
@@ -246,7 +247,7 @@
                       label
                       class="font-weight-medium"
                     >
-                      {{ getStatusText(item.current_step, item.is_legacy, item.status) }}
+                      {{ item.status_text }}
                     </v-chip>
                   </template>
 
@@ -257,7 +258,7 @@
 
                   <!-- 末端形式欄位 -->
                   <template #[`item.facility_type`]="{ item }">
-                      {{ (item.current_step === 8) && !item.facility_type ? '其它' : (item.facility_type || '-') }}
+                    {{ item.facility_type_display || '-' }}
                   </template>
 
                   <!-- 標籤欄位 -->
@@ -309,6 +310,11 @@
                       </div>
                     </div>
                     <span v-else>-</span>
+                  </template>
+
+                  <!-- 補助來源欄位 -->
+                  <template #[`item.funding_source`]="{ item }">
+                    {{ item.funding_source || '-' }}
                   </template>
 
                   <!-- 操作按鈕 -->
@@ -588,7 +594,14 @@ const displayGrantsList = computed(() => {
   const mappedList = items.map(item => ({
     ...item,
     // 組合土地位置和未格式化面積，用於 Vuetify 原生搜尋
-    land_data_search: `${item.land_locations || ''} ${item.facility_area_m2 || ''}`.trim()
+    land_data_search: `${item.land_locations || ''} ${item.facility_area_m2 || ''}`.trim(),
+    // 案件狀態／末端形式：畫面顯示的是衍生文字，原始欄位（英文 status、空值）
+    // 無法用來搜尋。這裡預先算出顯示值，headers 以 value 指向它，
+    // 讓搜尋與排序都跟著使用者看到的文字走
+    status_text: getStatusText(item.current_step, item.is_legacy, item.status),
+    facility_type_display: (item.current_step === 8 && !item.facility_type)
+      ? '其它'
+      : (item.facility_type || '')
   }))
   // 2. 進行排序：依照 case_number 升冪 
   return mappedList
@@ -714,12 +727,23 @@ const headers = ref([
   { title: '申請人姓名', key: 'applicant_name', align: 'start' as const, width: '130px' },
   // 使用 land_data_search 欄位，支援搜尋位置文字和未格式化數字
   { title: '土地資料', key: 'land_data_search', align: 'start' as const, width: '280px'},
-  { title: '灌溉形式', key: 'facility_type', align: 'start' as const, width: '130px' },
-  { title: '案件狀態', key: 'status', align: 'start' as const, width: '150px' },
+  { title: '補助來源', key: 'funding_source', align: 'start' as const, width: '100px' },
+  // value 指向 displayGrantsList 算好的顯示文字，讓搜尋／排序比對畫面上看到的內容
+  { title: '末端形式', key: 'facility_type', value: 'facility_type_display', align: 'start' as const, width: '130px' },
+  { title: '案件狀態', key: 'status', value: 'status_text', align: 'start' as const, width: '150px' },
   { title: '填報人姓名', key: 'created_by.full_name', align: 'start' as const, width: '130px' },
   // { title: '公告狀態（農民卡）', key: 'card', align: 'end' as const },
   { title: '操作', key: 'actions', align: 'center' as const, sortable: false},
 ])
+
+// 「搜尋」欄位比對範圍：headers 是唯一資料來源，這裡只列排除項。
+// Vuetify 預設比對所有 headers 的 key；管理處、年度、自定義分類標籤各自已有專屬
+// 篩選器，納入全文搜尋只會製造噪音（打「管理處」全部命中、打「114」整個年度命中）。
+// 用排除清單而非白名單，是為了讓「新增欄位預設可搜尋」——白名單漏加會靜默失效。
+const SEARCH_EXCLUDED_KEYS = new Set(['office', 'year', 'tag', 'actions'])
+const searchKeys = computed(() =>
+  headers.value.map(h => h.key).filter(key => !SEARCH_EXCLUDED_KEYS.has(key))
+)
 
 // 根據公告狀態返回對應的顏色
 const getCardStatusColor = (status: string) => {

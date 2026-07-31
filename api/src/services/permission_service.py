@@ -52,21 +52,23 @@ class PermissionService:
             ModuleName.SECURITY: set(),
         },
         "staff": {
-            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.EXPORT},
+            # staff 權限與 manager 對齊，唯一差異：USERS 模組無權限
+            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.APPROVE, PermissionAction.EXPORT},
             ModuleName.USERS: set(),
             ModuleName.REPORTS: {PermissionAction.VIEW, PermissionAction.EXPORT},
             ModuleName.GIS: {PermissionAction.VIEW, PermissionAction.EDIT},
             ModuleName.OFFICES: {PermissionAction.VIEW},
-            ModuleName.SETTINGS: set(),
+            ModuleName.SETTINGS: {PermissionAction.VIEW},
             ModuleName.BATCH_PRINT: {PermissionAction.VIEW},
             ModuleName.DUPLICATE_CHECK: {PermissionAction.VIEW},
-            ModuleName.MATERIALS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE},
+            ModuleName.MATERIALS: {PermissionAction.VIEW},
             ModuleName.DOWNLOADS: {PermissionAction.VIEW},
             ModuleName.SECURITY: set(),
         },
         "user": {
-            # user.GRANTS: VIEW + CREATE + EDIT（033 補足，申請人提交補助申請所需）
-            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT},
+            # user.GRANTS: VIEW + CREATE + EDIT + APPROVE
+            # APPROVE 用於現場勘查步驟的狀態更新（approved/rejected）
+            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.APPROVE},
             ModuleName.USERS: set(),
             # user.REPORTS: 空集合（033 需求：user 無統計報表存取權）
             ModuleName.REPORTS: set(),

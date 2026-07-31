@@ -18,14 +18,15 @@ from src.auth.route_guards import require_permission
 from src.schemas.permissions import ModuleName, PermissionAction
 from src.schemas.users import UserOutSchema, UserInfoSchema
 from src.database.geo_models import OfficeBoundaries
+from src.config.funding_sources import FUNDING_SOURCE_ADVANCE, FUNDING_SOURCE_NAMES
 
 router = APIRouter()
 
-# 墊付預算：非真實 office 記錄，sentinel id=-1（負整數永不與 DB auto-increment 衝突）
+# 作業基金（墊付預算）：非真實 office 記錄，id 與名稱來自 config/funding_sources.py
 _ADVANCE_PAYMENT_OFFICE = {
-    "id": -1,
-    "name": "墊付預算",
-    "short_name": "墊付",
+    "id": FUNDING_SOURCE_ADVANCE,
+    "name": FUNDING_SOURCE_NAMES[FUNDING_SOURCE_ADVANCE],
+    "short_name": "基金",
     "code": "ADV",
     "classification": 1,
     "is_funding_source": True,

@@ -563,7 +563,7 @@ import { useUserManagementStore } from '@/stores/userManagement'
 import { useOfficesStore } from '@/stores/offices'
 import { useUserStore } from '@/stores/users'
 import type { UserListItem } from '@/types/userManagement'
-import { DEFAULT_ROLES } from '@/types/permissions'
+import { DEFAULT_ROLES, getRoleColor } from '@/types/permissions'
 
 interface PendingUser {
   user_id: number
@@ -926,22 +926,6 @@ async function confirmReject() {
   }
 }
 
-/**
- * 取得角色顏色
- */
-function getRoleColor(role?: string): string {
-  const colorMap: Record<string, string> = {
-    'admin': 'purple',
-    'manager': 'blue',
-    'staff': 'green',
-    'user': 'grey',
-    '系統管理員': 'purple',
-    '管理處主管': 'blue',
-    '業務承辦人': 'green',
-    '一般使用者': 'grey'
-  }
-  return colorMap[role || ''] || 'grey'
-}
 
 /**
  * 格式化日期
