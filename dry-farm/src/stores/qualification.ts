@@ -44,30 +44,9 @@ export const useQualificationStore = defineStore('qualification', () => {
   const showAlert = ref(true)
   
   // === 歷史記錄 ===
-  const recentSearches = ref<RecentSearch[]>([
-    // 預設示例資料
-    {
-      county: '嘉義縣',
-      town: '竹崎鄉',
-      section: '瓦厝埔段',
-      landNumber: '1-1',
-      searchTime: new Date(2025, 2, 8, 15, 30),
-      queryType: 'general'
-    },
-    {
-      county: '高雄市',
-      town: '美濃區',
-      landNumber: '996-1',
-      searchTime: new Date(2025, 2, 7, 10, 15),
-      queryType: 'general'
-    },
-    {
-      county: '屏東縣',
-      town: '春日鄉',
-      searchTime: new Date(2025, 2, 6, 14, 45),
-      queryType: 'indigenous'
-    }
-  ])
+  // 一律由使用者的實際查詢累積；不放預設示例資料——首次使用者看到自己從未查過的
+  // 「最近查詢」並可點擊載入，等於把假條件當成真紀錄呈現
+  const recentSearches = ref<RecentSearch[]>([])
 
   // === 共享的異步選項 ===
   const asyncOptions = {
@@ -141,6 +120,10 @@ export const useQualificationStore = defineStore('qualification', () => {
       town: searchParams.town,
       section: searchParams.section,
       landNumber: searchParams.landNumber,
+      // 父/子地號與年度一併保存，否則「載入最近查詢」還原不出地號欄位與年度勾選
+      parentLandNumber: searchParams.parentLandNumber,
+      childLandNumber: searchParams.childLandNumber,
+      years: years ? [...years] : [],
       searchTime: new Date(),
       queryType
     })
@@ -213,13 +196,19 @@ export const useQualificationStore = defineStore('qualification', () => {
    * 添加到最近查詢記錄
    * @param search 查詢記錄
    */
+  // 年度比對鍵：排序後串接，使 ['113','114'] 與 ['114','113'] 視為同一組條件；
+  // 空陣列與未定義同樣代表「未指定年度」，兩者比對鍵皆為空字串
+  const yearsKey = (years?: string[]) => [...(years ?? [])].sort().join(',')
+
   const addToRecentSearches = (search: RecentSearch) => {
     // 檢查是否已存在相同查詢
+    // 年度納入比對：同地號查 113 與查 114 是兩筆不同的查詢，後者不應覆蓋前者
     const existingIndex = recentSearches.value.findIndex(item =>
       item.county === search.county &&
       item.town === search.town &&
       (item.section === search.section || (!item.section && !search.section)) &&
       (item.landNumber === search.landNumber || (!item.landNumber && !search.landNumber)) &&
+      yearsKey(item.years) === yearsKey(search.years) &&
       item.queryType === search.queryType
     )
 

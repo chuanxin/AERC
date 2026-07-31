@@ -133,9 +133,17 @@ export interface IndigenousSearchParams {
 
 export interface RecentSearch {
   county: string
-  town: string
-  section?: string
+  // 與 QualificationSearchParams 對齊：town/section 實際可為 null（未選擇），
+  // 原本宣告為 string 使寫入端型別不符
+  town: string | null
+  section?: string | null
   landNumber?: string
+  // 父/子地號分開保存：UI 的地號輸入框綁定的是這兩個欄位，
+  // 只存合併後的 landNumber 無法還原畫面
+  parentLandNumber?: string
+  childLandNumber?: string
+  // 查詢年度快照；空陣列或未定義代表未指定年度（查全部年度）
+  years?: string[]
   searchTime: Date
   queryType: QualificationQueryType
 }
