@@ -438,6 +438,13 @@ class ApplicantSubsidySummarySchema(BaseSchema):
     grants: List[ApplicantGrantSummaryItemSchema] = Field(..., description="案件列表")
 
 
+class ApplicantSubsidySummaryRequest(BaseSchema):
+    """申請人年度補助額度查詢請求（POST body，取代原本的 path/query 參數）"""
+    applicant_id: str = Field(..., min_length=1, max_length=10, description="申請人身分證字號")
+    year: int = Field(..., ge=1, description="申請年度（民國年）")
+    current_grant_id: Optional[int] = Field(None, description="當前案件ID（用於排除自己）")
+
+
 class DesignChangeRequest(BaseSchema):
     """設計變更請求 — 前端只需傳 comment，版本資料由後端從現有版本複製"""
     comment: Optional[str] = Field(None, max_length=255, description="版本說明（選填）")

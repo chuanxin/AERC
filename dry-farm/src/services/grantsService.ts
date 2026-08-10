@@ -435,16 +435,14 @@ export const getApplicantSubsidySummary = async (
   currentGrantId?: number
 ): Promise<ApplicantSubsidySummary> => {
   try {
-    let url = GRANTS.APPLICANT_SUBSIDY_SUMMARY(applicantId, year)
-
-    // 如果有提供 currentGrantId，加入 query parameter
-    if (currentGrantId !== undefined) {
-      url += `?current_grant_id=${currentGrantId}`
-    }
-
-    console.log(`📡 [getApplicantSubsidySummary] API call to: ${url}`)
-    const response = await apiService.get<ApplicantSubsidySummary>(url)
-    console.log(`📡 [getApplicantSubsidySummary] Received subsidy summary:`, response)
+    const response = await apiService.post<ApplicantSubsidySummary>(
+      GRANTS.APPLICANT_SUBSIDY_SUMMARY,
+      {
+        applicant_id: applicantId,
+        year,
+        current_grant_id: currentGrantId
+      }
+    )
 
     return response
   } catch (error) {

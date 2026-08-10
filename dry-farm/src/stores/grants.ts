@@ -1328,8 +1328,6 @@ export const useGrantsStore = defineStore('grants', () => {
     subsidySummaryError.value = null
 
     try {
-      console.log(`💰 [fetchSubsidySummary] Fetching subsidy summary for ${applicantId}, year ${year}`)
-
       const summary = await getApplicantSubsidySummary(applicantId, year, currentGrantId)
       subsidySummary.value = summary
 
