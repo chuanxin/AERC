@@ -200,15 +200,17 @@ class OTPVerificationResponse(BaseModel):
 
 
 class CaptchaResponse(BaseModel):
-    """驗證碼生成回應"""
+    """驗證碼生成回應（037-login-captcha-image：明文不再進入回應，改回傳圖片）"""
     captcha_token: str = Field(..., description="HMAC 簽名的驗證碼 token")
-    captcha_code: str = Field(..., description="4位數字驗證碼")
+    captcha_image: str = Field(..., description="驗證碼圖片，base64 data URI 格式")
+    expires_in_seconds: int = Field(..., description="此驗證碼自產生起的有效秒數")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "captcha_token": "MTczMTg1NjAwMDoxYTJiM2M0ZDVlNmY3ZzhoOWkwag==",
-                "captcha_code": "1234"
+                "captcha_image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+                "expires_in_seconds": 300
             }
         }
 

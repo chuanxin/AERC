@@ -168,61 +168,36 @@ export const useUserStore = defineStore('user', () => {
     return fetchUserPromise
   }, asyncOptions)
 
-  /**
-   * User login
-   * @param credentials 登入憑證
-   * @returns 登入後的用戶信息或 null（如果登入失敗）
-   */
-  const login = wrapAsync(async (credentials: UserCredentials) => {
-    const response = await userService.login(credentials)
+  // 037-login-captcha-image：login() wrapper 已移除（POST /login 端點本身已於後端移除，
+  // 唯一呼叫端——generateCaptcha catch 分支的 fallback、下方 register() 的自動登入——皆已
+  // 移除或註解，全 repo 搜尋確認零呼叫端後直接刪除，非保留註解痕跡的對象；FR-005a）
 
-    // 保存令牌
-    if (response?.access_token) {
-      token.value = response.access_token
-      localStorage.setItem('auth_token', response.access_token)
-      // 設定密碼過期狀態（fallback 登入路徑；主要路徑由 handleLogin 直接設定）
-      passwordExpired.value = response.password_expired ?? false
-
-      // 獲取用戶信息
-      const result = await fetchCurrentUser()
-
-      return result
-    }
-
-    return null
-  }, {
-    ...asyncOptions,
-    errorFormatter: (err: unknown) => {
-      // API 錯誤處理
-      if (err && typeof err === 'object') {
-        const apiError = err as ApiError
-        return apiError.response?.data?.detail ||
-               apiError.response?.data?.message ||
-               apiError.message ||
-               '登入失敗'
-      }
-      return '登入失敗'
-    }
-  })
-
-  /**
-   * 用戶註冊
-   * @param userData 註冊資料
-   * @returns 新創建的用戶或 null（如果註冊失敗）
-   */
-  const register = wrapAsync(async (userData: UserRegisterData) => {
-    const newUser = await userService.register(userData)
-
-    // 註冊成功後自動登入
-    if (newUser) {
-      await login({
-        username: userData.username,
-        password: userData.password
-      })
-    }
-
-    return newUser
-  }, asyncOptions)
+  // 037-login-captcha-image：register() 整段是死碼（2026-08-09 第三方審查發現，見 037
+  // spec.md Clarifications 第三題）。唯一呼叫端 login/index.vue::handleRegistration() 已於
+  // 本功能整段註解，全 repo 搜尋確認 register()／userService.register() 目前零呼叫端；真正
+  // 的註冊功能由 signup.vue 走完全獨立的 POST /users/register（帳號審核流程）提供，跟這裡
+  // 無關。⚠️ 此區塊為過渡態註解，非可回復的功能開關：內部呼叫的 login()（見下方 login()
+  // 定義處另一段註解）其呼叫目標將於本功能被正式刪除，屆時單純解除本區塊註解也無法運作，
+  // 只能整段連同 login() 一起清除或改寫。保留註解僅為留存可回溯軌跡，供之後確認無虞後
+  // 正式清除（連同下方 return 區塊中的 `register,` 匯出一併清除）。
+  // /**
+  //  * 用戶註冊
+  //  * @param userData 註冊資料
+  //  * @returns 新創建的用戶或 null（如果註冊失敗）
+  //  */
+  // const register = wrapAsync(async (userData: UserRegisterData) => {
+  //   const newUser = await userService.register(userData)
+  //
+  //   // 註冊成功後自動登入
+  //   if (newUser) {
+  //     await login({
+  //       username: userData.username,
+  //       password: userData.password
+  //     })
+  //   }
+  //
+  //   return newUser
+  // }, asyncOptions)
 
   /**
    * 用戶登出
@@ -496,8 +471,8 @@ export const useUserStore = defineStore('user', () => {
     canAny,
 
     // 方法
-    login,
-    register,
+    // login, // 037-login-captcha-image：login() wrapper 已移除（POST /login 端點本身已刪除）
+    // register, // 037-login-captcha-image：register() 本體已整段註解（死碼），匯出一併移除
     logout,
     refreshToken,
     checkAndRefreshToken,

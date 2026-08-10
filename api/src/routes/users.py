@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, Form, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -67,19 +67,20 @@ router = APIRouter()
     response_model=CaptchaResponse,
     status_code=status.HTTP_200_OK,
     summary="生成登入驗證碼",
-    description="生成 4 位數字驗證碼供登入使用"
+    description="生成圖形驗證碼供登入使用"
 )
 async def generate_captcha():
     """
-    生成登入驗證碼
+    生成登入驗證碼（037-login-captcha-image：回傳圖片，明文不進入回應）
 
     Returns:
-        CaptchaResponse: 包含 captcha_token 和 captcha_code
+        CaptchaResponse: 包含 captcha_token、captcha_image、expires_in_seconds
     """
-    captcha_token, captcha_code = CaptchaService.generate()
+    captcha_token, captcha_image, expires_in_seconds = CaptchaService.generate_image()
     return CaptchaResponse(
         captcha_token=captcha_token,
-        captcha_code=captcha_code
+        captcha_image=captcha_image,
+        expires_in_seconds=expires_in_seconds
     )
 
 
@@ -445,129 +446,6 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
         raise
     except Exception as e:
         raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(e))
-
-
-@router.post("/login")
-async def login(
-    request: Request,
-    username: str = Form(..., max_length=20),
-    encrypted_password: str = Form(...),
-    encrypted_key: str = Form(...),
-    iv: str = Form(...),
-    kid: str = Form(...),
-    timestamp: int = Form(...),
-    nonce: str = Form(..., min_length=32, max_length=128),
-):
-    """標準登入（加密格式 form-data）。步驟順序：kid → nonce → 解密 → 帳號密碼驗證。"""
-    from src.auth.users import (
-        verify_password,
-        check_account_locked,
-        record_failed_login,
-        reset_failed_login,
-        check_password_expired,
-    )
-
-    # 1. 驗證 kid
-    try:
-        get_private_key_by_kid(kid)
-    except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail={"error_code": "UNKNOWN_KEY_ID", "message": "金鑰已更新，請重新操作"},
-        )
-
-    # 2. 防重放驗證
-    await validate_and_store_nonce(nonce, timestamp)
-
-    # 3. 解密密碼
-    plaintext_password = decrypt_password(encrypted_password, encrypted_key, iv, kid)
-
-    # 4. 驗證帳號密碼
-    try:
-        user = await Users.get(username=username)
-    except DoesNotExist:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="使用者名稱或密碼不正確",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not user.is_active:
-        # 密碼驗證優先於 pending 狀態查詢，防止帳號枚舉攻擊（R-003）
-        if not verify_password(plaintext_password, user.password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="使用者名稱或密碼不正確",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        pending = await UserRegistration.filter(
-            user_id=user.id, status=RegistrationStatus.PENDING
-        ).first()
-        if pending:
-            raise AppError(403, "帳號審核中，請等待管理員審核")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="使用者名稱或密碼不正確",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    await check_account_locked(user)
-
-    if not verify_password(plaintext_password, user.password):
-        await record_failed_login(user)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="使用者名稱或密碼不正確",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    await reset_failed_login(user)
-    await crud.update_last_login(user.id)
-
-    password_expired = check_password_expired(user)
-
-    # IP 白名單 / MFA 分流（FR-001：僅在密碼驗證成功之後執行）
-    client_ip = get_client_ip(request)
-    is_whitelisted = await is_ip_whitelisted(client_ip)
-    user_agent = request.headers.get("user-agent", "")
-
-    if not is_whitelisted:
-        email_service = EmailService()
-        mfa_auth_token = await email_service.create_auth_token(
-            user=user,
-            token_type=AuthTokenType.MFA_VERIFICATION,
-            ip_address=client_ip,
-            user_agent=user_agent,
-        )
-        await audit_service.log(
-            event_type=AuditEventType.AUTH,
-            action=AuditAction.LOGIN,
-            result=AuditResult.SUCCESS,
-            actor_id=user.id,
-            actor_username=user.username,
-            actor_role=user.role,
-            resource_type="login",
-            ip_address=client_ip,
-            user_agent=user_agent,
-            endpoint=str(request.url.path),
-            changed_fields={"ip_whitelisted": False, "mfa_required": True},
-        )
-        return {"mfa_required": True, "mfa_token": mfa_auth_token.token}
-
-    await audit_service.log(
-        event_type=AuditEventType.AUTH,
-        action=AuditAction.LOGIN,
-        result=AuditResult.SUCCESS,
-        actor_id=user.id,
-        actor_username=user.username,
-        actor_role=user.role,
-        resource_type="login",
-        ip_address=client_ip,
-        user_agent=user_agent,
-        endpoint=str(request.url.path),
-        changed_fields={"ip_whitelisted": True},
-    )
-    return await build_login_response(user, password_expired)
 
 
 @router.post("/login-secure")

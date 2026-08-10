@@ -52,52 +52,31 @@ export interface UpdateUserData {
 
 // 用戶服務
 export const userService = {
-  /**
-   * 用戶登入
-   * @param credentials 登入憑證
-   */
-  async login(credentials: UserCredentials): Promise<LoginResponse> {
-    const keyInfo = await getServerPublicKey()
-    const { encrypted_password, encrypted_key, iv } = await encryptPassword(
-      credentials.password,
-      keyInfo.publicKey,
-    )
+  // 037-login-captcha-image：login()（呼叫 AUTH.LOGIN / POST /login）已移除——後端端點
+  // 本身已刪除（FR-005a），全 repo 搜尋確認零呼叫端後直接刪除，非保留註解痕跡的對象。
 
-    const response = await apiService.postForm<LoginResponse>(AUTH.LOGIN, {
-      username: credentials.username,
-      encrypted_password,
-      encrypted_key,
-      iv,
-      kid: keyInfo.kid,
-      timestamp: String(Date.now()),
-      nonce: generateNonce(),
-    })
-
-    const token = response?.access_token
-    if (token) {
-      localStorage.setItem('auth_token', token)
-    }
-
-    return response
-  },
-
-  /**
-   * 用戶註冊
-   * @param userData 註冊資料
-   */
-  async register(userData: UserRegisterData): Promise<User> {
-    try {
-      console.log('發送註冊請求，資料:', userData)
-      const response = await apiService.post<User>(
-        AUTH.REGISTER,
-        userData as unknown as Record<string, unknown>
-      )
-      return response
-    } catch (error) {
-      console.error('註冊失敗:', error)
-      throw error
-    }
-  },
+  // 037-login-captcha-image：register() 整段是死碼（2026-08-09 第三方審查發現，見 037
+  // spec.md Clarifications 第三題）。唯一呼叫端 stores/users.ts::register() 已於本功能
+  // 整段註解，全 repo 搜尋確認此函式目前零呼叫端；真正的註冊功能由 signup.vue 走完全獨立的
+  // POST /users/register（帳號審核流程）提供。AUTH.REGISTER 常數本身不受影響（mapping.ts
+  // 仍有欄位映射引用），僅此函式本體註解。
+  // /**
+  //  * 用戶註冊
+  //  * @param userData 註冊資料
+  //  */
+  // async register(userData: UserRegisterData): Promise<User> {
+  //   try {
+  //     console.log('發送註冊請求，資料:', userData)
+  //     const response = await apiService.post<User>(
+  //       AUTH.REGISTER,
+  //       userData as unknown as Record<string, unknown>
+  //     )
+  //     return response
+  //   } catch (error) {
+  //     console.error('註冊失敗:', error)
+  //     throw error
+  //   }
+  // },
 
   /**
    * 獲取用使用者資訊
