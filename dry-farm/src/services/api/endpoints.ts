@@ -7,7 +7,6 @@ const BASE = `${import.meta.env.FAST_API_BASE_URL || ''}/${API_VERSION}`
 // authentication related endpoints
 export const AUTH = {
   REGISTER: `${BASE}/register`,
-  LOGIN: `${BASE}/login`,
   LOGIN_SECURE: `${BASE}/login-secure`,
   LOGOUT: `${BASE}/logout`,
   REFRESH: `${BASE}/refresh`,
