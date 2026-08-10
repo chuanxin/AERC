@@ -18,6 +18,7 @@ from src.schemas.grants import (
     GrantUpdateSchema, GrantCreateResponseSchema,
     GrantStepSchema, GrantLandInSchema, GrantSearchSchema,
     GrantCreateRequestSchema, ApplicantSubsidySummarySchema,
+    ApplicantSubsidySummaryRequest,
     GrantTagSetSchema, DesignChangeRequest, DesignChangeResponse
 )
 # import src.crud.offices as crud
@@ -28,7 +29,7 @@ from src.crud.grants import get_grant_by_case_number, delete_grant  # Import the
 from src.exceptions import AppError
 from src.database.models import Grants, GrantStatus
 from src.services.data_encryption import data_encryption_service
-from src.services.audit_service import audit_service
+from src.services.audit_service import audit_service, mask_id_number
 from src.database.audit_models import AuditEventType, AuditAction, AuditResult
 from src.crud.grant_version_service import GrantVersionService
 from src.crud.grant_locations import sync_single_grant_metadata
@@ -690,15 +691,14 @@ async def batch_cross_year_grants_api(
             )
 
 
-@router.get(
-    "/applicant-subsidy-summary/{applicant_id}/{year}",
+@router.post(
+    "/applicant-subsidy-summary",
     response_model=Dict[str, Any],
-    dependencies=[Depends(require_full_auth)],
+    dependencies=[Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW))],
 )
 async def get_applicant_subsidy_summary(
-    applicant_id: str = Path(..., description="申請人身分證字號"),
-    year: int = Path(..., description="申請年度（民國年）"),
-    current_grant_id: Optional[int] = Query(None, description="當前案件ID（用於排除自己）"),
+    request: Request,
+    payload: ApplicantSubsidySummaryRequest,
     current_user: UserOutSchema = Depends(require_full_auth)
 ):
     """
@@ -714,21 +714,46 @@ async def get_applicant_subsidy_summary(
     """
     try:
         logger.info(
-            f"📊 查詢年度補助額度: "
-            f"申請人={applicant_id}, 年度={year}, "
-            f"排除案件ID={current_grant_id}"
+            "📊 查詢年度補助額度: 申請人=%s, 年度=%s, 排除案件ID=%s",
+            payload.applicant_id, payload.year, payload.current_grant_id
         )
 
         result = await crud.calculate_applicant_yearly_subsidy(
-            applicant_id=applicant_id,
-            year=year,
-            current_grant_id=current_grant_id
+            applicant_id=payload.applicant_id,
+            year=payload.year,
+            current_grant_id=payload.current_grant_id
+        )
+
+        await audit_service.log(
+            event_type=AuditEventType.DATA_ACCESS,
+            action=AuditAction.VIEW,
+            result=AuditResult.SUCCESS,
+            actor_id=current_user.id,
+            actor_username=current_user.username,
+            actor_role=current_user.role,
+            ip_address=request.headers.get("X-Real-IP", ""),
+            endpoint=str(request.url.path),
+            resource_type="ApplicantSubsidySummary",
+            resource_id=f"{mask_id_number(payload.applicant_id)}_{payload.year}",
         )
 
         return result
 
     except Exception as e:
         logger.error(f"❌ 查詢年度補助額度失敗: {str(e)}")
+        await audit_service.log(
+            event_type=AuditEventType.DATA_ACCESS,
+            action=AuditAction.VIEW,
+            result=AuditResult.FAILURE,
+            actor_id=current_user.id,
+            actor_username=current_user.username,
+            actor_role=current_user.role,
+            ip_address=request.headers.get("X-Real-IP", ""),
+            endpoint=str(request.url.path),
+            resource_type="ApplicantSubsidySummary",
+            resource_id=f"{mask_id_number(payload.applicant_id)}_{payload.year}",
+            failure_reason=str(e),
+        )
         raise AppError(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="查詢年度補助額度失敗",

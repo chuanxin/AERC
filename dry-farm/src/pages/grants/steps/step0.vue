@@ -919,11 +919,6 @@ const fetchSubsidySummaryIfNeeded = async () => {
   const applicantId = localFormData.id
   const year = getCurrentROCYear()
 
-  console.log('💰 [step0.fetchSubsidySummaryIfNeeded] Data:', {
-    applicantId,
-    year
-  })
-
   if (!applicantId || !/^[A-Z][12]\d{8}$/.test(applicantId)) {
     console.log('💰 [step0.fetchSubsidySummaryIfNeeded] Invalid applicant ID, skipping')
     return
@@ -943,11 +938,6 @@ const fetchSubsidySummaryIfNeeded = async () => {
 watch(
   () => localFormData.id,
   async (newId, oldId) => {
-    console.log('💰 [step0] Watch triggered - ID changed:', {
-      newId,
-      oldId
-    })
-
     // 當身分證字號符合格式時才查詢
     if (newId && newId !== oldId && /^[A-Z][12]\d{8}$/.test(newId)) {
       console.log('💰 [step0] Valid ID format, fetching subsidy summary')
