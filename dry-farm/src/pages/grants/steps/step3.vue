@@ -2040,11 +2040,6 @@ onMounted(async () => {
     const currentGrantId = grantsStore.currentGrant.id;
 
     if (applicantId && year) {
-      console.log('💰 [step3] 初始化補助額度查詢:', {
-        applicantId,
-        year,
-        currentGrantId
-      });
       try {
         await grantsStore.fetchSubsidySummary(applicantId, year, currentGrantId);
         console.log('✅ [step3] 補助額度查詢完成');

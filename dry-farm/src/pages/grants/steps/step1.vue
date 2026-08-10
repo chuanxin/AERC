@@ -1472,26 +1472,9 @@ const fetchSubsidySummaryIfNeeded = async () => {
   const year = caseYear.value  // 從 currentGrant.year 取得
   const currentGrantId = grantsStore.currentGrant?.id
 
-  console.log('💰 [fetchSubsidySummaryIfNeeded] Data source:', {
-    applicantId,
-    year,
-    currentGrantId,
-    source: {
-      applicantId: localFormData.id
-        ? 'localFormData.id (user editing)'
-        : 'currentGrant.applicant_id (saved)',
-      year: 'currentGrant.year',
-      currentGrantId: 'currentGrant.id'
-    }
-  })
-
   // 🔥 Fail fast：缺少任何必要資料時立即返回
   if (!applicantId) {
-    console.error('❌ [fetchSubsidySummaryIfNeeded] CRITICAL: applicant_id missing!', {
-      localFormDataId: localFormData.id,
-      currentGrantApplicantId: grantsStore.currentGrant?.applicant_id,
-      currentGrant: grantsStore.currentGrant
-    })
+    console.error('❌ [fetchSubsidySummaryIfNeeded] CRITICAL: applicant_id missing!')
     return
   }
 
@@ -1514,17 +1497,14 @@ const fetchSubsidySummaryIfNeeded = async () => {
 watch(
   () => [localFormData.id, localFormData.caseNumber],
   async ([newId, newCaseNumber], [oldId, oldCaseNumber]) => {
-    console.log('💰 [step1] Watch triggered - ID/CaseNumber changed:', {
-      newId,
-      newCaseNumber,
-      oldId,
-      oldCaseNumber,
-      isInitialized: isInitialized.value
-    })
-
-    // 只在已初始化且身分證字號或案件編號真正變化時才查詢
-    if (isInitialized.value && (newId !== oldId || newCaseNumber !== oldCaseNumber) && newId && newCaseNumber) {
-      console.log('💰 [step1] Applicant ID or case number changed, fetching subsidy summary')
+    // 只在已初始化、身分證字號或案件編號真正變化、且身分證字號為完整合法格式時才查詢
+    // （格式不完整的中間輸入狀態送出查詢沒有意義，比照 step0.vue 既有的守門邏輯）
+    if (
+      isInitialized.value &&
+      (newId !== oldId || newCaseNumber !== oldCaseNumber) &&
+      newId && newCaseNumber &&
+      /^[A-Z][12]\d{8}$/.test(newId)
+    ) {
       await fetchSubsidySummaryIfNeeded()
     }
   }

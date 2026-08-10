@@ -101,8 +101,7 @@ export const BACKEND_PATHS = {
     STEP: (caseNumber: string, step: number) => `/grants/case/${caseNumber}/step/${step}`,
     UPDATE_CURRENT_STEP: (caseNumber: string) => `/grants/case/${caseNumber}/current-step`,
     DELETE: (id: number | string) => `/grants/${id}`,
-    APPLICANT_SUBSIDY_SUMMARY: (applicantId: string, year: number) =>
-    `/grants/applicant-subsidy-summary/${applicantId}/${year}`,
+    APPLICANT_SUBSIDY_SUMMARY: `/grants/applicant-subsidy-summary`,
     UPDATE_STATUS: (caseNumber: string) => `/grants/case/${caseNumber}/status`,
     CLAIM_OWNERSHIP: (grantId: number) => `/grants/${grantId}/claim-ownership`,
     COMPLETION_STATEMENT: (caseNumber: string) => `/grants/case/${caseNumber}/completion-statement`,
@@ -342,8 +341,7 @@ export const API_MAPPING: Record<string, string> = {
   [NLSC.CADASTRAL_POINT]: BACKEND_PATHS.NLSC.CADASTRAL_POINT, // @deprecated
   [NLSC.CADASTRAL_QUERY_BY_LAND_NUMBER]: BACKEND_PATHS.NLSC.CADASTRAL_QUERY_BY_LAND_NUMBER, // @deprecated
   [NLSC.CADASTRAL_QUERY_BY_POINT]: BACKEND_PATHS.NLSC.CADASTRAL_QUERY_BY_POINT, // @deprecated
-  // 🔥 移除錯誤的靜態映射：APPLICANT_SUBSIDY_SUMMARY 是函數，不能作為 Record key
-  // [GRANTS.APPLICANT_SUBSIDY_SUMMARY]: BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY,
+  [GRANTS.APPLICANT_SUBSIDY_SUMMARY]: BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY,
 }
 
 // 動態參數路徑匹配規則
@@ -360,11 +358,7 @@ export const DYNAMIC_PATH_PATTERNS = [
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.SECURITY.MFA_PENDING_OTP(parseInt(matches[1], 10))
   },
   // ========== Grants 相關路徑（優先匹配，順序很重要）==========
-  {
-    // 🔥 匹配申請人補助額度摘要路徑 /grants/applicant-subsidy-summary/{applicantId}/{year}
-    pattern: /^\/grants\/applicant-subsidy-summary\/([^\/]+)\/(\d+)$/,
-    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY(matches[1], parseInt(matches[2], 10))
-  },
+  // 申請人補助額度摘要路徑已改為固定路徑（無 path capture），改由上方 API_MAPPING 靜態映射處理，不再需要動態規則
   {
     // 匹配 grants authorization 路徑 /grants/case/{case_number}/authorization
     pattern: /^\/grants\/case\/([^\/]+)\/authorization$/,
@@ -411,11 +405,6 @@ export const DYNAMIC_PATH_PATTERNS = [
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.DELETE(matches[1])
   },
   // ========== 其他路徑 ==========
-  {
-    // 匹配申請人補助額度摘要路徑 {API_PREFIX}/grants/applicant-subsidy-summary/{applicantId}/{year}
-    pattern: new RegExp(`^${GRANTS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/applicant-subsidy-summary/([^/]+)/(\\d+)$`),
-    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY(matches[1], parseInt(matches[2], 10))
-  },
   {
     // 匹配用戶詳情路徑 {API_PREFIX}/users/123
     pattern: new RegExp(`^${USERS.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/([\\d]+)$`),

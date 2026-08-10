@@ -2522,6 +2522,18 @@ async def _check_subsidy_limit_guard(grant: Grants) -> None:
     )
 
 
+def _matches_applicant_id(candidate: Grants, applicant_id: str) -> bool:
+    """單筆候選案件的身分證字號比對，解密失敗視為不匹配並記錄，不中斷呼叫端的查詢"""
+    try:
+        return data_encryption_service.decrypt(candidate.applicant_id) == applicant_id
+    except Exception:
+        logger.error(
+            f"補助額度查詢：案件 id={candidate.id} 的 applicant_id 解密失敗，視為不匹配",
+            exc_info=True
+        )
+        return False
+
+
 async def calculate_applicant_yearly_subsidy(
     applicant_id: str,
     year: int,
@@ -2562,20 +2574,25 @@ async def calculate_applicant_yearly_subsidy(
             GrantStatus.COMPLETED
         ]
 
-        logger.info(f"開始計算申請人 {applicant_id} 在 {year} 年度的補助總額")
+        logger.info("開始計算申請人 %s 在 %s 年度的補助總額", applicant_id, year)
 
-        # 查詢符合條件的案件
-        query = Grants.filter(
-            applicant_id=applicant_id,
+        # 第一段：applicant_id 可能是明文或加密狀態並存（encrypt() 每次呼叫產生不同密文，
+        # DB 層無法對加密欄位做精確 filter），僅拉輕量欄位篩出候選集合，於 Python 層解密比對。
+        # 單筆解密失敗視為不匹配並記錄，不讓整體查詢因單一損毀資料而失敗。
+        candidates_query = Grants.filter(
             year=year,
             status__in=COUNTED_STATUSES
-        ).prefetch_related('active_version')
+        ).only('id', 'applicant_id', 'applicant_name')
 
         # 排除當前正在編輯的案件 (避免重複計算)
         if current_grant_id:
-            query = query.exclude(id=current_grant_id)
+            candidates_query = candidates_query.exclude(id=current_grant_id)
 
-        grants = await query.order_by('-created_at')
+        candidates = await candidates_query
+        matched_ids = [c.id for c in candidates if _matches_applicant_id(c, applicant_id)]
+
+        # 第二段：僅對真正命中的案件載入完整版本資料，避免對全部候選案件做不必要的 JSONB 預先載入
+        grants = await Grants.filter(id__in=matched_ids).prefetch_related('active_version').order_by('-created_at')
 
         # 計算每個案件的補助金額
         grant_subsidies = []
@@ -2585,9 +2602,9 @@ async def calculate_applicant_yearly_subsidy(
         for grant in grants:
             subsidy_amount = _extract_grant_subsidy_amount(grant)
 
-            # 記錄申請人姓名 (取第一筆即可)
+            # 記錄申請人姓名 (取第一筆即可，解密後存入，避免回傳密文)
             if not applicant_name:
-                applicant_name = grant.applicant_name
+                applicant_name = data_encryption_service.decrypt(grant.applicant_name)
 
             # 加入案件列表
             grant_subsidies.append({
