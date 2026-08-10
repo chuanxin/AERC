@@ -22,7 +22,6 @@ function removeApiPrefix(path: string): string {
 export const BACKEND_PATHS = {
   // 用戶認證相關
   AUTH: {
-    LOGIN: '/login',
     LOGIN_SECURE: '/login-secure',
     REGISTER: '/register',
     WHO_AM_I: '/users/whoami',
@@ -239,7 +238,6 @@ export const BACKEND_PATHS = {
 
 // 前端到後端的直接映射表
 export const API_MAPPING: Record<string, string> = {
-  [AUTH.LOGIN]: BACKEND_PATHS.AUTH.LOGIN,
   [AUTH.LOGIN_SECURE]: BACKEND_PATHS.AUTH.LOGIN_SECURE,
   [AUTH.REGISTER]: BACKEND_PATHS.AUTH.REGISTER,
   [AUTH.REFRESH]: BACKEND_PATHS.AUTH.REFRESH,

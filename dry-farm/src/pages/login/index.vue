@@ -97,7 +97,12 @@
                     class="captcha-display"
                     @click="generateCaptcha"
                   >
-                    {{ captcha }}
+                    <img
+                      v-if="captchaImageDataUri"
+                      :src="captchaImageDataUri"
+                      alt="驗證碼圖片，點擊可更換"
+                      class="captcha-image"
+                    >
                   </div>
                 </template>
               </v-text-field>
@@ -111,6 +116,17 @@
                 class="mb-3"
               >
                 {{ successMessage }}
+              </v-alert>
+
+              <!-- 驗證碼載入失敗，登入功能明確不可用（FR-005） -->
+              <v-alert
+                v-if="captchaLoadError"
+                type="error"
+                variant="tonal"
+                density="compact"
+                class="mb-3"
+              >
+                驗證碼載入失敗，請稍後再試或點擊驗證碼圖片重新載入
               </v-alert>
 
               <!-- Error Message Display -->
@@ -131,7 +147,7 @@
                 class="login-button"
                 block
                 :loading="isSubmitting"
-                :disabled="isSubmitting"
+                :disabled="isSubmitting || captchaLoadError"
               >
                 登入
               </v-btn>
@@ -286,7 +302,12 @@
                       class="captcha-display"
                       @click="generateCaptcha"
                     >
-                      {{ captcha }}
+                      <img
+                        v-if="captchaImageDataUri"
+                        :src="captchaImageDataUri"
+                        alt="驗證碼圖片，點擊可更換"
+                        class="captcha-image"
+                      >
                     </div>
                   </template>
                 </v-text-field>
@@ -300,6 +321,17 @@
                   class="mb-3"
                 >
                   {{ successMessage }}
+                </v-alert>
+
+                <!-- 驗證碼載入失敗，登入功能明確不可用（FR-005） -->
+                <v-alert
+                  v-if="captchaLoadError"
+                  type="error"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3"
+                >
+                  驗證碼載入失敗，請稍後再試或點擊驗證碼圖片重新載入
                 </v-alert>
 
                 <!-- Error Message Display -->
@@ -320,7 +352,7 @@
                   class="login-button"
                   block
                   :loading="isSubmitting"
-                  :disabled="isSubmitting"
+                  :disabled="isSubmitting || captchaLoadError"
                 >
                   登入
                 </v-btn>
@@ -481,10 +513,12 @@
   const rememberMe = ref(false)
 
   const captchaToken = ref('')
-  const captcha = ref('')
+  const captchaImageDataUri = ref('')
   const userCaptcha = ref('')
   const captchaError = ref(false)
   const captchaLoading = ref(false)
+  // 037-login-captcha-image：GET /captcha 失敗時的明確錯誤狀態，取代舊有的本地明文 fallback
+  const captchaLoadError = ref(false)
 
   const errorMessage = ref('');
   const isSubmitting = ref(false);
@@ -503,6 +537,27 @@
   const otpVerifying = ref(false)
   const otpCountdown = ref(0)
   let countdownTimer: ReturnType<typeof setInterval> | null = null
+
+  // 037-login-captcha-image：驗證碼到期自動更換計時器，比照下方 MFA OTP 冷卻倒數的既有風格
+  let captchaExpiryTimer: ReturnType<typeof setTimeout> | null = null
+
+  function stopCaptchaExpiryTimer() {
+    if (captchaExpiryTimer) {
+      clearTimeout(captchaExpiryTimer)
+      captchaExpiryTimer = null
+    }
+  }
+
+  function startCaptchaExpiryTimer(seconds: number) {
+    stopCaptchaExpiryTimer()
+    captchaExpiryTimer = setTimeout(() => {
+      generateCaptcha()
+    }, seconds * 1000)
+  }
+
+  onUnmounted(() => {
+    stopCaptchaExpiryTimer()
+  })
 
   function stopCountdown() {
     if (countdownTimer) {
@@ -625,18 +680,16 @@
     try {
       const response: any = await apiService.get(AUTH.CAPTCHA)
       captchaToken.value = response.captcha_token
-      captcha.value = response.captcha_code
+      captchaImageDataUri.value = response.captcha_image
+      captchaLoadError.value = false
+      startCaptchaExpiryTimer(response.expires_in_seconds)
     } catch (error) {
       console.error('Failed to generate captcha:', error)
-      // Fallback to client-side generation if backend fails
-      const characters = '0123456789'
-      const length = 4
-      let result = ''
-      for (let i = 0; i < length; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length))
-      }
-      captcha.value = result
-      captchaToken.value = '' // No backend captcha
+      // 037-login-captcha-image：驗證碼服務不可用時明確阻擋登入，不再提供任何免驗證碼路徑（FR-005）
+      captchaLoadError.value = true
+      captchaToken.value = ''
+      captchaImageDataUri.value = ''
+      stopCaptchaExpiryTimer()
     } finally {
       captchaLoading.value = false
     }
@@ -696,6 +749,12 @@
       captchaError.value = false
       isSubmitting.value = true
 
+      // 037-login-captcha-image：驗證碼服務不可用時明確阻擋送出，不提供任何免驗證碼路徑（FR-005）
+      if (captchaLoadError.value) {
+        isSubmitting.value = false
+        return
+      }
+
       // 前端驗證：檢查 captcha 是否已輸入且為 4 位數字
       if (!userCaptcha.value || userCaptcha.value.length !== 4) {
         captchaError.value = true
@@ -711,103 +770,59 @@
         return
       }
 
-      // Check if we have backend captcha
-      if (captchaToken.value) {
-        // Use backend validation
-        const keyInfo = await getServerPublicKey()
-        const { encrypted_password, encrypted_key, iv } = await encryptPassword(
-          loginForm.value.password,
-          keyInfo.publicKey,
-        )
-        const loginData = {
-          username: loginForm.value.account,
-          captcha_token: captchaToken.value,
-          captcha_code: userCaptcha.value,
-          encrypted_password,
-          encrypted_key,
-          iv,
-          kid: keyInfo.kid,
-          timestamp: Date.now(),
-          nonce: generateNonce(),
+      const keyInfo = await getServerPublicKey()
+      const { encrypted_password, encrypted_key, iv } = await encryptPassword(
+        loginForm.value.password,
+        keyInfo.publicKey,
+      )
+      const loginData = {
+        username: loginForm.value.account,
+        captcha_token: captchaToken.value,
+        captcha_code: userCaptcha.value,
+        encrypted_password,
+        encrypted_key,
+        iv,
+        kid: keyInfo.kid,
+        timestamp: Date.now(),
+        nonce: generateNonce(),
+      }
+
+      const response: any = await apiService.post(AUTH.LOGIN_SECURE, loginData)
+
+      console.log('Login response:', response)
+
+      // IP 白名單外來源：進入 MFA 驗證步驟（FR-001）
+      if (response?.mfa_required && response?.mfa_token) {
+        enterMfaStep(response.mfa_token)
+        return
+      }
+
+      // 處理 token
+      const accessToken = response?.access_token
+      if (accessToken) {
+        // Update both localStorage and store's token ref
+        localStorage.setItem('auth_token', accessToken)
+        userStore.setToken(accessToken)
+        // 設定密碼過期狀態（主要登入路徑）
+        userStore.passwordExpired = response?.password_expired ?? false
+
+        // Fetch current user info
+        await userStore.fetchCurrentUser()
+
+        // If remember me is selected, set longer expiration
+        if (rememberMe.value) {
+          localStorage.setItem('remember_login', 'true')
         }
 
-        const response: any = await apiService.post(AUTH.LOGIN_SECURE, loginData)
-
-        console.log('Login response:', response)
-
-        // IP 白名單外來源：進入 MFA 驗證步驟（FR-001）
-        if (response?.mfa_required && response?.mfa_token) {
-          enterMfaStep(response.mfa_token)
-          return
-        }
-
-        // 處理 token
-        const accessToken = response?.access_token
-        if (accessToken) {
-          // Update both localStorage and store's token ref
-          localStorage.setItem('auth_token', accessToken)
-          userStore.setToken(accessToken)
-          // 設定密碼過期狀態（主要登入路徑）
-          userStore.passwordExpired = response?.password_expired ?? false
-
-          // Fetch current user info
-          await userStore.fetchCurrentUser()
-
-          // If remember me is selected, set longer expiration
-          if (rememberMe.value) {
-            localStorage.setItem('remember_login', 'true')
-          }
-
-          // 密碼過期則強制跳轉更換頁，否則導向原目標路徑
-          if (response?.password_expired) {
-            await router.push('/login/change-password')
-          } else {
-            await router.push(redirectPath.value)
-          }
+        // 密碼過期則強制跳轉更換頁，否則導向原目標路徑
+        if (response?.password_expired) {
+          await router.push('/login/change-password')
         } else {
-          errorMessage.value = '登入失敗，未收到有效 token'
-          await generateCaptcha() // Refresh captcha on failure
+          await router.push(redirectPath.value)
         }
       } else {
-        // Fallback to client-side validation (when backend captcha not available)
-        if (userCaptcha.value !== captcha.value) {
-          captchaError.value = true
-          return
-        }
-
-        // Use original login flow
-        const loginData = {
-          username: loginForm.value.account,
-          password: loginForm.value.password
-        }
-
-        console.log('Attempting login with client-side captcha')
-
-        const response = await userService.login(loginData)
-
-        // IP 白名單外來源：進入 MFA 驗證步驟（FR-001，/login 為現行備援路徑，須與 /login-secure 同步保護）
-        if (response?.mfa_required && response?.mfa_token) {
-          enterMfaStep(response.mfa_token)
-          return
-        }
-
-        if (response?.access_token) {
-          userStore.setToken(response.access_token)
-          userStore.passwordExpired = response.password_expired ?? false
-          await userStore.fetchCurrentUser()
-
-          if (rememberMe.value) {
-            localStorage.setItem('remember_login', 'true')
-          }
-          if (response.password_expired) {
-            await router.push('/login/change-password')
-          } else {
-            await router.push(redirectPath.value)
-          }
-        } else {
-          alert('登入失敗，請檢查帳號和密碼')
-          await generateCaptcha()
-        }
+        errorMessage.value = '登入失敗，未收到有效 token'
+        await generateCaptcha() // Refresh captcha on failure
       }
     } catch (error: any) {
       console.error('Error during login:', error)
@@ -838,88 +853,96 @@
   //   // Add your forgot password logic here
   //   console.log('Forgot password clicked')
   // }
-  const handleRegistration = async () => {
-    try {
-      // 重置錯誤
-      (Object.keys(formErrors.value) as Array<keyof typeof formErrors.value>).forEach((key) => {
-        formErrors.value[key] = ''
-      })
-
-      // 表單驗證
-      let isValid = true
-
-      if (!registerForm.value.account || registerForm.value.account.length < 3) {
-        formErrors.value.account = '帳號長度至少需要3個字元'
-        isValid = false
-      }
-
-      if (!registerForm.value.password || registerForm.value.password.length < 6) {
-        formErrors.value.password = '密碼長度至少需要6個字元'
-        isValid = false
-      }
-
-      if (registerForm.value.password !== registerForm.value.confirmPassword) {
-        formErrors.value.confirmPassword = '兩次輸入的密碼不一致'
-        isValid = false
-      }
-
-      if (!registerForm.value.name) {
-        formErrors.value.name = '請輸入姓名'
-        isValid = false
-      }
-
-      if (!registerForm.value.department) {
-        formErrors.value.department = '請選擇單位'
-        isValid = false
-      }
-
-      if (!isValid) {
-        return
-      }
-
-      // 調用 store 的註冊方法
-      const result = await userStore.register({
-        username: registerForm.value.account,
-        password: registerForm.value.password,
-        full_name: registerForm.value.name,
-        office_id: Number(registerForm.value.department)
-      })
-
-      if (result) {
-        // 註冊成功，顯示成功消息
-        alert('註冊成功！已自動登入。')
-
-        // 導航到首頁
-        await router.push('/')
-      }
-    } catch (error) {
-      console.error('註冊失敗:', error)
-    }
-
-    console.log('Registration submitted:', registerForm.value)
-  }
-
-  const currentStep = ref("1")
+  // 037-login-captcha-image：以下註冊表單邏輯（handleRegistration/currentStep/registerForm/
+  // formErrors/handleStep/getButtonText）經全文檢查確認為死碼——activeForm 從未被賦值成
+  // 'login' 以外的值，且這幾個變數在 <template> 區塊零綁定，畫面上沒有任何按鈕或分頁能觸發到
+  // handleRegistration()。真正可達的註冊入口是 href="/login/signup"（signup.vue，走 /users/register
+  // 帳號審核流程）。此段原本會在註冊成功後呼叫無驗證碼的 /login 自動登入（本次功能移除該端點），
+  // 且即使未來被觸發，030 帳號審核流程上線後新帳號 is_active=False，緊接著登入也會被 403 擋下。
+  // 先整段註解保留（未直接刪除），供之後確認無虞後再正式清除。詳見 037 spec.md Clarifications 第三題。
+  //
+  // const handleRegistration = async () => {
+  //   try {
+  //     // 重置錯誤
+  //     (Object.keys(formErrors.value) as Array<keyof typeof formErrors.value>).forEach((key) => {
+  //       formErrors.value[key] = ''
+  //     })
+  //
+  //     // 表單驗證
+  //     let isValid = true
+  //
+  //     if (!registerForm.value.account || registerForm.value.account.length < 3) {
+  //       formErrors.value.account = '帳號長度至少需要3個字元'
+  //       isValid = false
+  //     }
+  //
+  //     if (!registerForm.value.password || registerForm.value.password.length < 6) {
+  //       formErrors.value.password = '密碼長度至少需要6個字元'
+  //       isValid = false
+  //     }
+  //
+  //     if (registerForm.value.password !== registerForm.value.confirmPassword) {
+  //       formErrors.value.confirmPassword = '兩次輸入的密碼不一致'
+  //       isValid = false
+  //     }
+  //
+  //     if (!registerForm.value.name) {
+  //       formErrors.value.name = '請輸入姓名'
+  //       isValid = false
+  //     }
+  //
+  //     if (!registerForm.value.department) {
+  //       formErrors.value.department = '請選擇單位'
+  //       isValid = false
+  //     }
+  //
+  //     if (!isValid) {
+  //       return
+  //     }
+  //
+  //     // 調用 store 的註冊方法
+  //     const result = await userStore.register({
+  //       username: registerForm.value.account,
+  //       password: registerForm.value.password,
+  //       full_name: registerForm.value.name,
+  //       office_id: Number(registerForm.value.department)
+  //     })
+  //
+  //     if (result) {
+  //       // 註冊成功，顯示成功消息
+  //       alert('註冊成功！已自動登入。')
+  //
+  //       // 導航到首頁
+  //       await router.push('/')
+  //     }
+  //   } catch (error) {
+  //     console.error('註冊失敗:', error)
+  //   }
+  //
+  //   console.log('Registration submitted:', registerForm.value)
+  // }
+  //
+  // const currentStep = ref("1")
   const loginForm = ref({
     account: '',
     password: ''
   })
-  const registerForm = ref({
-    account: '',
-    password: '',
-    confirmPassword: '',
-    name: '',
-    department: null as number | null
-  })
-
-  // 處理表單驗證錯誤
-  const formErrors = ref<Record<'account' | 'password' | 'confirmPassword' | 'name' | 'department', string>>({
-    account: '',
-    password: '',
-    confirmPassword: '',
-    name: '',
-    department: ''
-  })
+  // const registerForm = ref({
+  //   account: '',
+  //   password: '',
+  //   confirmPassword: '',
+  //   name: '',
+  //   department: null as number | null
+  // })
+  //
+  // // 處理表單驗證錯誤
+  // const formErrors = ref<Record<'account' | 'password' | 'confirmPassword' | 'name' | 'department', string>>({
+  //   account: '',
+  //   password: '',
+  //   confirmPassword: '',
+  //   name: '',
+  //   department: ''
+  // })
 
   // const officesStore = useOfficesStore()
   const isOfficesLoading = ref(false)
@@ -927,22 +950,22 @@
   // Update how departments are loaded
   const departments = computed(() => officesStore.items)
 
-  const handleStep = (direction: 'next' | 'prev') => {
-    if (direction === 'next') {
-      if (currentStep.value === "2") {
-        handleRegistration()
-        return
-      }
-      currentStep.value = currentStep.value === "1" ? "2" : "1"
-    } else {
-      currentStep.value = currentStep.value === "2" ? "1" : "2"
-    }
-  }
-
-  const getButtonText = computed(() => {
-    if (activeForm.value === 'login') return '登入'
-    return currentStep.value === "1" ? '下一步' : '註冊'
-  })
+  // const handleStep = (direction: 'next' | 'prev') => {
+  //   if (direction === 'next') {
+  //     if (currentStep.value === "2") {
+  //       handleRegistration()
+  //       return
+  //     }
+  //     currentStep.value = currentStep.value === "1" ? "2" : "1"
+  //   } else {
+  //     currentStep.value = currentStep.value === "2" ? "1" : "2"
+  //   }
+  // }
+  //
+  // const getButtonText = computed(() => {
+  //   if (activeForm.value === 'login') return '登入'
+  //   return currentStep.value === "1" ? '下一步' : '註冊'
+  // })
 
   // watchEffect(() => {
   //   console.log('Departments:', departments.value)
@@ -1244,7 +1267,7 @@
       #3ea0a3 100%);
     background-size: 200% 200%;
     animation: captcha-gradient 1.5s ease infinite;
-    padding: 8px 16px;
+    padding: 3px;
     border-radius: 8px;
     cursor: pointer;
     user-select: none;
@@ -1252,6 +1275,16 @@
     transition: filter 0.2s ease;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     opacity: 0.95;
+    display: flex;
+    align-items: center;
+  }
+
+  /* 037-login-captcha-image：限制驗證碼圖片顯示尺寸，避免撐大輸入框（原生尺寸 110x40） */
+  .captcha-image {
+    display: block;
+    height: 32px;
+    width: auto;
+    border-radius: 5px;
   }
 
   @keyframes captcha-gradient {

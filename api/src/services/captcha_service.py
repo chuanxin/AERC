@@ -11,9 +11,12 @@ import hmac
 import hashlib
 import random
 import base64
+import io
 from datetime import datetime, timedelta, timezone
 from typing import Tuple
 import os
+
+from PIL import Image, ImageDraw, ImageFont
 
 
 class CaptchaService:
@@ -55,6 +58,76 @@ class CaptchaService:
         captcha_token = base64.urlsafe_b64encode(token_data.encode('utf-8')).decode('utf-8')
 
         return captcha_token, captcha_code
+
+    @classmethod
+    def generate_image(cls) -> Tuple[str, str, int]:
+        """
+        生成圖形驗證碼（037-login-captcha-image）：明文不外流，僅回傳圖片與到期秒數
+
+        Returns:
+            Tuple[str, str, int]: (captcha_token, captcha_image_data_uri, expires_in_seconds)
+        """
+        captcha_token, captcha_code = cls.generate()
+        captcha_image = cls._render_image(captcha_code)
+        expires_in_seconds = cls.EXPIRE_MINUTES * 60
+        return captcha_token, captcha_image, expires_in_seconds
+
+    @staticmethod
+    def _render_image(code: str) -> str:
+        """將驗證碼明文渲染為含視覺干擾的 PNG 圖片，回傳 base64 data URI"""
+        width, height = 110, 40
+        image = Image.new('RGB', (width, height), (255, 255, 255))
+        font = ImageFont.load_default(size=26)
+
+        char_spacing = width // len(code)
+        for index, char in enumerate(code):
+            char_image = CaptchaService._render_rotated_char(char, font)
+            x = index * char_spacing + random.randint(-3, 3)
+            y = (height - char_image.height) // 2 + random.randint(-3, 3)
+            image.paste(char_image, (x, y), char_image)
+
+        draw = ImageDraw.Draw(image)
+        CaptchaService._draw_noise_points(draw, width, height)
+        CaptchaService._draw_interference_lines(draw, width, height)
+
+        buffer = io.BytesIO()
+        image.save(buffer, format='PNG')
+        encoded = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        return f"data:image/png;base64,{encoded}"
+
+    @staticmethod
+    def _render_rotated_char(char: str, font: ImageFont.ImageFont) -> Image.Image:
+        """單一字元獨立繪製後隨機旋轉，逐字元變形比整體傾斜更難辨識"""
+        char_canvas = Image.new('RGBA', (26, 32), (255, 255, 255, 0))
+        draw = ImageDraw.Draw(char_canvas)
+        color = (
+            random.randint(0, 100),
+            random.randint(0, 100),
+            random.randint(0, 100),
+        )
+        draw.text((3, 2), char, font=font, fill=color)
+        angle = random.randint(-20, 20)
+        return char_canvas.rotate(angle, expand=True, resample=Image.BICUBIC)
+
+    @staticmethod
+    def _draw_noise_points(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+        for _ in range(200):
+            x = random.randint(0, width - 1)
+            y = random.randint(0, height - 1)
+            gray = random.randint(150, 220)
+            draw.point((x, y), fill=(gray, gray, gray))
+
+    @staticmethod
+    def _draw_interference_lines(draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+        for _ in range(random.randint(2, 4)):
+            start = (random.randint(0, width), random.randint(0, height))
+            end = (random.randint(0, width), random.randint(0, height))
+            color = (
+                random.randint(100, 180),
+                random.randint(100, 180),
+                random.randint(100, 180),
+            )
+            draw.line([start, end], fill=color, width=1)
 
     @classmethod
     def verify(cls, captcha_token: str, user_input: str) -> bool:
