@@ -883,7 +883,7 @@ async def send_verification_email(
     summary="驗證 Email",
     description="使用 Token 驗證電子郵件地址"
 )
-async def verify_email(payload: EmailVerificationConfirm):
+async def verify_email(payload: EmailVerificationConfirm, request: Request):
     """
     驗證 Email
 
@@ -937,7 +937,9 @@ async def verify_email(payload: EmailVerificationConfirm):
                 actor_role=user.role,
                 resource_type="user_registration",
                 resource_id=str(registration.id),
-                endpoint="/verify-email",
+                ip_address=request.headers.get("X-Real-IP", ""),
+                user_agent=request.headers.get("user-agent", ""),
+                endpoint=str(request.url.path),
                 changed_fields={"status": {"before": None, "after": "pending"}},
             )
 

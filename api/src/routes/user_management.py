@@ -320,8 +320,11 @@ async def update_user_permissions(
 async def update_user_role(
     user_id: int,
     request: UserRoleUpdateRequest,
+    http_request: Request,
     current_user: UserInfoSchema = Depends(require_full_auth)
 ):
+    # 注意：body model 佔用了 `request` 這個名字，Starlette 的 Request 另以 http_request 取得
+    # （FastAPI 依型別註解解析，參數名不影響注入），稽核所需的來源 IP/UA 才有來源
     try:
         user = await Users.get(id=user_id)
     except DoesNotExist:
@@ -347,7 +350,11 @@ async def update_user_role(
         actor_id=current_user.id,
         actor_username=current_user.username,
         actor_role=current_user.role,
-        endpoint=f"/user-management/{user_id}/role",
+        resource_type="user",
+        resource_id=str(user_id),
+        ip_address=http_request.headers.get("X-Real-IP", ""),
+        user_agent=http_request.headers.get("user-agent", ""),
+        endpoint=str(http_request.url.path),
         changed_fields={"role": {"before": old_role, "after": request.role}},
     )
 
@@ -712,6 +719,7 @@ async def reject_user(
 async def update_account_assignment(
     user_id: int,
     payload: AccountAssignmentUpdateRequest,
+    request: Request,
     current_user: UserInfoSchema = Depends(require_full_auth),
 ):
     if current_user.role not in ["admin", "manager"]:
@@ -764,7 +772,9 @@ async def update_account_assignment(
         actor_role=current_user.role,
         resource_type="user",
         resource_id=str(target.id),
-        endpoint=str(f"/user-management/{user_id}/assignment"),
+        ip_address=request.headers.get("X-Real-IP", ""),
+        user_agent=request.headers.get("user-agent", ""),
+        endpoint=str(request.url.path),
         changed_fields={
             "office_id": {"before": before_office_id, "after": target.office_id},
             "department": {"before": before_department, "after": target.department},
