@@ -72,6 +72,8 @@ export const BACKEND_PATHS = {
     PENDING_APPROVAL: '/user-management/pending-approval',
     APPROVE: (id: number) => `/user-management/${id}/approve`,
     REJECT: (id: number) => `/user-management/${id}/reject`,
+    RESEND_VERIFICATION: (id: number) => `/user-management/${id}/resend-verification`,
+    UPDATE_ASSIGNMENT: (id: number) => `/user-management/${id}/assignment`,
   },
   // 權限相關
   PERMISSIONS: {
@@ -458,6 +460,16 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配變更使用者群組路徑 {API_PREFIX}/user-management/{id}/role
     pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)/role$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.UPDATE_ROLE(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配重寄驗證信路徑 {API_PREFIX}/user-management/{id}/resend-verification（039-account-verification-profile）
+    pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)/resend-verification$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.RESEND_VERIFICATION(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配管理處/工作站變更路徑 {API_PREFIX}/user-management/{id}/assignment（039-account-verification-profile）
+    pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)/assignment$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.UPDATE_ASSIGNMENT(parseInt(matches[1], 10))
   },
   {
     // 匹配管理處分處列表路徑 {API_PREFIX}/offices/branches/{officeId}

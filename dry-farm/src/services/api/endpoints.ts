@@ -59,6 +59,8 @@ export const USER_MANAGEMENT = {
   PENDING_APPROVAL: `${BASE}/user-management/pending-approval`,
   APPROVE: (id: number) => `${BASE}/user-management/${id}/approve`,
   REJECT: (id: number) => `${BASE}/user-management/${id}/reject`,
+  RESEND_VERIFICATION: (id: number) => `${BASE}/user-management/${id}/resend-verification`,
+  UPDATE_ASSIGNMENT: (id: number) => `${BASE}/user-management/${id}/assignment`,
 }
 
 // permissions related endpoints

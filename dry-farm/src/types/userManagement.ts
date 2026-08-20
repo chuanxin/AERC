@@ -28,6 +28,7 @@ export interface UserListItem {
   email?: string
   job_title?: string
   is_active: boolean
+  email_verified?: boolean
   role?: string
   permissions?: UserPermissions
   office?: SimpleOffice
@@ -68,6 +69,7 @@ export interface UserListQuery {
   role?: string
   office_id?: number
   search?: string
+  email_verified?: boolean
 }
 
 /**
@@ -99,6 +101,8 @@ export interface UserApprovalResponse {
   message: string
   user_id?: number
   username?: string
+  approval_notification_sent?: boolean
+  password_setup_email_sent?: boolean
 }
 
 /**
