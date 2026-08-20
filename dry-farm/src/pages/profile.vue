@@ -49,7 +49,9 @@
                 {{ profileMessage.text }}
               </v-alert>
 
-              <v-form ref="profileFormRef">
+              <!-- @submit.prevent 是必要的：v-form 渲染成真正的 <form>，欄位內按 Enter 會觸發
+                   原生送出而整頁重載。儲存是底部的批次動作，此表單沒有「送出」語意 -->
+              <v-form ref="profileFormRef" @submit.prevent>
                 <v-row dense>
                   <v-col cols="12" sm="6">
                     <div class="d-flex align-center field-row">
@@ -113,7 +115,7 @@
                           @click="startEditField(field.key)"
                         />
                       </template>
-                      <!-- 編輯態：輸入框 + ✕ 就地還原（Inverse Action） -->
+                      <!-- 編輯態：輸入框；收起交給 blur，清空交給 Vuetify clearable -->
                       <template v-else>
                         <v-text-field
                           v-model="profileForm[field.key]"
@@ -121,23 +123,33 @@
                           density="compact"
                           hide-details="auto"
                           autofocus
+                          clearable
                           class="flex-grow-1"
                           :rules="field.rules"
                           :maxlength="field.maxlength"
                           @input="onFieldInput()"
                           @focus="onFieldFocus(field.key)"
                           @blur="onFieldBlur(field.key)"
-                        />
-                        <v-btn
-                          icon="mdi-close-circle-outline"
-                          size="small"
-                          variant="text"
-                          color="grey"
-                          class="ml-1"
-                          :aria-label="`完成編輯${field.label}`"
-                          :title="`完成編輯${field.label}（值已保留，可稍後一次儲存）`"
-                          @click="cancelEditField(field.key)"
-                        />
+                          @keydown.enter.prevent="onFieldEnter"
+                        >
+                          <!-- 「還原」置於框內（比照本檔變更密碼對話框的 append-inner 慣例）：
+                               驗證未通過時欄位不會自動收起，沒有這個出口使用者只能自己重打原值。
+                               與 clearable 的 ✕ 並列但語意不同——✕ 是清空，此處是還原為已儲存值，
+                               故以不同圖示與顏色區別 -->
+                          <template
+                            v-if="hasUnsavedChange(field.key)"
+                            #append-inner
+                          >
+                            <v-icon
+                              icon="mdi-restore"
+                              size="small"
+                              color="orange-darken-2"
+                              :aria-label="`還原${field.label}`"
+                              :title="`還原${field.label}為已儲存值`"
+                              @click="revertField(field.key)"
+                            />
+                          </template>
+                        </v-text-field>
                       </template>
                     </div>
                   </v-col>
@@ -147,8 +159,8 @@
 
             <v-card-actions v-if="hasPendingChanges">
               <v-spacer />
-              <!-- 底部僅保留「儲存」：以 partial 批次送出所有正在編輯的欄位；
-                   每個欄位自身的 ✕ 已提供就地逆向動作，故不再需要全域「取消」 -->
+              <!-- 底部僅保留「儲存」：以 partial 批次送出所有有變更的欄位；
+                   放棄單一欄位的異動由該欄的「還原」圖示負責，故不需要全域「取消」 -->
               <v-btn
                 color="primary"
                 variant="flat"
@@ -339,13 +351,24 @@ const stationName = computed(() => {
   return department?.station?.name || ''
 })
 
+// ============================================================================
+// 就地編輯機制（Reference Implementation）
+//
+// 以下到 buildPartialPayload() 為止是「檢視型頁面就地編輯」的可複用機制：
+// 顯示樣式 + 筆型圖示切換單一欄位為輸入 + 未儲存變更保留與還原 + 整卡批次送出。
+// 要在別的檢視型頁面做同樣的事，複製這一段、只改 editableFieldDefs 與送出的 API 呼叫。
+//
+// 動手改之前先讀 .claude/skills/inline-edit-form/SKILL.md。
+// ============================================================================
+
 type EditableFieldKey = 'full_name' | 'phone' | 'phone_ext' | 'mobile'
-type FieldRule = (v: string) => boolean | string
+// v 可能是 null（clearable 清除時 Vuetify 傳入 null，非 ''），型別如實標註
+type FieldRule = (v: string | null) => boolean | string
 
 // 必填規則比照註冊表單（signup.vue）：姓名／聯絡電話必填，分機／手機選填可清空。
 // 長度上限由 maxlength 屬性擋下，與後端 schema 一致，不重複宣告規則。
 const requiredRule = (label: string): FieldRule =>
-  (v: string) => !!(v || '').trim() || `${label}為必填欄位`
+  (v: string | null) => !!(v || '').trim() || `${label}為必填欄位`
 
 const editableFieldDefs: Array<{
   key: EditableFieldKey
@@ -361,7 +384,10 @@ const editableFieldDefs: Array<{
 
 const profileFormRef = ref()
 
-const profileForm = reactive<Record<EditableFieldKey, string>>({
+// ⚠️ 值可能是 null：Vuetify 的 clearable 在點擊清除時寫入 `null` 而非 ''（vuetify.js onClear:
+// `model.value = null`）。v-model 由元件在執行期寫入，TypeScript 攔不到，故型別如實標註，
+// 所有讀取一律經 fieldValue() 正規化，不在各處散寫 ?? ''
+const profileForm = reactive<Record<EditableFieldKey, string | null>>({
   full_name: '',
   phone: '',
   phone_ext: '',
@@ -377,19 +403,26 @@ const editingFields = reactive<Record<EditableFieldKey, boolean>>({
 
 // 該欄是否有未儲存異動：工作值 vs 已儲存值（兩邊都 trim，避免已儲存資料本身帶空白時
 // 頁面一載入就誤判為有未儲存異動）
+function fieldValue(key: EditableFieldKey): string {
+  return profileForm[key] ?? ''
+}
+
 function hasUnsavedChange(key: EditableFieldKey): boolean {
-  return profileForm[key].trim() !== (userStore.currentUser?.[key] || '').trim()
+  return fieldValue(key).trim() !== (userStore.currentUser?.[key] || '').trim()
 }
 
 // 未編輯態顯示值：有未儲存異動顯示工作值，否則顯示已儲存值。
 // 待儲存的「清空」也要顯示 '—'，否則該列只剩分隔線與按鈕、看起來像破圖
 function displayFieldValue(key: EditableFieldKey): string {
-  return hasUnsavedChange(key) ? (profileForm[key] || '—') : (userStore.currentUser?.[key] || '—')
+  return hasUnsavedChange(key) ? (fieldValue(key) || '—') : (userStore.currentUser?.[key] || '—')
 }
 
-// 真正還原該欄為已儲存值（放棄未儲存異動）
+// 真正還原該欄為已儲存值（放棄未儲存異動）並收起輸入框。
+// 明確收起而非等 blur timer：從編輯態按下時，值恢復與 timer 到期的先後順序不該影響結果。
 function revertField(key: EditableFieldKey) {
   profileForm[key] = userStore.currentUser?.[key] || ''
+  clearBlurTimer(key)
+  editingFields[key] = false
 }
 
 // 是否任一欄有未儲存異動（決定底部「儲存」是否顯示）
@@ -436,7 +469,7 @@ function startEditField(key: EditableFieldKey) {
 }
 
 // 收起該欄輸入框（僅還原編輯「樣式」）：保留使用者尚未儲存的異動值。
-// 若要真正放棄該欄異動，改用鉛筆旁的「還原」按鈕（revertField）。
+// 若要真正放棄該欄異動，改用「還原」圖示（revertField，兩種狀態下皆可用）。
 function cancelEditField(key: EditableFieldKey) {
   editingFields[key] = false
 }
@@ -463,14 +496,28 @@ function onFieldInput() {
   profileMessage.value.show = false
 }
 
+// Enter 視為「這一欄輸入完成」：轉為 blur，走既有的收起流程（驗證未通過者仍維持展開）。
+// 刻意不做整表送出——儲存是底部的批次動作，且可能同時有多個欄位在編輯。
+function onFieldEnter(event: KeyboardEvent) {
+  (event.target as HTMLElement | null)?.blur()
+}
+
+// 該欄目前是否未通過 :rules（Vuetify 規則回傳 true 為通過，回傳字串為錯誤訊息）
+function fieldHasError(key: EditableFieldKey): boolean {
+  const def = editableFieldDefs.find(f => f.key === key)
+  return def ? def.rules.some(rule => rule(profileForm[key]) !== true) : false
+}
+
 // blur 退出編輯態（暫時性）：點擊輸入框之外的任一位置即「收起輸入框」、保留未儲存值。
 // 用 setTimeout 延遲，避免「點『儲存』按鈕」先觸發 blur 而把編輯態關掉、導致儲存讀到空清單的競態。
+// 驗證未通過的欄位**不收起**：收起會把 Vuetify 的紅框與錯誤訊息一併移除，
+// 使用者就看不到自己留下了一個不合法的值（欄位仍可用「還原」圖示放棄異動退出）。
 function onFieldBlur(key: EditableFieldKey) {
   if (!editingFields[key]) return
   if (fieldBlurTimers[key] !== undefined) window.clearTimeout(fieldBlurTimers[key])
   fieldBlurTimers[key] = window.setTimeout(() => {
     delete fieldBlurTimers[key]
-    if (editingFields[key]) cancelEditField(key)
+    if (editingFields[key] && !fieldHasError(key)) cancelEditField(key)
   }, 150)
 }
 
@@ -480,10 +527,12 @@ function buildPartialPayload(): Partial<Record<EditableFieldKey, string>> {
   const payload: Partial<Record<EditableFieldKey, string>> = {}
   for (const field of editableFieldDefs) {
     if (!hasUnsavedChange(field.key)) continue
-    payload[field.key] = profileForm[field.key].trim()
+    payload[field.key] = fieldValue(field.key).trim()
   }
   return payload
 }
+
+// ============ 就地編輯機制結束（以下為本頁專屬：送出、變更密碼） ============
 
 async function handleSaveProfile() {
   const changedKeys = editableFieldDefs.filter(f => hasUnsavedChange(f.key)).map(f => f.key)
