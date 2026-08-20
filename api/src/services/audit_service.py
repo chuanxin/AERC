@@ -12,6 +12,13 @@ def mask_id_number(id_number: str) -> str:
     return id_number[:3] + "****" + id_number[-3:]
 
 
+def mask_phone(phone: str) -> str:
+    """遮罩電話類欄位（電話/分機/手機）供稽核 changed_fields 使用，比照 mask_id_number 規則"""
+    if not phone or len(phone) < 5:
+        return phone
+    return phone[:3] + "****" + phone[-3:]
+
+
 def mask_name(name: str) -> str:
     if not name:
         return name

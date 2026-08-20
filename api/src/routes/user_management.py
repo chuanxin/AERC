@@ -11,6 +11,7 @@ Created: 2025-12-08
 Updated: 2026-06-26 (030-account-approval-flow: role check, approval logic, audit)
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import Optional, List
 
@@ -21,7 +22,14 @@ from tortoise.transactions import in_transaction
 from src.auth.guard import require_full_auth
 from src.auth.route_guards import require_permission
 from src.database.audit_models import AuditAction, AuditEventType, AuditResult
-from src.database.models import UserRegistration, RegistrationStatus, Users
+from src.database.models import (
+    UserRegistration,
+    RegistrationStatus,
+    Users,
+    AuthToken,
+    AuthTokenType,
+    AuthTokenStatus,
+)
 from src.exceptions import AppError
 from src.services.data_encryption import data_encryption_service
 from src.schemas.permissions import (
@@ -31,13 +39,22 @@ from src.schemas.permissions import (
     UserPermissionsResponse,
     UserPermissionsSchema
 )
-from src.schemas.users import RejectUserRequest, UserInfoSchema, UserRoleUpdateRequest
+from src.schemas.users import (
+    RejectUserRequest,
+    UserInfoSchema,
+    UserRoleUpdateRequest,
+    EmailVerificationResponse,
+    AccountAssignmentUpdateRequest,
+)
 from src.services.audit_service import audit_service
 from src.services.email_service import EmailConfig, EmailService
 from src.services.permission_service import permission_service
 
+RESEND_VERIFICATION_COOLDOWN_SECONDS = 60
+
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -58,6 +75,7 @@ async def list_users(
     role: Optional[str] = Query(None, description="角色篩選"),
     office_id: Optional[int] = Query(None, description="管理處 ID 篩選"),
     search: Optional[str] = Query(None, description="搜尋關鍵字（帳號、姓名、Email）"),
+    email_verified: Optional[bool] = Query(None, description="email 驗證狀態篩選"),
     current_user: Users = Depends(require_full_auth)
 ):
     """取得使用者列表（分頁）"""
@@ -82,6 +100,8 @@ async def list_users(
         query = query.filter(role=role)
     if office_id:
         query = query.filter(office_id=office_id)
+    if email_verified is not None:
+        query = query.filter(email_verified=email_verified)
     if search:
         # full_name 已加密，無法用 DB __icontains；改為讀取所有後 Python 層篩選
         # 先以非 PII 條件縮小結果集，再 Python 篩選 username/email/full_name
@@ -109,6 +129,7 @@ async def list_users(
             "email": user.email,
             "job_title": user.job_title,
             "is_active": user.is_active,
+            "email_verified": user.email_verified,
             "role": user.role,
             "permissions": user.permissions,
             "office": {
@@ -321,7 +342,7 @@ async def update_user_role(
 
     await audit_service.log(
         event_type=AuditEventType.ACCOUNT,
-        action=AuditAction.EDIT,
+        action=AuditAction.ROLE_CHANGE,
         result=AuditResult.SUCCESS,
         actor_id=current_user.id,
         actor_username=current_user.username,
@@ -414,6 +435,96 @@ async def batch_deactivate_users(
 
 
 # ============================================================================
+# 帳號驗證重啟（039-account-verification-profile）
+# ============================================================================
+
+@router.post(
+    "/{user_id}/resend-verification",
+    response_model=EmailVerificationResponse,
+    summary="重寄驗證信",
+    description="針對未啟用且 email 未驗證的帳號重新發送驗證信（admin 全部，manager 限同管理處）",
+)
+async def resend_verification(
+    user_id: int,
+    request: Request,
+    current_user: UserInfoSchema = Depends(require_full_auth),
+):
+    if current_user.role not in ["admin", "manager"]:
+        raise AppError(403, "無帳號管理權限")
+
+    try:
+        target = await Users.get(id=user_id)
+    except DoesNotExist:
+        raise AppError(404, f"使用者 ID {user_id} 不存在")
+
+    if current_user.role == "manager":
+        if current_user.office is None:
+            raise AppError(403, "帳號尚未指派管理處，請聯繫系統管理員完成設定")
+        if target.office_id is None:
+            raise AppError(403, "此帳號尚無管理處歸屬，請由系統管理員處理")
+        if target.office_id != current_user.office.id:
+            raise AppError(403, "無法對其他管理處的帳號執行此操作")
+
+    if target.is_active:
+        raise AppError(409, "此帳號已啟用，無須重寄驗證信")
+    if target.email_verified:
+        raise AppError(409, "此帳號已完成 email 驗證")
+    if not target.email:
+        raise AppError(422, "此帳號未登記 email，無法寄送驗證信")
+
+    # 節流查詢刻意不篩 status：撤銷動作只改 status、不改 created_at，
+    # 節流基準才不會因為下方的撤銷動作而消失（見 research.md R2c）
+    latest_token = await AuthToken.filter(
+        user_id=target.id,
+        token_type=AuthTokenType.EMAIL_VERIFICATION,
+    ).order_by("-created_at").first()
+    if latest_token is not None:
+        elapsed_seconds = (datetime.now(timezone.utc) - latest_token.created_at).total_seconds()
+        if elapsed_seconds < RESEND_VERIFICATION_COOLDOWN_SECONDS:
+            retry_after = int(RESEND_VERIFICATION_COOLDOWN_SECONDS - elapsed_seconds)
+            raise HTTPException(
+                status_code=429,
+                detail={"message": "請稍候再重新發送", "retry_after_seconds": retry_after},
+            )
+
+    # 撤銷既有 PENDING token，確保使用者只有最新一封信可用（見 research.md R2b）
+    await AuthToken.filter(
+        user_id=target.id,
+        token_type=AuthTokenType.EMAIL_VERIFICATION,
+        status=AuthTokenStatus.PENDING,
+    ).update(status=AuthTokenStatus.REVOKED)
+
+    email_service = EmailService()
+    sent = await email_service.send_verification_email(
+        user=target,
+        ip_address=request.headers.get("X-Real-IP", ""),
+        user_agent=request.headers.get("user-agent", ""),
+    )
+    if not sent:
+        raise AppError(500, "驗證信發送失敗，請稍後再試")
+
+    await audit_service.log(
+        event_type=AuditEventType.ACCOUNT,
+        action=AuditAction.CREATE,
+        result=AuditResult.SUCCESS,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+        actor_role=current_user.role,
+        resource_type="user",
+        resource_id=str(target.id),
+        ip_address=request.headers.get("X-Real-IP", ""),
+        user_agent=request.headers.get("user-agent", ""),
+        endpoint=str(request.url.path),
+    )
+
+    return EmailVerificationResponse(
+        message="驗證信已重新發送",
+        success=True,
+        email=target.email,
+    )
+
+
+# ============================================================================
 # 帳號審核 — 私有輔助函數
 # ============================================================================
 
@@ -484,9 +595,37 @@ async def approve_user(
 
     registration = await _execute_approval(user_id, current_user)
 
+    # 核准（is_active=True）已在 _execute_approval() 的 transaction 內 commit；以下兩封信
+    # 的寄送各自獨立處理失敗，不得因信件寄送問題讓已完成的核准結果對外顯示 500
+    # （039-account-verification-profile 一併修正既存問題，見 research.md R11）
     login_url = f"{EmailConfig.FRONTEND_URL}/login"
     email_svc = EmailService()
-    await email_svc.send_approval_notification(user.email, user.username, login_url)
+
+    try:
+        approval_notification_sent = await email_svc.send_approval_notification(
+            user.email, user.username, login_url
+        )
+    except Exception as e:
+        approval_notification_sent = False
+        logger.error(
+            "核准通知信寄送失敗 user_id=%s username=%s error=%s",
+            user_id, user.username, str(e),
+        )
+    if not approval_notification_sent:
+        logger.error(
+            "核准通知信寄送未成功 user_id=%s username=%s", user_id, user.username,
+        )
+
+    password_setup_email_sent = True
+    if user.password is None:
+        try:
+            password_setup_email_sent = await email_svc.send_password_reset_email(user=user)
+        except Exception as e:
+            password_setup_email_sent = False
+            logger.error(
+                "密碼設定信寄送失敗 user_id=%s username=%s error=%s",
+                user_id, user.username, str(e),
+            )
 
     await audit_service.log(
         event_type=AuditEventType.REGISTRATION,
@@ -499,14 +638,20 @@ async def approve_user(
         endpoint=str(request.url.path),
         resource_type="user_registration",
         resource_id=str(registration.id),
-        changed_fields={"status": {"before": "pending", "after": "approved"}}
+        changed_fields={
+            "status": {"before": "pending", "after": "approved"},
+            "approval_notification_sent": approval_notification_sent,
+            "password_setup_email_sent": password_setup_email_sent,
+        }
     )
 
     return {
         "success": True,
         "message": f"帳號 {user.username} 已核准",
         "user_id": user.id,
-        "username": user.username
+        "username": user.username,
+        "approval_notification_sent": approval_notification_sent,
+        "password_setup_email_sent": password_setup_email_sent,
     }
 
 
@@ -552,4 +697,83 @@ async def reject_user(
         "message": f"帳號 {user.username} 申請已駁回",
         "user_id": user.id,
         "username": user.username
+    }
+
+
+# ============================================================================
+# 管理處/工作站變更（039-account-verification-profile）
+# ============================================================================
+
+@router.patch(
+    "/{user_id}/assignment",
+    summary="變更帳號所屬管理處與工作站",
+    description="admin 可變更任一帳號的管理處與工作站；manager 僅能變更自己管理處內帳號的工作站",
+)
+async def update_account_assignment(
+    user_id: int,
+    payload: AccountAssignmentUpdateRequest,
+    current_user: UserInfoSchema = Depends(require_full_auth),
+):
+    if current_user.role not in ["admin", "manager"]:
+        raise AppError(403, "無帳號管理權限")
+
+    if payload.office_id is None and payload.station is None:
+        raise AppError(422, "office_id 與 station 至少須提供一個")
+
+    try:
+        target = await Users.get(id=user_id)
+    except DoesNotExist:
+        raise AppError(404, f"使用者 ID {user_id} 不存在")
+
+    if current_user.role == "manager":
+        if payload.office_id is not None:
+            raise AppError(403, "manager 不可變更帳號的管理處歸屬")
+        if current_user.office is None:
+            raise AppError(403, "帳號尚未指派管理處，請聯繫系統管理員完成設定")
+        if target.office_id != current_user.office.id:
+            raise AppError(403, "無法變更其他管理處的帳號")
+
+    before_office_id = target.office_id
+    before_department = target.department
+
+    if payload.office_id is not None:
+        target.office_id = payload.office_id
+
+    if payload.station is not None:
+        # department 為既有結構化格式時僅更新 station 子鍵；若為 legacy_text 舊格式（無 station
+        # 子鍵），直接覆寫為結構化格式，不保留 legacy_text 內容，不產生混合格式（見 research.md R12）
+        current_department = target.department if isinstance(target.department, dict) else {}
+        if "station" in current_department or "branch" in current_department:
+            new_department = dict(current_department)
+            new_department["station"] = payload.station
+        else:
+            # 只放有值的鍵，不放空的 branch：既有寫入端（signup.vue::buildDepartmentPayload）
+            # 與 DB 現況（94 筆僅有 station 鍵、無任何一筆為 branch:{}）都是這個慣例，
+            # 寫入 {"branch": {}} 會產生全表唯一的第四種形態
+            new_department = {"station": payload.station}
+        target.department = new_department
+
+    await target.save()
+
+    await audit_service.log(
+        event_type=AuditEventType.ACCOUNT,
+        action=AuditAction.UPDATE,
+        result=AuditResult.SUCCESS,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+        actor_role=current_user.role,
+        resource_type="user",
+        resource_id=str(target.id),
+        endpoint=str(f"/user-management/{user_id}/assignment"),
+        changed_fields={
+            "office_id": {"before": before_office_id, "after": target.office_id},
+            "department": {"before": before_department, "after": target.department},
+        },
+    )
+
+    return {
+        "user_id": target.id,
+        "username": target.username,
+        "office_id": target.office_id,
+        "department": target.department,
     }

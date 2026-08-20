@@ -498,3 +498,23 @@ class UserRoleUpdateRequest(BaseModel):
         if v not in valid_roles:
             raise ValueError(f"角色必須是 {valid_roles} 之一")
         return v
+
+
+class SelfProfileUpdateRequest(BaseModel):
+    """使用者自助編輯個人資訊請求（PATCH /users/whoami 使用，039-account-verification-profile）
+
+    Partial（稀疏）更新語意：前端只送出被編輯的欄位，未提供的欄位一律維持原值，不覆寫。
+    full_name / phone 必填：提供值時不可為空（min_length=1），空字串 → 422。
+    phone_ext / mobile 可清空：提供空字串即清空該欄（與註冊端 Optional 一致）。
+    不含 email、office_id、department 欄位——即使呼叫端夾帶，schema 未定義故直接忽略。
+    """
+    full_name: Optional[str] = Field(None, min_length=1, max_length=50, description="姓名")
+    phone: Optional[str] = Field(None, min_length=1, max_length=20, description="聯絡電話")
+    phone_ext: Optional[str] = Field(None, max_length=10, description="分機")
+    mobile: Optional[str] = Field(None, max_length=20, description="手機")
+
+
+class AccountAssignmentUpdateRequest(BaseModel):
+    """管理員/主管變更帳號所屬管理處與工作站請求（PATCH /{user_id}/assignment 使用，039-account-verification-profile）"""
+    office_id: Optional[int] = Field(None, description="管理處 ID（僅 admin 可變更）")
+    station: Optional[dict] = Field(None, description="工作站子結構，對應 department.station，例如 {'code': ..., 'name': ...}")

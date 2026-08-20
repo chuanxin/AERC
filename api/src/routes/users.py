@@ -31,7 +31,7 @@ from src.schemas.users import (
 from src.database.models import Users, AuthToken, AuthTokenType, AuthTokenStatus, UserRegistration, RegistrationStatus
 from src.exceptions import AppError
 from src.services.data_encryption import data_encryption_service
-from src.services.audit_service import audit_service
+from src.services.audit_service import audit_service, mask_name, mask_phone
 from src.database.audit_models import AuditEventType, AuditAction, AuditResult
 from src.services.email_service import EmailService
 from src.services.captcha_service import CaptchaService
@@ -54,6 +54,7 @@ from src.schemas.users import (
     AccountMigrationCompleteResponse,
     EncryptedSecureLoginRequest,
     EncryptedChangePasswordRequest,
+    SelfProfileUpdateRequest,
 )
 from src.auth.encryption import decrypt_password, get_private_key_by_kid
 from src.auth.nonce import validate_and_store_nonce
@@ -614,6 +615,11 @@ async def read_users_me(request: Request, current_user: UserInfoSchema = Depends
     result['permissions_summary'] = permission_service.get_user_permissions_summary(
         current_user.role, current_user.permissions
     )
+    # 039-account-verification-profile：個人資料頁需要這三個欄位才能正確預填表單，
+    # 刻意只在本端點解密（非 get_current_user 熱路徑），避免每次認證請求都多付解密成本
+    result['phone'] = data_encryption_service.decrypt(user.phone)
+    result['phone_ext'] = data_encryption_service.decrypt(user.phone_ext)
+    result['mobile'] = data_encryption_service.decrypt(user.mobile)
     await audit_service.log(
         event_type=AuditEventType.DATA_ACCESS,
         action=AuditAction.VIEW,
@@ -627,6 +633,76 @@ async def read_users_me(request: Request, current_user: UserInfoSchema = Depends
         user_agent=request.headers.get("user-agent", ""),
         endpoint=str(request.url.path),
     )
+    return result
+
+
+@router.patch("/users/whoami", dependencies=[Depends(get_current_user)])
+async def update_my_profile(
+    payload: SelfProfileUpdateRequest,
+    request: Request,
+    current_user: UserInfoSchema = Depends(get_current_user),
+):
+    """使用者自助編輯個人資訊（039-account-verification-profile）
+
+    Partial（稀疏）更新：只處理前端實際送出的欄位（exclude_unset），未提供的欄位維持原值不覆寫。
+    full_name / phone 必填不可為空（schema min_length=1 保證）；phone_ext / mobile 可清空——
+    提供空字串即清空該欄（與註冊端 Optional 一致）。email、office、department 不在 schema 中，
+    即使夾帶也直接被忽略。
+    """
+    user = await Users.get(username=current_user.username)
+
+    # 只要「實際被送出的欄位」：不送 = 不變；送空字串 = 清空（分機/手機）。
+    # 過濾 None（前端不回傳 null；外部呼叫端夾帶 null 不應炸掉 encrypt）。
+    # 覆寫前先抓「會被更新的欄位」的 before 值，供稽核遮罩使用（避免覆寫後拿不到原值）。
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    before = {
+        k: data_encryption_service.decrypt(getattr(user, k))
+        for k in updates
+    }
+    changed: dict = {}
+
+    for key, value in updates.items():
+        setattr(user, key, data_encryption_service.encrypt(value))
+        changed[key] = {
+            "before": mask_name(before[key]) if key == "full_name" else mask_phone(before[key]),
+            "after": mask_name(value) if key == "full_name" else mask_phone(value),
+        }
+
+    await user.save()
+
+    # 稽核只記錄實際被更新的欄位，避免「只改一欄卻記錄四欄」的冗餘噪音
+    if changed:
+        await audit_service.log(
+            event_type=AuditEventType.ACCOUNT,
+            action=AuditAction.UPDATE,
+            result=AuditResult.SUCCESS,
+            actor_id=user.id,
+            actor_username=user.username,
+            actor_role=user.role,
+            resource_type="user",
+            resource_id=str(user.id),
+            ip_address=request.headers.get("X-Real-IP", ""),
+            user_agent=request.headers.get("user-agent", ""),
+            endpoint=str(request.url.path),
+            changed_fields=changed,
+        )
+
+    result = UserInfoSchema(
+        id=user.id,
+        username=user.username,
+        full_name=data_encryption_service.decrypt(user.full_name),
+        email=user.email,
+        job_title=user.job_title,
+        is_active=user.is_active,
+        role=user.role,
+        permissions=current_user.permissions,
+        office=current_user.office,
+        department=user.department,
+    ).model_dump()
+    # 比照 GET /users/whoami，回應一併帶回解密後的電話類欄位，供前端表單同步顯示最新值
+    result['phone'] = data_encryption_service.decrypt(user.phone)
+    result['phone_ext'] = data_encryption_service.decrypt(user.phone_ext)
+    result['mobile'] = data_encryption_service.decrypt(user.mobile)
     return result
 
 
@@ -833,6 +909,37 @@ async def verify_email(payload: EmailVerificationConfirm):
         # 標記 Email 為已驗證
         user.email_verified = True
         await user.save()
+
+        # 039-account-verification-profile：帳號仍未啟用時，掛進既有審核流程（不論此驗證
+        # 是否透過管理員重寄觸發——任何完成驗證但未啟用的帳號，語意上都等於「準備好要審核」，
+        # 統一規則不引入呼叫來源旗標，見 research.md R2）
+        if not user.is_active:
+            registration = await UserRegistration.filter(user_id=user.id).first()
+            if registration:
+                registration.status = RegistrationStatus.PENDING
+                registration.reviewed_by_id = None
+                registration.reviewed_at = None
+                registration.review_comment = None
+                await registration.save()
+            else:
+                registration = await UserRegistration.create(
+                    user_id=user.id,
+                    application_reason=data_encryption_service.encrypt("帳號驗證重啟"),
+                    status=RegistrationStatus.PENDING,
+                )
+
+            await audit_service.log(
+                event_type=AuditEventType.REGISTRATION,
+                action=AuditAction.CREATE,
+                result=AuditResult.SUCCESS,
+                actor_id=user.id,
+                actor_username=user.username,
+                actor_role=user.role,
+                resource_type="user_registration",
+                resource_id=str(registration.id),
+                endpoint="/verify-email",
+                changed_fields={"status": {"before": None, "after": "pending"}},
+            )
 
         return EmailVerificationResponse(
             message="電子郵件驗證成功",

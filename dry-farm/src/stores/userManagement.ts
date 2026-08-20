@@ -87,6 +87,7 @@ export const useUserManagementStore = defineStore('userManagement', () => {
     if (query.role) params.append('role', query.role)
     if (query.office_id) params.append('office_id', query.office_id.toString())
     if (query.search) params.append('search', query.search)
+    if (query.email_verified !== undefined) params.append('email_verified', query.email_verified.toString())
 
     const url = params.toString() ? `${USER_MANAGEMENT.LIST}?${params.toString()}` : USER_MANAGEMENT.LIST
     const response = await apiService.get<UserListResponse>(url)
@@ -225,6 +226,36 @@ export const useUserManagementStore = defineStore('userManagement', () => {
   }, asyncOptions)
 
   // ============================================================================
+  // 帳號驗證重啟 / 單位變更（039-account-verification-profile）
+  // ============================================================================
+
+  /**
+   * 重寄驗證信
+   */
+  const resendVerification = wrapAsync(async (userId: number) => {
+    const response = await apiService.post<{ message: string; success: boolean; email?: string }>(
+      USER_MANAGEMENT.RESEND_VERIFICATION(userId)
+    )
+    return response
+  }, asyncOptions)
+
+  /**
+   * 變更帳號所屬管理處與工作站
+   */
+  const updateAccountAssignment = wrapAsync(async (
+    userId: number,
+    payload: { office_id?: number; station?: Record<string, unknown> }
+  ) => {
+    const response = await apiService.patch<{
+      user_id: number
+      username: string
+      office_id: number | null
+      department: Record<string, unknown> | null
+    }>(USER_MANAGEMENT.UPDATE_ASSIGNMENT(userId), payload)
+    return response
+  }, asyncOptions)
+
+  // ============================================================================
   // Selection Methods
   // ============================================================================
 
@@ -345,6 +376,10 @@ export const useUserManagementStore = defineStore('userManagement', () => {
     fetchPendingApprovalUsers,
     approveUser,
     rejectUser,
+
+    // 帳號驗證重啟 / 單位變更
+    resendVerification,
+    updateAccountAssignment,
 
     // Selection Methods
     selectUser,

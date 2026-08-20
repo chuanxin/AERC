@@ -22,6 +22,11 @@ export interface User {
   id: number
   username: string
   full_name?: string
+  email?: string
+  phone?: string
+  phone_ext?: string
+  mobile?: string
+  department?: Record<string, unknown>
   role?: string
   created_at?: string
   password_expired?: boolean
@@ -88,6 +93,38 @@ export const userService = {
       return response
     } catch (error) {
       console.error('獲取用戶資訊失敗:', error)
+      throw error
+    }
+  },
+
+  /**
+   * 驗證 Email（039-account-verification-profile：驗證信落地頁使用）
+   * @param token 驗證信中的 token
+   */
+  async verifyEmail(token: string): Promise<{ message: string; success: boolean; email?: string }> {
+    try {
+      const response = await apiService.post<{ message: string; success: boolean; email?: string }>(
+        AUTH.VERIFY_EMAIL,
+        { token }
+      )
+      return response
+    } catch (error) {
+      console.error('Email 驗證失敗:', error)
+      throw error
+    }
+  },
+
+  /**
+   * 自助編輯個人資訊（039-account-verification-profile：姓名/電話/分機/手機，全量提交）
+   */
+  async updateMyProfile(
+    payload: Partial<{ full_name: string; phone: string; phone_ext?: string; mobile?: string }>
+  ): Promise<User> {
+    try {
+      const response = await apiService.patch<User>(AUTH.ME, payload)
+      return response
+    } catch (error) {
+      console.error('更新個人資訊失敗:', error)
       throw error
     }
   },
