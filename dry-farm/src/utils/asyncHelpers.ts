@@ -24,11 +24,22 @@ export class ApplicationError extends Error {
   }
 }
 
+/** 後端 4xx 的 detail 可能是字串，也可能是結構化物件（如 429 節流帶 retry_after_seconds、
+ *  MFA 驗證失敗帶 attempts_remaining、憑證類錯誤帶 error_code），見 api/src 共 13 處用法 */
+export type ApiErrorDetail =
+  | string
+  | {
+      message?: string;
+      error_code?: string;
+      retry_after_seconds?: number;
+      [key: string]: unknown;
+    };
+
 export interface ApiError {
   response?: {
     status?: number;
     data?: {
-      detail?: string;
+      detail?: ApiErrorDetail;
       message?: string;
     }
   };
@@ -75,9 +86,20 @@ function defaultErrorFormatter(error: unknown): string {
   if (typeof error === 'object') {
     const apiError = error as ApiError;
 
-    // 嘗試從 response.data.detail 獲取錯誤信息
-    if (apiError.response?.data?.detail) {
-      return apiError.response.data.detail;
+    // 嘗試從 response.data.detail 獲取錯誤信息。
+    // detail 可能是結構化物件（比照 mfa.py／user_management.py 的節流回應），直接回傳會讓
+    // 呼叫端把物件塞進畫面渲染成 [object Object]，故一律正規化為字串；
+    // 節流類錯誤額外把剩餘秒數併入訊息，否則使用者不知道要等多久
+    const detail = apiError.response?.data?.detail;
+    if (typeof detail === 'string' && detail) {
+      return detail;
+    }
+    if (detail && typeof detail === 'object') {
+      const text = typeof detail.message === 'string' ? detail.message : '操作失敗';
+      const retryAfter = detail.retry_after_seconds;
+      return typeof retryAfter === 'number' && retryAfter > 0
+        ? `${text}（請於 ${retryAfter} 秒後再試）`
+        : text;
     }
 
     // 嘗試從 response.data.message 獲取錯誤信息
