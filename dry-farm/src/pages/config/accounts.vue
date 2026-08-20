@@ -320,6 +320,40 @@
                             {{ item.is_active ? '停用' : '啟用' }}
                           </v-tooltip>
                         </v-btn>
+
+                        <v-btn
+                          v-if="canResendVerification(item)"
+                          icon="mdi-email-sync-outline"
+                          size="x-small"
+                          variant="text"
+                          color="info"
+                          @click="handleResendVerification(item)"
+                        >
+                          <v-icon size="small">mdi-email-sync-outline</v-icon>
+                          <v-tooltip
+                            activator="parent"
+                            location="top"
+                          >
+                            重寄驗證信
+                          </v-tooltip>
+                        </v-btn>
+
+                        <v-btn
+                          v-if="canEditAssignment(item)"
+                          icon="mdi-office-building-marker-outline"
+                          size="x-small"
+                          variant="text"
+                          color="teal-darken-1"
+                          @click="handleEditAssignment(item)"
+                        >
+                          <v-icon size="small">mdi-office-building-marker-outline</v-icon>
+                          <v-tooltip
+                            activator="parent"
+                            location="top"
+                          >
+                            管理處/工作站
+                          </v-tooltip>
+                        </v-btn>
                       </div>
                     </template>
 
@@ -413,7 +447,7 @@
     <v-snackbar
       v-model="snackbar.show"
       :color="snackbar.color"
-      :timeout="3000"
+      :timeout="snackbar.timeout"
       location="top"
     >
       {{ snackbar.message }}
@@ -554,6 +588,102 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- 重寄驗證信確認 Dialog（039-account-verification-profile） -->
+    <v-dialog
+      v-model="showResendDialog"
+      max-width="420"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h6 pt-5 px-6">
+          重寄驗證信
+        </v-card-title>
+        <v-card-text class="px-6">
+          確定要對帳號 <strong>{{ selectedUserForResend?.username }}</strong>（{{ selectedUserForResend?.full_name }}）重新發送驗證信？
+          先前尚未使用的驗證信將會失效。
+        </v-card-text>
+        <v-card-actions class="px-6 pb-5">
+          <v-spacer />
+          <v-btn
+            variant="text"
+            :disabled="isResending"
+            @click="showResendDialog = false"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            color="info"
+            variant="flat"
+            :loading="isResending"
+            @click="confirmResendVerification"
+          >
+            確認寄送
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- 管理處/工作站變更 Dialog（039-account-verification-profile） -->
+    <v-dialog
+      v-model="showAssignmentDialog"
+      max-width="420"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h6 pt-5 px-6">
+          管理處/工作站設定
+        </v-card-title>
+        <v-card-text class="px-6">
+          <p class="mb-4 text-body-2">
+            帳號：<strong>{{ selectedUserForAssignment?.username }}</strong>（{{ selectedUserForAssignment?.full_name }}）
+          </p>
+          <v-select
+            v-model="assignmentOfficeId"
+            :items="officeOptions"
+            item-title="title"
+            item-value="value"
+            label="管理處"
+            variant="outlined"
+            density="comfortable"
+            class="mb-2"
+            :disabled="isManager"
+            :hint="isManager ? 'manager 不可變更管理處' : undefined"
+            persistent-hint
+            @update:model-value="onAssignmentOfficeChange"
+          />
+          <v-select
+            v-model="assignmentStationCode"
+            :items="assignmentStationOptions"
+            item-title="title"
+            item-value="value"
+            label="工作站"
+            variant="outlined"
+            density="comfortable"
+            :disabled="!assignmentOfficeId"
+            hide-details
+          />
+        </v-card-text>
+        <v-card-actions class="px-6 pb-5">
+          <v-spacer />
+          <v-btn
+            variant="text"
+            :disabled="isUpdatingAssignment"
+            @click="showAssignmentDialog = false"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            color="#3ea0a3"
+            variant="flat"
+            :loading="isUpdatingAssignment"
+            @click="confirmAssignmentChange"
+          >
+            確認變更
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -562,6 +692,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useUserManagementStore } from '@/stores/userManagement'
 import { useOfficesStore } from '@/stores/offices'
 import { useUserStore } from '@/stores/users'
+import { apiService } from '@/services/api/http'
+import { OFFICES } from '@/services/api/endpoints'
 import type { UserListItem } from '@/types/userManagement'
 import { DEFAULT_ROLES, getRoleColor } from '@/types/permissions'
 
@@ -605,7 +737,8 @@ const filters = ref({
 const snackbar = ref({
   show: false,
   message: '',
-  color: 'success'
+  color: 'success',
+  timeout: 3000
 })
 
 // 搜尋防抖
@@ -631,6 +764,19 @@ const pendingUserForRejection = ref<PendingUser | null>(null)
 const rejectReason = ref('')
 const rejectReasonError = ref('')
 const isRejecting = ref(false)
+
+// 重寄驗證信對話框（039-account-verification-profile）
+const showResendDialog = ref(false)
+const selectedUserForResend = ref<UserListItem | null>(null)
+const isResending = ref(false)
+
+// 管理處/工作站設定對話框（039-account-verification-profile）
+const showAssignmentDialog = ref(false)
+const selectedUserForAssignment = ref<UserListItem | null>(null)
+const assignmentOfficeId = ref<number | null>(null)
+const assignmentStationCode = ref<string | null>(null)
+const assignmentStationOptions = ref<Array<{ title: string; value: string }>>([])
+const isUpdatingAssignment = ref(false)
 
 // ============================================================================
 // Computed
@@ -661,6 +807,27 @@ const roleOptions = computed(() =>
 
 // 單位選項
 const officeOptions = computed(() => (officesStore.managementOffices || []).filter(o => o.value > 0))
+
+// 039-account-verification-profile：重寄驗證信 / 管理處工作站變更的顯示條件
+const currentUserOfficeId = computed(() => userStore.currentUser?.office?.id ?? null)
+
+function canResendVerification(item: UserListItem): boolean {
+  if (!canEditUsers.value) return false
+  if (item.is_active || item.email_verified) return false
+  if (isManager.value) {
+    return item.office?.id != null && item.office.id === currentUserOfficeId.value
+  }
+  return true
+}
+
+function canEditAssignment(item: UserListItem): boolean {
+  if (!canEditUsers.value) return false
+  if (isManager.value && item.role === 'admin') return false
+  if (isManager.value) {
+    return item.office?.id != null && item.office.id === currentUserOfficeId.value
+  }
+  return true
+}
 
 // 狀態選項
 const statusOptions = [
@@ -882,13 +1049,32 @@ function openApproveDialog(user: PendingUser) {
 async function confirmApprove() {
   if (!pendingUserForApproval.value) return
   isApproving.value = true
+  const username = pendingUserForApproval.value.username
   try {
-    await store.approveUser(pendingUserForApproval.value.user_id)
-    showSnackbar(`帳號 ${pendingUserForApproval.value.username} 已核准`, 'success')
+    // store action 由 wrapAsync 包裹，失敗時「不拋例外、回傳 null」並把訊息寫入 store.error，
+    // 因此必須檢查回傳值——只 await 不接收會讓失敗的操作顯示成功訊息
+    const result = await store.approveUser(pendingUserForApproval.value.user_id)
+    if (!result) {
+      showSnackbar(store.error || '核准失敗，請稍後再試', 'error')
+      return
+    }
+
+    // 只在明確為 false 時警告：false 一律代表「試過且失敗」；true 可能是「已寄出」或
+    // 「本來就不需要寄」（帳號原本就有密碼），兩者都無需警告，故不需區分三態（SC-008）
+    const failedMails: string[] = []
+    if (result.approval_notification_sent === false) failedMails.push('核准通知信')
+    if (result.password_setup_email_sent === false) failedMails.push('密碼設定信')
+
+    if (failedMails.length > 0) {
+      showSnackbar(
+        `帳號 ${username} 已核准，但${failedMails.join('與')}寄送失敗，請稍後重新寄送或請使用者改用「忘記密碼」流程`,
+        'warning'
+      )
+    } else {
+      showSnackbar(`帳號 ${username} 已核准`, 'success')
+    }
     showApproveDialog.value = false
     await loadPendingUsers()
-  } catch (error: any) {
-    showSnackbar(error?.response?.data?.detail || '核准失敗，請稍後再試', 'error')
   } finally {
     isApproving.value = false
   }
@@ -926,6 +1112,108 @@ async function confirmReject() {
   }
 }
 
+/**
+ * 開啟重寄驗證信確認對話框（039-account-verification-profile）
+ */
+function handleResendVerification(user: UserListItem) {
+  selectedUserForResend.value = user
+  showResendDialog.value = true
+}
+
+/**
+ * 確認重寄驗證信
+ */
+async function confirmResendVerification() {
+  if (!selectedUserForResend.value) return
+  isResending.value = true
+  try {
+    // 同 confirmApprove：wrapAsync 失敗時回傳 null 而非拋例外，必須檢查回傳值。
+    // 未檢查會讓 403（越權）／429（節流未到期）／409（帳號已啟用）都顯示成「已發送」
+    const result = await store.resendVerification(selectedUserForResend.value.id)
+    if (!result) {
+      showSnackbar(store.error || '重寄驗證信失敗，請稍後再試', 'error')
+      return
+    }
+    showSnackbar(`已重新發送驗證信至 ${selectedUserForResend.value.username}`, 'success')
+    showResendDialog.value = false
+  } finally {
+    isResending.value = false
+  }
+}
+
+/**
+ * 開啟管理處/工作站設定對話框（039-account-verification-profile）
+ */
+async function handleEditAssignment(user: UserListItem) {
+  selectedUserForAssignment.value = user
+  assignmentOfficeId.value = isManager.value ? currentUserOfficeId.value : (user.office?.id ?? null)
+  assignmentStationCode.value = null
+  assignmentStationOptions.value = []
+  showAssignmentDialog.value = true
+  if (assignmentOfficeId.value) {
+    await loadStationOptions(assignmentOfficeId.value)
+  }
+}
+
+/**
+ * 管理處變更時重新載入工作站選項
+ */
+async function onAssignmentOfficeChange(officeId: number | null) {
+  assignmentStationCode.value = null
+  assignmentStationOptions.value = []
+  if (officeId) {
+    await loadStationOptions(officeId)
+  }
+}
+
+/**
+ * 載入指定管理處的工作站選項
+ */
+async function loadStationOptions(officeId: number) {
+  try {
+    const list = await apiService.get<Array<{ code: string; name: string }>>(OFFICES.STATIONS(officeId))
+    assignmentStationOptions.value = list.map(s => ({ title: s.name, value: s.code }))
+  } catch (error) {
+    // 不可靜默：清空後的空下拉選單無法與「該管理處確實沒有工作站」區分，
+    // 操作者會誤以為是資料問題而非請求失敗
+    assignmentStationOptions.value = []
+    console.error('載入工作站選項失敗:', error)
+    showSnackbar('工作站選項載入失敗，請關閉對話框後重試', 'error')
+  }
+}
+
+/**
+ * 確認管理處/工作站變更
+ */
+async function confirmAssignmentChange() {
+  if (!selectedUserForAssignment.value) return
+  isUpdatingAssignment.value = true
+  try {
+    const payload: { office_id?: number; station?: { code: string; name: string } } = {}
+    if (!isManager.value && assignmentOfficeId.value) {
+      payload.office_id = assignmentOfficeId.value
+    }
+    if (assignmentStationCode.value) {
+      const station = assignmentStationOptions.value.find(s => s.value === assignmentStationCode.value)
+      if (station) {
+        payload.station = { code: station.value, name: station.title }
+      }
+    }
+    // 同 confirmApprove：wrapAsync 失敗時回傳 null 而非拋例外，必須檢查回傳值。
+    // 未檢查會讓 403（manager 越權變更管理處／跨管理處帳號）顯示成「已更新」
+    const result = await store.updateAccountAssignment(selectedUserForAssignment.value.id, payload)
+    if (!result) {
+      showSnackbar(store.error || '管理處/工作站設定失敗，請稍後再試', 'error')
+      return
+    }
+    showSnackbar(`已更新 ${selectedUserForAssignment.value.username} 的管理處/工作站設定`, 'success')
+    showAssignmentDialog.value = false
+    await loadUsers()
+  } finally {
+    isUpdatingAssignment.value = false
+  }
+}
+
 
 /**
  * 格式化日期
@@ -954,7 +1242,9 @@ function showSnackbar(message: string, color: string = 'success') {
   snackbar.value = {
     show: true,
     message,
-    color
+    color,
+    // 失敗/警告訊息通常較長且需要操作者實際讀完（SC-008），3 秒不足以讀完一句長訊息
+    timeout: color === 'success' ? 3000 : 8000
   }
 }
 
