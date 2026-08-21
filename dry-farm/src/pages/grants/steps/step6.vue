@@ -241,7 +241,7 @@
               <!-- 農戶配合款 -->
               <tr>
                 <td colspan="2" class="font-weight-medium text-center">
-                  農戶配合款
+                  農戶配合款  
                 </td>
                 <td class="text-center">
                  
@@ -253,7 +253,7 @@
 
               <!-- 政府補助款 -->
               <tr>
-                <td rowspan="3" class="font-weight-medium text-center align-center">
+                <td rowspan="4" class="font-weight-medium text-center align-center">
                   政府<br>補助款
                 </td>
                 <td rowspan="2" class="font-weight-medium text-center align-center">
@@ -266,7 +266,6 @@
                   {{ farmerClaimTotal }}
                 </td>
               </tr>
-
               <tr>
                 <td class="text-center"
                     style="border-right: thin solid rgba(var(--v-border-color), var(--v-border-opacity));">
@@ -285,6 +284,19 @@
                   {{ actualSubsidizedDesignFee }}
                 </td>
               </tr>
+
+              <tr>
+                <td class="font-weight-medium text-center">
+                  小計
+                </td>
+                <td class="text-center">
+                  
+                </td>
+                <td class="text-center">
+                  {{ subTotal }}
+                </td>
+              </tr>
+              
 
               <!-- 總計 -->
               <tr class="bg-amber-lighten-4">
@@ -792,7 +804,13 @@ const actualSubsidizedDesignFee = computed(() => {
   const designFeeAmount = step4Data.designFee || 0;
   return designFeeAmount.toLocaleString();
 });
+// 政府補助款小計 = 農戶請領款合計 + 實際補助規劃設計費
+const subTotal = computed(() => {
+  const claimTotal = parseInt(farmerClaimTotal.value.replace(/,/g, '')) || 0;
+  const designFee = parseInt(actualSubsidizedDesignFee.value.replace(/,/g, '')) || 0;
 
+  return (claimTotal + designFee).toLocaleString();
+});
 const totalBudget = computed(() => {
   // 本設施預算總計 = 所有項目的總成本（與 PDF 生成器邏輯一致）
   // 直接從成本計算，而不是從補助和自備款反推（避免歷史資料不一致問題）

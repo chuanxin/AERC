@@ -13,11 +13,10 @@
         class="pt-0"
       >
         <!-- 功能按鈕區 -->
-        <div class="d-flex flex-wrap align-center pr-2" style="min-height: 52px">
+        <div class="d-flex flex-wrap align-center pr-2">
           <v-spacer />
-          <div class="d-flex gap-2"  v-if="isDev">
+          <div class="d-flex gap-2"  v-if="canManageMaterial">
             <v-btn
-              v-if="canEdit"
               class="action-btn"
               color="#3ea0a3"
               prepend-icon="mdi-plus"
@@ -28,6 +27,22 @@
             >
               新增材料
             </v-btn>
+          </div>
+          <div class="d-flex flex-wrap md-gap-2" v-if="isSuperAdmin">
+          <v-select
+            v-if="isSuperAdmin"
+            v-model="filterOfficeId"
+            :items="allOfficeOptions"
+            label="管理處"
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            class="filter-select mr-2"
+            style="min-width: 180px"
+            bg-color="white"
+            rounded="lg"
+            @update:model-value="refreshMaterials"
+          />
           </div>
         </div>
         <div class="section-wrapper">
@@ -288,13 +303,12 @@
                   <template #[`item.actions`]="{ item }">
                     <div class="ma-0 pa-0 d-flex gap-2 justify-end">
                       <v-btn
-                        v-if="canEdit"
                         title="刪除材料"
                         icon="mdi-delete"
                         size="small"
                         color="error"
                         variant="text"
-                        :disabled="!isDev"
+                        :disabled="!canManageMaterial"
                         @click="deleteItem(item.raw.id)"
                       />
                     </div>
@@ -600,7 +614,7 @@
                         size="x-small"
                         color="#3ea0a3"
                         variant="text"
-                        :disabled="!isDev"
+                        :disabled="!canManageMaterial"
                         @click="startEditPrice(index)"
                       />
                       <v-btn
@@ -609,7 +623,7 @@
                         size="x-small"
                         color="error"
                         variant="text"
-                        :disabled="!isDev"
+                        :disabled="!canManageMaterial"
                         @click="deletePriceHistory(price.year)"
                       />
                     </div>
@@ -828,7 +842,6 @@
 </template>
 
 <script lang="ts" setup>
-import { computed } from 'vue'
 import { useDisplay } from 'vuetify'
 import { usePipeFittingsStore } from '@/stores/pipeFittingsStore'
 import { usePFModulesStore } from '@/stores/pfModulesStore'
@@ -848,11 +861,12 @@ const annualPricesStore = usePFAnnualPricesStore()
 const pfMaterialsStore = usePFMaterialsStore()
 const pfDiametersStore = usePFDiametersStore()
 
-const canEdit = computed(() => userStore.canAny('materials', ['create', 'edit', 'delete']))
-
 const tableRef = ref<any>(null)
 let scrollableElement: HTMLElement | null = null
 const SCROLL_THRESHOLD = 150
+// 新增一個常數
+const PAGE_SIZE = 500;   // 每次完整載入的筆數
+const SCROLL_PAGE_SIZE = 50;  // 無限滾動每頁增量
 
 const fittings = computed(() => store.pipeFittings)
 const currentFitting = computed(() => store.currentPipeFitting)
@@ -863,6 +877,55 @@ const isLoadingMoreFromStore = computed(() => store.isLoadingMore)
 const canLoadMoreItems = computed(() => {
   return !store.isLoadingMore && store.pipeFittings.length < store.totalPipeFittings
 })
+//新增
+// 1. 角色與權限判斷
+const currentUserOfficeId = computed(() => userStore.currentUser?.office?.id ?? null)
+const isSuperAdmin = computed(() => currentUserOfficeId.value === 22)
+
+// 2. 顯示控制：如果是開發模式或是 ID 22 登入，則顯示管理功能
+const canManageMaterial = computed(() => isDev || isSuperAdmin.value)
+
+// 3. 篩選用的 office_id (預設為 22)
+const filterOfficeId = ref<number>(22)
+// 管理處選項 - 根據實際資料庫資料更新對應關係
+const allOfficeOptions = [
+  { title: '農業部農田水利署', value: 0 },
+  { title: '宜蘭管理處', value: 1 },
+  { title: '北基管理處', value: 2 },
+  { title: '桃園管理處', value: 3 },
+  { title: '石門管理處', value: 4 },
+  { title: '新竹管理處', value: 5 },
+  { title: '苗栗管理處', value: 6 },
+  { title: '臺中管理處', value: 7 },
+  { title: '南投管理處', value: 8 },
+  { title: '彰化管理處', value: 9 },
+  { title: '雲林管理處', value: 10 },
+  { title: '嘉南管理處', value: 11 },
+  { title: '高雄管理處', value: 12 },
+  { title: '屏東管理處', value: 13 },
+  { title: '臺東管理處', value: 14 },
+  { title: '花蓮管理處', value: 15 },
+  { title: '七星管理處', value: 16 },
+  { title: '瑠公管理處', value: 17 },
+  { title: '金門縣農會', value: 18 },
+  { title: '澎湖縣農會', value: 19 },
+  { title: '農田水利人力發展中心', value: 20 },
+  { title: '茶葉改良場', value: 21 },
+  { title: '財團法人農業工程研究中心', value: 22 },
+  { title: '高雄市政府農業局', value: 23 },
+  { title: '農工中心', value: 99 },
+  { title: '農業部', value: 100 }
+]
+// 5. 修改資料載入函式：改用 filterOfficeId
+const refreshMaterials = async () => {
+  await store.fetchPipeFittingsByOfficeId(filterOfficeId.value, {
+    skip: 0,
+    limit: PAGE_SIZE,
+    append: false,
+    include_inactive: false,
+  });
+}
+//end of 新增
 
 // 排序相關
 const search = ref('')
@@ -1256,8 +1319,8 @@ const loadMorePipeFittings = async () => {
   }
 
   const currentLoadedCount = store.pipeFittings.length;
-  const userOfficeId = userStore.currentUser?.office?.id;
-  const itemsToFetchPerPage = 50;
+  const userOfficeId = filterOfficeId.value;   // 改用目前篩選的管理處
+  const itemsToFetchPerPage = SCROLL_PAGE_SIZE;
   console.log(`[VUE LOADMORE] Calling store action with: skip=${currentLoadedCount}, limit=${itemsToFetchPerPage}, append=true`);
 
   await store.fetchPipeFittingsByOfficeId(userOfficeId, {
@@ -1401,8 +1464,9 @@ const saveItem = async () => {
     const saveData: any = { ...editedItem };
 
     const userOfficeId = userStore.currentUser?.office?.id;
-    saveData.office_id = userOfficeId;
-
+    saveData.office_id = filterOfficeId.value; 
+    console.log('Saving item with office_id:', saveData.office_id);
+    console.log('Saving item with userOfficeId:', userOfficeId);
     if (typeof saveData.moduleName === 'string') {
       const module = pfModulesStore.allModules.find(m => m.name === saveData.moduleName);
       if (module) {
@@ -1480,21 +1544,21 @@ const saveItem = async () => {
       try {
         await annualPricesStore.createAnnualPrice({
           pipe_fitting_id: Number(savedPipeFittingId),
-          office_id: userOfficeId,
+          office_id: filterOfficeId.value,
           year: new Date().getFullYear() - 1911, // 民國年
           price: currentPriceValue,
           is_active: true,
           created_by_id: userStore.currentUser?.id
         });
-        console.log(`成功為管件 ID: ${savedPipeFittingId} 建立價格記錄: ${currentPriceValue}`);
+        console.log(`成功為管件 ID: ${savedPipeFittingId} 建立價格記錄: ${currentPriceValue} office_id: ${filterOfficeId.value}`);
       } catch (priceError) {
         console.error('建立價格記錄時發生錯誤:', priceError);
       }
     }
 
-    await store.fetchPipeFittingsByOfficeId(userOfficeId, {
+    await store.fetchPipeFittingsByOfficeId(filterOfficeId.value, {
       skip: 0,
-      limit: 50,
+      limit: PAGE_SIZE,
       append: false,
       include_inactive: false,  // 預設只顯示啟用的材料
     });
@@ -1512,9 +1576,16 @@ onMounted(async () => {
   console.log('Component Mounted: Initializing PipeFittings...');
 
   const userOfficeId = userStore.currentUser?.office?.id;
-  const initialLimit = 500;
+  const initialLimit = PAGE_SIZE;
 
-  await store.fetchPipeFittingsByOfficeId(userOfficeId, {
+  // 如果是 22 號登入，預設篩選就是 22
+  if (isSuperAdmin.value) {
+    filterOfficeId.value = 22;
+  } else {
+    // 如果是一般使用者登入，鎖定在自己的 ID
+    filterOfficeId.value = currentUserOfficeId.value || 0;
+  }
+  await store.fetchPipeFittingsByOfficeId(filterOfficeId.value, {
     skip: 0,
     limit: initialLimit,
     append: false,

@@ -97,13 +97,14 @@
           v-model="localValid"
           @submit.prevent
         >
-          <!-- 動力設備選擇區域 -->
+          <!-- 動力設備選擇區域 刪除v-if="!props.readonly" 加上:disabled="props.readonly"-->
           <v-card
-            v-if="!props.readonly"
+            
             flat
             class="mb-4 pa-4"
             color="#e3f4f4"
             rounded="lg"
+            :disabled="props.readonly"
           >
             <v-card-title
               class="text-subtitle-1 font-weight-bold pa-0 pb-4 d-flex align-center"
