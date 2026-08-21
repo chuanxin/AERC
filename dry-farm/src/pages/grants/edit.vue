@@ -1553,7 +1553,7 @@ const formatDate = (dateString?: string) => {
 const showNotificationMessage = (
   title: string,
   message: string = '',
-  type: 'success' | 'error' | 'warning' = 'success'
+  type: 'success' | 'error' | 'warning'| 'info' = 'success'
 ) => {
   const configs = {
     success: {
@@ -2116,6 +2116,41 @@ const handleStepValidated = async ({ valid, step }: { valid: boolean; step: numb
 
       // 當完成申報（UI step 6）時，更新狀態為 under_review 並鎖定前五步
       if (step === 6) {
+         // 以下新增 1. 取得 Step3 (灌溉調控設施 / dataStep 4) 的資料
+        const step3Data = grantsStore.formData[4] || {}
+        const fundingSourceId = step3Data.fundingSourceId
+
+        //  2. 解析補助來源名稱
+        let fundingSourceName = ''
+        if (fundingSourceId === 0) {
+          fundingSourceName = '農田水利署'
+        } else if (fundingSourceId === 23) {
+          fundingSourceName = '作業基金'
+        } else if (fundingSourceId && fundingSourceId !== '未選擇補助來源') {
+          // 若有其他來源 ID，可嘗試對應名稱或顯示 ID
+          fundingSourceName = `補助來源 (ID: ${fundingSourceId})`
+        }
+
+        //  3. 判斷未選擇補助來源的情況
+        if (!fundingSourceName) {
+          showNotificationMessage(
+            '無法完成申報',
+            '請回到步驟 4（灌溉調控設施）選擇「補助來源」後再試！',
+            'warning'
+          )
+          isNavigating.value = false
+          isStepTransitioning.value = false
+          submitting.value = false
+          return // 
+        }
+
+        //  4. 顯示目前選擇的補助來源提示訊息
+        showNotificationMessage(
+          '提示',
+          `您目前選擇的補助來源為【${fundingSourceName}】`,
+          'info'
+        )
+        //-----------END-------------
         if (grantsStore.currentGrant?.case_number) {
           try {
             console.log('[edit.vue] Step 6 (完成申報) updating status to under_review...')
