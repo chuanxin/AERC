@@ -215,6 +215,24 @@ async def read_grants(
     return result
 
 
+# ⚠️ 必須宣告在 GET "/{grant_id}" 之前：FastAPI 依宣告順序比對路徑，
+# 若排在後面，"office-coverage" 會先被 "/{grant_id}" 攔下並在轉型 int 時回 422
+@router.get(
+    "/office-coverage",
+    response_model=List[Dict[str, int]],
+    dependencies=[
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.VIEW_ALL)),
+    ],
+)
+async def read_grant_office_coverage():
+    """取得「哪一個管理處在哪一個年度有案件」的配對清單
+
+    供案件列表的管理處下拉依當前年度縮限選項。限 VIEW_ALL（admin）：
+    該下拉本身即以 grants.view_all 為顯示條件，其他角色看不到也用不到。
+    """
+    return await crud.get_office_year_coverage()
+
+
 @router.patch(
     "/{grant_id}/tag",
     response_model=Dict[str, Any],

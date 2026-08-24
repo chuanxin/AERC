@@ -9,6 +9,7 @@ import {
   hybridGrantService,
   grantCacheService,
   getApplicantSubsidySummary,
+  getOfficeYearCoverage,
   updateSchemaVersion,
   type GrantCreateResponse,
   type GrantStepDataUpdateRequest,
@@ -16,11 +17,13 @@ import {
   type GrantListParams,
   type ServiceStatus,
   type ApplicantSubsidySummary,
+  type OfficeYearCoverage,
 } from '@/services/grantsService'
 import { ApplicationError } from '@/utils/asyncHelpers'
 import { GrantStorage } from '@/utils/grant-storage'
 import type { GrantCreateRequest } from '@/types/grantForms'
 import { debounce } from 'lodash-es'
+import { useOfficesStore } from '@/stores/offices'
 
 // 🔧 同步特定字段到 localStorage 的工具函數
 function syncFieldsToLocalStorage(caseNumber: string, stepData: Record<string, unknown>, functionName: string): void {
@@ -58,6 +61,9 @@ export const useGrantsStore = defineStore('grants', () => {
   const currentGrant = ref<GrantCreateResponse | null>(null)
   const currentStep = ref<number>(1)
   const isLoading = ref<boolean>(false)
+
+  // office name -> id SSOT（離線資料轉換用）
+  const officesStore = useOfficesStore()
   const isSaving = ref<boolean>(false)
   const error = ref<string | null>(null)
   const lastSavedAt = ref<Date | null>(null)
@@ -1118,6 +1124,10 @@ export const useGrantsStore = defineStore('grants', () => {
   const listError = ref<string | null>(null)
   const serviceStatus = ref<ServiceStatus>(hybridGrantService.getServiceStatus())
 
+  // 「某管理處在某年度有案件」的配對，供管理處下拉依年度縮限選項。
+  // 空陣列代表尚未載入或載入失敗，呼叫端據此決定是否縮限（不縮限比縮成空的安全）
+  const officeYearCoverage = ref<OfficeYearCoverage[]>([])
+
   // 篩選與搜尋 - 移除預設的數量限制
   const listFilters = reactive<GrantListParams>({
     year: undefined,
@@ -1171,7 +1181,7 @@ export const useGrantsStore = defineStore('grants', () => {
       const queryParams = { ...listFilters, ...params }
 
       // 使用混合服務載入資料
-      const grants = await hybridGrantService.getGrants(queryParams)
+      const grants = await hybridGrantService.getGrants(queryParams, officesStore.officeNameToIdMap)
       grantsList.value = grants
 
       // 更新服務狀態
@@ -1187,6 +1197,23 @@ export const useGrantsStore = defineStore('grants', () => {
       console.error('📋 [loadGrantsList] Error:', err)
     } finally {
       listLoading.value = false
+    }
+  }
+
+  /**
+   * 載入「哪些管理處在哪些年度有案件」
+   *
+   * 失敗時保持空陣列（呼叫端會退回完整管理處清單），並回傳 false 讓呼叫端能
+   * 據實回報，不假裝成功。僅 admin 可呼叫，其他角色不會渲染該下拉。
+   */
+  const loadOfficeYearCoverage = async (): Promise<boolean> => {
+    try {
+      officeYearCoverage.value = await getOfficeYearCoverage()
+      return true
+    } catch (err) {
+      officeYearCoverage.value = []
+      console.error('📋 [loadOfficeYearCoverage] 載入管理處案件年度分布失敗:', err)
+      return false
     }
   }
 
@@ -1421,6 +1448,7 @@ export const useGrantsStore = defineStore('grants', () => {
     listLoading,
     listError,
     serviceStatus,
+    officeYearCoverage,
     listFilters,
     selectedGrants,
     pagination,
@@ -1465,6 +1493,7 @@ export const useGrantsStore = defineStore('grants', () => {
 
     // Actions - 新增的列表功能
     loadGrantsList,
+    loadOfficeYearCoverage,
     debouncedSearch,
     updateFilters,
     resetFilters,

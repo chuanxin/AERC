@@ -103,6 +103,7 @@ export const BACKEND_PATHS = {
     UPDATE_CURRENT_STEP: (caseNumber: string) => `/grants/case/${caseNumber}/current-step`,
     DELETE: (id: number | string) => `/grants/${id}`,
     APPLICANT_SUBSIDY_SUMMARY: `/grants/applicant-subsidy-summary`,
+    OFFICE_COVERAGE: `/grants/office-coverage`,
     UPDATE_STATUS: (caseNumber: string) => `/grants/case/${caseNumber}/status`,
     CLAIM_OWNERSHIP: (grantId: number) => `/grants/${grantId}/claim-ownership`,
     COMPLETION_STATEMENT: (caseNumber: string) => `/grants/case/${caseNumber}/completion-statement`,
@@ -342,6 +343,8 @@ export const API_MAPPING: Record<string, string> = {
   [NLSC.CADASTRAL_QUERY_BY_LAND_NUMBER]: BACKEND_PATHS.NLSC.CADASTRAL_QUERY_BY_LAND_NUMBER, // @deprecated
   [NLSC.CADASTRAL_QUERY_BY_POINT]: BACKEND_PATHS.NLSC.CADASTRAL_QUERY_BY_POINT, // @deprecated
   [GRANTS.APPLICANT_SUBSIDY_SUMMARY]: BACKEND_PATHS.GRANTS.APPLICANT_SUBSIDY_SUMMARY,
+  // 固定路徑（無 path 參數）→ 靜態映射即可，不需動態規則
+  [GRANTS.OFFICE_COVERAGE]: BACKEND_PATHS.GRANTS.OFFICE_COVERAGE,
 }
 
 // 動態參數路徑匹配規則

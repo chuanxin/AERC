@@ -85,7 +85,8 @@ export const useUserManagementStore = defineStore('userManagement', () => {
     if (query.page_size) params.append('page_size', query.page_size.toString())
     if (query.is_active !== undefined) params.append('is_active', query.is_active.toString())
     if (query.role) params.append('role', query.role)
-    if (query.office_id) params.append('office_id', query.office_id.toString())
+    // office_id 可為 0（農業部農田水利署），truthy 判斷會讓該選項等同未篩選
+    if (query.office_id !== undefined) params.append('office_id', query.office_id.toString())
     if (query.search) params.append('search', query.search)
     if (query.email_verified !== undefined) params.append('email_verified', query.email_verified.toString())
 

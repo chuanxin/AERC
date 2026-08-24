@@ -188,7 +188,8 @@ async def get_grants(
         # 應用過濾條件
         if year:
             query = query.filter(year=year)
-        if office_id:
+        # office_id 可為 0（農業部農田水利署）：truthy 判斷會讓該值等同未篩選
+        if office_id is not None:
             query = query.filter(office_id=office_id)
         # status 過濾只針對歷史案件（is_legacy=true），新系統案件不受限制
         if status:
@@ -329,9 +330,23 @@ async def get_grants(
     except Exception as e:
         logger.error(f"取得案件列表失敗: {str(e)}")
         raise HTTPException(
-            status_code=500, 
+            status_code=500,
             detail=f"取得案件列表失敗: {str(e)}"
         )
+
+
+async def get_office_year_coverage() -> List[Dict[str, int]]:
+    """取得「哪一個管理處在哪一個年度有案件」的實際組合
+
+    供案件列表的管理處下拉依當前年度縮限選項，避免列出必定回傳 0 筆的單位
+    （offices 表 26 個單位中，全表僅 21 個有案件；單看當年度更少）。
+
+    回傳全部年度的配對讓前端一次取回、在本機依年度推導，不需每次改年度都重新請求。
+    資料量為實際組合數（目前 305 筆），走既有 idx_grants_year_fc9f6e 的
+    index-only scan，實測約 13ms。
+    """
+    rows = await Grants.filter(office_id__isnull=False).distinct().values("year", "office_id")
+    return [{"year": row["year"], "office_id": row["office_id"]} for row in rows]
 
 
 # async def get_grants_by_status(

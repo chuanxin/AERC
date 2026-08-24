@@ -167,7 +167,10 @@ async def get_current_user(token: str = Depends(security)):
                 )
 
         office_data = None
-        if user.office_id:
+        # office_id 可為 0（農業部農田水利署）：truthy 判斷會讓 office 留在 None，
+        # 而 None 在多處守衛代表「帳號未指派管理處」→ 該使用者會被 403 擋在系統外，
+        # 且錯誤訊息（「帳號尚未指派管理處」）與真實原因不符
+        if user.office_id is not None:
             office = await Offices.filter(id=user.office_id).only(
                 'id', 'name', 'short_name', 'code', 'classification', 'is_funding_source'
             ).first()

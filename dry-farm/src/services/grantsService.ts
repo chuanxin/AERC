@@ -451,6 +451,27 @@ export const getApplicantSubsidySummary = async (
   }
 }
 
+/** 「某管理處在某年度有案件」的配對 */
+export interface OfficeYearCoverage {
+  year: number
+  office_id: number
+}
+
+/**
+ * 查詢哪些管理處在哪些年度有案件
+ *
+ * 一次取回全部年度的配對（目前約 300 筆），供前端在本機依當前年度推導管理處
+ * 下拉選項，改年度時不需重新請求。僅 admin（grants.view_all）可呼叫。
+ */
+export const getOfficeYearCoverage = async (): Promise<OfficeYearCoverage[]> => {
+  try {
+    return await apiService.get<OfficeYearCoverage[]>(GRANTS.OFFICE_COVERAGE)
+  } catch (error) {
+    console.error('📡 [getOfficeYearCoverage] API error:', error)
+    throw handleApiError(error, 'grantsService.getOfficeYearCoverage')
+  }
+}
+
 // =============================================================================
 // 混合模式服務（API + localStorage）
 // =============================================================================
@@ -475,8 +496,12 @@ export class HybridGrantService {
 
   /**
    * 取得案件列表（混合模式）
+   * @param officeNameToIdMap office name -> id 對映（SSOT：統一由 offices store 提供）
    */
-  async getGrants(params: GrantListParams = {}): Promise<GrantListItem[]> {
+  async getGrants(
+    params: GrantListParams = {},
+    officeNameToIdMap?: Record<string, number>
+  ): Promise<GrantListItem[]> {
     if (this.useApi) {
       try {
         const grants = await getGrantsFromAPI(params)
@@ -490,22 +515,25 @@ export class HybridGrantService {
         this.serviceStatus.apiAvailable = false
         this.serviceStatus.fallbackMode = true
         this.serviceStatus.lastApiCheck = new Date()
-        return this.getGrantsFromLocalStorage(params)
+        return this.getGrantsFromLocalStorage(params, officeNameToIdMap)
       }
     } else {
-      return this.getGrantsFromLocalStorage(params)
+      return this.getGrantsFromLocalStorage(params, officeNameToIdMap)
     }
   }
 
   /**
    * 從 localStorage 獲取案件列表
    */
-  private getGrantsFromLocalStorage(params: GrantListParams): GrantListItem[] {
+  private getGrantsFromLocalStorage(
+    params: GrantListParams,
+    officeNameToIdMap?: Record<string, number>
+  ): GrantListItem[] {
     console.log('💾 [getGrantsFromLocalStorage] 從 localStorage 載入資料，參數:', params)
     const localGrants = GrantStorage.getAllGrants()
 
     let results = Object.entries(localGrants).map(([caseNumber, grantData]) =>
-      this.transformLocalDataToListItem(caseNumber, grantData)
+      this.transformLocalDataToListItem(caseNumber, grantData, officeNameToIdMap)
     )
 
     console.log('💾 [getGrantsFromLocalStorage] 原始資料筆數:', results.length)
@@ -549,39 +577,13 @@ export class HybridGrantService {
   /**
    * 轉換本地資料為列表項目格式
    */
-  private transformLocalDataToListItem(caseNumber: string, grantData: GrantData): GrantListItem {
-    // 根據 officeName 對應到 office_id
-    const officeNameToIdMap: Record<string, number> = {
-      '農業部農田水利署': 0,
-      '宜蘭管理處': 1,
-      '北基管理處': 2,
-      '桃園管理處': 3,
-      '石門管理處': 4,
-      '新竹管理處': 5,
-      '苗栗管理處': 6,
-      '臺中管理處': 7,
-      '南投管理處': 8,
-      '彰化管理處': 9,
-      '雲林管理處': 10,
-      '嘉南管理處': 11,
-      '高雄管理處': 12,
-      '屏東管理處': 13,
-      '臺東管理處': 14,
-      '花蓮管理處': 15,
-      '七星管理處': 16,
-      '瑠公管理處': 17,
-      '金門縣農會': 18,
-      '澎湖縣農會': 19,
-      '農田水利人力發展中心': 20,
-      '茶葉改良場': 21,
-      '財團法人農業工程研究中心': 22,
-      '高雄市政府農業局': 23,
-      '農工中心': 99,
-      '農業部': 100
-    }
-
+  private transformLocalDataToListItem(
+    caseNumber: string,
+    grantData: GrantData,
+    officeNameToIdMap?: Record<string, number>
+  ): GrantListItem {
     const officeName = grantData.officeName || '未設定'
-    const officeId = officeNameToIdMap[officeName] ?? null
+    const officeId = officeNameToIdMap?.[officeName]
 
     return {
       id: parseInt(caseNumber.replace(/\D/g, '')) || 0, // 臨時 ID

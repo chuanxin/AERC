@@ -112,7 +112,7 @@
                   <div>當前年度：{{ getCurrentYear() }}</div>
                   <div>使用者：{{ userStore.currentUser?.username || '未登入' }} ({{ userStore.currentUser?.office?.name || '無管理處' }})</div>
                   <div>使用者管理處ID：{{ getUserOfficeId() ?? '未偵測到' }}</div>
-                  <div>篩選條件：年度={{ filters.year || '無' }}, 管理處={{ filters.office_id || '無' }}</div>
+                  <div>篩選條件：年度={{ filters.year || '無' }}, 管理處={{ filters.office_id ?? '無' }}</div>
                   <div>已載入案件數：{{ displayGrantsList.length }}</div>
                   <div>API狀態：{{ isUsingApi ? '正常' : '離線模式' }}</div>
                 </div>
@@ -478,12 +478,14 @@ import type { GrantListItem } from '@/services/grantsService'
 import { generateBudgetStatement, downloadPdfBlob, batchCrossYearGrants, grantCacheService } from '@/services/grantsService'
 import { useGrantsStore } from '@/stores/grants'
 import { useUserStore } from '@/stores/users'
+import { useOfficesStore } from '@/stores/offices'
 import { GrantStorage, type GrantData } from '@/utils/grant-storage'
 import { formatCaseNumber } from '@/utils/frontendFilters'
 
 const router = useRouter()
 const grantsStore = useGrantsStore()
 const userStore = useUserStore()
+const officesStore = useOfficesStore()
 
 // grants.view_all 為 admin 獨有 → 後端 CRUD 層以全域範圍回傳，管理處篩選才有意義
 const canFilterByOffice = computed(() => userStore.can('grants', 'view_all'))
@@ -492,7 +494,8 @@ const canFilterByOffice = computed(() => userStore.can('grants', 'view_all'))
 const getCurrentYear = () => new Date().getFullYear() - 1911 // 民國年
 const getUserOfficeId = () => {
   // 優先從 userStore 取得當前使用者的管理處ID
-  const officeId = userStore.currentUser?.office?.id || null
+  // office.id 可為 0（農業部農田水利署）：|| null 會讓該管理處使用者的預設篩選變成「全部」
+  const officeId = userStore.currentUser?.office?.id ?? null
   console.log('[getUserOfficeId] 從 userStore 取得管理處ID:', officeId)
   console.log('[getUserOfficeId] 當前使用者:', userStore.currentUser?.username)
   console.log('[getUserOfficeId] 管理處名稱:', userStore.currentUser?.office?.name)
@@ -541,7 +544,8 @@ const batchProcessing = ref(false) // 批次處理狀態
 const showBatchCrossYearDialog = ref(false) // 批次跨年度確認對話框
 
 // 篩選條件 - 設置預設值
-const filters = reactive({
+// 兩個欄位的下拉都是 clearable，清空後為 null，型別必須明寫
+const filters = reactive<{ year: number | null; office_id: number | null }>({
   year: getCurrentYear(), // 預設為當年度
   office_id: getUserOfficeId() // 預設為使用者所屬管理處
 })
@@ -608,7 +612,7 @@ const updateTagFilter = async () => {
   grantsStore.clearSelectedGrants()
   const filterParams = {
     year: filters.year || undefined,
-    office_id: filters.office_id || undefined,
+    office_id: filters.office_id ?? undefined,
     status: '',
     limit: undefined,
     skip: 0,
@@ -637,35 +641,33 @@ const yearOptions = Array.from({ length: currentYear - startYear + 1 }, (_, i) =
   return { title: `${year}年`, value: year }
 })
 
-// 管理處選項 - 根據實際資料庫資料更新對應關係
-const officeOptions = [
-  { title: '農業部農田水利署', value: 0 },
-  { title: '宜蘭管理處', value: 1 },
-  { title: '北基管理處', value: 2 },
-  { title: '桃園管理處', value: 3 },
-  { title: '石門管理處', value: 4 },
-  { title: '新竹管理處', value: 5 },
-  { title: '苗栗管理處', value: 6 },
-  { title: '臺中管理處', value: 7 },
-  { title: '南投管理處', value: 8 },
-  { title: '彰化管理處', value: 9 },
-  { title: '雲林管理處', value: 10 },
-  { title: '嘉南管理處', value: 11 },
-  { title: '高雄管理處', value: 12 },
-  { title: '屏東管理處', value: 13 },
-  { title: '臺東管理處', value: 14 },
-  { title: '花蓮管理處', value: 15 },
-  { title: '七星管理處', value: 16 },
-  { title: '瑠公管理處', value: 17 },
-  { title: '金門縣農會', value: 18 },
-  { title: '澎湖縣農會', value: 19 },
-  { title: '農田水利人力發展中心', value: 20 },
-  { title: '茶葉改良場', value: 21 },
-  { title: '財團法人農業工程研究中心', value: 22 },
-  { title: '高雄市政府農業局', value: 23 },
-  { title: '農工中心', value: 99 },
-  { title: '農業部', value: 100 }
-]
+// 管理處選項 - SSOT：單位清單取自 offices store（offices 資料表），
+// 再依「該年度實際有案件」縮限，避免列出必定回傳 0 筆的單位。
+//
+// 縮限來源是 grants 表的 (年度, 管理處) 配對，掛載時一次取回全部年度，
+// 改年度時在本機推導、不重新請求。
+//
+// 兩個刻意的保留：
+//   1. coverage 為空（尚未載入或載入失敗）→ 不縮限，回傳完整清單。
+//      少列選項會讓功能不可用，多列只是回 0 筆，寧可多列。
+//   2. 目前已選的管理處一律保留，即使該年度無案件。使用者已做的選擇不該在
+//      他沒動它的時候消失（否則 v-select 顯示空白、值卻還在，畫面說謊）。
+//      預設值為使用者自己的管理處，這條同時涵蓋「自己的單位該年度無案件」。
+const officeOptions = computed(() => {
+  const allOffices = officesStore.managementAreaSelectItems
+  const coverage = grantsStore.officeYearCoverage
+  if (coverage.length === 0) return allOffices
+
+  // 年度被清空時（年度下拉為 clearable）→ 用全部年度的聯集
+  const allowed = new Set(
+    coverage
+      .filter(c => filters.year === null || c.year === filters.year)
+      .map(c => c.office_id)
+  )
+  if (filters.office_id !== null) allowed.add(filters.office_id)
+
+  return allOffices.filter(o => allowed.has(o.value))
+})
 
 // 表格標題
 const headers = ref([
@@ -798,7 +800,7 @@ const updateFilters = async () => {
   // 明確設定篩選參數，包括移除數量限制
   const filterParams = {
     year: filters.year || undefined,
-    office_id: filters.office_id || undefined,
+    office_id: filters.office_id ?? undefined,
     status: '',  // 只顯示已完成的歷史案件
     limit: undefined, // 明確移除數量限制
     skip: 0
@@ -815,7 +817,7 @@ const refreshList = async () => {
   // 刷新時應該保留當前的篩選條件
   const filterParams = {
     year: filters.year || undefined,
-    office_id: filters.office_id || undefined,
+    office_id: filters.office_id ?? undefined,
     status: '',  // 只顯示已完成的歷史案件
     limit: undefined,
     skip: 0
@@ -825,6 +827,12 @@ const refreshList = async () => {
 
   // 清除快取
   grantCacheService.clear('grants-list')
+
+  // coverage 只在掛載時載入一次，同一次停留期間新建的案件不會反映到管理處下拉；
+  // 「重新整理」的語意就是要看到最新狀態，一併刷新（9.5KB / 約 13ms，可忽略）
+  if (canFilterByOffice.value) {
+    await grantsStore.loadOfficeYearCoverage()
+  }
 
   // 清除選取狀態並強制 table 重新渲染
   grantsStore.clearSelectedGrants()
@@ -1139,6 +1147,22 @@ onMounted(async () => {
     await userStore.fetchCurrentUser()
   }
 
+  // 確保管理處選項（office SSOT）已載入，供下拉選單使用。
+  // fetchOffices 為 wrapAsync：失敗回傳 null 不拋例外（TD-027），try/catch 抓不到，
+  // 必須改查有無可用來源（含離線快取），否則下拉會靜默變空
+  await officesStore.fetchOffices()
+  if (!officesStore.hasOfficeOptions) {
+    console.error('[grants/index] 管理處選項載入失敗:', officesStore.error)
+    // 空下拉無法與「確實沒有管理處」區分，操作者必須在當下知道這是載入失敗
+    alert('管理處選項載入失敗，管理處篩選暫時無法使用')
+  }
+
+  // 管理處下拉的年度縮限資料。端點限 VIEW_ALL，其他角色不渲染該下拉也不需要它。
+  // 失敗不提示：下拉會退回完整清單，仍可正常使用，只是多幾個 0 筆選項
+  if (canFilterByOffice.value) {
+    await grantsStore.loadOfficeYearCoverage()
+  }
+
   // 重新取得預設篩選條件（使用者資料載入後）
   filters.year = getCurrentYear()
   filters.office_id = getUserOfficeId()
@@ -1153,7 +1177,7 @@ onMounted(async () => {
   // 明確設定篩選參數,包括移除數量限制
   const filterParams = {
     year: filters.year || undefined,
-    office_id: filters.office_id || undefined,
+    office_id: filters.office_id ?? undefined,
     status: '',  // 只顯示已完成的歷史案件
     limit: undefined, // 明確移除數量限制
     skip: 0

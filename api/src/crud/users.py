@@ -63,7 +63,8 @@ async def build_user_out_schema(user: Users) -> UserOutSchema:
     
     # 查詢管理處資料
     office_data = None
-    if hasattr(user, 'office_id') and user.office_id:
+    # office_id 可為 0（農業部農田水利署）：truthy 判斷會讓該管理處的帳號顯示為「無管理處」
+    if getattr(user, 'office_id', None) is not None:
         try:
             office = await Offices.filter(id=user.office_id).only(
                 'id', 'name', 'short_name', 'code', 'classification', 'is_funding_source'
