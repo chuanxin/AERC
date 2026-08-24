@@ -99,6 +99,8 @@ export const GRANTS = {
   UPDATE_STATUS: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/status`,
   CLAIM_OWNERSHIP: (grantId: number) => `${BASE}/grants/${grantId}/claim-ownership`,
   APPLICANT_SUBSIDY_SUMMARY: `${BASE}/grants/applicant-subsidy-summary`,
+  // 哪些管理處在哪些年度有案件（供案件列表的管理處下拉依年度縮限選項）
+  OFFICE_COVERAGE: `${BASE}/grants/office-coverage`,
   COMPLETION_STATEMENT: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/completion-statement`,
   DECLARATION: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/declaration`,
   AUTHORIZATION: (caseNumber: string) => `${BASE}/grants/case/${caseNumber}/authorization`,

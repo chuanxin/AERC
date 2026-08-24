@@ -98,7 +98,9 @@ async def list_users(
         query = query.filter(is_active=is_active)
     if role:
         query = query.filter(role=role)
-    if office_id:
+    # office_id 可為 0（農業部農田水利署）：truthy 判斷會讓該值等同未篩選，
+    # 且 manager 分支（office_id = actor_office.id）若管理處為 0 將回傳全部帳號
+    if office_id is not None:
         query = query.filter(office_id=office_id)
     if email_verified is not None:
         query = query.filter(email_verified=email_verified)

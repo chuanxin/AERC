@@ -660,7 +660,7 @@
             label="工作站"
             variant="outlined"
             density="comfortable"
-            :disabled="!assignmentOfficeId"
+            :disabled="assignmentOfficeId === null"
             hide-details
           />
         </v-card-text>
@@ -794,8 +794,10 @@ const selectedCountText = computed(() =>
   hasSelection.value ? `(${selectedUsers.value.length})` : ''
 )
 
+// office_id 可為 0（農業部農田水利署），不可用 truthy 判斷
 const hasActiveFilters = computed(() =>
-  !!(filters.value.search || filters.value.role || filters.value.office_id || filters.value.is_active !== null)
+  !!(filters.value.search || filters.value.role || filters.value.is_active !== null) ||
+  filters.value.office_id !== null
 )
 
 // 角色選項（manager 不可將帳號提升為 admin）
@@ -805,8 +807,9 @@ const roleOptions = computed(() =>
   isManager.value ? DEFAULT_ROLES.filter(r => r.value !== 'admin') : [...DEFAULT_ROLES]
 )
 
-// 單位選項
-const officeOptions = computed(() => (officesStore.managementOffices || []).filter(o => o.value > 0))
+// 單位選項 - SSOT：統一以 offices store（offices 資料表）為來源，
+// 內容與「申請案件列表」管理處下拉一致，含 office_id=0 農業部農田水利署。
+const officeOptions = computed(() => officesStore.managementAreaSelectItems)
 
 // 039-account-verification-profile：重寄驗證信 / 管理處工作站變更的顯示條件
 const currentUserOfficeId = computed(() => userStore.currentUser?.office?.id ?? null)
@@ -873,7 +876,8 @@ async function loadUsers() {
     page_size: itemsPerPage.value,
     search: filters.value.search || undefined,
     role: filters.value.role || undefined,
-    office_id: filters.value.office_id || undefined,
+    // office_id 可為 0（農業部農田水利署）：用 ?? 而非 ||，否則選 0 等於未篩選
+    office_id: filters.value.office_id ?? undefined,
     is_active: filters.value.is_active ?? undefined
   })
 }
@@ -1150,7 +1154,7 @@ async function handleEditAssignment(user: UserListItem) {
   assignmentStationCode.value = null
   assignmentStationOptions.value = []
   showAssignmentDialog.value = true
-  if (assignmentOfficeId.value) {
+  if (assignmentOfficeId.value !== null) {
     await loadStationOptions(assignmentOfficeId.value)
   }
 }
@@ -1161,7 +1165,7 @@ async function handleEditAssignment(user: UserListItem) {
 async function onAssignmentOfficeChange(officeId: number | null) {
   assignmentStationCode.value = null
   assignmentStationOptions.value = []
-  if (officeId) {
+  if (typeof officeId === 'number') {
     await loadStationOptions(officeId)
   }
 }
@@ -1190,7 +1194,9 @@ async function confirmAssignmentChange() {
   isUpdatingAssignment.value = true
   try {
     const payload: { office_id?: number; station?: { code: string; name: string } } = {}
-    if (!isManager.value && assignmentOfficeId.value) {
+    // office_id 可為 0（農業部農田水利署）：用 truthy 判斷會把 0 靜默丟出 payload，
+    // 後端只收到空 payload → 回 422「至少須提供一個」，訊息與真因無關、誤導操作者
+    if (!isManager.value && assignmentOfficeId.value !== null) {
       payload.office_id = assignmentOfficeId.value
     }
     if (assignmentStationCode.value) {
@@ -1253,8 +1259,12 @@ function showSnackbar(message: string, color: string = 'success') {
 // ============================================================================
 
 onMounted(async () => {
-  // 載入管理處列表
+  // 載入管理處列表。fetchOffices 為 wrapAsync：失敗回傳 null 不拋例外（TD-027），
+  // 必須改查有無可用來源（含離線快取），否則單位下拉會靜默變空
   await officesStore.fetchOffices()
+  if (!officesStore.hasOfficeOptions) {
+    showSnackbar(officesStore.error || '單位選項載入失敗，篩選與管理處設定將無法使用', 'error')
+  }
 
   // 並行載入：使用者列表 + 待審核帳號
   await Promise.all([loadUsers(), loadPendingUsers()])
