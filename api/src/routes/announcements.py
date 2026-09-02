@@ -15,6 +15,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, Request, status
 from tortoise.exceptions import IntegrityError
 
+from src.auth.client_ip import get_client_ip
 from src.auth.jwthandler import get_current_user
 from src.database.audit_models import AuditAction, AuditEventType, AuditResult
 from src.database.models import Announcement, AnnouncementStatus, AnnouncementType
@@ -116,13 +117,6 @@ def _manage_detail(a: Announcement) -> AnnouncementManageDetail:
     )
 
 
-def _client_ip(request: Request) -> str:
-    """生產環境反向代理是 Caddy，真實來源 IP 在 X-Real-IP。"""
-    return request.headers.get("X-Real-IP", "") or (
-        request.client.host if request.client else ""
-    )
-
-
 async def _audit(
     request: Request,
     current_user: UserInfoSchema,
@@ -146,7 +140,7 @@ async def _audit(
         actor_role=current_user.role,
         resource_type=resource_type,
         resource_id=str(resource_id),
-        ip_address=_client_ip(request),
+        ip_address=get_client_ip(request),
         user_agent=request.headers.get("User-Agent", ""),
         endpoint=str(request.url.path),
         changed_fields=changed_fields,
