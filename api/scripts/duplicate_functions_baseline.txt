@@ -1,0 +1,7 @@
+# 已知且暫時接受的重複實作。一行一組，成員為 路徑::函式名（逗號分隔）。
+# 由 check_duplicate_functions.py --update-baseline 產生。
+# 新增一行等於宣告「這個重複我知道，先不處理」——請同時開 TD 追蹤。
+api/src/services/authorization_pdf_generator.py::_setup_fonts,api/src/services/budget_statement_pdf_generator.py::_setup_fonts,api/src/services/completion_statement_pdf_generator.py::_setup_fonts,api/src/services/construction_photos_pdf_generator.py::_setup_fonts,api/src/services/declaration_pdf_generator.py::_setup_fonts
+api/src/services/authorization_pdf_generator.py::_get_file_revision_date,api/src/services/budget_statement_pdf_generator.py::_get_file_revision_date,api/src/services/completion_statement_pdf_generator.py::_get_file_revision_date,api/src/services/declaration_pdf_generator.py::_get_file_revision_date
+api/src/services/authorization_pdf_generator.py::_wrap_text_to_lines,api/src/services/budget_statement_pdf_generator.py::_wrap_text_to_lines,api/src/services/completion_statement_pdf_generator.py::_wrap_text,api/src/services/declaration_pdf_generator.py::_wrap_text_to_lines
+api/src/services/budget_statement_pdf_generator.py::_generate_photos_page,api/src/services/construction_photos_pdf_generator.py::_generate_photos_page

@@ -16,3 +16,13 @@ repos:
         files: ^api/src/(schemas|routes|crud)/.*\.py$
         pass_filenames: true
         additional_dependencies: []
+
+      # 掃全樹（重複是跨檔案的關係），但只回報牽涉到本次變更的組；
+      # 既有已知重複記在 api/scripts/duplicate_functions_baseline.txt，不擋 commit
+      - id: duplicate-function-bodies
+        name: "[品質] 同一段邏輯被抄成第二份（結構相同、函式名不同）"
+        language: python
+        entry: python api/scripts/check_duplicate_functions.py
+        files: ^api/src/.*\.py$
+        pass_filenames: true
+        additional_dependencies: []
