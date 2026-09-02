@@ -29,6 +29,24 @@ export const MFA = {
 }
 
 // Security (IP 白名單管理、MFA 待驗證 OTP 查詢) related endpoints
+// announcement (最新消息) related endpoints
+export const ANNOUNCEMENTS = {
+  // 公開讀取（僅需登入）
+  LIST: `${BASE}/announcements`,
+  DETAIL: (id: number) => `${BASE}/announcements/${id}`,
+  // 建立（權限 CREATE）— 與 LIST 同路徑不同方法
+  CREATE: `${BASE}/announcements`,
+  // 公告類型（權限 VIEW；公開端不需要——列表回應已內嵌 type{id,name,color}）
+  TYPES: `${BASE}/announcements/types`,
+  TYPE_DETAIL: (id: number) => `${BASE}/announcements/types/${id}`,
+  // 管理
+  MANAGE_LIST: `${BASE}/announcements/manage`,
+  MANAGE_DETAIL: (id: number) => `${BASE}/announcements/manage/${id}`,
+  MANAGE_PUBLISH: (id: number) => `${BASE}/announcements/manage/${id}/publish`,
+  MANAGE_UNPUBLISH: (id: number) => `${BASE}/announcements/manage/${id}/unpublish`,
+  PREVIEW: `${BASE}/announcements/manage/preview`,
+}
+
 export const SECURITY = {
   IP_WHITELIST_LIST: `${BASE}/security/ip-whitelist`,
   IP_WHITELIST_CREATE: `${BASE}/security/ip-whitelist`,

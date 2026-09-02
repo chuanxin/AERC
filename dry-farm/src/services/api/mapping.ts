@@ -1,4 +1,4 @@
-import { AUTH, MFA, SECURITY, DOMICILE, OFFICES, USERS, USER_MANAGEMENT, PERMISSIONS, GRANTS, STATISTICS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, CROPS, GIS, QUALIFICATION, SPATIAL, DOWNLOADS, ATTACHMENTS, LEISURE_FARMS, NLSC } from './endpoints';
+import { ANNOUNCEMENTS, AUTH, MFA, SECURITY, DOMICILE, OFFICES, USERS, USER_MANAGEMENT, PERMISSIONS, GRANTS, STATISTICS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, CROPS, GIS, QUALIFICATION, SPATIAL, DOWNLOADS, ATTACHMENTS, LEISURE_FARMS, NLSC } from './endpoints';
 
 // 取得當前的 API 版本前綴
 const API_BASE_URL = import.meta.env.FAST_API_BASE_URL || '';
@@ -43,6 +43,19 @@ export const BACKEND_PATHS = {
     VERIFY: '/mfa/verify',
   },
   // Security（IP 白名單管理、MFA 待驗證 OTP 查詢）相關
+  // 公告（最新消息）相關
+  ANNOUNCEMENTS: {
+    LIST: '/announcements',
+    CREATE: '/announcements',
+    DETAIL: (id: number) => `/announcements/${id}`,
+    TYPES: '/announcements/types',
+    TYPE_DETAIL: (id: number) => `/announcements/types/${id}`,
+    MANAGE_LIST: '/announcements/manage',
+    MANAGE_DETAIL: (id: number) => `/announcements/manage/${id}`,
+    MANAGE_PUBLISH: (id: number) => `/announcements/manage/${id}/publish`,
+    MANAGE_UNPUBLISH: (id: number) => `/announcements/manage/${id}/unpublish`,
+    PREVIEW: '/announcements/manage/preview',
+  },
   SECURITY: {
     IP_WHITELIST_LIST: '/security/ip-whitelist',
     IP_WHITELIST_UPDATE: (id: number) => `/security/ip-whitelist/${id}`,
@@ -255,6 +268,11 @@ export const API_MAPPING: Record<string, string> = {
   [AUTH.PUBLIC_KEY]: BACKEND_PATHS.AUTH.PUBLIC_KEY,
   [MFA.SEND]: BACKEND_PATHS.MFA.SEND,
   [MFA.VERIFY]: BACKEND_PATHS.MFA.VERIFY,
+  // 公告（固定路徑；含 path 參數者見 DYNAMIC_PATH_PATTERNS）
+  [ANNOUNCEMENTS.LIST]: BACKEND_PATHS.ANNOUNCEMENTS.LIST,
+  [ANNOUNCEMENTS.TYPES]: BACKEND_PATHS.ANNOUNCEMENTS.TYPES,
+  [ANNOUNCEMENTS.MANAGE_LIST]: BACKEND_PATHS.ANNOUNCEMENTS.MANAGE_LIST,
+  [ANNOUNCEMENTS.PREVIEW]: BACKEND_PATHS.ANNOUNCEMENTS.PREVIEW,
   [SECURITY.IP_WHITELIST_LIST]: BACKEND_PATHS.SECURITY.IP_WHITELIST_LIST,
   [SECURITY.IP_WHITELIST_CREATE]: BACKEND_PATHS.SECURITY.IP_WHITELIST_LIST,
   [USERS.LIST]: BACKEND_PATHS.USERS.LIST,
@@ -349,6 +367,30 @@ export const API_MAPPING: Record<string, string> = {
 
 // 動態參數路徑匹配規則
 export const DYNAMIC_PATH_PATTERNS = [
+  // ========== 公告相關路徑 ==========
+  // ⚠️ 順序關鍵：mapApiPath() 是 first match wins（遇 match 即 break）。
+  //    /manage/{id}/publish 與 /unpublish 必須宣告在 /manage/{id} 之前，
+  //    /types/{id} 必須在 /{id} 之前——寫反不會報錯，只會靜默送出錯誤路徑。
+  {
+    pattern: /^\/announcements\/manage\/(\d+)\/publish$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ANNOUNCEMENTS.MANAGE_PUBLISH(parseInt(matches[1], 10))
+  },
+  {
+    pattern: /^\/announcements\/manage\/(\d+)\/unpublish$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ANNOUNCEMENTS.MANAGE_UNPUBLISH(parseInt(matches[1], 10))
+  },
+  {
+    pattern: /^\/announcements\/manage\/(\d+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ANNOUNCEMENTS.MANAGE_DETAIL(parseInt(matches[1], 10))
+  },
+  {
+    pattern: /^\/announcements\/types\/(\d+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ANNOUNCEMENTS.TYPE_DETAIL(parseInt(matches[1], 10))
+  },
+  {
+    pattern: /^\/announcements\/(\d+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ANNOUNCEMENTS.DETAIL(parseInt(matches[1], 10))
+  },
   // ========== Security 相關路徑 ==========
   {
     // 匹配 IP 白名單更新路徑 /security/ip-whitelist/{id}
