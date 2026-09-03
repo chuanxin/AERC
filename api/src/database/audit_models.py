@@ -27,6 +27,10 @@ class AuditAction(str, Enum):
     EXPORT = "EXPORT"
     PASSWORD_CHANGE = "PASSWORD_CHANGE"
     ROLE_CHANGE = "ROLE_CHANGE"
+    # 040 新增：公告管理
+    DELETE = "DELETE"
+    PUBLISH = "PUBLISH"
+    UNPUBLISH = "UNPUBLISH"
 
 
 class AuditResult(str, Enum):

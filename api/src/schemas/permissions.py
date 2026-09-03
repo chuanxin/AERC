@@ -51,6 +51,8 @@ class ModuleName(str, Enum):
     DOWNLOADS = "downloads"            # 下載管理
     # 032 新增
     SECURITY = "security"              # IP 白名單管理、MFA 待驗證 OTP 查詢
+    # 040 新增
+    ANNOUNCEMENTS = "announcements"    # 公告（最新消息）管理
 
 
 class DepartmentFilterSchema(BaseModel):
@@ -101,6 +103,8 @@ class CustomModulePermissionsSchema(BaseModel):
     downloads: Optional[List[PermissionAction]] = Field(None, description="下載管理權限")
     # 032 新增（TD-013: 同步新增 ModuleName enum 值時，此處需同步新增欄位）
     security: Optional[List[PermissionAction]] = Field(None, description="IP 白名單管理、MFA 待驗證 OTP 查詢權限")
+    # 040 新增（TD-013: 同步新增 ModuleName enum 值時，此處需同步新增欄位）
+    announcements: Optional[List[PermissionAction]] = Field(None, description="公告（最新消息）管理權限")
 
     @field_validator('*', mode='before')
     @classmethod

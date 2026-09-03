@@ -1389,3 +1389,89 @@ class QualificationQuery(models.Model):
     class Meta:
         table = "qualification_queries"
         table_description = "重複案件查詢記錄表"
+
+
+# ─────────────────────────────────────────────────────────────
+# 040 公告（最新消息）系統化管理
+# ─────────────────────────────────────────────────────────────
+
+
+class AnnouncementStatus(str, Enum):
+    """公告狀態
+
+    生命週期：draft →(publish)→ published →(unpublish)→ archived
+    archived 可再次 publish 回到 published；任何狀態皆可被徹底刪除。
+    """
+
+    DRAFT = "draft"  # 草稿：不顯示於首頁與列表頁
+    PUBLISHED = "published"  # 已發布：一般使用者可見
+    ARCHIVED = "archived"  # 已下架：不再顯示，但保留 published_at
+
+
+class AnnouncementType(models.Model):
+    """公告類型（分類標籤，由具公告管理權限者維護）
+
+    刻意不設 sort_order：類型數量預期為個位數，一律依 id（建立順序）排列。
+    """
+
+    id = fields.IntField(pk=True)
+    name = fields.CharField(
+        max_length=20, unique=True, description="類型名稱（例：系統公告）"
+    )
+    color = fields.CharField(
+        max_length=30, description="列表標示顏色（Vuetify 色名或 hex）"
+    )
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    updated_at = fields.DatetimeField(auto_now=True, description="修改時間")
+
+    class Meta:
+        table = "announcement_types"
+        table_description = "公告類型"
+
+    def __str__(self):
+        return self.name
+
+
+class Announcement(models.Model):
+    """公告（最新消息）
+
+    內容只儲存作者輸入的 Markdown 原文；呈現用的 HTML 於讀取時渲染，不入庫。
+    """
+
+    id = fields.IntField(pk=True)
+    title = fields.CharField(max_length=200, description="標題（列表顯示）")
+    type = fields.ForeignKeyField(
+        "models.AnnouncementType",
+        related_name="announcements",
+        on_delete=fields.RESTRICT,
+        description="公告類型；RESTRICT 為「使用中的類型不可刪」的資料庫層保證",
+    )
+    content_markdown = fields.TextField(
+        null=True,
+        description="詳細內容的 Markdown 原文——唯一儲存形式，呈現用 HTML 於讀取時渲染",
+    )
+    publish_date = fields.DateField(description="發布日期（顯示與排序用；前端以民國年月日呈現）")
+    status = fields.CharEnumField(
+        AnnouncementStatus,
+        max_length=20,
+        default=AnnouncementStatus.DRAFT,
+        description="公告狀態",
+    )
+    is_pinned = fields.BooleanField(default=False, description="是否置頂")
+    created_by = fields.ForeignKeyField(
+        "models.Users",
+        related_name="created_announcements",
+        null=True,
+        on_delete=fields.SET_NULL,
+        description="建立者；SET_NULL 不用 CASCADE——刪帳號不得連帶抹掉其發過的公告",
+    )
+    published_at = fields.DatetimeField(null=True, description="實際發布時間")
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    updated_at = fields.DatetimeField(auto_now=True, description="修改時間")
+
+    class Meta:
+        table = "announcements"
+        table_description = "公告（最新消息）"
+
+    def __str__(self):
+        return self.title

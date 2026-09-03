@@ -26,7 +26,7 @@ import 'from src.routes import users, notes' must be after 'Tortoise.init_models
 why?
 https://stackoverflow.com/questions/65531387/tortoise-orm-for-python-no-returns-relations-of-entities-pyndantic-fastapi
 """
-from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops, user_management, permissions, leisure_farms, nlsc, auth_keys, mfa, security, health
+from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops, user_management, permissions, leisure_farms, nlsc, auth_keys, mfa, security, health, announcements
 
 # OpenAPI 端點預設關閉
 IS_PRODUCTION = os.getenv("AERC_ENV") == "production"
@@ -147,6 +147,7 @@ app.include_router(nlsc.router)
 app.include_router(auth_keys.router)
 app.include_router(mfa.router)
 app.include_router(security.router)
+app.include_router(announcements.router)
 app.include_router(health.router)
 
 

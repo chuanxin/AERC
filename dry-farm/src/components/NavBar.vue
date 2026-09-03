@@ -345,6 +345,13 @@
           permission: { module: 'security', action: 'view' }
         },
         {
+          title: '公告管理',
+          value: 'config-announcements',
+          to: { path: '/config/announcements' },
+          icon: 'mdi-bullhorn-outline',
+          permission: { module: 'announcements', action: 'view' }
+        },
+        {
           title: '帳號資訊',
           value: 'account-profile',
           to: { path: '/profile' },

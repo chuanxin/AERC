@@ -11,6 +11,7 @@ Created: 2025-12-08
 
 from typing import Optional, List, Set
 from src.schemas.permissions import (
+    CustomModulePermissionsSchema,
     PermissionMode,
     PermissionAction,
     ModuleName,
@@ -36,6 +37,8 @@ class PermissionService:
             ModuleName.DOWNLOADS: {PermissionAction.VIEW},
             # 032 新增：僅 admin 可管理 IP 白名單與查詢待驗證 OTP
             ModuleName.SECURITY: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT},
+            # 040 新增：僅 admin 可管理公告
+            ModuleName.ANNOUNCEMENTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE},
         },
         "manager": {
             # manager.GRANTS: VIEW + CREATE + EDIT + APPROVE + EXPORT（本辦管理者可建立及編輯本辦案件）
@@ -50,6 +53,7 @@ class PermissionService:
             ModuleName.MATERIALS: {PermissionAction.VIEW},
             ModuleName.DOWNLOADS: {PermissionAction.VIEW},
             ModuleName.SECURITY: set(),
+            ModuleName.ANNOUNCEMENTS: set(),
         },
         "staff": {
             # staff 權限與 manager 對齊，唯一差異：USERS 模組無權限
@@ -64,6 +68,7 @@ class PermissionService:
             ModuleName.MATERIALS: {PermissionAction.VIEW},
             ModuleName.DOWNLOADS: {PermissionAction.VIEW},
             ModuleName.SECURITY: set(),
+            ModuleName.ANNOUNCEMENTS: set(),
         },
         "user": {
             # user.GRANTS: VIEW + CREATE + EDIT + APPROVE
@@ -80,6 +85,7 @@ class PermissionService:
             ModuleName.MATERIALS: {PermissionAction.VIEW},
             ModuleName.DOWNLOADS: {PermissionAction.VIEW},
             ModuleName.SECURITY: set(),
+            ModuleName.ANNOUNCEMENTS: set(),
         },
     }
 
@@ -235,6 +241,8 @@ class PermissionService:
             module_permissions = custom.downloads
         elif module == ModuleName.SECURITY:
             module_permissions = custom.security
+        elif module == ModuleName.ANNOUNCEMENTS:
+            module_permissions = custom.announcements
 
         if module_permissions is None:
             return False, f"模組 '{module.value}' 無自訂權限"
@@ -292,6 +300,7 @@ class PermissionService:
                     "materials": [a.value for a in user_permissions.custom.materials] if user_permissions.custom.materials else [],
                     "downloads": [a.value for a in user_permissions.custom.downloads] if user_permissions.custom.downloads else [],
                     "security": [a.value for a in user_permissions.custom.security] if user_permissions.custom.security else [],
+                    "announcements": [a.value for a in user_permissions.custom.announcements] if user_permissions.custom.announcements else [],
                 }
         else:
             modules = {}
@@ -322,14 +331,17 @@ class PermissionService:
                 return False, "custom mode 必須提供 custom 設定"
 
             # 至少要有一個模組有權限
-            has_permission = any([
-                permissions.custom.grants,
-                permissions.custom.users,
-                permissions.custom.reports,
-                permissions.custom.gis,
-                permissions.custom.offices,
-                permissions.custom.settings,
-            ])
+            #
+            # TD-013 第六處（040 修正）：原為硬編碼的 6 個模組清單，
+            # 導致只授予 security / materials / downloads / batch_print /
+            # duplicate_check / announcements 任一者的合法設定會被回絕 400。
+            # 改為對 schema 欄位迭代後，此同步點永久消失——新增 ModuleName
+            # 時不需要再記得改這裡。此變更嚴格放寬：只會讓原本被誤拒的合法
+            # 設定通過，不會讓任何原本能通過的變成不通過。
+            has_permission = any(
+                getattr(permissions.custom, field_name, None)
+                for field_name in CustomModulePermissionsSchema.model_fields
+            )
 
             if not has_permission:
                 return False, "custom mode 至少要設定一個模組的權限"
