@@ -61,6 +61,10 @@ class AuthTokenType(str, Enum):
     PASSWORD_RESET = "password_reset"  # 密碼重設
     ACCOUNT_MIGRATION = "account_migration"  # 帳號轉移（舊系統使用者啟用）
     MFA_VERIFICATION = "mfa_verification"  # 登入第二因子驗證（IP 白名單外來源）
+    # 042：入口平台 SSO。token_type 欄位實測為 varchar(18)（現有最長成員
+    # email_verification 的長度），以下兩者各 11 字元可容納，不需要 migration。
+    SSO_HANDOFF = "sso_handoff"  # 一次性交接碼：把已驗證身分交給前端落地頁換取登入狀態
+    SSO_BINDING = "sso_binding"  # 綁定票據：憑證已驗證，尚待本人登入證明
 
 
 class AuthTokenStatus(str, Enum):
@@ -211,6 +215,57 @@ class UserRegistration(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.status.value}"
+
+
+class SsoBindMethod(str, Enum):
+    """入口身分對應關係的建立方式（042）"""
+
+    REGISTERED = "registered"  # 隨入口代建帳號一併建立（同一交易內）
+    SELF_BOUND = "self_bound"  # 使用者本人登入既有帳號完成綁定
+    ADMIN_REBOUND = "admin_rebound"  # 管理員改綁
+
+
+class SsoIdentity(models.Model):
+    """入口身分 ↔ AERC 帳號對應表（042）
+
+    登入落地解析的唯一入口：先查此表，查得到者進入帳號啟用狀態檢查，查不到者進入
+    首次綁定流程。
+
+    ⚠️ external_id 與 users.username 不保證相等——只有「入口代建」（registered）時
+    兩者相同；本人綁定與管理員改綁的 AERC 帳號是既有的，其登入帳號由當初建立時決定，
+    與入口識別各自獨立。因此本欄位的長度上限不綁 username 的 20 字元，64 是對入口
+    識別本身的保守上限。
+    """
+
+    id = fields.IntField(pk=True)
+    external_id = fields.CharField(
+        max_length=64, unique=True, description="入口平台的帳號識別"
+    )
+    user = fields.OneToOneField(
+        "models.Users",
+        related_name="sso_identity",
+        on_delete=fields.CASCADE,
+        description="對應的 AERC 帳號",
+    )
+    bound_method = fields.CharEnumField(SsoBindMethod, description="對應關係的建立方式")
+    bound_at = fields.DatetimeField(description="對應關係建立時間（UTC）")
+    bound_by = fields.ForeignKeyField(
+        "models.Users",
+        related_name="rebound_sso_identities",
+        null=True,
+        on_delete=fields.SET_NULL,
+        description="執行者，僅 admin_rebound 時有值",
+    )
+
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
+
+    class Meta:
+        table = "sso_identities"
+        table_description = "入口身分與 AERC 帳號對應表"
+
+    def __str__(self):
+        return f"{self.external_id} -> user_id={self.user_id}"
 
 
 class PasswordHistory(models.Model):

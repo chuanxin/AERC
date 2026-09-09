@@ -55,6 +55,10 @@ class EmailConfig:
     PASSWORD_RESET_EXPIRE_HOURS: int = int(os.getenv("PASSWORD_RESET_EXPIRE_HOURS", "1"))
     ACCOUNT_MIGRATION_EXPIRE_HOURS: int = int(os.getenv("ACCOUNT_MIGRATION_EXPIRE_HOURS", "168"))  # 7天
     MFA_VERIFICATION_EXPIRE_MINUTES: int = int(os.getenv("MFA_VERIFICATION_EXPIRE_MINUTES", "10"))
+    # 042 入口平台 SSO：交接碼與綁定票據不經由 email 寄送，但沿用 auth_tokens 的
+    # 一次性／過期／撤銷語意，故效期常數與其他 token type 放在一起，避免分散兩處。
+    SSO_HANDOFF_EXPIRE_SECONDS: int = 60
+    SSO_BINDING_EXPIRE_MINUTES: int = 10
 
     @classmethod
     def get_connection_config(cls) -> ConnectionConfig:
@@ -161,14 +165,29 @@ class EmailService:
         ).update(status=AuthTokenStatus.REVOKED)
 
         # 計算過期時間（使用 timezone-aware datetime, UTC；各型別時間單位不同，各自獨立計算，不共用中介變數）
+        #
+        # ⚠️ 每個 token type 都必須有自己的分支，末端的 else 一律拋例外。
+        # 042 之前這裡的末端是 `else:  # PASSWORD_RESET`，任何新增的 token type 會**靜默**
+        # 落入密碼重設的小時級效期——一個本該 60 秒失效的交接碼會存活數小時，不報錯、
+        # 測試也不會紅。這是典型的隱式錯誤，改為顯式分支 + 末端拋例外即可從結構上消除。
         if token_type == AuthTokenType.EMAIL_VERIFICATION:
             expires_at = datetime.now(timezone.utc) + timedelta(hours=EmailConfig.EMAIL_VERIFICATION_EXPIRE_HOURS)
         elif token_type == AuthTokenType.ACCOUNT_MIGRATION:
             expires_at = datetime.now(timezone.utc) + timedelta(hours=EmailConfig.ACCOUNT_MIGRATION_EXPIRE_HOURS)
         elif token_type == AuthTokenType.MFA_VERIFICATION:
             expires_at = datetime.now(timezone.utc) + timedelta(minutes=EmailConfig.MFA_VERIFICATION_EXPIRE_MINUTES)
-        else:  # PASSWORD_RESET
+        elif token_type == AuthTokenType.PASSWORD_RESET:
             expires_at = datetime.now(timezone.utc) + timedelta(hours=EmailConfig.PASSWORD_RESET_EXPIRE_HOURS)
+        elif token_type == AuthTokenType.SSO_HANDOFF:
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=EmailConfig.SSO_HANDOFF_EXPIRE_SECONDS)
+        elif token_type == AuthTokenType.SSO_BINDING:
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=EmailConfig.SSO_BINDING_EXPIRE_MINUTES)
+        else:
+            raise ValueError(
+                f"未知的 AuthTokenType: {token_type!r}。新增 token type 時必須在此加入對應的"
+                "效期分支——沒有預設效期，因為猜錯的效期不會報錯，只會靜默地讓憑據存活"
+                "遠超過設計時間。"
+            )
 
         # 生成 OTP（密碼重設和帳號轉移建立當下就產生；MFA_VERIFICATION 延遲到使用者觸發「發送驗證碼」才產生，見 generate_and_store_otp）
         generate_otp_now = token_type in (AuthTokenType.PASSWORD_RESET, AuthTokenType.ACCOUNT_MIGRATION)
