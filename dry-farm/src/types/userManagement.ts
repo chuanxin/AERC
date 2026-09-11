@@ -31,6 +31,8 @@ export interface UserListItem {
   email_verified?: boolean
   role?: string
   permissions?: UserPermissions
+  /** 權限設定是否已偏離角色預設。由後端 permission_service 判定，前端不重算 */
+  permissions_deviated?: boolean
   office?: SimpleOffice
   created_at?: string
   last_login?: string

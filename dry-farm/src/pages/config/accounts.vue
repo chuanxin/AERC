@@ -257,6 +257,20 @@
                       >
                         {{ item.role || '一般使用者' }}
                       </v-chip>
+                      <v-icon
+                        v-if="item.permissions_deviated"
+                        icon="mdi-shield-alert-outline"
+                        size="small"
+                        color="warning"
+                        class="ml-1"
+                      >
+                        <v-tooltip
+                          activator="parent"
+                          location="top"
+                        >
+                          此帳號的權限已調整，與角色預設不同
+                        </v-tooltip>
+                      </v-icon>
                     </template>
 
                     <!-- 管理處欄位 -->
