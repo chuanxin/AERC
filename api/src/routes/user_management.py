@@ -13,9 +13,9 @@ Updated: 2026-06-26 (030-account-approval-flow: role check, approval logic, audi
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import NoReturn, Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from tortoise.exceptions import DoesNotExist
 from tortoise.transactions import in_transaction
 
@@ -48,7 +48,7 @@ from src.schemas.users import (
 )
 from src.services.audit_service import audit_service
 from src.services.email_service import EmailConfig, EmailService
-from src.services.permission_service import permission_service
+from src.services.permission_service import effective_permission_key, permission_service
 
 RESEND_VERIFICATION_COOLDOWN_SECONDS = 60
 
@@ -134,6 +134,11 @@ async def list_users(
             "email_verified": user.email_verified,
             "role": user.role,
             "permissions": user.permissions,
+            # 041 FR-016：判定規則放在 permission_service（權限規則單一歸屬），
+            # 不讓前端依 mode 重新實作一份——那會重蹈 TD-014 的雙維護病灶。
+            "permissions_deviated": permission_service.is_deviated_from_role_default(
+                user.permissions
+            ),
             "office": {
                 "id": user.office.id,
                 "name": user.office.name,
@@ -280,37 +285,128 @@ async def get_user(
     "/{user_id}/permissions",
     response_model=UserPermissionsResponse,
     summary="更新使用者權限",
-    description="更新指定使用者的權限設定（需 admin 角色）",
-    dependencies=[Depends(require_permission(ModuleName.USERS, PermissionAction.EDIT))],
+    description="更新指定使用者的權限設定（僅系統管理員，且不得調整自己）",
 )
 async def update_user_permissions(
     user_id: int,
     request: UpdateUserPermissionsRequest,
+    http_request: Request,
     current_user: UserInfoSchema = Depends(require_full_auth)
 ):
+    """調整他人的權限設定。
+
+    授權以**角色**判定而非 module.action，這是刻意偏離專案慣例：本端點保護的
+    對象就是權限設定本身，用權限來判定「誰有資格改權限」是循環依賴（FR-001a）。
+    此例外僅適用於此——同檔其他端點保護的是角色、啟用狀態、驗證信，皆不循環，
+    維持 `require_permission` 慣例並與前端 roleGuard 對齊。
+
+    原本掛在路由上的 `require_permission(USERS, EDIT)` 已移除：manager 本來就
+    具備 `users.edit`（33 個帳號全部通得過），而 dependency 層的拒絕不經過
+    handler、**留不下稽核紀錄**，直接違反 FR-012。handler 內的 `role == "admin"`
+    嚴格強於 `users.edit`，移除後沒有任何原本會被擋下的呼叫變成放行。
+
+    注意：body model 佔用了 `request` 這個名字，Starlette 的 Request 另以
+    `http_request` 取得（FastAPI 依型別註解解析，參數名不影響注入），稽核所需的
+    來源 IP／UA 才有來源——TD-012c 記載的三處既有缺漏全是缺了這個參數。
+    """
+
+    def _audit_common() -> dict:
+        """成功與拒絕兩條路徑共用的十個固定欄位。
+
+        集中一處，漏欄不可能發生。`audit_service.log()` 所有參數都有預設值，
+        漏傳不報錯、型別檢查也抓不到——那正是 TD-012c 的病灶。
+        """
+        return {
+            "event_type": AuditEventType.ACCOUNT,
+            "action": AuditAction.UPDATE,
+            "actor_id": current_user.id,
+            "actor_username": current_user.username,
+            "actor_role": current_user.role,
+            "resource_type": "user",
+            "resource_id": str(user_id),
+            "ip_address": http_request.headers.get("X-Real-IP", ""),
+            "user_agent": http_request.headers.get("user-agent", ""),
+            "endpoint": str(http_request.url.path),
+        }
+
+    async def _deny(status_code: int, detail: str, reason: str) -> NoReturn:
+        """寫稽核後拒絕。稽核必然先於 raise，順序由結構保證。
+
+        FR-012 真正的失敗模式是「raise 寫在稽核之前，紀錄永遠寫不出來」；
+        綁在同一個函數裡，這個順序錯誤在結構上無法發生。
+
+        `detail` 給使用者看（403 一律「無此操作權限」，不洩漏目標資訊），
+        `reason` 給查核者看（區分被拒的實際原因），兩者刻意不共用。
+        """
+        await audit_service.log(
+            **_audit_common(),
+            result=AuditResult.FAILURE,
+            failure_reason=reason,
+        )
+        raise AppError(status_code, detail)
+
+    # 步驟 1／2 皆不查詢目標帳號——非 admin 無論帶哪個 user_id 都得到同一個 403，
+    # 無法作為存在性探針（FR-005）。
+    if current_user.role != "admin":
+        await _deny(403, "無此操作權限", "不具系統管理員角色")
+
+    if user_id == current_user.id:
+        await _deny(403, "無法調整自己的權限", "嘗試調整自身權限")
 
     valid, error_msg = permission_service.validate_permissions_structure(request.permissions)
     if not valid:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"權限設定不合法: {error_msg}"
+        await _deny(400, f"權限設定不合法：{error_msg}", "權限結構不合法")
+
+    # 步驟 4：授出的權限必須在系統實際會檢查的範圍內。逐項列出超出者，
+    # 不是回一句「權限不足」——設定者才不必逐次試錯（FR-010）。
+    within, exceeded = permission_service.validate_within_admin_ceiling(request.permissions)
+    if not within:
+        await _deny(
+            400,
+            f"下列權限超出可授出範圍：{'、'.join(exceeded)}",
+            "權限超出上限",
         )
 
-    try:
-        user = await Users.get(id=user_id)
-        user.permissions = request.permissions.model_dump(exclude_none=True)
-        await user.save()
+    # 步驟 5：載入目標帳號。排在所有拒絕分支之後是 FR-005 的實作根據，
+    # 也滿足 FR-006（把關必須在寫入之前完成）。
+    user = await Users.filter(id=user_id).first()
+    if user is None:
+        await _deny(404, f"使用者 ID {user_id} 不存在", "目標帳號不存在")
 
-        return UserPermissionsResponse(
-            user_id=user.id,
-            username=user.username,
-            full_name=data_encryption_service.decrypt(user.full_name),
-            role=user.role,
-            permissions=UserPermissionsSchema(**user.permissions) if user.permissions else None,
-            updated_at=datetime.now(timezone.utc).isoformat()
-        )
-    except DoesNotExist:
-        raise AppError(404, f"使用者 ID {user_id} 不存在")
+    old_permissions = user.permissions
+    new_permissions = request.permissions.model_dump(exclude_none=True)
+
+    user.permissions = new_permissions
+    await user.save()
+
+    # before／after 原樣記錄，不正規化——查核者要看到真實提交內容。
+    # no_change 則以「解析後的有效設定」比較：現況 191 筆全為 NULL，
+    # 對其提交「沿用角色預設」逐字不等但效果相同，逐字比較會漏掉這個
+    # 必經的第一次提交（FR-015）。
+    await audit_service.log(
+        **_audit_common(),
+        result=AuditResult.SUCCESS,
+        target_username=user.username,
+        changed_fields={
+            "permissions": {"before": old_permissions, "after": new_permissions},
+            "no_change": (
+                effective_permission_key(old_permissions)
+                == effective_permission_key(new_permissions)
+            ),
+            # schema 把 reason 標為「變更原因（審計用）」，寫了稽核卻不收它，
+            # 等於契約自己說謊。JSONB 無長度上限，Pydantic 已限 500 字。
+            "reason": request.reason,
+        },
+    )
+
+    return UserPermissionsResponse(
+        user_id=user.id,
+        username=user.username,
+        full_name=data_encryption_service.decrypt(user.full_name),
+        role=user.role,
+        permissions=UserPermissionsSchema(**user.permissions) if user.permissions else None,
+        updated_at=datetime.now(timezone.utc).isoformat()
+    )
 
 
 @router.patch(
