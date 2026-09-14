@@ -31,6 +31,9 @@ class AuditAction(str, Enum):
     DELETE = "DELETE"
     PUBLISH = "PUBLISH"
     UNPUBLISH = "UNPUBLISH"
+    # 042 新增：入口平台身分綁定（action 欄位為 CharField(max_length=30)，無需 migration）
+    BIND = "BIND"
+    REBIND = "REBIND"
 
 
 class AuditResult(str, Enum):

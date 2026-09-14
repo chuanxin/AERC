@@ -143,7 +143,8 @@ class EmailService:
         user: Users,
         token_type: AuthTokenType,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
+        external_id: Optional[str] = None,
     ) -> AuthToken:
         """
         建立認證 Token
@@ -203,7 +204,9 @@ class EmailService:
             status=AuthTokenStatus.PENDING,
             expires_at=expires_at,
             ip_address=ip_address,
-            user_agent=user_agent
+            user_agent=user_agent,
+            # 042：僅 SSO_BINDING 帶值（見 AuthToken.external_id），其餘類型為 None
+            external_id=external_id,
         )
 
         return auth_token

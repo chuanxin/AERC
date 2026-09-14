@@ -51,6 +51,33 @@ export interface UserDetail extends UserListItem {
 }
 
 /**
+ * 入口身分綁定的建立方式（042-portal-sso-integration）
+ * 顯示時一律轉為中文，不直接呈現代碼
+ */
+export type SsoBindMethod = 'registered' | 'self_bound' | 'admin_rebound'
+
+/**
+ * 帳號目前的入口身分綁定；未綁定時各欄位為 null
+ */
+export interface SsoIdentityInfo {
+  user_id: number
+  external_id: string | null
+  bound_method: SsoBindMethod | null
+  bound_at: string | null
+  bound_by_username: string | null
+}
+
+/**
+ * 入口身分改綁回應
+ */
+export interface SsoRebindResponse {
+  success: boolean
+  external_id: string
+  user_id: number
+  previous_user_id: number | null
+}
+
+/**
  * 使用者列表回應
  */
 export interface UserListResponse {

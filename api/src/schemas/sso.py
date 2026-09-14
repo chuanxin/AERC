@@ -137,3 +137,23 @@ class AccountStatus:
     ACTIVE = 1        # 已啟用
     DISABLED = 2      # 停用中
     NOT_FOUND = 3     # 無此使用者資訊
+
+
+# ---------------------------------------------------------------------------
+# 管理端：入口身分改綁（US4，僅系統管理員）
+# ---------------------------------------------------------------------------
+
+class SsoRebindRequest(BaseModel):
+    """改綁請求。僅一個整數欄位，不涉及字串長度對齊。"""
+
+    user_id: int = Field(..., ge=1, description="要綁定的 AERC 帳號 id")
+
+
+class SsoExchangeRequest(BaseModel):
+    """交接碼換取登入狀態（POST /sso/exchange）。長度對齊 AuthToken.token 的 CharField(128)。"""
+    code: str = Field(..., min_length=1, max_length=128)
+
+
+class SsoBindRequest(BaseModel):
+    """完成首次綁定（POST /sso/bind）。長度對齊 AuthToken.token 的 CharField(128)。"""
+    ticket: str = Field(..., min_length=1, max_length=128)

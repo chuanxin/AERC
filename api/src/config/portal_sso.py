@@ -24,6 +24,8 @@ import logging
 import os
 import re
 
+from src.auth.nonce import NONCE_RETENTION_SECONDS
+
 logger = logging.getLogger(__name__)
 
 # 64 個十六進位字元 —— 十六進位解碼後恰為 AES-256 所需的 32 位元組
@@ -38,6 +40,25 @@ _DEFAULT_ISSUER = "IAMA-PortalWebsite"
 # 客戶文件的措辭是「exp：Unix Timestamp **預設** 5 分鐘過期」——預設，不是強制值。
 # 因此上限設為可設定：入口日後若調整時效，AERC 應以設定變更因應，而不是改程式。
 _DEFAULT_MAX_TOKEN_AGE_SECONDS = 300
+
+
+def is_valid_secret_form(secret: str) -> bool:
+    """共用金鑰形式是否合法（FR-006a）。啟動驗證與互通測試夾具共用此判準。"""
+    return bool(_SECRET_PATTERN.match(secret or ""))
+
+
+def signing_key_from(secret: str) -> bytes:
+    """簽章金鑰：十六進位字串本身的 UTF-8 位元組（64 bytes）。
+
+    注意這裡刻意**不做**十六進位解碼——參考實作在此處用的是 Encoding.UTF8.GetBytes()，
+    與解密端的取法不同。兩處統一採用其中一種，必有一處對不起來。
+    """
+    return secret.encode("utf-8")
+
+
+def encryption_key_from(secret: str) -> bytes:
+    """解密金鑰：十六進位解碼後的 32 位元組（AES-256）。形式不合時拋 binascii.Error。"""
+    return binascii.unhexlify(secret)
 
 
 def _split_csv(raw: str) -> frozenset:
@@ -87,25 +108,30 @@ class PortalSsoSettings:
 
     @property
     def signing_key(self) -> bytes:
-        """簽章金鑰：十六進位字串本身的 UTF-8 位元組（64 bytes）。
-
-        注意這裡刻意**不做**十六進位解碼——參考實作在此處用的是
-        Encoding.UTF8.GetBytes()，與解密端的取法不同。兩處統一採用其中一種，
-        必有一處對不起來。
-        """
+        """簽章金鑰，取法見 signing_key_from()。"""
         if self.secret is None:
             raise RuntimeError("PORTAL_SSO_SECRET 未設定")
-        return self.secret.encode("utf-8")
+        return signing_key_from(self.secret)
 
     @property
     def encryption_key(self) -> bytes:
-        """解密金鑰：十六進位解碼後的 32 位元組（AES-256）。"""
+        """解密金鑰，取法見 encryption_key_from()。"""
         if self.secret is None:
             raise RuntimeError("PORTAL_SSO_SECRET 未設定")
-        return binascii.unhexlify(self.secret)
+        return encryption_key_from(self.secret)
 
     def validate(self) -> None:
         """啟動時的形式驗證（FR-006a）。設定錯誤即拋出例外，不讓應用帶病啟動。"""
+        # 一次性檢查（FR-007）重用 auth_nonces，其保證只在「nonce 保存期 ≥ 憑證時效上限」時
+        # 成立：否則 nonce 先被清掉、憑證仍在時效內，同一顆憑證可再用一次，且不留痕跡。
+        # 此項與金鑰是否設定無關，一律檢查。
+        if self.max_token_age_seconds > NONCE_RETENTION_SECONDS:
+            raise RuntimeError(
+                f"PORTAL_SSO_MAX_TOKEN_AGE_SECONDS（{self.max_token_age_seconds}）不得超過 "
+                f"防重放 nonce 保存期（{NONCE_RETENTION_SECONDS} 秒，auth/nonce.py）——"
+                "超過時憑證在 nonce 清除後仍在時效內，一次性保證會無聲失效"
+            )
+
         if self.secret is None:
             logger.warning(
                 "PORTAL_SSO_SECRET 未設定，智慧灌溉入口平台 SSO 整合尚未啟用；"
@@ -113,7 +139,7 @@ class PortalSsoSettings:
             )
             return
 
-        if not _SECRET_PATTERN.match(self.secret):
+        if not is_valid_secret_form(self.secret):
             raise RuntimeError(
                 "PORTAL_SSO_SECRET 形式不正確：必須恰為 64 個十六進位字元（實際長度 "
                 f"{len(self.secret)}）。內容解密需要 32 位元組的 AES 金鑰，而在「金鑰不做"
@@ -132,6 +158,28 @@ class PortalSsoSettings:
 
 
 portal_sso_settings = PortalSsoSettings()
+
+
+class TokenLoginQueryRedactFilter(logging.Filter):
+    """把 uvicorn 存取紀錄中含 authToken 的查詢字串遮蔽（FR-009）。
+
+    GET /TokenLogin 把憑證放在查詢參數，uvicorn 預設的存取紀錄會原樣寫出整行網址。
+    判準看**查詢字串是否含 authToken**，不看路徑——路由大小寫敏感，/tokenlogin 會 404，
+    但那一行存取紀錄照樣帶著憑證，只比對路徑會漏掉。
+
+    ⚠️ 只涵蓋應用程式本身的存取紀錄。反向代理（Caddy）的存取紀錄須在部署端另行設定，
+    見 contracts/frontend-and-routing.md 3.3 第 3 項。
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        # uvicorn.access 的 args 形狀：(client_addr, method, full_path, http_version, status_code)
+        if not (isinstance(args, tuple) and len(args) == 5 and isinstance(args[2], str)):
+            return True
+        path, _, query = args[2].partition("?")
+        if "authtoken" in query.lower():
+            record.args = (args[0], args[1], f"{path}?[redacted]", args[3], args[4])
+        return True
 
 
 def verify_configuration() -> None:

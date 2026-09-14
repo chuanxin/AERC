@@ -26,7 +26,7 @@ import 'from src.routes import users, notes' must be after 'Tortoise.init_models
 why?
 https://stackoverflow.com/questions/65531387/tortoise-orm-for-python-no-returns-relations-of-entities-pyndantic-fastapi
 """
-from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops, user_management, permissions, leisure_farms, nlsc, auth_keys, mfa, security, health, announcements, portal_sso
+from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops, user_management, permissions, leisure_farms, nlsc, auth_keys, mfa, security, health, announcements, portal_sso, sso
 
 # OpenAPI 端點預設關閉
 IS_PRODUCTION = os.getenv("AERC_ENV") == "production"
@@ -154,6 +154,13 @@ app.include_router(health.router)
 # 新增三條路由轉送，且不得被 SPA 的 history fallback 吞掉（見部署驗收）。
 # 此 router 有自己的 route_class，錯誤回應格式與全站相反，刻意獨立成檔。
 app.include_router(portal_sso.router, tags=["Portal SSO"])
+# 042 US3：登入落地（/TokenLogin，302／400 純文字，不套信封）與前端呼叫的 /sso/exchange、/sso/bind
+app.include_router(portal_sso.token_login_router, tags=["Portal SSO"])
+app.include_router(sso.router)
+
+# 042（FR-009）：GET /TokenLogin 的憑證在查詢字串中，uvicorn 存取紀錄預設會原樣寫出
+from src.config.portal_sso import TokenLoginQueryRedactFilter  # noqa: E402
+logging.getLogger("uvicorn.access").addFilter(TokenLoginQueryRedactFilter())
 
 
 register_tortoise(app, config=TORTOISE_ORM, generate_schemas=False)

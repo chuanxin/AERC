@@ -90,6 +90,12 @@ class AuthToken(models.Model):
     status = fields.CharEnumField(
         AuthTokenStatus, default=AuthTokenStatus.PENDING, description="Token 狀態"
     )
+    # 042：綁定票據核發當下已由憑證驗證確立的入口身分。綁定端點據此建立對應關係——
+    # user 欄位只記得「要綁到哪個帳號」，沒有這一欄就不知道「要綁哪個入口身分」。
+    # 其他 token 類型不使用，一律為 NULL（migration 79）。
+    external_id = fields.CharField(
+        max_length=64, null=True, description="入口平台帳號識別（僅 sso_binding 使用）"
+    )
 
     # OTP 驗證（用於密碼重設）
     otp = fields.CharField(

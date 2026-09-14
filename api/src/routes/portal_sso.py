@@ -1,6 +1,6 @@
 """智慧灌溉入口平台呼叫的三支對外 API（042）
 
-    GET/POST /TokenLogin    登入落地
+    GET/POST /TokenLogin    登入落地（token_login_router，不套信封）
     POST     /Register      帳號建立
     POST     /QueryStatus   狀態查詢
 
@@ -20,16 +20,20 @@
 """
 
 import logging
+from typing import Optional
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.routing import APIRoute
 
 from src.auth.client_ip import get_client_ip
 from src.config.portal_sso import portal_sso_settings
 from src.crud import sso as crud_sso
 from src.schemas.sso import QueryStatusRequest, RegisterRequest, envelope
+from src.services import portal_token
+from src.services.email_service import EmailConfig
 
 logger = logging.getLogger(__name__)
 
@@ -156,3 +160,60 @@ async def query_status(payload: QueryStatusRequest, request: Request) -> JSONRes
         endpoint=str(request.url.path),
     )
     return JSONResponse(status_code=200, content=envelope(200, True, results))
+
+
+# ---------------------------------------------------------------------------
+# 登入落地（US3）
+#
+# 客戶契約對 TokenLogin 定義的是 302 導向或 400 純文字，**不是信封**，因此掛在另一個不帶
+# PortalEnvelopeRoute 的 router——否則未預期例外會被包成 JSON 信封丟到使用者的瀏覽器上。
+# 也不做來源驗證：請求者是使用者瀏覽器的頂層導覽，不是入口平台伺服器；憑證本身即為憑據。
+# ---------------------------------------------------------------------------
+
+token_login_router = APIRouter()
+
+_TOKEN_REJECTED_MESSAGE = "驗證失敗：Token 無效或已過期"
+# 回應含一次性交接碼／綁定票據（導向網址）或憑證驗證結果，不得被任何中間層快取
+_NO_STORE = {"Cache-Control": "no-store"}
+
+
+async def _read_auth_token(request: Request) -> Optional[str]:
+    """GET 取查詢參數；POST 取表單欄位，缺漏時退回查詢參數（FR-005，兩者行為一致）。"""
+    value = request.query_params.get("authToken")
+    if request.method == "POST":
+        value = (await request.form()).get("authToken") or value
+    return value if isinstance(value, str) else None
+
+
+@token_login_router.api_route("/TokenLogin", methods=["GET", "POST"])
+async def token_login(request: Request) -> Response:
+    """入口平台登入落地。
+
+    憑證無效一律 400 且同一句話（不透露失敗步驟）；帳號狀態類結果以 302 導向前端落地頁
+    呈現可讀說明（FR-011）。存取紀錄的查詢字串遮蔽見 config/portal_sso.py（FR-009）。
+    """
+    request_ip = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "")
+    endpoint = str(request.url.path)
+    token = await _read_auth_token(request)
+
+    try:
+        claims = await portal_token.verify_portal_token(token)
+    except portal_token.PortalTokenError as exc:
+        token_ref = portal_token.token_reference(token)
+        # 診斷日誌記錄失敗步驟（尤其發行者不符，research.md R2），對外回應不透露
+        logger.warning(
+            "入口憑證驗證未通過 step=%s detail=%s token_ref=%s ip=%s",
+            exc.step, exc.detail, token_ref, request_ip,
+        )
+        await crud_sso.log_token_login_rejection(
+            token_ref, request_ip=request_ip, user_agent=user_agent, endpoint=endpoint,
+        )
+        return PlainTextResponse(_TOKEN_REJECTED_MESSAGE, status_code=400, headers=_NO_STORE)
+
+    query = await crud_sso.resolve_token_login(
+        claims, request_ip=request_ip, user_agent=user_agent, endpoint=endpoint,
+    )
+    return RedirectResponse(
+        f"{EmailConfig.FRONTEND_URL}/sso?{urlencode(query)}", status_code=302, headers=_NO_STORE,
+    )

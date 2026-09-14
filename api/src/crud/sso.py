@@ -13,6 +13,7 @@
 """
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -22,6 +23,9 @@ from tortoise.transactions import in_transaction
 from src.database.audit_models import AuditAction, AuditEventType, AuditResult
 from src.database.geo_models import OfficeBoundaries
 from src.database.models import (
+    AuthToken,
+    AuthTokenStatus,
+    AuthTokenType,
     Offices,
     RegistrationStatus,
     SsoBindMethod,
@@ -33,6 +37,8 @@ from src.exceptions import AppError
 from src.schemas.sso import AccountStatus, ApplyStatus
 from src.services.audit_service import audit_service
 from src.services.data_encryption import data_encryption_service
+from src.services.email_service import EmailService
+from src.services.portal_token import PortalClaims
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +95,8 @@ async def log_portal_event(
     external_id: Optional[str] = None,
     failure_reason: Optional[str] = None,
     extra_fields: Optional[dict] = None,
+    actor: Optional[Any] = None,
+    target_username: Optional[str] = None,
 ) -> None:
     """入口平台相關事件的稽核寫入（FR-039、FR-040）。
 
@@ -108,6 +116,11 @@ async def log_portal_event(
         event_type=event_type,
         action=action,
         result=result,
+        # actor 可為 Users 或 UserInfoSchema，兩者皆有 id／username／role
+        actor_id=actor.id if actor else None,
+        actor_username=actor.username if actor else None,
+        actor_role=actor.role if actor else None,
+        target_username=target_username,
         resource_type=resource_type,
         resource_id=resource_id,
         ip_address=request_ip,
@@ -261,6 +274,19 @@ async def _create_account_with_identity(item, office_id: int, department: Option
     return user
 
 
+async def _identity_conflict(account: Optional[str], user_id: Optional[int]) -> Optional[str]:
+    """`sso_identities` 兩個 unique 約束的**逐一實際查詢**，回傳衝突說明或 None。
+
+    帳號建立的 IntegrityError 歸因、首次綁定的預檢與 IntegrityError 歸因共用此判準，
+    使同一種衝突在所有路徑上都是同一句話。
+    """
+    if account and await SsoIdentity.filter(external_id=account).exists():
+        return "此入口帳號識別已綁定其他 AERC 帳號"
+    if user_id is not None and await SsoIdentity.filter(user_id=user_id).exists():
+        return "此 AERC 帳號已被其他入口身分綁定"
+    return None
+
+
 async def _attribute_identity_integrity_error(
     account: str, user_id: Optional[int], exc: IntegrityError
 ) -> str:
@@ -270,10 +296,9 @@ async def _attribute_identity_integrity_error(
     刪除法誤判為「此電子郵件已被使用」，真因是 PK 序列落後，與 email 完全無關）。
     兩個候選都不衝突時誠實回報未知，並把原始例外寫進日誌供追查。
     """
-    if await SsoIdentity.filter(external_id=account).exists():
-        return "此入口帳號識別已綁定其他 AERC 帳號"
-    if user_id is not None and await SsoIdentity.filter(user_id=user_id).exists():
-        return "此 AERC 帳號已被其他入口身分綁定"
+    message = await _identity_conflict(account, user_id)
+    if message:
+        return message
     logger.error("sso_identities 寫入 IntegrityError 無法歸因 account=%s: %s", account, exc)
     raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(exc))
 
@@ -421,6 +446,19 @@ async def _log_register_result(
 # 狀態查詢
 # ---------------------------------------------------------------------------
 
+async def find_users_by_email(normalized_email: str) -> List[Users]:
+    """以正規化後的電子郵件比對帳號（FR-031）。狀態查詢與登入落地共用同一判準。
+
+    users 全表僅數百筆，正規化比對的全表掃描成本可忽略；不為此建函數索引。
+    """
+    if not normalized_email:
+        return []
+    return [
+        user for user in await Users.all().only("id", "username", "email", "is_active", "password", "role")
+        if normalize_email(user.email) == normalized_email
+    ]
+
+
 async def _query_single_status(index: int, item) -> Tuple[dict, Optional[str]]:
     """回傳 (逐筆結果, 告警訊息)。
 
@@ -441,11 +479,7 @@ async def _query_single_status(index: int, item) -> Tuple[dict, Optional[str]]:
     if not email:
         return not_found, None
 
-    # users 全表僅數百筆，正規化比對的全表掃描成本可忽略；不為此建函數索引。
-    candidates = [
-        user for user in await Users.all().only("id", "username", "email", "is_active")
-        if normalize_email(user.email) == email
-    ]
+    candidates = await find_users_by_email(email)
 
     if not candidates:
         return not_found, None
@@ -491,3 +525,273 @@ async def query_account_status(
                 failure_reason=warning,
             )
     return results
+
+
+# ---------------------------------------------------------------------------
+# 登入落地、交接碼交換、首次綁定（US3）
+#
+# 稽核一律寫在交易之外：audit_service 在交易內寫入時會加入同一個交易，拒絕路徑一旦
+# raise，稽核紀錄會跟著被回滾——「有人嘗試但被擋下」正是最不能遺失的紀錄（FR-039）。
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class _LandingOutcome:
+    """登入落地的分流結果，對應 contracts/external-portal-api.md 1.3 第 1–7 列。"""
+    query: Dict[str, str]                  # 導向前端落地頁 /sso 的查詢參數
+    failure_reason: Optional[str] = None   # None 即分流 1（發出交接碼，可進入）
+    user: Optional[Users] = None
+
+
+async def _issue_token(
+    user: Users, token_type: AuthTokenType, request_ip: str, user_agent: str,
+    external_id: Optional[str] = None,
+) -> str:
+    # auth_tokens.ip_address／user_agent 為 CharField(45)／(255)，超長會在 ORM 層冒成 500
+    auth_token = await EmailService().create_auth_token(
+        user=user,
+        token_type=token_type,
+        ip_address=(request_ip or "")[:45] or None,
+        user_agent=(user_agent or "")[:255] or None,
+        external_id=external_id,
+    )
+    return auth_token.token
+
+
+async def _land_unbound_candidate(
+    user: Users, claims: PortalClaims, request_ip: str, user_agent: str
+) -> _LandingOutcome:
+    """查無對應關係、電子郵件唯一命中時的分流（第 5–7 列）。
+
+    ⚠️ 核發綁定票據的條件是三項缺一不可：唯一命中（呼叫端已保證）+ 啟用 + 已設定密碼。
+    綁定的下一步是「本人以帳號密碼登入」，未啟用或無密碼的帳號都做不到——只檢查其中一項，
+    使用者會拿到一張兌現不了的票據，卡在「請以原帳密登入」這個他做不到的指示上（FR-017）。
+    """
+    if not user.is_active:
+        return _LandingOutcome({"reason": "account_inactive"}, "候選帳號未啟用，未核發票據", user)
+    if not user.password:
+        return _LandingOutcome({"reason": "password_setup_required"}, "候選帳號未設定密碼，未核發票據", user)
+    ticket = await _issue_token(user, AuthTokenType.SSO_BINDING, request_ip, user_agent, claims.external_id)
+    return _LandingOutcome({"bind": ticket}, "尚未綁定，已核發綁定票據", user)
+
+
+async def _resolve_landing(claims: PortalClaims, request_ip: str, user_agent: str) -> _LandingOutcome:
+    """先查對應關係，查得到者進入啟用狀態閘門，查不到者走首次綁定（FR-015）。
+
+    「查得到」**不等於**放行：入口代建的帳號在審核前就有對應關係，但尚未啟用（FR-012）。
+    """
+    identity = await SsoIdentity.filter(external_id=claims.external_id).prefetch_related("user").first()
+    if identity is not None:
+        if not identity.user.is_active:
+            return _LandingOutcome({"reason": "account_inactive"}, "帳號未啟用", identity.user)
+        code = await _issue_token(identity.user, AuthTokenType.SSO_HANDOFF, request_ip, user_agent)
+        return _LandingOutcome({"code": code}, None, identity.user)
+
+    candidates = await find_users_by_email(normalize_email(claims.email))
+    if not candidates:
+        return _LandingOutcome({"reason": "no_account"}, "電子郵件查無帳號")
+    if len(candidates) > 1:
+        # 不得與 no_account 合併：使用者確實有帳號，導去申請會造成重複帳號
+        logger.warning(
+            "登入落地資料品質告警：電子郵件命中 %d 筆帳號 external_id=%s",
+            len(candidates), claims.external_id,
+        )
+        return _LandingOutcome({"reason": "ambiguous_account"}, "電子郵件命中多筆，無法唯一辨識")
+    return await _land_unbound_candidate(candidates[0], claims, request_ip, user_agent)
+
+
+async def resolve_token_login(
+    claims: PortalClaims, *, request_ip: str, user_agent: str, endpoint: str
+) -> Dict[str, str]:
+    """憑證驗證通過後的分流與稽核。回傳導向落地頁的查詢參數。"""
+    outcome = await _resolve_landing(claims, request_ip, user_agent)
+    succeeded = outcome.failure_reason is None
+    await log_portal_event(
+        event_type=AuditEventType.AUTH,
+        action=AuditAction.LOGIN if succeeded else AuditAction.LOGIN_FAILED,
+        result=AuditResult.SUCCESS if succeeded else AuditResult.FAILURE,
+        request_ip=request_ip,
+        user_agent=user_agent,
+        endpoint=endpoint,
+        resource_type="sso_identity",
+        resource_id=str(outcome.user.id) if outcome.user else None,
+        target_username=outcome.user.username if outcome.user else None,
+        actor=outcome.user if succeeded else None,
+        external_id=claims.external_id,
+        failure_reason=outcome.failure_reason,
+    )
+    return outcome.query
+
+
+async def log_token_login_rejection(
+    token_ref: str, *, request_ip: str, user_agent: str, endpoint: str
+) -> None:
+    """憑證未通過驗證（第 8 列）。失敗原因不細分步驟，與對外回應的不透露原則一致；
+    細分步驟只進診斷日誌。只記錄憑證雜湊前綴供關聯，不記錄原文（FR-040）。"""
+    await log_portal_event(
+        event_type=AuditEventType.AUTH,
+        action=AuditAction.LOGIN_FAILED,
+        result=AuditResult.FAILURE,
+        request_ip=request_ip,
+        user_agent=user_agent,
+        endpoint=endpoint,
+        resource_type="sso_identity",
+        failure_reason="憑證驗證未通過",
+        extra_fields={"token_ref": token_ref},
+    )
+
+
+async def _lock_pending_token(value: str, token_type: AuthTokenType) -> Optional[AuthToken]:
+    """鎖定一筆仍在效期內的 pending token。須在交易內呼叫。
+
+    逾期者**不在此標記** expired：這使所有拒絕路徑都不寫入任何資料，呼叫端可在交易內直接
+    拒絕而不必擔心回滾掉狀態變更。逾期而仍為 pending 的列無害——此查詢已排除它，同一使用者
+    下次核發同類 token 時也會一併撤銷。
+    """
+    return await AuthToken.filter(
+        token=value,
+        token_type=token_type,
+        status=AuthTokenStatus.PENDING,
+        expires_at__gt=datetime.now(timezone.utc),
+    ).select_for_update().first()
+
+
+async def _mark_used(token: AuthToken) -> None:
+    token.status = AuthTokenStatus.USED
+    token.used_at = datetime.now(timezone.utc)
+    await token.save(update_fields=["status", "used_at"])
+
+
+async def _redeem_handoff_code(code: str) -> Optional[Users]:
+    """回傳交接碼所屬帳號；帳號仍為啟用狀態時才消耗交接碼。查無有效交接碼時回傳 None。"""
+    async with in_transaction():
+        token = await _lock_pending_token(code, AuthTokenType.SSO_HANDOFF)
+        if token is None:
+            return None
+        user = await Users.get(id=token.user_id)
+        if user.is_active:
+            await _mark_used(token)
+        return user
+
+
+async def _bound_external_id(user_id: int) -> Optional[str]:
+    identity = await SsoIdentity.filter(user_id=user_id).first()
+    return identity.external_id if identity else None
+
+
+async def exchange_handoff_code(
+    code: str, *, request_ip: str, user_agent: str, endpoint: str
+) -> Users:
+    """交接碼換取登入狀態前的驗證（contracts/internal-sso-api.md 第一節）。
+
+    400 不是防禦性分支：交接碼一次性，使用者按上一頁、重新整理、多分頁開同一連結都會走到。
+    """
+    user = await _redeem_handoff_code(code)
+    common = dict(
+        event_type=AuditEventType.AUTH,
+        request_ip=request_ip,
+        user_agent=user_agent,
+        endpoint=endpoint,
+        resource_type="sso_handoff",
+        resource_id=str(user.id) if user else None,
+        target_username=user.username if user else None,
+        external_id=await _bound_external_id(user.id) if user else None,
+    )
+    if user is None:
+        await log_portal_event(
+            **common, action=AuditAction.LOGIN_FAILED, result=AuditResult.FAILURE,
+            failure_reason="交接碼無效、已使用或已逾期",
+        )
+        raise AppError(400, "登入連結已失效，請自智慧灌溉入口平台重新進入")
+    if not user.is_active:
+        # 交接碼發出到交換之間的空窗期，管理員可能已停用帳號
+        await log_portal_event(
+            **common, action=AuditAction.LOGIN_FAILED, result=AuditResult.FAILURE,
+            failure_reason="交接碼有效但帳號已停用",
+        )
+        raise AppError(403, "您的帳號已停用，請聯繫系統管理員")
+
+    await log_portal_event(**common, action=AuditAction.LOGIN, result=AuditResult.SUCCESS, actor=user)
+    return user
+
+
+class _BindRejection(Exception):
+    """綁定的業務拒絕。在交易內拋出（未寫入任何資料），於交易外寫稽核後轉為 AppError。"""
+
+    def __init__(self, status_code: int, message: str, failure_reason: str) -> None:
+        super().__init__(failure_reason)
+        self.status_code = status_code
+        self.message = message
+        self.failure_reason = failure_reason
+
+
+async def _redeem_binding_ticket(ticket: str, user_id: int) -> str:
+    """驗證票據並建立對應關係，與票據標記 used 於**同一交易**（FR-018）。回傳入口身分。"""
+    async with in_transaction():
+        token = await _lock_pending_token(ticket, AuthTokenType.SSO_BINDING)
+        if token is None:
+            raise _BindRejection(400, "綁定連結已失效，請自智慧灌溉入口平台重新進入", "綁定票據無效、已使用或已逾期")
+        if token.user_id != user_id:
+            # 關鍵檢查：否則拿到別人的票據，就能把別人的入口身分綁到自己登入的帳號
+            raise _BindRejection(403, "此綁定連結不屬於目前登入的帳號，請改以正確的帳號登入", "票據候選帳號與登入者不一致")
+        if not token.external_id:
+            raise AppError(500, "系統錯誤，請稍後再試", diagnostic=f"sso_binding token id={token.id} 缺少 external_id")
+
+        # 應用層預檢只為友善訊息；並發下會漏，資料庫 unique 約束才是最終防線（FR-019）
+        conflict = await _identity_conflict(token.external_id, user_id)
+        if conflict:
+            raise _BindRejection(409, conflict, conflict)
+
+        await SsoIdentity.create(
+            external_id=token.external_id,
+            user_id=user_id,
+            bound_method=SsoBindMethod.SELF_BOUND,
+            bound_at=datetime.now(timezone.utc),
+        )
+        await _mark_used(token)
+        return token.external_id
+
+
+async def _ticket_external_id(ticket: str) -> Optional[str]:
+    """供失敗路徑稽核回溯票據所載入口身分（不論票據狀態）。"""
+    token = await AuthToken.filter(token=ticket, token_type=AuthTokenType.SSO_BINDING).first()
+    return token.external_id if token else None
+
+
+async def bind_identity(
+    ticket: str, current_user: Any, *, request_ip: str, user_agent: str, endpoint: str
+) -> str:
+    """完成首次綁定（contracts/internal-sso-api.md 第二節）。`current_user` 為剛以帳號密碼登入的使用者。"""
+    common = dict(
+        event_type=AuditEventType.AUTH,
+        action=AuditAction.BIND,
+        request_ip=request_ip,
+        user_agent=user_agent,
+        endpoint=endpoint,
+        resource_type="sso_identity",
+        resource_id=str(current_user.id),
+        target_username=current_user.username,
+        actor=current_user,
+    )
+    try:
+        external_id = await _redeem_binding_ticket(ticket, current_user.id)
+    except _BindRejection as rejection:
+        await log_portal_event(
+            **common, result=AuditResult.FAILURE,
+            external_id=await _ticket_external_id(ticket), failure_reason=rejection.failure_reason,
+        )
+        raise AppError(rejection.status_code, rejection.message)
+    except IntegrityError as exc:
+        # 預檢與寫入之間的並發競態。兩個 unique 約束逐一實際驗證，驗不出來誠實回報（AERC-0417）
+        external_id = await _ticket_external_id(ticket)
+        conflict = await _identity_conflict(external_id, current_user.id)
+        await log_portal_event(
+            **common, result=AuditResult.FAILURE, external_id=external_id,
+            failure_reason=conflict or "寫入對應關係時發生無法歸因的 IntegrityError",
+        )
+        if conflict is None:
+            logger.error("sso_identities 綁定寫入 IntegrityError 無法歸因 external_id=%s: %s", external_id, exc)
+            raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(exc))
+        raise AppError(409, conflict)
+
+    await log_portal_event(**common, result=AuditResult.SUCCESS, external_id=external_id)
+    return external_id

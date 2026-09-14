@@ -128,6 +128,7 @@ const publicRoutes = [
   // 注意：/login/change-password 刻意不列入 publicRoutes
   // 需要有效 JWT（已登入）才能訪問，navguard 會攔截未登入者
   '/verify-email', // 039-account-verification-profile：驗證信連結落地頁，token 本身即為憑證
+  '/sso', // 042-portal-sso-integration：入口平台 SSO 落地頁，交接碼／綁定票據本身即為憑據，未登入時必須可達
 ]
 
 // ── Auth Middleware ──────────────────────────────────────────────────────────
