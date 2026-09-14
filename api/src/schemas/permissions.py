@@ -109,13 +109,24 @@ class CustomModulePermissionsSchema(BaseModel):
     @field_validator('*', mode='before')
     @classmethod
     def validate_actions(cls, v):
-        """驗證並去重權限動作"""
+        """驗證、去重並以穩定順序輸出權限動作。
+
+        排序不是美觀考量：`list(set(v))` 的排列取決於字串雜湊，而
+        `PYTHONHASHSEED` 預設隨機（容器內未設定），同一份輸入每個進程
+        得到的排列都不同——實測連跑 5 次得 5 種排列。後果是同一份設定在
+        不同時間提交會被存成不同排列，使「重複提交同一份設定」被誤判為
+        一次變更（041 FR-015c）。
+
+        `key=str` 不可省：本 validator 為 mode='before'，此刻元素尚未經
+        enum 轉換，可能是任意型別。`sorted(set(["view", 1]))` 會拋
+        TypeError，而 Pydantic v2 只把 ValueError／AssertionError 轉成
+        驗證錯誤，TypeError 會直接冒到全域 handler → 500；加上 key=str
+        後回復為乾淨的 422。合法輸入的結果與 sorted() 完全一致。
+        """
         if v is None:
             return None
         if isinstance(v, list):
-            # 去重並驗證
-            unique_actions = list(set(v))
-            return unique_actions
+            return sorted(set(v), key=str)
         return v
 
     class Config:
