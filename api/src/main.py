@@ -26,7 +26,7 @@ import 'from src.routes import users, notes' must be after 'Tortoise.init_models
 why?
 https://stackoverflow.com/questions/65531387/tortoise-orm-for-python-no-returns-relations-of-entities-pyndantic-fastapi
 """
-from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops, user_management, permissions, leisure_farms, nlsc, auth_keys, mfa, security, health, announcements
+from src.routes import users, offices, domicile, grants, grant_versions, pipe_fittings, pf_modules, pf_materials, pf_diameters, pf_annual_prices, irrigation_types, gis, test_pdf, attachments, qualification, spatial_services, downloads, crops, user_management, permissions, leisure_farms, nlsc, auth_keys, mfa, security, health, announcements, portal_sso, sso
 
 # OpenAPI 端點預設關閉
 IS_PRODUCTION = os.getenv("AERC_ENV") == "production"
@@ -149,6 +149,18 @@ app.include_router(mfa.router)
 app.include_router(security.router)
 app.include_router(announcements.router)
 app.include_router(health.router)
+# 042：入口平台呼叫的三支對外 API。路徑位於網域根層（/TokenLogin、/Register、
+# /QueryStatus），大小寫與客戶契約完全一致，不帶 /api/v1 前綴——反向代理需另行
+# 新增三條路由轉送，且不得被 SPA 的 history fallback 吞掉（見部署驗收）。
+# 此 router 有自己的 route_class，錯誤回應格式與全站相反，刻意獨立成檔。
+app.include_router(portal_sso.router, tags=["Portal SSO"])
+# 042 US3：登入落地（/TokenLogin，302／400 純文字，不套信封）與前端呼叫的 /sso/exchange、/sso/bind
+app.include_router(portal_sso.token_login_router, tags=["Portal SSO"])
+app.include_router(sso.router)
+
+# 042（FR-009）：GET /TokenLogin 的憑證在查詢字串中，uvicorn 存取紀錄預設會原樣寫出
+from src.config.portal_sso import TokenLoginQueryRedactFilter  # noqa: E402
+logging.getLogger("uvicorn.access").addFilter(TokenLoginQueryRedactFilter())
 
 
 register_tortoise(app, config=TORTOISE_ORM, generate_schemas=False)
@@ -161,3 +173,14 @@ register_tortoise(app, config=TORTOISE_ORM, generate_schemas=False)
 async def verify_funding_sources():
     from src.config.funding_sources import verify_against_db
     await verify_against_db()
+
+
+# 042：入口平台 SSO 共用金鑰的形式驗證（FR-006a）。
+# 與上方的補助來源檢查不同，這一項**設定錯誤時必須中斷啟動**——金鑰形式不符時
+# HMAC 簽章仍會通過、只有 AES 解密失敗，症狀是「簽章對得上卻解不開內容」，
+# 若放行到執行期才失敗，會表現為「所有憑證都無效」，把設定錯誤偽裝成憑證問題。
+# 未設定金鑰則視為本整合尚未啟用，只記警告不中斷（見 config/portal_sso.py）。
+@app.on_event("startup")
+async def verify_portal_sso_config():
+    from src.config.portal_sso import verify_configuration
+    verify_configuration()

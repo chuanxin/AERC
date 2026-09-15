@@ -28,6 +28,12 @@ export const MFA = {
   VERIFY: `${BASE}/mfa/verify`,
 }
 
+// 智慧灌溉入口平台 SSO（042-portal-sso-integration）：落地頁 /sso 的交接碼交換與首次綁定
+export const SSO = {
+  EXCHANGE: `${BASE}/sso/exchange`,
+  BIND: `${BASE}/sso/bind`,
+}
+
 // Security (IP 白名單管理、MFA 待驗證 OTP 查詢) related endpoints
 // announcement (最新消息) related endpoints
 export const ANNOUNCEMENTS = {
@@ -79,6 +85,10 @@ export const USER_MANAGEMENT = {
   REJECT: (id: number) => `${BASE}/user-management/${id}/reject`,
   RESEND_VERIFICATION: (id: number) => `${BASE}/user-management/${id}/resend-verification`,
   UPDATE_ASSIGNMENT: (id: number) => `${BASE}/user-management/${id}/assignment`,
+  // 042-portal-sso-integration：入口身分綁定（僅系統管理員）
+  SSO_IDENTITY: (id: number) => `${BASE}/user-management/${id}/sso-identity`,
+  // externalId 只在這裡編碼一次；mapping.ts 的動態規則以 [^/]+ 擷取已編碼的值原樣轉送，不得再編碼
+  SSO_REBIND: (externalId: string) => `${BASE}/user-management/sso-identities/${encodeURIComponent(externalId)}`,
 }
 
 // permissions related endpoints

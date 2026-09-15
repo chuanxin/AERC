@@ -15,10 +15,12 @@ import logging
 from datetime import datetime, timezone
 from typing import NoReturn, Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
-from tortoise.exceptions import DoesNotExist
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, Query
+from tortoise.exceptions import DoesNotExist, IntegrityError
+from tortoise.expressions import Q
 from tortoise.transactions import in_transaction
 
+from src.auth.client_ip import get_client_ip
 from src.auth.guard import require_full_auth
 from src.auth.route_guards import require_permission
 from src.database.audit_models import AuditAction, AuditEventType, AuditResult
@@ -29,6 +31,8 @@ from src.database.models import (
     AuthToken,
     AuthTokenType,
     AuthTokenStatus,
+    SsoBindMethod,
+    SsoIdentity,
 )
 from src.exceptions import AppError
 from src.services.data_encryption import data_encryption_service
@@ -46,6 +50,7 @@ from src.schemas.users import (
     EmailVerificationResponse,
     AccountAssignmentUpdateRequest,
 )
+from src.schemas.sso import SsoRebindRequest
 from src.services.audit_service import audit_service
 from src.services.email_service import EmailConfig, EmailService
 from src.services.permission_service import effective_permission_key, permission_service
@@ -884,4 +889,258 @@ async def update_account_assignment(
         "username": target.username,
         "office_id": target.office_id,
         "department": target.department,
+    }
+
+
+# ============================================================================
+# 入口平台身分綁定（042-portal-sso-integration US4）
+# ============================================================================
+
+class _SsoTargetAlreadyBound(Exception):
+    """目標帳號已被另一個入口身分對應（一對一約束，FR-019）。"""
+
+
+def _sso_audit_common(
+    request: Request,
+    current_user: UserInfoSchema,
+    *,
+    event_type: AuditEventType,
+    action: AuditAction,
+    resource_type: str,
+    resource_id: str,
+) -> dict:
+    """入口身分綁定兩支端點共用的稽核固定欄位。
+
+    比照 update_user_permissions 的 `_audit_common()`：集中一處，漏欄在結構上不可能
+    發生（TD-012c）。來源 IP 走共用的 get_client_ip()，不自行讀標頭。
+    """
+    return {
+        "event_type": event_type,
+        "action": action,
+        "actor_id": current_user.id,
+        "actor_username": current_user.username,
+        "actor_role": current_user.role,
+        "resource_type": resource_type,
+        "resource_id": resource_id,
+        "ip_address": get_client_ip(request),
+        "user_agent": request.headers.get("user-agent", ""),
+        "endpoint": str(request.url.path),
+    }
+
+
+async def _sso_deny(
+    common: dict,
+    status_code: int,
+    detail: str,
+    reason: str,
+    changed_fields: Optional[dict] = None,
+) -> NoReturn:
+    """寫稽核後拒絕。稽核必然先於 raise，順序由結構保證（同 `_deny()` 的做法）。
+
+    `detail` 給使用者看，`reason` 給查核者看，兩者刻意不共用。
+    """
+    await audit_service.log(
+        **common,
+        result=AuditResult.FAILURE,
+        failure_reason=reason,
+        changed_fields=changed_fields,
+    )
+    raise AppError(status_code, detail)
+
+
+@router.get(
+    "/{user_id}/sso-identity",
+    summary="查詢帳號的入口身分綁定",
+    description="僅系統管理員。回傳該帳號目前綁定的入口平台身分，未綁定時各欄位為 null",
+)
+async def get_sso_identity(
+    user_id: int,
+    request: Request,
+    current_user: UserInfoSchema = Depends(require_full_auth),
+):
+    """查詢帳號目前綁定的入口身分。
+
+    **僅系統管理員**，刻意不沿用 `require_permission(USERS, VIEW)`，兩個理由：
+
+    1. 這份資訊存在的唯一目的是支援改綁，而改綁限 admin——給看得到卻不能改的人看，
+       只增加暴露面、不增加任何能力。
+    2. 同檔的 `get_user()` 對 manager **沒有**管理處範圍限制（`list_users()` 有），
+       沿用檢視權限等於原樣繼承這個跨管理處讀取的缺口。限 admin 讓範圍問題直接消失。
+
+    非 admin 的拒絕先於目標查詢，回應不因帳號存在與否而不同（同 041 FR-005 的做法）。
+    """
+    common = _sso_audit_common(
+        request, current_user,
+        event_type=AuditEventType.DATA_ACCESS, action=AuditAction.VIEW,
+        resource_type="user", resource_id=str(user_id),
+    )
+    if current_user.role != "admin":
+        await _sso_deny(common, 403, "無此操作權限", "不具系統管理員角色")
+
+    user = await Users.filter(id=user_id).only("id", "username").first()
+    if user is None:
+        await _sso_deny(common, 404, f"使用者 ID {user_id} 不存在", "目標帳號不存在")
+
+    identity = await SsoIdentity.filter(user_id=user_id).prefetch_related("bound_by").first()
+    await audit_service.log(**common, result=AuditResult.SUCCESS, target_username=user.username)
+
+    if identity is None:
+        return {
+            "user_id": user_id,
+            "external_id": None,
+            "bound_method": None,
+            "bound_at": None,
+            "bound_by_username": None,
+        }
+    return {
+        "user_id": user_id,
+        "external_id": identity.external_id,
+        "bound_method": identity.bound_method.value,
+        "bound_at": identity.bound_at.isoformat(),
+        "bound_by_username": identity.bound_by.username if identity.bound_by else None,
+    }
+
+
+async def _write_admin_rebound(
+    identity: Optional[SsoIdentity], external_id: str, target_user_id: int, actor_id: int
+) -> None:
+    """寫入 admin_rebound 對應。該入口身分從未進入過 AERC 時建立之（管理員先行綁定）。"""
+    now = datetime.now(timezone.utc)
+    if identity is None:
+        await SsoIdentity.create(
+            external_id=external_id,
+            user_id=target_user_id,
+            bound_method=SsoBindMethod.ADMIN_REBOUND,
+            bound_at=now,
+            bound_by_id=actor_id,
+        )
+        return
+    identity.user_id = target_user_id
+    identity.bound_method = SsoBindMethod.ADMIN_REBOUND
+    identity.bound_at = now
+    identity.bound_by_id = actor_id
+    await identity.save()
+
+
+async def _apply_sso_rebind(external_id: str, target_user_id: int, actor_id: int) -> Optional[int]:
+    """於**同一交易**內完成改綁與既有憑據撤銷（T059），回傳改綁前的帳號 id。
+
+    兩步必須同進同退：分開提交會留下「已改綁、舊憑據尚未撤銷」的窗口，並發的綁定請求
+    可能在窗口內以舊票據完成綁定。unique 約束會擋下那次寫入，但「靠約束擋下」與「窗口
+    不存在」是不同層級的保證，後者不需要任何人事後解讀一筆錯誤紀錄。
+
+    撤銷範圍是改綁前與改綁後兩個帳號的交接碼與綁定票據——改綁前發出的憑據對兩邊都
+    不應再有效——**以及票面載有此入口身分的綁定票據**。後者的候選帳號是以電子郵件比對
+    核發的，可能是第三個帳號；不撤銷的話，那張票據要到使用者登入後兌現時才撞上一對一
+    約束回 409（auth_tokens.external_id，migration 79）。
+    """
+    async with in_transaction():
+        identity = await SsoIdentity.select_for_update().filter(external_id=external_id).first()
+        if identity is not None and identity.user_id == target_user_id:
+            # 已是目標狀態：不改寫綁定方式（避免抹掉 registered／self_bound 的來歷）、不撤銷憑據
+            return target_user_id
+
+        if await SsoIdentity.filter(user_id=target_user_id).exists():
+            raise _SsoTargetAlreadyBound()
+
+        previous_user_id = identity.user_id if identity is not None else None
+        await _write_admin_rebound(identity, external_id, target_user_id, actor_id)
+
+        affected_user_ids = [uid for uid in (previous_user_id, target_user_id) if uid is not None]
+        await AuthToken.filter(
+            Q(user_id__in=affected_user_ids) | Q(external_id=external_id),
+            token_type__in=[AuthTokenType.SSO_HANDOFF, AuthTokenType.SSO_BINDING],
+            status=AuthTokenStatus.PENDING,
+        ).update(status=AuthTokenStatus.REVOKED)
+
+    return previous_user_id
+
+
+async def _attribute_rebind_integrity_error(external_id: str, target_user_id: int) -> Optional[str]:
+    """`sso_identities` 有兩個 unique 約束，逐一實際查詢驗證，禁止用刪除法猜測（AERC-0417）。
+
+    交易已回滾，此處查到的是並發寫入之後的真實狀態。兩個候選都不衝突時回傳 None，
+    由呼叫端誠實回報 500 並記錄原始例外。
+    """
+    if await SsoIdentity.filter(user_id=target_user_id).exclude(external_id=external_id).exists():
+        return "目標帳號已綁定其他入口身分"
+    if await SsoIdentity.filter(external_id=external_id).exclude(user_id=target_user_id).exists():
+        return "此入口身分剛被同時變更，請重新整理後再試"
+    return None
+
+
+# `:path` 轉換器：ASGI 的 scope["path"] 是解碼後的路徑，入口識別若含 `/`（前端編碼為 %2F），
+# 預設轉換器會把它當成路徑分隔符而 404。本檔無其他 PUT 路由，貪婪匹配不會吞掉別的端點。
+@router.put(
+    "/sso-identities/{external_id:path}",
+    summary="將入口身分改綁至指定帳號",
+    description="僅系統管理員，且不得綁定至自己的帳號。該入口身分若尚無紀錄則建立之",
+)
+async def rebind_sso_identity(
+    payload: SsoRebindRequest,
+    request: Request,
+    external_id: str = Path(..., min_length=1, max_length=64, description="入口平台的帳號識別"),
+    current_user: UserInfoSchema = Depends(require_full_auth),
+):
+    """將入口身分改綁至指定的既有帳號（FR-041）。
+
+    **僅系統管理員**：改綁決定「哪個真人可以進入哪個帳號」，可跨管理處生效，錯誤操作
+    等同把一個人的入口身分接到另一個人的帳號——與 manager 的「本管理處帳號管理」
+    不同層級，刻意收緊。
+
+    **不得綁定至自己的帳號**：比照 update_user_permissions 對所有角色（含 admin）拒絕
+    自我調整（041 FR-003）。綁到自己等於讓持有該入口身分的人以管理員身分進入系統。
+
+    `external_id` 以 max_length=64 對齊 ORM 欄位：過長的路徑參數會在 ORM filter 時拋
+    ValidationError 冒成 500。
+    """
+    common = _sso_audit_common(
+        request, current_user,
+        event_type=AuditEventType.ACCOUNT, action=AuditAction.REBIND,
+        resource_type="sso_identity", resource_id=external_id,
+    )
+    attempted = {"external_id": external_id, "target_user_id": payload.user_id}
+
+    # 前兩步皆不查詢目標帳號：非 admin 無論帶哪個 user_id 都得到同一個 403
+    if current_user.role != "admin":
+        await _sso_deny(common, 403, "無此操作權限", "不具系統管理員角色", attempted)
+    if payload.user_id == current_user.id:
+        await _sso_deny(common, 403, "無法將入口身分綁定至自己的帳號", "嘗試綁定至自身帳號", attempted)
+
+    target = await Users.filter(id=payload.user_id).only("id", "username", "is_active").first()
+    if target is None:
+        await _sso_deny(common, 404, f"使用者 ID {payload.user_id} 不存在", "目標帳號不存在", attempted)
+    if not target.is_active:
+        await _sso_deny(common, 422, "目標帳號未啟用，無法綁定入口身分", "目標帳號未啟用", attempted)
+
+    try:
+        previous_user_id = await _apply_sso_rebind(external_id, target.id, current_user.id)
+    except _SsoTargetAlreadyBound:
+        await _sso_deny(common, 409, "目標帳號已綁定其他入口身分", "目標帳號已被其他入口身分綁定", attempted)
+    except IntegrityError as exc:
+        reason = await _attribute_rebind_integrity_error(external_id, target.id)
+        if reason is None:
+            await audit_service.log(
+                **common,
+                result=AuditResult.FAILURE,
+                failure_reason="改綁寫入衝突且無法歸因",
+                changed_fields=attempted,
+            )
+            raise AppError(500, "系統錯誤，請稍後再試", diagnostic=str(exc))
+        await _sso_deny(common, 409, reason, reason, attempted)
+
+    await audit_service.log(
+        **common,
+        result=AuditResult.SUCCESS,
+        target_username=target.username,
+        changed_fields={
+            "external_id": external_id,
+            "user_id": {"before": previous_user_id, "after": target.id},
+        },
+    )
+    return {
+        "success": True,
+        "external_id": external_id,
+        "user_id": target.id,
+        "previous_user_id": previous_user_id,
     }

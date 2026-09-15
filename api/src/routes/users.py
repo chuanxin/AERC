@@ -40,6 +40,7 @@ from src.services.permission_service import permission_service
 from datetime import datetime, timezone
 
 from src.auth.jwthandler import (
+    access_token_data,
     create_access_token,
     get_current_user,
     build_login_response,
@@ -585,8 +586,11 @@ async def refresh_token(current_user: UserInfoSchema = Depends(get_current_user)
     刷新用戶的 access token
     """
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    # 042：必須顯式帶回登入來源——create_access_token 從不沿用舊憑證的宣告，
+    # 漏帶會讓 SSO 工作階段在第一次續期後失去密碼過期豁免
     access_token = await create_access_token(
-        data={"sub": current_user.username}, expires_delta=access_token_expires
+        data=access_token_data(current_user.username, current_user.auth_source),
+        expires_delta=access_token_expires,
     )
     token = jsonable_encoder(access_token)
     content = {
@@ -608,10 +612,12 @@ async def refresh_token(current_user: UserInfoSchema = Depends(get_current_user)
     "/users/whoami", dependencies=[Depends(get_current_user)]
 )
 async def read_users_me(request: Request, current_user: UserInfoSchema = Depends(get_current_user)):
-    from src.auth.users import check_password_expired
+    from src.auth.users import session_password_expired
     user = await Users.get(username=current_user.username)
     result = current_user.model_dump()
-    result['password_expired'] = check_password_expired(user)
+    # 042（FR-014a）：依登入來源計算。前端在收到 true 時會立刻導向換密碼頁，
+    # 若這裡回報帳號原始狀態，SSO 使用者在發出任何功能請求前就會被攔走
+    result['password_expired'] = session_password_expired(user, current_user.auth_source)
     result['permissions_summary'] = permission_service.get_user_permissions_summary(
         current_user.role, current_user.permissions
     )

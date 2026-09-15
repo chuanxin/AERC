@@ -65,6 +65,19 @@ class OAuth2PasswordBearerCookie(OAuth2):
 security = OAuth2PasswordBearerCookie(token_url="/login-secure")
 
 
+def access_token_data(username: str, auth_source: Optional[str] = None) -> dict:
+    """核發存取憑證時由呼叫端提供的宣告。
+
+    ⚠️ create_access_token() 其餘宣告一律自資料庫重算、**從不沿用舊憑證內容**，因此
+    auth_src（042，登入來源）不會自動保留——它不是資料庫欄位。所有核發路徑（登入、
+    續期）都必須經由本函式組出 data，續期漏帶的症狀是「用了十幾分鐘後突然被要求換密碼」。
+    """
+    data = {"sub": username}
+    if auth_source:
+        data["auth_src"] = auth_source
+    return data
+
+
 async def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
 
@@ -96,11 +109,14 @@ async def create_access_token(data: dict, expires_delta: Optional[timedelta] = N
     return encoded_jwt
 
 
-async def build_login_response(user: Users, password_expired: bool) -> JSONResponse:
-    """核發登入成功的 JWT 回應（cookie + body），供 login()、login_with_captcha()、/mfa/verify 三處共用"""
+async def build_login_response(
+    user: Users, password_expired: bool, auth_source: Optional[str] = None
+) -> JSONResponse:
+    """核發登入成功的 JWT 回應（cookie + body），供 login_with_captcha()、/mfa/verify、
+    /sso/exchange（042，帶 auth_source）共用"""
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = await create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data=access_token_data(user.username, auth_source), expires_delta=access_token_expires
     )
     token = jsonable_encoder(access_token)
     content = {
@@ -196,7 +212,9 @@ async def get_current_user(token: str = Depends(security)):
             permissions=user.permissions,
             last_login=user.last_login,
             office=office_data,
-            department=user.department
+            department=user.department,
+            # 042：登入來源宣告。無宣告（既有直接登入）時為 None，行為與過去完全相同
+            auth_source=payload.get("auth_src"),
         )
 
     except DoesNotExist:

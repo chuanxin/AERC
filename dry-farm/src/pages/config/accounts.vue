@@ -369,6 +369,23 @@
                             管理處/工作站
                           </v-tooltip>
                         </v-btn>
+
+                        <v-btn
+                          v-if="canManageSsoIdentity(item)"
+                          icon="mdi-link-variant"
+                          size="x-small"
+                          variant="text"
+                          color="blue-grey"
+                          @click="handleManageSsoIdentity(item)"
+                        >
+                          <v-icon size="small">mdi-link-variant</v-icon>
+                          <v-tooltip
+                            activator="parent"
+                            location="top"
+                          >
+                            入口身分綁定
+                          </v-tooltip>
+                        </v-btn>
                       </div>
                     </template>
 
@@ -699,6 +716,84 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- 入口身分綁定 Dialog（042-portal-sso-integration，僅系統管理員） -->
+    <v-dialog
+      v-model="showSsoDialog"
+      max-width="420"
+      persistent
+    >
+      <v-card>
+        <v-card-title class="text-h6 pt-5 px-6">
+          入口身分綁定
+        </v-card-title>
+        <v-card-text class="px-6">
+          <p class="mb-4 text-body-2">
+            帳號：<strong>{{ selectedUserForSso?.username }}</strong>（{{ selectedUserForSso?.full_name }}）
+          </p>
+          <div
+            v-if="isLoadingSsoIdentity"
+            class="d-flex justify-center py-4"
+          >
+            <v-progress-circular
+              indeterminate
+              size="24"
+            />
+          </div>
+          <p
+            v-else-if="ssoIdentityLoadFailed"
+            class="text-body-2 text-error"
+          >
+            綁定資訊載入失敗，請關閉對話框後重試
+          </p>
+          <template v-else>
+            <p
+              v-if="currentSsoIdentity?.external_id"
+              class="mb-4 text-body-2"
+            >
+              目前綁定：<strong>{{ currentSsoIdentity.external_id }}</strong>
+              <span class="text-caption text-grey-darken-1">（{{ ssoBindMethodLabel(currentSsoIdentity.bound_method) }}）</span>
+            </p>
+            <p
+              v-else
+              class="mb-4 text-body-2 text-grey-darken-1"
+            >
+              此帳號尚未綁定入口身分
+            </p>
+            <v-text-field
+              v-model="ssoExternalId"
+              label="要綁定至此帳號的入口帳號識別"
+              variant="outlined"
+              density="comfortable"
+              maxlength="64"
+              counter="64"
+              :disabled="!selectedUserForSso?.is_active"
+              :hint="ssoRebindHint"
+              persistent-hint
+            />
+          </template>
+        </v-card-text>
+        <v-card-actions class="px-6 pb-5">
+          <v-spacer />
+          <v-btn
+            variant="text"
+            :disabled="isRebindingSso"
+            @click="showSsoDialog = false"
+          >
+            取消
+          </v-btn>
+          <v-btn
+            color="#3ea0a3"
+            variant="flat"
+            :loading="isRebindingSso"
+            :disabled="!canConfirmSsoRebind"
+            @click="confirmSsoRebind"
+          >
+            確認綁定
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -709,7 +804,7 @@ import { useOfficesStore } from '@/stores/offices'
 import { useUserStore } from '@/stores/users'
 import { apiService } from '@/services/api/http'
 import { OFFICES } from '@/services/api/endpoints'
-import type { UserListItem } from '@/types/userManagement'
+import type { UserListItem, SsoBindMethod, SsoIdentityInfo } from '@/types/userManagement'
 import { DEFAULT_ROLES, getRoleColor } from '@/types/permissions'
 
 interface PendingUser {
@@ -793,6 +888,15 @@ const assignmentStationCode = ref<string | null>(null)
 const assignmentStationOptions = ref<Array<{ title: string; value: string }>>([])
 const isUpdatingAssignment = ref(false)
 
+// 入口身分綁定對話框（042-portal-sso-integration，僅系統管理員）
+const showSsoDialog = ref(false)
+const selectedUserForSso = ref<UserListItem | null>(null)
+const currentSsoIdentity = ref<SsoIdentityInfo | null>(null)
+const isLoadingSsoIdentity = ref(false)
+const ssoIdentityLoadFailed = ref(false)
+const ssoExternalId = ref('')
+const isRebindingSso = ref(false)
+
 // ============================================================================
 // Computed
 // ============================================================================
@@ -845,6 +949,39 @@ function canEditAssignment(item: UserListItem): boolean {
     return item.office?.id != null && item.office.id === currentUserOfficeId.value
   }
   return true
+}
+
+// 042-portal-sso-integration：入口身分綁定限系統管理員。
+// 以角色判定而非 module.action——後端兩支端點同樣以 role === 'admin' 把關；
+// 改綁決定「哪個真人可以進入哪個帳號」，屬身分層級操作，不沿用 admin/manager 二元。
+// 自己的帳號不提供入口：後端拒絕綁定至自身帳號，在此不顯示是錯誤預防，而非等使用者撞到錯誤訊息。
+const isAdmin = computed(() => userStore.currentUser?.role === 'admin')
+
+function canManageSsoIdentity(item: UserListItem): boolean {
+  return isAdmin.value && item.id !== userStore.currentUser?.id
+}
+
+const canConfirmSsoRebind = computed(() =>
+  !isLoadingSsoIdentity.value &&
+  !ssoIdentityLoadFailed.value &&
+  !!selectedUserForSso.value?.is_active &&
+  ssoExternalId.value.trim().length > 0
+)
+
+const ssoRebindHint = computed(() =>
+  selectedUserForSso.value?.is_active
+    ? '送出後，持此入口身分者將進入本帳號；該入口身分與本帳號先前發出、尚未使用的登入憑據將全數失效'
+    : '帳號未啟用，無法綁定入口身分'
+)
+
+const SSO_BIND_METHOD_LABELS: Record<SsoBindMethod, string> = {
+  registered: '入口代建',
+  self_bound: '本人綁定',
+  admin_rebound: '管理員改綁'
+}
+
+function ssoBindMethodLabel(method: SsoBindMethod | null): string {
+  return method ? SSO_BIND_METHOD_LABELS[method] : ''
 }
 
 // 狀態選項
@@ -1232,6 +1369,53 @@ async function confirmAssignmentChange() {
     await loadUsers()
   } finally {
     isUpdatingAssignment.value = false
+  }
+}
+
+/**
+ * 開啟入口身分綁定對話框並載入目前綁定（042-portal-sso-integration）
+ */
+async function handleManageSsoIdentity(user: UserListItem) {
+  selectedUserForSso.value = user
+  currentSsoIdentity.value = null
+  ssoIdentityLoadFailed.value = false
+  ssoExternalId.value = ''
+  showSsoDialog.value = true
+  isLoadingSsoIdentity.value = true
+  try {
+    // wrapAsync 失敗時回傳 null 而非拋例外（TD-027）。不可退化成「尚未綁定」的畫面：
+    // 那會讓管理員誤以為可以放心綁定，實際上只是查詢失敗
+    const result = await store.fetchSsoIdentity(user.id)
+    if (!result) {
+      ssoIdentityLoadFailed.value = true
+      showSnackbar(store.error || '入口身分綁定資訊載入失敗，請關閉對話框後重試', 'error')
+      return
+    }
+    currentSsoIdentity.value = result
+  } finally {
+    isLoadingSsoIdentity.value = false
+  }
+}
+
+/**
+ * 確認將輸入的入口身分綁定至所選帳號
+ */
+async function confirmSsoRebind() {
+  if (!selectedUserForSso.value || !canConfirmSsoRebind.value) return
+  isRebindingSso.value = true
+  try {
+    const externalId = ssoExternalId.value.trim()
+    // 同 confirmApprove：wrapAsync 失敗時回傳 null，必須檢查回傳值。
+    // 未檢查會讓 409（目標帳號已被其他入口身分綁定）／422（帳號未啟用）顯示成「已綁定」
+    const result = await store.rebindSsoIdentity(externalId, selectedUserForSso.value.id)
+    if (!result) {
+      showSnackbar(store.error || '入口身分綁定失敗，請稍後再試', 'error')
+      return
+    }
+    showSnackbar(`已將入口身分 ${externalId} 綁定至 ${selectedUserForSso.value.username}`, 'success')
+    showSsoDialog.value = false
+  } finally {
+    isRebindingSso.value = false
   }
 }
 
