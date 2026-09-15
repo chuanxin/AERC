@@ -76,6 +76,13 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# 讓腳本能從任意工作目錄執行：把專案根（api/，內含 src/）加進 sys.path。
+# 容器內以 `-w /app` 執行時 cwd 已是 api/，此段無副作用；主機上從 repo 根執行
+# `python api/scripts/import_announcements.py` 時，Python 只會把腳本所在目錄
+# （api/scripts/）加進 sys.path，找不到 `src` 套件，故這裡自行補上。
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 # ---------------------------------------------------------------------------
 # 一、TS 原始碼解析
