@@ -58,9 +58,25 @@
                     </tr>
                   </thead>
                   <tbody>
+                    <tr v-if="announcementsLoading">
+                      <td colspan="3" class="text-center py-8">
+                        <v-progress-circular indeterminate color="#3ea0a3" size="32" />
+                      </td>
+                    </tr>
+                    <tr v-else-if="announcementsError">
+                      <td colspan="3" class="text-center py-8 text-error">
+                        {{ announcementsError }}
+                      </td>
+                    </tr>
+                    <tr v-else-if="announcements.length === 0">
+                      <td colspan="3" class="text-center py-8 text-grey text-subtitle-1">
+                        目前沒有最新消息
+                      </td>
+                    </tr>
                     <tr
                       v-for="(item, index) in announcements"
-                      :key="index"
+                      v-else
+                      :key="item.id"
                       class="news-row text-subtitle-1"
                       :style="index % 2 === 1 ? { backgroundColor: '#62b7bb30' } : {}"
                       @click="viewAnnouncementDetail(item)"
@@ -74,24 +90,24 @@
                           class="date-chip"
                           density="comfortable"
                         >
-                          {{ item.date }}
+                          {{ toRocDate(item.publish_date) }}
                         </v-chip>
                       </td>
                       <td class="type-cell text-center">
                         <v-chip
-                          :color="getTypeColor(item.type)"
+                          :color="item.type.color"
                           variant="outlined"
                           size="small"
                           label
                           class="font-weight-medium text-subtitle-1"
                         >
-                          {{ item.type }}
+                          {{ item.type.name }}
                         </v-chip>
                       </td>
                       <td
                         class="content-cell px-2"
                       >
-                        {{ item.content }}
+                        {{ item.title }}
                       </td>
                     </tr>
                   </tbody>
@@ -99,8 +115,14 @@
               </v-card>
 
               <!-- 更多連結 -->
-              <!-- <div class="d-flex justify-end pa-0 ma-0">
+              <div class="d-flex justify-end pa-0 ma-0">
+                <!--
+                  FR-020：首頁不得存在任何指向不存在頁面的操作入口，此條在
+                  **每一個上線階段**皆須成立。公告列表頁（US5）完成後將
+                  ANNOUNCEMENT_LIST_READY 改為 true 即可顯示。
+                -->
                 <v-btn
+                  v-if="ANNOUNCEMENT_LIST_READY"
                   class="more-btn"
                   variant="outlined"
                   rounded="lg"
@@ -111,7 +133,7 @@
                 >
                   更多
                 </v-btn>
-              </div> -->
+              </div>
             </v-card-text>
           </v-card>
         </div>
@@ -389,14 +411,14 @@
 </template>
 
 <script setup lang="ts">
+import { announcementsService } from '@/services/announcementsService'
 import { useStatisticsStore } from '@/stores/statistics'
 import { useUserStore } from '@/stores/users'
+import type { AnnouncementListItem } from '@/types/announcements'
+import { toRocDate } from '@/utils/rocDate'
 
-// Joya added
-import { announcementsData } from '@/data/announcement'
 const router = useRouter()
 const statisticsStore = useStatisticsStore()
-const announcements = ref(announcementsData);
 const userStore = useUserStore()
 
 const canViewReports = computed(() => userStore.can('reports', 'view'))
@@ -404,32 +426,44 @@ const canViewReports = computed(() => userStore.can('reports', 'view'))
 // 當前年度（民國年）
 const currentYear = new Date().getFullYear() - 1911
 
+// ── 最新消息（040：改由 API 供應，不再寫死於程式碼）────────────────────
+//
+// 原本此處有三則硬編碼公告、一個 getTypeColor() 的 switch、以及一個只做
+// console.log 的 viewAnnouncementDetail()。三者皆已移除：
+//   - 公告資料改由後端統一管理（SC-013：同一則公告的資料來源數量為 1）
+//   - 類型顏色改用後端回傳的類型資料，新增類型不再需要改程式
+//   - 點擊改為真正導向明細頁
 
-// 根據公告類型返回對應的顏色
-const getTypeColor = (type: string) => {
-  switch (type) {
-    case '系統公告':
-      return 'blue'
-    case '停機公告':
-      return 'deep-orange'
-    default:
-      return 'grey'
+/** 公告列表頁（US5）已建立，「更多」按鈕導向 /announcements。
+ *  保留此旗標是為了讓 FR-020「每一個上線階段皆不得有失效入口」這條規則
+ *  在文件與程式碼之間有一個對得上的落點——若日後列表頁被移除，改回 false
+ *  即可，不需要再去範本裡找那顆按鈕。 */
+const ANNOUNCEMENT_LIST_READY = true
+
+/** 首頁顯示的公告則數 */
+const ANNOUNCEMENT_LIMIT = 5
+
+const announcements = ref<AnnouncementListItem[]>([])
+const announcementsLoading = ref(true)
+const announcementsError = ref('')
+
+async function loadAnnouncements () {
+  announcementsLoading.value = true
+  announcementsError.value = ''
+  try {
+    const res = await announcementsService.fetchLatest(ANNOUNCEMENT_LIMIT)
+    announcements.value = res.items
+  } catch {
+    announcementsError.value = '無法載入最新消息，請稍後再試'
+  } finally {
+    announcementsLoading.value = false
   }
 }
 
-// 查看公告詳細內容
-/*const viewAnnouncementDetail = (item: any) => {
-  console.log('查看公告詳情:', item)
-}*/
-
-// Joya added
-// 查看公告詳細內容 
-const viewAnnouncementDetail = (item: { id: number; date: string; type: string; content: string }) => {
-  // 導航到公告詳細頁面，將公告的 ID 作為路由參數傳遞
-  router.push({ path: `/announcements/${item.id}` }); // 使用具名路由 '/announcements/[id]'
-  // 或者使用路徑:
-  // router.push(`/announcements/${item.id}`);
-};
+/** 查看公告詳細內容 */
+const viewAnnouncementDetail = (item: AnnouncementListItem) => {
+  router.push(`/announcements/${item.id}`)
+}
 
 // 格式化金額（加上千分位，0 顯示為 -）
 const formatCurrency = (value: number) => {
@@ -522,8 +556,11 @@ const budgetHeaders = [
  * ========== 整合版本結束 ========== */
 
 onMounted(async () => {
-  // 載入統計資料
-  await statisticsStore.fetchAllStatistics(currentYear)
+  // 最新消息與統計資料互不依賴，平行載入；公告失敗不影響統計呈現
+  await Promise.all([
+    loadAnnouncements(),
+    statisticsStore.fetchAllStatistics(currentYear),
+  ])
 })
 </script>
 

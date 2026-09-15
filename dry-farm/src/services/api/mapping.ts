@@ -1,4 +1,4 @@
-import { AUTH, MFA, SECURITY, DOMICILE, OFFICES, USERS, USER_MANAGEMENT, PERMISSIONS, GRANTS, STATISTICS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, CROPS, GIS, QUALIFICATION, SPATIAL, DOWNLOADS, ATTACHMENTS, LEISURE_FARMS, NLSC } from './endpoints';
+import { ANNOUNCEMENTS, AUTH, MFA, SSO, SECURITY, DOMICILE, OFFICES, USERS, USER_MANAGEMENT, PERMISSIONS, GRANTS, STATISTICS, PIPE_FITTINGS, PF_MODULES, PF_DIAMETERS, PF_MATERIALS, PF_ANNUAL_PRICES, IRRIGATION_TYPES, CROPS, GIS, QUALIFICATION, SPATIAL, DOWNLOADS, ATTACHMENTS, LEISURE_FARMS, NLSC } from './endpoints';
 
 // 取得當前的 API 版本前綴
 const API_BASE_URL = import.meta.env.FAST_API_BASE_URL || '';
@@ -42,7 +42,25 @@ export const BACKEND_PATHS = {
     SEND: '/mfa/send',
     VERIFY: '/mfa/verify',
   },
+  // 智慧灌溉入口平台 SSO（042）
+  SSO: {
+    EXCHANGE: '/sso/exchange',
+    BIND: '/sso/bind',
+  },
   // Security（IP 白名單管理、MFA 待驗證 OTP 查詢）相關
+  // 公告（最新消息）相關
+  ANNOUNCEMENTS: {
+    LIST: '/announcements',
+    CREATE: '/announcements',
+    DETAIL: (id: number) => `/announcements/${id}`,
+    TYPES: '/announcements/types',
+    TYPE_DETAIL: (id: number) => `/announcements/types/${id}`,
+    MANAGE_LIST: '/announcements/manage',
+    MANAGE_DETAIL: (id: number) => `/announcements/manage/${id}`,
+    MANAGE_PUBLISH: (id: number) => `/announcements/manage/${id}/publish`,
+    MANAGE_UNPUBLISH: (id: number) => `/announcements/manage/${id}/unpublish`,
+    PREVIEW: '/announcements/manage/preview',
+  },
   SECURITY: {
     IP_WHITELIST_LIST: '/security/ip-whitelist',
     IP_WHITELIST_UPDATE: (id: number) => `/security/ip-whitelist/${id}`,
@@ -74,6 +92,9 @@ export const BACKEND_PATHS = {
     REJECT: (id: number) => `/user-management/${id}/reject`,
     RESEND_VERIFICATION: (id: number) => `/user-management/${id}/resend-verification`,
     UPDATE_ASSIGNMENT: (id: number) => `/user-management/${id}/assignment`,
+    SSO_IDENTITY: (id: number) => `/user-management/${id}/sso-identity`,
+    // 參數是 endpoints.ts 已編碼過、再由動態規則原樣擷取的值，此處不得再編碼
+    SSO_REBIND: (encodedExternalId: string) => `/user-management/sso-identities/${encodedExternalId}`,
   },
   // 權限相關
   PERMISSIONS: {
@@ -255,6 +276,14 @@ export const API_MAPPING: Record<string, string> = {
   [AUTH.PUBLIC_KEY]: BACKEND_PATHS.AUTH.PUBLIC_KEY,
   [MFA.SEND]: BACKEND_PATHS.MFA.SEND,
   [MFA.VERIFY]: BACKEND_PATHS.MFA.VERIFY,
+  // 智慧灌溉入口平台 SSO（042；固定路徑走靜態映射）
+  [SSO.EXCHANGE]: BACKEND_PATHS.SSO.EXCHANGE,
+  [SSO.BIND]: BACKEND_PATHS.SSO.BIND,
+  // 公告（固定路徑；含 path 參數者見 DYNAMIC_PATH_PATTERNS）
+  [ANNOUNCEMENTS.LIST]: BACKEND_PATHS.ANNOUNCEMENTS.LIST,
+  [ANNOUNCEMENTS.TYPES]: BACKEND_PATHS.ANNOUNCEMENTS.TYPES,
+  [ANNOUNCEMENTS.MANAGE_LIST]: BACKEND_PATHS.ANNOUNCEMENTS.MANAGE_LIST,
+  [ANNOUNCEMENTS.PREVIEW]: BACKEND_PATHS.ANNOUNCEMENTS.PREVIEW,
   [SECURITY.IP_WHITELIST_LIST]: BACKEND_PATHS.SECURITY.IP_WHITELIST_LIST,
   [SECURITY.IP_WHITELIST_CREATE]: BACKEND_PATHS.SECURITY.IP_WHITELIST_LIST,
   [USERS.LIST]: BACKEND_PATHS.USERS.LIST,
@@ -349,6 +378,30 @@ export const API_MAPPING: Record<string, string> = {
 
 // 動態參數路徑匹配規則
 export const DYNAMIC_PATH_PATTERNS = [
+  // ========== 公告相關路徑 ==========
+  // ⚠️ 順序關鍵：mapApiPath() 是 first match wins（遇 match 即 break）。
+  //    /manage/{id}/publish 與 /unpublish 必須宣告在 /manage/{id} 之前，
+  //    /types/{id} 必須在 /{id} 之前——寫反不會報錯，只會靜默送出錯誤路徑。
+  {
+    pattern: /^\/announcements\/manage\/(\d+)\/publish$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ANNOUNCEMENTS.MANAGE_PUBLISH(parseInt(matches[1], 10))
+  },
+  {
+    pattern: /^\/announcements\/manage\/(\d+)\/unpublish$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ANNOUNCEMENTS.MANAGE_UNPUBLISH(parseInt(matches[1], 10))
+  },
+  {
+    pattern: /^\/announcements\/manage\/(\d+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ANNOUNCEMENTS.MANAGE_DETAIL(parseInt(matches[1], 10))
+  },
+  {
+    pattern: /^\/announcements\/types\/(\d+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ANNOUNCEMENTS.TYPE_DETAIL(parseInt(matches[1], 10))
+  },
+  {
+    pattern: /^\/announcements\/(\d+)$/,
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.ANNOUNCEMENTS.DETAIL(parseInt(matches[1], 10))
+  },
   // ========== Security 相關路徑 ==========
   {
     // 匹配 IP 白名單更新路徑 /security/ip-whitelist/{id}
@@ -473,6 +526,17 @@ export const DYNAMIC_PATH_PATTERNS = [
     // 匹配管理處/工作站變更路徑 {API_PREFIX}/user-management/{id}/assignment（039-account-verification-profile）
     pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)/assignment$`),
     transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.UPDATE_ASSIGNMENT(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配入口身分綁定查詢路徑 {API_PREFIX}/user-management/{id}/sso-identity（042-portal-sso-integration）
+    pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(\\d+)/sso-identity$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.SSO_IDENTITY(parseInt(matches[1], 10))
+  },
+  {
+    // 匹配入口身分改綁路徑 {API_PREFIX}/user-management/sso-identities/{externalId}（042-portal-sso-integration）
+    // 擷取的是 endpoints.ts 已編碼的值，原樣轉送；再編碼一次會把 % 變成 %25，後端查無此身分
+    pattern: new RegExp(`^${USER_MANAGEMENT.BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/sso-identities/([^/]+)$`),
+    transform: (matches: RegExpMatchArray) => BACKEND_PATHS.USER_MANAGEMENT.SSO_REBIND(matches[1])
   },
   {
     // 匹配管理處分處列表路徑 {API_PREFIX}/offices/branches/{officeId}

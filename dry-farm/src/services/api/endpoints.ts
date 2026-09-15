@@ -28,7 +28,31 @@ export const MFA = {
   VERIFY: `${BASE}/mfa/verify`,
 }
 
+// 智慧灌溉入口平台 SSO（042-portal-sso-integration）：落地頁 /sso 的交接碼交換與首次綁定
+export const SSO = {
+  EXCHANGE: `${BASE}/sso/exchange`,
+  BIND: `${BASE}/sso/bind`,
+}
+
 // Security (IP 白名單管理、MFA 待驗證 OTP 查詢) related endpoints
+// announcement (最新消息) related endpoints
+export const ANNOUNCEMENTS = {
+  // 公開讀取（僅需登入）
+  LIST: `${BASE}/announcements`,
+  DETAIL: (id: number) => `${BASE}/announcements/${id}`,
+  // 建立（權限 CREATE）— 與 LIST 同路徑不同方法
+  CREATE: `${BASE}/announcements`,
+  // 公告類型（權限 VIEW；公開端不需要——列表回應已內嵌 type{id,name,color}）
+  TYPES: `${BASE}/announcements/types`,
+  TYPE_DETAIL: (id: number) => `${BASE}/announcements/types/${id}`,
+  // 管理
+  MANAGE_LIST: `${BASE}/announcements/manage`,
+  MANAGE_DETAIL: (id: number) => `${BASE}/announcements/manage/${id}`,
+  MANAGE_PUBLISH: (id: number) => `${BASE}/announcements/manage/${id}/publish`,
+  MANAGE_UNPUBLISH: (id: number) => `${BASE}/announcements/manage/${id}/unpublish`,
+  PREVIEW: `${BASE}/announcements/manage/preview`,
+}
+
 export const SECURITY = {
   IP_WHITELIST_LIST: `${BASE}/security/ip-whitelist`,
   IP_WHITELIST_CREATE: `${BASE}/security/ip-whitelist`,
@@ -61,6 +85,10 @@ export const USER_MANAGEMENT = {
   REJECT: (id: number) => `${BASE}/user-management/${id}/reject`,
   RESEND_VERIFICATION: (id: number) => `${BASE}/user-management/${id}/resend-verification`,
   UPDATE_ASSIGNMENT: (id: number) => `${BASE}/user-management/${id}/assignment`,
+  // 042-portal-sso-integration：入口身分綁定（僅系統管理員）
+  SSO_IDENTITY: (id: number) => `${BASE}/user-management/${id}/sso-identity`,
+  // externalId 只在這裡編碼一次；mapping.ts 的動態規則以 [^/]+ 擷取已編碼的值原樣轉送，不得再編碼
+  SSO_REBIND: (externalId: string) => `${BASE}/user-management/sso-identities/${encodeURIComponent(externalId)}`,
 }
 
 // permissions related endpoints

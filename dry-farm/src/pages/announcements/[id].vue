@@ -1,166 +1,179 @@
 <template>
-  <v-container>
-    <v-row v-if="loading" justify="center">
-      <v-col cols="12" class="text-center mt-10">
-        <v-progress-circular indeterminate color="primary"></v-progress-circular>
-        <p class="mt-2 text-grey">正在讀取公告資料...</p>
-      </v-col>
-    </v-row>
+  <v-container
+    fluid
+    class="grants-container px-6 pb-0 pt-0"
+    style="background-color: white"
+  >
+    <v-row justify="center">
+      <v-col cols="10" lg="10" align-self="center" class="pt-4">
+        <div class="d-flex align-center pr-2 mb-2">
+          <v-btn
+            variant="text"
+            prepend-icon="mdi-arrow-left"
+            color="primary"
+            @click="goBack"
+          >
+            返回
+          </v-btn>
+          <v-spacer />
+        </div>
 
-    <v-row v-else-if="!announcement" justify="center">
-      <v-col cols="10" lg="8" class="text-center mt-10">
-        <v-icon icon="mdi-alert-circle-outline" size="64" color="grey"></v-icon>
-        <h3 class="text-h5 mt-4 text-grey">找不到此公告</h3>
-        <p>您查詢的公告 ID 不存在或已被移除。</p>
-        <v-btn color="primary" variant="outlined" class="mt-4" @click="router.go(-1)">
-          返回上一頁
-        </v-btn>
-      </v-col>
-    </v-row>
+        <div class="section-wrapper">
+          <v-card
+            class="mx-auto section-card pa-4"
+            variant="outlined"
+            rounded="lg"
+          >
+            <!-- 載入中 -->
+            <v-card-text v-if="loading" class="py-16 text-center">
+              <v-progress-circular indeterminate color="primary" size="48" />
+            </v-card-text>
 
-    <v-row v-else justify="center">
-      <v-col cols="10" lg="8">
-        <v-card class="pa-6 mt-10" elevation="2">
-          <v-card-title class="text-h4 font-weight-bold mb-4 text-wrap">
-            {{ announcement.content }}
-          </v-card-title>
+            <!-- 找不到（不存在、已刪除、或無權讀取的草稿／已下架）-->
+            <v-card-text v-else-if="!announcement" class="py-8">
+              <v-empty-state
+                headline="找不到此公告"
+                title="這則公告不存在或已下架"
+                text="請返回最新消息列表查看其他公告。"
+                icon="mdi-bullhorn-outline"
+                min-height="280"
+              />
+            </v-card-text>
 
-          <v-card-subtitle class="text-subtitle-1 text-grey mb-4 d-flex align-center flex-wrap">
-            <span class="mr-2">發布日期: {{ announcement.date }}</span>
-            <span class="d-none d-sm-inline mr-2">|</span>
-            <span>類型:</span>
-            <v-chip
-              :color="getTypeColor(announcement.type)"
-              variant="outlined"
-              size="small"
-              label
-              class="ml-2 font-weight-medium text-subtitle-1"
-            >
-              {{ announcement.type }}
-            </v-chip>
-          </v-card-subtitle>
+            <template v-else>
+              <v-card-item class="custom-title">
+                <v-card-title class="text-h5 font-weight-black text-wrap">
+                  {{ announcement.title }}
+                </v-card-title>
+              </v-card-item>
 
-          <v-divider class="mb-4"></v-divider>
+              <v-card-text>
+                <div class="d-flex align-center flex-wrap mb-4">
+                  <v-chip
+                    :color="announcement.type.color"
+                    variant="outlined"
+                    size="small"
+                    label
+                    class="mr-3"
+                  >
+                    {{ announcement.type.name }}
+                  </v-chip>
+                  <span class="text-subtitle-2 text-grey-darken-1">
+                    發布日期：{{ toRocDate(announcement.publish_date) }}
+                  </span>
+                  <v-chip
+                    v-if="announcement.status !== 'published'"
+                    color="warning"
+                    variant="flat"
+                    size="small"
+                    label
+                    class="ml-3"
+                  >
+                    預覽（{{ announcement.status === 'draft' ? '草稿' : '已下架' }}）
+                  </v-chip>
+                </div>
 
-          <v-card-text>
-           
-          <div 
-            v-if="announcement.fullContent" 
-            class="content-text text-body-1"
-            v-html="announcement.fullContent"
-          ></div>
-            <div v-else class="text-body-1 text-grey">
-              (此公告暫無詳細內容)
-            </div>
+                <v-divider class="mb-4" />
 
-            <v-alert
-              type="info"
-              variant="tonal"
-              class="mt-6"
-              density="compact"
-              icon="mdi-information"
-            >
-              更多相關資訊請聯繫農工中心。
-            </v-alert>
-          </v-card-text>
-
-          <v-card-actions class="mt-4">
-            <v-spacer></v-spacer>
-            <v-btn
-              color="#3ea0a3"
-              variant="outlined"
-              size="large"
-              prepend-icon="mdi-arrow-left"
-              @click="router.go(-1)"
-            >
-              返回列表
-            </v-btn>
-          </v-card-actions>
-        </v-card>
+                <!--
+                  content 是後端於本次請求渲染並消毒的 HTML。
+                  刻意不設 white-space: pre-wrap——換行與段落已由 Markdown
+                  轉為 <br>／<p>，再加 pre-wrap 會讓標籤之間的排版空白也被
+                  渲染出多餘空行。
+                -->
+                <div
+                  v-if="announcement.content"
+                  class="content-text text-body-1"
+                  v-html="announcement.content"
+                />
+                <div v-else class="text-grey">
+                  （本則公告沒有詳細內容）
+                </div>
+              </v-card-text>
+            </template>
+          </v-card>
+        </div>
       </v-col>
     </v-row>
   </v-container>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+<script lang="ts" setup>
+import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
-// 1. 引入共用資料與介面
-// 請確認你的檔案名稱是 announcement.ts 還是 announcements.ts (有無 s)
-// 如果上一部你改成了 announcements.ts，這裡請改成 '@/data/announcements'
-import { announcementsData, type Announcement } from '@/data/announcement';
+import { announcementsService } from '@/services/announcementsService'
+import { toRocDate } from '@/utils/rocDate'
+import type { AnnouncementPublicDetail } from '@/types/announcements'
 
-const route = useRoute();
-const router = useRouter();
+const route = useRoute()
+const router = useRouter()
 
-const announcement = ref<Announcement | null>(null);
-const loading = ref(false);
+const announcement = ref<AnnouncementPublicDetail | null>(null)
+const loading = ref(true)
 
-// ==========================================
-// 模擬 API 請求函數
-// ==========================================
-const fetchAnnouncementFromAPI = async (id: number): Promise<Announcement | undefined> => {
-  // 模擬網路延遲
-  await new Promise(resolve => setTimeout(resolve, 300));
+function goBack () {
+  // 有瀏覽歷史就回上一頁（可能是首頁或列表頁），否則回首頁
+  if (window.history.length > 1) router.back()
+  else router.push('/')
+}
 
-  // 從共用的 announcementsData 裡面找
-  return announcementsData.find(item => item.id === id);
-};
-
-// ==========================================
-// 主要邏輯
-// ==========================================
-const loadData = async () => {
-  const id = Number(route.params.id);
-  
-  if (!id || isNaN(id)) {
-    console.error("無效的 ID");
-    return;
+onMounted(async () => {
+  // typed-router 的 params 型別為聯集，先取出再轉數字
+  const rawId = (route.params as { id?: string }).id
+  const id = Number(rawId)
+  if (!Number.isInteger(id) || id <= 0) {
+    loading.value = false
+    return
   }
-
-  loading.value = true;
-  announcement.value = null; // 清空舊資料
-
   try {
-    const data = await fetchAnnouncementFromAPI(id);
-    if (data) {
-      announcement.value = data;
-    } else {
-      console.warn("找不到資料");
-    }
-  } catch (error) {
-    console.error("API 錯誤", error);
+    announcement.value = await announcementsService.fetchDetail(id)
+  } catch {
+    // 不存在、已刪除、或一般使用者存取非 published——三者回應相同，
+    // 一律呈現「找不到此公告」，不呈現空白頁或系統錯誤訊息（FR-017）
+    announcement.value = null
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-};
-
-// 畫面掛載時執行
-onMounted(() => {
-  loadData();
-});
-
-// 監聽路由變化 (解決：如果在同一頁面切換不同 ID 時不重整的問題)
-watch(() => route.params.id, () => {
-  loadData();
-});
-
-// 輔助樣式函數
-const getTypeColor = (type: string) => {
-  switch (type) {
-    case '系統公告': return 'blue-darken-1';
-    case '停機公告': return 'deep-orange-darken-1';
-    default: return 'grey-darken-1';
-  }
-};
+})
 </script>
 
 <style scoped>
-/* 讓後端傳來的換行符號 (\n) 能正確顯示 */
-.content-text {
-  white-space: pre-wrap;
-  line-height: 1.8;
-  color: #333;
+.section-wrapper {
+  margin-top: 8px;
+}
+
+/*
+  公告內容的外觀——**樣式規則的唯一來源**。
+  內容本身不攜帶任何 style 或 class（消毒時已移除），外觀一律由此處
+  對元素統一設定，因此前後端沒有任何清單需要鎖步同步。
+
+  數值逐項取自既有公告的行內樣式，使移轉後的視覺呈現與移轉前一致。
+  不保留原 transition: .3s——滑鼠移入變淡的行為已不支援，那會是永遠
+  不觸發的死樣式。
+*/
+.content-text :deep(img) {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 15px 0;
+  display: block;
+  max-width: 100%;
+}
+
+.content-text :deep(a) {
+  color: #2c3e50;
+  text-decoration: underline;
+  font-weight: bold;
+}
+
+.content-text :deep(p) {
+  margin-bottom: 12px;
+}
+
+.content-text :deep(ul),
+.content-text :deep(ol) {
+  padding-left: 24px;
+  margin-bottom: 12px;
 }
 </style>

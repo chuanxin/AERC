@@ -61,6 +61,10 @@ class AuthTokenType(str, Enum):
     PASSWORD_RESET = "password_reset"  # 密碼重設
     ACCOUNT_MIGRATION = "account_migration"  # 帳號轉移（舊系統使用者啟用）
     MFA_VERIFICATION = "mfa_verification"  # 登入第二因子驗證（IP 白名單外來源）
+    # 042：入口平台 SSO。token_type 欄位實測為 varchar(18)（現有最長成員
+    # email_verification 的長度），以下兩者各 11 字元可容納，不需要 migration。
+    SSO_HANDOFF = "sso_handoff"  # 一次性交接碼：把已驗證身分交給前端落地頁換取登入狀態
+    SSO_BINDING = "sso_binding"  # 綁定票據：憑證已驗證，尚待本人登入證明
 
 
 class AuthTokenStatus(str, Enum):
@@ -85,6 +89,12 @@ class AuthToken(models.Model):
     )
     status = fields.CharEnumField(
         AuthTokenStatus, default=AuthTokenStatus.PENDING, description="Token 狀態"
+    )
+    # 042：綁定票據核發當下已由憑證驗證確立的入口身分。綁定端點據此建立對應關係——
+    # user 欄位只記得「要綁到哪個帳號」，沒有這一欄就不知道「要綁哪個入口身分」。
+    # 其他 token 類型不使用，一律為 NULL（migration 79）。
+    external_id = fields.CharField(
+        max_length=64, null=True, description="入口平台帳號識別（僅 sso_binding 使用）"
     )
 
     # OTP 驗證（用於密碼重設）
@@ -211,6 +221,57 @@ class UserRegistration(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.status.value}"
+
+
+class SsoBindMethod(str, Enum):
+    """入口身分對應關係的建立方式（042）"""
+
+    REGISTERED = "registered"  # 隨入口代建帳號一併建立（同一交易內）
+    SELF_BOUND = "self_bound"  # 使用者本人登入既有帳號完成綁定
+    ADMIN_REBOUND = "admin_rebound"  # 管理員改綁
+
+
+class SsoIdentity(models.Model):
+    """入口身分 ↔ AERC 帳號對應表（042）
+
+    登入落地解析的唯一入口：先查此表，查得到者進入帳號啟用狀態檢查，查不到者進入
+    首次綁定流程。
+
+    ⚠️ external_id 與 users.username 不保證相等——只有「入口代建」（registered）時
+    兩者相同；本人綁定與管理員改綁的 AERC 帳號是既有的，其登入帳號由當初建立時決定，
+    與入口識別各自獨立。因此本欄位的長度上限不綁 username 的 20 字元，64 是對入口
+    識別本身的保守上限。
+    """
+
+    id = fields.IntField(pk=True)
+    external_id = fields.CharField(
+        max_length=64, unique=True, description="入口平台的帳號識別"
+    )
+    user = fields.OneToOneField(
+        "models.Users",
+        related_name="sso_identity",
+        on_delete=fields.CASCADE,
+        description="對應的 AERC 帳號",
+    )
+    bound_method = fields.CharEnumField(SsoBindMethod, description="對應關係的建立方式")
+    bound_at = fields.DatetimeField(description="對應關係建立時間（UTC）")
+    bound_by = fields.ForeignKeyField(
+        "models.Users",
+        related_name="rebound_sso_identities",
+        null=True,
+        on_delete=fields.SET_NULL,
+        description="執行者，僅 admin_rebound 時有值",
+    )
+
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    modified_at = fields.DatetimeField(auto_now=True, description="修改時間")
+
+    class Meta:
+        table = "sso_identities"
+        table_description = "入口身分與 AERC 帳號對應表"
+
+    def __str__(self):
+        return f"{self.external_id} -> user_id={self.user_id}"
 
 
 class PasswordHistory(models.Model):
@@ -1389,3 +1450,89 @@ class QualificationQuery(models.Model):
     class Meta:
         table = "qualification_queries"
         table_description = "重複案件查詢記錄表"
+
+
+# ─────────────────────────────────────────────────────────────
+# 040 公告（最新消息）系統化管理
+# ─────────────────────────────────────────────────────────────
+
+
+class AnnouncementStatus(str, Enum):
+    """公告狀態
+
+    生命週期：draft →(publish)→ published →(unpublish)→ archived
+    archived 可再次 publish 回到 published；任何狀態皆可被徹底刪除。
+    """
+
+    DRAFT = "draft"  # 草稿：不顯示於首頁與列表頁
+    PUBLISHED = "published"  # 已發布：一般使用者可見
+    ARCHIVED = "archived"  # 已下架：不再顯示，但保留 published_at
+
+
+class AnnouncementType(models.Model):
+    """公告類型（分類標籤，由具公告管理權限者維護）
+
+    刻意不設 sort_order：類型數量預期為個位數，一律依 id（建立順序）排列。
+    """
+
+    id = fields.IntField(pk=True)
+    name = fields.CharField(
+        max_length=20, unique=True, description="類型名稱（例：系統公告）"
+    )
+    color = fields.CharField(
+        max_length=30, description="列表標示顏色（Vuetify 色名或 hex）"
+    )
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    updated_at = fields.DatetimeField(auto_now=True, description="修改時間")
+
+    class Meta:
+        table = "announcement_types"
+        table_description = "公告類型"
+
+    def __str__(self):
+        return self.name
+
+
+class Announcement(models.Model):
+    """公告（最新消息）
+
+    內容只儲存作者輸入的 Markdown 原文；呈現用的 HTML 於讀取時渲染，不入庫。
+    """
+
+    id = fields.IntField(pk=True)
+    title = fields.CharField(max_length=200, description="標題（列表顯示）")
+    type = fields.ForeignKeyField(
+        "models.AnnouncementType",
+        related_name="announcements",
+        on_delete=fields.RESTRICT,
+        description="公告類型；RESTRICT 為「使用中的類型不可刪」的資料庫層保證",
+    )
+    content_markdown = fields.TextField(
+        null=True,
+        description="詳細內容的 Markdown 原文——唯一儲存形式，呈現用 HTML 於讀取時渲染",
+    )
+    publish_date = fields.DateField(description="發布日期（顯示與排序用；前端以民國年月日呈現）")
+    status = fields.CharEnumField(
+        AnnouncementStatus,
+        max_length=20,
+        default=AnnouncementStatus.DRAFT,
+        description="公告狀態",
+    )
+    is_pinned = fields.BooleanField(default=False, description="是否置頂")
+    created_by = fields.ForeignKeyField(
+        "models.Users",
+        related_name="created_announcements",
+        null=True,
+        on_delete=fields.SET_NULL,
+        description="建立者；SET_NULL 不用 CASCADE——刪帳號不得連帶抹掉其發過的公告",
+    )
+    published_at = fields.DatetimeField(null=True, description="實際發布時間")
+    created_at = fields.DatetimeField(auto_now_add=True, description="建立時間")
+    updated_at = fields.DatetimeField(auto_now=True, description="修改時間")
+
+    class Meta:
+        table = "announcements"
+        table_description = "公告（最新消息）"
+
+    def __str__(self):
+        return self.title

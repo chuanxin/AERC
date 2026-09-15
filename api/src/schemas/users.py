@@ -51,6 +51,8 @@ class UserInfoSchema(BaseSchema):
     office: Optional[SimpleOfficeSchema] = None
     department: Optional[dict] = None
     password_expired: bool = False  # 密碼是否已過期（計算欄位，由 check_password_expired 填入）
+    # 042：登入來源，取自存取憑證的 auth_src 宣告；既有直接登入為 None（見 auth/users.py AUTH_SOURCE_SSO）
+    auth_source: Optional[str] = None
 
 UserOutSchema = UserInfoSchema
 

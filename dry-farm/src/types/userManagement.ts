@@ -31,6 +31,8 @@ export interface UserListItem {
   email_verified?: boolean
   role?: string
   permissions?: UserPermissions
+  /** 權限設定是否已偏離角色預設。由後端 permission_service 判定，前端不重算 */
+  permissions_deviated?: boolean
   office?: SimpleOffice
   created_at?: string
   last_login?: string
@@ -46,6 +48,33 @@ export interface UserDetail extends UserListItem {
   department?: any  // JSONB 欄位
   email_verified?: boolean
   password_expired?: boolean
+}
+
+/**
+ * 入口身分綁定的建立方式（042-portal-sso-integration）
+ * 顯示時一律轉為中文，不直接呈現代碼
+ */
+export type SsoBindMethod = 'registered' | 'self_bound' | 'admin_rebound'
+
+/**
+ * 帳號目前的入口身分綁定；未綁定時各欄位為 null
+ */
+export interface SsoIdentityInfo {
+  user_id: number
+  external_id: string | null
+  bound_method: SsoBindMethod | null
+  bound_at: string | null
+  bound_by_username: string | null
+}
+
+/**
+ * 入口身分改綁回應
+ */
+export interface SsoRebindResponse {
+  success: boolean
+  external_id: string
+  user_id: number
+  previous_user_id: number | null
 }
 
 /**

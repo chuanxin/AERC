@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from fastapi import HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 import bcrypt
@@ -107,6 +108,23 @@ async def reset_failed_login(user: Users) -> None:
         user.failed_login_count = 0
         user.locked_until = None
         await user.save()
+
+
+# 042：AERC 存取憑證的 auth_src 宣告值。僅 POST /sso/exchange 核發的憑證帶此宣告。
+AUTH_SOURCE_SSO = "sso"
+
+
+def session_password_expired(user: Users, auth_source: Optional[str]) -> bool:
+    """對外揭露的「密碼已逾期」狀態（FR-014a）。
+
+    此狀態在既有系統中的實際語意是「**本次工作階段必須先更換密碼才能繼續**」——前端唯一
+    的用法就是據此強制導向換密碼頁。SSO 工作階段的身分驗證由入口平台負責（客戶
+    2026-09-08 確認豁免），該命題為假。帳號的原始密碼期限不受影響，直接登入照常攔阻。
+
+    ⚠️ 所有輸出此狀態的位置都必須走這裡（/sso/exchange、/users/whoami）。只改其中一處，
+    另一處會把使用者導向換密碼頁，而 require_full_auth 的豁免根本沒有機會執行。
+    """
+    return auth_source != AUTH_SOURCE_SSO and check_password_expired(user)
 
 
 def check_password_expired(user: Users) -> bool:

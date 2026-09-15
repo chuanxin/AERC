@@ -27,6 +27,13 @@ class AuditAction(str, Enum):
     EXPORT = "EXPORT"
     PASSWORD_CHANGE = "PASSWORD_CHANGE"
     ROLE_CHANGE = "ROLE_CHANGE"
+    # 040 新增：公告管理
+    DELETE = "DELETE"
+    PUBLISH = "PUBLISH"
+    UNPUBLISH = "UNPUBLISH"
+    # 042 新增：入口平台身分綁定（action 欄位為 CharField(max_length=30)，無需 migration）
+    BIND = "BIND"
+    REBIND = "REBIND"
 
 
 class AuditResult(str, Enum):
@@ -40,6 +47,10 @@ class SecurityAuditLog(Model):
     actor_id = fields.IntField(null=True)
     actor_username = fields.CharField(max_length=20, null=True)
     actor_role = fields.CharField(max_length=50, null=True)
+    # 041 新增：被影響者的帳號名稱，與 actor_username 對稱（TD-012b 處方的欄位形狀）。
+    # resource_id 是純數字，帳號硬刪除後即成無法還原的孤兒；此欄位使稽核紀錄在
+    # 目標帳號被刪除後仍可辨識是關於誰（FR-013）。
+    target_username = fields.CharField(max_length=20, null=True)
     event_type = fields.CharField(max_length=20)
     action = fields.CharField(max_length=30)
     resource_type = fields.CharField(max_length=50, null=True)

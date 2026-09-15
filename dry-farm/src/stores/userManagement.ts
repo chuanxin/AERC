@@ -21,7 +21,9 @@ import type {
   UserDetail,
   BatchOperationResponse,
   PendingApprovalResponse,
-  UserApprovalResponse
+  UserApprovalResponse,
+  SsoIdentityInfo,
+  SsoRebindResponse
 } from '@/types/userManagement'
 import type {
   UpdateUserPermissionsRequest,
@@ -257,6 +259,29 @@ export const useUserManagementStore = defineStore('userManagement', () => {
   }, asyncOptions)
 
   // ============================================================================
+  // 入口身分綁定（042-portal-sso-integration，僅系統管理員）
+  // ============================================================================
+
+  /**
+   * 取得帳號目前綁定的入口身分（未綁定時各欄位為 null）
+   */
+  const fetchSsoIdentity = wrapAsync(async (userId: number) => {
+    const response = await apiService.get<SsoIdentityInfo>(USER_MANAGEMENT.SSO_IDENTITY(userId))
+    return response
+  }, asyncOptions)
+
+  /**
+   * 將入口身分改綁至指定帳號
+   */
+  const rebindSsoIdentity = wrapAsync(async (externalId: string, userId: number) => {
+    const response = await apiService.put<SsoRebindResponse>(
+      USER_MANAGEMENT.SSO_REBIND(externalId),
+      { user_id: userId }
+    )
+    return response
+  }, asyncOptions)
+
+  // ============================================================================
   // Selection Methods
   // ============================================================================
 
@@ -381,6 +406,10 @@ export const useUserManagementStore = defineStore('userManagement', () => {
     // 帳號驗證重啟 / 單位變更
     resendVerification,
     updateAccountAssignment,
+
+    // 入口身分綁定（042，僅系統管理員）
+    fetchSsoIdentity,
+    rebindSsoIdentity,
 
     // Selection Methods
     selectUser,
