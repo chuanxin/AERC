@@ -20,9 +20,11 @@ AES 模式的方向查，而真因只是一個設定值的形式不對。因此�
 """
 
 import binascii
+import ipaddress
 import logging
 import os
 import re
+from typing import Tuple, Union
 
 from src.auth.nonce import NONCE_RETENTION_SECONDS
 
@@ -66,6 +68,48 @@ def _split_csv(raw: str) -> frozenset:
     return frozenset(item.strip() for item in raw.split(",") if item.strip())
 
 
+IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
+
+# PORTAL_ALLOWED_IPS 的「不限制來源」標記。必須明確寫出——留空仍然一律拒絕，
+# 漏設一個變數不得讓建立帳號的對外 API 變成全開。
+ALLOW_ANY_SOURCE = "*"
+
+# 客戶規格書上印出的測試密鑰。不限制來源 IP 時若仍使用它，對外 API 等同只受一把公開的密碼保護。
+_PUBLIC_TEST_WEBHOOK_SECRETS = frozenset({"IA-Portal-DEV-Secret"})
+_MIN_WEBHOOK_SECRET_LENGTH_WITHOUT_IP_LIMIT = 32
+
+
+def parse_allowed_sources(raw: str) -> Tuple[bool, Tuple[IPNetwork, ...]]:
+    """解析 PORTAL_ALLOWED_IPS，回傳 (是否不限制來源, 允許的網段)。
+
+    - 空值：不允許任何來源（fail-closed）
+    - `*`：不限制來源，**必須單獨設定**
+    - 其他：逗號分隔的 IP 或 CIDR；單一 IP 視為 /32（IPv6 為 /128）
+
+    格式錯誤一律拋 RuntimeError 拒絕啟動，**不略過該項**：略過會讓一筆打錯的網段無聲失效，
+    呼叫端只看到 401 而找不到原因。網段位址含主機位元（203.0.113.5/24）同樣拒絕——
+    寬鬆解析會把它悄悄當成 203.0.113.0/24，範圍比設定者以為的大。
+    """
+    entries = _split_csv(raw)
+    if ALLOW_ANY_SOURCE in entries:
+        if len(entries) > 1:
+            raise RuntimeError(
+                "PORTAL_ALLOWED_IPS 的 * 必須單獨設定，不得與其他 IP 並列——無法判斷意圖是限制還是不限制來源"
+            )
+        return True, ()
+
+    networks = []
+    for entry in sorted(entries):
+        try:
+            networks.append(ipaddress.ip_network(entry, strict=True))
+        except ValueError:
+            raise RuntimeError(
+                f"PORTAL_ALLOWED_IPS 含無法解析的項目 {entry!r}：須為 IP（203.0.113.5）或 CIDR"
+                "（203.0.113.0/24），且網段位址不得含主機位元（203.0.113.5/24 應寫為 203.0.113.0/24）"
+            )
+    return False, tuple(networks)
+
+
 class PortalSsoSettings:
     """入口平台 SSO 整合的設定值。
 
@@ -82,7 +126,9 @@ class PortalSsoSettings:
         self.issuer = os.environ.get("PORTAL_SSO_ISSUER", "").strip() or _DEFAULT_ISSUER
         self.max_token_age_seconds = self._parse_max_token_age()
         self.webhook_secrets = _split_csv(os.environ.get("PORTAL_WEBHOOK_SECRET", ""))
-        self.allowed_ips = _split_csv(os.environ.get("PORTAL_ALLOWED_IPS", ""))
+        self.allow_any_source, self.allowed_networks = parse_allowed_sources(
+            os.environ.get("PORTAL_ALLOWED_IPS", "")
+        )
 
     @staticmethod
     def _parse_max_token_age() -> int:
@@ -105,6 +151,52 @@ class PortalSsoSettings:
     def is_configured(self) -> bool:
         """共用金鑰是否已設定。未設定時對外端點一律拒絕請求。"""
         return self.secret is not None
+
+    @property
+    def has_source_policy(self) -> bool:
+        """是否設定了任何來源規則（`*` 或至少一個網段）。未設定時對外 API 一律拒絕。"""
+        return self.allow_any_source or bool(self.allowed_networks)
+
+    def is_source_allowed(self, client_ip: str) -> bool:
+        """來源 IP 是否在允許範圍內。無法解析的 IP 一律不允許。"""
+        if self.allow_any_source:
+            return True
+        try:
+            address = ipaddress.ip_address(client_ip)
+        except ValueError:
+            return False
+        # IPv4 映射的 IPv6（::ffff:203.0.113.5）與 IPv4 網段版本不同，`in` 會直接回 False
+        if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+            address = address.ipv4_mapped
+        return any(address in network for network in self.allowed_networks)
+
+    def _warn_source_policy(self) -> None:
+        """/Register、/QueryStatus 來源驗證的設定狀態。只警告不中斷——是否啟用由部署決定，
+        但「一律 401」與「只剩密鑰保護」都必須在啟動當下看得見，不能等呼叫端回報才發現。
+        """
+        if not self.webhook_secrets or not self.has_source_policy:
+            logger.warning(
+                "PORTAL_WEBHOOK_SECRET 或 PORTAL_ALLOWED_IPS 未設定：/Register、/QueryStatus 將一律回 401"
+                "（PORTAL_ALLOWED_IPS 留空代表不允許任何來源；不限制來源須明確設為 *）"
+            )
+            return
+        if not self.allow_any_source:
+            return
+        logger.warning(
+            "PORTAL_ALLOWED_IPS=*：/Register、/QueryStatus 不限制來源 IP，僅以共享密鑰保護；"
+            "請確認反向代理已設定請求頻率限制"
+        )
+        weak = [
+            secret for secret in self.webhook_secrets
+            if secret in _PUBLIC_TEST_WEBHOOK_SECRETS or len(secret) < _MIN_WEBHOOK_SECRET_LENGTH_WITHOUT_IP_LIMIT
+        ]
+        if weak:
+            # 不寫出密鑰內容（FR-040）
+            logger.warning(
+                "不限制來源 IP，但 PORTAL_WEBHOOK_SECRET 中有 %d 把為規格書公開測試值或短於 %d 字元——"
+                "對外 API 等同只受一把容易取得的密碼保護",
+                len(weak), _MIN_WEBHOOK_SECRET_LENGTH_WITHOUT_IP_LIMIT,
+            )
 
     @property
     def signing_key(self) -> bytes:
@@ -131,6 +223,8 @@ class PortalSsoSettings:
                 f"防重放 nonce 保存期（{NONCE_RETENTION_SECONDS} 秒，auth/nonce.py）——"
                 "超過時憑證在 nonce 清除後仍在時效內，一次性保證會無聲失效"
             )
+
+        self._warn_source_policy()
 
         if self.secret is None:
             logger.warning(
