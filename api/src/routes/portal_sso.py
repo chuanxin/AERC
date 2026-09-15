@@ -39,7 +39,14 @@ logger = logging.getLogger(__name__)
 
 
 class PortalAuthError(Exception):
-    """來源驗證未通過（FR-037）。由 route_class 轉為 401 信封。"""
+    """來源驗證未通過（FR-037）。由 route_class 轉為 401 信封。
+
+    `reason` 只寫進日誌，對外一律回「未經授權」——不告訴呼叫端是密鑰還是來源 IP 沒過。
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 class PortalBadRequestError(Exception):
@@ -60,11 +67,11 @@ class PortalEnvelopeRoute(APIRoute):
             try:
                 return await original_route_handler(request)
 
-            except PortalAuthError:
-                # 不記錄呈交的密鑰內容（FR-040）
+            except PortalAuthError as exc:
+                # 記錄未通過的條件以便歸因；不記錄呈交的密鑰內容（FR-040）
                 logger.warning(
-                    "入口平台 API 來源驗證失敗 endpoint=%s ip=%s",
-                    request.url.path, get_client_ip(request),
+                    "入口平台 API 來源驗證失敗 endpoint=%s ip=%s reason=%s",
+                    request.url.path, get_client_ip(request), exc.reason,
                 )
                 return JSONResponse(
                     status_code=401,
@@ -103,27 +110,28 @@ class PortalEnvelopeRoute(APIRoute):
 
 
 async def verify_portal_source(request: Request) -> None:
-    """來源驗證（FR-037）：共享密鑰 + 來源 IP 允許清單，**兩者皆須成立**。
+    """來源驗證（FR-037）：共享密鑰 + 來源 IP 允許範圍，**兩者皆須成立**。
 
     客戶契約提供的驗證方式只有一個固定的共享密鑰標頭，不含簽章、時間戳或防重放機制，
     而 /Register 具有建立帳號的寫入副作用。因此加上來源 IP 限制作為第二道條件。
 
-    密鑰以逗號分隔支援新舊兩把並存，使雙方不必同時切換。
+    - 密鑰以逗號分隔支援新舊兩把並存，使雙方不必同時切換
+    - PORTAL_ALLOWED_IPS 接受單一 IP 與 CIDR；明確設為 `*` 才代表不限制來源（僅以密鑰保護）
+    - 任一項未設定即拒絕所有請求（fail-closed）：留空不是「不限制」
+
+    每個拒絕都帶明確原因，避免「一律 401」時只能逐項猜測。
     """
     if not portal_sso_settings.webhook_secrets:
-        # 未設定即拒絕所有請求（fail-closed）。這是本整合尚未啟用時的正確行為。
-        raise PortalAuthError()
+        raise PortalAuthError("未設定 PORTAL_WEBHOOK_SECRET")
 
-    presented = request.headers.get("X-Webhook-Secret", "")
-    if presented not in portal_sso_settings.webhook_secrets:
-        raise PortalAuthError()
+    if request.headers.get("X-Webhook-Secret", "") not in portal_sso_settings.webhook_secrets:
+        raise PortalAuthError("X-Webhook-Secret 缺漏或不符")
 
-    if not portal_sso_settings.allowed_ips:
-        raise PortalAuthError()
+    if not portal_sso_settings.has_source_policy:
+        raise PortalAuthError("未設定 PORTAL_ALLOWED_IPS（留空代表不允許任何來源）")
 
-    if get_client_ip(request) not in portal_sso_settings.allowed_ips:
-        raise PortalAuthError()
-
+    if not portal_sso_settings.is_source_allowed(get_client_ip(request)):
+        raise PortalAuthError("來源 IP 不在 PORTAL_ALLOWED_IPS 允許範圍")
 
 router = APIRouter(route_class=PortalEnvelopeRoute)
 
