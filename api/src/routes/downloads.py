@@ -22,7 +22,7 @@ from src.schemas.static_downloads import (
     BatchDownloadRequest
 )
 from src.config.folder_mappings import settings
-from src.config.funding_sources import FUNDING_SOURCE_NAMES
+from src.config.funding_sources import FUNDING_SOURCE_NAMES, resolve_funding_source_id
 import logging
 import os
 import tempfile
@@ -877,18 +877,22 @@ async def extract_subsidy_row_data(grant, version_data: dict) -> dict:
     else:
         designer = steps.get('5', {}).get('designerName', '') or '未設定'
 
-    # fundingSourceId：優先新系統 steps['4']['fundingSourceId']，歷史資料回退
+    # fundingSourceId：歷史案件讀 facilities[] 的逐設施來源（案件最上層欄位是匯入時寫死
+    # 的假值），新系統案件讀案件最上層欄位；is_legacy 必須以 data_schema_version 判斷，
+    # 不可用 grants.is_legacy（兩者在已匯入未轉換的案件上不一致）。
+    # 原本的 legacy_data.fundingSourceId 回退已移除：實測全庫 55,362 筆 legacy 案件的
+    # legacy_data 沒有任何一筆含此欄位，該分支是永遠不會命中的死碼。
     step4_data = steps.get('4', {})
-    fid = step4_data.get('fundingSourceId')
+    fid = resolve_funding_source_id(
+        step4_data,
+        getattr(grant.active_version, 'data_schema_version', None) == 'legacy',
+    )
     if not (isinstance(fid, int) and fid in _FUNDING_SOURCE_SHEETS):
-        legacy = (version_data or {}).get('legacy_data', {})
-        fid = legacy.get('fundingSourceId')
-        if not (isinstance(fid, int) and fid in _FUNDING_SOURCE_SHEETS):
-            raw_fid = step4_data.get('fundingSourceId')
-            raise ValueError(
-                f"案件 {getattr(grant, 'case_number', '?')!r}: fundingSourceId={raw_fid!r} "
-                "不在已知清單，請重新儲存步驟 4（灌溉調控設施）以更新補助來源"
-            )
+        raw_fid = step4_data.get('fundingSourceId')
+        raise ValueError(
+            f"案件 {getattr(grant, 'case_number', '?')!r}: fundingSourceId={raw_fid!r}"
+            f"（判定結果 {fid!r}）不在已知清單，請重新儲存步驟 4（灌溉調控設施）以更新補助來源"
+        )
 
     area_ha = float(base.get('facility_area_ha', 0) or 0)
     end_facility = int(budget.get('govt_subsidy_a', 0))          # 末端設施 = A 項政府補助（不含農戶自付）
