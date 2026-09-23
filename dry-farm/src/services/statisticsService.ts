@@ -31,6 +31,8 @@ export interface ExecutionProgressResponse {
  * 單一預算來源（或「其他」聚合分類）的已編預算與已驗收統計
  */
 export interface FundingSourceBudgetStats {
+  /** 穩定識別碼（ia／advance／other），供配色等判斷用；顯示名稱會改，這個不會 */
+  source_key: string
   source_name: string
   budgeted_cases: number
   budgeted_area: number

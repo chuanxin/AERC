@@ -36,13 +36,33 @@ FUNDING_SOURCE_NAMES = {
 # 對應真實 offices 記錄的 id（排除虛擬的作業基金），用於與 DB 比對
 REAL_OFFICE_FUNDING_SOURCE_IDS = frozenset(FUNDING_SOURCE_NAMES) - {FUNDING_SOURCE_ADVANCE}
 
-# 經費統計表（首頁「管理處經費統計表」）的來源子列名稱。
-# 兩個具名桶直接由上方對照表派生，不另立字面值，避免與對照表漂移；
-# 「其他」是統計表自己的聚合桶（七星／瑠公／案件內部來源不一致），
-# 不是真實的補助來源，因此刻意不存在於 FUNDING_SOURCE_NAMES 裡。
-FUNDING_SOURCE_NAME_IA = FUNDING_SOURCE_NAMES[FUNDING_SOURCE_IA]
+# ── 首頁「管理處經費統計表」的來源桶 ──────────────────────────────────────
+#
+# key 給程式判斷用（分類、前端配色），name 給人看、可自由改名。兩者分離是為了
+# 讓「改顯示名稱」永遠只是改一個字串，不會牽動任何判斷邏輯——曾經因為分類與
+# 前端配色都拿顯示名稱當比對依據，改名會讓案件靜默掉進錯的桶、顏色靜默跑掉。
+FUNDING_SOURCE_KEY_IA = "ia"
+FUNDING_SOURCE_KEY_ADVANCE = "advance"
+FUNDING_SOURCE_KEY_OTHER = "other"
+
+# ⚠️ 統計表的桶名稱與上方 FUNDING_SOURCE_NAMES **刻意不同步**，不是漏改：
+# 這張表以「預算類別」為軸呈現（公務預算 vs 作業基金），案件列表與補助明細表
+# 的工作表名則以「撥款單位」為軸（農水署／七星／瑠公）。因此 id 0 在統計表顯示
+# 為「公務預算」，在案件列表仍顯示「農水署」。此為客戶 2026-09-23 指定的範圍
+# （只改首頁那張表），要同步兩邊之前請先向客戶確認。
+FUNDING_SOURCE_NAME_IA = "公務預算"
+# 作業基金在兩個軸上是同一個詞，故沿用對照表、不另立字面值
 FUNDING_SOURCE_NAME_ADVANCE = FUNDING_SOURCE_NAMES[FUNDING_SOURCE_ADVANCE]
+# 「其他」是統計表自己的聚合桶（七星／瑠公／案件內部來源不一致），
+# 不是真實的補助來源，因此刻意不存在於 FUNDING_SOURCE_NAMES 裡
 FUNDING_SOURCE_NAME_OTHER = "其他"
+
+# 桶 key → 顯示名稱；輸出時才查表，分類過程完全不碰顯示名稱
+FUNDING_SOURCE_BUCKET_NAMES = {
+    FUNDING_SOURCE_KEY_IA: FUNDING_SOURCE_NAME_IA,
+    FUNDING_SOURCE_KEY_ADVANCE: FUNDING_SOURCE_NAME_ADVANCE,
+    FUNDING_SOURCE_KEY_OTHER: FUNDING_SOURCE_NAME_OTHER,
+}
 
 # resolve_funding_source_id() 的回傳 sentinel：歷史案件內部設施橫跨多個不同來源，
 # 無法判定單一來源。不是 fundingSourceId 的合法值，故用字串與 int 回傳值區分。
