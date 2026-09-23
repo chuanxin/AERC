@@ -207,7 +207,7 @@
                     <v-text-field
                       v-model.number="filterCriteria.yearEnd"
                       label="結束年度"
-                      placeholder="114"
+                      :placeholder="String(getCurrentYear())"
                       type="number"
                       :min="97"
                       :max="getCurrentYear()"
@@ -274,6 +274,7 @@ import { ref, computed, watch } from 'vue'
 import type { GeoJsonFeature, GisStatistics } from '../../types/gis'
 import {
   applyFrontendFilters,
+  getCurrentYear,
   type FilterCriteria
 } from '../../utils/frontendFilters'
 
@@ -308,11 +309,6 @@ const emit = defineEmits<{
 // 內部狀態
 const expandedPanel = ref<string | undefined>(props.initialExpanded ? 'filter' : undefined)
 const quickFilter = ref('')
-
-// 獲取當前年度（民國年）
-const getCurrentYear = () => {
-  return new Date().getFullYear() - 1911
-}
 
 // 篩選條件
 const filterCriteria = ref<FilterCriteria>({

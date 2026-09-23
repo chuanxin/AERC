@@ -1178,6 +1178,7 @@ import { useRoute } from 'vue-router';
 import { useQualificationStore } from '@/stores/qualification';
 import { useDomicileStore } from '@/stores/domicile';
 import { checkNlscApiHealth, type LandSection } from '@/services/landSectionNlscService';
+import { getCurrentYear } from '@/utils/frontendFilters';
 import type { QualificationSearchParams, IndigenousSearchParams, RecentSearch, GrantCaseItem } from '@/types/qualification';
 
 const qualificationStore = useQualificationStore();
@@ -1262,8 +1263,8 @@ const lastSearchParams = ref<{
   years?: string[];
 }>({});
 
-// 可選年度範圍 (97年至115年)
-const availableYears = Array.from({ length: 18 }, (_, i) => (115 - i).toString());
+// 可選年度範圍 (97年至今年)
+const availableYears = Array.from({ length: 18 }, (_, i) => (getCurrentYear() - i).toString());
 
 // 年度選擇相關方法
 const clearYearSelection = () => {
@@ -1271,7 +1272,8 @@ const clearYearSelection = () => {
 };
 
 const selectRecentYears = () => {
-  selectedYears.value = ['114', '113', '112'];
+  const currentYear = getCurrentYear();
+  selectedYears.value = [String(currentYear), String(currentYear - 1), String(currentYear - 2)];
 };
 
 // 使用 Store 的狀態

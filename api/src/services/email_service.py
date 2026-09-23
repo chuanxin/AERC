@@ -300,7 +300,7 @@ class EmailService:
             verification_url=verification_url,
             expire_hours=EmailConfig.EMAIL_VERIFICATION_EXPIRE_HOURS,
             frontend_url=EmailConfig.FRONTEND_URL,
-            current_year=datetime.now().year  # [新增] 傳入當前年份
+            current_year=datetime.now().year
         )
 
         # 發送郵件
@@ -351,7 +351,7 @@ class EmailService:
             otp=auth_token.otp,
             expire_hours=EmailConfig.PASSWORD_RESET_EXPIRE_HOURS,
             frontend_url=EmailConfig.FRONTEND_URL,
-            current_year=datetime.now().year  # [新增] 傳入當前年份
+            current_year=datetime.now().year
         )
 
         # 發送郵件
@@ -398,7 +398,7 @@ class EmailService:
             ip_address=ip_address or "未知",
             user_agent=user_agent or "未知",
             frontend_url=EmailConfig.FRONTEND_URL,
-            current_year=datetime.now().year  # [新增] 傳入當前年份
+            current_year=datetime.now().year
         )
 
         # 發送郵件
@@ -428,7 +428,7 @@ class EmailService:
         body_html = html_template.render(
             otp=otp,
             frontend_url=EmailConfig.FRONTEND_URL,
-            current_year=datetime.now().year  # [新增] 傳入當前年份
+            current_year=datetime.now().year
         )
 
         # 發送郵件
@@ -457,7 +457,8 @@ class EmailService:
         body_html = html_template.render(
             otp=otp,
             frontend_url=EmailConfig.FRONTEND_URL,
-            expire_minutes=EmailConfig.MFA_VERIFICATION_EXPIRE_MINUTES
+            expire_minutes=EmailConfig.MFA_VERIFICATION_EXPIRE_MINUTES,
+            current_year=datetime.now().year
         )
 
         return await self.send_email(
@@ -507,7 +508,7 @@ class EmailService:
             otp=auth_token.otp,
             expire_hours=EmailConfig.ACCOUNT_MIGRATION_EXPIRE_HOURS // 24,  # 轉換為天數
             frontend_url=EmailConfig.FRONTEND_URL,
-            current_year=datetime.now().year  # [新增] 傳入當前年份
+            current_year=datetime.now().year
         )
 
         # 發送郵件
@@ -875,7 +876,7 @@ PASSWORD_RESET_HTML_TEMPLATE = """
                                 <tr>
                                     <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #ffffff; opacity: 0.9; line-height: 1.6;">
                                         本郵件由系統自動發送，請勿直接回覆<br/>
-                                        &copy; {{ current_year }}  農田水利署 版權所有
+                                        &copy; {{ current_year }} 農田水利署 版權所有
                                     </td>
                                 </tr>
                             </table>
@@ -1021,7 +1022,7 @@ PASSWORD_CHANGED_HTML_TEMPLATE = """
                                 <tr>
                                     <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #ffffff; opacity: 0.9; line-height: 1.6;">
                                         本郵件由系統自動發送，請勿直接回覆<br/>
-                                        &copy; {{ current_year }}  農田水利署 版權所有
+                                        &copy; {{ current_year }} 農田水利署 版權所有
                                     </td>
                                 </tr>
                             </table>
@@ -1140,7 +1141,7 @@ REGISTRATION_OTP_HTML_TEMPLATE = """
                                 <tr>
                                     <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #ffffff; opacity: 0.9; line-height: 1.6;">
                                         本郵件由系統自動發送，請勿直接回覆<br/>
-                                        &copy; {{ current_year }}  農田水利署 版權所有
+                                        &copy; {{ current_year }} 農田水利署 版權所有
                                     </td>
                                 </tr>
                             </table>
@@ -1259,7 +1260,7 @@ MFA_OTP_HTML_TEMPLATE = """
                                 <tr>
                                     <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #ffffff; opacity: 0.9; line-height: 1.6;">
                                         本郵件由系統自動發送，請勿直接回覆<br/>
-                                        &copy; 2025 農田水利署 版權所有
+                                        &copy; {{ current_year }} 農田水利署 版權所有
                                     </td>
                                 </tr>
                             </table>
@@ -1413,7 +1414,7 @@ ACCOUNT_MIGRATION_HTML_TEMPLATE = """
                                 <tr>
                                     <td align="center" style="font-family: 'Microsoft JhengHei', 'PingFang TC', 'Helvetica Neue', Arial, sans-serif; font-size: 13px; color: #ffffff; opacity: 0.9; line-height: 1.6;">
                                         本郵件由系統自動發送，請勿直接回覆<br/>
-                                        &copy; {{ current_year }}  農田水利署 版權所有
+                                        &copy; {{ current_year }} 農田水利署 版權所有
                                     </td>
                                 </tr>
                             </table>
