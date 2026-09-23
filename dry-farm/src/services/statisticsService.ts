@@ -28,6 +28,19 @@ export interface ExecutionProgressResponse {
 }
 
 /**
+ * 單一預算來源（或「其他」聚合分類）的已編預算與已驗收統計
+ */
+export interface FundingSourceBudgetStats {
+  source_name: string
+  budgeted_cases: number
+  budgeted_area: number
+  budgeted_subsidy: number
+  verified_cases: number
+  verified_area: number
+  verified_amount: number
+}
+
+/**
  * 管理處經費統計分析
  */
 export interface OfficeBudgetStats {
@@ -44,6 +57,7 @@ export interface OfficeBudgetStats {
   verified_amount: number
   area_execution_rate: number
   budget_execution_rate: number
+  sources: FundingSourceBudgetStats[]
 }
 
 /**

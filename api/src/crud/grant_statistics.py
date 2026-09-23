@@ -7,11 +7,20 @@ from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime, timezone
 
+from ..config.funding_sources import (
+    FUNDING_SOURCE_MIXED,
+    FUNDING_SOURCE_NAMES,
+    FUNDING_SOURCE_NAME_IA,
+    FUNDING_SOURCE_NAME_ADVANCE,
+    FUNDING_SOURCE_NAME_OTHER,
+    resolve_funding_source_id,
+)
 from ..database.models import Grants, GrantVersions, Offices, SubsidyAnnualBudget, Counties, Towns, GrantStatusGroup
 from ..schemas.statistics import (
     ExecutionProgressResponse,
     OfficeExecutionStats,
     BudgetAnalysisResponse,
+    FundingSourceBudgetStats,
     OfficeBudgetStats,
     CountyTownStats,
     OfficeSummaryStats,
@@ -421,6 +430,67 @@ class GrantStatisticsCRUD:
         )
 
     @staticmethod
+    def _classify_funding_source(steps4_data: dict, is_legacy: bool = False) -> str:
+        """判斷單一案件的預算來源分類
+
+        回傳固定的分類名稱，供經費統計表的來源子列分桶使用：
+        - 農水署（0）、作業基金（-1）：固定具名子列
+        - 其他：其餘已知來源（七星 16、瑠公 17），以及歷史案件內部來源不一致者
+        - 缺漏/非 int/不在對照表：一律併入農水署（FR-002），因為本表是金額加總，
+          不能有無歸屬的案件，否則來源子列加總會對不上管理處小計（FR-003）
+
+        Args:
+            steps4_data: 案件的 steps['4'] 內容
+            is_legacy: 是否為歷史案件（必須以 data_schema_version == 'legacy' 判斷，
+                       不可用 grants.is_legacy，兩者在已匯入但未轉換的案件上不一致）
+        """
+        raw = resolve_funding_source_id(steps4_data, is_legacy)
+
+        if raw == FUNDING_SOURCE_MIXED:
+            return FUNDING_SOURCE_NAME_OTHER
+
+        if isinstance(raw, int):
+            name = FUNDING_SOURCE_NAMES.get(raw)
+            if name in (FUNDING_SOURCE_NAME_IA, FUNDING_SOURCE_NAME_ADVANCE):
+                return name
+            if name is not None:
+                return FUNDING_SOURCE_NAME_OTHER
+
+        return FUNDING_SOURCE_NAME_IA
+
+    @staticmethod
+    def _new_source_buckets() -> dict:
+        """建立依來源分桶的累加器（三個桶皆先建立，輸出時才決定「其他」是否呈現）"""
+        return {
+            name: {
+                'budgeted_cases': 0,
+                'budgeted_area': Decimal('0'),
+                'budgeted_subsidy': Decimal('0'),
+                'verified_cases': 0,
+                'verified_area': Decimal('0'),
+                'verified_amount': Decimal('0'),
+            }
+            for name in (FUNDING_SOURCE_NAME_IA, FUNDING_SOURCE_NAME_ADVANCE, FUNDING_SOURCE_NAME_OTHER)
+        }
+
+    @staticmethod
+    def _build_source_stats(source_buckets: dict) -> List[FundingSourceBudgetStats]:
+        """將累加器組成固定順序的來源子列
+
+        農水署、作業基金固定輸出（即使六欄皆零）；其他僅於六欄至少一項非零時輸出。
+        """
+        sources = [
+            FundingSourceBudgetStats(source_name=name, **source_buckets[name])
+            for name in (FUNDING_SOURCE_NAME_IA, FUNDING_SOURCE_NAME_ADVANCE)
+        ]
+
+        other = source_buckets[FUNDING_SOURCE_NAME_OTHER]
+        if any(other[field] for field in other):
+            sources.append(FundingSourceBudgetStats(source_name=FUNDING_SOURCE_NAME_OTHER, **other))
+
+        return sources
+
+    @staticmethod
     async def _calculate_office_budget_stats(
         year: int,
         office_id: int,
@@ -470,26 +540,40 @@ class GrantStatisticsCRUD:
         budgeted_area = Decimal('0')
         budgeted_subsidy = Decimal('0')
 
+        # 依預算來源分桶的累加器（與上方管理處層級加總同步累加，確保 sum(sources) == 管理處總額）
+        source_buckets = GrantStatisticsCRUD._new_source_buckets()
+
         # 使用共用計算方法
         for grant in budgeted_grants:
             if not grant.active_version:
                 continue
-            
+
             # 與其他統計報表保持一致：只統計有有效土地縣市資料的案件
             all_steps_data = grant.active_version.all_steps_data or {}
             steps = all_steps_data.get('steps', {})
             lands = steps.get('2', {}).get('lands', [])
-            
+
             c_id, _, _, _ = GrantStatisticsCRUD._find_first_valid_county_town(
                 lands, county_lookup, town_lookup
             )
             if c_id is None:  # 跳過沒有有效土地資料的案件
                 continue
-            
+
             grant_area, grant_subsidy = GrantStatisticsCRUD._calculate_grant_subsidy(grant)
             budgeted_cases += 1
             budgeted_area += grant_area
             budgeted_subsidy += grant_subsidy
+
+            # 來源分桶必須在上方 continue 之後累加，否則會把管理處層級排除的案件算進子列
+            # is_legacy 以 data_schema_version 判斷（與 _calculate_grant_subsidy 內同一判斷式），
+            # 不可用 grants.is_legacy——兩者在已匯入未轉換的案件上不一致
+            is_legacy_data = grant.active_version.data_schema_version == 'legacy'
+            bucket = source_buckets[
+                GrantStatisticsCRUD._classify_funding_source(steps.get('4', {}), is_legacy_data)
+            ]
+            bucket['budgeted_cases'] += 1
+            bucket['budgeted_area'] += grant_area
+            bucket['budgeted_subsidy'] += grant_subsidy
 
         # 3. 查詢已驗收案件（status in ['completed', 'submitted']）
         # completed: 線上結案，尚未完成文件上傳
@@ -525,6 +609,15 @@ class GrantStatisticsCRUD:
             verified_area += grant_area
             verified_amount += grant_subsidy
 
+            # 來源分桶必須在上方 continue 之後累加（同已編預算迴圈）
+            is_legacy_data = grant.active_version.data_schema_version == 'legacy'
+            bucket = source_buckets[
+                GrantStatisticsCRUD._classify_funding_source(steps.get('4', {}), is_legacy_data)
+            ]
+            bucket['verified_cases'] += 1
+            bucket['verified_area'] += grant_area
+            bucket['verified_amount'] += grant_subsidy
+
         # 4. 計算未編列補助款（預定執行預算 - 已編列補助款）
         # 允許負值：當已編列補助款超過預定執行預算時，顯示超支金額
         unbudgeted_subsidy = planned_budget - budgeted_subsidy
@@ -554,7 +647,8 @@ class GrantStatisticsCRUD:
             verified_area=verified_area,
             verified_amount=verified_amount,
             area_execution_rate=area_execution_rate,
-            budget_execution_rate=budget_execution_rate
+            budget_execution_rate=budget_execution_rate,
+            sources=GrantStatisticsCRUD._build_source_stats(source_buckets)
         )
 
     # ==================== A02 系列統計報表 ====================

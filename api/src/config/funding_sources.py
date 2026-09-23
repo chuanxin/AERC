@@ -22,9 +22,12 @@ logger = logging.getLogger(__name__)
 # 作業基金（墊付預算）：非真實 office 記錄，負整數永不與 offices.id auto-increment 衝突
 FUNDING_SOURCE_ADVANCE = -1
 
+# 農水署：對照表的 id 0，同時是前端 step3.vue 的預設值（見檔頭 ⚠️ 說明）
+FUNDING_SOURCE_IA = 0
+
 # fundingSourceId -> 顯示短名
 FUNDING_SOURCE_NAMES = {
-    0: "農水署",
+    FUNDING_SOURCE_IA: "農水署",
     16: "七星",
     17: "瑠公",
     FUNDING_SOURCE_ADVANCE: "作業基金",
@@ -32,6 +35,68 @@ FUNDING_SOURCE_NAMES = {
 
 # 對應真實 offices 記錄的 id（排除虛擬的作業基金），用於與 DB 比對
 REAL_OFFICE_FUNDING_SOURCE_IDS = frozenset(FUNDING_SOURCE_NAMES) - {FUNDING_SOURCE_ADVANCE}
+
+# 經費統計表（首頁「管理處經費統計表」）的來源子列名稱。
+# 兩個具名桶直接由上方對照表派生，不另立字面值，避免與對照表漂移；
+# 「其他」是統計表自己的聚合桶（七星／瑠公／案件內部來源不一致），
+# 不是真實的補助來源，因此刻意不存在於 FUNDING_SOURCE_NAMES 裡。
+FUNDING_SOURCE_NAME_IA = FUNDING_SOURCE_NAMES[FUNDING_SOURCE_IA]
+FUNDING_SOURCE_NAME_ADVANCE = FUNDING_SOURCE_NAMES[FUNDING_SOURCE_ADVANCE]
+FUNDING_SOURCE_NAME_OTHER = "其他"
+
+# resolve_funding_source_id() 的回傳 sentinel：歷史案件內部設施橫跨多個不同來源，
+# 無法判定單一來源。不是 fundingSourceId 的合法值，故用字串與 int 回傳值區分。
+FUNDING_SOURCE_MIXED = "mixed"
+
+
+def resolve_funding_source_id(steps4_data: dict, is_legacy: bool):
+    """取得單一案件的原始 fundingSourceId 判定結果（三個消費端共用）
+
+    ⚠️ 歷史案件不能讀案件最上層的 `steps['4'].fundingSourceId`：該欄位是歷史資料匯入
+    腳本寫死的固定值 0（見 migrate_mssql_to_unified/migrate_legacy_complete.py 的
+    _build_step4_data()），不反映真實來源；真實來源逐設施記錄在 facilities[] 裡，
+    源自舊系統 MSSQL 的 Pay/PoolApply/EngApply.ApplyUnit 欄位。
+
+    ⚠️ 呼叫端的 is_legacy 必須以 `grant.active_version.data_schema_version == 'legacy'`
+    判斷，不可用 `grants.is_legacy` 欄位——實測全庫有 251 筆兩者不一致（其中 250 筆是
+    當年度案件），用錯欄位會讓這批案件完全套用不到上述修正。
+
+    本函式只負責取得原始值，刻意不做名稱對照、不代入預設值、不拋例外——三個消費端
+    「拿到值之後怎麼辦」的容錯策略本就不同（案件列表顯示 `-`／明細表下載拋錯排除／
+    經費統計表併入農水署或其他），由各呼叫端自行決定。
+
+    Returns:
+        int: 已判定出唯一的原始 fundingSourceId
+        None: 無法判定（缺漏、非 int，或歷史案件無設施資料且最上層欄位也缺漏）
+        FUNDING_SOURCE_MIXED: 僅歷史案件會出現，設施橫跨多個不同來源
+    """
+    facility_ids = _facility_funding_source_ids(steps4_data) if is_legacy else set()
+
+    if len(facility_ids) > 1:
+        return FUNDING_SOURCE_MIXED
+    if facility_ids:
+        return next(iter(facility_ids))
+
+    # 新系統案件，或歷史案件的設施陣列為空／無任何有效值 → 回退讀案件最上層欄位
+    case_level_id = steps4_data.get('fundingSourceId')
+    if isinstance(case_level_id, int) and not isinstance(case_level_id, bool):
+        return case_level_id
+    return None
+
+
+def _facility_funding_source_ids(steps4_data: dict) -> set:
+    """取出歷史案件逐設施的有效 fundingSourceId 集合（非 int 或 bool 的值一律忽略）"""
+    facilities = steps4_data.get('facilities')
+    if not isinstance(facilities, list):
+        return set()
+
+    return {
+        fid
+        for facility in facilities
+        if isinstance(facility, dict)
+        for fid in (facility.get('fundingSourceId'),)
+        if isinstance(fid, int) and not isinstance(fid, bool)
+    }
 
 
 async def verify_against_db() -> bool:
