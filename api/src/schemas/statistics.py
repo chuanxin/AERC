@@ -46,6 +46,30 @@ class ExecutionProgressResponse(BaseModel):
 # ==================== Statistics 功能頁經費分析統計 ====================
 
 # schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
+class FundingSourceBudgetStats(BaseModel):
+    """單一管理處、單一預算來源（或「其他」聚合分類）的已編預算與已驗收統計
+
+    不含核定執行面積/預算、未編列補助款、執行率——這五欄無來源維度（FR-004）。
+    """
+    source_name: str = Field(..., description="來源顯示名稱：農水署／作業基金／其他")
+
+    # 已編預算
+    budgeted_cases: int = Field(default=0, description="該來源已編預算案件數")
+    budgeted_area: Decimal = Field(default=Decimal('0'), description="該來源已編預算面積（公頃）")
+    budgeted_subsidy: Decimal = Field(default=Decimal('0'), description="該來源已編列補助款")
+
+    # 已驗收
+    verified_cases: int = Field(default=0, description="該來源已驗收案件數")
+    verified_area: Decimal = Field(default=Decimal('0'), description="該來源已驗收面積（公頃）")
+    verified_amount: Decimal = Field(default=Decimal('0'), description="該來源已驗收金額")
+
+    class Config:
+        json_encoders = {
+            Decimal: lambda v: float(v)
+        }
+
+
+# schema-max-length: skip（伺服器端聚合統計回應資料，非使用者輸入路徑）
 class OfficeBudgetStats(BaseModel):
     """單一管理處的經費統計分析"""
     office_id: int = Field(..., description="管理處 ID")
@@ -69,6 +93,12 @@ class OfficeBudgetStats(BaseModel):
     # 執行率
     area_execution_rate: Decimal = Field(default=Decimal('0'), description="面積執行率（%）")
     budget_execution_rate: Decimal = Field(default=Decimal('0'), description="計畫執行率（%）")
+
+    # 依預算來源拆分（固定含農水署、作業基金；有資料時額外含其他）
+    sources: List[FundingSourceBudgetStats] = Field(
+        default_factory=list,
+        description="依預算來源拆分的已編預算/已驗收統計，順序固定：農水署、作業基金、[其他]"
+    )
 
     class Config:
         json_encoders = {

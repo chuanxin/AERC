@@ -285,7 +285,7 @@
                   <v-sheet border rounded class="overflow-hidden">
                     <v-data-table
                       :headers="budgetHeaders"
-                      :items="statisticsStore.budgetAnalysis?.offices || []"
+                      :items="budgetRowGroups"
                       :loading="statisticsStore.isLoading"
                       loading-text="載入中..."
                       no-data-text="暫無資料"
@@ -298,59 +298,71 @@
                       max-height="450"
                       fixed-header
                     >
-                      <!-- 自訂欄位格式 - 直接顯示後端已計算的值，不進行前端計算 -->
-                      <template #item.planned_area="{ value }">
-                        {{ value === 0 ? '-' : Math.round(value) }}
-                      </template>
-                      <template #item.planned_budget="{ value }">
-                        {{ formatCurrency(value) }}
-                      </template>
-                      <template #item.budgeted_cases="{ value }">
-                        {{ formatCount(value) }}
-                      </template>
-                      <template #item.budgeted_area="{ value }">
-                        {{ formatArea(value) }}
-                      </template>
-                      <!-- budgeted_subsidy: ✓ 後端已驗證包含三組件（A項+B項+設計費，排除 rejected/withdrawn/deleted） -->
-                      <template #item.budgeted_subsidy="{ value }">
-                        {{ formatCurrency(value) }}
-                      </template>
-                      <!-- unbudgeted_subsidy: 後端已計算（planned_budget - budgeted_subsidy，允許負值顯示超支） -->
-                      <template #item.unbudgeted_subsidy="{ value }">
-                        {{ formatCurrency(value) }}
-                      </template>
-                      <template #item.verified_cases="{ value }">
-                        {{ formatCount(value) }}
-                      </template>
-                      <template #item.verified_area="{ value }">
-                        {{ formatArea(value) }}
-                      </template>
-                      <!-- verified_amount: ✓ 後端已驗證包含三組件（A項+B項+設計費，completed + submitted 狀態） -->
-                      <template #item.verified_amount="{ value }">
-                        {{ formatCurrency(value) }}
-                      </template>
-                      <template #item.area_execution_rate="{ value }">
-                        <v-chip
-                          v-if="value > 0"
-                          :color="value >= 80 ? 'success' : value >= 50 ? 'warning' : 'error'"
-                          size="small"
-                          label
+                      <!-- 以 #item slot 覆寫整列渲染：每個管理處一組，組內來源行 + 小計行各自
+                           成一個 <tr>，「管理處」儲存格用 rowspan 跨越整組（客戶設計稿樣式）。
+                           組 A 五欄（核定執行面積/預算、未編列補助款、兩個執行率）無來源維度，
+                           只在小計行有值，來源行留空——留空而非顯示 0/-，避免誤導成「該來源為零」。 -->
+                      <template #item="{ item }">
+                        <tr
+                          v-for="(line, idx) in item.lines"
+                          :key="`${item.office.office_id}-${line.key}`"
+                          :class="[
+                            `budget-line--${line.variant}`,
+                            idx === item.lines.length - 1 ? 'budget-line--group-end' : ''
+                          ]"
                         >
-                          {{ formatPercentage(value) }}
-                        </v-chip>
-                        <span v-else>-</span>
+                          <td
+                            v-if="idx === 0"
+                            :rowspan="item.lines.length"
+                            class="text-center budget-office-cell"
+                          >
+                            {{ item.office.office_name }}
+                          </td>
+                          <td class="text-center budget-source-cell">{{ line.label }}</td>
+                          <td class="text-end">
+                            {{ line.planned_area === undefined ? '' : (line.planned_area === 0 ? '-' : Math.round(line.planned_area)) }}
+                          </td>
+                          <td class="text-end">
+                            {{ line.planned_budget === undefined ? '' : formatCurrency(line.planned_budget) }}
+                          </td>
+                          <td class="text-end">{{ formatCount(line.budgeted_cases) }}</td>
+                          <td class="text-end">{{ formatArea(line.budgeted_area) }}</td>
+                          <td class="text-end">{{ formatCurrency(line.budgeted_subsidy) }}</td>
+                          <td class="text-end" :class="{ 'text-error': (line.unbudgeted_subsidy ?? 0) < 0 }">
+                            {{ line.unbudgeted_subsidy === undefined ? '' : formatCurrency(line.unbudgeted_subsidy) }}
+                          </td>
+                          <td class="text-end">{{ formatCount(line.verified_cases) }}</td>
+                          <td class="text-end">{{ formatArea(line.verified_area) }}</td>
+                          <td class="text-end">{{ formatCurrency(line.verified_amount) }}</td>
+                          <td class="text-center">
+                            <template v-if="line.area_execution_rate !== undefined">
+                              <v-chip
+                                v-if="line.area_execution_rate > 0"
+                                :color="line.area_execution_rate >= 80 ? 'success' : line.area_execution_rate >= 50 ? 'warning' : 'error'"
+                                size="small"
+                                label
+                              >
+                                {{ formatPercentage(line.area_execution_rate) }}
+                              </v-chip>
+                              <span v-else>-</span>
+                            </template>
+                          </td>
+                          <td class="text-center">
+                            <template v-if="line.budget_execution_rate !== undefined">
+                              <v-chip
+                                v-if="line.budget_execution_rate > 0"
+                                :color="line.budget_execution_rate >= 80 ? 'success' : line.budget_execution_rate >= 50 ? 'warning' : 'error'"
+                                size="small"
+                                label
+                              >
+                                {{ formatPercentage(line.budget_execution_rate) }}
+                              </v-chip>
+                              <span v-else>-</span>
+                            </template>
+                          </td>
+                        </tr>
                       </template>
-                      <template #item.budget_execution_rate="{ value }">
-                        <v-chip
-                          v-if="value > 0"
-                          :color="value >= 80 ? 'success' : value >= 50 ? 'warning' : 'error'"
-                          size="small"
-                          label
-                        >
-                          {{ formatPercentage(value) }}
-                        </v-chip>
-                        <span v-else>-</span>
-                      </template>
+
 
                       <!-- 總計列 -->
                       <template #bottom>
@@ -415,6 +427,7 @@ import { announcementsService } from '@/services/announcementsService'
 import { useStatisticsStore } from '@/stores/statistics'
 import { useUserStore } from '@/stores/users'
 import type { AnnouncementListItem } from '@/types/announcements'
+import type { OfficeBudgetStats } from '@/services/statisticsService'
 import { toRocDate } from '@/utils/rocDate'
 
 const router = useRouter()
@@ -500,20 +513,107 @@ const executionHeaders = [
 ]
 
 // 經費統計表格欄位定義（分開版 - 客戶偏好）
+// sortable 全數關閉：表格是「管理處 → 來源子列 → 小計」的階層結構，
+// 任何欄位排序都會把子列與所屬小計打散，使表格失去意義
 const budgetHeaders = [
-  { title: '管理處', key: 'office_name', align: 'center' as const, sortable: true },
-  { title: '預定執行面積(公頃)', key: 'planned_area', align: 'center' as const, sortable: true },
-  { title: '預定執行預算(元)', key: 'planned_budget', align: 'center' as const, sortable: true },
-  { title: '已編預算案件數', key: 'budgeted_cases', align: 'center' as const, sortable: true },
-  { title: '已編預算面積(公頃)', key: 'budgeted_area', align: 'center' as const, sortable: true },
-  { title: '已編列補助款(元)', key: 'budgeted_subsidy', align: 'center' as const, sortable: true },
-  { title: '未編列補助款(元)', key: 'unbudgeted_subsidy', align: 'center' as const, sortable: true },
-  { title: '已驗收案件數', key: 'verified_cases', align: 'center' as const, sortable: true },
-  { title: '已驗收面積(公頃)', key: 'verified_area', align: 'center' as const, sortable: true },
-  { title: '已驗收金額(元)', key: 'verified_amount', align: 'center' as const, sortable: true },
-  { title: '面積執行率%', key: 'area_execution_rate', align: 'center' as const, sortable: true },
-  { title: '預算執行率%', key: 'budget_execution_rate', align: 'center' as const, sortable: true }
+  { title: '管理處', key: 'office_name', align: 'center' as const, sortable: false },
+  { title: '預算來源', key: 'label', align: 'center' as const, sortable: false },
+  { title: '預定執行面積(公頃)', key: 'planned_area', align: 'center' as const, sortable: false },
+  { title: '預定執行預算(元)', key: 'planned_budget', align: 'center' as const, sortable: false },
+  { title: '已編預算案件數', key: 'budgeted_cases', align: 'center' as const, sortable: false },
+  { title: '已編預算面積(公頃)', key: 'budgeted_area', align: 'center' as const, sortable: false },
+  { title: '已編列補助款(元)', key: 'budgeted_subsidy', align: 'center' as const, sortable: false },
+  { title: '未編列補助款(元)', key: 'unbudgeted_subsidy', align: 'center' as const, sortable: false },
+  { title: '已驗收案件數', key: 'verified_cases', align: 'center' as const, sortable: false },
+  { title: '已驗收面積(公頃)', key: 'verified_area', align: 'center' as const, sortable: false },
+  { title: '已驗收金額(元)', key: 'verified_amount', align: 'center' as const, sortable: false },
+  { title: '面積執行率%', key: 'area_execution_rate', align: 'center' as const, sortable: false },
+  { title: '預算執行率%', key: 'budget_execution_rate', align: 'center' as const, sortable: false }
 ]
+
+/** 來源在視覺上的區辨鍵（決定文字顏色，不只靠文字分辨） */
+const SOURCE_VARIANTS: Record<string, string> = {
+  農水署: 'ia',
+  作業基金: 'advance',
+  其他: 'other'
+}
+
+/** 管理處列內的一行（來源行或小計行）；組 A 五欄只有小計行有值 */
+interface BudgetLine {
+  key: string
+  label: string
+  variant: string
+  budgeted_cases: number
+  budgeted_area: number
+  budgeted_subsidy: number
+  verified_cases: number
+  verified_area: number
+  verified_amount: number
+  planned_area?: number
+  planned_budget?: number
+  unbudgeted_subsidy?: number
+  area_execution_rate?: number
+  budget_execution_rate?: number
+}
+
+/**
+ * 把單一管理處展開成該列內「垂直分格」的行
+ *
+ * 一個管理處維持一個 table row，來源與小計在列內堆疊；每欄的行數一致，
+ * 橫向才對得齊。組 A 五欄（核定執行面積/預算、未編列補助款、兩個執行率）
+ * 無來源維度，只在「小計」那一行有值，來源行留 undefined。
+ */
+const budgetLinesOf = (office: OfficeBudgetStats): BudgetLine[] => {
+  const lines = (office.sources || []).map(source => ({
+    key: source.source_name,
+    label: source.source_name,
+    variant: SOURCE_VARIANTS[source.source_name] || 'other',
+    budgeted_cases: source.budgeted_cases,
+    budgeted_area: source.budgeted_area,
+    budgeted_subsidy: source.budgeted_subsidy,
+    verified_cases: source.verified_cases,
+    verified_area: source.verified_area,
+    verified_amount: source.verified_amount,
+    planned_area: undefined as number | undefined,
+    planned_budget: undefined as number | undefined,
+    unbudgeted_subsidy: undefined as number | undefined,
+    area_execution_rate: undefined as number | undefined,
+    budget_execution_rate: undefined as number | undefined
+  }))
+
+  lines.push({
+    key: '小計',
+    label: '小計',
+    variant: 'subtotal',
+    budgeted_cases: office.budgeted_cases,
+    budgeted_area: office.budgeted_area,
+    budgeted_subsidy: office.budgeted_subsidy,
+    verified_cases: office.verified_cases,
+    verified_area: office.verified_area,
+    verified_amount: office.verified_amount,
+    planned_area: office.planned_area,
+    planned_budget: office.planned_budget,
+    unbudgeted_subsidy: office.unbudgeted_subsidy,
+    area_execution_rate: office.area_execution_rate,
+    budget_execution_rate: office.budget_execution_rate
+  })
+
+  return lines
+}
+
+/**
+ * 表格資料：每個管理處一組，組內含該管理處的來源行 + 小計行
+ *
+ * 以 v-data-table 的 #item slot 覆寫整列渲染，「管理處」儲存格用 rowspan 跨越組內所有行，
+ * 其餘欄位逐行各自成格——這是客戶設計稿的樣式，也是 HTML 表格處理「同一實體多行」的原生做法。
+ * 這裡先算好 lines，避免在 template 內重複呼叫 budgetLinesOf()。
+ */
+const budgetRowGroups = computed(() =>
+  (statisticsStore.budgetAnalysis?.offices || []).map(office => ({
+    office,
+    lines: budgetLinesOf(office)
+  }))
+)
 
 /* ========== 整合版本（備用，供未來參考） ==========
  * 設計思路：將相關數據合併到單一欄位，節省橫向空間
@@ -790,6 +890,70 @@ onMounted(async () => {
  *   padding-bottom: 4px;
  * }
  * ========== 整合版本 CSS 結束 ========== */
+
+/* ========== 經費統計表：管理處 rowspan + 來源/小計逐行（客戶設計稿樣式） ==========
+ * 以 v-data-table 的 #item slot 輸出多個 <tr>，「管理處」儲存格 rowspan 跨越整組。
+ * 來源以文字顏色區辨，使用者不需要只靠文字內容分辨（V3：差異用最小標記表達）。
+ */
+.statistics-table :deep(.budget-office-cell) {
+  font-weight: 600;
+  vertical-align: middle;
+  background-color: #fff;
+  border-right: 1px solid #e0e0e0;
+}
+
+.statistics-table :deep(.budget-source-cell) {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 來源別配色 */
+.statistics-table :deep(.budget-line--ia .budget-source-cell) {
+  color: #1565c0;
+}
+
+.statistics-table :deep(.budget-line--advance .budget-source-cell) {
+  color: #e65100;
+}
+
+.statistics-table :deep(.budget-line--other .budget-source-cell) {
+  color: #6a1b9a;
+}
+
+/* 來源行之間用細虛線分隔，屬同一個管理處 */
+.statistics-table :deep(.budget-line--ia td),
+.statistics-table :deep(.budget-line--advance td),
+.statistics-table :deep(.budget-line--other td) {
+  border-bottom: 1px dashed #eceff1 !important;
+}
+
+/* 小計行：整行淡灰底 + 加粗，橫向可一眼掃到 */
+.statistics-table :deep(.budget-line--subtotal td) {
+  background-color: #f5f5f5;
+  font-weight: 700;
+  color: #263238;
+}
+
+.statistics-table :deep(.budget-line--subtotal .budget-source-cell) {
+  color: #546e7a;
+}
+
+/* 每個管理處群組結束處加實線，與下一個管理處明確分開 */
+.statistics-table :deep(.budget-line--group-end td) {
+  border-bottom: 1px solid #cfd8dc !important;
+}
+
+/* hover 只作用在整個管理處群組視覺上不跳動：關閉逐行 hover 變色 */
+.statistics-table :deep(tbody tr:hover > td) {
+  background-color: inherit;
+}
+
+/* 「預算來源」欄需容納「作業基金」四字不換行 */
+.statistics-table :deep(thead th:nth-child(2)) {
+  min-width: 86px;
+  width: 86px;
+}
+/* ========== 經費統計表樣式結束 ========== */
 
 /* .statistics-table :deep(thead th:first-child) {
   border-top-left-radius: 12px;

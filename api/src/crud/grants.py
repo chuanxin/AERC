@@ -9,7 +9,7 @@ from tortoise.expressions import Q
 
 from src.database.models import (Offices, Counties, Towns, Villages, Grants, GrantHistory, GrantStatus, GrantActionType, GrantVersions, GrantPapers)
 from src.config.field_mappings import FieldMappingConfig, validate_step_fields
-from src.config.funding_sources import FUNDING_SOURCE_NAMES
+from src.config.funding_sources import FUNDING_SOURCE_NAMES, resolve_funding_source_id
 from src.schemas.users import UserOutSchema
 from src.services.data_encryption import data_encryption_service, GRANT_PII_FIELDS
 from src.schemas.grants import (
@@ -291,10 +291,17 @@ async def get_grants(
                                 land_locations = await generate_land_locations(lands)
 
                         # 從 step 4（UI 步驟 4 / step3.vue）取得補助來源
-                        # 不在已知清單（含 None）一律留 None，前端顯示 '-'
+                        # 歷史案件改讀 facilities[] 的逐設施來源（案件最上層欄位是匯入時
+                        # 寫死的假值），is_legacy 必須以 data_schema_version 判斷、不可用
+                        # grants.is_legacy（兩者在已匯入未轉換的案件上不一致）
+                        # 無法判定單一來源（含設施橫跨多來源、缺漏、不在已知清單）一律留
+                        # None，前端顯示 '-'，沿用本頁既有的「引導補件」呈現慣例
                         step4_data = steps.get("4", {}) or steps.get(4, {})
-                        funding_source_id = step4_data.get("fundingSourceId")
-                        if isinstance(funding_source_id, int) and not isinstance(funding_source_id, bool):
+                        funding_source_id = resolve_funding_source_id(
+                            step4_data,
+                            grant.active_version.data_schema_version == 'legacy',
+                        )
+                        if isinstance(funding_source_id, int):
                             funding_source = FUNDING_SOURCE_NAMES.get(funding_source_id)
 
                         # 從 step 5 取得設施類型/灌溉類型
