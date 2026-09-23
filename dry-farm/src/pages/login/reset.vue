@@ -882,8 +882,9 @@ const handleResetPassword = async () => {
       // 使用後端返回的具體錯誤訊息（密碼歷史、Token 過期等）
       passwordError.value = error.response?.data?.detail || '重設連結無效或已過期，請重新申請密碼重設'
     } else if (error.response?.status === 422) {
-      // Pydantic 驗證錯誤（密碼格式不符）
-      passwordError.value = '密碼格式不符合要求，請檢查密碼強度'
+      // 使用後端返回的具體錯誤訊息；422 可能是 token 格式錯誤等與密碼無關的原因，
+      // 不可預設為密碼強度問題（interceptors.ts 已確保 detail 為字串）
+      passwordError.value = error.response?.data?.detail || '輸入資料格式不正確'
     } else {
       // 其他錯誤不顯示詳細訊息
       passwordError.value = '重設失敗，請稍後再試或聯繫系統管理員'

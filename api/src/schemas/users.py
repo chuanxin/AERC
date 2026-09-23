@@ -262,7 +262,7 @@ class UserRegistrationRequest(EncryptedPasswordMixin):
     email: EmailStr = Field(..., description="電子郵件地址")
     full_name: str = Field(..., min_length=1, max_length=50, description="使用者姓名")
     office_id: int = Field(..., description="所屬單位/管理處 ID")
-    department: str = Field(..., min_length=1, max_length=100, description="所屬部門/工作站")
+    department: Optional[str] = Field(None, max_length=5000, description="部門詳細資訊 JSON 字串")
 
     # 聯絡資訊
     job_title: Optional[str] = Field(None, max_length=50, description="職稱")

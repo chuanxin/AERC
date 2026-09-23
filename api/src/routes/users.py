@@ -320,6 +320,7 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
     import hmac
     import hashlib
     import base64
+    import json
     import time
 
     try:
@@ -406,6 +407,23 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
                 detail="所選單位不存在"
             )
 
+        # 解析 department JSON 字串為 dict（與帳號轉移完成路徑一致，見本檔案 AccountMigrationCompleteRequest 處理邏輯）；可為 None
+        # 該欄在 DB 為 nullable JSONField，office 無分處/工作站時前端送 null。
+        department_data = None
+        if payload.department:
+            try:
+                department_data = json.loads(payload.department)
+                if not isinstance(department_data, dict):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="department 欄位必須是有效的 JSON 物件"
+                    )
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="department 欄位包含無效的 JSON 格式"
+                )
+
         # 建立使用者帳號（停用狀態，需管理員審核）
         try:
             new_user = await Users.create(
@@ -414,7 +432,7 @@ async def create_user(payload: UserRegistrationRequest) -> UserRegistrationRespo
                 email_verified=True,
                 full_name=data_encryption_service.encrypt(payload.full_name),
                 office_id=payload.office_id,
-                department=payload.department,
+                department=department_data,
                 job_title=payload.job_title,
                 phone=data_encryption_service.encrypt(payload.phone),
                 phone_ext=data_encryption_service.encrypt(payload.phone_ext),

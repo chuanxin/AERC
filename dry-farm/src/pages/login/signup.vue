@@ -970,11 +970,6 @@
       isValid = false
     }
 
-    if ((hasBranches.value || hasStations.value) && !selectedBranchOffice.value && !selectedWorkStation.value) {
-      formErrors.value.department = '請選擇分處或工作站'
-      isValid = false
-    }
-
     if (!signupForm.value.phone) {
       formErrors.value.phone = '請輸入聯絡電話'
       isValid = false
