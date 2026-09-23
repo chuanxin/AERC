@@ -531,13 +531,6 @@ const budgetHeaders = [
   { title: '預算執行率%', key: 'budget_execution_rate', align: 'center' as const, sortable: false }
 ]
 
-/** 來源在視覺上的區辨鍵（決定文字顏色，不只靠文字分辨） */
-const SOURCE_VARIANTS: Record<string, string> = {
-  農水署: 'ia',
-  作業基金: 'advance',
-  其他: 'other'
-}
-
 /** 管理處列內的一行（來源行或小計行）；組 A 五欄只有小計行有值 */
 interface BudgetLine {
   key: string
@@ -565,9 +558,11 @@ interface BudgetLine {
  */
 const budgetLinesOf = (office: OfficeBudgetStats): BudgetLine[] => {
   const lines = (office.sources || []).map(source => ({
-    key: source.source_name,
+    key: source.source_key,
     label: source.source_name,
-    variant: SOURCE_VARIANTS[source.source_name] || 'other',
+    // 顏色一律綁後端的 source_key（ia/advance/other），不綁顯示名稱——
+    // 顯示名稱是可改的，綁它會讓改名當下顏色靜默跑掉
+    variant: source.source_key,
     budgeted_cases: source.budgeted_cases,
     budgeted_area: source.budgeted_area,
     budgeted_subsidy: source.budgeted_subsidy,

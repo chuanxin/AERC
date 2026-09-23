@@ -51,7 +51,8 @@ class FundingSourceBudgetStats(BaseModel):
 
     不含核定執行面積/預算、未編列補助款、執行率——這五欄無來源維度（FR-004）。
     """
-    source_name: str = Field(..., description="來源顯示名稱：農水署／作業基金／其他")
+    source_key: str = Field(..., description="來源桶識別碼：ia／advance／other（穩定，供前端配色等判斷用）")
+    source_name: str = Field(..., description="來源顯示名稱：公務預算／作業基金／其他（可改，不可拿來判斷）")
 
     # 已編預算
     budgeted_cases: int = Field(default=0, description="該來源已編預算案件數")
@@ -94,10 +95,10 @@ class OfficeBudgetStats(BaseModel):
     area_execution_rate: Decimal = Field(default=Decimal('0'), description="面積執行率（%）")
     budget_execution_rate: Decimal = Field(default=Decimal('0'), description="計畫執行率（%）")
 
-    # 依預算來源拆分（固定含農水署、作業基金；有資料時額外含其他）
+    # 依預算來源拆分（固定含公務預算、作業基金；有資料時額外含其他）
     sources: List[FundingSourceBudgetStats] = Field(
         default_factory=list,
-        description="依預算來源拆分的已編預算/已驗收統計，順序固定：農水署、作業基金、[其他]"
+        description="依預算來源拆分的已編預算/已驗收統計，順序固定：公務預算、作業基金、[其他]"
     )
 
     class Config:

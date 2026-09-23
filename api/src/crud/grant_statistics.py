@@ -8,11 +8,14 @@ from decimal import Decimal
 from datetime import datetime, timezone
 
 from ..config.funding_sources import (
+    FUNDING_SOURCE_ADVANCE,
+    FUNDING_SOURCE_BUCKET_NAMES,
+    FUNDING_SOURCE_IA,
+    FUNDING_SOURCE_KEY_ADVANCE,
+    FUNDING_SOURCE_KEY_IA,
+    FUNDING_SOURCE_KEY_OTHER,
     FUNDING_SOURCE_MIXED,
     FUNDING_SOURCE_NAMES,
-    FUNDING_SOURCE_NAME_IA,
-    FUNDING_SOURCE_NAME_ADVANCE,
-    FUNDING_SOURCE_NAME_OTHER,
     resolve_funding_source_id,
 )
 from ..database.models import Grants, GrantVersions, Offices, SubsidyAnnualBudget, Counties, Towns, GrantStatusGroup
@@ -431,13 +434,18 @@ class GrantStatisticsCRUD:
 
     @staticmethod
     def _classify_funding_source(steps4_data: dict, is_legacy: bool = False) -> str:
-        """判斷單一案件的預算來源分類
+        """判斷單一案件屬於哪個預算來源桶，回傳桶 key（非顯示名稱）
 
-        回傳固定的分類名稱，供經費統計表的來源子列分桶使用：
-        - 農水署（0）、作業基金（-1）：固定具名子列
-        - 其他：其餘已知來源（七星 16、瑠公 17），以及歷史案件內部來源不一致者
-        - 缺漏/非 int/不在對照表：一律併入農水署（FR-002），因為本表是金額加總，
+        分桶規則：
+        - FUNDING_SOURCE_KEY_IA（id 0）、FUNDING_SOURCE_KEY_ADVANCE（id -1）：固定具名子列
+        - FUNDING_SOURCE_KEY_OTHER：其餘已知來源（七星 16、瑠公 17），以及歷史案件內部
+          來源不一致者
+        - 缺漏/非 int/不在對照表：一律併入 IA 桶（FR-002），因為本表是金額加總，
           不能有無歸屬的案件，否則來源子列加總會對不上管理處小計（FR-003）
+
+        ⚠️ 一律以 id 比對，不可改回用顯示名稱比對：桶的顯示名稱是可改的（id 0 在本表
+        叫「公務預算」、在案件列表叫「農水署」），用名稱比對會在改名當下讓全部案件靜默
+        掉進錯的桶——加總不變式照樣成立、金額也沒錯，只有標籤全錯，不會有任何人發現。
 
         Args:
             steps4_data: 案件的 steps['4'] 內容
@@ -447,22 +455,21 @@ class GrantStatisticsCRUD:
         raw = resolve_funding_source_id(steps4_data, is_legacy)
 
         if raw == FUNDING_SOURCE_MIXED:
-            return FUNDING_SOURCE_NAME_OTHER
+            return FUNDING_SOURCE_KEY_OTHER
+        if raw == FUNDING_SOURCE_IA:
+            return FUNDING_SOURCE_KEY_IA
+        if raw == FUNDING_SOURCE_ADVANCE:
+            return FUNDING_SOURCE_KEY_ADVANCE
+        if raw in FUNDING_SOURCE_NAMES:
+            return FUNDING_SOURCE_KEY_OTHER
 
-        if isinstance(raw, int):
-            name = FUNDING_SOURCE_NAMES.get(raw)
-            if name in (FUNDING_SOURCE_NAME_IA, FUNDING_SOURCE_NAME_ADVANCE):
-                return name
-            if name is not None:
-                return FUNDING_SOURCE_NAME_OTHER
-
-        return FUNDING_SOURCE_NAME_IA
+        return FUNDING_SOURCE_KEY_IA
 
     @staticmethod
     def _new_source_buckets() -> dict:
         """建立依來源分桶的累加器（三個桶皆先建立，輸出時才決定「其他」是否呈現）"""
         return {
-            name: {
+            key: {
                 'budgeted_cases': 0,
                 'budgeted_area': Decimal('0'),
                 'budgeted_subsidy': Decimal('0'),
@@ -470,23 +477,32 @@ class GrantStatisticsCRUD:
                 'verified_area': Decimal('0'),
                 'verified_amount': Decimal('0'),
             }
-            for name in (FUNDING_SOURCE_NAME_IA, FUNDING_SOURCE_NAME_ADVANCE, FUNDING_SOURCE_NAME_OTHER)
+            for key in (FUNDING_SOURCE_KEY_IA, FUNDING_SOURCE_KEY_ADVANCE, FUNDING_SOURCE_KEY_OTHER)
         }
 
     @staticmethod
     def _build_source_stats(source_buckets: dict) -> List[FundingSourceBudgetStats]:
         """將累加器組成固定順序的來源子列
 
-        農水署、作業基金固定輸出（即使六欄皆零）；其他僅於六欄至少一項非零時輸出。
+        IA、作業基金固定輸出（即使六欄皆零）；其他僅於六欄至少一項非零時輸出。
+        顯示名稱在此處才由桶 key 查表取得——分桶過程完全不碰顯示名稱。
         """
         sources = [
-            FundingSourceBudgetStats(source_name=name, **source_buckets[name])
-            for name in (FUNDING_SOURCE_NAME_IA, FUNDING_SOURCE_NAME_ADVANCE)
+            FundingSourceBudgetStats(
+                source_key=key,
+                source_name=FUNDING_SOURCE_BUCKET_NAMES[key],
+                **source_buckets[key],
+            )
+            for key in (FUNDING_SOURCE_KEY_IA, FUNDING_SOURCE_KEY_ADVANCE)
         ]
 
-        other = source_buckets[FUNDING_SOURCE_NAME_OTHER]
+        other = source_buckets[FUNDING_SOURCE_KEY_OTHER]
         if any(other[field] for field in other):
-            sources.append(FundingSourceBudgetStats(source_name=FUNDING_SOURCE_NAME_OTHER, **other))
+            sources.append(FundingSourceBudgetStats(
+                source_key=FUNDING_SOURCE_KEY_OTHER,
+                source_name=FUNDING_SOURCE_BUCKET_NAMES[FUNDING_SOURCE_KEY_OTHER],
+                **other,
+            ))
 
         return sources
 
