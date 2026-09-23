@@ -454,7 +454,7 @@
               release v.{{ packageInfo.version }}
             </v-chip>
             <p class="footer-text">
-              &copy; 2025 農田水利署. All rights reserved.
+              &copy; {{ new Date().getFullYear() }} 農田水利署. All rights reserved.
             </p>
           </div>
         </div>
@@ -480,7 +480,7 @@
           release v.{{ packageInfo.version }}
         </v-chip>
         <p class="footer-text">
-          &copy; 2025 農田水利署. All rights reserved.
+          &copy; {{ new Date().getFullYear() }} 農田水利署. All rights reserved.
         </p>
       </div>
     </div>

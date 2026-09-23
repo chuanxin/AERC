@@ -399,7 +399,7 @@
         <div class="small-screen-footer">
           <div class="d-flex flex-column align-center">
             <p class="footer-text">
-              &copy; 2025 農田水利署. All rights reserved.
+              &copy; {{ new Date().getFullYear() }} 農田水利署. All rights reserved.
             </p>
           </div>
         </div>
@@ -413,7 +413,7 @@
     >
       <div class="d-flex flex-column align-end">
         <p class="footer-text">
-          &copy; 2025 農田水利署. All rights reserved.
+          &copy; {{ new Date().getFullYear() }} 農田水利署. All rights reserved.
         </p>
       </div>
     </div>

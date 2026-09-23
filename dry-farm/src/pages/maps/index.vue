@@ -1014,6 +1014,7 @@ import type { GeoJsonFeature, GeoJsonFeatureCollection } from '@/types/gis';
 import {
   applyFrontendFilters,
   testFrontendFilters,
+  getCurrentYear,
   getInitialOverlayLoadingParams as getInitialParams,
   type FilterCriteria
 } from '@/utils/frontendFilters';
@@ -1365,11 +1366,6 @@ const getInitialOverlayLoadingParams = getInitialParams
 // 注意：這些變數已由 FilterToolbar 組件內部管理，此處保留用於相容性
 const quickFilter = ref('');
 
-// 獲取當前年度（民國年）
-const getCurrentYear = () => {
-  return new Date().getFullYear() - 1911;
-};
-
 // 篩選條件
 const filterCriteria = ref({
   applicantName: '',
@@ -1377,8 +1373,8 @@ const filterCriteria = ref({
   landNumber: '',
   caseNumber: '',
   sourceSystem: null as string | null,
-  yearStart: 114, // 預設值，onMounted 時會更新
-  yearEnd: 114
+  yearStart: getCurrentYear(), // 預設值，onMounted 時會更新
+  yearEnd: getCurrentYear()
 });
 
 // 資料來源選項
