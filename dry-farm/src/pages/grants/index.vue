@@ -215,10 +215,15 @@
                 rounded="lg"
                 elevation="0"
               >
+                <!-- 「選取」核取方塊欄位已停用顯示：拿掉 show-select 即可讓 Vuetify
+                     不渲染 data-table-select 欄（連帶下方 header.data-table-select
+                     樣板一併移除）。v-model:selected="selectedGrants" 與「批次跨年度」
+                     按鈕維持原樣不動——使用者確認過，畫面上再也沒有勾選手段，
+                     該按鈕會永遠反灰，是本次刻意保留的已知結果，非疏漏。
+                     要復原：加回 show-select 屬性，並還原 header.data-table-select 樣板。 -->
                 <v-data-table-virtual
                   :key="tableKey"
                   v-model:selected="selectedGrants"
-                  show-select
                   fixed-header
                   :headers="headers"
                   :items="displayGrantsList"
@@ -230,12 +235,16 @@
                   item-value="id"
                   class="grants-table rounded-lg"
                 >
-                  <!-- 自定義表頭：選取欄 -->
-                  <template #[`header.data-table-select`]>
-                    <div class="d-flex align-center">
-                      <span class="ml-2 text-subtitle-2 font-weight-medium">選取</span>
-                    </div>
+                  <!-- 序號對照表擷取點：見上方 captureDisplayOrder 說明，不可移除 -->
+                  <template #colgroup="{ items }">
+                    <colgroup>{{ captureDisplayOrder(items) }}</colgroup>
                   </template>
+
+                  <!-- 序號欄位：非資料欄位，依 captureDisplayOrder 建立的對照表查詢 -->
+                  <template #[`item.seq`]="{ item }">
+                    {{ formatSeq(item.id) }}
+                  </template>
+
                   <!-- 案號欄位：移除後綴顯示 -->
                   <template #[`item.case_number`]="{ item }">
                     {{ formatCaseNumber(item.case_number) }}
@@ -367,10 +376,15 @@
                   </template>
 
                   <!-- 表格底部 -->
-                  <template #bottom>
+                  <!-- items 來自 v-data-table-virtual 的 scoped slot props，
+                       是篩選＋搜尋＋排序後的完整清單（與 #colgroup 拿到的是同一份），
+                       不是 displayGrantsList（篩選前的原始清單）。用它才能跟序號欄位
+                       的範圍（01～N）對得上，否則搜尋後這裡仍顯示篩選前的總數，
+                       使用者會誤以為序號欄位算錯 -->
+                  <template #bottom="{ items }">
                     <div class="d-flex align-center pa-3">
                       <span class="text-body-2 text-medium-emphasis">
-                        共 {{ displayGrantsList.length }} 筆資料
+                        共 {{ items.length }} 筆資料
                         <span
                           v-if="!isUsingApi"
                           class="text-warning"
@@ -590,6 +604,30 @@ const displayGrantsList = computed(() => {
   }))
 })
 
+// 序號欄位查表：id → 序號（1-based）。
+//
+// 為什麼不能用 v-data-table-virtual 的 #item 插槽自帶 index：
+// v-data-table-virtual 是真虛擬捲動（VDataTableRows 收到的 items 是
+// useVirtual 依目前捲動位置切出來的可視窗片段，見 vuetify 原始碼
+// composables/virtual.js 的 computedItems = items.value.slice(first, last)），
+// 插槽 index 只反映「這一格在目前渲染片段中的相對位置」，捲動後同一筆案件
+// 拿到的 index 會變，無法當作固定序號。
+//
+// 改用 #colgroup 插槽取得框架已經算好、不受捲動裁切影響的完整篩選＋搜尋後
+// 順序（colgroup 在 tbody 之前同步觸發，不影響版面，也不重算 Vuetify 的
+// 篩選邏輯——直接借用框架自己的計算結果，不重造一份）。
+// 用 closure 變數而非 ref：讀寫都發生在同一次 render() 呼叫內，
+// 不需要響應式追蹤，也避免额外觸發重繪。
+let seqLookup = new Map<number, number>()
+const captureDisplayOrder = (items: readonly { id: number }[]) => {
+  seqLookup = new Map(items.map((raw, i) => [raw.id, i + 1]))
+  return ''
+}
+const formatSeq = (id: number) => {
+  const seq = seqLookup.get(id)
+  return seq !== undefined ? String(seq).padStart(2, '0') : ''
+}
+
 // 計算選取案件數量，確保響應式更新
 const selectedCount = computed(() => selectedGrants.value.length)
 const isBatchButtonDisabled = computed(() => selectedCount.value === 0)
@@ -671,6 +709,8 @@ const officeOptions = computed(() => {
 
 // 表格標題
 const headers = ref([
+  // 序號：非資料庫欄位，依目前篩選/搜尋/排序後的顯示順序即時編號（見 item.seq 樣板）
+  { title: '序號', key: 'seq', align: 'center' as const, width: '70px', sortable: false },
   { title: '管理處', key: 'office', align: 'start' as const, width: '120px' },
   { title: '年度', key: 'year', align: 'start' as const, width: '60px' },
   { title: '', key: 'tag', align: 'end' as const, width: '0px', sortable: false },
@@ -691,7 +731,7 @@ const headers = ref([
 // Vuetify 預設比對所有 headers 的 key；管理處、年度、自定義分類標籤各自已有專屬
 // 篩選器，納入全文搜尋只會製造噪音（打「管理處」全部命中、打「114」整個年度命中）。
 // 用排除清單而非白名單，是為了讓「新增欄位預設可搜尋」——白名單漏加會靜默失效。
-const SEARCH_EXCLUDED_KEYS = new Set(['office', 'year', 'tag', 'actions'])
+const SEARCH_EXCLUDED_KEYS = new Set(['seq', 'office', 'year', 'tag', 'actions'])
 const searchKeys = computed(() =>
   headers.value.map(h => h.key).filter(key => !SEARCH_EXCLUDED_KEYS.has(key))
 )
