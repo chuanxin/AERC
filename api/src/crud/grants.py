@@ -2455,14 +2455,18 @@ async def _check_subsidy_limit_guard(grant: Grants) -> None:
     if this_case_subsidy == 0:
         return
 
-    # 4. SELECT FOR UPDATE 鎖定其他計入案件，防止並發
+    # 4. applicant_id 為加密欄位，每次 encrypt() 產生不同密文，DB 層無法直接 filter 精確比對，
+    # 需先撈候選集合再於 Python 層解密比對（同 calculate_applicant_yearly_subsidy 的作法，見 _matches_applicant_id）
+    applicant_id_plain = data_encryption_service.decrypt(grant.applicant_id)
+    candidates = await Grants.filter(
+        year=grant.year,
+        status__in=COUNTED_STATUSES,
+    ).exclude(id=grant.id).only('id', 'applicant_id')
+    matched_ids = [c.id for c in candidates if _matches_applicant_id(c, applicant_id_plain)]
+
+    # SELECT FOR UPDATE 鎖定真正命中的其他計入案件，防止並發
     other_grants = await (
-        Grants.filter(
-            applicant_id=grant.applicant_id,
-            year=grant.year,
-            status__in=COUNTED_STATUSES,
-        )
-        .exclude(id=grant.id)
+        Grants.filter(id__in=matched_ids)
         .select_for_update()
         .prefetch_related('active_version')
     )

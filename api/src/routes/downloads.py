@@ -11,6 +11,7 @@ from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenera
 from src.services.construction_photos_pdf_generator import ConstructionPhotosPDFGenerator
 from src.services.closing_docs_pdf_generator import ClosingDocsPDFGenerator
 from src.routes.grants import extract_budget_statement_data, extract_completion_statement_data, extract_declaration_data
+from src.services.data_encryption import data_encryption_service
 from src.services.permission_service import permission_service
 from src.schemas.permissions import ModuleName, PermissionAction
 from src.exceptions import AppError
@@ -435,7 +436,7 @@ async def download_construction_photos(
 
                     grant_data = {
                         "case_number": str(grant.case_number) if grant.case_number else "",
-                        "applicant_name": str(grant.applicant_name) if grant.applicant_name else ""
+                        "applicant_name": data_encryption_service.decrypt(grant.applicant_name) or ""
                     }
                     pdf_bytes = pdf_generator.generate(grant_data)
                     zip_file.writestr(f"{pdf_basename}.pdf", pdf_bytes)
@@ -518,11 +519,11 @@ async def download_address_labels(
     grants_data = [
         {
             "case_number": str(g.case_number or ""),
-            "applicant_name": str(g.applicant_name or ""),
+            "applicant_name": data_encryption_service.decrypt(g.applicant_name) or "",
             "county": str(g.county or ""),
             "town": str(g.town or ""),
             "village": str(g.village or "") if g.village else "",
-            "address": str(g.address or ""),
+            "address": data_encryption_service.decrypt(g.address) or "",
         }
         for g in grants
     ]
