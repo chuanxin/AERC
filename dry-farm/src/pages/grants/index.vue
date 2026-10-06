@@ -363,7 +363,7 @@
                           @click="editItem(item)"
                         />
                         <v-btn
-                          v-if="item.status !== 'submitted'"
+                          v-if="item.status !== 'submitted' && userStore.can('grants', 'delete')"
                           icon="mdi-delete"
                           size="small"
                           color="error"
