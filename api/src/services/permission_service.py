@@ -109,8 +109,9 @@ class PermissionService:
             ModuleName.ANNOUNCEMENTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE},
         },
         "manager": {
-            # manager.GRANTS: VIEW + CREATE + EDIT + APPROVE + EXPORT（本辦管理者可建立及編輯本辦案件）
-            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.APPROVE, PermissionAction.EXPORT},
+            # manager.GRANTS: VIEW + CREATE + EDIT + DELETE + APPROVE + EXPORT（本辦管理者可建立、編輯、刪除本辦案件；
+            # 範圍由 route_guards 的案件範圍守衛限制為本管理處，DELETE 為邏輯刪除）
+            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE, PermissionAction.APPROVE, PermissionAction.EXPORT},
             ModuleName.USERS: {PermissionAction.VIEW, PermissionAction.APPROVE, PermissionAction.EDIT},
             ModuleName.REPORTS: {PermissionAction.VIEW, PermissionAction.EXPORT},
             ModuleName.GIS: {PermissionAction.VIEW, PermissionAction.EDIT},
@@ -125,7 +126,7 @@ class PermissionService:
         },
         "staff": {
             # staff 權限與 manager 對齊，唯一差異：USERS 模組無權限
-            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.APPROVE, PermissionAction.EXPORT},
+            ModuleName.GRANTS: {PermissionAction.VIEW, PermissionAction.CREATE, PermissionAction.EDIT, PermissionAction.DELETE, PermissionAction.APPROVE, PermissionAction.EXPORT},
             ModuleName.USERS: set(),
             ModuleName.REPORTS: {PermissionAction.VIEW, PermissionAction.EXPORT},
             ModuleName.GIS: {PermissionAction.VIEW, PermissionAction.EDIT},

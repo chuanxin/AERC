@@ -430,7 +430,7 @@ async def delete_grant_api(
     grant_id: int,
     current_user: UserOutSchema = Depends(require_full_auth)
 ):
-    """刪除補助申請案件（邏輯刪除，僅 admin 具 GRANTS.DELETE）"""
+    """刪除補助申請案件（邏輯刪除；需 GRANTS.DELETE，manager/staff 僅限本管理處案件）"""
     audit_common = dict(
         event_type=AuditEventType.GRANT_OPS,
         action=AuditAction.DELETE,

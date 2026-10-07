@@ -9,6 +9,7 @@ from src.auth.route_guards import (
     require_permission,
     require_grant_scope_by_id,
     require_grant_scope_by_case_number,
+    require_grant_scope_by_version_id,
 )
 from src.schemas.permissions import ModuleName, PermissionAction
 from src.schemas.users import UserOutSchema, UserInfoSchema
@@ -105,7 +106,10 @@ async def update_grant_version_api(
 @router.delete(
     "/{version_id}",
     response_model=Status,
-    dependencies=[Depends(require_permission(ModuleName.GRANTS, PermissionAction.DELETE))],
+    dependencies=[
+        Depends(require_grant_scope_by_version_id),
+        Depends(require_permission(ModuleName.GRANTS, PermissionAction.DELETE)),
+    ],
 )
 async def delete_grant_version_api(
     version_id: int = Path(..., description="版本ID"),

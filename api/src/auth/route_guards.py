@@ -25,7 +25,7 @@ from src.schemas.users import UserInfoSchema
 from src.schemas.permissions import ModuleName, PermissionAction
 from src.services.permission_service import permission_service
 from src.exceptions import AppError
-from src.database.models import Grants
+from src.database.models import Grants, GrantVersions
 
 # Controlled via environment variable; default open to preserve backward compatibility.
 # Set ALLOW_USER_LEGACY_GRANT_ACCESS=false to block user role from legacy grants.
@@ -124,6 +124,28 @@ async def require_grant_scope_by_id(
     """Scope guard for routes with path parameter {grant_id}."""
     grant = (
         await Grants.filter(id=grant_id)
+        .prefetch_related("created_by")
+        .first()
+    )
+    if grant is None:
+        raise AppError(404, "案件不存在")
+    _enforce_grant_scope(
+        grant_office_id=grant.office_id,
+        created_by_id=grant.created_by.id if grant.created_by else None,
+        current_user=current_user,
+    )
+
+
+async def require_grant_scope_by_version_id(
+    version_id: int = Path(...),
+    current_user: UserInfoSchema = Depends(require_full_auth),
+) -> None:
+    """Scope guard for routes with path parameter {version_id}（版本所屬案件的範圍檢查）。"""
+    version = await GrantVersions.filter(id=version_id).first()
+    if version is None:
+        raise AppError(404, "版本不存在")
+    grant = (
+        await Grants.filter(id=version.grant_id)
         .prefetch_related("created_by")
         .first()
     )
