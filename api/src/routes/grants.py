@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from starlette import status
 
 from src.auth.guard import require_full_auth
+from src.auth.client_ip import get_client_ip
 from src.auth.route_guards import (
     require_permission,
     require_grant_scope_by_case_number,
@@ -425,17 +426,39 @@ async def claim_inactive_grant_ownership(
     ],
 )
 async def delete_grant_api(
+    request: Request,
     grant_id: int,
     current_user: UserOutSchema = Depends(require_full_auth)
 ):
-    """刪除補助申請案件"""
+    """刪除補助申請案件（邏輯刪除；需 GRANTS.DELETE，manager/staff 僅限本管理處案件）"""
+    audit_common = dict(
+        event_type=AuditEventType.GRANT_OPS,
+        action=AuditAction.DELETE,
+        actor_id=current_user.id,
+        actor_username=current_user.username,
+        actor_role=current_user.role,
+        ip_address=get_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+        endpoint=str(request.url.path),
+        resource_type="Grant",
+        resource_id=str(grant_id),
+    )
     try:
-        return await delete_grant(grant_id, current_user)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="刪除案件失敗",
+        result = await delete_grant(grant_id, current_user)
+    except (HTTPException, AppError) as e:
+        # 業務錯誤原樣冒出（404/400/500 由 crud 決定），僅補記失敗稽核
+        await audit_service.log(
+            result=AuditResult.FAILURE,
+            failure_reason=str(e.detail),
+            **audit_common,
         )
+        raise
+    await audit_service.log(
+        result=AuditResult.SUCCESS,
+        changed_fields={"status": {"after": GrantStatus.SOFT_DELETE.value}},
+        **audit_common,
+    )
+    return result
 
 
 @router.get(

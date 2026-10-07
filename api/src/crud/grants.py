@@ -1431,7 +1431,10 @@ async def delete_grant(grant_id: int, current_user: UserOutSchema) -> Dict[str, 
             
             # 返回結果
             return {"message": f"補助案件 {grant.case_number} (ID: {grant_id}) 已刪除"}
-            
+
+        except (HTTPException, AppError):
+            # 業務錯誤（404 不存在／400 已刪除）原樣冒出，不得被下方 broad except 改寫成 500
+            raise
         except Exception as e:
             logger.error(f"刪除補助申請案件發生錯誤: {str(e)}")
             raise AppError(500, "刪除補助申請案件發生錯誤", diagnostic=str(e))

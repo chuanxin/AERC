@@ -653,13 +653,10 @@ export class HybridGrantService {
    */
   async deleteGrant(item: GrantListItem): Promise<void> {
     if (this.useApi && this.serviceStatus.apiAvailable) {
-      try {
-        await deleteGrant(item.id)
-        console.log(`📡 [HybridService] Successfully deleted grant ${item.case_number} via API`)
-      } catch (error) {
-        console.warn(`📡 [HybridService] API delete failed, falling back to localStorage:`, error)
-        GrantStorage.deleteGrant(item.case_number)
-      }
+      // API 可用時，伺服器的拒絕（403/404/409…）就是最終答案，必須讓呼叫端看見；
+      // 退回 localStorage 只會讓畫面謊報「已刪除」，資料庫卻沒變
+      await deleteGrant(item.id)
+      console.log(`📡 [HybridService] Successfully deleted grant ${item.case_number} via API`)
     } else {
       GrantStorage.deleteGrant(item.case_number)
       console.log(`📡 [HybridService] Deleted grant ${item.case_number} from localStorage`)
