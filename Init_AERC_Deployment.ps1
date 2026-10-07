@@ -209,6 +209,14 @@ FRONTEND_URL=$frontendUrl
 # Token expiration time (hours)
 EMAIL_VERIFICATION_EXPIRE_HOURS=24
 PASSWORD_RESET_EXPIRE_HOURS=1
+
+# Portal SSO integration (042) - leave empty to disable SSO endpoints
+PORTAL_SSO_SECRET=
+PORTAL_SSO_AUDIENCE=sys_irr
+PORTAL_SSO_ISSUER=IAMA-PortalWebsite
+PORTAL_SSO_MAX_TOKEN_AGE_SECONDS=300
+PORTAL_WEBHOOK_SECRET=
+PORTAL_ALLOWED_IPS=
 "@
     [System.IO.File]::WriteAllText($envFilePath, $envContent, [System.Text.UTF8Encoding]::new($false))
     Write-Host "Created .env file at: $envFilePath" -ForegroundColor Green
@@ -639,7 +647,13 @@ if ($serviceChoice -eq 'y' -or $serviceChoice -eq 'Y') {
             "AUTH_PRIVATE_KEY_PATH",
             "AUTH_PRIVATE_KEY_PEM",
             "AUTH_PUBLIC_KEY_KID",
-            "DATA_ENCRYPTION_KEY"
+            "DATA_ENCRYPTION_KEY",
+            "PORTAL_SSO_SECRET",
+            "PORTAL_SSO_AUDIENCE",
+            "PORTAL_SSO_ISSUER",
+            "PORTAL_SSO_MAX_TOKEN_AGE_SECONDS",
+            "PORTAL_WEBHOOK_SECRET",
+            "PORTAL_ALLOWED_IPS"
         )) {
             $envValue = [Environment]::GetEnvironmentVariable($envVar, [EnvironmentVariableTarget]::Process)
             if ($envValue) {
