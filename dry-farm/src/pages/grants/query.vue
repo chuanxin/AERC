@@ -284,7 +284,7 @@
                               variant="tonal"
                               class="font-weight-medium"
                             >
-                              {{ category.files.length }}
+                              {{ getCategoryCount(category) }}
                             </v-chip>
                           </div>
                         </v-sheet>
@@ -295,36 +295,64 @@
                           density="comfortable"
                           bg-color="transparent"
                         >
-                          <v-list-item
+                          <template
                             v-for="file in category.files"
                             :key="file.id"
-                            class="file-list-item"
-                            @click="selectedFileType = file.id"
                           >
-                            <template #prepend>
-                              <v-radio
-                                :model-value="selectedFileType"
-                                :value="file.id"
-                                color="#3ea0a3"
-                                hide-details
-                              />
-                            </template>
+                            <v-list-item
+                              class="file-list-item"
+                              @click="selectedFileType = file.id"
+                            >
+                              <template #prepend>
+                                <v-radio
+                                  :model-value="selectedFileType"
+                                  :value="file.id"
+                                  color="#3ea0a3"
+                                  hide-details
+                                />
+                              </template>
 
-                            <v-list-item-title class="file-item-title">
-                              {{ file.title }}
-                            </v-list-item-title>
+                              <v-list-item-title class="file-item-title">
+                                {{ file.title }}
+                              </v-list-item-title>
 
-                            <template #append>
-                              <v-chip
-                                size="x-small"
-                                :color="file.formatColor"
-                                variant="flat"
-                                class="ml-2"
+                              <template #append>
+                                <v-chip
+                                  size="x-small"
+                                  :color="file.formatColor"
+                                  variant="flat"
+                                  class="ml-2"
+                                >
+                                  {{ file.format }}
+                                </v-chip>
+                              </template>
+                            </v-list-item>
+                            <template v-if="file.id === 'closing_docs'">
+                              <v-list-item
+                                v-for="doc in closingDocOptions"
+                                :key="doc.value"
+                                class="file-list-item closing-doc-sub-item"
+                                role="checkbox"
+                                :aria-checked="selectedClosingDocs.includes(doc.value)"
+                                :disabled="selectedFileType !== 'closing_docs'"
+                                @click.stop="toggleClosingDoc(doc.value)"
                               >
-                                {{ file.format }}
-                              </v-chip>
+                                <template #prepend>
+                                  <!-- 不用 v-checkbox-btn：它在 <v-radio-group> 內會注入並改寫 radio group 的 model
+                                       （勾選狀態讀到 selectedFileType、點擊會寫回它），故以純呈現的 v-icon 表達勾選 -->
+                                  <v-icon
+                                    :icon="selectedClosingDocs.includes(doc.value) ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline'"
+                                    :color="selectedFileType === 'closing_docs' ? '#3ea0a3' : undefined"
+                                    class="mr-2"
+                                    aria-hidden="true"
+                                  />
+                                </template>
+                                <v-list-item-title class="file-item-title">
+                                  {{ doc.title }}
+                                </v-list-item-title>
+                              </v-list-item>
                             </template>
-                          </v-list-item>
+                          </template>
                         </v-list>
                       </template>
                     </v-radio-group>
@@ -358,7 +386,13 @@
                 <!-- 選取資訊提示 -->
                 <div class="selection-info mt-4 text-center">
                   <div
-                    v-if="selectedFileType && searchFilters.year"
+                    v-if="noClosingDocsChosen"
+                    class="text-body-2 text-error"
+                  >
+                    請至少勾選一份文件（切結書、收據、結案申報書）
+                  </div>
+                  <div
+                    v-else-if="selectedFileType && searchFilters.year"
                     class="text-body-2 text-medium-emphasis"
                   >
                     將下載：<strong>{{ getSelectedFileName() }}</strong>
@@ -520,6 +554,25 @@ const isFileSelectionExpanded = ref(false)
 
 // 選中的檔案類型
 const selectedFileType = ref<string | null>('photograph_carry_form')
+
+// 「切結書、收據、結案申報書」可拆分為三份獨立文件，預設全勾 = 合併下載
+const closingDocOptions = [
+  { value: 'declaration', title: '切結書' },
+  { value: 'receipt', title: '收據' },
+  { value: 'completion', title: '結案申報書' }
+] as const
+const selectedClosingDocs = ref<string[]>(closingDocOptions.map(d => d.value))
+
+// 選取「切結書、收據、結案申報書」但三份都取消勾選：按鈕禁用，提示區改顯示原因（不可仍寫「將下載」）
+const noClosingDocsChosen = computed(
+  () => selectedFileType.value === 'closing_docs' && selectedClosingDocs.value.length === 0
+)
+
+const toggleClosingDoc = (value: string) => {
+  selectedClosingDocs.value = selectedClosingDocs.value.includes(value)
+    ? selectedClosingDocs.value.filter(v => v !== value)
+    : [...selectedClosingDocs.value, value]
+}
 
 // 搜尋篩選條件
 const searchFilters = ref({
@@ -697,8 +750,18 @@ const getCaseNumberRange = () => {
 // 取得選中檔案名稱
 const getSelectedFileName = () => {
   const selectedFile = allFiles.value.find(file => file.id === selectedFileType.value)
+  if (selectedFileType.value === 'closing_docs') {
+    const picked = closingDocOptions.filter(d => selectedClosingDocs.value.includes(d.value))
+    if (picked.length && picked.length < closingDocOptions.length) {
+      return picked.map(d => d.title).join('、')
+    }
+  }
   return selectedFile?.title || ''
 }
+
+// 類別標籤數量：closing_docs 的 3 個子項目一併計入
+const getCategoryCount = (category: FileCategory) =>
+  category.files.length + (category.files.some(f => f.id === 'closing_docs') ? closingDocOptions.length : 0)
 
 // 取得選中檔案的 API 端點
 const getSelectedFileEndpoint = () => {
@@ -760,6 +823,7 @@ const checkDataAvailability = async () => {
 // 計算下載按鈕是否應該禁用
 const isDownloadDisabled = () => {
   if (!selectedFileType.value || !searchFilters.value.year) return true
+  if (noClosingDocsChosen.value) return true
   if (checkingData.value) return true
   if (dataAvailability.value === null) return true
   return !dataAvailability.value.has_data
@@ -904,7 +968,12 @@ const handleDownload = async () => {
         await downloadsService.downloadCoverPage(downloadRequest)
         break
       case 'closing_docs':
-        await downloadsService.downloadClosingDocs(downloadRequest)
+        // 全勾 = 省略 documents（與舊行為一致）；否則只送勾選項
+        await downloadsService.downloadClosingDocs(
+          selectedClosingDocs.value.length === closingDocOptions.length
+            ? downloadRequest
+            : { ...downloadRequest, documents: [...selectedClosingDocs.value] }
+        )
         break
       case 'subsidy_details_list':
         await downloadsService.downloadSubsidyDetailsList(downloadRequest)
@@ -1311,6 +1380,10 @@ onMounted(() => {
 }
 
 /* 檔案標題樣式 */
+.closing-doc-sub-item {
+  padding-left: 48px !important;
+}
+
 .file-item-title {
   color: #2c3e50 !important;
   font-size: 0.9rem !important;
