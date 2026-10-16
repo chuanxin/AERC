@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
-from typing import Optional
-from pydantic import BaseModel, Field
+from typing import List, Literal, Optional
+from pydantic import BaseModel, Field, field_validator
 from src.database.models import Grants, GrantVersions, GrantAttachments, GrantStatusGroup
 from src.auth.guard import require_full_auth
 from src.auth.route_guards import require_permission
@@ -9,7 +9,7 @@ from src.schemas.users import UserInfoSchema
 from src.services.excel_generator import ExcelGeneratorService
 from src.services.budget_statement_pdf_generator import BudgetStatementPDFGenerator
 from src.services.construction_photos_pdf_generator import ConstructionPhotosPDFGenerator
-from src.services.closing_docs_pdf_generator import ClosingDocsPDFGenerator
+from src.services.closing_docs_pdf_generator import ClosingDocsPDFGenerator, CLOSING_DOC_KEYS
 from src.routes.grants import extract_budget_statement_data, extract_completion_statement_data, extract_declaration_data
 from src.services.data_encryption import data_encryption_service
 from src.services.permission_service import permission_service
@@ -48,6 +48,20 @@ class DownloadRequest(BaseModel):
     file_type: str = Field(..., max_length=50, description="檔案類型")
     enable_pagination: Optional[bool] = True  # 分頁模式控制，預設開啟
     tag: Optional[str] = Field(None, max_length=50, description="自定義分類標籤篩選（部分比對）")
+
+
+class ClosingDocsRequest(DownloadRequest):
+    # 省略 = 三份全產（向後相容）；給定時至少一項，且只接受已知文件鍵
+    documents: Optional[List[Literal["declaration", "receipt", "completion"]]] = Field(
+        None, min_length=1, max_length=3, description="要產生的文件：切結書/收據/結案申報書"
+    )
+
+    @field_validator("documents")
+    @classmethod
+    def _reject_duplicates(cls, v):
+        if v is not None and len(set(v)) != len(v):
+            raise ValueError("文件選擇不得重複")
+        return v
 
 
 class SubsidyDetailsListRequest(BaseModel):
@@ -541,12 +555,32 @@ async def download_address_labels(
     )
 
 
+async def _build_closing_payloads(grant, version_data: dict, selected: set) -> dict:
+    """依選取的文件，只呼叫所需的 SSOT extract_*，組成 generate_for_grant 的 payloads。
+
+    未選取文件的資料不擷取（其缺漏或錯誤不得影響本次下載）。結案申報書同時需要收據用資料，
+    故含 receipt 或 completion 時才擷取 budget，且必須先於 completion 擷取。
+    """
+    payloads = {}
+    if "declaration" in selected:
+        payloads["declaration"] = await extract_declaration_data(grant, version_data)
+    receipt_data = None
+    if "receipt" in selected or "completion" in selected:
+        receipt_data = await extract_budget_statement_data(grant, version_data)
+    if "receipt" in selected:
+        payloads["receipt"] = receipt_data
+    if "completion" in selected:
+        _, land_data, step4_data, step5_data = await extract_completion_statement_data(grant, version_data)
+        payloads["completion"] = (receipt_data, land_data, step4_data, step5_data)
+    return payloads
+
+
 @router.post("/closing-docs")
 async def download_closing_docs(
-    request: DownloadRequest,
+    request: ClosingDocsRequest,
     current_user: UserInfoSchema = Depends(require_full_auth)
 ):
-    """下載結案文件合併 PDF（切結書 + 收據 + 結案申報書）"""
+    """下載結案文件合併 PDF（切結書 + 收據 + 結案申報書；可由 documents 指定子集）"""
     allowed, _ = permission_service.check_permission(
         current_user.role, getattr(current_user, 'permissions', None), ModuleName.BATCH_PRINT, PermissionAction.VIEW
     )
@@ -567,18 +601,15 @@ async def download_closing_docs(
         if not grants:
             raise HTTPException(status_code=404, detail="找不到符合條件的案件")
 
+        # None（省略）展開為全部文件；之後一律以 selected 判斷，避免對 None 做 in 運算
+        selected = set(CLOSING_DOC_KEYS if request.documents is None else request.documents)
         generator = ClosingDocsPDFGenerator()
         all_pdf_bytes = []
 
         for grant in grants:
             version_data = grant.active_version.all_steps_data if grant.active_version else {}
-            # 各子文件使用各自的 SSOT extract 函數
-            declaration_data = await extract_declaration_data(grant, version_data)
-            receipt_data = await extract_budget_statement_data(grant, version_data)
-            _, land_data, step4_data, step5_data = await extract_completion_statement_data(grant, version_data)
-
-            grant_pdf = generator.generate_for_grant(declaration_data, receipt_data, land_data, step4_data, step5_data)
-            all_pdf_bytes.append(grant_pdf)
+            payloads = await _build_closing_payloads(grant, version_data, selected)
+            all_pdf_bytes.append(generator.generate_for_grant(payloads))
 
         final_pdf = generator.merge_pdfs(all_pdf_bytes)
 
@@ -586,11 +617,14 @@ async def download_closing_docs(
         temp_pdf.write(final_pdf)
         temp_pdf.close()
 
-        filename = f"closing_docs_{request.year}.pdf"
+        # 子集下載時檔名帶出內容，避免與完整合併檔混淆
+        kind = "closing_docs" if selected == set(CLOSING_DOC_KEYS) \
+            else "closing_docs_" + "_".join(k for k in CLOSING_DOC_KEYS if k in selected)
+        filename = f"{kind}_{request.year}.pdf"
         if request.case_number_start or request.case_number_end:
             start = request.case_number_start or 'start'
             end = request.case_number_end or 'end'
-            filename = f"closing_docs_{request.year}_{start}-{end}.pdf"
+            filename = f"{kind}_{request.year}_{start}-{end}.pdf"
 
         encoded_filename = quote(filename, safe='')
         return FileResponse(

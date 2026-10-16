@@ -8,6 +8,7 @@ export interface DownloadRequest {
   file_type: string
   enable_pagination?: boolean
   tag?: string | null
+  documents?: string[] // 僅 closing-docs 使用：省略 = 三份全產
 }
 
 export interface DataCheckResponse {
