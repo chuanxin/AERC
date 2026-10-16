@@ -1,6 +1,7 @@
 import axios from 'axios'
 import type { AxiosInstance, InternalAxiosRequestConfig, AxiosProgressEvent } from 'axios'
 import { setupInterceptors, setupDebugInterceptors } from './interceptors'
+import { parseContentDispositionFilename } from './contentDisposition'
 
 
 // Axios instance
@@ -152,12 +153,8 @@ const apiService = {
     const contentDisposition = response.headers['content-disposition']
     let downloadFilename = filename
 
-    if (!downloadFilename && contentDisposition) {
-      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
-      const matches = filenameRegex.exec(contentDisposition)
-      if (matches != null && matches[1]) {
-        downloadFilename = matches[1].replace(/['"]/g, '')
-      }
+    if (!downloadFilename) {
+      downloadFilename = parseContentDispositionFilename(contentDisposition)
     }
 
     if (downloadFilename) {
@@ -195,12 +192,8 @@ const apiService = {
     const contentDisposition = response.headers['content-disposition']
     let downloadFilename = filename
 
-    if (!downloadFilename && contentDisposition) {
-      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
-      const matches = filenameRegex.exec(contentDisposition)
-      if (matches != null && matches[1]) {
-        downloadFilename = matches[1].replace(/['"]/g, '')
-      }
+    if (!downloadFilename) {
+      downloadFilename = parseContentDispositionFilename(contentDisposition)
     }
 
     if (downloadFilename) {
